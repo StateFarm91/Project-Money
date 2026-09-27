@@ -506,6 +506,29 @@ def route_findings(db, *, today=None, limit: int = 20) -> dict:
             skipped.append({"signal": signal, "why": str(exc)[:200]})
             continue
         recorded.append({"signal": signal, "summary": summary})
+        # ...and onto the lesson bus, whose subjects route to the departments #147 names:
+        # a territory to Market Radar, Creativity, SEO and Portfolio; its timing to Market
+        # Radar, Growth (content), Portfolio and Creativity. Those departments read their
+        # inboxes where they decide (radar.score, listing.seo, seasonal.engine), and record
+        # acting on it; idempotent per signal and direction.
+        from ..improve import bus
+
+        words = signal.replace("_", " ").replace("-", " ")
+        try:
+            bus.publish(db, origin_cell="product_creativity", subject="cultural_territory",
+                        statement=(f"cultural territory {words} ({words} crochet) is "
+                                   f"{direction} in public interest and worth pursuing where "
+                                   f"it fits the catalogue"),
+                        evidence_ref=f"culture:{signal}:{direction}", confidence="observed")
+            if lag.get("measurable"):
+                bus.publish(db, origin_cell="product_creativity", subject="cultural_timing",
+                            statement=(f"{words} interest peaks {lag.get('lead_days')} days "
+                                       f"relative to the benchmark's entry; time {words} "
+                                       f"launches and content to that lead"),
+                            evidence_ref=f"culture_timing:{signal}:{lag.get('lead_days')}",
+                            confidence="measured")
+        except bus.LessonRefused as exc:
+            skipped.append({"signal": signal, "why": f"bus: {str(exc)[:160]}"})
 
     return {
         "recorded": len(recorded),

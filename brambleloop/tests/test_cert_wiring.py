@@ -245,38 +245,48 @@ def test_follow_on_work_is_enqueued_at_its_band_too():
     from brambleloop.runtime.growth_ops import STEER_CREDIT
 
     db = drained()["db"]
-    # Two bounded movements exist, both recorded: a starved production lane's queued work is
-    # boosted inside its band by at most LANE_STARVED_BOOST (C-68, #5), and growth.steer moves
-    # a job by STEER_CREDIT (a war-room winner, the week's reallocation, a season gaining or
-    # losing capacity) or 2*STEER_CREDIT (a fast-lane admission, #291) -- which may cross into
-    # the adjacent band, because an admitted seasonal product IS a deadline (#187). What may
-    # never happen: work outranking the truth-defect band unless it is itself a truth defect
-    # or a customer incident, or a priority nobody can trace to a band (the 999 of C-73).
+    # The band a job belongs in *as enqueued* is priority_decision's (#187, C-63): the type's
+    # band, except that listing work for a product with no attributed revenue is an unproven
+    # opportunity rather than a proven winner. Bounded movements exist, all recorded: deadline
+    # or value may lift a job by at most MAX_WITHIN_BAND inside its band; a starved production
+    # lane's queued work is boosted by at most LANE_STARVED_BOOST (C-68, #5); growth.steer
+    # moves a job by STEER_CREDIT (winner, reallocation, a season gaining or losing capacity)
+    # or 2*STEER_CREDIT (a fast-lane admission, #291), which may cross into the adjacent band
+    # because an admitted seasonal product IS a deadline. What may never happen: work
+    # outranking the truth-defect band unless it is itself a truth defect or a customer
+    # incident, or a priority nobody can trace to a band (the 999 of C-73).
     truth = orchestrate.BAND_BY_KIND["truth_defect"]
     protected = {orchestrate.BAND_BY_KIND["customer_incident"], truth}
-    floor_move = 2 * STEER_CREDIT + LANE_STARVED_BOOST
+    lift = orchestrate.MAX_WITHIN_BAND + LANE_STARVED_BOOST
+    floor_move = 2 * STEER_CREDIT + lift
+
+    def band(j) -> int:
+        return orchestrate.priority_decision(j.job_type, j.inputs or None, db=db)["band"]
 
     def bounded(j) -> bool:
-        band = orchestrate.priority_for(j.job_type)
-        if band in protected:
-            return band - LANE_STARVED_BOOST <= j.priority <= band + STEER_CREDIT
-        return max(truth, band - floor_move) <= j.priority <= band + STEER_CREDIT
+        b = band(j)
+        if b in protected:
+            return b - lift <= j.priority <= b + STEER_CREDIT
+        return max(truth, b - floor_move) <= j.priority <= b + STEER_CREDIT
 
-    wrong = sorted({(j.job_type, j.priority, orchestrate.priority_for(j.job_type))
-                    for j in _jobs(db) if not bounded(j)})
+    wrong = sorted({(j.job_type, j.priority, band(j)) for j in _jobs(db) if not bounded(j)})
     assert not wrong, f"job type, enqueued priority, its band: {wrong}"
     # A lane boost may at most TIE the band above (customer_incident and truth_defect are five
     # apart), never pass it.
     gaps = [b - a for (a, _k, _w), (b, _k2, _w2) in zip(orchestrate.BANDS, orchestrate.BANDS[1:])]
     assert min(gaps) >= LANE_STARVED_BOOST, (gaps, LANE_STARVED_BOOST)
-    # And every steered job left a receipt saying why (a moved priority is traceable).
+    # Every job steered across its band left a receipt saying why.
     with db.session() as s:
         steered = list(s.scalars(select(AuditLog).where(AuditLog.action == "growth.steered")))
-    moved = [j for j in _jobs(db) if j.priority != orchestrate.priority_for(j.job_type)
-             and not (orchestrate.priority_for(j.job_type) - LANE_STARVED_BOOST <= j.priority
-                      < orchestrate.priority_for(j.job_type))]
+    moved = [j for j in _jobs(db) if not (band(j) - lift <= j.priority <= band(j))]
     if moved:
         assert steered, f"{len(moved)} jobs moved across their band with no growth.steered receipt"
+    # And the demotion is real: no product in the drained chain has earned anything, so its
+    # listing work sits in the new-opportunity band, not the proven-winner band.
+    listing_work = [j for j in _jobs(db) if j.job_type in ("listing.seo", "listing.draft")
+                    and (j.inputs or {}).get("slug")]
+    assert listing_work and all(
+        j.priority > orchestrate.BAND_BY_KIND["proven_winner"] for j in listing_work)
 
 
 def test_swarm_handlers_reach_their_runtime_functions():
@@ -333,12 +343,12 @@ def test_listing_draft_actually_runs_the_disclosure_check():
     with st["db"].session() as s:
         recorded = {r.artifact for r in s.scalars(select(AuditLog).where(
             AuditLog.action.in_(("listing.disclosure_checked", "listing.disclosure_finding"))))}
-    # Per product, not per job: an evergreen repositioning (launch.plan's pivot) re-runs
-    # listing.seo for the same release, so counting jobs against distinct releases fails for a
-    # correct chain (C-73). Every product whose SEO ran must have its reading recorded.
-    recorded_slugs = {str(a).split("@")[0] for a in recorded}
-    missing = {j.inputs.get("slug") for j in seos} - recorded_slugs
-    assert not missing, (missing, recorded)
+    # One reading per distinct listing (slug@version): an evergreen repositioning (launch.plan's
+    # pivot, C-73) or a rebuild re-runs listing.seo for the same release, which is one artefact
+    # checked twice, not two -- so the set of releases whose SEO ran must be covered, not the
+    # job count matched.
+    distinct = {f"{j.inputs.get('slug')}@{j.inputs.get('version')}" for j in seos}
+    assert distinct <= recorded, (recorded, sorted(distinct - recorded))
 
 
 def test_growth_experiments_calls_launch_pack_for_every_drafted_listing():

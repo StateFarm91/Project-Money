@@ -130,15 +130,42 @@ def latest_capability(db, cell: str) -> float | None:
     return history[-1]["value"] if history else None
 
 
+def trial_direction(row) -> bool:
+    """Whether higher is better for this improvement row's metric.
+
+    A row proposed against a registered sandbox trial (`trial_metric` in its evidence) is
+    judged on that trial's own metric and direction -- a replay's on-time share, a self-audit
+    score -- and every other row on its cell's metric. One helper so the sandbox, promotion
+    and the monitor can never disagree about which way is up.
+    """
+    declared = ((getattr(row, "evidence", None) or {}).get("trial_metric") or {})
+    if "higher_is_better" in declared:
+        return bool(declared["higher_is_better"])
+    return BY_KEY[row.cell].higher_is_better
+
+
+def is_trial_metric(row) -> bool:
+    return bool(((getattr(row, "evidence", None) or {}).get("trial_metric") or {}).get("metric"))
+
+
 def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
             rollback_ref: str, touches: tuple[str, ...] = (), reversible: bool = True,
             spend_cad: float = 0.0, spend_authorised_cad: float = 5.0,
-            proposed_by: str = "") -> int:
+            proposed_by: str = "", trial: str = "", trial_metric: str = "",
+            higher_is_better: bool | None = None, baseline: float | None = None,
+            baseline_ref: str = "", change: dict | None = None) -> int:
     """Record a hypothesis, with its baseline taken now.
 
     The baseline is captured at proposal time on purpose. Taking it after the change means
     comparing the new behaviour against itself, which makes every promotion a success and the
     whole loop decorative.
+
+    A proposal may instead name a registered sandbox `trial` and the metric that trial
+    measures (`trial_metric`, `higher_is_better`). Its baseline is then the trial's own
+    reading of the incumbent *now* (`baseline`, `baseline_ref`), taken by the proposer before
+    anything changes -- or None when the trial has nothing to read yet, in which case the
+    trial's first reading becomes the baseline and never a result. `change` names what the
+    promotion executes (a configuration version, a standard floor).
     """
     from ..core.models import Improvement
 
@@ -163,16 +190,30 @@ def propose(db, *, cell: str, hypothesis: str, expected_effect: str,
     # judged, and it can never be promoted, because nobody can be shown not to be its author
     # (C-18).
     proposer = governance.normalise_actor(proposed_by)
-    baseline = latest_capability(db, cell)
+    extra: dict = {}
+    if trial:
+        if not trial_metric or higher_is_better is None:
+            raise ImprovementRefused(
+                "a proposal judged by a sandbox trial names the metric the trial measures and "
+                "which way is better; otherwise its result is compared against nothing")
+        metric = trial_metric[:60]
+        ref = (baseline_ref or f"trial:{trial}:unanchored")[:80]
+        extra = {"sandbox_trial": trial,
+                 "trial_metric": {"metric": metric, "higher_is_better": bool(higher_is_better)},
+                 **({"change": dict(change)} if change else {})}
+    else:
+        metric = BY_KEY[cell].metric
+        baseline = latest_capability(db, cell)
+        ref = f"capability:{cell}:{len(capability_history(db, cell))}"
     with db.session() as s:
-        row = Improvement(cell=cell, metric=BY_KEY[cell].metric, hypothesis=hypothesis,
+        row = Improvement(cell=cell, metric=metric, hypothesis=hypothesis,
                           state=PROPOSED, baseline_value=baseline,
-                          baseline_ref=f"capability:{cell}:{len(capability_history(db, cell))}",
+                          baseline_ref=ref,
                           expected_effect=expected_effect, rollback_ref=rollback_ref,
                           cost_cad=spend_cad,
                           evidence={"touches": list(governance.normalise_touches(touches)),
                                     **({"proposed_by": proposer} if proposer
-                                       else {"unattributed": True})})
+                                       else {"unattributed": True}), **extra})
         s.add(row)
         s.flush()
         return row.id
@@ -193,26 +234,67 @@ def test_result(db, improvement_id: int, value: float, *, evidence: dict | None 
         row.evidence = {**(row.evidence or {}), **(evidence or {}),
                         "decided_at": datetime.now(timezone.utc).isoformat()}
 
-        cell = BY_KEY[row.cell]
+        up = trial_direction(row)
+        trial_row = is_trial_metric(row)
         if row.baseline_value is None:
             # No baseline is not a pass. A first measurement is a baseline, not a result.
             row.state = REJECTED
             row.evidence = {**row.evidence,
                             "why": ("no baseline existed, so there is nothing this result is "
                                     "better than. The measurement becomes the baseline")}
-            record_capability(db, row.cell, value, detail={"from": "first measurement"})
+            if not trial_row:
+                record_capability(db, row.cell, value, detail={"from": "first measurement"})
             return REJECTED
 
-        better = (value > row.baseline_value if cell.higher_is_better
-                  else value < row.baseline_value)
+        better = (value > row.baseline_value if up else value < row.baseline_value)
         row.state = TESTING if better else REJECTED
         if not better:
             row.evidence = {**row.evidence,
                             "why": (f"{value} is not better than the baseline "
                                     f"{row.baseline_value} for a metric where "
-                                    f"{'higher' if cell.higher_is_better else 'lower'} is "
+                                    f"{'higher' if up else 'lower'} is "
                                     f"better")}
         return row.state
+
+
+def anchor_baseline(db, improvement_id: int, value: float, *, ref: str) -> dict:
+    """Record a trial's first reading as the baseline of a proposal that had none.
+
+    Only for a PROPOSED row judged by a sandbox trial, and only once: a first measurement is
+    a baseline and never a result, so the row stays PROPOSED and waits for a later reading.
+    """
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        if row.state != PROPOSED or row.baseline_value is not None or not is_trial_metric(row):
+            raise ImprovementRefused(
+                f"improvement {improvement_id} already has a baseline or is not a trial "
+                f"proposal awaiting one; a baseline is never re-taken after the fact")
+        row.baseline_value = float(value)
+        row.baseline_ref = (ref or "")[:80]
+        row.evidence = {**(row.evidence or {}),
+                        "baseline_anchored": {"value": float(value), "ref": ref,
+                                              "at": datetime.now(timezone.utc).isoformat()}}
+    return {"improvement": improvement_id, "baseline": float(value), "ref": ref}
+
+
+def reject(db, improvement_id: int, *, why: str, evidence: dict | None = None) -> str:
+    """Reject a proposal whose sandbox verdict did not earn promotion, with the reason."""
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        if row.state not in (PROPOSED, TESTING):
+            raise ImprovementRefused(f"improvement {improvement_id} is {row.state}")
+        row.state = REJECTED
+        row.evidence = {**(row.evidence or {}), **(evidence or {}), "why": why[:400],
+                        "decided_at": datetime.now(timezone.utc).isoformat()}
+    return REJECTED
 
 
 def approve(db, improvement_id: int, *, approved_by: str, why: str = "") -> dict:
@@ -280,7 +362,7 @@ def promote(db, improvement_id: int, *,
         if not row.rollback_ref:
             raise ImprovementRefused("cannot promote without a rollback path (#93)")
         if row.baseline_value is None or row.result_value is None or not (
-                row.result_value > row.baseline_value if BY_KEY[row.cell].higher_is_better
+                row.result_value > row.baseline_value if trial_direction(row)
                 else row.result_value < row.baseline_value):
             raise ImprovementRefused(
                 f"improvement {improvement_id} has no recorded result better than its "
@@ -347,12 +429,16 @@ def promote(db, improvement_id: int, *,
                         "tier_evidence": graded["satisfied"],
                         "promoted_by": promoter}
         cell, result_value = row.cell, row.result_value
+        trial_row = is_trial_metric(row)
 
     tiers.record_promotion(db, tier=graded["tier"],
                            summary=f"improvement {improvement_id} on {cell}",
                            detail={"improvement_id": improvement_id, "cell": cell})
-    record_capability(db, cell, result_value,
-                      detail={"from": f"improvement:{improvement_id}"})
+    if not trial_row:
+        # A trial-metric result is in the trial's units, not the cell's, and writing it as a
+        # capability point would put a replay's on-time share on a dead-letter curve.
+        record_capability(db, cell, result_value,
+                          detail={"from": f"improvement:{improvement_id}"})
     return PROMOTED
 
 
@@ -468,9 +554,10 @@ def monitor(db, improvement_id: int, observed: float) -> dict:
         if row.state != PROMOTED:
             return {"improvement": improvement_id, "state": row.state, "action": "none"}
 
-        cell = BY_KEY[row.cell]
+        up = trial_direction(row)
+        trial_row = is_trial_metric(row)
         expected = row.result_value or 0.0
-        if cell.higher_is_better:
+        if up:
             degraded = observed < expected * (1 - REGRESSION_TOLERANCE)
         else:
             degraded = observed > expected * (1 + REGRESSION_TOLERANCE)
@@ -478,7 +565,7 @@ def monitor(db, improvement_id: int, observed: float) -> dict:
         # tolerance says: the change is now worse than not having made it.
         baseline = row.baseline_value
         below_baseline = baseline is not None and (
-            observed < baseline if cell.higher_is_better else observed > baseline)
+            observed < baseline if up else observed > baseline)
         degraded = degraded or below_baseline
 
         if degraded:
@@ -500,8 +587,35 @@ def monitor(db, improvement_id: int, observed: float) -> dict:
             outcome = {"improvement": improvement_id, "state": PROMOTED, "action": "held",
                        "observed": observed, "expected": expected}
 
-    record_capability(db, row.cell, observed, detail={"from": "post-promotion monitoring"})
+    if not trial_row:
+        record_capability(db, row.cell, observed, detail={"from": "post-promotion monitoring"})
     return outcome
+
+
+def revert(db, improvement_id: int, *, because: str, observed: float | None = None) -> dict:
+    """Revert a promoted trial improvement whose trial, re-run on fresh data, reads worse.
+
+    `monitor` judges a promotion against a capability reading; a trial-metric promotion is
+    judged by re-running its own trial on data that did not exist when it won, and that
+    verdict lands here. Same effect: REVERTED, the rollback reference named, and never
+    silently -- the caller opens the rollback incident.
+    """
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        if row.state != PROMOTED:
+            return {"improvement": improvement_id, "state": row.state, "action": "none"}
+        row.state = REVERTED
+        row.reverted_at = datetime.now(timezone.utc)
+        row.evidence = {**(row.evidence or {}), "reverted_because": because[:400],
+                        "rollback_ref": row.rollback_ref}
+        return {"improvement": improvement_id, "state": REVERTED, "action": "reverted",
+                "rollback_ref": row.rollback_ref, "observed": observed,
+                "expected": row.result_value, "baseline": row.baseline_value,
+                "below_baseline": True}
 
 
 def retrospective(db, *, days: int = 7) -> dict:

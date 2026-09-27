@@ -75,7 +75,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # the main cost under the CA$20/month infrastructure ceiling.
                             # `ops.retention` holds the policy and refuses to run when the
                             # code reads an audit action it has no decision about.
-                            "ops.retention"],
+                            "ops.retention",
+                            # #95 #180 #187: deterministic job replay (the league's runs);
+                            # #153-#161: teardown requirements enforced and routed.
+                            "improve.replay", "teardown.enforce"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
@@ -335,9 +338,86 @@ QUALITY_OVERRIDES: dict[str, dict] = {
 }
 
 
+# #174: each agent's declared inputs and outputs, and the quality metric of its *function* --
+# read from the rows its work produces, not from whether its jobs finished. A job-success
+# rate says the handler did not raise; a certification pass rate says the validator is any
+# good at validating. `swarm.orchestrate.function_quality` computes each one.
+_ROLE_IO = {"inputs": ["improvements", "config_versions", "lessons", "audit_log"],
+            "outputs": ["improvements (proposals)", "audit_log improve.role_work"],
+            "function_metric": "role_realised_uplift",
+            "function_reads": ("improve.roles.activity_from_db: realised uplift of the role's "
+                               "kept proposals, measured after promotion by improve.roi")}
+DECLARED_IO: dict[str, dict] = {
+    "orchestrator": {"inputs": ["jobs", "capability_points", "improvements", "audit_log"],
+                     "outputs": ["jobs (cadences)", "improvements", "incidents", "audit_log"],
+                     "function_metric": "useful_output_rate",
+                     "function_reads": "done jobs whose outputs report work done, not ran=false"},
+    "market_radar": {"inputs": ["benchmark_listings", "keywords", "coverage_gaps", "lessons"],
+                     "outputs": ["coverage_gaps", "jobs cir.draft"],
+                     "function_metric": "promotion_yield",
+                     "function_reads": "radar.score jobs whose outputs promoted the concept"},
+    "creative_director": {"inputs": ["lessons", "audit_log creative.*", "benchmark_listings"],
+                          "outputs": ["audit_log creative.tournament", "concept autopsies"],
+                          "function_metric": "useful_output_rate",
+                          "function_reads": "done creative jobs that reported work done"},
+    "crochet_engineer": {"inputs": ["jobs cir.draft inputs"],
+                         "outputs": ["jobs cir.compile"],
+                         "function_metric": "drafts_certified",
+                         "function_reads": "certified pattern versions per completed draft"},
+    "validator": {"inputs": ["CIR"], "outputs": ["jobs gate.certify"],
+                  "function_metric": "compile_pass_rate",
+                  "function_reads": "cir.compile jobs whose outputs compiled"},
+    "quality_director": {"inputs": ["CIR", "incidents", "calibration"],
+                         "outputs": ["pattern_versions certificates", "jobs listing.draft"],
+                         "function_metric": "certification_grant_rate",
+                         "function_reads": "gate.certify jobs whose outputs granted"},
+    "asset_truth": {"inputs": ["listing_assets"], "outputs": ["listing_assets approval"],
+                    "function_metric": "asset_approval_rate",
+                    "function_reads": "listing assets approved against all recorded"},
+    "policy": {"inputs": ["listings"], "outputs": ["audit_log gate.policy"],
+               "function_metric": "useful_output_rate",
+               "function_reads": "done policy jobs that reported work done"},
+    "publishing": {"inputs": ["pattern_versions", "CIR"], "outputs": ["listing_assets"],
+                   "function_metric": "asset_approval_rate",
+                   "function_reads": "listing assets approved against all recorded"},
+    "growth": {"inputs": ["listings", "pattern_versions"], "outputs": ["content_pieces"],
+               "function_metric": "content_without_problems",
+               "function_reads": "marketing.schedule jobs whose outputs carry no problems"},
+    "listing": {"inputs": ["pattern_versions", "lessons", "keywords"],
+                "outputs": ["listings"], "function_metric": "listing_seo_score",
+                "function_reads": "mean seo_score of recorded listings"},
+    "pricing": {"inputs": ["price_observations", "ledger"], "outputs": ["audit_log pricing.*"],
+                "function_metric": "useful_output_rate",
+                "function_reads": "done pricing jobs that reported work done"},
+    "store_operator": {"inputs": ["listings", "release gates"], "outputs": ["etsy listings"],
+                       "function_metric": "exempt", "function_reads": "owner-gated"},
+    "ads": {"inputs": ["cohorts", "cost_entries"], "outputs": ["ad campaigns"],
+            "function_metric": "exempt", "function_reads": "owner-gated"},
+    "support": {"inputs": ["support_cases", "pattern_versions", "lessons", "teardown findings"],
+                "outputs": ["support_cases drafts", "jobs support.reply"],
+                "function_metric": "cases_drafted",
+                "function_reads": "support cases carrying a drafted answer"},
+    "cfo": {"inputs": ["ledger", "cost_entries", "spend_reservations"],
+            "outputs": ["incidents", "spend holds"], "function_metric": "useful_output_rate",
+            "function_reads": "done finance jobs that reported work done"},
+    "swarm_steward": {"inputs": ["jobs", "agents", "work items"],
+                      "outputs": ["swarm_allocations", "incidents swarm.orphan"],
+                      "function_metric": "orphans_resolved",
+                      "function_reads": "swarm.orphan incidents resolved against raised"},
+    "experiment_steward": {"inputs": ["experiments", "cohorts"], "outputs": ["experiments"],
+                           "function_metric": "experiments_decided",
+                           "function_reads": "experiments with a recorded result"},
+}
+
+
 def stewardship(name: str) -> dict:
-    """This agent's quality metric and retirement condition (#174)."""
-    return {**QUALITY_DEFAULTS, **QUALITY_OVERRIDES.get(name, {})}
+    """This agent's quality metric, retirement condition, inputs, outputs and function (#174)."""
+    from ..improve.roles import BY_KEY as _ROLES
+
+    io = DECLARED_IO.get(name) or (_ROLE_IO if name in _ROLES else {
+        "inputs": [], "outputs": [], "function_metric": "useful_output_rate",
+        "function_reads": "done jobs whose outputs report work done"})
+    return {**QUALITY_DEFAULTS, **QUALITY_OVERRIDES.get(name, {}), **io}
 
 
 class Registry:

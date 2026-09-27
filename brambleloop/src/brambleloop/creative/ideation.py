@@ -474,6 +474,7 @@ def plan(db, *, kind: str, event: str, pod: str, forms, cycle: int,
         "transfer": transfer(db, event=event, theme=chosen_themes[0], cycle=cycle),
         "role": role(db),
         "floor": floor,
+        "history": [h.to_dict() for h in history(db)],
         "culture": culture(db, forms),
         "commerce": commerce_directives(db, today=today),
         "vision": vision(db, pod),
@@ -691,7 +692,27 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list,
     below = [c for c in survivors if c.nearest_distance < required]
     clearing = sorted((c for c in survivors if c.nearest_distance >= required),
                       key=lambda c: (-c.nearest_distance, c.concept.key))
-    quota = quotas(clearing)
+    # #129: the human-quality standard. Every concept that cleared the floor is judged for
+    # taste by `standard.meets_standard` with the deterministic taste judge, and a taste
+    # rejection is final -- no novelty or correctness score overrides "obvious" or "boring".
+    # The winner is chosen from what has taste, so the department is rewarded for the hit,
+    # never for the size of the field.
+    history_scores = [standard.Scored(**h) if isinstance(h, dict) else h
+                      for h in (ideation_plan.get("history") or [])]
+    tasteful, taste_rejected = [], []
+    field_concepts = [getattr(c, "concept", c) for c in candidates]
+    for c in clearing:
+        verdict = standard.meets_standard(
+            c.nearest_distance, make_lane=c.concept.make_lane, history=history_scores,
+            taste_rejection=standard.taste_judge(c.concept, field=field_concepts,
+                                                 nearest_distance=c.nearest_distance,
+                                                 floor_value=required))
+        if verdict["passes"]:
+            tasteful.append(c)
+        else:
+            taste_rejected.append({"key": c.concept.key, "rejected_on": verdict["rejected_on"],
+                                   "reason": verdict.get("reason")})
+    quota = quotas(tasteful)
     admitted = quota["admitted"]
     lanes = ideation_plan["role"]["lanes"]
     fitting = [c for c in admitted if c.concept.make_lane in lanes]
@@ -706,6 +727,8 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list,
     filling = [c for c in pool if skill_level_for_make_lane(c.concept.make_lane) in missing]
     winner = (filling or pool or [None])[0]
     return {
+        "taste_rejected": taste_rejected,
+        "hit_quality": (None if winner is None else winner.nearest_distance),
         "field_diversity": field_diversity,
         "shortlist_diversity": universe.diversity([_entrant(c) for c in admitted]),
         "floor_applied": required,

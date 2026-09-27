@@ -580,6 +580,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # C-69 (#50, #29): the dependency map probed daily and every failed probe, unproved
     # recovery, unmapped paid provider or existential concentration raised as an incident.
     ("dependency_sweep", "orchestrator", "ops.dependencies", 24 * 60 * 60),
+    # #95 / #180 / #187: the league's producer of runs -- historical jobs replayed under the
+    # job-priority policy and its challengers, newest days held out. Deterministic, no model.
+    ("improve_replay", "orchestrator", "improve.replay", 24 * 60 * 60),
+    # #153-#161: teardown findings checked as enforced requirements and routed to consumers.
+    ("teardown_enforce", "orchestrator", "teardown.enforce", 24 * 60 * 60),
 ]
 
 

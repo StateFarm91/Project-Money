@@ -356,3 +356,118 @@ def state() -> dict:
         "note": ("measured by verified uplift, not number of changes -- implemented as an "
                  "arithmetic impossibility rather than as a policy"),
     }
+
+
+# ---- what each role actually did, read from the rows (#179) --------------------------------
+
+ACTIVITY_WINDOW_DAYS = 90
+
+
+def _aware(value):
+    from datetime import timezone
+
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def activity_from_db(db, role_key: str, *, now=None,
+                     window_days: int = ACTIVITY_WINDOW_DAYS) -> tuple[Activity, dict]:
+    """One role's proposals, kept proposals and realised uplift in the window, from rows.
+
+    Proposals are what the role authored: improvement rows it proposed, configuration
+    challengers it registered (`improve.replay.challenger`), lessons it published or routed.
+    Kept is what survived: promoted and not reverted, a challenger that became and stayed the
+    incumbent, a lesson a receiving department acted on. Uplift is `improve.roi`'s realised
+    benefit of the kept improvements it authored -- measured after promotion against the
+    baseline captured before it, and never the number that won the promotion.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, ConfigVersion, Experiment, Improvement, Lesson
+    from . import roi
+
+    role(role_key)
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=window_days)
+    made, kept, refs = 0, 0, []
+    detail: dict = {"window_days": window_days}
+    with db.session() as s:
+        mine = [r for r in s.scalars(select(Improvement))
+                if governance.normalise_actor((r.evidence or {}).get("proposed_by")) == role_key
+                and _aware(r.at) >= since]
+        made += len(mine)
+        kept_rows = [r for r in mine if r.state == "promoted"]
+        kept += len(kept_rows)
+        refs += [f"improvement:{r.id}" for r in kept_rows]
+        detail["improvements"] = {"proposed": len(mine), "promoted": len(kept_rows),
+                                  "reverted": sum(1 for r in mine if r.state == "reverted"),
+                                  "rejected": sum(1 for r in mine if r.state == "rejected")}
+        kept_ids = {r.id for r in kept_rows}
+
+        if role_key == "prompt_tool_challenger":
+            regs = [a for a in s.scalars(select(AuditLog).where(
+                AuditLog.action == "improve.replay.challenger")) if _aware(a.at) >= since]
+            ids = {int((a.detail or {}).get("config_id") or 0) for a in regs}
+            configs = {c.id: c for c in s.scalars(select(ConfigVersion).where(
+                ConfigVersion.id.in_(ids)))} if ids else {}
+            # A challenger counts once, whether it arrived as a registration or through the
+            # improvement that carried it; kept means it is the running version now.
+            carried = {int(((r.evidence or {}).get("change") or {}).get("config_id") or 0)
+                       for r in mine}
+            extra = ids - carried
+            made += len(extra)
+            running = [c for c in configs.values() if c.incumbent and c.id in extra]
+            kept += len(running)
+            refs += [f"config:{c.id}" for c in running]
+            detail["challengers"] = {"registered": len(ids),
+                                     "running_now": sum(1 for c in configs.values()
+                                                        if c.incumbent),
+                                     "retired": sum(1 for c in configs.values()
+                                                    if c.retired_at is not None)}
+        elif role_key in ("failure_miner", "lesson_router"):
+            lessons = [l for l in s.scalars(select(Lesson)) if _aware(l.at) >= since
+                       and (l.routed_to or [])]
+            if role_key == "failure_miner":
+                lessons = [l for l in lessons if (l.evidence_ref or "").startswith(
+                    ("incident:", "gate:", "asset:", "dead:", "mine:"))
+                    or l.origin_cell in ("quality", "runtime")]
+            acted = [l for l in lessons if l.acted_on_by]
+            made += len(lessons)
+            kept += len(acted)
+            refs += [f"lesson:{l.id}" for l in acted]
+            detail["lessons"] = {"published_or_routed": len(lessons), "acted_on": len(acted)}
+        elif role_key == "experiment_designer":
+            experiments = list(s.scalars(select(Experiment)))
+            designed = [e for e in experiments if _aware(e.created_at) >= since]
+            decided = [e for e in designed if e.result and e.state in (
+                "concluded", "decided", "won", "lost", "killed")]
+            made += len(designed)
+            kept += len(decided)
+            refs += [f"experiment:{e.id}" for e in decided]
+            detail["experiments"] = {"designed": len(designed), "decided": len(decided)}
+        elif role_key == "evaluator":
+            judged = [r for r in s.scalars(select(Improvement))
+                      if governance.normalise_actor((r.evidence or {}).get("approved_by"))
+                      == "evaluator"]
+            confirmed = [r for r in judged if r.state == "promoted"]
+            overturned = [r for r in judged if r.state == "reverted"]
+            detail["verdicts"] = {
+                "approved": len(judged), "held_in_production": len(confirmed),
+                "overturned_by_production": len(overturned),
+                "confirmation_rate": (round(len(confirmed) / (len(confirmed) + len(overturned)),
+                                            4) if (confirmed or overturned) else None)}
+
+    realised = roi.realised_benefit(db, now=now)
+    uplift = 0.0
+    for bucket in ("returned", "no_return", "regressed"):
+        for r in realised[bucket]:
+            if r["improvement_id"] in kept_ids and r.get("movement") is not None:
+                uplift += float(r["movement"])
+    kept = min(kept, made)
+    detail["realised_from"] = sorted(kept_ids)
+    return (Activity(role_key=role_key, proposals_made=made, proposals_kept=kept,
+                     realised_uplift=round(max(uplift, 0.0) if uplift > 0 else uplift, 4),
+                     kept_refs=tuple(refs[:20])), detail)

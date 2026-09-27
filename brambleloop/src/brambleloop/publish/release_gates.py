@@ -687,9 +687,86 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     reasons.extend(set_verdict["reasons"])
+    # #153-#160, #220, #228: the standards this company holds itself to, read at the gate.
+    standards = standards_gate(db, slug=slug, version=version)
+    reasons.extend(standards["reasons"])
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
-            "listing_set": set_verdict}
+            "listing_set": set_verdict, "standards": standards}
+
+
+def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
+    """This listing's own reading on one CompetitiveStandard, or None when unmeasurable."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset, PatternVersion, Product
+
+    with db.session() as s:
+        assets = list(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)))
+        if key == "gallery_images":
+            return float(sum(1 for a in assets if a.approved
+                             and "video" not in (a.asset_class or "")))
+        if key == "video_in_gallery":
+            return 1.0 if any(a.approved and "video" in (a.asset_class or "")
+                              for a in assets) else 0.0
+        if key == "size_options":
+            product = s.scalar(select(Product).where(Product.slug == slug))
+            pv = None if product is None else s.scalar(
+                select(PatternVersion).where(PatternVersion.product_id == product.id,
+                                             PatternVersion.version == version))
+            if pv is None:
+                return None
+            sizes = (pv.cir_json or {}).get("sizes")
+            return float(len(sizes)) if isinstance(sizes, list) and sizes else 1.0
+    return None
+
+
+def standards_gate(db, *, slug: str, version: str) -> dict:
+    """The owner's veto, the moving competitive bar and the teardown requirements, at publish.
+
+    Three standards that were recorded and read by nothing (#220, #228, #153-#160):
+
+    - an **owner veto** (#228) on this product blocks its publication until the owner rules
+      otherwise -- the latest ruling on the subject decides;
+    - every **CompetitiveStandard** a benchmark has raised (#220) is compared with this
+      listing's own reading: below the bar blocks, and a bar this listing cannot be measured
+      against blocks too, because unmeasured is never passing;
+    - every binding **teardown requirement** (`teardown.enforce`) for the PDF, the premium
+      standard, the delivery bundle, video and support is checked against our own product.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CompetitiveStandard
+    from ..intel import mission_runtime
+    from ..teardown import enforce
+
+    reasons: list[str] = []
+    veto = mission_runtime.active_veto(db, slug)
+    if veto["vetoed"]:
+        reasons.append(f"owner veto (#228): {veto['why']}")
+
+    competitive = []
+    with db.session() as s:
+        bars = [(r.key, r.value, r.higher_is_better) for r in s.scalars(
+            select(CompetitiveStandard)) if r.value is not None]
+    for key, value, higher in bars:
+        ours = our_competitive_reading(db, slug=slug, version=version, key=key)
+        if ours is None:
+            verdict = "unmeasured"
+        else:
+            verdict = "met" if (ours >= value if higher else ours <= value) else "below"
+        competitive.append({"standard": key, "bar": value, "ours": ours, "verdict": verdict})
+        if verdict != "met":
+            reasons.append(f"competitive standard {key} (#220): bar {value}, ours "
+                           f"{ours if ours is not None else 'unmeasured'}")
+
+    teardown = enforce.check(db, slug, consumers=enforce.PUBLISH_CONSUMERS)
+    reasons.extend(teardown["reasons"])
+    return {"reasons": reasons, "blocks": bool(reasons), "veto": veto,
+            "competitive": competitive,
+            "teardown": {k: teardown[k] for k in ("requirements", "met", "unmet",
+                                                  "unmeasured", "provisional", "blocks")}}
 
 
 def for_marketing(db, *, slug: str, version: str, today: date | None = None,

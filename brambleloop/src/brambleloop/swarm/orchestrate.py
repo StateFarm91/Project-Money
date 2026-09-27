@@ -690,6 +690,8 @@ JOB_BANDS: dict[str, str] = {
     "improve.monitor": "exploration",
     "improve.sandbox": "exploration",
     "improve.league": "exploration",
+    "improve.replay": "exploration",
+    "teardown.enforce": "benchmark_change",
     "creative.style_learning": "exploration",
     "creative.white_space": "exploration",
     "commerce.readings": "exploration",
@@ -728,14 +730,162 @@ def band_for(job_type: str) -> dict:
             "mapped": mapped}
 
 
-def priority_for(job_type: str) -> int:
-    """The `Job.priority` to enqueue a job type at: its band (#187). Lower is claimed first.
+def priority_for(job_type: str, inputs: dict | None = None, *, db=None,
+                 now: datetime | None = None) -> int:
+    """The `Job.priority` to enqueue a job at: its band, then deadline and value (#187).
 
-    This replaces `50 if period <= 3600 else 100`, which ordered work by how often it was
-    scheduled -- a proxy for nothing -- so an hourly image benchmark outranked a daily
-    seasonal sentinel and a customer reply would have waited behind both.
+    This replaced `50 if period <= 3600 else 100`, which ordered work by how often it was
+    scheduled -- a proxy for nothing. With no inputs it is the job type's band. With inputs it
+    is `priority_decision`: a deadline the job carries and the business value it names move
+    it up *within* its band (never across one), and listing work whose product has earned
+    nothing is not `proven_winner` work.
     """
-    return int(band_for(job_type)["band"])
+    if not inputs and db is None:
+        return int(band_for(job_type)["band"])
+    return int(priority_decision(job_type, inputs, db=db, now=now)["priority"])
+
+
+# ---------------------------------------------------------------------------
+# #187: expected business value and deadlines, within a band
+#
+# The band is the commercial argument and is never traded away. Inside it, a job carrying a
+# deadline that is days away is claimed before one whose window is a quarter off, and a job
+# naming a larger expected value before a smaller one. The weights are a versioned scoring
+# policy (`improve.league`, kind `scoring`): `improve.replay` replays historical jobs under the
+# incumbent and its challengers, and a challenger that meets more deadlines on the replay and
+# its holdout is promoted through the improvement sandbox -- which is what the runtime then
+# reads here.
+
+PRIORITY_POLICY_KIND = "scoring"
+PRIORITY_POLICY_KEY = "policy:job_priority"
+DEFAULT_PRIORITY_POLICY: dict = {"deadline_weight": 2.0, "value_weight": 2.0,
+                                 "horizon_days": 30.0, "value_scale_cad": 500.0}
+# Strictly below the smallest step between two bands (5), so no deadline and no value can
+# carry a job across a band.
+MAX_WITHIN_BAND = 4
+DEADLINE_KEYS: tuple[str, ...] = ("deadline", "latest_launch", "window_closes", "launch_by",
+                                  "due", "preferred_launch", "event_date")
+VALUE_KEYS: tuple[str, ...] = ("value_cad", "expected_value_cad", "expected_revenue_cad")
+LISTING_KINDS_NEEDING_PROOF: frozenset[str] = frozenset({"proven_winner"})
+_POLICY_CACHE: dict = {}
+_POLICY_TTL = timedelta(minutes=5)
+
+
+def clear_policy_cache() -> None:
+    _POLICY_CACHE.clear()
+
+
+def priority_policy(db=None, *, now: datetime | None = None) -> dict:
+    """The incumbent job-priority policy from the registry, or the default when none is."""
+    if db is None:
+        return {**DEFAULT_PRIORITY_POLICY, "config_id": None, "source": "default"}
+    now = now or datetime.now(timezone.utc)
+    key = id(db)
+    hit = _POLICY_CACHE.get(key)
+    if hit is not None and now - hit[0] < _POLICY_TTL:
+        return hit[1]
+    try:
+        from ..improve.league import incumbent_payload
+
+        row = incumbent_payload(db, kind=PRIORITY_POLICY_KIND, key=PRIORITY_POLICY_KEY)
+    except Exception:  # noqa: BLE001 - an unreadable registry is the default policy
+        row = None
+    policy = {**DEFAULT_PRIORITY_POLICY, "config_id": None, "source": "default"}
+    if row is not None and row.get("payload"):
+        try:
+            loaded = json.loads(row["payload"])
+            policy = {**DEFAULT_PRIORITY_POLICY,
+                      **{k: float(v) for k, v in loaded.items() if k in DEFAULT_PRIORITY_POLICY},
+                      "config_id": row["config_id"], "source": f"registry v{row['version']}"}
+        except (ValueError, TypeError):
+            pass
+    _POLICY_CACHE[key] = (now, policy)
+    return policy
+
+
+def _parse_when(value) -> datetime | None:
+    if value in (None, ""):
+        return None
+    try:
+        text = str(value)
+        when = (datetime.fromisoformat(text) if "T" in text or " " in text
+                else datetime.fromisoformat(text + "T23:59:59"))
+    except ValueError:
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
+def deadline_of(inputs: dict | None) -> datetime | None:
+    """The earliest deadline a job's inputs name, or None."""
+    found = [_parse_when((inputs or {}).get(k)) for k in DEADLINE_KEYS]
+    found = [f for f in found if f is not None]
+    return min(found) if found else None
+
+
+def value_of(inputs: dict | None) -> float | None:
+    for k in VALUE_KEYS:
+        v = (inputs or {}).get(k)
+        if v not in (None, ""):
+            try:
+                return max(0.0, float(v))
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def within_band(policy: dict, *, deadline_days: float | None, value_cad: float | None) -> int:
+    """Points a job moves up inside its band, from its deadline and value, capped."""
+    urgency = 0.0
+    if deadline_days is not None:
+        horizon = max(1.0, float(policy["horizon_days"]))
+        urgency = max(0.0, 1.0 - min(max(deadline_days, 0.0), horizon) / horizon)
+    value = 0.0
+    if value_cad is not None:
+        value = min(1.0, value_cad / max(1.0, float(policy["value_scale_cad"])))
+    raw = urgency * float(policy["deadline_weight"]) + value * float(policy["value_weight"])
+    return int(max(0, min(MAX_WITHIN_BAND, round(raw))))
+
+
+def product_proven(db, slug: str) -> bool:
+    """Whether a product has earned anything: a revenue ledger row attributed to it."""
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry
+
+    with db.session() as s:
+        for row in s.scalars(select(LedgerEntry).where(LedgerEntry.gross_cad > 0)):
+            if slug and slug in ((row.evidence_ref or "") + " " + (row.description or "")):
+                return True
+    return False
+
+
+def priority_decision(job_type: str, inputs: dict | None = None, *, db=None,
+                      now: datetime | None = None, policy: dict | None = None) -> dict:
+    """The band, the within-band movement and the reason, for one job about to be enqueued."""
+    now = now or datetime.now(timezone.utc)
+    banded = band_for(job_type)
+    kind = banded["kind"]
+    demoted = ""
+    slug = str((inputs or {}).get("slug") or (inputs or {}).get("product_slug") or "")
+    if kind in LISTING_KINDS_NEEDING_PROOF and slug and db is not None:
+        try:
+            proven = product_proven(db, slug)
+        except Exception:  # noqa: BLE001
+            proven = True
+        if not proven:
+            kind = "new_opportunity"
+            demoted = (f"{slug} has no attributed revenue, so its work is an unproven "
+                       f"opportunity rather than a proven winner")
+    policy = policy or priority_policy(db, now=now)
+    deadline = deadline_of(inputs)
+    days = None if deadline is None else (deadline - now).total_seconds() / 86400.0
+    value = value_of(inputs)
+    moved = within_band(policy, deadline_days=days, value_cad=value)
+    band = BAND_BY_KIND[kind]
+    return {"job_type": job_type, "kind": kind, "band": band, "moved": moved,
+            "priority": band - moved, "deadline_days": None if days is None else round(days, 2),
+            "value_cad": value, "demoted": demoted or None,
+            "policy": {k: policy.get(k) for k in ("config_id", "source")}}
 
 
 # ---------------------------------------------------------------------------
@@ -781,6 +931,104 @@ def _owner_problem(agent, job_type: str) -> str:
 
 # ---------------------------------------------------------------------------
 # #174: every agent has a quality metric and a retirement condition
+
+
+FUNCTION_FLOOR = 0.5
+FUNCTION_MIN_SAMPLE = 5
+
+
+def function_quality(db, name: str, *, now: datetime | None = None) -> dict:
+    """The quality of what this agent's function produced, read from its rows (#174)."""
+    from sqlalchemy import select
+
+    from ..agents.registry import stewardship
+    from ..core.models import (Experiment, Incident, Job, Listing, ListingAsset,
+                               PatternVersion, SupportCase)
+
+    rule = stewardship(name)
+    metric = rule.get("function_metric", "useful_output_rate")
+    if metric == "exempt":
+        return {"metric": metric, "value": None, "sample": 0, "reading": "exempt",
+                "reads": rule.get("function_reads", "")}
+
+    def outs(job_types: tuple[str, ...] | None = None) -> list[dict]:
+        with db.session() as s:
+            q = select(Job).where(Job.agent == name, Job.status == _TERMINAL_OK_STATUS())
+            return [dict(j.outputs or {}) for j in s.scalars(q)
+                    if job_types is None or j.job_type in job_types]
+
+    value, sample = None, 0
+    if metric == "role_realised_uplift":
+        from ..improve import roles
+
+        activity, _detail = roles.activity_from_db(db, name, now=now)
+        sample = activity.proposals_made
+        value = activity.realised_uplift if activity.proposals_kept else None
+    elif metric == "promotion_yield":
+        rows = outs(("radar.score",))
+        sample, value = len(rows), (sum(1 for o in rows if o.get("promoted")) / len(rows)
+                                    if rows else None)
+    elif metric == "compile_pass_rate":
+        rows = [o for o in outs(("cir.compile",)) if "compiled" in o]
+        sample, value = len(rows), (sum(1 for o in rows if o["compiled"]) / len(rows)
+                                    if rows else None)
+    elif metric == "certification_grant_rate":
+        rows = [o for o in outs(("gate.certify",)) if "granted" in o]
+        sample, value = len(rows), (sum(1 for o in rows if o["granted"]) / len(rows)
+                                    if rows else None)
+    elif metric == "drafts_certified":
+        drafts = len(outs(("cir.draft",)))
+        with db.session() as s:
+            certified = sum(1 for _ in s.scalars(select(PatternVersion).where(
+                PatternVersion.certified == True)))  # noqa: E712
+        sample, value = drafts, (min(1.0, certified / drafts) if drafts else None)
+    elif metric == "asset_approval_rate":
+        with db.session() as s:
+            assets = list(s.scalars(select(ListingAsset)))
+        sample, value = len(assets), (sum(1 for a in assets if a.approved) / len(assets)
+                                      if assets else None)
+    elif metric == "content_without_problems":
+        rows = outs(("marketing.schedule",))
+        sample, value = len(rows), (sum(1 for o in rows if not o.get("problems")) / len(rows)
+                                    if rows else None)
+    elif metric == "listing_seo_score":
+        with db.session() as s:
+            scores = [float(li.seo_score or 0.0) for li in s.scalars(select(Listing))]
+        sample, value = len(scores), (sum(scores) / len(scores) if scores else None)
+    elif metric == "cases_drafted":
+        with db.session() as s:
+            cases = list(s.scalars(select(SupportCase)))
+        sample, value = len(cases), (sum(1 for c in cases if c.answer) / len(cases)
+                                     if cases else None)
+    elif metric == "orphans_resolved":
+        with db.session() as s:
+            raised = [i for i in s.scalars(select(Incident))
+                      if (i.signature or "").startswith("swarm.orphan:")]
+        sample, value = len(raised), (sum(1 for i in raised if i.resolved) / len(raised)
+                                      if raised else None)
+    elif metric == "experiments_decided":
+        with db.session() as s:
+            exps = list(s.scalars(select(Experiment)))
+        sample, value = len(exps), (sum(1 for e in exps if e.result) / len(exps)
+                                    if exps else None)
+    else:  # useful_output_rate
+        from ..runtime.pipeline import did_no_work
+
+        rows = outs()
+        sample, value = len(rows), (sum(1 for o in rows if not did_no_work(o)) / len(rows)
+                                    if rows else None)
+    measured = value is not None and sample >= FUNCTION_MIN_SAMPLE
+    return {"metric": metric, "reads": rule.get("function_reads", ""),
+            "value": None if value is None else round(float(value), 4),
+            "sample": sample, "reading": "measured" if measured else "UNMEASURED",
+            "floor": FUNCTION_FLOOR if metric not in ("role_realised_uplift",
+                                                      "listing_seo_score") else None}
+
+
+def _TERMINAL_OK_STATUS():
+    from ..core.models import JobStatus
+
+    return JobStatus.DONE
 
 
 def agent_quality(db, *, now: datetime | None = None) -> dict:
@@ -844,8 +1092,18 @@ def agent_quality(db, *, now: datetime | None = None) -> dict:
                    f"UNMEASURED: {sample} terminal job(s) in {rule['window_days']} days "
                    f"against a minimum sample of {rule['min_sample']}")
 
+        function = function_quality(db, agent.name, now=now)
+        if (verdict == "keep" and not rule["exempt"] and function["reading"] == "measured"
+                and function.get("floor") is not None
+                and function["value"] < function["floor"]):
+            verdict = "watch"
+            why = (f"its function metric {function['metric']} reads {function['value']:.0%} "
+                   f"over {function['sample']}, below {function['floor']:.0%}: its jobs "
+                   f"finish and what they produce is weak")
         report[agent.name] = {
             "metric": rule["metric"], "reads": rule["reads"],
+            "inputs": rule.get("inputs", []), "outputs": rule.get("outputs", []),
+            "function_quality": function,
             "value": rate if measured else None,
             "reading": "measured" if measured else "UNMEASURED",
             "sample": sample, "done": len(done), "dead": len(dead),
@@ -1309,6 +1567,86 @@ def work_items(db) -> list[dict]:
                                          owner="" if problem else imp.cell, state=imp.state),
                         "source": "improvement", "ref": imp.id, "named_owner": imp.cell,
                         "problem": problem})
+    out.extend(_business_work_items(db, agents, CELLS))
+    return out
+
+
+# #176's other nouns: opportunity, benchmark, listing, experiment, customer issue, owner
+# action and teardown finding. Each source names the agent accountable for it and the job
+# type that agent must hold for the ownership to be real; the owner action is the owner's.
+WORK_SOURCES: dict[str, tuple[str, str, str]] = {
+    # source: (accountable agent, job type it must hold, band kind)
+    "opportunity": ("market_radar", "radar.score", "new_opportunity"),
+    "benchmark": ("orchestrator", "teardown.enforce", "benchmark_change"),
+    "listing": ("listing", "listing.seo", "proven_winner"),
+    "experiment": ("experiment_steward", "growth.conclude", "exploration"),
+    "support_case": ("support", "support.triage", "customer_incident"),
+    "teardown_finding": ("orchestrator", "teardown.enforce", "benchmark_change"),
+}
+OWNER = "owner"
+_CLOSED_GAPS = ("covered", "dismissed", "closed", "abandoned", "retired")
+_CLOSED_EXPERIMENTS = ("concluded", "stopped", "killed", "decided")
+_CLOSED_LISTINGS = ("published", "retired", "withdrawn", "superseded")
+
+
+def _business_work_items(db, agents: dict, cells: dict) -> list[dict]:
+    from sqlalchemy import select
+
+    from ..core.models import (BenchmarkProduct, CoverageGap, Experiment, Listing,
+                               OwnerAction, SupportCase, TeardownFinding)
+
+    def entry(source: str, ref, key: str, *, named: str = "", state: str = "open",
+              problem_override: str | None = None, kind: str | None = None, **extra) -> dict:
+        agent_name, job_type, default_kind = WORK_SOURCES[source]
+        named = named or agent_name
+        problem = (problem_override if problem_override is not None
+                   else _owner_problem(agents.get(named), job_type))
+        return {"item": WorkItem(key=key, kind=kind or default_kind,
+                                 owner="" if problem else named, state=state),
+                "source": source, "ref": ref, "named_owner": named, "problem": problem,
+                **extra}
+
+    out: list[dict] = []
+    with db.session() as s:
+        for g in s.scalars(select(CoverageGap)):
+            if g.state in _CLOSED_GAPS:
+                continue
+            named = str((g.evidence or {}).get("owner") or "")
+            out.append(entry("opportunity", g.id, f"opportunity:{g.id}", named=named,
+                             state=g.state, arena=g.arena))
+        for b in s.scalars(select(BenchmarkProduct)):
+            if b.teardown_state == "audited":
+                continue
+            out.append(entry("benchmark", b.id, f"benchmark:{b.ref}", state=b.teardown_state))
+        for li in s.scalars(select(Listing)):
+            if li.state in _CLOSED_LISTINGS:
+                continue
+            out.append(entry("listing", li.id, f"listing:{li.id}", state=li.state,
+                             kind="new_opportunity"))
+        for e in s.scalars(select(Experiment)):
+            if e.result or e.state in _CLOSED_EXPERIMENTS:
+                continue
+            out.append(entry("experiment", e.id, f"experiment:{e.id}", state=e.state))
+        for c in s.scalars(select(SupportCase).where(SupportCase.resolved.is_(False))):
+            out.append(entry("support_case", c.id, f"support_case:{c.id}"))
+        for a in s.scalars(select(OwnerAction).where(OwnerAction.done == False)):  # noqa: E712
+            out.append({"item": WorkItem(key=f"owner_action:{a.id}", kind="housekeeping",
+                                         owner=OWNER, state="waiting_for_owner"),
+                        "source": "owner_action", "ref": a.id, "named_owner": OWNER,
+                        "problem": ""})
+        for f in s.scalars(select(TeardownFinding)):
+            detail = f.detail or {}
+            if f.promoted:
+                continue
+            if detail.get("promotion_refused"):
+                out.append(entry("teardown_finding", f.id, f"teardown_finding:{f.id}",
+                                 state="refused_as_hypothesis", problem_override=""))
+                continue
+            if f.benchmark_ref.startswith("brambleloop:"):
+                continue                     # our own audit: a measurement, not work
+            out.append(entry("teardown_finding", f.id, f"teardown_finding:{f.id}",
+                             problem_override=("recorded and never promoted into an "
+                                               "improvement cell (#164)")))
     return out
 
 
@@ -1382,7 +1720,8 @@ def resolve_orphans(db, *, now: datetime | None = None) -> dict:
         "as_of": now.isoformat(),
         "work_items": len(items),
         "by_source": {src: sum(1 for e in entries if e["source"] == src)
-                      for src in ("job", "incident", "improvement")},
+                      for src in ("job", "incident", "improvement", *WORK_SOURCES,
+                                  "owner_action")},
         "orphans": unowned,
         "reassigned": reassigned,
         "incident_owners_assigned": owned_incidents,

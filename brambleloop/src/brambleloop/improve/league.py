@@ -56,7 +56,10 @@ from datetime import datetime, timezone
 
 from . import governance
 
-KINDS: tuple[str, ...] = ("prompt", "model", "tool", "policy")
+# `scoring` is a decision policy whose change is a weight or a priority inside an existing
+# tolerance (the job-priority policy, #187): graded by `improve.tiers` as the scoring surface it
+# touches, where `policy` names the gate-tier decision policies (#96).
+KINDS: tuple[str, ...] = ("prompt", "model", "tool", "policy", "scoring")
 
 # The axes a configuration is judged on. All three, always: a league reporting one of them
 # picks the trade nobody agreed to.
@@ -138,7 +141,10 @@ def register(db, *, kind: str, key: str, payload: str, why_changed: str,
             kind=kind, key=key, version=version, digest=digest,
             why_changed=why_changed.strip(), tests_run=list(tests_run),
             cost_per_call_cad=float(cost_per_call_cad),
-            affected_departments=list(affected_departments), incumbent=incumbent)
+            affected_departments=list(affected_departments), incumbent=incumbent,
+            # The payload itself, so a configuration the runtime reads (a scoring policy's
+            # parameters) can be read back from the registry that versions it (#96).
+            detail={"payload": payload})
         s.add(row)
         s.flush()
         return {"id": row.id, "version": version, "unchanged": False,
@@ -514,7 +520,48 @@ CHALLENGER_AUTHOR = "prompt_tool_challenger"
 
 # The risk surface each configuration kind touches, in `improve.tiers`' vocabulary.
 KIND_SURFACE: dict[str, str] = {"prompt": "prompt", "model": "model_routing", "tool": "tool",
-                                "policy": "policy"}
+                                "policy": "policy", "scoring": "priority"}
+
+
+def incumbent_payload(db, *, kind: str, key: str) -> dict | None:
+    """The running version's payload, as the runtime reads it, or None when none is recorded."""
+    from sqlalchemy import select
+
+    from ..core.models import ConfigVersion
+
+    with db.session() as s:
+        row = s.scalar(select(ConfigVersion).where(
+            ConfigVersion.kind == kind, ConfigVersion.key == key,
+            ConfigVersion.incumbent == True).order_by(ConfigVersion.id.desc()))  # noqa: E712
+        if row is None:
+            return None
+        return {"config_id": row.id, "version": row.version,
+                "payload": (row.detail or {}).get("payload")}
+
+
+# Configuration kinds whose promotions run only through the improvement sandbox: their
+# challengers are produced and proposed by `improve.replay`, one hypothesis at a time.
+SANDBOX_KINDS: tuple[str, ...] = ("scoring",)
+
+
+def sandbox_owned(db, config_id: int) -> dict | None:
+    """The improvement that owns this challenger's promotion, when the sandbox does (#92).
+
+    A replayable configuration is proposed into the Improvement Department as a hypothesis
+    and promoted there -- sandbox, tests, an independent judge, the tier -- so the league
+    records its comparison and does not promote it a second time by its own route.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        for row in s.scalars(select(Improvement).where(
+                Improvement.state.in_(("proposed", "testing", "promoted")))):
+            change = (row.evidence or {}).get("change") or {}
+            if int(change.get("config_id") or 0) == int(config_id):
+                return {"improvement": row.id, "state": row.state}
+    return None
 
 
 def record_run(db, config_id: int, *, tasks: dict, cost_cad: float, reliability: float,
@@ -774,6 +821,14 @@ def cycle(db, *, now: datetime | None = None) -> dict:
             if verdict.get("reason") == "refused":
                 refused.append(entry)
             if not verdict.get("promote"):
+                continue
+            owned = sandbox_owned(db, ch["id"])
+            if owned is None and kind in SANDBOX_KINDS:
+                owned = {"improvement": None, "state": "awaiting_replay_proposal"}
+            if owned is not None:
+                held.append({"route": "sandbox", "config_id": ch["id"], **owned,
+                             "why": ("promotion runs through the improvement sandbox that "
+                                     "owns this challenger, not a second time here")})
                 continue
             out = _authorise(db, inc, ch, verdict, {"incumbent": ir, "challenger": cr}, ref,
                              now=now)

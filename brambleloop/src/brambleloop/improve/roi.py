@@ -103,7 +103,7 @@ def realised_benefit(db, *, now: datetime | None = None,
     from sqlalchemy import select
 
     from ..core.models import CapabilityPoint, Improvement
-    from .cells import BY_KEY, PROMOTED
+    from .cells import BY_KEY, PROMOTED, is_trial_metric, trial_direction
 
     now = now or datetime.now(timezone.utc)
 
@@ -111,9 +111,17 @@ def realised_benefit(db, *, now: datetime | None = None,
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     with db.session() as s:
+        all_promoted = [r for r in s.scalars(select(Improvement)) if r.state == PROMOTED]
         promoted = [(r.id, r.cell, r.metric, r.baseline_value, r.cost_cad or 0.0,
                      _aware(r.promoted_at or r.at))
-                    for r in s.scalars(select(Improvement)) if r.state == PROMOTED]
+                    for r in all_promoted if not is_trial_metric(r)]
+        # A trial-metric promotion is read by re-running its own trial on fresh data (the
+        # monitor records it on the row), never from the cell's capability curve, which is in
+        # different units.
+        trial_rows = [(r.id, r.cell, r.metric, r.baseline_value, r.cost_cad or 0.0,
+                       _aware(r.promoted_at or r.at),
+                       ((r.evidence or {}).get("monitoring") or {}).get("observed"),
+                       trial_direction(r)) for r in all_promoted if is_trial_metric(r)]
         history = [(h.cell, _aware(h.at), h.value, (h.detail or {}).get("from", ""))
                    for h in s.scalars(select(CapabilityPoint))]
 
@@ -130,6 +138,14 @@ def realised_benefit(db, *, now: datetime | None = None,
             improvement_id=improvement_id, cell=cell_key, metric=metric,
             baseline=baseline, observed=(after[-1][1] if after else None),
             higher_is_better=cell.higher_is_better, cost_cad=cost_cad,
+            age_days=(now - promoted_at).total_seconds() / 86400.0,
+            window_days=window_days))
+
+    for improvement_id, cell_key, metric, baseline, cost_cad, promoted_at, observed, up in \
+            trial_rows:
+        rows.append(Realised(
+            improvement_id=improvement_id, cell=cell_key, metric=metric, baseline=baseline,
+            observed=observed, higher_is_better=up, cost_cad=cost_cad,
             age_days=(now - promoted_at).total_seconds() / 86400.0,
             window_days=window_days))
 
@@ -181,7 +197,10 @@ def prioritise(candidates: list[dict]) -> dict:
                      "impact_per_cad": (round(float(expected) / cost, 4) if cost > 0
                                         else None)})
     # A free change with real expected impact outranks a paid one: sorted with None first.
-    rows.sort(key=lambda r: (r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0)))
+    # Among free changes, the larger expected impact first -- otherwise every free candidate
+    # ties and the order is whatever order the rows were read in.
+    rows.sort(key=lambda r: (r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0),
+                             -float(r["expected_impact"])))
     return {"ranked": rows,
             "note": ("Ordered by expected impact per dollar, with free changes first. "
                      "Continuous learning is not permission to burn unlimited tokens (#99).")}

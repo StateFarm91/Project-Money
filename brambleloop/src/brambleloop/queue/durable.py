@@ -183,7 +183,12 @@ class JobQueue:
         if priority is None:
             from ..swarm.orchestrate import priority_for
 
-            priority = priority_for(job_type)
+            # #187: the band, then the deadline and business value the inputs carry, under
+            # the incumbent job-priority policy the registry holds.
+            try:
+                priority = priority_for(job_type, inputs or None, db=self.db)
+            except Exception:  # noqa: BLE001 - a priority reading never blocks an enqueue
+                priority = priority_for(job_type)
 
         def _do(s: Session) -> Job:
             if idempotency_key:

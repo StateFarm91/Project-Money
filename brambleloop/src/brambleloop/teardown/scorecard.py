@@ -68,15 +68,35 @@ class Finding:
     score: int
     mechanism: str
     improvement: str
+    # #161: the analyst's confidence in the score (0-1, or None when unstated) and the raw
+    # notes it was drawn from. Both are kept on the row, never folded into the score.
+    confidence: float | None = None
+    raw_notes: str = ""
 
     def to_dict(self) -> dict:
         return {"benchmark_ref": self.benchmark_ref, "dimension": self.dimension,
                 "score": self.score, "mechanism": self.mechanism,
-                "improvement": self.improvement}
+                "improvement": self.improvement, "confidence": self.confidence,
+                "raw_notes": self.raw_notes}
+
+
+def check_confidence(confidence) -> float | None:
+    """A stated confidence is a share between 0 and 1; an unstated one stays None (#161)."""
+    if confidence in (None, ""):
+        return None
+    if isinstance(confidence, bool):
+        raise ScoreRefused("confidence is a share between 0 and 1, not a yes or no")
+    try:
+        value = float(confidence)
+    except (TypeError, ValueError) as exc:
+        raise ScoreRefused(f"confidence {confidence!r} is not a number between 0 and 1") from exc
+    if not 0.0 <= value <= 1.0:
+        raise ScoreRefused(f"confidence {value} is outside 0-1")
+    return value
 
 
 def finding(benchmark_ref: str, dimension: str, score: int, mechanism: str,
-            improvement: str) -> Finding:
+            improvement: str, *, confidence=None, raw_notes: str = "") -> Finding:
     """Build a scored finding, refusing the three ways it goes wrong."""
     if dimension not in DIMENSIONS:
         raise ScoreRefused(f"{dimension!r} is not one of the twelve dimensions")
@@ -90,7 +110,11 @@ def finding(benchmark_ref: str, dimension: str, score: int, mechanism: str,
             "produces no action is a review (#164)")
     check_derived(mechanism)
     check_derived(improvement)
-    return Finding(benchmark_ref, dimension, score, mechanism.strip(), improvement.strip())
+    notes = (raw_notes or "").strip()
+    if notes:
+        check_derived(notes)
+    return Finding(benchmark_ref, dimension, score, mechanism.strip(), improvement.strip(),
+                   confidence=check_confidence(confidence), raw_notes=notes)
 
 
 def record(db, f: Finding) -> int:
@@ -99,7 +123,8 @@ def record(db, f: Finding) -> int:
     with db.session() as s:
         row = TeardownFinding(benchmark_ref=f.benchmark_ref, dimension=f.dimension,
                               score=float(f.score), mechanism=f.mechanism,
-                              improvement=f.improvement)
+                              improvement=f.improvement, confidence=f.confidence,
+                              raw_notes=f.raw_notes)
         s.add(row)
         s.flush()
         return row.id
@@ -120,7 +145,8 @@ def scorecard(db, benchmark_ref: str) -> dict:
         current = best.get(r.dimension)
         if current is None or r.score > current["score"]:
             best[r.dimension] = {"score": r.score, "mechanism": r.mechanism,
-                                 "improvement": r.improvement}
+                                 "improvement": r.improvement,
+                                 "confidence": r.confidence, "raw_notes": r.raw_notes}
     unscored = [d for d in DIMENSIONS if d not in best]
     return {
         "benchmark": benchmark_ref,

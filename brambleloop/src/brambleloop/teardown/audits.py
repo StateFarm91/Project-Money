@@ -522,7 +522,7 @@ def observe(spec_key: str, benchmark_ref: str, answers: dict, *,
                  unmatched_strengths=unmatched)
 
 
-def record(db, audit: Audit) -> dict:
+def record(db, audit: Audit, *, confidence=None, raw_notes: str = "") -> dict:
     """Persist the audit as scorecard findings, with the element detail kept alongside.
 
     The findings land in the same table the twelve-dimension scorecard and the composite
@@ -530,7 +530,12 @@ def record(db, audit: Audit) -> dict:
     parallel one that would disagree with it next month.
     """
     from ..core.models import TeardownFinding
+    from .scorecard import check_confidence
 
+    stated = check_confidence(confidence)
+    notes = (raw_notes or "").strip()
+    if notes:
+        check_derived(notes)
     ids: list[int] = []
     with db.session() as s:
         for f, o in zip(audit.findings(),
@@ -538,6 +543,7 @@ def record(db, audit: Audit) -> dict:
             row = TeardownFinding(
                 benchmark_ref=f.benchmark_ref, dimension=f.dimension, score=float(f.score),
                 mechanism=f.mechanism, improvement=f.improvement,
+                confidence=stated, raw_notes=notes,
                 detail={"audit": audit.spec.key, "requirement": audit.spec.requirement,
                         "element": o.element, "element_score": o.score,
                         "advantage": o.advantage, "source": o.source})

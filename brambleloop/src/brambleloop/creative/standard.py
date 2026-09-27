@@ -175,6 +175,49 @@ def meets_standard(score: float, *, make_lane: str, history: list[Scored],
 
 
 # ---------------------------------------------------------------------------
+# #129: the taste judge -- deterministic, so a model's opinion is never the sole evidence
+
+# How close to the novelty floor a concept may sit and still not feel derivative. A concept
+# that clears the floor by less than this share of it is not a copy, and it feels like one.
+DERIVATIVE_MARGIN = 0.10
+# How many entrants in one field may share a form and motif before the pairing is the first
+# thing anybody would think of for the brief.
+OBVIOUS_AT = 3
+
+
+def taste_judge(concept, *, field: list, nearest_distance: float | None,
+                floor_value: float | None) -> str | None:
+    """A TASTE_REJECTIONS verdict for a technically valid concept, or None when it has taste.
+
+    Deterministic, from the field it competed in and its distance from our own catalogue:
+
+    - `obvious`: its form and motif are the field's most common pairing, shared by at least
+      OBVIOUS_AT entrants -- the first thing anybody would think of for this brief;
+    - `derivative_feeling`: it clears the novelty floor by less than DERIVATIVE_MARGIN --
+      not a copy, and it feels like one;
+    - `boring`: it states neither a feeling nor a function, so there is no reason to look at
+      it twice.
+    """
+    def pair(c) -> tuple[str, str]:
+        return (str(getattr(c, "form", "") or "").lower(),
+                str(getattr(c, "motif", "") or "").lower())
+
+    counts: dict[tuple[str, str], int] = {}
+    for other in field:
+        counts[pair(other)] = counts.get(pair(other), 0) + 1
+    mine = pair(concept)
+    if counts and counts.get(mine, 0) >= OBVIOUS_AT and counts[mine] == max(counts.values()):
+        return "obvious"
+    if (nearest_distance is not None and floor_value is not None and floor_value > 0
+            and nearest_distance < floor_value * (1 + DERIVATIVE_MARGIN)):
+        return "derivative_feeling"
+    if not str(getattr(concept, "feeling", "") or "").strip() and \
+            not str(getattr(concept, "function", "") or "").strip():
+        return "boring"
+    return None
+
+
+# ---------------------------------------------------------------------------
 # #127: the failure autopsy
 
 

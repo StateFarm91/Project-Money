@@ -618,7 +618,31 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     queries = queries + list(buyer["queries"])
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
-    tags = search_mod.choose_tags(queries, must_include=buyer["tags"])
+    # #97: Listings read their lesson inbox. A search-language or construction lesson whose
+    # words match one of this product's candidate queries puts that query in a tag slot --
+    # the listing surfaces what the company learned buyers look for -- and the lesson is
+    # recorded as acted on.
+    from ..improve import consume
+
+    listing_text = " ".join([cir.title, category, " ".join(motifs)]
+                            + [q.phrase for q in queries])
+    seo_lessons = [l for l in consume.matching(ctx.db, "seo_search", listing_text)
+                   if l["direction"] >= 0]
+    # #293's observed buyer language takes its slots first; a lesson-matched query may take
+    # up to two more.
+    must = list(buyer["tags"])
+    for lesson in seo_lessons:
+        for q in queries:
+            if (len(q.phrase) <= 20 and q.phrase not in must
+                    and set(lesson["shared"]) & set(q.phrase.split())):
+                must.append(q.phrase)
+                break
+    must = must[:len(buyer["tags"]) + 2]
+    tags = search_mod.choose_tags(queries, must_include=must)
+    lesson_slots = [m for m in must if m not in buyer["tags"]]
+    if lesson_slots:
+        consume.act(ctx.db, "seo_search", seo_lessons,
+                    how=f"listing.seo for {slug} gave a tag slot to {lesson_slots}")
     # #240: a slot spent on a phrase another listing of ours already spends one on is our
     # own listings ranked against each other. Re-chosen from the remaining queries, never
     # fewer slots, and the swap is recorded with the catalogue reading below.
@@ -1622,6 +1646,37 @@ def handle_support_triage(ctx: JobContext) -> dict:
                                             "needing_reply", "sent")}
     out["confusion"] = triaged["confusion"]
     out["case_window"] = triaged["case_window"]
+    # #155 / #158: Pattern Help consumes the teardown traps -- an open case about one is
+    # routed to the pattern_help specialist with the obligation on it.
+    from ..teardown import enforce as teardown_enforce
+
+    out["pattern_help"] = teardown_enforce.apply_pattern_help(ctx.db)
+    # #97: Support reads its lesson inbox. A lesson matching an open case's question is
+    # attached to the case (support tracks whether it reduces confusion) and acted on.
+    from sqlalchemy import select as _select
+
+    from ..core.models import SupportCase as _Case
+    from ..improve import consume
+
+    lessons_used = []
+    with ctx.db.session() as s:
+        cases = [(c.id, c.question or "", list((c.detail or {}).get("lessons") or []))
+                 for c in s.scalars(_select(_Case).where(_Case.resolved.is_(False)))]
+    for case_id, question, have in cases:
+        hits = [l for l in consume.matching(ctx.db, "customer_experience", question,
+                                            min_shared=1)
+                if l["id"] not in have]
+        if not hits:
+            continue
+        with ctx.db.session() as s:
+            case = s.get(_Case, case_id)
+            case.detail = {**(case.detail or {}),
+                           "lessons": have + [l["id"] for l in hits]}
+        consume.act(ctx.db, "customer_experience", hits,
+                    how=f"attached to support case {case_id} to track whether it reduces "
+                        f"confusion")
+        lessons_used.append({"case": case_id, "lessons": [l["id"] for l in hits]})
+    out["lessons_used"] = lessons_used
     ctx.audit("support.mined", detail={"cases": out["cases"],
                                        "hotspots": out["row_hotspots"][:5],
                                        "triaged": len(triaged["triaged"]),
@@ -1651,6 +1706,12 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
     from sqlalchemy import select
 
     reasons = list(blocking)
+    # #228: the owner's veto over flagship creative quality holds at the asset gate too.
+    from ..intel.mission_runtime import active_veto
+
+    veto = active_veto(ctx.db, slug)
+    if veto["vetoed"]:
+        reasons.append(f"owner veto (#228): {veto['why']}")
     with ctx.db.session() as s:
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
@@ -4168,21 +4229,36 @@ def handle_role_work(ctx: JobContext) -> dict:
             read = len(assets)
             found = sum(1 for r in assets if not r.approved)
         else:  # experiment_designer
-            # Experiments live in the growth portfolio, which has no rows in shadow mode.
-            read = 0
-            found = 0
+            # The experiments it designed and the hypotheses it turns into tests: every
+            # improvement the sandbox runner has taken, and the open ones no registered trial
+            # can evaluate -- those are the ones waiting on its job.
+            from ..core.models import Experiment, Improvement
+            from ..improve import runner as _runner
 
-    activity = roles.Activity(role_key=role_key, proposals_made=0, proposals_kept=0,
-                              realised_uplift=0.0)
+            experiments = list(session.scalars(select(Experiment)))
+            open_rows = list(session.scalars(select(Improvement).where(
+                Improvement.state.in_(("proposed", "testing")))))
+            read = len(experiments) + len(open_rows)
+            found = sum(1 for r in open_rows
+                        if _runner.trial_for(dict(r.evidence or {})) is None
+                        and (r.evidence or {}).get("kind") not in _runner.MEASUREMENT_KINDS)
+
+    # #179: what the role did, from the rows -- proposals it authored, the ones kept, and the
+    # realised uplift `improve.roi` measured after promotion -- never a literal zero.
+    activity, activity_detail = roles.activity_from_db(ctx.db, role_key)
     card = roles.scorecard(activity)
     detail = {
         "role": role_key, "reads": roles.ROLE_READS[role_key],
         "rows_read": read, "found": found,
         "measured_by": role.measured_by,
         "scorecard": card,
-        "proposed": 0,
-        "why": (f"read {read} row(s) and found {found}. This pass reports; proposing runs "
-                f"through the upgrade pipeline and promotion through the tiers"),
+        "proposed": activity.proposals_made,
+        "kept": activity.proposals_kept,
+        "realised_uplift": activity.realised_uplift,
+        "activity": activity_detail,
+        "why": (f"read {read} row(s) and found {found}; {activity.proposals_made} "
+                f"proposal(s) in the window, {activity.proposals_kept} kept, realised "
+                f"uplift {activity.realised_uplift:+.4f}. Scored on uplift alone"),
     }
     ctx.audit("improve.role_work", detail=detail)
     return detail
@@ -4265,6 +4341,13 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
     # any trial verdict on file is copied onto the rows it judged. No challenger is run here;
     # that is a spending decision. What is found is every configuration with a challenger.
     booted = bootstrap.ensure(ctx.db)
+    # #193: challenger evaluations run here, not only counted. The deterministic replay
+    # evaluates the job-priority policy's incumbent and challengers on historical jobs and
+    # their holdout (idempotent per window, so the daily improve.replay cadence and this
+    # sweep never double-record); model challengers still wait for a run somebody pays for.
+    from ..improve import replay as _replay
+
+    evaluated = _replay.cycle(ctx.db)
     with ctx.db.session() as session:
         configs = [(row.kind, row.key, row.incumbent, bool(row.measured_outcome))
                    for row in session.scalars(select(ConfigVersion))]
@@ -4273,6 +4356,10 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
         nightly.CHALLENGERS, read=len(configs), found=len(challengers),
         incumbents=sum(1 for c in configs if c[2]),
         incumbents_unmeasured=sum(1 for c in configs if c[2] and not c[3]),
+        evaluated={"ran": evaluated["ran"], "runs": len(evaluated.get("runs") or []),
+                   "compared": len(evaluated.get("compared") or []),
+                   "proposed": evaluated.get("proposed") or [],
+                   "why": evaluated.get("why")},
         bootstrap=booted))
 
     sweep = freshness.sweep(ctx.db)
@@ -4356,18 +4443,24 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
 
     # Each domain reports the rows it actually read. Several are zero in shadow mode, and a
     # zero here reads `not_audited` rather than clean, which is what keeps the weekly report
-    # from describing a healthy business nobody has looked at.
+    # from describing a healthy business nobody has looked at. Conversion, ads, support and
+    # cost are read from their own tables by `improve.evolution` (#194), never constants.
+    from ..improve import evolution
+
+    measured = evolution.domain_findings(ctx.db)
     for domain, read, found in (
             ("product_creativity", points + tournaments, len(stuck)),
             ("pattern_correctness", versions, uncertified),
             ("competitor_intelligence", len(sweep["departments"]),
              len(sweep["stale_learning"])),
-            ("conversion", 0, 0),
-            ("ads", 0, 0),
-            ("support", cases, 0),
+            ("conversion", measured["conversion"]["read"], measured["conversion"]["findings"]),
+            ("ads", measured["ads"]["read"], measured["ads"]["findings"]),
+            ("support", measured["support"]["read"], measured["support"]["findings"]),
             ("infrastructure", incidents + jobs, open_incidents + dead),
-            ("cost", ledger, 0)):
-        readings.append(weekly.DomainReading(domain=domain, read=read, findings=found))
+            ("cost", measured["cost"]["read"], measured["cost"]["findings"])):
+        note = (measured.get(domain) or {}).get("why", "")
+        readings.append(weekly.DomainReading(domain=domain, read=read, findings=found,
+                                             note=note[:300]))
 
     # #85: the catalogue's own jury autopsy, computed on every request and never kept, is
     # kept as a lesson -- once per distinct pattern of deaths, so a week with the same
@@ -4390,7 +4483,30 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
                     because=(f"{r['reason']}, into {r['into']}; preserve "
                              f"{len(r['preserve'])} lesson(s) first"))
                 for r in review["merge"]]
-    cycle = weekly.cycle(readings, changes)
+    # #194: the architecture review can add. A specialist is proposed where the rows show
+    # work nothing can own -- a domain with findings and no agent holding its job types, or
+    # unowned open work of one kind (#176) -- and the additions reach the owner as one card.
+    added = evolution.additions(ctx.db, measured)
+    changes += added
+    cycle = weekly.cycle(
+        readings, changes,
+        nothing_to_subtract_because=("" if review["retire"] or review["merge"] else
+                                     "the retirement review found no idle or redundant cell "
+                                     "this week"))
+    add_card = evolution.route_owner_card(
+        ctx.db, evolution.ADD_CARD_KEY, [f"add {c.subject}: {c.because}" for c in added],
+        reason=("#194: adding a specialist agent is a permission change, reviewed like any "
+                "other; the weekly cycle found work no current agent can own"))
+    # #53: the STOP half of the review, from rows. Stale experiments are stopped here; the
+    # cadence, polish, query and infrastructure stops reach the owner as one card.
+    stops = evolution.stop_list(ctx.db)
+    stop_rows = stops["review"]["stop"]["stopped"]
+    stop_card = evolution.route_owner_card(
+        ctx.db, evolution.STOP_CARD_KEY,
+        [f"stop {r['category']} {r['subject']}: {r['reason']}" for r in stop_rows
+         if r["category"] != "experiment"],
+        reason=("#53: every weekly review produces a STOP list; removing a cadence, a "
+                "monitored query or a polishing loop changes how the company runs"))
     # ...and the recommendations reach the owner as one batched card rather than a report
     # (#192). Nothing is disabled: an agent disabled here would dead-letter its cadences.
     retirement_routing = director.route_retirements(ctx.db, review)
@@ -4411,6 +4527,14 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
               "executed": executed["executed"],
               "queued_for_authority": executed["queued_for_authority"],
               "catalogue_autopsy_lesson": catalogue_memory.get("lesson"),
+              "domains_measured": {k: {kk: v[kk] for kk in ("read", "findings", "reading",
+                                                             "why")}
+                                   for k, v in measured.items()},
+              "added": [c.subject for c in added], "add_card": add_card,
+              "stop_list": {"stopped": stop_rows, "executed": stops["executed"],
+                            "nothing_to_stop_because": stops["review"]["stop"].get(
+                                "nothing_to_stop_because"),
+                            "card": stop_card},
               "conflicts": director.conflicts(ctx.db),
               "roadmap": plan,
               "realised_benefit": {k: realised[k] for k in
@@ -4479,13 +4603,25 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
 
     GREEN: reads capability points, may revert an improvement row, writes an audit record.
     """
-    from ..improve import bootstrap, monitor
+    from ..improve import bootstrap, monitor, runner
 
     bootstrap.ensure(ctx.db)
     out = monitor.sweep(ctx.db)
+    # Trial-metric promotions (#92, #164, #180) are judged by re-running their own trial on
+    # data recorded since they won -- and reverted, with the change undone, when it reads worse.
+    trials = runner.monitor_trials(ctx.db)
+    ctx.audit("improve.monitor_trials", detail={
+        "judged": trials["judged"], "reverted": trials["reverted"],
+        "waiting": len(trials["waiting"])})
     return {"ran": True, "promoted": out["promoted"], "judged": out["judged"],
-            "held": len(out["held"]), "reverted": [r["improvement"] for r in out["reverted"]],
-            "rollback_proposals": [r["rollback"]["incident"] for r in out["reverted"]],
+            "held": len(out["held"]),
+            "reverted": ([r["improvement"] for r in out["reverted"]]
+                         + [r["improvement"] for r in trials["reverted"]]),
+            "rollback_proposals": ([r["rollback"]["incident"] for r in out["reverted"]]
+                                   + [r["incident"] for r in trials["reverted"]]),
+            "trial_monitoring": {"judged": len(trials["judged"]),
+                                 "reverted": trials["reverted"],
+                                 "waiting": len(trials["waiting"])},
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
@@ -4507,7 +4643,9 @@ def handle_improve_sandbox(ctx: JobContext) -> dict:
 
     out = runner.run(ctx.db)
     detail = {k: out[k] for k in ("sandboxed", "tested", "approved", "promoted",
-                                  "owner_cards", "held", "cards_closed", "note")}
+                                  "owner_cards", "held", "cards_closed", "note", "anchored",
+                                  "rejected", "executed", "prioritised", "unprioritised",
+                                  "discipline")}
     detail["waiting"] = len(out["waiting"])
     ctx.audit(runner.ACTION, detail=detail)
     return {"ran": True, **detail, "waiting_detail": out["waiting"][:20]}
@@ -4533,6 +4671,68 @@ def handle_improve_league(ctx: JobContext) -> dict:
               "note": out["note"]}
     ctx.audit("improve.league", detail=detail)
     return {"ran": True, **detail}
+
+
+@handlers.register("improve.replay")
+def handle_improve_replay(ctx: JobContext) -> dict:
+    """Replay historical jobs under the job-priority policy and its challengers (#95, #180, #187).
+
+    The league's producer of runs. Deterministic: the historical jobs are the tasks, the
+    newest fifth of the days the holdout, and each configuration's showing is recorded with
+    `league.record_run`. A challenger that beats the incumbent on the shared days and holds on
+    the holdout becomes an improvement hypothesis the sandbox judges (#92); one that does not
+    is retired with its verdict. Too little history is UNMEASURED, never a verdict.
+
+    GREEN: reads jobs, registers configuration versions, records runs and may open an
+    improvement proposal. Calls no model and spends nothing.
+    """
+    from ..improve import replay
+
+    out = replay.cycle(ctx.db)
+    ctx.audit(replay.ACTION, detail={k: out.get(k) for k in (
+        "ran", "reading", "incumbent", "jobs", "days", "runs", "compared", "proposed",
+        "retired", "challengers_registered", "why", "watched")})
+    return out
+
+
+@handlers.register("teardown.enforce")
+def handle_teardown_enforce(ctx: JobContext) -> dict:
+    """Teardown findings as enforced requirements, checked and routed to their consumers.
+
+    #153-#161. Every certified product is checked against the requirements the recorded
+    teardown findings imply (exceed a benchmark's strength, prevent its trap, settle what
+    benchmarks disagree about, never fall below a floor the sandbox promoted); `store.publish`
+    reads the same check through the release gates and refuses on it. Each requirement is
+    published once on the lesson bus to the departments that consume it (Pattern Help,
+    creative assets, quality), whose own handlers read their inboxes and record acting on it.
+
+    GREEN: reads findings and products, writes lessons and an audit record. Spends nothing.
+    """
+    from ..improve import bus
+    from ..teardown import enforce
+
+    out = enforce.sweep(ctx.db)
+    subjects = {"pdf": "instruction_clarity", "pattern_help": "instruction_clarity",
+                "premium_standard": "chart_quality", "video": "delivery_experience",
+                "delivery_bundle": "delivery_experience", "support": "delivery_experience"}
+    published = []
+    for req in enforce.requirements(ctx.db):
+        if not req["binding"]:
+            continue
+        subject = subjects.get(req["consumers"][0], "delivery_experience")
+        lesson = bus.publish(
+            ctx.db, origin_cell="quality", subject=subject,
+            statement=(f"Teardown requirement {req['key']} ({req['kind']}) binds "
+                       f"{'/'.join(req['consumers'])}: {req['requirement'][:220]}"),
+            evidence_ref=f"teardown_requirement:{req['key']}:{req['kind']}",
+            confidence="observed")
+        published.append(lesson)
+    out["lessons"] = sorted(set(published))
+    ctx.audit(enforce.ACTION, detail={k: out[k] for k in (
+        "requirements", "binding", "provisional", "by_consumer", "blocked", "products",
+        "reading", "note", "lessons")} | {"video_specification": out["video_specification"][:20],
+                                           "pattern_help": out["pattern_help"][:20]})
+    return out
 
 
 @handlers.register("finance.governor")

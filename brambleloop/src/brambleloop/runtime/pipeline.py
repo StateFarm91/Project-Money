@@ -249,7 +249,26 @@ def handle_radar_score(ctx: JobContext) -> dict:
     evidence_score = round(rescored.score * evidence["discount"], 4)
     ctx.audit("radar.evidence_discount", artifact=seed.slug,
               detail={"raw_score": rescored.score, "score": evidence_score, **evidence})
-    promote = evidence_score >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+    # #97 / #147: Market Radar reads its lesson inbox where it decides. A lesson whose words
+    # match this concept nudges the score within a bound -- a construction customers prefer
+    # up, a creative death in this arena down -- and the nudge is recorded against the lesson
+    # through `bus.acted_on`, so compounding is counted from decisions that changed.
+    from ..improve import consume
+
+    concept_text = " ".join(str(x) for x in (
+        seed.slug.replace("-", " "), seed.title, seed.category, seed.season or "",
+        seed.rationale, c.get("premise") or "", c.get("motif") or ""))
+    radar_lessons = [l for l in consume.matching(ctx.db, "market_radar", concept_text)
+                     if l["direction"]]
+    lesson_adjustment = consume.score_adjustment(radar_lessons)
+    # Composed: the evidence-discounted score (#38) is what the lesson nudges (#97), and the
+    # composed score is the one that decides promotion.
+    adjusted = round(evidence_score + lesson_adjustment, 4)
+    if radar_lessons:
+        consume.act(ctx.db, "market_radar", radar_lessons,
+                    how=f"radar.score of {seed.slug} moved {lesson_adjustment:+} to {adjusted} "
+                        f"(evidence-discounted {evidence_score})")
+    promote = adjusted >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
 
     # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
     # score says a slot is worth filling; it says nothing about whether *this idea* deserves
@@ -274,8 +293,10 @@ def handle_radar_score(ctx: JobContext) -> dict:
             promote = gate["engineer"]
 
     ctx.audit("radar.scored", artifact=seed.slug, detail={
-        "score": evidence_score, "raw_score": rescored.score,
+        "score": adjusted, "raw_score": rescored.score, "evidence_score": evidence_score,
         "evidence_discount": evidence["discount"], "components": rescored.components,
+        "lesson_adjustment": lesson_adjustment,
+        "lessons": [l["id"] for l in radar_lessons],
         "promoted": promote,
         "gate": (gate or {}).get("decision") or ("exempt" if exempt else None),
     })
@@ -284,12 +305,25 @@ def handle_radar_score(ctx: JobContext) -> dict:
         payload.update(concept_geometry(seed))
         if gate is not None:
             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
+        # #97: Pattern Engineering prioritises what its lessons favour. A favoured lesson
+        # matching this concept raises the draft's stated value, which `priority_for` turns
+        # into an earlier claim inside the band.
+        eng_lessons = [l for l in consume.matching(ctx.db, "pattern_engineering",
+                                                   concept_text) if l["direction"] > 0]
+        if eng_lessons:
+            payload["value_cad"] = float(payload.get("value_cad") or 0.0) + 150.0 * len(
+                eng_lessons)
+            payload["lessons"] = [l["id"] for l in eng_lessons]
+            consume.act(ctx.db, "pattern_engineering", eng_lessons,
+                        how=f"cir.draft of {seed.slug} prioritised by its lessons")
         ctx.enqueue("crochet_engineer", "cir.draft", payload,
                     idempotency_key=f"draft:{seed.slug}")
-    return {"slug": seed.slug, "score": evidence_score, "raw_score": rescored.score,
+    return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
+            "evidence_score": evidence_score,
             "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
                                                       "mean_weight", "why")},
             "promoted": promote,
+            "lesson_adjustment": lesson_adjustment, "adjusted_score": adjusted,
             "components": rescored.components,
             "gate": (None if gate is None else
                      {k: gate[k] for k in ("decision", "failed", "unmeasured", "reasons",
@@ -569,6 +603,18 @@ def handle_certify(ctx: JobContext) -> dict:
             return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
                     "release_hash": cert.release_hash, "withheld": True,
                     "reasons": [teardown["unique_value"].get("reason", "")][:1]}
+        # #228: an owner veto on this product withholds it at certification, before anything
+        # downstream is built for it. The owner lifts it by ruling again.
+        from ..intel.mission_runtime import active_veto
+
+        veto = active_veto(ctx.db, cir.slug)
+        if veto["vetoed"]:
+            ctx.audit("gate.release_withheld", artifact=f"{cir.slug}@{cir.version}",
+                      detail={"reason": f"owner veto (#228): {veto['why']}",
+                              "ruling": veto.get("ruling_id")})
+            return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
+                    "release_hash": cert.release_hash, "withheld": True,
+                    "reasons": [f"owner veto (#228): {veto['why']}"]}
         from .release import chain_key
 
         ctx.enqueue("listing", "listing.draft",

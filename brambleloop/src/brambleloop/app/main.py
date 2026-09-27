@@ -5141,7 +5141,9 @@ async def api_teardown_audit(request: Request,
     try:
         result = lab.record_audit(db, str(body.get("benchmark_ref") or ""),
                                   str(body.get("audit") or ""),
-                                  body.get("answers") or {})
+                                  body.get("answers") or {},
+                                  confidence=body.get("confidence"),
+                                  raw_notes=str(body.get("raw_notes") or ""))
     except _teardown_refusals() as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
     return JSONResponse(result)
@@ -5163,7 +5165,8 @@ async def api_teardown_finding(request: Request,
         result = lab.record_finding(
             db, str(body.get("benchmark_ref") or ""), str(body.get("dimension") or ""),
             body.get("score"), str(body.get("mechanism") or ""),
-            str(body.get("improvement") or ""))
+            str(body.get("improvement") or ""), confidence=body.get("confidence"),
+            raw_notes=str(body.get("raw_notes") or ""))
     except (TypeError, ValueError) as exc:
         return JSONResponse({"error": f"score must be 0-5: {exc}"}, status_code=400)
     except _teardown_refusals() as exc:

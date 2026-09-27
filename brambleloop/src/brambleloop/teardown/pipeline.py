@@ -88,6 +88,12 @@ CRITICAL_DIMENSIONS: tuple[str, ...] = (
 MATERIAL_GAP = 1.0
 
 
+def cells_model():
+    from ..core.models import Improvement
+
+    return Improvement
+
+
 class PipelineRefused(Exception):
     """A finding that cannot become a hypothesis, or a tradeoff that is an excuse."""
 
@@ -115,6 +121,11 @@ def promote(db, finding_id: int, *, touches: tuple[str, ...], rollback_ref: str,
         row = s.get(TeardownFinding, finding_id)
         if row is None:
             raise PipelineRefused(f"no teardown finding {finding_id}")
+        if row.benchmark_ref.startswith("brambleloop:"):
+            raise PipelineRefused(
+                f"finding {finding_id} is an audit of Brambleloop's own product. It is the "
+                f"measurement the teardown hypotheses are judged by (the self_audit trial), "
+                f"not a hypothesis about a competitor's mechanism")
         if row.promoted:
             raise PipelineRefused(
                 f"finding {finding_id} was already promoted as improvement "
@@ -148,12 +159,32 @@ def promote(db, finding_id: int, *, touches: tuple[str, ...], rollback_ref: str,
         f"a measurable move in {owner}'s metric, compared against the current Brambleloop "
         f"standard rather than against the benchmark")
 
+    # #164: the proposal is judged by a sandbox trial that compares against the current
+    # Brambleloop standard -- our own products' self-audit reading on this same element --
+    # captured now as the baseline (None when nothing of ours has been audited on it yet, in
+    # which case the first self-audit becomes the baseline and never a result).
+    from . import enforce
+
+    with db.session() as s:
+        key = enforce._key(s.get(TeardownFinding, finding_id))[0]
+    ours = enforce.catalogue_scores(db, key)
+    baseline = (round(sum(v for _i, v in ours) / len(ours), 4) if ours else None)
     improvement_id = cells.propose(
         db, cell=owner, hypothesis=hypothesis, expected_effect=effect,
         rollback_ref=rollback_ref, touches=tuple(touches),
         # C-17/C-18: a proposal with no recorded proposer can never be promoted, and the
         # teardown laboratory is the author of every improvement it files.
-        proposed_by="teardown")
+        proposed_by="teardown", trial="self_audit",
+        trial_metric=f"self_audit:{key}"[:60], higher_is_better=True,
+        baseline=baseline,
+        baseline_ref=(f"self_audit:{key}:{[i for i, _v in ours]}"[:80] if ours else ""),
+        change={"finding": finding_id, "key": key, "dimension": dimension,
+                "benchmark_score": float(score)})
+    if baseline is not None:
+        with db.session() as s:
+            imp = s.get(cells_model(), improvement_id)
+            imp.evidence = {**(imp.evidence or {}),
+                            "expected_gain": round(max(0.0, float(score) - baseline), 4)}
 
     with db.session() as s:
         row = s.get(TeardownFinding, finding_id)
