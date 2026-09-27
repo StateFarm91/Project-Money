@@ -54,6 +54,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "improve.measure", "improve.mine", "improve.monitor",
                             # #298: the post-season harvest (reads orders, writes its own row).
                             "seasonal.harvest",
+                            # #92 / #95 / #180 / #190: sandbox trials and the challenger league.
+                            "improve.sandbox", "improve.league",
                             "ops.provenance_backfill",
                             # The three gates that stopped reading environment variables
                             # need something to keep asking whether the capability still
@@ -195,6 +197,8 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=2.0),
     dict(name="cfo", description="Challenges spend; reconciles the ledger",
          allowed_job_types=["finance.reconcile", "finance.challenge",
+                            # #188: the governor enforces anomalies and parallelism advice.
+                            "finance.governor",
                             # The four-fifths escalation as a job rather than a page view:
                             # `spend_policy.escalation` was computed only when somebody
                             # fetched /api/spend-report, so a month that reached 80% with

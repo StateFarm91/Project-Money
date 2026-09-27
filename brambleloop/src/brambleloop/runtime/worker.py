@@ -149,6 +149,11 @@ class Worker:
             return False
         self.stats.claimed += 1
 
+        # #175: the lane allocation limits how many jobs an agent's lane runs at once. A job
+        # over its lane's concurrency goes back to PENDING un-counted (audited swarm.lane_held).
+        if lane_hold(self.db, job, worker=self.name):
+            return True
+
         # Authorize before anything else, including handler lookup. An agent reaching for work
         # it may not do is denied whether or not a handler happens to exist for it.
         try:
@@ -338,6 +343,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # tournament and expedition brief.
     ("white_space_discovery", "creative_director", "creative.white_space", 7 * 24 * 60 * 60),
     ("four_season_programme", "creative_director", "creative.four_season", 7 * 24 * 60 * 60),
+    # #92 / #95 / #180: sandbox trials and the challenger league, daily; #188 the governor,
+    # hourly; C-42 / #41 support triage, hourly (drafts only, nothing is sent in shadow).
+    ("improve_sandbox", "orchestrator", "improve.sandbox", 24 * 60 * 60),
+    ("improve_league", "orchestrator", "improve.league", 24 * 60 * 60),
+    ("finance_governor", "cfo", "finance.governor", 60 * 60),
+    ("support_triage", "support", "support.triage", 60 * 60),
     # Build 2 closeout (2026-09-27): the runtime halves of libraries that had none.
     # #174-#176, #186, #192: the swarm reviews agent quality, sizes lanes, resolves orphaned
     # work and feeds an idle queue from the standing backlog -- GREEN only, never spending.
@@ -625,7 +636,7 @@ class _LeaseRenewal:
                 return
             self.renewals += 1
 
-from ..swarm.orchestrate import priority_for  # noqa: E402
+from ..swarm.orchestrate import lane_hold, priority_for  # noqa: E402
 
 
 class Scheduler:

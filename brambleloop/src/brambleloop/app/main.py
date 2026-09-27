@@ -955,6 +955,50 @@ def api_mjs_reclassify(dry_run: bool = False,
     return JSONResponse(observe.reclassify(db, dry_run=dry_run))
 
 
+@app.post("/api/owner/decision")
+async def api_owner_decision(request: Request,
+                             authorization: str = Header(default="")) -> JSONResponse:
+    """The owner answers an approval card the improvement loop raised (#92 / #180 / #190).
+
+    Found by the certification wiring: gate-tier improvements and challenger promotions wait
+    on `cells.record_owner_approval` / `league.record_owner_decision`, and the cards named
+    those calls but nothing in the running system could make them. This is that door. It
+    records only; promotion still happens in the loop's own next cycle, under its checks.
+    Authenticated with the operator credential because it writes.
+
+    Body: {kind: "improvement" | "challenger", id: int, why: str (a sentence)}.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+
+    from ..improve import cells, league
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    kind, why = body.get("kind"), str(body.get("why") or "")
+    try:
+        ident = int(body.get("id"))
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "id must be an integer"}, status_code=400)
+    try:
+        if kind == "improvement":
+            out = cells.record_owner_approval(db, ident, approved_by="owner", why=why)
+        elif kind == "challenger":
+            out = league.record_owner_decision(db, ident, approved_by="owner", why=why)
+        else:
+            return JSONResponse({"error": "kind must be improvement or challenger"},
+                                status_code=400)
+    except (cells.ImprovementRefused, league.LeagueRefused) as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return JSONResponse({"recorded": True, "kind": kind, "id": ident, "result": out})
+
+
 @app.post("/api/mjs/veto")
 async def api_mjs_veto(request: Request, authorization: str = Header(default="")) -> JSONResponse:
     """Record one owner ruling on flagship creative or canonical model identity (#228).

@@ -63,6 +63,8 @@ OWNER_GATES = frozenset({
     # Certification C-40: the owner pastes Shop Manager Insights readings; the owner rules on
     # the browser/vision acceptance wording. Both need a person, so both are owner gates.
     "insights_access", "acceptance_ruling",
+    # #195: deploying Build 2 for an unattended production window is the owner's call.
+    "production_window",
 })
 
 

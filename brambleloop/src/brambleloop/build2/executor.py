@@ -376,6 +376,16 @@ def _canonical_model_approved(db, env) -> bool:
     return model_registry.canonical_pack(db) is not None
 
 
+def _production_window_proven(db, env) -> bool:
+    """#195: a full unattended production window, read from the rows it left, has passed."""
+    from . import autonomy
+
+    try:
+        return autonomy.launch_item(db)["status"] == autonomy.PROVEN
+    except Exception:  # noqa: BLE001 - an uncomputable proof is not a proven one
+        return False
+
+
 def _offsite_archive_written(db, env) -> bool:
     """Whether a continuity archive has actually made the whole round trip.
 
@@ -648,6 +658,15 @@ GATES: tuple[Gate, ...] = (
          _benchmarks_purchased,
          (165, 166, 168, 317),
          "at least one BenchmarkProduct row exists -- counted, not asked about"),
+    # Certification (#195): the off-device proof is computed and launch-blocking, and its
+    # pass can only come from a production window running this build unattended. Deploying
+    # Build 2 is the owner's decision, so this is an owner gate that opens on the evidence.
+    Gate("production_window",
+         "the owner's authorisation to run this build in production for a full unattended "
+         "window, so the off-device proof can be read from real rows",
+         _production_window_proven,
+         (195,),
+         "autonomy.launch_item reads PROVEN from the rows a full production window left"),
     Gate("offsite_storage",
          "an object-storage bucket and credential outside this provider, so a copy of the "
          "continuity archive survives losing the provider itself",

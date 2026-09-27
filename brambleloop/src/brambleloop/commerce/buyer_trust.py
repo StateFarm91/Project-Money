@@ -310,7 +310,10 @@ def confusion_rate(db, *, days: int = 90) -> dict:
         sales = list(s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale")))
         refunds = [x for x in sales if x.refunds_cad > 0]
 
-    confused = [c for c in cases if "confus" in (getattr(c, "theme", "") or "").lower()
+    # C-56: SupportCase has no `theme` column; the triage writes it into detail. Reading the
+    # attribute returned "" for every case, so confusion was never counted.
+    confused = [c for c in cases if "confus" in (
+        getattr(c, "theme", None) or (getattr(c, "detail", None) or {}).get("theme") or "").lower()
                 or "not a finished" in (getattr(c, "question", "") or "").lower()]
     orders = len(sales)
     if not orders:

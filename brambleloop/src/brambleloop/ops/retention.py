@@ -159,6 +159,9 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "improve.mine": ("latest", "improve.mine reads its own last run as the watermark"),
     "improve.monitor": ("latest", "improve.monitor reads its own last run as the watermark"),
     "creative.style_learning": ("latest", "the style learner's latest pass is its reading"),
+    "finance.governor": ("windowed", "parallelism history covers 7 days; may_claim reads the "
+                         "latest governor advice"),
+    "improve.league.run": ("windowed", "the league compares on recorded runs in its window"),
     "creative.white_space": ("latest", "creative.ideation reads the latest white-space "
                              "hypotheses into every tournament/expedition brief"),
     "creative.four_season": ("latest", "creative.ideation reads the latest four-season "
