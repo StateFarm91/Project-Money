@@ -259,14 +259,113 @@ def record_trial_outcomes(db) -> dict:
     return {"trials_read": len(trials), "recorded": recorded, "skipped": skipped}
 
 
+# ---- #96: every material prompt, tool and decision policy, versioned from the running code --
+
+PROMPT_KIND = "prompt"
+TOOL_KIND = "tool"
+POLICY_KIND = "policy"
+
+# The deterministic tools every release passes through, by the module that is the tool. Their
+# version is the digest of the running source, so a change to the compiler is a new version
+# with the reason recorded -- the registry follows the code.
+TOOLS: dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]] = {
+    # key: (module path relative to the package, tests that exercise it, departments)
+    "tool:cir_compiler": ("cir/compiler.py", ("tests/test_compiler.py",),
+                          ("pattern_engineering", "quality")),
+    "tool:digital_twin": ("cir/twin.py", ("tests/test_twin.py",),
+                          ("pattern_engineering", "creative_assets")),
+    "tool:reverse_compiler": ("cir/reverse.py", ("tests/test_reverse.py",),
+                              ("pattern_engineering", "quality")),
+    "tool:regression_suite": ("gates/regression.py", ("tests/test_defects.py",),
+                              ("quality",)),
+    "tool:pdf_writer": ("publish/pdf.py", ("tests/test_layout_qa.py",),
+                        ("creative_assets", "customer_experience")),
+}
+
+
+def _source_digest(relative: str) -> str:
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / relative
+    try:
+        return league.digest_of(path.read_text(encoding="utf-8"))
+    except OSError:
+        return ""
+
+
+def _policy_payloads() -> dict[str, tuple[str, tuple[str, ...], str]]:
+    """Each gate-tier decision policy as the running code states it."""
+    from ..finance import spend_policy
+    from ..gates import policy as gate_policy
+    from ..improve import tiers
+
+    return {
+        "policy:release_gate": (json.dumps({"POLICY_VERSION": gate_policy.POLICY_VERSION}),
+                                ("quality", "seo_search"),
+                                "the release Policy Gate's version, as gates.policy states it"),
+        "policy:spend_ceilings": (json.dumps({
+            "CEILING_CAD": spend_policy.CEILING_CAD,
+            "ESCALATE_AT_SHARE": spend_policy.ESCALATE_AT_SHARE,
+            "INFRA_CEILING_CAD": spend_policy.INFRA_CEILING_CAD,
+            "BENCHMARK_BUDGET_CAD": spend_policy.BENCHMARK_BUDGET_CAD}, sort_keys=True),
+            ("finance", "runtime"), "the monthly and infrastructure spend ceilings in code"),
+        "policy:promotion_tiers": (json.dumps({t.key: [t.cooldown_hours, t.weekly_ceiling,
+                                                       list(t.requires)] for t in tiers.TIERS},
+                                              sort_keys=True),
+                                   ("runtime", "quality"),
+                                   "the improvement tiers' cooldowns, ceilings and evidence"),
+    }
+
+
+def register_code_versions(db) -> dict:
+    """Register every prompt, deterministic tool and decision policy the code runs (#96)."""
+    from ..gateway import prompts
+
+    registered, unchanged = [], []
+
+    def one(kind, key, payload, why, tests, departments, cost=0.0):
+        prior = league.incumbent_payload(db, kind=kind, key=key)
+        reason = (f"{why}; first recorded from the running code" if prior is None else
+                  f"{why}; the running code moved from version {prior['version']}")
+        out = league.register(db, kind=kind, key=key, payload=payload, why_changed=reason,
+                              tests_run=tests, cost_per_call_cad=cost,
+                              affected_departments=departments, incumbent=True)
+        (unchanged if out.get("unchanged") else registered).append(
+            {"kind": kind, "key": key, "version": out["version"]})
+        if out.get("unchanged"):
+            _follow_code(db, out["id"], source=key)
+
+    for prompt in prompts.all_prompts():
+        one(PROMPT_KIND, f"prompt:{prompt.name}",
+            json.dumps({"ref": prompt.ref, "sha256": prompt.sha256,
+                        "output_schema": list(prompt.output_schema),
+                        "max_output_tokens": prompt.max_output_tokens}, sort_keys=True),
+            f"prompt {prompt.ref} as registered in gateway.prompts",
+            ("tests/test_gateway.py",), ("product_creativity", "seo_search"))
+    for key, (relative, tests, departments) in TOOLS.items():
+        digest = _source_digest(relative)
+        if not digest:
+            continue
+        one(TOOL_KIND, key, json.dumps({"module": relative, "source_sha256": digest}),
+            f"deterministic tool {relative}, versioned by its source digest", tests,
+            departments)
+    for key, (payload, departments, why) in _policy_payloads().items():
+        one(POLICY_KIND, key, payload, why, ("tests/test_gates.py", "tests/test_tiers.py"),
+            departments)
+    return {"registered": registered, "unchanged": len(unchanged)}
+
+
 def ensure(db) -> dict:
     """Register the incumbents and record any trial verdicts. Cheap, idempotent, spends nothing."""
     routing = register_routing_incumbents(db)
     image = register_image_incumbent(db)
     trials = record_trial_outcomes(db)
+    code = register_code_versions(db)
     return {
         "routing": {"registered": len(routing["registered"]),
                     "unchanged": len(routing["unchanged"])},
+        "code_versions": {"registered": len(code["registered"]),
+                          "unchanged": code["unchanged"]},
         "image_provider": image,
         "trials": {"read": trials["trials_read"], "recorded": len(trials["recorded"])},
         "challengers_run": 0,

@@ -197,7 +197,10 @@ def prioritise(candidates: list[dict]) -> dict:
                      "impact_per_cad": (round(float(expected) / cost, 4) if cost > 0
                                         else None)})
     # A free change with real expected impact outranks a paid one: sorted with None first.
-    rows.sort(key=lambda r: (r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0)))
+    # Among free changes, the larger expected impact first -- otherwise every free candidate
+    # ties and the order is whatever order the rows were read in.
+    rows.sort(key=lambda r: (r["impact_per_cad"] is not None, -(r["impact_per_cad"] or 0.0),
+                             -float(r["expected_impact"])))
     return {"ranked": rows,
             "note": ("Ordered by expected impact per dollar, with free changes first. "
                      "Continuous learning is not permission to burn unlimited tokens (#99).")}
