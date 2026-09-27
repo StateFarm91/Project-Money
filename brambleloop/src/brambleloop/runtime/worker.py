@@ -457,6 +457,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("physical_upgrade_impact", "quality_director", "physical.upgrade_impact", 24 * 60 * 60),
     # C-60 (#201): the canonical identity checked as a series across batches, daily.
     ("identity_drift", "quality_director", "visual.identity_drift", 24 * 60 * 60),
+    # C-60 (#86): the creativity benchmark memory, daily and free; UNMEASURED until a judged
+    # image carries a commercial attribute (the judging runs behind image_vision).
+    ("benchmark_memory", "creative_director", "creative.benchmark_memory", 24 * 60 * 60),
     # C-60 (#116): construction readings and stored decompositions, gated on image_vision.
     ("reference_reading", "creative_director", "creative.reference_reading", 24 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the

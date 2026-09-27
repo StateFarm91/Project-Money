@@ -269,7 +269,13 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # gate as finished work rather than moving to another park. Asserted by membership, not a
     # count, so a row silently moving between gates is caught too.
     pbc = q["parked_by_capability"]
-    assert pbc["rendered_pages"] == [39], pbc["rendered_pages"]
+    # #39's policy pages are the hand-written table's one rendered_pages requirement; the
+    # registry may park others there (C-60 reopened #35 onto it). Both halves must be
+    # reported, and nothing else may be: a row here that neither half parked is a row the
+    # executor invented a reason for.
+    registry_rendered = {rid for rid, key in E._registry_gates().items()
+                         if key == "rendered_pages"}
+    assert set(pbc["rendered_pages"]) == {39} | registry_rendered, pbc["rendered_pages"]
     assert {1, 37, 236} <= set(pbc.get("insights_access", [])), pbc
     assert {189, 221, 222, 320} <= set(pbc.get("acceptance_ruling", [])), pbc
     assert not {2, 15} & {r for rows in pbc.values() for r in rows}, "2/15 are done, not parked"
@@ -411,7 +417,16 @@ def test_a_gate_may_be_satisfied_and_carry_no_requirements():
     # than on a browser: `insights_access`, which counts InsightsSnapshot rows.
     for requirement_id in (1, 37, 236):
         assert E.gate_for(requirement_id) == "insights_access", requirement_id
-    assert reg.get(235).status == reg.DATA_GATED
+    # The fourth, #235, may only ever wait on orders. C-60 (2026-09-27) reopened it as
+    # executable work -- `promotion.incrementality` had no caller -- so today it is parked
+    # nowhere; the day it is parked again, the park must be the data gate `customers` and the
+    # status must say so. Either way it never waits on a credential or a browser.
+    gate_235 = E.gate_for(235)
+    if gate_235 is None:
+        assert reg.get(235).status == reg.PARTIAL, reg.get(235).status
+    else:
+        assert gate_235 == "customers", gate_235
+        assert reg.get(235).status == reg.DATA_GATED, reg.get(235).status
 
     assert E.reconciliation(db)["balances"] is True
 

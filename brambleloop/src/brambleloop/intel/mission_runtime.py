@@ -1481,7 +1481,10 @@ def pod_maps(db, *, today: date | None = None) -> dict:
         for r in s.scalars(select(PodCapabilityReading).order_by(desc(PodCapabilityReading.id))):
             latest.setdefault(r.pod, r)
         caps = {p: {"measured": r.measured, "discernment": (r.discernment or {}).get("reading"),
-                    "creativity": (r.creativity or {}).get("reading")}
+                    "creativity": (r.creativity or {}).get("reading"),
+                    # #226: the precision behind a measured discernment reading, carried so
+                    # the lane order below can weight by it. Absent when unmeasured.
+                    "discernment_precision": (r.discernment or {}).get("precision")}
                 for p, r in latest.items()}
     for pod in sorted(depth):
         spec = pods.BY_KEY.get(pod)
@@ -1514,7 +1517,14 @@ def pod_maps(db, *, today: date | None = None) -> dict:
 
 
 def _pod_priority(db) -> dict[str, float]:
-    """Each pod's opportunity from its newest persisted map; absent pods sort last."""
+    """Each pod's opportunity from its newest persisted map; absent pods sort last.
+
+    #226: a pod whose discernment has been *measured* (twelve settled tournament calls) weights
+    its lane by that precision -- a pod right every time keeps its whole opportunity, a pod
+    wrong every time keeps half of it -- so the capability reading changes which department's
+    same-arena design starts first rather than being a number on a page. An unmeasured pod is
+    not penalised for the absence of evidence: its factor is one.
+    """
     from sqlalchemy import desc, select
 
     from ..core.models import OperatingReading
@@ -1530,8 +1540,15 @@ def _pod_priority(db) -> dict[str, float]:
         vals = [v for v in (opp.get("market_score"), opp.get("weakness_opening"))
                 if isinstance(v, (int, float))]
         if vals:
-            out[pod] = sum(vals) / len(vals)
+            out[pod] = sum(vals) / len(vals) * _discernment_factor(m.get("capability") or {})
     return out
+
+
+def _discernment_factor(capability: dict) -> float:
+    precision = capability.get("discernment_precision")
+    if capability.get("measured") and isinstance(precision, (int, float)):
+        return 0.5 + 0.5 * max(0.0, min(1.0, float(precision)))
+    return 1.0
 
 
 # ---------------------------------------------------------------------------

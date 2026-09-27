@@ -103,6 +103,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "creative.style_learning", "creative.outcome_learning",
                             # #118 / #121: white-space discovery and the four-season programme.
                             "creative.white_space", "creative.four_season",
+                            # C-60 (#86): the creativity benchmark memory, daily.
+                            "creative.benchmark_memory",
                             # C-60 (#116): construction readings + stored decompositions.
                             "creative.reference_reading",
                             # The image-provider benchmark (owner decision 2026-09-20).

@@ -2164,6 +2164,32 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
             "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
 
 
+@handlers.register("creative.benchmark_memory")
+def handle_benchmark_memory(ctx: JobContext) -> dict:
+    """#86: the creativity benchmark memory, folded daily from judged photographs and stored.
+
+    Reads every `gallery_image_observation` for the commercial attributes the vision
+    vocabulary judged (transformation, silhouette strength, characterisation, gift narrative,
+    modularity ...), pairs each with the market outcome on file (favourites, a demand proxy)
+    and with Brambleloop's own outcomes (UNMEASURED until orders exist), and stores the
+    reading. `creative.ideation.lessons` reads it into every tournament and expedition brief.
+    UNMEASURED, with the reason, while no judged image carries an attribute -- the judging runs
+    behind image_vision. GREEN: reads rows, writes one reading, spends nothing.
+    """
+    from ..creative import benchmark_memory
+
+    out = benchmark_memory.build(ctx.db, today=_mjs_today(ctx))
+    ctx.audit(benchmark_memory.ACTION, detail={
+        "state": out["state"], "judged_listings": out["judged_listings"],
+        "attributes": sorted(out["attributes"]),
+        "brambleloop_outcomes": out["outcomes"]["brambleloop"]["reading"],
+        **({"reason": out["reason"]} if not out["measured"] else {})})
+    return {"measured": out["measured"], "state": out["state"],
+            "judged_listings": out["judged_listings"],
+            "attributes": sorted(out["attributes"]),
+            "rewarded": [a["attribute"] for a in benchmark_memory.rewarded(ctx.db)]}
+
+
 @handlers.register("intel.panel_discovery")
 def handle_intel_panel_discovery(ctx: JobContext) -> dict:
     """#219 / #268: category leaders found in the API search index join the panel and are scanned.

@@ -455,6 +455,106 @@ def test_matrix_cells_carry_the_columns_the_requirement_lists():
     assert cell["adaptation_opportunities"][0]["arena"] == "stocking"
 
 
+# ---- #86: the creativity benchmark memory is UNMEASURED without judged images, learns from
+# them, and steers the ideation brief ------------------------------------------------------
+
+
+def test_benchmark_memory_is_unmeasured_without_judged_images_then_steers_the_brief():
+    from brambleloop.core.models import Agent, BenchmarkObservation
+    from brambleloop.creative import benchmark_memory, ideation
+
+    db = _db()
+    with db.session() as s:
+        a = s.scalar(select(Agent).where(Agent.name == "creative_director"))
+        assert "creative.benchmark_memory" in (a.allowed_job_types or [])
+
+    # No judged image: the memory runs on its cadence and says UNMEASURED with the reason,
+    # and the brief carries no market attribute rather than a guessed one.
+    out = _run(db, "creative_director", "creative.benchmark_memory")
+    assert out["measured"] is False and out["state"] == "UNMEASURED", out
+    assert out["rewarded"] == []
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == benchmark_memory.KIND))
+        assert row is not None and "image_vision" in row.payload["reason"]
+        assert row.payload["outcomes"]["brambleloop"]["orders"] == "UNMEASURED"
+    lessons = ideation.lessons(db, kind="tournament", event="Christmas", pod="hats")
+    assert lessons["market_attributes"] == []
+
+    # Judged gallery observations (the rows intel.gallery_analysis writes) carrying the #86
+    # vocabulary, on listings with the API's favourites. Three listings read as a clever
+    # transformation and are the popular ones; two read as minimalism and are not.
+    with db.session() as s:
+        for i, (attr, phrase, favourites) in enumerate((
+                ("transformation", "reads as a hat that becomes a bag", 900),
+                ("transformation", "one make, two uses shown in frame one", 700),
+                ("transformation", "the fold is the selling point", 800),
+                ("minimalism", "single colour, no trim", 40),
+                ("minimalism", "plain field, one motif", 60))):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"M{i}",
+                                   pod="hats", title="Crochet Hat Pattern",
+                                   detail={"num_favorers": favourites}))
+            s.add(BenchmarkObservation(
+                benchmark_key=benchmarks.MJS_KEY, listing_ref=f"M{i}",
+                kind="gallery_image_observation", grade="primary",
+                detail={"observation": {attr: phrase, "setting": "studio"}}))
+
+    out = _run(db, "creative_director", "creative.benchmark_memory")
+    assert out["measured"] is True and set(out["attributes"]) == {"transformation",
+                                                                   "minimalism"}
+    assert out["rewarded"] == ["transformation"], out
+    reading = benchmark_memory.latest(db)
+    t, m = reading["attributes"]["transformation"], reading["attributes"]["minimalism"]
+    assert t["listings"] == 3 and t["demand_lift"] > 1 and m["demand_lift"] < 1
+    assert "reads as a hat that becomes a bag" in t["phrases"]
+    # Only the closed vocabulary is stored: the merchandising field on the same observation
+    # is not a commercial attribute and does not enter the memory.
+    assert "setting" not in reading["attributes"]
+
+    # Acted on: the tournament brief names what the market rewards, with its measured lift.
+    lessons = ideation.lessons(db, kind="tournament", event="Christmas", pod="hats")
+    assert [a["attribute"] for a in lessons["market_attributes"]] == ["transformation"]
+    assert lessons["market_attributes"][0]["seen_in_pod"] is True
+    plan = ideation.plan(db, kind="tournament", event="Christmas", pod="hats",
+                         forms=["hat"], cycle=0, today=date(2026, 9, 27))
+    text, _ = ideation.constraints_text(plan, 0)
+    assert "market rewards transformation" in text and "hat that becomes a bag" in text
+
+
+# ---- #226: a measured discernment reading changes which pod's lane starts first -----------
+
+
+def test_a_measured_discernment_reading_reorders_the_same_arena_lane():
+    from brambleloop.core.models import PodCapabilityReading
+    from brambleloop.intel import mission_runtime
+
+    db = _db()
+    with db.session() as s:
+        for pod in ("hats", "blankets"):
+            for i in range(6):
+                s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY,
+                                       listing_ref=f"{pod}{i}", pod=pod,
+                                       title=f"Chunky {pod[:-1]} crochet pattern",
+                                       price_cad=8.0, detail={"num_favorers": 120}))
+    _run(db, "market_radar", "intel.pod_learning")
+    before = mission_runtime._pod_priority(db)
+    assert before["hats"] == before["blankets"] > 0, before
+
+    # A pod whose discernment has been measured at zero precision -- twelve settled calls,
+    # none of them right -- keeps half its opportunity; the unmeasured pod keeps all of it.
+    with db.session() as s:
+        s.add(PodCapabilityReading(
+            pod="hats", measured=True,
+            discernment={"reading": "measured", "settled": 12, "precision": 0.0},
+            creativity={"reading": "measured", "responses": 6},
+            balance={"reading": "measured"}, detail={}))
+    _run(db, "market_radar", "intel.pod_learning")
+    after = mission_runtime._pod_priority(db)
+    assert after["blankets"] == before["blankets"]
+    assert abs(after["hats"] - before["hats"] * 0.5) < 1e-9, (before, after)
+    assert after["blankets"] > after["hats"]
+
+
 if __name__ == "__main__":
     failed = passed = 0
     for name, fn in sorted(globals().items()):

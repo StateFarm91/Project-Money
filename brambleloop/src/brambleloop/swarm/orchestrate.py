@@ -441,6 +441,7 @@ JOB_BANDS: dict[str, str] = {
     "physical.photo": "truth_defect",
     "physical.upgrade_impact": "exploration",
     "visual.identity_drift": "truth_defect",
+    "creative.benchmark_memory": "benchmark_change",
     "creative.reference_reading": "benchmark_change",
     "assets.render": "proven_winner",
     "assets.owned_photography": "proven_winner",
