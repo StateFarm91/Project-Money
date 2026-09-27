@@ -14,17 +14,17 @@ Artifacts:`out/geometry_manifest.json`,`out/proof_results.json`,`out/cable_ids.p
 
 Hypothesis: local tools can render the full schedule and export protected foreground/data layers without paid services. Blender4.5.0 CyclesCPU,32samples,no denoising,1024x1536,8threads. Two area lights; uncalibrated roughness/sheen/noise cream material; orthographic flat product. No physics drape or fibre simulation.
 
-Result:latest setup+render14.134s;313,632 points,17,424 carriers. Geometry array digest unchanged before/after render. RGBAbeauty plus EXR depth/world normals/diffuse colour and display-transformed PNG previews emitted. Earlier render peak~1.22GB. Latest beauty SHA25657430ff72fa001bfc91c4c8046e2efad22664964bf0ef80b5d5092d96a748efe. Render is visibly schematic. Photographic realism UNKNOWN, listing thumbnail FAIL by visual assessment. No paid independent judge.
+Result:latest setup+render14.198s;313,632 points,17,424 carriers. Geometry array digest unchanged before/after render. RGBAbeauty plus EXR depth/world normals/diffuse colour and display-transformed PNG previews emitted. Earlier render peak~1.22GB. Latest beauty SHA256a24df18ad1fbedd8e2005f0af2d2203bcc85ebd5e6e2a1e1715ad8fba25b9944. Render is visibly schematic. Photographic realism UNKNOWN, listing thumbnail FAIL by visual assessment. No paid independent judge.
 
-Artifacts:`render_probe.py`,`out/render_record.json`,`out/product_probe.png`,pass-preview PNGs,render.log. Raw EXR/blend ignored/regenerable. Latest beauty was rerendered to add pass previews; recomposition must be rerun after that (CURRENT_STATE tracks task).
+Artifacts:`render_probe.py`,`out/render_record.json`,`out/product_probe.png`,pass-preview PNGs,render.log. Raw EXR/blend ignored/regenerable. Latest beauty and all composites were regenerated after adding pass previews and canonical LF serialization. Product/geometry provenance matches; verifier checks the digests.
 
 ## V2-P03 — protected foreground compositing
 
 Hypothesis: generation outside the product cannot modify authoritative foreground when local restoration is enforced. Three synthetic background proposals:slate,warm,hostile checkerboard. Linear-light `aF+(1-a)B`; opaque pixels copied exactly. This does not depend on any generator following its mask.
 
-Result from first beauty:12,008 opaque pixels,684,367 partial-coverage pixels;zero opaque channel delta across all three backgrounds. One-pixel output corruption detected; direct hostile proposal changes8,986 opaque pixels. Partial pixels legitimately change with background; their foreground contribution/alpha stays fixed. No AI scene/shadow/relighting success inferred.
+Result confirmed on latest beauty:12,008 opaque pixels,684,367 partial-coverage pixels;zero opaque channel delta across all three backgrounds. One-pixel output corruption detected; direct hostile proposal changes8,986 opaque pixels. Partial pixels legitimately change with background; their foreground contribution/alpha stays fixed. No AI scene/shadow/relighting success inferred.
 
-Artifacts:verifier,proof_results.json,composite_*.png,product_alpha.png. Refresh outputs against latest beauty before final report. Existing checks do not yet independently validate a production float-EXR pipeline or semantic fibre coverage.
+Artifacts:verifier,proof_results.json,composite_*.png,product_alpha.png. Outputs are refreshed against the latest beauty and bound by provenance hashes. Existing checks do not yet independently validate a production float-EXR pipeline or semantic fibre coverage.
 
 ## V2-P04 — adversarial old-instrument check
 
@@ -40,4 +40,4 @@ Network-disabled subprocess harness:`run_offline_checks.py`. E1spec17,E3 10,Benc
 
 ## Next experiment — planned, not executed
 
-Build a topology-correct post/cable unit with continuous yarn and edge/turn cases; validate consumed loops, crossing order, collision/clearance and nominal metric layout. Instance unchanged full18-column Heirloom, render whole flat/detail/controlled fold views, and test structure plus all original photographic criteria independently. Full acceptance, stop rules and economics will be specified in VISUAL_V2_ARCHITECTURE.md. No new paid call required/requested. This is the remaining engineering hypothesis, not a completed certification.
+Build a topology-correct post/cable unit with continuous yarn and edge/turn cases; validate consumed loops, crossing order, collision/clearance and nominal metric layout. Instance unchanged full18-column Heirloom, render whole flat/detail/controlled fold views, and test structure plus all original photographic criteria independently. Full acceptance, stop rules and economics are specified in VISUAL_V2_ARCHITECTURE.md sections12–13. No new paid call required/requested. This is the remaining engineering hypothesis, not a completed certification.

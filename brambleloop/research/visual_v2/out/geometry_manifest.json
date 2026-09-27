@@ -3,7 +3,7 @@
   "product_truth_sha256": "cf3b9d1a9e92cff41ca2e461b9795cecbaa12d42d89ddb47420aad6307d85808",
   "cir_fingerprint": "33da2708f35c",
   "source_code_sha256": "449caaa1b44f19b9e43ff086e03be48844b94633133323eded9a04ba15aedbeb",
-  "generator_sha256": "5004df27932dd904733a54e365b3c7b801413db43dfa84d9d0b2dbafd8eaabfa",
+  "generator_sha256": "ed2eb531fd41b1b73cc189256408af6a32643a5b4b0844d1a515bf9b34c3ef03",
   "geometry_file_sha256": "c934f3a2357ef38d333b12bdbee54c3799616e18f8a15ac6424fee5267ae93ab",
   "points_array_sha256": "b7bd3b1f177696cff1d0466b736fa927386bedad21b5bfd558866362e24939e9",
   "cell_columns": [
@@ -136,5 +136,5 @@
     "material/fibre calibration",
     "photographic realism"
   ],
-  "seconds": 0.786
+  "seconds": 0.784
 }

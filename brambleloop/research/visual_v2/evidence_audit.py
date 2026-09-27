@@ -72,7 +72,7 @@ def main():
         entries = index.get("draws", {})
         previews[exp] = {"note": index.get("note"), "records": {name: {"matches_preview_hash": sha(d / name) == r["preview_sha256"], "full_sha256": r["full_sha256"]} for name, r in entries.items()}}
     result["preview_integrity"] = previews
-    (OUT / "evidence_reconstruction.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    (OUT / "evidence_reconstruction.json").write_text(json.dumps(result, indent=2), encoding="utf-8", newline="\n")
     inventory = []
     roots = [RESEARCH / name for name in ("d", "e1", "e2", "e3", "e4", "e5", "bench1", "bench2", "v1grad")]
     roots += [ROOT / "src/brambleloop/visual", ROOT / "src/brambleloop/cir", ROOT / "src/brambleloop/gateway"]
@@ -82,7 +82,7 @@ def main():
     paths |= {p for p in (ROOT / "tests").glob("test_*.py") if any(x in p.name for x in ("visual", "stitch", "drape", "render", "milestone", "fabric", "topology", "gateway", "model_freeze"))}
     for p in sorted(paths):
         inventory.append({"path": str(p.relative_to(ROOT)).replace("\\", "/"), "bytes": p.stat().st_size, "sha256": sha(p)})
-    (OUT / "source_inventory.json").write_text(json.dumps(inventory, indent=2), encoding="utf-8")
+    (OUT / "source_inventory.json").write_text(json.dumps(inventory, indent=2), encoding="utf-8", newline="\n")
     print(json.dumps({exp: {k:v for k,v in data.items() if k in ("attempts", "successful_draws", "verdicts", "material_failures", "recorded_spent_usd", "all_seven_realism_pass", "judge_pass_sum", "spend", "judge_record_cost_sum")} for exp, data in result["experiments"].items()}, indent=2))
 
 

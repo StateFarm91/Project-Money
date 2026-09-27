@@ -13,6 +13,11 @@
       "crossing_locations_match_cell_slots": true
     }
   },
+  "provenance": {
+    "product_png_sha256": "a24df18ad1fbedd8e2005f0af2d2203bcc85ebd5e6e2a1e1715ad8fba25b9944",
+    "points_array_sha256": "b7bd3b1f177696cff1d0466b736fa927386bedad21b5bfd558866362e24939e9",
+    "render_and_geometry_records_match": true
+  },
   "adversarial_geometry": {
     "delete_column": {
       "status": "FAIL",
@@ -189,5 +194,5 @@
     "release": "BLOCKED - macro layout/compositor proof only"
   },
   "external_spend_usd": 0,
-  "seconds": 7.455
+  "seconds": 5.837
 }

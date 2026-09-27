@@ -75,6 +75,12 @@ def main(deps=None):
     if deps: sys.path.insert(0,str(Path(deps).resolve()))
     start=time.perf_counter()
     data=np.load(OUT/'routing_probe.npz'); table=data['cells']; points=data['points_mm']; edges=data['row_edges_mm']
+    product_sha=hashlib.sha256((OUT/'product_probe.png').read_bytes()).hexdigest()
+    render_record=json.loads((OUT/'render_record.json').read_text())
+    geometry_record=json.loads((OUT/'geometry_manifest.json').read_text())
+    points_sha=hashlib.sha256(points.tobytes()).hexdigest()
+    assert product_sha==render_record['product_png_sha256'], 'Product render is stale or modified'
+    assert points_sha==geometry_record['points_array_sha256']==render_record['points_array_sha256_before']==render_record['points_array_sha256_after'], 'Geometry/render provenance mismatch'
     valid=validate_schedule(table,edges,points)
     mutants={}
     for name in ['delete_column','wrong_crossing_row','change_stitch_family','move_crossing','rescale_gauge']:
@@ -130,11 +136,12 @@ def main(deps=None):
         "photographic_realism":"UNKNOWN", "fibre_fuzz":"UNKNOWN", "drape":"UNKNOWN", "listing_thumbnail_suitability":"FAIL - visibly schematic carriers",
         "release":"BLOCKED - macro layout/compositor proof only"}
     result={"scope":"Structural routing and product-pixel authority proof, not a certified hero", "semantic_schedule":valid,
+            "provenance":{"product_png_sha256":product_sha,"points_array_sha256":points_sha,"render_and_geometry_records_match":True},
             "adversarial_geometry":mutants,"composites":comp,"direct_hostile_proposal_changed_opaque_pixels":direct_hostile_changed,
             "one_pixel_corruption_detected":corruption_detected,
             "legacy_instrument":{"reference":old_reference,"crossings_shifted_12px":old_shifted,"one_column_erased":old_erased,"old_gates_changed":False},
             "separate_gates":semantic_only,"external_spend_usd":0,"seconds":round(time.perf_counter()-start,3)}
-    (OUT/'proof_results.json').write_text(json.dumps(result,indent=2))
+    (OUT/'proof_results.json').write_text(json.dumps(result,indent=2), encoding="utf-8", newline="\n")
     assert valid['status']=='PASS'
     assert all(v['status']=='FAIL' for v in mutants.values())
     assert all(v['status']=='PASS' for v in comp.values()) and corruption_detected and direct_hostile_changed>0

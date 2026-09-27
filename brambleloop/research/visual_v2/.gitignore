@@ -4,3 +4,4 @@ out/*.exr
 out/*.npz
 out0001.exr
 out/tests/*.full.log
+out/verify.log

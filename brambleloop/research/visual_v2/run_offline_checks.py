@@ -35,7 +35,7 @@ runpy.run_path(sys.argv[3], run_name='__main__')
     r = subprocess.run([sys.executable, "-c", code, deps, str(ROOT / "src"), str(ROOT / suite)], cwd=ROOT, capture_output=True, text=True, errors="replace")
     log = r.stdout + r.stderr
     filename = suite.replace("/", "_") + ".full.log"
-    (OUT / filename).write_text(log, encoding="utf-8")
+    (OUT / filename).write_text(log, encoding="utf-8", newline="\n")
     summary = {"suite": suite, "exit_code": r.returncode, "seconds": round(time.perf_counter()-start, 2),
                "tail": log.splitlines()[-12:], "failures": [l for l in log.splitlines() if l.startswith(("FAIL", "FAILED", "ERROR"))]}
     print(json.dumps(summary), flush=True)
@@ -47,5 +47,5 @@ if __name__ == "__main__":
     deps = str(Path(sys.argv[1]).resolve()) if len(sys.argv)>1 else ""
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         records = list(pool.map(lambda s: run(s, deps), SUITES))
-    (OUT / "offline_checks.json").write_text(json.dumps({"network_disabled": True, "suites": records}, indent=2))
+    (OUT / "offline_checks.json").write_text(json.dumps({"network_disabled": True, "suites": records}, indent=2), encoding="utf-8", newline="\n")
     sys.exit(any(r["exit_code"] for r in records))

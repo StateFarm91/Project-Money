@@ -1,6 +1,6 @@
 # Visual V2 — durable working memory
 
-Updated 2026-09-27. Read this first after compaction; continue in the same thread. The owner explicitly requested this checkpoint and continued work, not abandonment or a new conversation. This file supersedes stale work-in-progress notes in NEXT_SESSION.md until that handoff is refreshed.
+Updated 2026-09-27. Read this first after compaction; continue in the same thread. The owner explicitly requested this checkpoint and continued work, not abandonment or a new conversation. The first-pass report and handoff are complete; the next engineering experiment is specified, not executed.
 
 ## Objective, isolation and authority
 
@@ -57,7 +57,7 @@ Primary-source research and capability classification are in report sections5–
 
 ## Completed experiments and tests
 
-See EXPERIMENTS.md and raw JSON. Local Blender4.5 CyclesCPU32samples renders all17,424 disconnected schematic cell carriers (313,632 points),18 columns/540 crossing slots; **not actual continuous crochet topology**. Product is unchanged, but incomplete geometry cannot certify it. Setup+render14.134s at1024x1536; ~1.22GB peak earlier run. Six semantic/invariant concepts checked in eight assertions; five deliberate mutations all fail.
+See EXPERIMENTS.md and raw JSON. Local Blender4.5 CyclesCPU32samples renders all17,424 disconnected schematic cell carriers (313,632 points),18 columns/540 crossing slots; **not actual continuous crochet topology**. Product is unchanged, but incomplete geometry cannot certify it. Setup+render14.198s at1024x1536; ~1.22GB peak earlier run. Eight semantic/geometric assertions pass; five deliberate mutations all fail.
 
 Three local backgrounds (slate,warm,hostile) recomposed:12,008 opaque pixels unchanged,684,367 fractional coverage pixels retain foreground contribution under composition. One-pixel corruption caught. Legacy pitch sub-gate misses phase/deleted-column mutations. No AI background, relight, shadow realism or independent photographic judgment was run. Continuous yarn topology FAIL, stitch identity/realism UNKNOWN, thumbnail FAIL, release BLOCKED.
 
@@ -71,12 +71,14 @@ Existing offline checks:151 assertions pass across E1(17),E3(10),Bench1(34),Benc
 - Local clone `core.autocrlf=false`; canonical LF restored to frozen evidence so hashes work. Verified no historical tracked changes. Do not repeat line-ending normalization.
 - `.blend`, raw `.exr`, geometry `.npz`, complete test logs ignored and regenerable. PNGs, JSON measurements, scripts and docs retained. External runtimes outside repo.
 
-## Active work / exact next actions
+## Completed first pass / exact next actions
 
-1. **Immediate owner-requested checkpoint:** commit/push this memory, DECISIONS.md, EXPERIMENTS.md and completed scripts/artifacts on `codex/visual-v2-rnd`. Report is currently complete through section9; marked work in progress by this state. No final certification claim.
-2. Latest rerender changed product PNG hash to `57430ff72fa001bfc91c4c8046e2efad22664964bf0ef80b5d5092d96a748efe`; rerun `verify_probe.py --deps ..\runtime-python` so composites/results match latest render. Rerun `evidence_audit.py` after restored LF. Do not run any paid runner main.
-3. Finish report: comparison matrix; actual POC limits/results; decisive topology-correct cable-unit then full18-column experiment; exact acceptance criteria; production economics; migration; flat-lay/detail/on-model/lifestyle; risks. Requested paid spend remains$0; no paid call needed to test next geometry/material hypothesis.
-4. Write short reproducibility commands and refresh NEXT_SESSION.md to direct reader here. Inspect rendered previews, check scoped git diff and file sizes, doc links, script compilation. Existing valid tests need not be repeated absent changes.
-5. Update this memory/decision/experiment logs, commit/push final report and verified outputs; verify remote branch hash. Open report for owner. Final message concise with recommendation, non-certification limit, $0, test status, commit/link.
+- Owner-requested durable checkpoint **c4ae071** was committed and pushed. The final report, updated ledgers and reproducibility README are complete. Resolve current tip with `git log -1`; the checkpoint is not the final tip.
+- Evidence audit refreshed after restoring canonical LF bytes. Latest geometry/render/composites regenerated; proof JSON binds actual product and geometry hashes and all invariant/mutation checks pass. Visual inspection confirms the image remains schematic. No hero certified.
+- First-pass closeout: verify `out/final_validation.json`, commit/push final lane changes, verify remote hash and clean tree. No production or Claude changes are included.
+- **Next bounded engineering question:** implement topology-correct continuous sc/post/cable repeat and edge/turn cases. Review consumed loops, post anchors, strand order and continuity independently. Do not reuse schematic carriers as a certified asset. See report section12 for full acceptance/stop rules.
+- After the coupon passes, instance the unchanged full throw; six predeclared views/lights and18 compositions. Keep all outputs. No paid call is required or requested. Missing physical calibration or independent review stays UNKNOWN.
 
-Open questions after first pass: correct continuous post/cable topology incl row/edge transitions; degree of material realism without physical calibration; actual PBR production latency; geometry-to-pixel observable stitch gates; folds/drape; immutable canonical body pack and allowed poses. Finish one question at a time and persist conclusions immediately. Do not launch broad research again. Automatic context compaction may occur; reread this file and continue without owner recreating thread.
+Remaining research uncertainties: correct continuous post/cable topology and row/edge transitions; material realism without finished-product photographs; actual production-quality PBR latency; geometry-to-pixel observable stitch gates; folds/drape; immutable canonical body pack and allowed poses. These are future engineering work, not concealed successes in this report. Finish one question at a time and persist conclusions immediately. Do not reopen broad investigation or repeat disproven prompt sweeps.
+
+Continuity: automatic context compaction may occur; reread this file and continue in the same thread. No owner-created new conversation is necessary merely because context becomes low. The original assignment's first-pass deliverables are complete once the final commit/push is verified; the next experiment is durably specified.

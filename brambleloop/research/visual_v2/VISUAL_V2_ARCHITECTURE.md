@@ -132,3 +132,134 @@ Instead of either full-product diffusion or full-product yarn mechanics, build a
 This is the practical implementation strategy for B, with a different computational scaling model from D's earlier global swatch solver. It amortizes hard fibre/topology work across products and listing views. It still needs edge transitions, nonperiodic shaping and correct assembly for garments. A local repeat cannot establish full-garment drape, and a photograph of a generic swatch does not magically calibrate every yarn batch.
 
 Other possibilities such as text-to-3D meshes, image-to-3D or generative Gaussian splats have no demonstrated exact CIR correspondence here. They would introduce another invention stage; keep them out of the authoritative product path. A finished physical-product photograph is a possible business fallback, but fails this assignment's never-made-product premise and is not the recommended solution.
+
+## 10. Comparative decision matrix
+
+Ratings describe enforceable properties or observed evidence, not invented certification probabilities.
+
+| Architecture | Construction authority | Photographic evidence | Main unresolved work | Role |
+|---|---|---|---|---|
+| A: constrained generation | Learned guidance; exact equality not established | V1 providers often realistic; blind full-product certification0/16. Native controls untested. | Count/phase/topology retention; independent visibility; local model fit | Bounded research comparator |
+| B: procedural product PBR | Can enforce semantic geometry; correctness depends on verified stitch assets | D failed five photo items; this probe is visibly schematic | Post/cable topology, materials, edges, drape and LOD | Required product authority |
+| C: protected product + presentation | Enforces fixed foreground contribution for a fixed render | Composition boundary proven; believable room/shadow integration untested | Matching camera/light/occlusion, scene rejection | Recommended presentation path after B |
+| D: localized photorealization | Image repaint unsafe; material-space restrictions can preserve geometry | No verified full-product result | Material limits, false visual stitches, calibration | Optional shader-authoring aid |
+| E: reusable crochet assets / fitting | Explicit topology with amortized construction | Related yarn research; no ready cable library here | Verified repeat/turn/seam assets and material samples | Preferred engineering strategy for B |
+
+Recommended pipeline:
+
+```text
+Frozen CIR + Product Truth + provenance
+    -> independently checked semantic stitch/anchor graph
+    -> verified crochet paths, nominal metric layout and material assets
+    -> posed surface + attached yarn coordinates + visibility/strain ledger
+    -> deterministic PBR foreground, coverage, depth, normals, IDs, shadow passes
+    -> structural gate AND photographic gate
+    -> optional scene proposal -> camera/light compatibility -> local composition
+    -> final exported-image structural/photographic/thumbnail checks
+    -> quarantined research artifact; separate owner-controlled production integration
+```
+
+Every unsupported stitch, missing authoritative feature, UNKNOWN verdict or unobservable required feature prevents certification. A renderer declaring its own geometry correct is insufficient: source graph correspondence, projected image checks and independent visual assessment are all needed.
+
+## 11. Zero-cost proof: what was actually built
+
+The decisive input is the original **Heirloom Cable Throw**, with no finished-product or seller photograph. [build_probe.py](build_probe.py) imports the frozen design and compiler, verifies the Product Truth hash and CIR fingerprint, and emits all17,424 cells. Its paths are deliberately labelled **schematic carriers**, not a completed crochet construction. This is an incomplete renderer for the original design, not a simplified replacement pattern eligible for certification.
+
+| Property | Measured result | Interpretation |
+|---|---|---|
+| Source identity | CIR `33da2708f35c`; Product Truth SHA256 `cf3b9d1a9e92cff41ca2e461b9795cecbaa12d42d89ddb47420aad6307d85808` | Frozen input preserved |
+| Semantic inventory | 144x121 cells;18 cable columns;540 crossings on rows5,9,...121 | Complete schedule, not complete yarn topology |
+| Families | sc144;bpdc8640;fpdc6480;cable cells2160 | No design family removed |
+| Nominal layout | Width900mm; summed height1288.8889mm; cable pitch50mm; crossing interval42.77778mm | CIR-derived, physically uncalibrated; frozen summary discrepancy disclosed above |
+| Routes | 17,424 separate carriers;18 points each;313,632 points | Cross-pair routing only; disconnected yarn FAIL |
+| Independent schedule/route checks | Eight assertions PASS; five deliberately wrong variants rejected | Deleted column, wrong crossing row, wrong family, moved crossing and altered gauge each FAIL |
+| Renderer | Blender4.5.0 CyclesCPU,8threads,32samples,no denoising;1024x1536 | No external service; orthographic flat pose |
+| Latency | Latest setup+render14.198s; earlier run peak~1.22GB | One schematic scene; not a production estimate |
+| Data | RGBAbeauty; EXR depth, normals and diffuse colour; PNG previews | PNG pass previews are display-transformed, not calibrated data |
+| Protected composition | Three backgrounds;12,008 opaque pixels;zero changed opaque pixels;684,367 partial-coverage pixels | The latter change with background under fixed foreground/coverage; not byte-identical whole-product pixels |
+| Adversarial composition | Direct hostile plate alters8,986 opaque positions; restoration prevents this; one-pixel corruption detected | Mask compliance by a generator is unnecessary for opaque restoration |
+| Old frequency instrument | Reference,12px phase shift and one erased column allPASS | Exact count/phase require additional instruments |
+
+Scripts and raw records: [renderer](render_probe.py), [verifier](verify_probe.py), [geometry manifest](out/geometry_manifest.json), [render record](out/render_record.json), [proof results](out/proof_results.json), [experiment ledger](EXPERIMENTS.md). Raw `.npz`, `.blend` and `.exr` files are regenerable and ignored to avoid committing large intermediates. The verifier binds results to the current beauty and geometry hashes; source inventory is refreshed from canonical repository bytes.
+
+![Schematic geometry on a protected slate background; not a certified crochet product](out/composite_slate.png)
+
+**Separate verdicts:** continuous yarn topology FAIL; stitch/fabric identity, edge/turn construction, physical gauge, fibre/fuzz, material realism and drape UNKNOWN; all-product truth UNKNOWN; photographic certification UNKNOWN; listing-thumbnail suitability FAIL by visual inspection of the schematic carriers. No independent paid photographic judge was called. Silhouette/colour are renderer inputs, not independently certified product-image passes. The image has no marketing approval.
+
+This proof demonstrates full schedule addressability, useful render speed, data-pass availability and a defensible composition boundary. It **does not** demonstrate that B+C already achieves a structurally exact commercial image. It also does not yet test float-EXR compositing, contact shadows, realistic backgrounds, yarn self-collision, fibre coverage or folded-product measurement. Those limits prevent the common mistake of promoting a technical rendering demo into a product certification.
+
+## 12. Decisive next experiment and exact acceptance
+
+**Next question:** can a topology-correct cable fabric produce sufficiently realistic authoritative product pixels without diffusion repaint? Answer this before paying for another background or provider trial.
+
+One bounded experiment, with two dependent stages:
+
+1. Build and independently inspect one **actual Heirloom repeat coupon**, including sc foundation, bpdc/fpdc anchors, the2x2 cable crossing, plain-to-crossing transitions, and turning/edge cases. Use the original stitch registry and metric assumptions. Establish one continuous maker-yarn graph with loop-entry/post-wrap order and no cut ends except declared yarn ends. The existing schematic curves are disposable diagnostics, not an approved asset library.
+2. Only after coupon correctness, instance the unchanged full144x121/18-column throw. Predeclare three views (whole flat lay, magnified crossing+edge detail, controlled shallow fold) under two deterministic lighting setups: **six renders**, retaining all outputs and failures. Render at enough resolution that every required feature is measurable in at least one declared view; resolution is an experiment variable recorded before rendering, not a way to excuse missing cells. Add three backgrounds per render through the compositor, including a hostile proposal, for18 composition cases. Use no AI product repaint and no finished-product image.
+
+Acceptance is conjunctive; UNKNOWN blocks advancement:
+
+| Gate | Exact criterion |
+|---|---|
+| Provenance / identity | Frozen Product Truth hash and CIR fingerprint match; every source cell and operation accounted for exactly once. No extra/omitted feature, edge band or colour region. |
+| Count and pattern | Exactly18 cable IDs and540 specified crossings; no extra crossing row; rows5+4k for k0..29. Exact sc/bpdc/fpdc/cable inventory. Actual yarn connectivity and post attachment agree with a separately reviewed stitch construction, not just integer labels. |
+| Position / gauge | Nominal900mm width and registry-derived1288.8889mm height; original50mm cable pitch and actual row schedule. Rest-coordinate numerical error≤1e-6 of the corresponding dimension, a floating-point tolerance only. No rescaling to make an image pass. Record old4.222cm and registry4.27778cm crossing summaries; do not silently rewrite either. |
+| Crossing topology | Both pairs cross at the prescribed slots; declared front/back order and continuity checked. The direction convention remains explicitly unconfirmed as product intent until authoritative design clarification; do not claim fully specified identity from an omission. |
+| Yarn / edges | No undeclared breaks, floating yarn, impossible post wraps or unintended interpenetration; foundation/turn/edge construction shown in detail. Any unknown anchor semantics stop stage1. |
+| Pose and silhouette | Material-space layout preserved through pose. Camera and projected silhouette agree with renderer geometry/coverage; quantify strain/contact without changing rest gauge. Actual physical dimensions/drape remain UNKNOWN until calibrated. |
+| Visible image truth | Independently read all18 columns in whole view; each crossing located against projected source IDs wherever visible. Boundary error≤one output pixel for raster alignment only; no missing/merged cell permitted. Occluded cells require declared visibility metadata plus another view; hidden counts cannot be inferred from an attractive thumbnail. Existing applicable V1 material gates remain necessary but insufficient. |
+| Foreground protection | Fixed foreground/coverage digests; exact opaque RGB equality before final camera export. In linear float composition, foreground contribution error≤1e-6 per channel; after export compare against deterministic reference export. Any one-pixel corruption or changed coverage must fail. |
+| Photographic criteria | All seven original D items PASS independently: natural folds, realistic light, coherent shadows, ordinary photographic imperfection, non-melted yarn, non-synthetic stitch texture, non-sterile scene. Preserve item meaning and UNKNOWN. A flat view without observable folds cannot by itself pass the complete seven-item hero gate. |
+| Additional presentation checks | Twisted/plied yarn and plausible fibre/fuzz at detail; believable material response under both lights; no invented structure in albedo; no disconnected-looking folds/contact shadows; identity/silhouette legible at256px thumbnail. Thumbnail success does not establish stitch count. |
+| Repeatability / negatives | Both lighting setups for the folded hero pass every required criterion; other views pass applicable truth checks and disclose unobservable photographic items. All five existing structural negatives plus wrong crossing order, wrong alpha and fake border negatives fail. Preserve every result, not only a selected hero. |
+
+A crochet-literate reviewer and a photographic reviewer should assess the coupon/detail and rendered views independently using the frozen rubric; at this stage local human review requires no API budget. Missing review is UNKNOWN. Automated judge acceptance remains a separate future validation, not a free claim of independence. If no complete view can establish all seven criteria without hiding required structure, the proposed listing set fails.
+
+**Supports B+C:** correct continuous topology, unchanged full truth, at least both predeclared folded hero renders pass all required gates, detail supports yarn realism, and all composition negatives behave correctly. **Refutes this implementation:** correct geometry remains visibly synthetic despite a bounded material/lighting iteration budget, or practical LOD/drape loses observability/topology. Retain B's authority concept but reconsider renderer/material assets; do not secretly restore whole-product diffusion. A failure of one implementation does not prove every deterministic method impossible.
+
+**Paid specification:** provider none; model none; calls0; maximum requested spend **US$0**. Paid generation would not resolve the immediate missing crochet topology. If a later experiment truly needs a provider, specify model/version, purpose, call count, verified unit price and hard cost cap in a new ledger entry, then obtain separate owner authorization before calling it. Do not infer authorization from this report or from historical caps.
+
+## 13. Production economics and operation
+
+The following are planning estimates, not measured promises. Historical generation costs are repository records, not current provider price quotes. Certification yield for B–E is **unknown**, and no credible per-certified-image cost can be stated until yield is measured.
+
+| Path | Implementation estimate | Compute / latency | Marginal cost and yield | Scaling / maintenance |
+|---|---|---|---|---|
+| A | 1–3 engineer-weeks for native-control comparator and gates; exact-preservation research uncapped | Modern GPU preferred; GTX1070 compatibility/fit unverified. Latency unmeasured. | Hosted V1 blind mean generation$4.369/16≈$0.273 +validation$0.031 per attempt;0 certified, so cost per certified hero undefined. Native local yield unknown. | Model/checkpoint/version sensitivity; retries increase cost; fine-detail and tile drift require per-image rejection. |
+| B | Roughly6–12 engineer-weeks for first verified cable/material/LOD pipeline; garment shaping and calibration could add8–16+. Coupon can expose failure much sooner. | CPU proof14.198s; detailed fibres/drape may take minutes or longer. Set provisional target≤5min per listing view on a chosen worker, then benchmark. | No per-call API fee. Electricity, hardware and engineering dominate. Structural repeatability plausible by construction; combined certification yield unknown. | Asset reuse amortizes effort; unsupported stitches fail closed. Version pinning, deterministic graph tests and renderer regressions required. |
+| C | 1–3 engineer-weeks for production alpha/depth/shadow/camera pipeline after B; scene matching may take longer | CPU composition plus B render; current verifier~6s includes many checks, not pure composition latency | Zero API dependence with local scene/background library. Optional generated background cost additional and presently unbudgeted. Composition integrity proven; photographic yield unknown. | Cache backgrounds/light rigs. Reject scene incompatibility/occlusion. Reliable batch operation once product and scene gates exist. |
+| D | 2–6 engineer-weeks for bounded material-space experiment; uncertain benefit | Local model/GPU optional; deterministic shader runtime after asset baking | No measured cost/yield; reusable maps can amortize generation if ever authorized | False painted stitches, material overfit and licensing; keep parameters constrained/versioned. |
+| E | First repeat/edge/material assets are part of B estimate; additional2–4 weeks per substantially new family is a provisional planning allowance | Coupon fitting offline; instances/LOD inexpensive relative to fibre simulation | Upfront asset/calibration cost, amortized over products and views; yield unknown | Good for repeated fabric; shaping, seams and varied yarn types increase asset burden. |
+
+For example, an **assumed**250W worker rendering five minutes at an **assumed**$0.20/kWh uses about$0.0042 electricity/image. This excludes idle time, purchase/amortization, storage, failed renders and labour; it is arithmetic, not a quote or production cost measurement. If per-attempt total cost is `c` and empirically measured certification yield is `y>0`, expected direct cost per certified image is `c/y`; at observed zero yield this estimate is undefined. Do not conceal failed attempts or judge cost.
+
+24/7 autonomy requires pinned assets/runtime, deterministic semantic builds, isolated workers, idempotent job IDs, content-addressed cache, memory/time limits, atomic output publication to an internal quarantine, retained full-resolution passes, a resumable queue, and fail-closed gates. Background services need explicit allowlists and per-job budgets only after authorization. Never rerun a failed paid sample indefinitely. New product/stitch types enter an asset-validation queue. Engineering review remains necessary for unsupported construction and ambiguous design intent.
+
+## 14. Listing views and immutable canonical model
+
+| View | B+C implications / remaining requirement |
+|---|---|
+| Product-only hero | Render complete product in physically consistent lighting; protected background optional. Full truth and all seven photographic criteria still required. |
+| Flat lay | Easiest count/pitch/edge observation; validates nominal layout. Flatness alone leaves fold/drape realism unobserved, not PASS. |
+| Detail | Use actual yarn/ply/fibre assets and adequate sampling; no AI enlargement that invents loops. Critical for topology and material gate. |
+| Sizing/features | Derive annotations from unchanged nominal truth, clearly distinguish uncalibrated estimates from physical measurements; IDs support feature callouts. |
+| Lifestyle | Match camera/lighting/scale and render actual contact shadows. Props/occlusion must not hide required evidence or imply invented product features. Multiple poses require rerendering geometry. |
+| On-model | Requires BOTH exact garment and approved canonical person. A locked2D person plate only supports compatible fixed pose/occlusions; arbitrary new poses require authoritative geometry/approved assets and clothing fit simulation. Generative identity adapters are not exact identity locks. |
+
+The local [canonical asset manifest](../../src/brambleloop/visual/assets/MANIFEST.json) must be consulted before use. Approved face imagery does not authorize reconstructing a body; committed older torso/full_v5 assets are marked superseded, and the authoritative complete pack is external. This first pass does not solve or alter the model. Garment drape/contact/body occlusion and skin/hair lighting compatibility are additional engineering gates, not automatic benefits of a blanket renderer.
+
+## 15. Migration and risks
+
+Keep the Visual V1 evidence and production code intact. Implement an isolated V2 semantic adapter and stitch asset contract; import frozen CIR rather than forking the design. Preserve source-to-cell and cell-to-pixel provenance. Add an independently reviewed exact-count/crossing/topology gate next to historical tests; retain old outcomes and document corrections rather than rewriting certification history. Production integration belongs to Claude/Opus or a separately authorized lane.
+
+First qualify the coupon and complete Heirloom. Then qualify additional stitch families, colours, shaping, edges and garment assembly. Only after deterministic product realism passes should optional generative presentation be evaluated. Shadow-run V2 against V1 with fixed products/views and publish all failures internally; predeclare an acceptance matrix before changing any default. Migration is not a merge, deployment or Build2 status change in this assignment.
+
+Principal risks: CIR may omit construction intent; nominal gauge may be physically wrong; repeat assets can look periodic/plastic; fibres and denoising can obscure stitch boundaries; drape can stretch or hide evidence; colour management can corrupt albedo/alpha; partial coverage and translucent fibres complicate strict locking; scene lighting can conflict; canonical assets may be inaccessible; commercial model/asset licences may differ from code licences; high-quality rendering cost remains unmeasured. Semantic determinism does not imply bit-identical stochastic renders across hardware. Pin seeds and geometry, retain exact output hashes and validate product truth independently on each export.
+
+**Final recommendation: REPLACE VISUAL V1's product-redrawing stage.** B+C with E's reusable assets provides the most defensible route to structural authority. Keep A as a genuinely new, bounded comparator and D as optional constrained material assistance. No architecture has yet demonstrated the complete required commercial capability; this first pass establishes the evidence, the authority boundary, and the next falsifiable engineering test.
+
+## 16. Verification and continuation
+
+Existing offline assertions: E1 17,E3 10,Bench1 34,Bench2 42,V1grad40,fabric relief8 =**151 PASS across six suites**. E4/E5 are **blocked**, because their frozen D reference PNG is missing; do not substitute a JPEG. [Raw test summary](out/tests/offline_checks.json). These results do not certify Build2 or this schematic render.
+
+Reproduction commands, environment versions and artifact inventory are in [README.md](README.md). Read [CURRENT_STATE.md](CURRENT_STATE.md) first after compaction; then [DECISIONS.md](DECISIONS.md), [EXPERIMENTS.md](EXPERIMENTS.md) and [NEXT_SESSION.md](NEXT_SESSION.md). Continue this persistent thread from repository memory; a new conversation is not required merely because context compacts.

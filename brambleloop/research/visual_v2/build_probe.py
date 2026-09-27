@@ -105,7 +105,7 @@ def main():
         "not_certified": ["fpdc/bpdc loop-entry and wrap topology", "one continuous maker yarn path", "edge turning chains", "mechanical drape", "material/fibre calibration", "photographic realism"],
         "seconds": round(time.perf_counter()-start, 3),
     }
-    (OUT / "geometry_manifest.json").write_text(json.dumps(data, indent=2))
+    (OUT / "geometry_manifest.json").write_text(json.dumps(data, indent=2), encoding="utf-8", newline="\n")
     print(json.dumps(data, indent=2))
 
 

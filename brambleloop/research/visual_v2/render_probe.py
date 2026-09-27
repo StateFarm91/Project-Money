@@ -128,5 +128,5 @@ record={
     'photographic_judge':'UNKNOWN - no paid call; schematic disconnected carriers are not certified stitch topology',
     'spend_usd':0,
 }
-(OUT/'render_record.json').write_text(json.dumps(record,indent=2))
+(OUT/'render_record.json').write_text(json.dumps(record,indent=2), encoding="utf-8", newline="\n")
 print(json.dumps(record,indent=2))

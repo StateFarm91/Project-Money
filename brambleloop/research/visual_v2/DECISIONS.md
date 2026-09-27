@@ -13,7 +13,7 @@ Research decisions only; no Build2 or production authority. Date:2026-09-27.
 | V2-007 | Record derived crossing pitch4.27778cm vs frozen4.222cm without editing truth. | Actual row-height registry includes taller cable row. | Instrument discrepancy documented; review deferred |
 | V2-008 | AI may propose backgrounds/material parameters, never final unvalidated foreground changes. | Masks are guidance; linear local restoration guarantees fixed foreground contribution. | Demonstrated for synthetic backgrounds; realistic scenes untested |
 | V2-009 | No new canonical identity/pose approximation. | Local full-body assets superseded; approved complete pack external. | Deferred until authoritative assets available |
-| V2-010 | Next decisive experiment is local topology-correct cable coupon then unchanged full throw. | Current bottleneck is missing yarn construction/material fidelity, not another hosted prompt. | Specification pending report completion; paid request$0 |
+| V2-010 | Next decisive experiment is local topology-correct cable coupon then unchanged full throw. | Current bottleneck is missing yarn construction/material fidelity, not another hosted prompt. | Specified in report section12; not executed; paid request$0 |
 | V2-011 | Repository-backed memory is the continuity authority. | Owner course corrections at28%/8% context; no need for a new thread after compaction. | CURRENT_STATE, DECISIONS, EXPERIMENTS checkpointed and maintained |
 
 Do not revise earlier observations silently. Append corrections with raw evidence; distinguish raw FAIL, UNKNOWN, and missing data. The architecture report contains source links and technical options; CURRENT_STATE contains operational next actions.
