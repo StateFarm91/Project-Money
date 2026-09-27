@@ -162,6 +162,8 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "finance.governor": ("windowed", "parallelism history covers 7 days; may_claim reads the "
                          "latest governor advice"),
     "improve.league.run": ("windowed", "the league compares on recorded runs in its window"),
+    "improve.replay.challenger": ("windowed", "improve.roles counts the challengers the "
+                                  "Prompt / Tool Challenger registered in its 90-day window"),
     "creative.white_space": ("latest", "creative.ideation reads the latest white-space "
                              "hypotheses into every tournament/expedition brief"),
     "creative.four_season": ("latest", "creative.ideation reads the latest four-season "

@@ -194,6 +194,22 @@ def test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back():
     assert orchestrate.priority_policy(db)["config_id"] == replaced
 
 
+def test_the_nightly_sweep_runs_challenger_evaluations_rather_than_counting_them():
+    _scheduled("improve.nightly", "orchestrator")
+    from brambleloop.core.models import AuditLog
+
+    db = _db()
+    _seed_contention(db)
+    out = _run(db, "improve.nightly")
+    from brambleloop.improve import nightly
+
+    stage = out["delta"]["stages"][nightly.CHALLENGERS]
+    with db.session() as s:
+        runs = list(s.scalars(select(AuditLog).where(AuditLog.action == "improve.league.run")))
+    assert len(runs) == 7, len(runs)
+    assert stage["detail"]["evaluated"]["compared"] == 6, stage
+
+
 # ---------------------------------------------------------------------------
 # #153-#161 #164 #155 (Pattern Help): findings -> enforced requirements -> the self-audit trial
 

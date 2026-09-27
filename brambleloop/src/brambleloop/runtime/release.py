@@ -3493,6 +3493,13 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
     # any trial verdict on file is copied onto the rows it judged. No challenger is run here;
     # that is a spending decision. What is found is every configuration with a challenger.
     booted = bootstrap.ensure(ctx.db)
+    # #193: challenger evaluations run here, not only counted. The deterministic replay
+    # evaluates the job-priority policy's incumbent and challengers on historical jobs and
+    # their holdout (idempotent per window, so the daily improve.replay cadence and this
+    # sweep never double-record); model challengers still wait for a run somebody pays for.
+    from ..improve import replay as _replay
+
+    evaluated = _replay.cycle(ctx.db)
     with ctx.db.session() as session:
         configs = [(row.kind, row.key, row.incumbent, bool(row.measured_outcome))
                    for row in session.scalars(select(ConfigVersion))]
@@ -3501,6 +3508,10 @@ def handle_nightly_improvement(ctx: JobContext) -> dict:
         nightly.CHALLENGERS, read=len(configs), found=len(challengers),
         incumbents=sum(1 for c in configs if c[2]),
         incumbents_unmeasured=sum(1 for c in configs if c[2] and not c[3]),
+        evaluated={"ran": evaluated["ran"], "runs": len(evaluated.get("runs") or []),
+                   "compared": len(evaluated.get("compared") or []),
+                   "proposed": evaluated.get("proposed") or [],
+                   "why": evaluated.get("why")},
         bootstrap=booted))
 
     sweep = freshness.sweep(ctx.db)

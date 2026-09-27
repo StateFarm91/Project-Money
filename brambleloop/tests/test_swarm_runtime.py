@@ -210,7 +210,11 @@ def test_orphaned_work_is_reassigned_or_surfaced_with_evidence():
 
     out = _run(db, "swarm.orphans")
     # Three jobs: the two planted and the steward's own running job, which is owned.
-    assert out["by_source"] == {"job": 3, "incident": 1, "improvement": 2}
+    # #176 now also reads opportunities, benchmarks, listings, experiments, support cases,
+    # owner actions and teardown findings; none exist here, and each is counted as zero.
+    assert out["by_source"] == {"job": 3, "incident": 1, "improvement": 2, "opportunity": 0,
+                                "benchmark": 0, "listing": 0, "experiment": 0,
+                                "support_case": 0, "teardown_finding": 0, "owner_action": 0}
     assert {o["key"] for o in out["orphans"]} == {
         f"job:{misrouted.id}", f"job:{forbidden.id}", "incident:1", "improvement:1"}
     assert [r["to"] for r in out["reassigned"]] == ["market_radar"]
