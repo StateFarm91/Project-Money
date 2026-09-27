@@ -263,6 +263,26 @@ def _allowable_cac(price: float, orders: list) -> dict:
     return got
 
 
+def trust_checks(db, readiness, level: dict) -> dict:
+    """The four #17 rungs a caller supplies, each read from rows or left unmeasured.
+
+    Disclosures from the stored listing copy, truthful information from the release chain
+    (every listed release certified, no open P0/P1), thumbnail coherence from the listing
+    frames the asset-truth gate approved, and rapid support from the service level of replies
+    a buyer actually received. A rung with nothing to read is None -- unmeasured, not passed.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+
+    with db.session() as s:
+        frames = list(s.scalars(select(ListingAsset)))
+    return {"disclosure_ok": bool(readiness.truthful_expectations),
+            "claims_ok": bool(readiness.defect_prevention),
+            "thumbnails_coherent": (all(f.approved for f in frames) if frames else None),
+            "support_meets_target": level.get("meets_target")}
+
+
 def _learning_window(item: dict, events: dict, today: date) -> dict:
     """#294: whether a seasonal product is inside its pre-season paid-learning window."""
     from ..growth.pins import MILESTONE_DAYS
@@ -300,8 +320,7 @@ def ads_plan(db, *, today: date | None = None) -> dict:
     authority = ad_authority(db)
     readiness, _detail = first_hundred.readiness_from_evidence(db)
     level = service.service_level(db)
-    gate = trust.may_scale_ads(db, disclosure_ok=bool(readiness.truthful_expectations),
-                               support_meets_target=level.get("meets_target"))
+    gate = trust.may_scale_ads(db, **trust_checks(db, readiness, level))
     per_visitor = runrate.per_visitor_from_db(db, today=today)
     cpv = {r["slug"]: r["contribution_per_visitor"] for r in per_visitor.get("ranked") or []}
     events = _events(today)
