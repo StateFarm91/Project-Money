@@ -115,12 +115,19 @@ def reserve_lane(*, mission_open: int, generic_open: int, granted: int, affordab
     total = max(0, min(int(affordable), max(int(granted),
                                             MJS_RESERVED_SPECIALISTS + generic_wants)))
     refused = ""
-    try:
-        reserve_check(generic_wants=generic_wants, total_specialists=total)
-        generic_granted = generic_wants
-    except CapacityRefused as e:
-        generic_granted = max(0, total - MJS_RESERVED_SPECIALISTS)
-        refused = str(e)
+    if mission_open <= 0:
+        # Nothing of the mission's is waiting this period, so the floor is held idle rather
+        # than enforced: starving generic research to keep specialists idle protects nothing.
+        # The allocation reruns hourly, and the first period mission work waits the floor
+        # binds again -- which is the borrowing `reserve_check` exists to refuse.
+        generic_granted = min(generic_wants, total)
+    else:
+        try:
+            reserve_check(generic_wants=generic_wants, total_specialists=total)
+            generic_granted = generic_wants
+        except CapacityRefused as e:
+            generic_granted = max(0, total - MJS_RESERVED_SPECIALISTS)
+            refused = str(e)
     mission_specialists = total - generic_granted
     return {
         "total": total, "reserved": min(total, MJS_RESERVED_SPECIALISTS),
@@ -131,6 +138,7 @@ def reserve_lane(*, mission_open: int, generic_open: int, granted: int, affordab
         "mission_batch": min(mission_open, mission_specialists * wps),
         "generic_batch": min(generic_open, generic_granted * wps),
         "bounded_by": "budget" if total < MJS_RESERVED_SPECIALISTS + generic_wants else "work",
+        "reserve_binding": mission_open > 0,
         "generic_refused": refused,
         "would_starve": list(MISSION_WORK) if refused else [],
     }

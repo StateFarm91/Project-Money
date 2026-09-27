@@ -170,12 +170,21 @@ class JobQueue:
         job_type: str,
         inputs: dict | None = None,
         *,
-        priority: int = 100,
+        priority: int | None = None,
         idempotency_key: str | None = None,
         max_attempts: int = 3,
         run_after: datetime | None = None,
         session: Session | None = None,
     ) -> Job:
+        # An omitted priority is the job type's band (C-46). The old default of 100 sat below
+        # every band (the highest is 95), so every follow-on job enqueued through
+        # `JobContext.enqueue` -- gate.certify, listing.draft, store.publish, support.* -- ran
+        # after housekeeping. An explicit priority still wins.
+        if priority is None:
+            from ..swarm.orchestrate import priority_for
+
+            priority = priority_for(job_type)
+
         def _do(s: Session) -> Job:
             if idempotency_key:
                 existing = s.scalar(

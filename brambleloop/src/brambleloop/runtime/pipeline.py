@@ -461,6 +461,10 @@ def handle_certify(ctx: JobContext) -> dict:
 
     if cert.granted:
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
+        # #70: a revision that changes geometry or claims invalidates the listing-set
+        # certificate issued against the old ones, recomputed here rather than remembered,
+        # and the affected frames lose their approval until the chain re-certifies them.
+        _recheck_listing_certificates(ctx, cir)
         from .release import chain_key
 
         ctx.enqueue("listing", "listing.draft",
@@ -474,6 +478,26 @@ def handle_certify(ctx: JobContext) -> dict:
     return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
             "release_hash": cert.release_hash,
             "reasons": cert.blocking_reasons[:5]}
+
+
+def _recheck_listing_certificates(ctx: JobContext, cir: CIR) -> list[dict]:
+    """Run `listing_set.still_valid` over this release's certificates against the new design."""
+    from ..gates.policy import POLICY_VERSION
+    from ..publish import release_gates as gates_mod
+
+    frames = gates_mod._frames(ctx.db, cir.slug, cir.version)
+    listing = gates_mod._listing(ctx.db, cir.slug, cir.version)
+    twin = gates_mod._twin(ctx.db, cir)
+    results = gates_mod.recheck(ctx.db, slug=cir.slug, version=cir.version,
+                                geometry=gates_mod.geometry_of(twin, cir),
+                                claims=gates_mod.claims_of(listing, frames),
+                                policy_version=POLICY_VERSION)
+    for r in results:
+        ctx.audit("listing_set.valid" if r["valid"] else "listing_set.invalidated",
+                  artifact=f"{cir.slug}@{cir.version}",
+                  detail={k: r[k] for k in ("record_id", "valid", "invalidated_by",
+                                            "affected_assets", "why")})
+    return results
 
 
 def _withdraw_listing(ctx: JobContext, cir: CIR) -> None:

@@ -456,6 +456,11 @@ def test_generic_research_cannot_draw_below_the_floor_when_money_is_short():
     assert res["total"] == 4 and res["mission_specialists"] == 3
     assert res["generic_granted"] == 1 and res["generic_refused"]
     assert "catalogue_coverage" in res["would_starve"]
+    # With no mission work waiting the floor is held idle, not enforced against generic work.
+    idle = capacity.reserve_lane(mission_open=0, generic_open=40, granted=1, affordable=4,
+                                 work_per_specialist=orc.WORK_PER_SPECIALIST)
+    assert idle["reserve_binding"] is False and idle["generic_granted"] == 4
+    assert not idle["generic_refused"]
 
 
 # ---- #311 the seasonal deadline sentinel -------------------------------------------------

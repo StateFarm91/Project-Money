@@ -774,6 +774,30 @@ def test_one_classifier_decides_refusal_and_redrive():
             [rows["creative.model_reference_pack"], rows["radar.scan"]])
         assert [x["id"] for x in out["skipped"]] == [rows["etsy.publish_listing"]]
 
+
+def test_an_omitted_priority_is_the_job_types_band_not_below_every_band():
+    """C-46: the default of 100 sat below every band (highest is 95), so follow-on work
+    enqueued without a priority -- a customer reply, a certification -- ran after
+    housekeeping. An explicit priority still wins."""
+    from brambleloop.swarm.orchestrate import BAND_BY_KIND, priority_for
+
+    db = boot()
+    q = JobQueue(db)
+    worst_band = max(BAND_BY_KIND.values())
+    for jt in ("support.reply", "gate.certify", "store.publish", "some.unmapped.type"):
+        job = q.enqueue("a", jt, {})
+        assert job.priority == priority_for(jt), (jt, job.priority)
+        assert job.priority <= worst_band, f"{jt} enqueued below every band"
+    assert q.enqueue("a", "support.reply", {"x": 1}, priority=77).priority == 77
+
+    # The consequence, not just the number: a reply enqueued with no priority is claimed
+    # ahead of housekeeping enqueued at a band.
+    db = boot()
+    q = JobQueue(db)
+    q.enqueue("a", "ops.retention", {}, priority=priority_for("ops.retention"))
+    reply = q.enqueue("a", "support.reply", {})
+    assert q.claim("w").id == reply.id
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
