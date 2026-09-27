@@ -451,6 +451,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("mjs_seasonal_sentinel", "market_radar", "mjs.seasonal_sentinel", 24 * 60 * 60),
     # C-60 (#219, #268): other category leaders join the elite panel from the API index.
     ("panel_discovery", "market_radar", "intel.panel_discovery", 7 * 24 * 60 * 60),
+    # C-60 (#165): benchmark refresh recommendations, weekly and free.
+    ("benchmark_refresh", "market_radar", "intel.benchmark_refresh", 7 * 24 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the
     # customer_pain domain without this company having customers. It keeps counts per theme
     # and no review text, reviewer or quotation.

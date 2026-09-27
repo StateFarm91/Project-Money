@@ -50,6 +50,10 @@ COMPOSITION_FIELDS = ("shot_type", "composition", "product_visibility",
                       "thumbnail_readability", "setting", "palette_role")
 
 
+# Tests set this to a callable returning a recorded reader; production reads the credential.
+READER_FACTORY = None
+
+
 class SerpRefused(RuntimeError):
     """A capture or a judgement this module cannot honestly make."""
 
@@ -352,6 +356,8 @@ def capture_targets(db, *, reader=None, transport=None, env: dict | None = None,
 
     now = _now(now)
     queries = queries if queries is not None else target_queries()
+    if reader is None and READER_FACTORY is not None:
+        reader = READER_FACTORY()
     if reader is None:
         credential = etsy_public.ReadCredential.from_env(env)
         if credential is None or not credential.complete:

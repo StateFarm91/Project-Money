@@ -83,7 +83,7 @@ DEFAULT_AGENTS: list[dict] = [
                             "intel.benchmark_health", "intel.pod_learning",
                             "mjs.seasonal_sentinel",
                             # C-60 (#219 #268): category leaders join the panel from evidence.
-                            "intel.panel_discovery",
+                            "intel.panel_discovery", "intel.benchmark_refresh",
                             # A free keyless sanctioned read, and the gallery backlog that
                             # was waiting on a call nobody had written rather than on a
                             # capability anybody had to buy (B-478, B-483).

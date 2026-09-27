@@ -454,6 +454,7 @@ JOB_BANDS: dict[str, str] = {
     "mjs.reviews": "benchmark_change",
     "intel.benchmark_health": "benchmark_change",
     "intel.panel_discovery": "benchmark_change",
+    "intel.benchmark_refresh": "benchmark_change",
     "etsy.probe": "benchmark_change",
     "intel.gallery_analysis": "benchmark_change",
     "intel.acceptance": "benchmark_change",

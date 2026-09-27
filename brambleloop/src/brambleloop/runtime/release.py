@@ -2064,6 +2064,26 @@ def handle_intel_panel_discovery(ctx: JobContext) -> dict:
             **({} if result["ran"] else {"reason": result["reason"][:200]})}
 
 
+@handlers.register("intel.benchmark_refresh")
+def handle_intel_benchmark_refresh(ctx: JobContext) -> dict:
+    """#165: a new category, strong competitor, new format or market shift -> one purchase ask.
+
+    Weekly, free. Reads the panel's observed listings, the SERP laboratory and the purchased
+    library; the first reading is a baseline. Whatever warrants a refresh and is not duplicate
+    information becomes an owner action naming one listing and its observed price as the
+    maximum cost, never more than `benchmark_refresh.MAX_OPEN` open at once. GREEN: nothing
+    is bought here -- buying is the owner's.
+    """
+    from ..intel import benchmark_refresh
+
+    result = benchmark_refresh.assess(ctx.db, today=_mjs_today(ctx))
+    ctx.audit("intel.benchmark_refresh", detail={
+        k: result[k] for k in ("as_of", "baseline", "triggers", "duplicates", "raised",
+                               "held")})
+    return {"baseline": result["baseline"], "triggers": len(result["triggers"]),
+            "raised": [r["key"] for r in result["raised"]], "held": len(result["held"])}
+
+
 @handlers.register("mjs.seasonal_sentinel")
 def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
     """#311: days to preferred and latest launch for every MJs-derived opportunity.
@@ -2316,6 +2336,9 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                 # The improvement pipeline's cards are decisions it raised and closes itself;
                 # this assessment never asked for them, so it is not the one to close them.
                 if key.startswith(OWNER_CARD_PREFIXES):
+                    continue
+                # #165's refresh purchases are raised and bounded by `intel.benchmark_refresh`.
+                if key.startswith("benchmark_refresh:"):
                     continue
                 row.done = True
                 closed.append(key)
