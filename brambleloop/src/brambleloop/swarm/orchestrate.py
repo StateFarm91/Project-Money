@@ -490,6 +490,7 @@ JOB_BANDS: dict[str, str] = {
     "improve.league": "exploration",
     "creative.style_learning": "exploration",
     "creative.white_space": "exploration",
+    "commerce.readings": "exploration",
     "creative.four_season": "exploration",
     "creative.outcome_learning": "exploration",
     "seasonal.harvest": "exploration",

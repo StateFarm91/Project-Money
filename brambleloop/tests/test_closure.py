@@ -30,6 +30,24 @@ _fake = R.Requirement(id=999, title="t", body="b", version="v", section="s",
                       status=R.DATA_GATED, note="needs launch data", parked_on="", proof="")
 check("a data-gated row that names no module is OPEN, not parked on missing data",
       C.classify(_fake)["state"] == C.OPEN)
+# Certification (C-41/C-43/C-59): a covered row whose only module nothing in the runtime
+# reaches is not COMPLETE+PROVEN -- the failure that invalidated the 63f2493 closeout. And the
+# same module wired into a runtime path is.
+_dead = R.Requirement(id=998, title="t", body="b", version="v", section="s",
+                      status=R.COVERED, note="", parked_on="",
+                      proof="gateway/evals.py tests/test_gateway.py")
+check("a covered row naming only an unreached module is OPEN, not COMPLETE+PROVEN",
+      C.classify(_dead)["state"] == C.OPEN and "reached" in C.classify(_dead)["why"])
+_live = R.Requirement(id=997, title="t", body="b", version="v", section="s",
+                      status=R.COVERED, note="", parked_on="",
+                      proof="commerce/kill_table.py tests/test_kill_table.py")
+check("the same shape of row naming a runtime-reached module is COMPLETE+PROVEN",
+      C.classify(_live)["state"] == C.COMPLETE_PROVEN)
+_dead_data = R.Requirement(id=996, title="t", body="b", version="v", section="s",
+                           status=R.DATA_GATED, note="", parked_on="",
+                           proof="gateway/evals.py tests/test_gateway.py")
+check("a data-gated row whose machinery nothing runs is OPEN (C-59)",
+      C.classify(_dead_data)["state"] == C.OPEN)
 check("a partial row with no gate is OPEN (executable work owed)", all(r["state"] == C.OPEN for r in m["rows"] if r["status"] in R.EXECUTABLE and not executor.gate_for(r["id"])))
 r75 = next(r for r in m["rows"] if r["id"] == 75)
 print("     #75:", r75["state"], r75["gate"], r75["why"][:80])

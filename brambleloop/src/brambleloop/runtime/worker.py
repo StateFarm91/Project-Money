@@ -349,6 +349,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("improve_league", "orchestrator", "improve.league", 24 * 60 * 60),
     ("finance_governor", "cfo", "finance.governor", 60 * 60),
     ("support_triage", "support", "support.triage", 60 * 60),
+    # C-59 (#23 #236 #253 #254 #256 #257): the machinery of the gated commerce rows runs daily
+    # on what the database holds, so the day the data arrives is the day it is read.
+    ("commerce_readings", "cfo", "commerce.readings", 24 * 60 * 60),
     # Build 2 closeout (2026-09-27): the runtime halves of libraries that had none.
     # #174-#176, #186, #192: the swarm reviews agent quality, sizes lanes, resolves orphaned
     # work and feeds an idle queue from the standing backlog -- GREEN only, never spending.

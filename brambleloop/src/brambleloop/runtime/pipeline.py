@@ -1349,6 +1349,7 @@ def handle_plan_strategy(ctx: JobContext) -> dict:
 # Importing the back half registers its handlers. Kept at the bottom because `release` imports
 # job-context helpers from this module's neighbours, and a top-of-file import would be a cycle.
 from . import release  # noqa: E402,F401
+from . import commerce_readings  # noqa: E402,F401  (C-59: gated machinery, run daily)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

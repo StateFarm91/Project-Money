@@ -95,8 +95,17 @@ def proof_of(requirement: reg.Requirement) -> dict:
                     if tok.startswith("tests/") and tok.endswith(".py")})
     existing = [m for m in modules if maturity._importable(m)]
     tested = [m for m in existing if maturity._tested(m)]
+    # Certification (C-41/C-43/C-59): existing and tested is not enough. At least one named
+    # module must be reached from a runtime root -- imported by the handlers, worker or API
+    # and referenced by something there -- or the claim is the 63f2493 failure again.
+    from . import reachability
+
+    reach = {m: reachability.reached(m) for m in existing if m.endswith(".py")}
+    reached = [m for m, v in reach.items() if v["reached"]]
     return {"modules": modules, "existing": existing, "tested": tested, "tests": tests,
-            "proven": bool(existing) and (bool(tested) or bool(tests))}
+            "reached": reached,
+            "unreached": {m: v["why"] for m, v in reach.items() if not v["reached"]},
+            "proven": bool(existing) and (bool(tested) or bool(tests)) and bool(reached)}
 
 
 def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None = None) -> dict:
@@ -121,8 +130,9 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
             row["why"] = f"module {proof['existing'][0]} exists and is tested"
         else:
             row["state"] = OPEN
-            row["why"] = ("covered, but no module the note or `proof` names exists and is "
-                          "tested; the claim is unverified until it names one")
+            row["why"] = ("covered, but no module the note or `proof` names exists, is "
+                          "tested and is reached from the running system; the claim is "
+                          "unverified until one is")
         return row
     if requirement.status == reg.DATA_GATED:
         # Only the data may be the gate: the machinery that will read the data must already
@@ -134,6 +144,13 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
             row["state"] = OPEN
             row["why"] = ("data_gated, but no module the note or `proof` names exists: the "
                           "machinery that will use the data is owed now")
+            return row
+        if not proof["reached"]:
+            # C-59: machinery nothing runs reads nothing on the day the data arrives.
+            row["state"] = OPEN
+            row["why"] = ("data_gated, but the machinery it names is not reached from the "
+                          "running system: " + "; ".join(f"{m}: {w}" for m, w in
+                                                         proof["unreached"].items())[:300])
             return row
         row["state"] = DATA_GATED
         row["why"] = (f"machinery exists ({proof['existing'][0]}); needs customers, orders or "
@@ -149,6 +166,17 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
         row["why"] = "executable work Build 2 still owes"
         return row
     row["gate"] = gate
+    # C-59: a partly built row parked on a gate must have its built half running. When the
+    # note or `proof` names machinery that exists, at least one module of it must be reached.
+    if requirement.status != reg.OWNER_GATED:
+        proof = proof_of(requirement)
+        row["proof"] = proof
+        if proof["existing"] and not proof["reached"]:
+            row["state"] = OPEN
+            row["why"] = (f"parked on {gate}, but the machinery it names is not reached from "
+                          f"the running system: "
+                          + "; ".join(f"{m}: {w}" for m, w in proof["unreached"].items())[:300])
+            return row
     kind = kind_of(gate)
     is_open = gate_open.get(gate)
     row["gate_open"] = is_open

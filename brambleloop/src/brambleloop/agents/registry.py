@@ -199,6 +199,8 @@ DEFAULT_AGENTS: list[dict] = [
          allowed_job_types=["finance.reconcile", "finance.challenge",
                             # #188: the governor enforces anomalies and parallelism advice.
                             "finance.governor",
+                            # C-59: daily readings of the gated commerce machinery (read-only).
+                            "commerce.readings",
                             # The four-fifths escalation as a job rather than a page view:
                             # `spend_policy.escalation` was computed only when somebody
                             # fetched /api/spend-report, so a month that reached 80% with
