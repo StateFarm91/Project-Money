@@ -2039,6 +2039,31 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
             "measured": sorted(p for p, r in result["pods"].items() if r["measured"])}
 
 
+@handlers.register("intel.panel_discovery")
+def handle_intel_panel_discovery(ctx: JobContext) -> dict:
+    """#219 / #268: category leaders found in the API search index join the panel and are scanned.
+
+    Weekly. A shop in the index's top results for two or more target queries is read with
+    `getShop` (for its name and its stated market), registered as a non-mandatory benchmark
+    with the evidence that put it there, and its catalogue is scanned with the same sanctioned
+    reader as the anchor. A market the panel does not yet cover is preferred. From then on
+    `mission_runtime.panel_members` counts it and a mechanism shown by it and the anchor
+    becomes learnable (#220). GREEN: public reads only; nothing is published or bought.
+    """
+    import os
+
+    from ..intel import panel_discovery
+
+    result = panel_discovery.discover(ctx.db, env=dict(os.environ))
+    ctx.audit("intel.panel_discovered" if result["ran"] else "intel.panel_discovery_blocked",
+              detail={k: v for k, v in result.items() if k != "note"})
+    return {"ran": result["ran"], "candidates": result["candidates"],
+            "joined": [j["key"] for j in result.get("joined", [])],
+            "scanned": len(result.get("scanned", [])),
+            "markets_observed": result.get("markets_observed", []),
+            **({} if result["ran"] else {"reason": result["reason"][:200]})}
+
+
 @handlers.register("mjs.seasonal_sentinel")
 def handle_mjs_seasonal_sentinel(ctx: JobContext) -> dict:
     """#311: days to preferred and latest launch for every MJs-derived opportunity.

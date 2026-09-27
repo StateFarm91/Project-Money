@@ -1006,6 +1006,10 @@ class Benchmark(Base):
     last_change_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
                                                             nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # The buyer market this shop sells into (`commerce.markets` keys), established from the
+    # shop's own Etsy location when the panel discovered it (#219, #268). Empty is unstated,
+    # never assumed American. Code-declared benchmarks keep theirs on the spec.
+    market: Mapped[str] = mapped_column(String(12), default="")
 
 
 class BenchmarkListing(Base):

@@ -230,6 +230,11 @@ RULES: tuple[Rule, ...] = (
          "a reduced price shown against a higher reference price",
          "anchors the price against a larger number the buyer sees first",
          adoptable=False),
+    # #208: options and variants read from the API's listing fields (has_variations,
+    # is_personalizable). Unknown where the scan did not carry them.
+    Rule("options_offered", mech.RANGE, "merchandising",
+         "buyer-selectable options or personalisation on the listing",
+         "lets one listing answer several buyers' choices instead of sending them elsewhere"),
     Rule("occasion_title", mech.INFORMATION, "seasonal_timing",
          "the buying occasion named in the listing title",
          "puts the listing in front of buyers searching for that occasion during its "
@@ -285,6 +290,12 @@ def evaluate(rule: Rule, snap: dict) -> tuple[bool | None, str, float | None]:
         return present, rule.generic, None
     if rule.key == "sale_display":
         return snap["on_sale"], rule.generic, None
+    if rule.key == "options_offered":
+        opts = d.get("options") or {}
+        if not any(k in opts for k in ("has_variations", "is_personalizable")):
+            return None, "", None
+        return (bool(opts.get("has_variations")) or bool(opts.get("is_personalizable")),
+                rule.generic, None)
     if rule.key == "occasion_title":
         words = set(pods._words(snap["title"]))  # noqa: SLF001 - the router's own tokeniser
         return bool(words & set(OCCASION_WORDS)), rule.generic, None

@@ -426,8 +426,9 @@ def _second_market_observed(db, env) -> bool:
         keys = {k for (k,) in s.execute(
             select(BenchmarkListing.benchmark_key).distinct())}
 
-    markets = {spec.market for key in keys
-               if (spec := benchmarks.spec_for(key)) is not None and spec.market}
+    # A discovered panel member (#219) carries its market on its row, read from the shop's
+    # own Etsy location; `market_of` reads the spec first and that row second.
+    markets = {m for key in keys if (m := benchmarks.market_of(db, key))}
     return len(markets) > 1
 
 

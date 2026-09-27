@@ -586,6 +586,10 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
     # searched. A pod whose keywords nobody searched keeps the dimension unmeasured.
     density = listing_density(db)
     density_values = _density_values(density)
+    # C-60 (#2 / #15): differentiation -- how often the index's top results for this pod's
+    # queries fall short of what every Brambleloop release ships -- from SERP positioning.
+    from ..intel import serp as _serp
+    differentiation = _serp.differentiation_by_pod(db)
 
     favourite_ceiling = max((v["median_favourites"] or 0.0) for v in raw.values())
     price_ceiling = max((v["median_price_cad"] or 0.0) for v in raw.values())
@@ -606,6 +610,9 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
             values["offer_quality"] = measured["opportunity"]
         if measured["buildable_share"] is not None:
             values["verifiability"] = measured["buildable_share"]
+        if pod in differentiation:
+            values["differentiation"] = differentiation[pod]["value"]
+            measured = {**measured, "differentiation": differentiation[pod]}
         if pod in density_values:
             values["listing_density"] = density_values[pod]
             measured = {**measured, "listing_density": {
@@ -647,6 +654,67 @@ def score_observed(db, *, benchmark_key: str = "") -> dict:
                  "keyword (`api_index_count`) where a search has been captured, and stays "
                  "unmeasured where none has"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Steering (C-60, #2): the scores decide what gets made, rather than sitting in an endpoint.
+
+# How much of a concept's selection score the observed market score may move. A quarter:
+# enough that a department the hunt found open outranks one it found crowded at the same
+# base score, not so much that one catalogue's evidence overrides the portfolio's own
+# structural constraints -- those still bind in `select_portfolio`.
+STEER_WEIGHT = 0.25
+
+
+def steering(db) -> dict[str, dict]:
+    """Per pod: the observed market score, only where it is rankable. Unscored pods absent.
+
+    A pod below the confidence floor, or scored when the departments' confidences are too
+    far apart to rank, does not steer anything -- the same refusal `rank` makes, applied to
+    the one place the score is acted on.
+    """
+    try:
+        report = score_observed(db)
+    except Exception:  # noqa: BLE001 - steering never breaks the selector it feeds
+        return {}
+    if not report.get("measurable") or report.get("ranking_refused"):
+        return {}
+    return {card["market"]: {"score": card["score"], "confidence": card["confidence"],
+                             "measured": card["measured"]}
+            for card in report["scored"] if card["rankable"] and card["score"] is not None}
+
+
+def pod_of_concept(title: str, category: str = "") -> str:
+    return pods.route(f"{title} {category.replace('_', ' ')}")
+
+
+def steer_concepts(db, scored: list) -> tuple[list, dict]:
+    """Blend each concept's score with its department's observed market score (#2).
+
+    Returns new `ScoredConcept`s (components carry `market_arbitrage` where it applied) and a
+    report naming which concepts moved and which had no rankable market score -- the latter
+    keep their base score unchanged rather than being pulled toward a neutral value.
+    """
+    from dataclasses import replace
+
+    steer = steering(db)
+    out, moved, unscored = [], [], []
+    for c in scored:
+        pod = pod_of_concept(c.seed.title, c.seed.category)
+        card = steer.get(pod)
+        if card is None:
+            unscored.append(c.seed.slug)
+            out.append(c)
+            continue
+        blended = round((1 - STEER_WEIGHT) * c.score + STEER_WEIGHT * float(card["score"]), 4)
+        comps = {**c.components, "market_arbitrage": round(float(card["score"]), 4)}
+        out.append(replace(c, score=blended, components=comps,
+                           notes=list(c.notes) + [
+                               f"market arbitrage ({pod}): {card['score']} at "
+                               f"{card['confidence']:.0%} confidence"]))
+        moved.append({"slug": c.seed.slug, "pod": pod, "from": c.score, "to": blended})
+    return out, {"steered": moved, "no_rankable_market_score": unscored,
+                 "weight": STEER_WEIGHT, "pods_scored": sorted(steer)}
 
 
 def state(db, *, pod: str = "") -> dict:
