@@ -2691,6 +2691,13 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
             ("cost", ledger, 0)):
         readings.append(weekly.DomainReading(domain=domain, read=read, findings=found))
 
+    # #85: the catalogue's own jury autopsy, computed on every request and never kept, is
+    # kept as a lesson -- once per distinct pattern of deaths, so a week with the same
+    # catalogue adds nothing.
+    from ..creative.audit import persist_catalogue_audit
+
+    catalogue_memory = persist_catalogue_audit(ctx.db)["lesson"]
+
     # #192: the retirement review over the cells' own records, fed to the cycle as the
     # architecture changes it has to judge. Recommendations only: nothing is retired here.
     candidates = director.retirement_candidates(ctx.db)
@@ -2721,6 +2728,7 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
                                     "waiting_for_data": candidates["waiting_for_data"]},
               "executed": executed["executed"],
               "queued_for_authority": executed["queued_for_authority"],
+              "catalogue_autopsy_lesson": catalogue_memory.get("lesson"),
               "conflicts": director.conflicts(ctx.db),
               "roadmap": plan,
               "realised_benefit": {k: realised[k] for k in

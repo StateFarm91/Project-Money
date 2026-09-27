@@ -14,6 +14,7 @@ Two rules shape the design:
 from __future__ import annotations
 
 import signal
+import threading
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -167,8 +168,17 @@ class Worker:
                          registry=self.agents, phase=self.phase)
         from ..ops import artefacts as provenance
 
+        # Lease renewal for the handler's lifetime. Completion is fenced to the lease holder
+        # (a reclaimed job's original worker cannot complete it), so a legitimate handler
+        # longer than the lease -- a render, a benchmark, a continuity restore -- would lose
+        # its result. Renewing from here covers every handler without each one remembering
+        # to. It stops at MAX_HANDLER_SECONDS: a genuinely hung handler must still become
+        # reclaimable, which is what the lease exists for.
+        renewal = _LeaseRenewal(self.queue, job.id)
+        renewal.start()
         try:
             outputs = handler(ctx) or {}
+            renewal.stop()
             # Provenance backstop (#171). The write path records lineage as it writes; this
             # is the check that it did, after the handler and before the job is marked done.
             # Any listing, frame, certificate or content piece this job created without a
@@ -213,16 +223,19 @@ class Worker:
                               job_id=job.id, phase=self.phase)
             self.stats.completed += 1
         except CapabilityNotEnabled as e:
+            renewal.stop()
             self.queue.fail(job.id, f"capability not enabled: {e}", retry=False, worker=self.name)
             self.agents.audit(job.agent, "job.capability_not_enabled", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except BudgetExceeded as e:
+            renewal.stop()
             self.queue.fail(job.id, f"budget exceeded: {e}", retry=False, worker=self.name)
             self.agents.audit(job.agent, "job.budget_exceeded", job_id=job.id,
                               phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except provenance.ProvenanceRefused as e:
+            renewal.stop()
             # Terminal, like a capability gate: a handler that cannot say what made its
             # artefact will not be able to say so on the next attempt either.
             self.queue.fail(job.id, f"provenance refused: {e}", retry=False, worker=self.name)
@@ -230,6 +243,7 @@ class Worker:
                               job_id=job.id, phase=self.phase, detail={"error": str(e)[:500]})
             self.stats.failed += 1
         except Exception as e:  # noqa: BLE001 - a worker must survive any handler
+            renewal.stop()
             _note_funding(self.db, str(e))
             self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}",
                             worker=self.name)
@@ -293,6 +307,23 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirement 93. Daily: every promoted change judged once per new production reading,
     # and a regression becomes a revert plus a rollback incident rather than a quiet row.
     ("promotion_monitor", "orchestrator", "improve.monitor", 24 * 60 * 60),
+    # Build 2 closeout (2026-09-27): the runtime halves of libraries that had none.
+    # #174-#176, #186, #192: the swarm reviews agent quality, sizes lanes, resolves orphaned
+    # work and feeds an idle queue from the standing backlog -- GREEN only, never spending.
+    ("swarm_review", "swarm_steward", "swarm.review", 24 * 60 * 60),
+    ("swarm_allocate", "swarm_steward", "swarm.allocate", 60 * 60),
+    ("swarm_orphans", "swarm_steward", "swarm.orphans", 60 * 60),
+    ("swarm_backlog", "swarm_steward", "swarm.backlog", 60 * 60),
+    # #241/#265: experiments persisted with owner, expected value and a kill rule.
+    ("growth_experiments", "experiment_steward", "growth.experiments", 24 * 60 * 60),
+    # #75 COMPETITIVE and #222/#320: the blind review and the acceptance runner read stored
+    # evidence only; neither fetches or spends.
+    ("blind_review", "creative_director", "creative.blind_review", 24 * 60 * 60),
+    ("intel_acceptance", "market_radar", "intel.acceptance", 24 * 60 * 60),
+    # #171: lineage backfilled only where a job, audit or hash proves it; idempotent.
+    ("provenance_backfill", "orchestrator", "ops.provenance_backfill", 24 * 60 * 60),
+    # Cost governance: the 80% escalation becomes an owner action without anybody looking.
+    ("spend_escalation", "cfo", "finance.escalation_check", 6 * 60 * 60),
     # Hourly on purpose: it is the thing that notices a certified product with no listing,
     # which is what a pipeline upgrade leaves behind.
     ("chain_rebuild", "listing", "chain.rebuild", 60 * 60),
@@ -353,7 +384,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # and what closes it again if the credential is ever revoked, without anybody noticing
     # by finding an empty catalogue.
     ("etsy_probe", "market_radar", "etsy.probe", 6 * 60 * 60),
-    ("mjs_scan", "market_radar", "mjs.scan", 6 * 60 * 60),
+    # Two-hourly *opportunity*, not two-hourly scans: `scan_or_explain` is adaptive by
+    # default (#313) and defers any scan the benchmark's own posting history says is not due,
+    # before a single request is made. Two hours is the adaptive floor; with thin history it
+    # falls back to six hours and says so.
+    ("mjs_scan", "market_radar", "mjs.scan", 2 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the
     # customer_pain domain without this company having customers. It keeps counts per theme
     # and no review text, reviewer or quotation.
@@ -505,6 +540,43 @@ def _role_cadences() -> list[tuple[str, str, str, int]]:
 CADENCES.extend(_role_cadences())
 
 
+
+# A handler may renew its lease for at most this long. Past it the lease lapses, another
+# worker may reclaim the job, and the original's completion is refused by the fence.
+MAX_HANDLER_SECONDS = 60 * 60
+
+
+class _LeaseRenewal:
+    """Renews a running job's lease every third of a lease, until stopped or capped."""
+
+    def __init__(self, queue, job_id: int, *, cap_seconds: int = MAX_HANDLER_SECONDS):
+        self.queue, self.job_id, self.cap = queue, job_id, cap_seconds
+        self.interval = max(1.0, float(getattr(queue, "lease_seconds", 300)) / 3.0)
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True,
+                                        name=f"lease-renewal-{job_id}")
+        self.renewals = 0
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def _run(self) -> None:
+        started = time.monotonic()
+        while not self._stop.wait(self.interval):
+            if time.monotonic() - started >= self.cap:
+                return
+            try:
+                self.queue.heartbeat(self.job_id)
+                self.renewals += 1
+            except Exception:  # noqa: BLE001 - a failed renewal must not kill the handler
+                pass
+
+from ..swarm.orchestrate import priority_for  # noqa: E402
+
+
 class Scheduler:
     def __init__(self, db: Database):
         self.db = db
@@ -518,8 +590,9 @@ class Scheduler:
             window = int(now.timestamp() // period)
             key = f"cadence:{name}:{window}"
             try:
+                # The job type's band (#187), not how often it happens to be scheduled.
                 self.queue.enqueue(agent, job_type, {"cadence": name}, idempotency_key=key,
-                                   priority=50 if period <= 3600 else 100)
+                                   priority=priority_for(job_type))
                 enqueued.append(name)
             except DuplicateJob:
                 continue

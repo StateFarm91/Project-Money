@@ -49,7 +49,12 @@ PROVISIONAL_NOTE = (
 STEPS: tuple[str, ...] = (
     "resolve", "observed_listings", "deep_audit", "gallery_urls", "observations", "pods",
     "persist", "staleness_change", "re_audit",
+    # #320's four further links: from the evidence to an action.
+    "seasonal_adaptation", "launch_timing", "concept_responses", "coverage_matrix",
 )
+
+# "Multiple Brambleloop concept responses" (#320): more than one, the same floor as listings.
+MIN_CONCEPT_RESPONSES = 2
 
 
 def _utcnow() -> datetime:
@@ -246,7 +251,84 @@ def evaluate(db, *, benchmark_key: str = benchmarks.MJS_KEY,
          "no detected change has a matching deep audit on record"),
         {"re_audited": sorted(set(re_audited))[:10]},
         listings=sorted(set(re_audited))[:10]))
+
+    steps += _action_steps(db, benchmark_key)
     return steps
+
+
+def _latest_cycle(db) -> tuple[int | None, dict]:
+    """The most recent seasonal cycle proof run as a job, or none.
+
+    The cycle is the one path that takes a benchmark signal to an event, a launch date and
+    concepts; it is recorded by `seasonal.cycle_proof` as an audit row. A cycle computed on
+    a GET leaves no row and proves nothing here, deliberately.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "seasonal.cycle_proof")
+                       .order_by(desc(AuditLog.id)).limit(1))
+        return (row.id, dict(row.detail or {})) if row is not None else (None, {})
+
+
+def _action_steps(db, benchmark_key: str) -> list[Step]:
+    """#320's last four links, proved from the cycle proof and the coverage matrix."""
+    from sqlalchemy import select
+
+    from ..core.models import CoverageGap
+    from . import coverage
+
+    audit_id, cycle = _latest_cycle(db)
+    links = {st.get("step"): st for st in cycle.get("steps") or []}
+    out: list[Step] = []
+
+    def link_step(name: str, key: str, what: str) -> Step:
+        got = links.get(key) or {}
+        ok = got.get("state") == "ran" and bool(got.get("evidence"))
+        why = (f"the recorded cycle proof ran '{key}' with evidence: {what}" if ok else
+               "no seasonal cycle proof has been recorded as a job" if audit_id is None else
+               f"the latest cycle proof's '{key}' link is {got.get('state') or 'absent'}"
+               + (f" (gated on {got['gated_on']})" if got.get("gated_on") else ""))
+        return Step(name, ok, why, {"cycle_proof_audit_id": audit_id, "link": key,
+                                    "link_state": got.get("state"),
+                                    "link_evidence": got.get("evidence") or {}})
+
+    out.append(link_step("seasonal_adaptation", "choose_event",
+                         "an upcoming event with runway left was chosen"))
+    out.append(link_step("launch_timing", "launch_date",
+                         "the maker's lead time was chained back to a launch date"))
+
+    gen = links.get("generate") or {}
+    evidence = gen.get("evidence") or {}
+    concepts = evidence.get("concepts") or evidence.get("responses") or []
+    count = len(concepts) if isinstance(concepts, list) else int(evidence.get("count") or 0)
+    ok = gen.get("state") == "ran" and count >= MIN_CONCEPT_RESPONSES
+    out.append(Step(
+        "concept_responses", ok,
+        (f"{count} original concept responses recorded by the cycle proof" if ok else
+         "no seasonal cycle proof has been recorded as a job" if audit_id is None else
+         f"the cycle proof's generate link is {gen.get('state') or 'absent'} with {count} "
+         f"concept(s), against {MIN_CONCEPT_RESPONSES}"),
+        {"cycle_proof_audit_id": audit_id, "concepts": count,
+         "gated_on": gen.get("gated_on") or ""}))
+
+    with db.session() as s:
+        gaps = list(s.scalars(select(CoverageGap).where(
+            CoverageGap.benchmark_key == benchmark_key)))
+        acted = [g for g in gaps if g.state != coverage.UNCOVERED
+                 and (g.state != coverage.NOT_PURSUING or (g.reason or "").strip())]
+        rows = [{"arena": g.arena, "pod": g.pod, "state": g.state,
+                 "product_slug": g.product_slug} for g in acted[:10]]
+    ok = bool(acted)
+    out.append(Step(
+        "coverage_matrix", ok,
+        (f"{len(acted)} arena(s) in the coverage matrix carry a recorded action" if ok else
+         f"{len(gaps)} arena(s) in the matrix and none has moved past uncovered with a "
+         f"recorded action"),
+        {"arenas": len(gaps), "acted_on": rows}))
+    return out
 
 
 def _report_for(step: Step, *, listings_known: int, run_at: str) -> dict:

@@ -156,6 +156,8 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "store.pdf_hash_verified": ("latest",
                                 "commerce.first_hundred reads the latest verification to "
                                 "say whether the delivery path is proven"),
+    "improve.mine": ("latest", "improve.mine reads its own last run as the watermark"),
+    "improve.monitor": ("latest", "improve.monitor reads its own last run as the watermark"),
     "creative.tournament": ("lifetime_total",
                             "improve.measure scores product_creativity over every recorded "
                             "tournament (survival rate beside the research kill rate); a "

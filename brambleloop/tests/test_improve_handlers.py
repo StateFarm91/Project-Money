@@ -131,7 +131,7 @@ def test_the_nightly_sweep_ingests_mines_and_queues_for_real():
     assert empty["delta"]["stages"]["mine_failures"]["outcome"] == "did_not_run"
     assert empty["verdict"] == "incomplete"
     # The only measurable row is the sweep's own job, which the runtime cell counts.
-    assert empty["delta"]["stages"]["ingest_evidence"]["cells_measured"] == ["runtime"]
+    assert empty["delta"]["stages"]["ingest_evidence"]["detail"]["cells_measured"] == ["runtime"]
     _seed(db)
     out = _run(db, "improve.nightly")
     stages = out["delta"]["stages"]
@@ -141,7 +141,7 @@ def test_the_nightly_sweep_ingests_mines_and_queues_for_real():
     assert stages["run_challengers"]["outcome"] in ("ran_and_found", "ran_and_found_nothing")
     assert stages["queue_safe_improvements"]["read"] == 12
     # The never-measured proposals for cells measured tonight close as done, not failed.
-    assert stages["queue_safe_improvements"]["resolved_by_measurement"] >= 6
+    assert stages["queue_safe_improvements"]["detail"]["resolved_by_measurement"] >= 6
     assert _count(db, Improvement, state="promoted") == 0     # the sweep never promotes
 
 
@@ -172,6 +172,10 @@ def test_the_weekly_cycle_reviews_retirement_and_executes_only_the_safe():
     assert {w["cell"] for w in review["waiting_for_data"]} >= {"pricing", "finance"}
     assert "pattern_engineering" in review["keep"]
     assert out["architecture"]["subtracted"] == len(review["retire"]) + len(review["merge"])
+    # #85: the catalogue autopsy is kept as a lesson, once.
+    assert out["catalogue_autopsy_lesson"]
+    assert _run(db, "improve.weekly")["catalogue_autopsy_lesson"] == out[
+        "catalogue_autopsy_lesson"]
 
 
 def test_the_retrospective_handler_carries_the_hundreds_clauses():

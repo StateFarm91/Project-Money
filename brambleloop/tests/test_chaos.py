@@ -376,6 +376,57 @@ def test_a_heartbeat_keeps_a_long_handler_from_being_reclaimed():
     assert extended > utcnow() + timedelta(seconds=200)
 
 
+
+def test_the_worker_renews_a_long_handlers_lease_so_its_result_is_kept():
+    """Fencing refuses a completion from a worker that lost its lease. A legitimate handler
+    longer than the lease must therefore keep it: the worker renews it while the handler
+    runs, and nobody can reclaim the job meanwhile."""
+    import time as _time
+
+    from brambleloop.runtime.worker import HandlerRegistry
+
+    import tempfile as _tf
+
+    # A file database: renewal runs on its own thread, and an in-memory SQLite database is
+    # one connection that a second thread cannot share. Production is Postgres.
+    db = boot(f"sqlite:///{_tf.mkdtemp()}/renewal.sqlite")
+    registry = HandlerRegistry()
+    allow(db, "orchestrator", "chaos.long")
+    stolen = []
+
+    def long_running(ctx):
+        _time.sleep(4.5)                       # past a 3-second lease
+        stolen.append(JobQueue(db).claim("thief"))
+        return {"finished": True}
+
+    registry.register("chaos.long")(long_running)
+    job = JobQueue(db).enqueue("orchestrator", "chaos.long", {})
+    worker = Worker(db, "original", registry=registry)
+    worker.queue.lease_seconds = 3
+    assert worker.run_once() is True
+    assert stolen == [None], "the job was reclaimable while its handler was still running"
+    assert worker.stats.completed == 1
+    assert JobQueue(db).get(job.id).status == JobStatus.DONE
+
+
+def test_lease_renewal_stops_at_its_cap_so_a_hung_handler_stays_reclaimable():
+    import time as _time
+
+    from brambleloop.runtime.worker import _LeaseRenewal
+
+    class _Q:
+        lease_seconds = 3
+        calls = 0
+
+        def heartbeat(self, job_id):
+            _Q.calls += 1
+
+    r = _LeaseRenewal(_Q(), 1, cap_seconds=0)
+    r.start()
+    _time.sleep(2.5)
+    r.stop()
+    assert _Q.calls == 0, "a renewal past its cap would let a hung handler hold its lease forever"
+
 # ---- budget exhaustion ---------------------------------------------------
 
 

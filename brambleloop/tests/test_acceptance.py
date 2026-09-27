@@ -72,14 +72,33 @@ def _full_history(env=GRANTED) -> Database:
     observe.scan(db, _Reader(listings), env=env)                      # a change, re-audited
     _observe_image(db, "1", 1, env)
     _observe_image(db, "2", 1, env)
+    _act_on_it(db)
     return db
+
+
+def _act_on_it(db, *, concepts=3, generate_state="ran") -> None:
+    """The action half of #320: a recorded cycle proof and a coverage-matrix entry acted on."""
+    from brambleloop.core.models import AuditLog
+    from brambleloop.intel import coverage
+
+    steps = [
+        {"step": "choose_event", "state": "ran", "evidence": {"event": "valentine"}},
+        {"step": "launch_date", "state": "ran", "evidence": {"launch_on": "2027-01-10"}},
+        {"step": "generate", "state": generate_state,
+         "evidence": {"concepts": [f"concept-{i}" for i in range(concepts)]}},
+    ]
+    with db.session() as s:
+        s.add(AuditLog(actor="seasonal", action="seasonal.cycle_proof",
+                       detail={"steps": steps}))
+    gap = coverage.upsert(db, benchmark_key=KEY, arena="cropped cardigans", pod="garments")
+    coverage.advance(db, gap, coverage.CONCEPTING, reason="cycle concept responds to it")
 
 
 def test_every_step_passes_on_mandated_stored_evidence_and_files_one_report_each():
     db = _full_history()
     out = A.run(db, job_id=7, env=GRANTED)
     assert out["verdict"] == "PASS", out["failed_steps"]
-    assert out["passed"] == out["of"] == len(A.STEPS) == 9
+    assert out["passed"] == out["of"] == len(A.STEPS) == 13
     assert out["failed_steps"] == []
     assert out["grade"].startswith("mandated") and "B-105" in out["grade"]
     assert len(out["observation_ids"]) == len(A.STEPS)
@@ -130,6 +149,20 @@ def test_a_baseline_alone_is_not_a_detected_change_and_stale_coverage_fails():
     steps = {s.name: s for s in A.evaluate(_full_history(), now=later)}
     assert not steps["staleness_change"].passed
     assert "older than" in steps["staleness_change"].why
+
+
+def test_the_action_links_fail_without_a_recorded_cycle_or_with_one_concept():
+    db = _db()
+    listings = [_listing(1, "Cropped Striped Cardigan"), _listing(2, "Chunky Throw Blanket")]
+    observe.scan(db, _Reader(listings), env=GRANTED)
+    steps = {s.name: s for s in A.evaluate(db)}
+    for name in ("seasonal_adaptation", "launch_timing", "concept_responses",
+                 "coverage_matrix"):
+        assert not steps[name].passed and steps[name].why, name
+    _act_on_it(db, concepts=1)
+    steps = {s.name: s for s in A.evaluate(db)}
+    assert steps["seasonal_adaptation"].passed and steps["coverage_matrix"].passed
+    assert not steps["concept_responses"].passed, "one concept is not multiple responses"
 
 
 def test_the_run_returns_what_the_handler_reads_and_latest_reads_it_back():

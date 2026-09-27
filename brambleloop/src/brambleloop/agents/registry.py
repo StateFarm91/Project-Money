@@ -48,6 +48,11 @@ DEFAULT_AGENTS: list[dict] = [
                             "improve.retrospective", "ops.policy_watch", "build.tick",
                             "ops.capacity", "ops.sentinel", "ops.health", "model.probe",
                             "improve.nightly", "improve.weekly",
+                            # The learning loop's measure / mine / monitor stages (#90, #93,
+                            # #97) and the provenance backfill (#171): read-only against the
+                            # business, writing only their own rows.
+                            "improve.measure", "improve.mine", "improve.monitor",
+                            "ops.provenance_backfill",
                             # The three gates that stopped reading environment variables
                             # need something to keep asking whether the capability still
                             # works. Three reads and a fraction of a cent (B-479).
@@ -66,6 +71,7 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
          allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
+                            "intel.acceptance",
                             "mjs.scan", "mjs.reviews", "etsy.probe",
                             # A free keyless sanctioned read, and the gallery backlog that
                             # was waiting on a call nobody had written rather than on a
@@ -80,6 +86,7 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="creative_director",
          description="Blinded creative benchmarking and product discovery (#94, #104, #3)",
          allowed_job_types=["creative.blinded", "creative.expedition",
+                            "creative.blind_review",
                             "creative.tournament",
                             # The image-provider benchmark (owner decision 2026-09-20).
                             # It is the one job here that can spend double figures in a
