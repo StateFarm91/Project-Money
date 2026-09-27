@@ -1,0 +1,3 @@
+* text eol=lf
+# Preserve verbatim subprocess logs and their recorded byte hashes.
+out/*.log -text -diff

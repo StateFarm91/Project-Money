@@ -1,0 +1,6 @@
+OK   test_stale_foreign_evidence_discounts_the_score_below_promotion
+OK   test_current_canadian_evidence_keeps_full_weight
+OK   test_no_evidence_is_unmeasured_and_leaves_the_score_alone
+OK   test_serp_captures_are_stamped_with_their_population_and_window
+
+PASS: 0 failing

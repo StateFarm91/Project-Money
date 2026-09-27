@@ -1,0 +1,23 @@
+OK   test_a_correcting_version_prepares_the_notice_for_its_buyers
+OK   test_bundle_pairs_come_from_certified_product_facts
+OK   test_gate_closed_records_unmeasured_and_never_touches_the_reader
+OK   test_gate_open_ingest_writes_customers_orders_versions_and_ledger
+OK   test_new_jobs_are_scheduled_permitted_and_banded
+FAIL test_new_modules_are_reached_from_the_runtime AssertionError({'module': 'commerce/orders_ingest.py', 'reached': False, 'why': 'imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported by brambleloop.commerce.order_readings'})
+OK   test_north_star_is_computed_by_cohort_and_a_regression_is_a_defect
+OK   test_order_readings_drive_every_downstream_reader
+OK   test_portfolio_review_reads_exposure_and_consults_offers_before_retiring
+OK   test_pricing_decides_on_net_contribution_with_currency_normalised
+OK   test_promotion_verdicts_reach_pricing
+OK   test_reinvestment_raises_an_owner_action_when_the_envelope_is_non_zero
+OK   test_the_route_reads_the_database_not_an_empty_dict
+OK   test_trajectory_runs_nightly_from_the_database
+
+FAIL: 1 failing
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\build2-assist-01\brambleloop\tests\test_cert_orders.py", line 524, in <module>
+    fn()
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\build2-assist-01\brambleloop\tests\test_cert_orders.py", line 516, in test_new_modules_are_reached_from_the_runtime
+    assert v["reached"], v
+           ~^^^^^^^^^^^
+AssertionError: {'module': 'commerce/orders_ingest.py', 'reached': False, 'why': 'imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported by brambleloop.commerce.order_readings'}

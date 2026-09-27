@@ -1,0 +1,8 @@
+OK   test_the_dependency_sweep_is_scheduled_granted_and_banded
+OK   test_failed_probes_and_an_unproved_recovery_are_raised_and_resolve_when_fixed
+OK   test_a_billed_provider_the_map_does_not_name_is_raised
+OK   test_one_ai_provider_carrying_all_the_spend_is_raised_as_existential
+OK   test_spend_without_a_validated_pattern_is_an_incident_and_caps_the_lane
+OK   test_below_the_spend_floor_the_ratio_is_noise_and_nothing_acts
+
+PASS: 0 failing

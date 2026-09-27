@@ -1,0 +1,26 @@
+OK   every requirement lands in exactly one state and the counts sum to 320
+OK   every executor gate is classified as owner, data or external waiting
+OK   an unclassified gate is refused rather than filed where it flatters
+OK   a covered row is COMPLETE+PROVEN only when a named module exists and is tested
+OK   covered rows without proof are OPEN, never silently complete
+     covered-without-proof: 28 [57, 58, 60, 62, 63, 65, 66, 69, 78, 80, 83, 102, 105, 106, 107, 113, 118, 119, 121, 122, 123, 127, 148, 196, 209, 224, 301, 319]
+OK   the external blockers are stated in words with their evidence
+FAIL a data-gated row is DATA-GATED only when its machinery exists, else OPEN (C-39)  -- 
+OK   a data-gated row that names no module is OPEN, not parked on missing data
+OK   a covered row naming only an unreached module is OPEN, not COMPLETE+PROVEN
+FAIL the same shape of row naming a runtime-reached module is COMPLETE+PROVEN  -- 
+OK   a data-gated row whose machinery nothing runs is OPEN (C-59)
+OK   fixture precondition: commerce/preproduction.py is still only statically imported
+OK   a covered row whose library only a static state() route touches is OPEN, and naming a runtime root beside it does not count as reach (C-65)
+OK   an owner_gated row whose built half names unreached machinery is OPEN (C-65)
+FAIL the same owner_gated row naming live machinery stays OWNER-GATED  -- parked on owned_surfaces, but the machinery it names is not reached from the running system: commerce/kill_table.py: imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported by brambleloop.runtime.commerce_readings
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\build2-assist-01\brambleloop\research\codex_build2_assist_01\run_focused.py", line 16, in <module>
+    runpy.run_path(str(ROOT/"tests"/(args.child+".py")),run_name="__main__")
+  File "<frozen runpy>", line 287, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\build2-assist-01\brambleloop\tests\test_closure.py", line 86, in <module>
+    _unchecked["gate_open"] is None and _unchecked["gate_checked"] is False
+                                        ~~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'gate_checked'

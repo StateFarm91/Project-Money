@@ -1,0 +1,104 @@
+{
+  "base": "4edacff1f8b445a84749464dc1d7271e6c71173e",
+  "results": [
+    {
+      "suite": "test_closure",
+      "returncode": 1,
+      "seconds": 27.518,
+      "test_sha256": "bfd5d4cb95b4282be40387275d8fce2f70d0824670a0409b5d2a8fd11d410196",
+      "output_sha256": "f3e02f68a2f1d7b4c1aa84884bcb867a7e1e379c6cce959cd2a8c84a7e5937b0",
+      "tail": [
+        "  File \"<frozen runpy>\", line 88, in _run_code",
+        "  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\tests\\test_closure.py\", line 86, in <module>",
+        "    _unchecked[\"gate_open\"] is None and _unchecked[\"gate_checked\"] is False",
+        "                                        ~~~~~~~~~~^^^^^^^^^^^^^^^^",
+        "KeyError: 'gate_checked'"
+      ]
+    },
+    {
+      "suite": "test_cert_orders",
+      "returncode": 1,
+      "seconds": 48.295,
+      "test_sha256": "b3e190e6a1248cc613b4f594e50c761f369eca06fb31dcba0e6758e87f48cbdc",
+      "output_sha256": "5fa005e9b330ef2b7ef6abf1bdcb148106de5f076d99e3f6db2efb23eb346b97",
+      "tail": [
+        "    fn()",
+        "  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\tests\\test_cert_orders.py\", line 516, in test_new_modules_are_reached_from_the_runtime",
+        "    assert v[\"reached\"], v",
+        "           ~^^^^^^^^^^^",
+        "AssertionError: {'module': 'commerce/orders_ingest.py', 'reached': False, 'why': 'imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported by brambleloop.commerce.order_readings'}"
+      ]
+    },
+    {
+      "suite": "test_cert_growth_ops",
+      "returncode": 1,
+      "seconds": 39.24,
+      "test_sha256": "0664bbded21c3f7080f955b8a17441beaebe476649a0fe927dd224343bc05403",
+      "output_sha256": "c58d4d6f5397dbf64843851b527db22475f5d7d7aa3ec2c58a9eedb33fff4f2b",
+      "tail": [
+        "    self._close_self_pipe()",
+        "  File \"C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\asyncio\\proactor_events.py\", line 779, in _close_self_pipe",
+        "    self._ssock.close()",
+        "    ^^^^^^^^^^^",
+        "AttributeError: 'ProactorEventLoop' object has no attribute '_ssock'"
+      ]
+    },
+    {
+      "suite": "test_cert_dependencies",
+      "returncode": 0,
+      "seconds": 9.254,
+      "test_sha256": "3ceec7d1015257d0cbb02552216a07eba448b00803dea8e7f3cdb3e8c8bd1d19",
+      "output_sha256": "b3b7434f3bfe95fbe06f87839d3ed9d077356ee88c7640a4fa19e7a3ee4e7590",
+      "tail": [
+        "OK   test_one_ai_provider_carrying_all_the_spend_is_raised_as_existential",
+        "OK   test_spend_without_a_validated_pattern_is_an_incident_and_caps_the_lane",
+        "OK   test_below_the_spend_floor_the_ratio_is_noise_and_nothing_acts",
+        "",
+        "PASS: 0 failing"
+      ]
+    },
+    {
+      "suite": "test_cert_takeover",
+      "returncode": 0,
+      "seconds": 6.283,
+      "test_sha256": "5302557876925bff71bea43c8d478a25504ed63d653c061b15eebf532867e90c",
+      "output_sha256": "dd3b5c832b32cd588b5b28c80a18e0570150b961a33beb140d25c45be15465b5",
+      "tail": [
+        "OK   test_the_engine_applies_due_surfaces_and_reverts_them_after_the_occasion",
+        "OK   test_the_storefront_is_rendered_with_the_live_takeover_and_still_checked",
+        "OK   test_a_takeover_that_breaks_the_storefront_rules_is_refused_not_applied",
+        "",
+        "PASS: 0 failing"
+      ]
+    },
+    {
+      "suite": "test_cert_trend_evidence",
+      "returncode": 0,
+      "seconds": 7.313,
+      "test_sha256": "61ee0b579416799670f3d1290393945c1df88b2d3b32466b3fde53f769d586a8",
+      "output_sha256": "26afda8800ef98bfd6e37d7f09b15ce4a50e240e7ef04fe30e3ccce647844a34",
+      "tail": [
+        "OK   test_current_canadian_evidence_keeps_full_weight",
+        "OK   test_no_evidence_is_unmeasured_and_leaves_the_score_alone",
+        "OK   test_serp_captures_are_stamped_with_their_population_and_window",
+        "",
+        "PASS: 0 failing"
+      ]
+    },
+    {
+      "suite": "test_moat",
+      "returncode": 0,
+      "seconds": 22.691,
+      "test_sha256": "9e5533adb88f38c4f846c6b0a53331c73fd37dab35c8392dbe77b093084ca022",
+      "output_sha256": "4a4e1c4f196331ba0233e4a7313cb1bf261b5ab04a795d404c555aa4c2619606",
+      "tail": [
+        "OK   test_one_tester_doing_every_garment_is_a_network_of_one_for_garments",
+        "OK   test_structural_means_it_cannot_be_bought_later_at_any_speed",
+        "OK   test_the_brand_survives_losing_the_model",
+        "OK   test_the_launch_gate_carries_the_v14_additions",
+        "OK   test_the_model_is_the_most_visible_asset_and_the_most_copyable"
+      ]
+    }
+  ],
+  "note": "Existing scripts unchanged. Exit0 is that suite result, not certification. Offline local environment."
+}
