@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import math
 import json
 import os
 import time
@@ -111,8 +112,46 @@ def _key() -> str:
     return key
 
 
+# Certification C-54. This judge reaches a paid provider directly, outside the gateway, for
+# the research scripts that call it by hand. It had no ceiling in code at all, which the
+# owner's rule forbids even for authorised research. So it now refuses unless the operator
+# states a cap for the process (BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD), and refuses any call
+# whose worst case would pass that cap, counting what this process has already spent.
+WORST_CASE_INPUT_TOKENS = 4000   # prompt plus one high-detail image, rounded up
+_spent_usd = 0.0
+
+
+class JudgeSpendRefused(RuntimeError):
+    pass
+
+
+def _worst_case_usd() -> float:
+    return (WORST_CASE_INPUT_TOKENS * PRICE_USD_PER_M["input"]
+            + MAX_OUTPUT_TOKENS * PRICE_USD_PER_M["output"]) / 1e6
+
+
+def _authorise() -> float:
+    raw = (os.environ.get("BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD") or "").strip()
+    try:
+        cap = float(raw)
+    except ValueError:
+        cap = float("nan")
+    if not raw or not math.isfinite(cap) or cap <= 0:
+        raise JudgeSpendRefused(
+            "refused before the call: no research spend cap is set "
+            "(BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD). This judge bills a paid provider outside "
+            "the gateway, so it runs only under a cap somebody stated.")
+    if _spent_usd + _worst_case_usd() > cap:
+        raise JudgeSpendRefused(
+            f"refused before the call: US${_spent_usd:.4f} already spent this process and a "
+            f"worst case of US${_worst_case_usd():.4f} would pass the US${cap:.2f} cap")
+    return cap
+
+
 def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0) -> dict:
     """One call: the image inline, the prompt, the raw answer and the usage, nothing decided."""
+    global _spent_usd
+    _authorise()
     data = open(image_path, "rb").read()
     sha = hashlib.sha256(data).hexdigest()
     mime = "image/png" if data[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg"
@@ -138,6 +177,7 @@ def see(image_path: str, *, model: str = MODEL, timeout: float = 180.0) -> dict:
     usage = out.get("usage", {})
     tin, tout = int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0))
     cost_usd = tin * PRICE_USD_PER_M["input"] / 1e6 + tout * PRICE_USD_PER_M["output"] / 1e6
+    _spent_usd += cost_usd
     text = (out.get("choices") or [{}])[0].get("message", {}).get("content") or ""
     return {"image": image_path, "image_sha256": sha, "model": out.get("model", model),
             "response_id": out.get("id"), "seconds": round(time.time() - t0, 1),

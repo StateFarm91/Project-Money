@@ -8,7 +8,7 @@ that candidate and repaired in an explicit follow-up commit.
 |---|---|---|---|---|
 | C-1 | High | #320 acceptance | `intel/acceptance._latest_cycle` accepts any `seasonal.cycle_proof` audit row; a hand-written row with no job passes steps 10-12, though the contract says the proof must be recorded by a job. The test fixture encoded the pass. | pending |
 | C-2 | Medium | #42 wiring claim | `commerce/cohorts.record_order` (which writes the bought version) has no production caller: no order ingest exists and Etsy receipts need the unGranted `transactions_r` scope. "Written at sale time" is overclaimed as COMPLETE. | pending |
-| C-3 | Medium | cost governance tests | image-render reservation proven only by source-text order; no behavioural test that a spent ceiling sends nothing; the unknown-render-site guard was dropped. | pending |
+| C-3 | Medium | cost governance tests | image-render reservation proven only by source-text order; no behavioural test that a spent ceiling sends nothing; the unknown-render-site guard was dropped. | FIXED: behavioural refusal proven in test_cert_cost; the render-site guard is re-targeted (every render passes the reserving images.generate, provider requests pinned to the reserved path) and generalised in test_cert_spend_hosts, which pins every source file that addresses a paid provider host |
 | C-4 | Medium | #126 grid tests | the stand-in judge scores by URL prefix (the one side channel), and the median test uses identical judges, so median is never distinguished. | pending |
 | C-5 | Low | tests | dead `if False` in the policy-knowledge digest check; vacuous loop in test_repeat; frame #1 STALE unasserted in the backfill sibling test. | pending |
 | C-6 | High | benchmark firewall | `cir/specification.benchmark_matches` needs every benchmark piece contained; a partial relabel (body+sleeve of the cardigan) or trimming one row per piece certifies as ours | FIXED: a benchmark size matches when any identifying piece (10+ rows) appears, under a tolerant run-length comparison with counts-only and worked-row tiers; relabel, trim, middle-cut and single-piece copies all refused; no false positive over 60+ Brambleloop CIRs (test_cert_design 14/14) |
@@ -28,21 +28,21 @@ that candidate and repaired in an explicit follow-up commit.
 | C-20 | High | governance | 10 gate/Product-Truth weakening phrasings and touches pass `governance.check` (verb forms, synonyms, distance, numeric constant edits, plain-words Product Truth, touch spelling) | FIXED: governance.check structural rules first; protected constants read by ast; inflected/synonym weakening and plain-words Product Truth detected (10/10 evasions refused) |
 | C-21 | High | tiers | 11 of 12 protected gates tier as `code`, not `gate`: a product_truth change promotes without owner approval | FIXED: every protected gate in the gate tier; test and owner-approval evidence must be recorded, not asserted |
 | C-22 | Medium | director | conflict detection compares raw touch strings ('Weights ' vs 'weights') | FIXED: director normalises touches in conflicts and execution |
-| C-23 | Medium | identity | `model_registry.gate_frames` passes a model frame with no `conditioned_on` hashes (should be unverifiable) | pending |
-| C-24 | Medium | identity | superseded body frame bytes returned as reference when the pack is unhashed; no manifest superseded check | pending |
-| C-25 | Low | identity | redesign approval truncates non-integer versions, never validates `at` | pending |
-| C-26 | Low-Med | identity | approval without `approved_by` audited as the owner | pending |
-| C-27 | High | provenance | worker backstop satisfied by a bare `record()` row (no creator, no job) | pending |
-| C-28 | Medium | provenance | `ArtifactStore.put` accepts `lineage={}` / a string / an empty Lineage for watched classes | pending |
-| C-29 | Medium | provenance | conflicting lineage for the same class+key silently overwritten, no history | pending |
-| C-30 | Medium | provenance | a backfilled write can downgrade a recorded row | pending |
-| C-31 | High | cost | `release.py` cycle-proof and `main.py` seasonal route build ModelGateway with no registry: no ceiling, reservation or ledger | pending |
-| C-32 | Medium | cost | agent daily ceiling ignores other holders' live reservations | pending |
-| C-33 | Medium | cost | provider ceiling ignores other holders' live reservations | pending |
-| C-34 | Medium | cost | gateway ledger rows lack provider/model/purpose/estimate: drift unreconcilable, provider ceiling never binds on gateway spend | pending |
-| C-35 | Low-Med | cost | gateway prices an unpriced model from the provider's own (possibly zero) rates | pending |
-| C-36 | Low | cost | NaN / negative estimates pass a spent month | pending |
-| C-37 | Low | cost | `images.generate` with no provider crashes (AttributeError) instead of refusing | pending |
+| C-23 | Medium | identity | `model_registry.gate_frames` passes a model frame with no `conditioned_on` hashes (should be unverifiable) | FIXED: every model-bearing frame needs recorded conditioning hashes; none reads unverifiable and blocks (test_cert_identity 19/19) |
+| C-24 | Medium | identity | superseded body frame bytes returned as reference when the pack is unhashed; no manifest superseded check | FIXED: manifest's superseded and concept hashes are forbidden references; unreadable manifest returns nothing |
+| C-25 | Low | identity | redesign approval truncates non-integer versions, never validates `at` | FIXED: integer version and ISO 8601 `at` required |
+| C-26 | Low-Med | identity | approval without `approved_by` audited as the owner | FIXED: approved_by is a required key; no owner default |
+| C-27 | High | provenance | worker backstop satisfied by a bare `record()` row (no creator, no job) | FIXED: backstop counts only rows with creator, recorded source and this job's id (test_cert_provenance 12/12) |
+| C-28 | Medium | provenance | `ArtifactStore.put` accepts `lineage={}` / a string / an empty Lineage for watched classes | FIXED: put requires a real Lineage whose sha256 matches the bytes, checked before disk |
+| C-29 | Medium | provenance | conflicting lineage for the same class+key silently overwritten, no history | FIXED: an overwrite writes an append-only provenance.overwritten audit with the previous snapshot |
+| C-30 | Medium | provenance | a backfilled write can downgrade a recorded row | FIXED: a backfilled write onto a recorded row is refused |
+| C-31 | High | cost | `release.py` cycle-proof and `main.py` seasonal route build ModelGateway with no registry: no ceiling, reservation or ledger | FIXED: cycle-proof gateway carries registry and job; the GET route no longer calls a paid model (test_cert_cost 19/19) |
+| C-32 | Medium | cost | agent daily ceiling ignores other holders' live reservations | FIXED: agent daily ceiling counts other holders' live reservations |
+| C-33 | Medium | cost | provider ceiling ignores other holders' live reservations | FIXED: provider ceiling counts other holders' live reservations |
+| C-34 | Medium | cost | gateway ledger rows lack provider/model/purpose/estimate: drift unreconcilable, provider ceiling never binds on gateway spend | FIXED: gateway ledger rows carry provider, model, purpose, estimate and reservation |
+| C-35 | Low-Med | cost | gateway prices an unpriced model from the provider's own (possibly zero) rates | FIXED: an unpriced zero-rate model is refused before the call |
+| C-36 | Low | cost | NaN / negative estimates pass a spent month | FIXED: NaN, non-numeric and negative estimates refused |
+| C-37 | Low | cost | `images.generate` with no provider crashes (AttributeError) instead of refusing | FIXED: images.generate with no provider raises ImagesNotConfigured |
 | C-38 | Medium | gates | `owned_surfaces` opens on an environment variable; `customers` counts any ledger row (an expense); `tester_roster` counts any profile | pending |
 | C-39 | Medium | closure | `closure.classify` accepts any data_gated row with no machinery (#82, #89, #276, #298 had none) | pending |
 | C-40 | Medium | registry | executable work parked as gated: #2, #15, #98 (search half), #236, #168; wrong gates: #1, #37 (owner Insights), #189, #221, #222, #320 (owner ruling), #277, #281 (funding) | pending |
@@ -68,3 +68,4 @@ Clean detached checkout of `63f2493` (tree `dbb99ff`), `run_tests.sh` with the p
 | C-51 | Low-Med | orchestration | a `PermanentError` (e.g. PDF hash drift) leaves the job FAILED 1/3 and it is retried; the worker does not treat it as terminal | pending |
 | C-52 | High | provenance / orchestration | a retried job's provenance backstop counts artefacts since its FIRST attempt (`claim` keeps `coalesce(started_at, now)`), so `collection.assemble` is killed DEAD for 113 certificates other products' `gate.certify` jobs wrote in between | pending |
 | C-53 | Low | culture | no job reads `culture.radar.memory()` (only GET /api/culture) -- part of #144, already reopened | FIXED: culture.engine reads radar.memory() into the recurrence score on every sweep |
+| C-54 | Medium | cost governance | `visual/d_judge.see` sends a paid request straight to `api.openai.com` with urllib, outside the gateway and invisible to the spend-path scanner (which looks for client method calls); no ceiling in code | FIXED: see() refuses before any request unless BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD states a positive cap, and refuses a call whose worst case would pass it given this process's spend (test_cert_spend_hosts) |
