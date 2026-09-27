@@ -970,6 +970,29 @@ class PhysicalTest(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
 
 
+class PhysicalPhoto(Base):
+    """A photograph of a finished Brambleloop object somebody actually made (#64).
+
+    Only the hash, who took it, the rights basis it may be used under and what it became are
+    kept; the bytes live wherever the intake put them. A photo with no rights basis is
+    received and never used -- "where rights permit" is the requirement's own condition.
+    """
+
+    __tablename__ = "physical_photos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    source: Mapped[str] = mapped_column(String(20), default="tester")
+    sha256: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    rights_basis: Mapped[str] = mapped_column(String(40), default="")
+    taken_by: Mapped[str] = mapped_column(String(120), default="")
+    physical_test_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    state: Mapped[str] = mapped_column(String(20), default="received", index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 # ---------------------------------------------------------------------------
 # Benchmark intelligence (v1.4.3 sections 205-220 and 300-320).
 #

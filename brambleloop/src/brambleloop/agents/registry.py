@@ -141,6 +141,8 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=1.0),
     dict(name="quality_director", description="Owns release certificates; can veto",
          allowed_job_types=["gate.quality", "gate.certify", "physical.record",
+                            # C-60 (#64): physical photo intake and its impact reading.
+                            "physical.photo", "physical.upgrade_impact",
                             # #5 / #43: fast/flagship lane routing and tester plan.
                             "gate.lanes"],
          authority=Authority.GREEN,
@@ -153,6 +155,8 @@ DEFAULT_AGENTS: list[dict] = [
          daily_cost_ceiling_cad=1.0),
     dict(name="publishing", description="Renders the PDF, charts and listing assets",
          allowed_job_types=["assets.build", "assets.render",
+                            # C-60 (#64): a physical photograph supplements the listing.
+                            "assets.physical_upgrade",
                             # A styled image of the finished object, generated from the
                             # certified CIR and disclosed as an illustration (#292, #300).
                             "assets.owned_photography",

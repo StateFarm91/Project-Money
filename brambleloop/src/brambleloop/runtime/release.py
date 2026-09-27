@@ -1477,12 +1477,78 @@ def handle_physical_record(ctx: JobContext) -> dict:
         if job is not None:
             rebuilt.append(f"{slug}@{version}")
 
+    # #64: photographs of the finished sample arrive with the sample. Each is taken in and,
+    # where a rights basis is recorded, becomes an upgrade task for the listing.
+    photos = []
+    for ph in i.get("photos") or []:
+        photos.append(_intake_photo(ctx, {**ph, "slug": slug, "version": version,
+                                          "physical_test_id": row_id}))
+
     return {"slug": slug, "version": version, "physical_test_id": row_id,
             "factor": assessment.factor, "calibration_now": factor,
             "size_agrees": assessment.size_agrees,
             "usable": assessment.usable_for_calibration,
             "findings": [f.code for f in assessment.findings],
-            "rebuilt": rebuilt}
+            "rebuilt": rebuilt, "photos": photos}
+
+
+def _intake_photo(ctx: JobContext, i: dict) -> dict:
+    """Record one physical photo and queue its listing upgrade when rights permit (#64)."""
+    from ..publish import physical_upgrade
+
+    rec = physical_upgrade.intake(
+        ctx.db, slug=i["slug"], version=i.get("version", ""),
+        source=i.get("source", "tester"), sha256=i.get("sha256", ""),
+        rights_basis=i.get("rights_basis", ""), taken_by=i.get("taken_by", ""),
+        physical_test_id=i.get("physical_test_id"), note=i.get("note", ""))
+    queued = None
+    if rec["may_use"]:
+        job = ctx.enqueue("publishing", "assets.physical_upgrade",
+                          {"photo_id": rec["photo_id"]},
+                          idempotency_key=f"physical_upgrade:{rec['photo_id']}")
+        queued = job.id if job is not None else None
+    ctx.audit("physical.photo_received", artifact=i["slug"],
+              detail={**rec, "upgrade_job": queued})
+    return {**rec, "upgrade_job": queued}
+
+
+@handlers.register("physical.photo")
+def handle_physical_photo(ctx: JobContext) -> dict:
+    """#64 intake: a tester's or customer's photograph of a finished Brambleloop object.
+
+    Recorded by hash with its rights basis; with a basis on file it becomes an
+    `assets.physical_upgrade` task. GREEN: internal writes only; nothing is published.
+    """
+    return _intake_photo(ctx, dict(ctx.job.inputs or {}))
+
+
+@handlers.register("assets.physical_upgrade")
+def handle_physical_upgrade(ctx: JobContext) -> dict:
+    """#64: supplement the listing with the physical photograph and record the baseline.
+
+    The new frame is unapproved until asset truth and the listing-set certificate re-run; the
+    changed frame set invalidates the old certificate by fingerprint (#70). GREEN.
+    """
+    from ..publish import physical_upgrade
+
+    out = physical_upgrade.plan_upgrade(ctx.db, int(ctx.job.inputs["photo_id"]),
+                                        today=_mjs_today(ctx))
+    ctx.audit("physical.upgrade_planned", artifact=out.get("slug"), detail=out)
+    return out
+
+
+@handlers.register("physical.upgrade_impact")
+def handle_physical_upgrade_impact(ctx: JobContext) -> dict:
+    """#64: CTR and conversion before/after each physical-proof upgrade, daily.
+
+    UNMEASURED, with the reason, until a live listing produces outcome rows. GREEN.
+    """
+    from ..publish import physical_upgrade
+
+    out = physical_upgrade.measure_impact(ctx.db, today=_mjs_today(ctx))
+    ctx.audit("physical.upgrade_impact", detail=out)
+    return {"upgrades": out["upgrades"],
+            "measured": sum(1 for r in out["readings"] if r["impact"] == "measured")}
 
 
 
