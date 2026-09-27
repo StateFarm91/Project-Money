@@ -144,8 +144,15 @@ def _icon_brief() -> str:
         f"with a shop name in it is illegible at the size it is actually shown.")
 
 
-def build_storefront(season: str | None = None) -> Storefront:
+def build_storefront(season: str | None = None, *, db=None) -> Storefront:
+    """The drafted storefront; with `db`, carrying any takeover the executor applied (#131)."""
     announcement = ANNOUNCEMENT_TEMPLATES.get(season or "", ANNOUNCEMENT_TEMPLATES["evergreen"])
+    if db is not None:
+        from .takeover import active
+
+        live = active(db)
+        if live.get("banner"):
+            announcement = live["banner"]["change"]
     store = Storefront(
         shop_name=SHOP_NAME,
         announcement=announcement,

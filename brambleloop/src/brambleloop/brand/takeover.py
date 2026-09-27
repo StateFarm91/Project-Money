@@ -212,3 +212,102 @@ def calendar(events: dict[str, date], *, today: date | None = None) -> dict:
                  "saying December in October competes against what the buyer can still "
                  "finish (#131)."),
     }
+
+
+
+# ---------------------------------------------------------------------------
+# The executor (C-69, #131): scheduled takeovers applied on their date and reverted on theirs.
+#
+# The storefront this company holds is the drafted one (`brand.storefront`); the marketplace
+# copy of it is written only when publishing is allowed. So a takeover is applied here to the
+# stored storefront state -- one `operating_readings` row per event and surface, the state the
+# storefront is rendered from -- on its transition date, checked against the storefront's own
+# rules and the continuity invariants, and reverted on its revert date. A surface whose
+# applied storefront fails its checks is reverted at once rather than left up.
+
+STATE_KIND = "storefront.takeover"
+APPLIED, REVERTED = "applied", "reverted"
+
+
+def execute(db, plans: list[dict], *, today: date | None = None) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    today = today or date.today()
+    applied, reverted, refused = [], [], []
+    with db.session() as s:
+        rows = {r.period_key: r for r in s.scalars(select(OperatingReading).where(
+            OperatingReading.kind == STATE_KIND))}
+        for plan_ in plans:
+            event, changes = plan_["event"], plan_.get("changes") or {}
+            for surface in plan_["surfaces"]:
+                import hashlib
+
+                tag = hashlib.sha256(f"{event}|{plan_['event_date']}".encode()).hexdigest()[:8]
+                key = f"{tag}:{surface['surface'][:11]}"
+                starts = date.fromisoformat(surface["transitions_on"])
+                ends = date.fromisoformat(surface["reverts_on"])
+                row = rows.get(key)
+                state = (row.payload or {}).get("state") if row is not None else None
+                if starts <= today < ends and state != APPLIED:
+                    change = changes.get(surface["surface"], "")
+                    problems = _applied_problems(surface["surface"], change)
+                    if problems:
+                        refused.append({"event": event, "surface": surface["surface"],
+                                        "problems": problems})
+                        continue
+                    payload = {"state": APPLIED, "event": event,
+                               "surface": surface["surface"], "change": change,
+                               "applied_on": today.isoformat(),
+                               "reverts_on": ends.isoformat(),
+                               "marketplace_write": "withheld: shadow mode drafts the "
+                                                    "storefront and publishes nothing"}
+                    if row is None:
+                        s.add(OperatingReading(kind=STATE_KIND, period_key=key,
+                                               payload=payload))
+                    else:
+                        row.payload = payload
+                    applied.append(key)
+        # Revert by date whatever today's plans contain: once an occasion has passed it is no
+        # longer planned, and that is exactly when its banner must come down.
+        for key, row in rows.items():
+            p = dict(row.payload or {})
+            if p.get("state") == APPLIED and today >= date.fromisoformat(p["reverts_on"]):
+                row.payload = {**p, "state": REVERTED, "reverted_on": today.isoformat()}
+                reverted.append(key)
+    return {"applied": applied, "reverted": reverted, "refused": refused,
+            "active": active(db, today=today)}
+
+
+def _applied_problems(surface: str, change: str) -> list[str]:
+    """The storefront's own checks, run on the storefront as the takeover would leave it."""
+    from . import storefront
+
+    store = storefront.build_storefront()
+    if surface == "banner":
+        store.announcement = change
+    elif surface == "shop_content":
+        store.about = f"{store.about}\n\n{change}"
+    problems = storefront.check_storefront(store)
+    if not change.strip():
+        problems.append(f"TAKEOVER_SURFACE_EMPTY: {surface}")
+    return problems
+
+
+def active(db, *, today: date | None = None) -> dict[str, dict]:
+    """The takeover changes live on the drafted storefront today, by surface."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    today = today or date.today()
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        for r in s.scalars(select(OperatingReading).where(
+                OperatingReading.kind == STATE_KIND)):
+            p = r.payload or {}
+            if p.get("state") == APPLIED and date.fromisoformat(p["reverts_on"]) > today:
+                out[p["surface"]] = {"event": p["event"], "change": p["change"],
+                                     "reverts_on": p["reverts_on"]}
+    return out

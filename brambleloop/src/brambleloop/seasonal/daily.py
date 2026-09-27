@@ -333,9 +333,15 @@ def takeovers(db, rolling: dict, catalogue: dict, *, today: date) -> dict:
             refused.append({"event": name, "why": str(exc)})
             continue
         planned.append(plan)
+    # C-69 (#131): the executor applies each planned surface on its transition date and
+    # reverts it on its revert date, on the drafted storefront.
+    executed = takeover.execute(db, planned, today=today)
     return {"planned": planned, "refused": refused,
             "overdue_surfaces": sum(len(p["overdue"]) for p in planned),
-            "note": "scheduled plans only; nothing is changed on a storefront in shadow mode"}
+            "executed": {k: executed[k] for k in ("applied", "reverted", "refused")},
+            "active": executed["active"],
+            "note": ("applied to and reverted from the drafted storefront on schedule; the "
+                     "marketplace write is withheld in shadow mode")}
 
 
 # ---- #289: collections from the catalogue's concepts ---------------------------------------

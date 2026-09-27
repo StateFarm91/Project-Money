@@ -460,7 +460,7 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         content >= len(listings) and bool(listings),
         {"content_pieces": content, "listings": len(listings)}))
 
-    store_problems = check_storefront(build_storefront())
+    store_problems = check_storefront(build_storefront(db=db))
     out.append(_build(
         "storefront", "shop announcement, About and all five policies pass their checks",
         not store_problems, {"problems": store_problems[:5]}))
