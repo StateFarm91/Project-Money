@@ -90,4 +90,3 @@ assert not core_runs,"New central experiment evidence needs investigation."
 counts=collections.Counter(r["class"] for r in records.values())
 absent=sorted({r["path"] for r in records.values() if not r["prior_inventory"] and r["class"]=="experimental_or_instrument"})
 print(json.dumps({"paths":result["unique_paths"],"versions":len(records),"classes":counts,"history_entries":len(history),"core_experiment_changes":len(core_runs),"absent_core_paths":absent,"claude_changed_count":len(set(changed)),"history_only_recovered":historical_only},indent=2))
-
