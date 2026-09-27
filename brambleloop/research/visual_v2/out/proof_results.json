@@ -1,0 +1,193 @@
+{
+  "scope": "Structural routing and product-pixel authority proof, not a certified hero",
+  "semantic_schedule": {
+    "status": "PASS",
+    "checks": {
+      "every_cell_exactly_once_with_original_kind": true,
+      "18_cable_ids_each_crossing_row": true,
+      "540_crossings_no_extra_rows": true,
+      "row_heights_from_stitch_registry": true,
+      "one_curve_per_cell": true,
+      "finite_geometry": true,
+      "crossing_pairs_swap_two_cell_widths": true,
+      "crossing_locations_match_cell_slots": true
+    }
+  },
+  "adversarial_geometry": {
+    "delete_column": {
+      "status": "FAIL",
+      "checks": {
+        "every_cell_exactly_once_with_original_kind": false,
+        "18_cable_ids_each_crossing_row": false,
+        "540_crossings_no_extra_rows": false,
+        "row_heights_from_stitch_registry": true,
+        "one_curve_per_cell": false,
+        "finite_geometry": true,
+        "crossing_pairs_swap_two_cell_widths": true,
+        "crossing_locations_match_cell_slots": true
+      }
+    },
+    "wrong_crossing_row": {
+      "status": "FAIL",
+      "checks": {
+        "every_cell_exactly_once_with_original_kind": false,
+        "18_cable_ids_each_crossing_row": false,
+        "540_crossings_no_extra_rows": false,
+        "row_heights_from_stitch_registry": true,
+        "one_curve_per_cell": true,
+        "finite_geometry": true,
+        "crossing_pairs_swap_two_cell_widths": true,
+        "crossing_locations_match_cell_slots": true
+      }
+    },
+    "change_stitch_family": {
+      "status": "FAIL",
+      "checks": {
+        "every_cell_exactly_once_with_original_kind": false,
+        "18_cable_ids_each_crossing_row": false,
+        "540_crossings_no_extra_rows": false,
+        "row_heights_from_stitch_registry": true,
+        "one_curve_per_cell": true,
+        "finite_geometry": true,
+        "crossing_pairs_swap_two_cell_widths": true,
+        "crossing_locations_match_cell_slots": true
+      }
+    },
+    "move_crossing": {
+      "status": "FAIL",
+      "checks": {
+        "every_cell_exactly_once_with_original_kind": true,
+        "18_cable_ids_each_crossing_row": true,
+        "540_crossings_no_extra_rows": true,
+        "row_heights_from_stitch_registry": true,
+        "one_curve_per_cell": true,
+        "finite_geometry": true,
+        "crossing_pairs_swap_two_cell_widths": true,
+        "crossing_locations_match_cell_slots": false
+      }
+    },
+    "rescale_gauge": {
+      "status": "FAIL",
+      "checks": {
+        "every_cell_exactly_once_with_original_kind": true,
+        "18_cable_ids_each_crossing_row": true,
+        "540_crossings_no_extra_rows": true,
+        "row_heights_from_stitch_registry": false,
+        "one_curve_per_cell": true,
+        "finite_geometry": true,
+        "crossing_pairs_swap_two_cell_widths": true,
+        "crossing_locations_match_cell_slots": true
+      }
+    }
+  },
+  "composites": {
+    "slate": {
+      "opaque_pixels": 12008,
+      "partial_coverage_pixels": 684367,
+      "max_opaque_channel_delta": 0,
+      "changed_opaque_pixels": 0,
+      "status": "PASS",
+      "sha256": "282fca3c1801ff55ada2205b32f2e2fc38aeaad2b965c88bdeafd99f05fff3fd"
+    },
+    "warm": {
+      "opaque_pixels": 12008,
+      "partial_coverage_pixels": 684367,
+      "max_opaque_channel_delta": 0,
+      "changed_opaque_pixels": 0,
+      "status": "PASS",
+      "sha256": "3544cd88175fc28bd15a435f02a6769f4e049c2e13bc4fb436ed9e52c23580e5"
+    },
+    "hostile": {
+      "opaque_pixels": 12008,
+      "partial_coverage_pixels": 684367,
+      "max_opaque_channel_delta": 0,
+      "changed_opaque_pixels": 0,
+      "status": "PASS",
+      "sha256": "445aa471d1e1ee0b89a1d76b87d4537214ed8bc23b3c7071518e2cd89dcffb71"
+    }
+  },
+  "direct_hostile_proposal_changed_opaque_pixels": 8986,
+  "one_pixel_corruption_detected": true,
+  "legacy_instrument": {
+    "reference": {
+      "column_pitch_px": 51.0,
+      "column_peak": 0.836,
+      "crossing_period_px": 44.0,
+      "crossing_peak": 0.958,
+      "column_dominance": 7.668,
+      "pitch_ratio": 1.159,
+      "tests": {
+        "column_periodicity": true,
+        "crossing_periodicity": true,
+        "column_dominance": true,
+        "pitch_ratio": true
+      },
+      "identity": "PASS",
+      "failed": [],
+      "gauge": {
+        "column_pitch_ratio": 0.996,
+        "crossing_period_ratio": 1.018,
+        "status": "PASS"
+      },
+      "status": "PASS"
+    },
+    "crossings_shifted_12px": {
+      "column_pitch_px": 51.0,
+      "column_peak": 0.836,
+      "crossing_period_px": 44.0,
+      "crossing_peak": 0.965,
+      "column_dominance": 7.59,
+      "pitch_ratio": 1.159,
+      "tests": {
+        "column_periodicity": true,
+        "crossing_periodicity": true,
+        "column_dominance": true,
+        "pitch_ratio": true
+      },
+      "identity": "PASS",
+      "failed": [],
+      "gauge": {
+        "column_pitch_ratio": 0.996,
+        "crossing_period_ratio": 1.018,
+        "status": "PASS"
+      },
+      "status": "PASS"
+    },
+    "one_column_erased": {
+      "column_pitch_px": 51.0,
+      "column_peak": 0.539,
+      "crossing_period_px": 44.0,
+      "crossing_peak": 0.959,
+      "column_dominance": 7.651,
+      "pitch_ratio": 1.159,
+      "tests": {
+        "column_periodicity": true,
+        "crossing_periodicity": true,
+        "column_dominance": true,
+        "pitch_ratio": true
+      },
+      "identity": "PASS",
+      "failed": [],
+      "gauge": {
+        "column_pitch_ratio": 0.996,
+        "crossing_period_ratio": 1.018,
+        "status": "PASS"
+      },
+      "status": "PASS"
+    },
+    "old_gates_changed": false
+  },
+  "separate_gates": {
+    "all_product_truth": "UNKNOWN",
+    "stitch_fabric_identity": "UNKNOWN",
+    "continuous_yarn_topology": "FAIL",
+    "edge_turning_chain_geometry": "UNKNOWN",
+    "photographic_realism": "UNKNOWN",
+    "fibre_fuzz": "UNKNOWN",
+    "drape": "UNKNOWN",
+    "listing_thumbnail_suitability": "FAIL - visibly schematic carriers",
+    "release": "BLOCKED - macro layout/compositor proof only"
+  },
+  "external_spend_usd": 0,
+  "seconds": 7.455
+}

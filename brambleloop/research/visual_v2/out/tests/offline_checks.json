@@ -1,0 +1,163 @@
+{
+  "network_disabled": true,
+  "suites": [
+    {
+      "suite": "research/e1/test_specs.py",
+      "exit_code": 0,
+      "seconds": 0.2,
+      "tail": [
+        "OK   C1 overall is FAIL (a measured miss), not UNKNOWN and not PASS ",
+        "OK   even with every image-side property passing, uncalibrated twin -> overall UNKNOWN ",
+        "OK   calibrated twin + counted stitches within 10% -> overall PASS is reachable ",
+        "OK   hdc where sc was certified is a FAIL, not a near miss ",
+        "OK   generative over product, no certified reference -> UNAUTHORISED_REDESIGN ",
+        "OK   conditioned but never revalidated -> UNAUTHORISED_REDESIGN (conditioning is a claim) ",
+        "OK   conditioned + revalidation PASS -> AUTHORISED_PRESENTATION ",
+        "OK   conditioned + revalidation UNKNOWN -> UNKNOWN, which blocks and is not PASS ",
+        "OK   conditioned on the WRONG reference digest -> UNAUTHORISED_REDESIGN ",
+        "OK   structure-preserving ops need neither reference nor revalidation ",
+        "",
+        "17 passing, 0 failing"
+      ],
+      "failures": []
+    },
+    {
+      "suite": "research/e3/test_e3.py",
+      "exit_code": 0,
+      "seconds": 0.17,
+      "tail": [
+        "OK   E3 hdc camera: the actual evidence classifies as UNAUTHORISED_REDESIGN",
+        "OK   E3 hdc oblique: the actual evidence classifies as UNAUTHORISED_REDESIGN",
+        "OK   E3 sc camera: the actual evidence classifies as UNAUTHORISED_REDESIGN",
+        "OK   E3 sc oblique: the actual evidence classifies as UNKNOWN",
+        "OK   every property PASS on the declared frozen reference is a certified presentation transformation",
+        "OK   no declared reference is redesign, however good the correspondence",
+        "OK   a reference that is not the frozen one is redesign",
+        "OK   never revalidated is redesign: conditioning is a claim, revalidation the proof",
+        "OK   revalidated against a different reference than declared is redesign",
+        "OK   one UNKNOWN with no FAIL blocks as UNKNOWN, never certifies",
+        "",
+        "  10 passing, 0 failing"
+      ],
+      "failures": []
+    },
+    {
+      "suite": "research/e4/test_e4.py",
+      "exit_code": 1,
+      "seconds": 0.61,
+      "tail": [
+        "    loc = V.local(kind, view, ref)",
+        "          ^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\repository\\brambleloop\\research\\e4\\validate_e4.py\", line 71, in local",
+        "    ref_mask, gen_al, align, _, _ = aligned_masks(kind, view, gen_path, refine=refine)",
+        "                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\repository\\brambleloop\\research\\e4\\validate_e4.py\", line 38, in aligned_masks",
+        "    gen = Image.open(gen_path).convert(\"RGB\").resize((W, W), Image.LANCZOS)",
+        "          ^^^^^^^^^^^^^^^^^^^^",
+        "  File \"C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\site-packages\\PIL\\Image.py\", line 3639, in open",
+        "    fp = builtins.open(filename, \"rb\")",
+        "         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\Jacob McKenna\\\\Documents\\\\Codex\\\\2026-09-27\\\\visual-v2-independent-architecture-r-d\\\\repository\\\\brambleloop\\\\research\\\\d\\\\out\\\\sc_draped_presentation3_camera.png'"
+      ],
+      "failures": []
+    },
+    {
+      "suite": "research/e5/test_e5.py",
+      "exit_code": 1,
+      "seconds": 0.13,
+      "tail": [
+        "  File \"<frozen runpy>\", line 98, in _run_module_code",
+        "  File \"<frozen runpy>\", line 88, in _run_code",
+        "  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\repository\\brambleloop\\research\\e5\\test_e5.py\", line 15, in <module>",
+        "    digests = F.verify()",
+        "              ^^^^^^^^^^",
+        "  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\repository\\brambleloop\\research\\e5\\frozen.py\", line 32, in verify",
+        "    got = sha256(os.path.join(ROOT, rel))",
+        "          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\repository\\brambleloop\\research\\e5\\frozen.py\", line 25, in sha256",
+        "    return hashlib.sha256(open(p, \"rb\").read()).hexdigest()",
+        "                          ^^^^^^^^^^^^^",
+        "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\Jacob McKenna\\\\Documents\\\\Codex\\\\2026-09-27\\\\visual-v2-independent-architecture-r-d\\\\repository\\\\brambleloop\\\\research/d/out/sc_draped_presentation3_camera.png'"
+      ],
+      "failures": []
+    },
+    {
+      "suite": "research/bench1/test_bench1.py",
+      "exit_code": 0,
+      "seconds": 0.97,
+      "tail": [
+        "OK   a material UNKNOWN never passes",
+        "OK   a judge FAIL fails the verdict",
+        "OK   a deterministic FAIL is material",
+        "OK   the reader's expectations come from Product Truth (cardigan, open, no closure, 2 hip pockets, long sleeves, one colour)",
+        "OK   spend stayed under the ceiling",
+        "OK   every successful draw was gated",
+        "OK   every gated candidate records its reference and prompt digests and the reader's answers",
+        "OK   verdicts follow the rule on every candidate",
+        "OK   all four seller photographs were read by the same reader",
+        "OK   no PDF, pattern text or seller photograph is tracked under research/bench1 (the readers' JSON answers are derived data and are)",
+        "",
+        "  34 passing, 0 failing"
+      ],
+      "failures": []
+    },
+    {
+      "suite": "research/bench2/test_bench2.py",
+      "exit_code": 0,
+      "seconds": 13.36,
+      "tail": [
+        "OK   expectations come from Product Truth (cardigan, buttoned, 5 buttons, hood, star stitch, no pockets, long sleeves, one colour)",
+        "OK   extra features: hood and buttons are the product's own; anything else fails",
+        "OK   calibration withdrew materiality only by the recorded rule (wrong on more than half of the designer's photographs that show it)",
+        "OK   the size is frozen with a reason and the Product Truth digest",
+        "OK   spend stayed under the ceiling",
+        "OK   every external call records its provider and model",
+        "OK   every successful draw was gated",
+        "OK   verdicts follow the rule on every candidate",
+        "OK   every gated candidate records the star instrument's reading on both fronts",
+        "OK   no PDF, pattern text or designer photograph is tracked under research/bench2",
+        "",
+        "  42 passing, 0 failing"
+      ],
+      "failures": []
+    },
+    {
+      "suite": "research/v1grad/test_v1grad.py",
+      "exit_code": 0,
+      "seconds": 29.67,
+      "tail": [
+        "OK   the generation package is the evidenced OpenAI route (gpt-image-1.5, input_fidelity high)",
+        "OK   assets by stage name no finished-product image",
+        "OK   spend stayed under the ceiling",
+        "OK   every run used the frozen reference or a frozen later version of it (digests recorded before use)",
+        "OK   every external call records provider and model",
+        "OK   every successful draw was gated",
+        "OK   verdicts follow the rule on every candidate",
+        "OK   every candidate's properties are its stored readings judged by the current expectations (no reading changed)",
+        "OK   no candidate is certified unless every deterministic item, every material property and every judge item PASS",
+        "OK   nothing photographic or external is tracked under research/v1grad",
+        "",
+        "  40 passing, 0 failing"
+      ],
+      "failures": []
+    },
+    {
+      "suite": "tests/test_fabric_relief.py",
+      "exit_code": 0,
+      "seconds": 0.44,
+      "tail": [
+        "OK   the cable throw reads as textured",
+        "OK   its relief stitches are the post stitches and the crossing",
+        "OK   its relief stacks into columns up the rows (cable columns and ribs)",
+        "OK   its along-row period is the eight-stitch repeat",
+        "OK   the bobble pillow reads as textured and checkered (the bobbles stagger)",
+        "OK   the ribbed scarf reads as ridges up the rows",
+        "OK   a plain single-crochet panel still reads as flat",
+        "OK   back-loop ribbing keeps its loop-target reading (unchanged behaviour)",
+        "",
+        "  8 passing, 0 failing"
+      ],
+      "failures": []
+    }
+  ]
+}

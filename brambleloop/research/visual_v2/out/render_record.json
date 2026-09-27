@@ -1,0 +1,35 @@
+{
+  "renderer": "Blender 4.5.0",
+  "engine": "Cycles CPU",
+  "samples": 32,
+  "denoising": false,
+  "render_seconds_including_setup": 14.134,
+  "resolution": [
+    1024,
+    1536
+  ],
+  "camera": {
+    "position_m": [
+      0.44999998807907104,
+      0.644444465637207,
+      2.0
+    ],
+    "type": "ORTHO",
+    "scale_m": 1.5,
+    "rotation_radians": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "points_array_sha256_before": "b7bd3b1f177696cff1d0466b736fa927386bedad21b5bfd558866362e24939e9",
+  "points_array_sha256_after": "b7bd3b1f177696cff1d0466b736fa927386bedad21b5bfd558866362e24939e9",
+  "render_script_sha256": "b4e95ec4dcced46e14a6da9287edb153c2da068cb1497ea2c17ae80195f10eb7",
+  "product_png_sha256": "57430ff72fa001bfc91c4c8046e2efad22664964bf0ef80b5d5092d96a748efe",
+  "geometry_carriers": 17424,
+  "path_points": 313632,
+  "material": "one frozen cream colour; roughness/sheen/noise parameters are uncalibrated presentation choices",
+  "pass_note": "Raw world normals, camera depth in metres and diffuse albedo in passes_0001.exr; PNG previews are display-transformed and are not calibrated normal/depth data",
+  "photographic_judge": "UNKNOWN - no paid call; schematic disconnected carriers are not certified stitch topology",
+  "spend_usd": 0
+}

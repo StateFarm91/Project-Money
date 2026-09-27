@@ -1,0 +1,91 @@
+Blender 4.5.0 (hash 8cb6b388974a built 2025-07-15 01:36:24)
+Fra:1 Mem:783.75M (Peak 927.73M) | Time:00:00.70 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | product_routing_probe_NOT_certified_yarn
+Fra:1 Mem:1177.70M (Peak 1220.24M) | Time:00:00.94 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | soft_fill
+Fra:1 Mem:1177.70M (Peak 1220.24M) | Time:00:00.94 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | window_left
+Fra:1 Mem:1177.70M (Peak 1220.24M) | Time:00:00.94 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:609.98M (Peak 1220.24M) | Time:00:00.99 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:609.98M (Peak 1220.24M) | Time:00:00.99 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:609.98M (Peak 1220.24M) | Time:00:00.99 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:610.06M (Peak 1220.24M) | Time:00:01.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:641.97M (Peak 1220.24M) | Time:00:01.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:641.97M (Peak 1220.24M) | Time:00:01.02 | Mem:31.91M, Peak:31.91M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:641.97M (Peak 1220.24M) | Time:00:01.02 | Mem:31.91M, Peak:31.91M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:641.97M (Peak 1220.24M) | Time:00:01.02 | Mem:182.92M, Peak:182.92M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:641.97M (Peak 1220.24M) | Time:00:01.27 | Mem:330.92M, Peak:330.92M | Scene, ViewLayer | Updating Scene BVH | Building BVH 48%
+Fra:1 Mem:641.97M (Peak 1220.24M) | Time:00:01.45 | Mem:339.91M, Peak:490.92M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:641.97M (Peak 1220.24M) | Time:00:01.45 | Mem:339.91M, Peak:490.92M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:339.91M, Peak:490.92M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.22M, Peak:490.92M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.22M, Peak:490.92M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.22M, Peak:490.92M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.22M, Peak:490.92M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.22M, Peak:490.92M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.30M, Peak:490.92M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.30M, Peak:490.92M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.30M, Peak:490.92M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:781.28M (Peak 1220.24M) | Time:00:01.56 | Mem:479.30M, Peak:490.92M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:781.29M (Peak 1220.24M) | Time:00:01.56 | Mem:479.22M, Peak:490.92M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:781.29M (Peak 1220.24M) | Time:00:01.56 | Mem:479.31M, Peak:490.92M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:781.29M (Peak 1220.24M) | Time:00:01.56 | Mem:479.31M, Peak:490.92M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:781.29M (Peak 1220.24M) | Time:00:01.56 | Mem:479.31M, Peak:490.92M | Scene, ViewLayer | Sample 0/32
+Fra:1 Mem:877.38M (Peak 1220.24M) | Time:00:01.90 | Remaining:00:10.48 | Mem:575.31M, Peak:575.31M | Scene, ViewLayer | Sample 1/32
+Fra:1 Mem:943.39M (Peak 1220.24M) | Time:00:11.29 | Mem:575.31M, Peak:575.31M | Scene, ViewLayer | Sample 32/32
+Fra:1 Mem:943.39M (Peak 1220.24M) | Time:00:11.29 | Mem:575.31M, Peak:575.31M | Scene, ViewLayer | Finished
+Fra:1 Mem:468.14M (Peak 1220.24M) | Time:00:11.32 | Compositing
+Saved: 'C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\repository\brambleloop\research\visual_v2\out\height_preview_0001.png'
+Saved: 'C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\repository\brambleloop\research\visual_v2\out\passes_0001.exr'
+Saved: 'C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\repository\brambleloop\research\visual_v2\out\normal_preview_0001.png'
+Saved: 'C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\repository\brambleloop\research\visual_v2\out\albedo_0001.png'
+Saved: 'C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\repository\brambleloop\research\visual_v2\out\product_probe.png'
+Time: 00:12.57 (Saving: 00:00.13)
+
+Info: Saved as "routing_probe.blend"
+{
+  "renderer": "Blender 4.5.0",
+  "engine": "Cycles CPU",
+  "samples": 32,
+  "denoising": false,
+  "render_seconds_including_setup": 14.134,
+  "resolution": [
+    1024,
+    1536
+  ],
+  "camera": {
+    "position_m": [
+      0.44999998807907104,
+      0.644444465637207,
+      2.0
+    ],
+    "type": "ORTHO",
+    "scale_m": 1.5,
+    "rotation_radians": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "points_array_sha256_before": "b7bd3b1f177696cff1d0466b736fa927386bedad21b5bfd558866362e24939e9",
+  "points_array_sha256_after": "b7bd3b1f177696cff1d0466b736fa927386bedad21b5bfd558866362e24939e9",
+  "render_script_sha256": "b4e95ec4dcced46e14a6da9287edb153c2da068cb1497ea2c17ae80195f10eb7",
+  "product_png_sha256": "57430ff72fa001bfc91c4c8046e2efad22664964bf0ef80b5d5092d96a748efe",
+  "geometry_carriers": 17424,
+  "path_points": 313632,
+  "material": "one frozen cream colour; roughness/sheen/noise parameters are uncalibrated presentation choices",
+  "pass_note": "Raw world normals, camera depth in metres and diffuse albedo in passes_0001.exr; PNG previews are display-transformed and are not calibrated normal/depth data",
+  "photographic_judge": "UNKNOWN - no paid call; schematic disconnected carriers are not certified stitch topology",
+  "spend_usd": 0
+}
+
+Blender quit
+Error: Not freed memory blocks: 2, total unfreed memory 0.002731 MB
