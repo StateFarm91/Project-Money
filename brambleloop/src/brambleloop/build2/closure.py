@@ -101,7 +101,11 @@ def proof_of(requirement: reg.Requirement) -> dict:
     from . import reachability
 
     reach = {m: reachability.reached(m) for m in existing if m.endswith(".py")}
-    reached = [m for m, v in reach.items() if v["reached"]]
+    # C-65: a runtime root (runtime/release.py, app/main.py ...) is reached by definition, so
+    # naming one beside a library proved nothing about the library. The roots count only for
+    # a row whose machinery *is* a root; otherwise a named library must itself be live.
+    libs = {m: v for m, v in reach.items() if m not in reachability.ROOTS}
+    reached = [m for m, v in (libs or reach).items() if v["reached"]]
     return {"modules": modules, "existing": existing, "tested": tested, "tests": tests,
             "reached": reached,
             "unreached": {m: v["why"] for m, v in reach.items() if not v["reached"]},
@@ -109,7 +113,11 @@ def proof_of(requirement: reg.Requirement) -> dict:
 
 
 def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None = None) -> dict:
-    """One requirement -> one state, with the reason written beside it."""
+    """One requirement -> one state, with the reason written beside it.
+
+    `gate_open=None` means nobody checked the gates (no database): a parked row then says so
+    in its `why` rather than reading as a gate verified closed (C-65)."""
+    gate_checked = gate_open is not None
     gate_open = gate_open or {}
     row = {"id": requirement.id, "title": requirement.title, "section": requirement.section,
            "status": requirement.status, "gate": None, "gate_open": None, "why": ""}
@@ -168,18 +176,22 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
     row["gate"] = gate
     # C-59: a partly built row parked on a gate must have its built half running. When the
     # note or `proof` names machinery that exists, at least one module of it must be reached.
-    if requirement.status != reg.OWNER_GATED:
-        proof = proof_of(requirement)
-        row["proof"] = proof
-        if proof["existing"] and not proof["reached"]:
-            row["state"] = OPEN
-            row["why"] = (f"parked on {gate}, but the machinery it names is not reached from "
-                          f"the running system: "
-                          + "; ".join(f"{m}: {w}" for m, w in proof["unreached"].items())[:300])
-            return row
+    # C-65: that includes rows registered owner_gated. "Waiting on the owner" excuses the
+    # owner's half only; a row whose built half names machinery nothing runs would otherwise
+    # sit parked on a gate while the thing that should read the gate's input does not exist
+    # in the running system either.
+    proof = proof_of(requirement)
+    row["proof"] = proof
+    if proof["existing"] and not proof["reached"]:
+        row["state"] = OPEN
+        row["why"] = (f"parked on {gate}, but the machinery it names is not reached from "
+                      f"the running system: "
+                      + "; ".join(f"{m}: {w}" for m, w in proof["unreached"].items())[:300])
+        return row
     kind = kind_of(gate)
-    is_open = gate_open.get(gate)
+    is_open = gate_open.get(gate) if gate_checked else None
     row["gate_open"] = is_open
+    row["gate_checked"] = gate_checked
     if is_open:
         row["state"] = OPEN
         row["why"] = f"gate {gate} has opened; the remaining work is no longer parked"
@@ -191,6 +203,9 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
         row["why"] = f"parked on {gate}: needs real customers"
     else:
         row["why"] = f"parked on owner gate {gate}"
+    if not gate_checked:
+        row["why"] += (" (gate state NOT checked live: no database was given, so this is the "
+                       "registry's parking, not a verified-closed gate)")
     return row
 
 
@@ -200,9 +215,14 @@ def matrix(db=None, *, env=None) -> dict:
                      - _known_gates() - set(EXTERNAL_GATES) - DATA_GATES - OWNER_GATES)
     if unknown:
         raise ClosureRefused(f"requirements parked on gates the executor cannot check: {unknown}")
-    gate_open: dict[str, bool] = {}
+    gate_open: dict[str, bool] | None = None
+    gate_error = None
     if db is not None:
-        gate_open = {k: bool(v.get("open")) for k, v in executor.gate_states(db, env).items()}
+        try:
+            gate_open = {k: bool(v.get("open"))
+                         for k, v in executor.gate_states(db, env).items()}
+        except Exception as exc:  # noqa: BLE001 - an unreadable gate is unchecked, not closed
+            gate_error = f"{type(exc).__name__}: {exc}"[:300]
     rows = [classify(r, gate_open=gate_open) for r in reg.load()]
     counts = {s: sum(1 for r in rows if r["state"] == s) for s in FINAL_STATES + (OPEN,)}
     by_section: dict[str, dict] = {}
@@ -215,7 +235,12 @@ def matrix(db=None, *, env=None) -> dict:
         "total": len(rows),
         "counts": counts,
         "closed_out": counts[OPEN] == 0,
-        "gates_checked_live": db is not None,
+        "gates_checked_live": gate_open is not None,
+        # C-65: explicit when the gates were not read, and which parked rows that leaves
+        # resting on the registry's word rather than on a live check.
+        "gates_unchecked": (None if gate_open is not None else {
+            "why": gate_error or "no database given; pass one to check every gate live",
+            "rows": sorted(r["id"] for r in rows if r.get("gate") and r["state"] != OPEN)}),
         "external_blockers": {k: v for k, v in EXTERNAL_GATES.items()},
         "by_section": by_section,
         "open": open_rows,
