@@ -306,16 +306,28 @@ def handle_radar_score(ctx: JobContext) -> dict:
         if gate is not None:
             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
         # #97: Pattern Engineering prioritises what its lessons favour. A favoured lesson
-        # matching this concept raises the draft's stated value, which `priority_for` turns
-        # into an earlier claim inside the band.
+        # matching this concept is a *heuristic* reason to claim the draft earlier inside its
+        # band (`swarm.orchestrate.HEURISTIC_KEY`, bounded to one step) -- never a CAD value:
+        # a lesson match is not a sourced estimate of what the work is worth (C-66 / M05),
+        # and the currency fields stay for estimates that say where they came from. The
+        # benefit of the nudge is recorded as unmeasured until the draft's outcome is read.
         eng_lessons = [l for l in consume.matching(ctx.db, "pattern_engineering",
                                                    concept_text) if l["direction"] > 0]
         if eng_lessons:
-            payload["value_cad"] = float(payload.get("value_cad") or 0.0) + 150.0 * len(
-                eng_lessons)
+            from ..swarm.orchestrate import HEURISTIC_KEY, MAX_HEURISTIC_STEPS
+
+            payload[HEURISTIC_KEY] = {
+                "source": "pattern_engineering lessons (#97)",
+                "lessons": [l["id"] for l in eng_lessons],
+                "steps": min(MAX_HEURISTIC_STEPS, len(eng_lessons)),
+                "reason": (f"{len(eng_lessons)} favouring lesson(s) match this concept: "
+                           + "; ".join(", ".join(l["shared"][:3]) for l in eng_lessons))[:200],
+                "benefit": "unmeasured: a bounded heuristic nudge, not an expected value"}
             payload["lessons"] = [l["id"] for l in eng_lessons]
             consume.act(ctx.db, "pattern_engineering", eng_lessons,
-                        how=f"cir.draft of {seed.slug} prioritised by its lessons")
+                        how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
+                             f"step inside its band by a lesson heuristic; benefit unmeasured "
+                             f"until the draft's outcome is read"))
         ctx.enqueue("crochet_engineer", "cir.draft", payload,
                     idempotency_key=f"draft:{seed.slug}")
     return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,

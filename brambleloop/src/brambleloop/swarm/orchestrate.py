@@ -766,6 +766,12 @@ MAX_WITHIN_BAND = 4
 DEADLINE_KEYS: tuple[str, ...] = ("deadline", "latest_launch", "window_closes", "launch_by",
                                   "due", "preferred_launch", "event_date")
 VALUE_KEYS: tuple[str, ...] = ("value_cad", "expected_value_cad", "expected_revenue_cad")
+# C-66 / Codex M05: a department's *heuristic* reason to claim a job earlier -- a lesson that
+# favours this work -- is carried under its own key, bounded to one step inside the band, and
+# is never written into a currency field. A CAD value on a job is a sourced estimate of what
+# the work is worth; a heuristic is a reason, and the two are not exchangeable.
+HEURISTIC_KEY = "priority_heuristic"
+MAX_HEURISTIC_STEPS = 1
 LISTING_KINDS_NEEDING_PROOF: frozenset[str] = frozenset({"proven_winner"})
 _POLICY_CACHE: dict = {}
 _POLICY_TTL = timedelta(minutes=5)
@@ -833,8 +839,28 @@ def value_of(inputs: dict | None) -> float | None:
     return None
 
 
-def within_band(policy: dict, *, deadline_days: float | None, value_cad: float | None) -> int:
-    """Points a job moves up inside its band, from its deadline and value, capped."""
+def heuristic_of(inputs: dict | None) -> dict:
+    """The bounded heuristic nudge a job's inputs carry, and its stated reason (M05)."""
+    raw = (inputs or {}).get(HEURISTIC_KEY)
+    if not isinstance(raw, dict):
+        return {"steps": 0}
+    try:
+        steps = int(raw.get("steps") or 0)
+    except (TypeError, ValueError):
+        steps = 0
+    return {"steps": max(0, min(MAX_HEURISTIC_STEPS, steps)),
+            "source": str(raw.get("source") or "")[:80],
+            "reason": str(raw.get("reason") or "")[:200],
+            "lessons": list(raw.get("lessons") or [])[:10]}
+
+
+def within_band(policy: dict, *, deadline_days: float | None, value_cad: float | None,
+                heuristic_steps: int = 0) -> int:
+    """Points a job moves up inside its band, from its deadline and value, capped.
+
+    `heuristic_steps` is a department's stated reason to go earlier (a favouring lesson),
+    already bounded by `heuristic_of`; it adds to the movement and never crosses the cap.
+    """
     urgency = 0.0
     if deadline_days is not None:
         horizon = max(1.0, float(policy["horizon_days"]))
@@ -843,7 +869,8 @@ def within_band(policy: dict, *, deadline_days: float | None, value_cad: float |
     if value_cad is not None:
         value = min(1.0, value_cad / max(1.0, float(policy["value_scale_cad"])))
     raw = urgency * float(policy["deadline_weight"]) + value * float(policy["value_weight"])
-    return int(max(0, min(MAX_WITHIN_BAND, round(raw))))
+    steps = max(0, min(MAX_HEURISTIC_STEPS, int(heuristic_steps or 0)))
+    return int(max(0, min(MAX_WITHIN_BAND, round(raw) + steps)))
 
 
 def product_proven(db, slug: str) -> bool:
@@ -880,11 +907,14 @@ def priority_decision(job_type: str, inputs: dict | None = None, *, db=None,
     deadline = deadline_of(inputs)
     days = None if deadline is None else (deadline - now).total_seconds() / 86400.0
     value = value_of(inputs)
-    moved = within_band(policy, deadline_days=days, value_cad=value)
+    heuristic = heuristic_of(inputs)
+    moved = within_band(policy, deadline_days=days, value_cad=value,
+                        heuristic_steps=heuristic["steps"])
     band = BAND_BY_KIND[kind]
     return {"job_type": job_type, "kind": kind, "band": band, "moved": moved,
             "priority": band - moved, "deadline_days": None if days is None else round(days, 2),
             "value_cad": value, "demoted": demoted or None,
+            "heuristic": heuristic if heuristic["steps"] else None,
             "policy": {k: policy.get(k) for k in ("config_id", "source")}}
 
 

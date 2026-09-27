@@ -842,6 +842,50 @@ def test_market_radar_and_listings_act_on_their_lessons():
     assert "market_radar" in acted
 
 
+def test_engineering_lessons_nudge_priority_as_a_bounded_heuristic_never_as_cad():
+    """C-66 (Codex M05): a lesson match is a reason to claim the draft one step earlier inside
+    its band, carried under its own key; it never invents currency value, and the record of
+    acting on it says the benefit is unmeasured."""
+    from brambleloop.core.models import Job, Lesson
+    from brambleloop.improve import bus
+    from brambleloop.swarm.orchestrate import HEURISTIC_KEY, priority_decision
+
+    def _draft_job(db):
+        with db.session() as s:
+            return next(dict(inputs=dict(j.inputs or {}), priority=j.priority)
+                        for j in s.scalars(select(Job).where(Job.job_type == "cir.draft")))
+
+    inputs = {"slug": "nordic-forest-mosaic-throw", "as_of": "2026-09-17"}
+    plain = _db()
+    assert _run(plain, "radar.score", agent="market_radar", inputs=inputs)["promoted"]
+    without = _draft_job(plain)
+
+    db = _db()
+    lids = [bus.publish(db, origin_cell="product_creativity", subject="construction_preference",
+                        statement=("buyers strongly prefer an overlay mosaic throw whose rows "
+                                   "are a countable sequence worked in one piece"),
+                        evidence_ref=f"test:lesson-{i}") for i in range(3)]
+    out = _run(db, "radar.score", agent="market_radar", inputs=inputs)
+    assert out["promoted"]
+    with_lessons = _draft_job(db)
+
+    # No CAD field moved: three matching lessons used to add 450 CAD of invented value.
+    for key in ("value_cad", "expected_value_cad", "expected_revenue_cad"):
+        assert with_lessons["inputs"].get(key) == without["inputs"].get(key), key
+    heuristic = with_lessons["inputs"][HEURISTIC_KEY]
+    assert set(heuristic["lessons"]) == set(lids) and heuristic["steps"] == 1
+    assert "unmeasured" in heuristic["benefit"] and heuristic["reason"]
+    # Acted on: exactly one step earlier inside the band, never across it.
+    decision = priority_decision("cir.draft", with_lessons["inputs"], db=db)
+    assert with_lessons["priority"] == without["priority"] - 1 == decision["priority"]
+    assert decision["heuristic"]["steps"] == 1 and decision["moved"] <= 4
+    assert decision["band"] - 4 <= with_lessons["priority"] <= decision["band"]
+    with db.session() as s:
+        acted = {e["cell"]: e["how"] for e in s.get(Lesson, lids[0]).acted_on_by}
+    assert "pattern_engineering" in acted, acted
+    assert "benefit unmeasured" in acted["pattern_engineering"]
+
+
 def test_culture_findings_publish_lessons_to_radar_seo_and_portfolio():
     from brambleloop.core.models import Lesson
     from brambleloop.culture import radar
