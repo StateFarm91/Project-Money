@@ -204,6 +204,16 @@ def test_a_shop_gate_does_not_open_on_a_variable_alone():
     assert "not a shop" in gate.how
 
 
+
+def test_the_console_separates_ready_work_from_work_parked_on_a_gate():
+    """45 partial rows all parked on gates were shown as 45 'executable left' (2026-09-27).
+    The split must add up, and a parked row must never be counted as ready."""
+    cov = R.coverage()
+    assert cov["executable_unparked"] + cov["executable_parked_on_a_gate"] == cov["executable_remaining"]
+    parked = [r for r in R.executable() if r.parked_on]
+    assert cov["executable_parked_on_a_gate"] == len(parked)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

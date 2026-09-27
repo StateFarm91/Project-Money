@@ -153,10 +153,17 @@ def counts() -> dict[str, int]:
 def coverage() -> dict:
     """The honest summary. `remaining` counts only what this build can actually finish."""
     c = counts()
+    # Partial or missing work splits into what can start now and what is parked on a
+    # checkable gate (`parked_on`). Reporting only the sum told the owner 45 pieces of work
+    # were ready on 2026-09-27 when every one of them was parked -- the same defect the
+    # executor exists to prevent, on the console instead of in the queue.
+    unparked = sum(1 for r in load() if r.executable and not r.parked_on)
     return {
         "total": TOTAL,
         "by_status": c,
         "executable_remaining": c[PARTIAL] + c[MISSING],
+        "executable_unparked": unparked,
+        "executable_parked_on_a_gate": c[PARTIAL] + c[MISSING] - unparked,
         "blocked_on_owner": c[OWNER_GATED],
         "blocked_on_data": c[DATA_GATED],
         "complete": c[COVERED],

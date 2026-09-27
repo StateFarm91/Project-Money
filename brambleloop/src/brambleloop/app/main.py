@@ -3715,6 +3715,8 @@ def api_build2() -> dict:
         # requirements from a list whose own summary said forty-five, so anyone reading the
         # list as the remaining work could not see all of it -- and nothing said so.
         "executable_remaining": [r.to_dict() for r in reqs.executable()],
+        # The same list split by whether a checkable gate holds it (`parked_on`).
+        "executable_unparked": [r.id for r in reqs.executable() if not r.parked_on],
         "executable_listed_in_full": True,
         "blocked_on_owner": [r.to_dict() for r in reqs.by_status(reqs.OWNER_GATED)],
     }
@@ -4459,12 +4461,20 @@ def dashboard() -> str:
         # `executable_remaining` is the computed field and the one the API already serves;
         # using it means the tile and the endpoint cannot disagree.
         executable = cov["executable_remaining"]
+        ready = cov["executable_unparked"]
+        from ..build2 import closure
+
+        closure_counts = closure.matrix(db)["counts"]
         cards = "".join(
             f'<div class="card"><span>{k.replace("_", " ")}</span><b>{v}</b></div>'
             for k, v in sorted(cov.items()))
+        closing = "".join(
+            f'<div class="card"><span>closure: {k}</span><b>{v}</b></div>'
+            for k, v in closure_counts.items())
         return (f'<div class="grid">{cards}'
                 f'<div class="card"><span>executable left</span><b>{executable}</b></div>'
-                f"</div>")
+                f'<div class="card"><span>ready to start (not parked)</span><b>{ready}</b></div>'
+                f"{closing}</div>")
 
     def _visual_pipeline() -> str:
         """The milestone ladder, so the route to a listable product is visible on the page.
