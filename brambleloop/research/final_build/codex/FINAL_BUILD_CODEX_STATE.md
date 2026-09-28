@@ -70,3 +70,10 @@ Read DEFECT_LEDGER.json plus worker handoffs: H_HANDOFF.md, DRAFT_DURABILITY_HAN
 - master_proof now owns chart tiling repair (pdf.py/charts.py/newtests) from19c426f. Exact full-grid cell/color coverage, global coordinates and actual PDF readability required, product unchanged.
 - b_authorization diagnosing dashboard test hang with network guard/stacks, no app source changes authorized yet.
 - Root may next repair isolated commerce fixtures only after retaining UNKNOWN taxonomy/image gating and separating transport tests from genuine full-chain proof. cert_rebuild_chain also uses invalid old Nordic gauge fixture; do not rerun blindly.
+
+## 15:51 UTC checkpoint
+- Origin scope+repair+event-boundary follow-on integrated78902cd,c5ec2f9,7fd49e8. Root exact-origin9/9 on7fd49e8; no Postgres claim. Wrong-gap mutation repaired locally; absence/legacy origin remains UNKNOWN.
+- Dashboard harnessf2e077d integrated3290cc3. Root7/7, actual nullable mixed costs rendered, unrelated closure matrix explicitly UNKNOWN. Full closure AST scan performance investigated separately by b_authorization; no app-source edits yet.
+- Commerce transport fixtures now snapshot DB for independent cases, synthetic chosen taxonomy only in already-stubbed transport tests, plus real missing-taxonomy refusal test. No production fallback, no intent deletion, assertions unchanged.13/14 in164s; sole failure Cloudline chart readability under unchangedfloor. This is hash/transport verification, never end-to-end publication proof. Scope CODEX_COMMERCE_FIXTURE_SCOPE.md.
+- Parity baseline624618d12/20 receipt154407608215. Cause identified: current coaster1.1.0 but chain consumers requested1.0.0. learn_launch owns fixture migration and checks; separate synthetic1.0.0 rows untouched. Rebuild fixture oldNordic invalidgauge also being reviewed/migrated; no weakened H checks.
+- master_proof chart prototype exact6,930cells tiled20, min9.296pt vs9ptfloor, now checking key/footer clipping and coordinate labels. Not integrated yet. Root no running suites at this checkpoint.

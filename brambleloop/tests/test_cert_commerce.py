@@ -289,6 +289,7 @@ class _StubClient:
         return None
 
     def publish(self, **k):
+        # Transport reachability only; real callback enforcement has its own adversarial suite.
         raise _Reached("upload reached")
 
     def attach_file(self, *a, **k):
@@ -310,6 +311,23 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     from brambleloop.integrations import etsy
     from brambleloop.publish import pdf as pdf_mod
     from brambleloop.runtime import release as release_mod
+
+    # Independent hash scenarios must not retry another scenario's uncertain draft.
+    # Snapshot its genuine compiled/certified state; never erase an intent in production.
+    import sqlite3
+    snapshot = os.path.join(_TMP, key + ".sqlite")
+    source = sqlite3.connect(db.engine.url.database)
+    target = sqlite3.connect(snapshot)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
+    db = Database(f"sqlite:///{snapshot}")
+    from brambleloop.commerce import category
+    taxonomy = Spy(category, "publish_inputs", replacement=lambda *a, **k: {
+        "status": category.CHOSEN, "taxonomy_id": 66, "properties": [],
+        "certified": "PASS", "fixture": "synthetic transport premise, not taxonomy proof"})
 
     injected = []
     if shim:
@@ -367,6 +385,7 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
         grid.restore()
         gates.restore()
         images.restore()
+        taxonomy.restore()
         if render:
             render.restore()
         for name in injected:
@@ -376,7 +395,19 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
         audits = [(a.action, dict(a.detail or {})) for a in s.scalars(
             select(AuditLog).where(AuditLog.job_id == job.id).order_by(AuditLog.id))]
     reached = reached or ["upload reached" in (job.last_error or "")]
+    db.engine.dispose()
     return job, audits, bool(reached[0])
+
+
+def test_missing_taxonomy_is_refused_without_a_default():
+    from brambleloop.runtime import etsy_ops
+    st = chain()
+    try:
+        etsy_ops.certified_payload(st["db"], st["slug"], st["version"])
+    except ValueError as exc:
+        assert "taxonomy UNKNOWN" in str(exc), str(exc)
+    else:
+        raise AssertionError("missing taxonomy silently gained a default")
 
 
 def test_past_shadow_publish_runs_at_all_without_a_test_shim():
