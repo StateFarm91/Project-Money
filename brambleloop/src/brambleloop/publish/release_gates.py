@@ -211,8 +211,14 @@ def search_gate(db, *, slug: str, version: str, set_verdict: dict | None = None)
         return {"ok": False, "verdict": "REFUSED", "reasons": [
             "search certificate (F-004): listing.seo has recorded no search profile for "
             f"{slug}@{version}"]}
-    cert = dict(profile.certificate or {})
-    checks = dict(cert.get("checks") or {})
+    cert = profile.certificate if isinstance(profile.certificate, dict) else {}
+    stored_checks = cert.get("checks")
+    checks = dict(stored_checks) if isinstance(stored_checks, dict) else {}
+    # A truncated/legacy row cannot certify by omitting the checks it never ran.
+    # Hero is recomputed below; all other required evidence must be explicit.
+    for key in ("category", "attributes", "copy", "tags", "description"):
+        if not isinstance(checks.get(key), dict):
+            checks[key] = {"ok": None, "why": "required search check missing or malformed"}
     reasons: list[str] = []
     if listing is None:
         reasons.append("search certificate (F-004): no drafted listing row to certify")
@@ -235,6 +241,9 @@ def search_gate(db, *, slug: str, version: str, set_verdict: dict | None = None)
                               f"frame 1 is not export-ready: "
                               f"{(hero or {}).get('why') or 'no frame 1 on file'}")[:300]}
     for key, check in sorted(checks.items()):
+        if not isinstance(check, dict):
+            reasons.append(f"search certificate (F-004) {key}: malformed check")
+            continue
         if check.get("ok") is not True and not (key == "category"
                                                 and profile.category_status != "CHOSEN"):
             reasons.append(f"search certificate (F-004) {key}: "
