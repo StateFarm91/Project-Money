@@ -1996,3 +1996,65 @@ class InsightsSnapshot(Base):
     recorded_by: Mapped[str] = mapped_column(String(80), default="")
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     basis: Mapped[str] = mapped_column(String(40), default="owner_recorded_shop_manager")
+
+
+class EtsyTaxonomySnapshot(Base):
+    """One read of Etsy's seller taxonomy and the pattern subtree's property schemas (F-005).
+
+    Written only by `integrations.etsy_taxonomy.refresh`, from `getSellerTaxonomyNodes` and
+    `getPropertiesByTaxonomyId` through the ordinary Etsy client, and only when the `etsy_api`
+    gate is open. A database with no row here has **no** category knowledge: the category
+    chooser reads UNKNOWN and search certification refuses, rather than falling back to a
+    remembered integer. `nodes` is the flattened tree (id, name, level, parent_id, path);
+    `properties` maps a node id (as a string, JSON keys) to that node's property list exactly
+    as Etsy returned it. `sha256` fingerprints both, so an unchanged tree is confirmed rather
+    than stored twice.
+    """
+
+    __tablename__ = "etsy_taxonomy_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    source: Mapped[str] = mapped_column(String(60), default="etsy_open_api_v3")
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    node_count: Mapped[int] = mapped_column(Integer, default=0)
+    nodes: Mapped[list] = mapped_column(JSON, default=list)
+    properties: Mapped[dict] = mapped_column(JSON, default=dict)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ListingSearchProfile(Base):
+    """The search-truth reading of one drafted listing: category, attributes, certificate.
+
+    Written by `listing.seo`; read by `publish.release_gates` (the search verdict and the
+    claims fingerprint) and handed to the publish path as the property payload. One row per
+    listing version, overwritten on every draft, because the certificate on it is only ever
+    about the copy currently on the `listings` row -- `fingerprint` is what proves that.
+    """
+
+    __tablename__ = "listing_search_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    snapshot_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    category_status: Mapped[str] = mapped_column(String(20), default="UNKNOWN")
+    taxonomy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    taxonomy_path: Mapped[list] = mapped_column(JSON, default=list)
+    attributes: Mapped[dict] = mapped_column(JSON, default=dict)
+    properties: Mapped[list] = mapped_column(JSON, default=list)
+    filters: Mapped[dict] = mapped_column(JSON, default=dict)
+    coverage_matrix: Mapped[list] = mapped_column(JSON, default=list)
+    tag_provenance: Mapped[list] = mapped_column(JSON, default=list)
+    tag_limitation: Mapped[str] = mapped_column(Text, default="")
+    verdict: Mapped[str] = mapped_column(String(20), default="REFUSED", index=True)
+    certificate: Mapped[dict] = mapped_column(JSON, default=dict)
+    fingerprint: Mapped[str] = mapped_column(String(64), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("product_slug", "version", name="uq_search_profile_version"),
+    )

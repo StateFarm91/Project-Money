@@ -768,6 +768,8 @@ JOB_BANDS: dict[str, str] = {
     "creative.white_space": "exploration",
     "commerce.readings": "exploration",
     "commerce.orders_ingest": "exploration",
+    # F-005: a read-only Etsy taxonomy snapshot, behind the etsy_api gate.
+    "listing.taxonomy_refresh": "exploration",
     "commerce.order_readings": "exploration",
     "scale.trajectory": "exploration",
     "creative.north_star": "exploration",

@@ -101,36 +101,92 @@ def build_tags(category: str, motifs: list[str], season: str | None,
     return out
 
 
+# F-023: Etsy's own guidance is a concise title of roughly fifteen words. A readability target,
+# not a ranking law, so exceeding it is a recorded soft finding rather than a block, and
+# `build_title` meets it by dropping its lowest-value tail segments first.
+TITLE_WORD_TARGET = 15
+
+# F-024: empty subjective claims. They spend scarce title words on nothing a buyer searches
+# for and nothing the pattern data can support, so they are moved to the description (which
+# opens with the product name and so keeps them) rather than deleted from the product.
+_SUBJECTIVE = re.compile(
+    r"\b(cute|beautiful|gorgeous|stunning|lovely|adorable|perfect|amazing|"
+    r"elegant|charming|unique|pretty|dreamy|delightful|exquisite)\b", re.I)
+
+_TITLE_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _title_words(text: str) -> list[str]:
+    return _TITLE_WORD.findall(text.lower())
+
+
+def relocate_subjective(text: str) -> tuple[str, list[str]]:
+    """The text with subjective words removed, and the words that were moved (F-024)."""
+    moved = [m.group(0) for m in _SUBJECTIVE.finditer(text or "")]
+    clean = re.sub(r"\s{2,}", " ", _SUBJECTIVE.sub("", text or "")).strip(" -|,")
+    return clean, moved
+
+
 def build_title(product_title: str, category: str, motifs: list[str],
                 season: str | None = None, sizes: int = 1) -> str:
-    """Front-load the phrase a buyer types, then qualify. Never exceed the platform limit.
+    """Front-load the phrase a buyer types, then qualify. Never repeat a word.
 
     Etsy truncates in search results long before 140 characters, so the first sixty carry the
-    whole job; the tail exists for the exact-phrase index, not for a human.
+    whole job. Every segment after the product name only adds words the title does not already
+    contain (F-021, F-245): "Nordic Forest Mosaic Throw | ... | Nordic Mosaic Blanket |
+    Christmas Crochet" repeated three words, which `portfolio.stuffing` reads as stuffing and
+    which a buyer reads as a listing nobody proofread. Segments are kept in priority order
+    until the fifteen-word target (F-023) would be passed, so the tail goes first.
     """
-    lead = product_title.strip()
-    parts = [lead, "Crochet Pattern PDF"]
+    lead, _moved = relocate_subjective(product_title.strip())
+    fmt = ["Crochet", "Pattern", "PDF"]
+    fmt_words = {w.lower() for w in fmt}
+    # "Crochet Storage Basket | Pattern PDF" would break the "crochet pattern" phrase the
+    # friction audit and every buyer look for; the lead gives up the word instead.
+    trimmed = " ".join(w for w in lead.split() if w.lower() not in fmt_words)
+    lead = trimmed or lead
+    used = set(_title_words(lead)) | fmt_words
+
+    def fresh(text: str) -> str:
+        # Only content words count as repeats -- the same rule `portfolio.stuffing` applies
+        # (longer than three letters) -- so "US and UK Terms" keeps its "and".
+        kept = [w for w in text.split()
+                if not {t for t in _title_words(w) if len(t) > 3} <= used
+                or all(len(t) <= 3 for t in _title_words(w))]
+        return " ".join(kept) if any(t not in used
+                                     for w in kept for t in _title_words(w)) else ""
+
+    # (priority, canonical position, text). Lower priority number is kept first.
+    candidates: list[tuple[int, int, str]] = []
     if motifs:
-        # "Pet Snuggle Mat | ... | Pet Pet | ..." shipped to production before this guard. A
-        # motif word that is also the category word produces a stutter, and a stuttering title
-        # is the clearest possible signal that nobody read the listing before it went up.
+        # "Pet Snuggle Mat | ... | Pet Pet | ..." shipped to production before this guard.
         motif = motifs[0].strip().lower()
         cat_words = category.replace("_", " ").lower().split()
         descriptor = " ".join(w for w in cat_words if w != motif) or cat_words[-1]
-        segment = (descriptor if motif in cat_words
-                   else f"{motif} {descriptor}")
-        segment = segment.title()
-        if segment.lower() not in lead.lower():
-            parts.append(segment)
-    if sizes > 1:
-        parts.append(f"{sizes} Sizes")
-    parts.append("Written Instructions and Chart")
+        segment = (descriptor if motif in cat_words else f"{motif} {descriptor}").title()
+        candidates.append((2, 2, segment))
     if season:
-        parts.append(f"{season.split(' (')[0]} Crochet")
-    parts.append("US and UK Terms")
+        candidates.append((1, 5, season.split(" (")[0]))
+    if sizes > 1:
+        candidates.append((3, 3, f"{sizes} Sizes"))
+    candidates.append((4, 6, "US and UK Terms"))
+    candidates.append((5, 4, "Written Instructions and Chart"))
+
+    kept: list[tuple[int, str]] = [(0, lead), (1, " ".join(fmt))]
+    words = len(_title_words(lead)) + len(fmt)
+    for _prio, position, text in sorted(candidates):
+        segment = fresh(text)
+        if not segment:
+            continue
+        n = len(_title_words(segment))
+        if words + n > TITLE_WORD_TARGET:
+            continue
+        kept.append((position, segment))
+        used |= set(_title_words(segment))
+        words += n
 
     title = ""
-    for part in parts:
+    for _position, part in sorted(kept, key=lambda x: x[0]):
         candidate = part if not title else f"{title} | {part}"
         if len(candidate) > TITLE_MAX:
             break
@@ -144,7 +200,8 @@ def build_description(product_title: str, *, size_label: str | None,
                       gauge_line: str | None, stitches: list[str],
                       season: str | None = None, pages: int | None = None,
                       collapsed_repeats: bool = False,
-                      childrens: "ch.RenderedStatements | None" = None) -> str:
+                      childrens: "ch.RenderedStatements | None" = None,
+                      key_phrases: list[str] | None = None) -> str:
     """Assemble the description entirely from verified pattern facts.
 
     `terminology` is still accepted and no line depends on it any more: both documents ship, so
@@ -162,6 +219,12 @@ def build_description(product_title: str, *, size_label: str | None,
     out: list[str] = []
     out.append(f"{product_title} — a crochet pattern, not a finished item. You receive an "
                f"instant digital download.")
+    opening = opening_sentence(key_phrases or [])
+    if opening:
+        # F-025: the listing's most important phrases, placed naturally in the first lines
+        # rather than restating the title. Chosen by the caller from the tags it spent slots
+        # on, so the description and the tags answer the same queries.
+        out.append(opening)
     out.append("")
     out.append("WHAT YOU GET")
     if collapsed_repeats:
@@ -238,6 +301,30 @@ def build_description(product_title: str, *, size_label: str | None,
     out.append(rendered[0].upper())
     out.extend(rendered[1:])
     return "\n".join(out)
+
+
+def opening_sentence(key_phrases: list[str]) -> str:
+    """One natural sentence carrying up to three of the listing's key phrases (F-025).
+
+    Phrases that already say "pattern" are used as they are; the others are joined into the
+    sentence as what the pattern makes. Empty when there is nothing to say, rather than a
+    sentence padded with filler.
+    """
+    picked: list[str] = []
+    for phrase in key_phrases:
+        p = " ".join(phrase.lower().split())
+        if p and p not in picked and not any(p in q or q in p for q in picked):
+            picked.append(p)
+        if len(picked) == 3:
+            break
+    if not picked:
+        return ""
+    if len(picked) == 1:
+        joined = picked[0]
+    else:
+        joined = ", ".join(picked[:-1]) + " and " + picked[-1]
+    return (f"If you are searching for {joined}, this is the one: every row is written out "
+            f"and charted, and every stitch count is checked before release.")
 
 
 # ---- the children's statements that belong in the advertisement -------------
@@ -374,3 +461,86 @@ def check_listing_limits(copy: ListingCopy) -> list[str]:
         problems.append("LISTING_AMBIGUOUS_PRODUCT: the title must say this is a pattern, "
                         "not a finished item")
     return problems
+
+
+
+# ---- the search-copy gate (F-011, F-021, F-023, F-024, F-026, F-245, F-251) ----------------
+
+# How many times one target phrase may appear in the description before it reads as a
+# keyword dump rather than a sentence. Three covers the opening, the details and one mention.
+DESCRIPTION_PHRASE_REPEAT_MAX = 3
+# A line where this many comma/pipe-separated chunks are target phrases is a keyword list.
+DESCRIPTION_LIST_CHUNKS = 4
+
+# F-251: the shop language is English (the shop is Canadian and lists in English). A word
+# outside this alphabet in a title or tag is a translation, which must be deliberate.
+SHOP_LANGUAGE = "en"
+_NON_ENGLISH = re.compile(r"[^\x00-\x7f\u2014\u2013\u2019\u00d7]")
+
+
+def keyword_dump(description: str, phrases: list[str]) -> list[str]:
+    """Blocking findings for a description that lists keywords instead of describing (F-026)."""
+    problems: list[str] = []
+    flat = " ".join((description or "").lower().split())
+    for phrase in sorted({p.lower() for p in phrases if p and len(p.split()) >= 2}):
+        n = len(re.findall(rf"\b{re.escape(phrase)}\b", flat))
+        if n > DESCRIPTION_PHRASE_REPEAT_MAX:
+            problems.append(f"DESCRIPTION_KEYWORD_REPEAT: {phrase!r} appears {n} times")
+    targets = {p.lower().strip() for p in phrases}
+    for line in (description or "").splitlines():
+        chunks = [c.strip().lower() for c in re.split(r"[,|;/#]", line) if c.strip()]
+        hits = sum(1 for c in chunks if c in targets)
+        if hits >= DESCRIPTION_LIST_CHUNKS:
+            problems.append(f"DESCRIPTION_KEYWORD_LIST: a line lists {hits} target phrases: "
+                            f"{line[:80]!r}")
+    if len(re.findall(r"(?:^|\s)#\w+", description or "")) >= 3:
+        problems.append("DESCRIPTION_HASHTAGS: hashtags are keyword stuffing on Etsy")
+    return problems
+
+
+def check_search_copy(copy: ListingCopy, *, phrases: list[str] | None = None,
+                      tag_limitation: str | None = None,
+                      translation_record: str | None = None) -> dict:
+    """The search-quality gate on a drafted listing: blocking findings and soft ones.
+
+    Separate from `check_listing_limits`, which asks whether Etsy would accept the listing;
+    this asks whether it is honest, readable search copy:
+
+    - **13 tags (F-011).** Fewer is blocking unless `tag_limitation` records the documented
+      platform limitation that prevents it; the limitation is then carried as a soft finding.
+    - **Stuffing (F-021, F-245, F-298).** `portfolio.stuffing` -- a title repeating a word,
+      or a tag set spending its slots on one word -- blocks rather than being audited.
+    - **Subjective words (F-024)** in the title block; `build_title` relocates them.
+    - **Title length (F-023)** above the fifteen-word target is a soft finding.
+    - **Keyword dumps (F-026)** in the description block.
+    - **Shop language (F-251):** a title or tag outside English blocks unless a deliberate
+      `translation_record` exists.
+    """
+    from .portfolio import stuffing
+
+    blocking: list[str] = []
+    soft: list[str] = []
+    if len(copy.tags) < TAG_MAX_COUNT:
+        gap = (f"LISTING_TAG_SLOTS_UNUSED: {len(copy.tags)} of {TAG_MAX_COUNT} tag slots "
+               f"used")
+        if tag_limitation and tag_limitation.strip():
+            soft.append(f"{gap}; recorded limitation: {tag_limitation.strip()[:200]}")
+        else:
+            blocking.append(gap + " and no documented platform limitation is recorded")
+    stuffed = stuffing(copy.title, copy.tags)
+    if stuffed.get("stuffed"):
+        blocking.append(f"LISTING_STUFFED: {stuffed['why']}")
+    moved = [m.group(0) for m in _SUBJECTIVE.finditer(copy.title)]
+    if moved:
+        blocking.append(f"LISTING_SUBJECTIVE_IN_TITLE: {moved} belong in the description")
+    words = len(_title_words(copy.title))
+    if words > TITLE_WORD_TARGET:
+        soft.append(f"LISTING_TITLE_LONG: {words} words; the readability target is "
+                    f"{TITLE_WORD_TARGET}")
+    blocking.extend(keyword_dump(copy.description, list(phrases or []) + list(copy.tags)))
+    foreign = [t for t in [copy.title] + list(copy.tags) if _NON_ENGLISH.search(t)]
+    if foreign and not (translation_record and translation_record.strip()):
+        blocking.append(f"LISTING_LANGUAGE: {foreign[:3]} are not in the shop language "
+                        f"({SHOP_LANGUAGE}) and no deliberate translation is recorded")
+    return {"blocking": blocking, "soft": soft, "stuffing": stuffed,
+            "title_words": words, "ok": not blocking}
