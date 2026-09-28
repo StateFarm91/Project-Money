@@ -314,6 +314,7 @@ class ListingPayload:
     price: float
     tags: list[str]
     materials: list[str]
+    properties: list[dict] = field(default_factory=list)
     taxonomy_id: int = TAXONOMY_PATTERNS
     quantity: int = DIGITAL_QUANTITY
     who_made: str = "i_did"
@@ -725,6 +726,24 @@ class EtsyClient:
         results = body.get("results")
         return list(results) if isinstance(results, list) else []
 
+    def set_listing_property(self, listing_id: str, prop: dict) -> dict:
+        creds = self._require(Authority.DRAFT_WRITE)
+        property_id = int(prop["property_id"])
+        fields = {"value_ids": list(prop.get("value_ids") or []),
+                  "values": list(prop.get("values") or [])}
+        if prop.get("scale_id") is not None:
+            fields["scale_id"] = int(prop["scale_id"])
+        return self._call("PUT", f"/shops/{creds.shop_id}/listings/{listing_id}/properties/{property_id}",
+                          operation="updateListingProperty", form=form_fields(fields)).body
+
+    def get_listing_properties(self, listing_id: str) -> list[dict]:
+        creds = self._require(Authority.READ)
+        body = self._call("GET", f"/shops/{creds.shop_id}/listings/{listing_id}/properties",
+                          operation="getListingProperties", authority=Authority.READ).body
+        if not isinstance(body, dict) or not isinstance(body.get("results"), list):
+            raise EtsyRejected("listing properties response is UNKNOWN")
+        return body["results"]
+
     def get_listing_files(self, listing_id: str) -> list[dict[str, Any]]:
         """The digital files Etsy holds for a listing, as Etsy reports them (F-559).
 
@@ -854,7 +873,8 @@ class EtsyClient:
         return out
 
     def get_taxonomy_properties(self,
-                                taxonomy_id: int = TAXONOMY_PATTERNS) -> list[dict[str, Any]]:
+                                properties: list[dict] = field(default_factory=list)
+    taxonomy_id: int = TAXONOMY_PATTERNS) -> list[dict[str, Any]]:
         """The listing properties this taxonomy node defines, and which of them are required.
 
         If any is `is_required`, **every create against that node is refused** with a property

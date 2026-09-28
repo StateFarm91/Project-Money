@@ -77,6 +77,11 @@ def _product(db, *, frames: int = 3) -> dict:
     shas = [store.put(f"{cir.slug}/frame{p}.png", PNG + bytes([p]) * (p + 5),
                       "image/png").sha256 for p in range(1, frames + 1)]
     with db.session() as s:
+        from brambleloop.core.models import ListingSearchProfile
+        s.add(ListingSearchProfile(product_slug=cir.slug, version=cir.version,
+                                  category_status="CHOSEN", taxonomy_id=2114,
+                                  properties=[{"property_id": 200, "value_ids": [1], "values": ["Beige"], "scale_id": None}],
+                                  verdict="PASS"))
         product = Product(slug=cir.slug, title="Nordic Forest", status="certified")
         s.add(product)
         s.flush()

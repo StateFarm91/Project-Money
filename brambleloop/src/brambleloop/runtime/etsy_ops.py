@@ -340,13 +340,46 @@ def certified_payload(db, slug: str, version: str):
         if pv is None or not pv.certified or not pv.cir_json:
             raise ValueError(f"{slug}@{version} has no certified release")
         cir = CIR.from_dict(pv.cir_json)
-    return build_payload(materials=[m.name for m in cir.materials], **copy)
+    from ..commerce import category
+    selected = category.publish_inputs(db, slug=slug, version=version)
+    if selected.get("status") != category.CHOSEN or not selected.get("taxonomy_id"):
+        raise ValueError("certified listing taxonomy UNKNOWN; default fallback prohibited")
+    if selected.get("certified") != "PASS":
+        raise ValueError("listing search profile not certified PASS")
+    payload = build_payload(materials=[m.name for m in cir.materials], **copy)
+    payload.taxonomy_id = int(selected["taxonomy_id"])
+    payload.properties = canonical_properties(selected.get("properties"))
+    return payload
+
+
+def canonical_properties(properties):
+    if not isinstance(properties, list):
+        raise ValueError("listing properties UNKNOWN")
+    out = []
+    for prop in properties:
+        if not isinstance(prop, dict) or not prop.get("property_id"):
+            raise ValueError("invalid listing property")
+        values, ids = prop.get("values"), prop.get("value_ids")
+        if not isinstance(values, list) or not isinstance(ids, list):
+            raise ValueError("listing property values UNKNOWN")
+        out.append({"property_id": int(prop["property_id"]),
+                    "value_ids": sorted(int(v) for v in ids),
+                    "values": sorted(str(v) for v in values),
+                    "scale_id": int(prop["scale_id"]) if prop.get("scale_id") is not None else None})
+    if len({p["property_id"] for p in out}) != len(out):
+        raise ValueError("duplicate listing property")
+    return sorted(out, key=lambda p: p["property_id"])
+
+
+def with_properties(client, listing_id, remote):
+    return {**remote, "properties": canonical_properties(client.get_listing_properties(listing_id))}
 
 
 def sent_fields(payload) -> dict[str, Any]:
     """What a createDraftListing carried, in the shape `etsy_verify.verify` compares."""
     fields = payload.to_dict()
     fields.pop("state", None)
+    fields["properties"] = canonical_properties(payload.properties)
     return fields
 
 
@@ -447,7 +480,7 @@ def read_back(client, listing_id: str, *, sent: dict, expected_files: list[dict]
     from ..integrations import etsy_verify
 
     try:
-        remote = client.get_listing(listing_id)
+        remote = with_properties(client, listing_id, client.get_listing(listing_id))
     except Exception as e:  # noqa: BLE001 - a failed read is an unverified write
         from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
 
@@ -790,7 +823,7 @@ def handle_listing_census(ctx: JobContext) -> dict:
         remote = by_id.get(lid)
         if remote is not None and k.get("slug"):
             try:
-                full = client.get_listing(lid)
+                full = with_properties(client, lid, client.get_listing(lid))
             except Exception:  # noqa: BLE001 - fall back to the census row
                 full = remote
             found = _field_drift(ctx.db, k, full)

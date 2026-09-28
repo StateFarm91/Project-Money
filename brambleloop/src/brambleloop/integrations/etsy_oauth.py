@@ -106,6 +106,8 @@ SCOPE_MEANINGS = {
 SCOPES_REQUIRED = {
     "createDraftListing": ("listings_w",),
     "updateListing": ("listings_w",),
+    "updateListingProperty": ("listings_w",),
+    "getListingProperties": ("listings_r",),
     "uploadListingImage": ("listings_w",),
     "uploadListingFile": ("listings_w",),
     "deleteListing": ("listings_d",),

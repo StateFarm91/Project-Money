@@ -1345,6 +1345,13 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # hide it. That is the half-done case this handler already refuses to round off.
     extra_files: dict[str, bool] = {}
     extra_problems: list[str] = []
+    if outcome.listing_id:
+        for prop in payload.properties:
+            try:
+                client.set_listing_property(outcome.listing_id, prop)
+            except (TransientError, PermanentError) as e:
+                extra_problems.append(f"listing property {prop['property_id']} write failed: {e}")
+
     if outcome.listing_id and outcome.file_uploaded:
         for terminology in TERMINOLOGIES[1:]:
             try:
@@ -1513,7 +1520,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
         raise ShadowModeRefusal(client.refusal_for(Authority.READ) or "no credentials")
 
     try:
-        remote = client.get_listing(listing_id)
+        remote = etsy_ops.with_properties(client, listing_id, client.get_listing(listing_id))
         remote_files = client.get_listing_files(listing_id)
     except EtsyAuthNeedsOwner as e:
         raised = etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")
