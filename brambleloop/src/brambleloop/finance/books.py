@@ -85,6 +85,8 @@ class ProfitAndLoss:
     order_source: dict = field(default_factory=dict)
     # F-609: platform fees by how they were obtained.
     fees_by_basis: dict = field(default_factory=dict)
+    operating_costs_by_basis: dict = field(default_factory=dict)
+    unobserved_operating_rows: int = 0
     # F-289: orders and revenue per channel, unattributed explicit. None when unmeasured.
     sales_by_source: dict | None = None
 
@@ -129,14 +131,20 @@ class ProfitAndLoss:
                      - self.operating_costs_cad - self.tax_reserve_cad, 4)
 
     @property
-    def cash_cad(self) -> float:
-        """What is actually ours. Net profit with the tax reserve already removed above."""
-        return self.net_profit_cad
+    def cash_cad(self) -> float | None:
+        """Derived cash proxy only when all inputs are observed; otherwise UNKNOWN."""
+        return self.net_profit_cad if self.all_observed else None
+
+    @property
+    def all_observed(self):
+        costs = self.operating_costs_by_basis
+        return (not self.unobserved_operating_rows and self.sales_measured and not any(self.fees_by_basis.get(k) for k in ("modelled", "unknown"))
+                and not any(costs.get(k) for k in ("modelled", "unknown"))
+                and (not self.operating_costs_cad or bool(costs)))
 
     def to_dict(self) -> dict:
         fees_by_basis = {k: round(v, 2) for k, v in (self.fees_by_basis or {}).items()}
-        observed = (self.sales_measured
-                    and not fees_by_basis.get("modelled") and not fees_by_basis.get("unknown"))
+        observed = self.all_observed
         common = {
             "sales_reading": self.sales_reading,
             "sales_why": self.sales_why,
@@ -145,10 +153,13 @@ class ProfitAndLoss:
             "platform_fees_by_basis": fees_by_basis,
             "sales_by_source": self.sales_by_source,
             "all_figures_observed": observed,
+            "operating_costs_by_basis": dict(self.operating_costs_by_basis),
+            "unobserved_operating_rows": self.unobserved_operating_rows,
+            "profit_basis": "measured" if observed else "mixed_or_unknown",
+            "cash_reading": "derived_cash_proxy" if observed else "UNKNOWN",
         }
         if self.sales_unmeasured:
-            # Every figure that depends on sales is unknown, and says so. Operating cost is
-            # this system's own spend and is measured regardless.
+            # Sales-dependent figures remain unknown; operating-cost basis is independent.
             return {
                 "period": {"start": self.period_start, "end": self.period_end},
                 **{k: None for k in ("gross_sales_cad", "discounts_cad", "refunds_cad",
@@ -160,7 +171,7 @@ class ProfitAndLoss:
                                  for k, v in sorted(self.cost_by_kind.items())},
                 **common,
                 "note": ("Sales are UNMEASURED, not CA$0.00: " + self.sales_why
-                         + ". Operating costs are measured."),
+                         + ". Operating-cost basis is reported separately."),
             }
         return {
             **common,
@@ -207,6 +218,11 @@ class Books:
                 pl.refunds_cad += e.refunds_cad
                 pl.platform_fees_cad += e.fees_cad
                 pl.other_expense_cad += e.expense_cad
+                if e.expense_cad:
+                    basis = e.basis if e.basis in ("measured", "modelled") else "unknown"
+                    if basis != "measured":
+                        pl.unobserved_operating_rows += 1
+                    pl.operating_costs_by_basis[basis] = pl.operating_costs_by_basis.get(basis, 0.0) + e.expense_cad
                 if e.category == "sale":
                     pl.orders += 1
                 elif e.category == "discount":
@@ -215,8 +231,17 @@ class Books:
             pl.customers = s.scalar(select(func.count(func.distinct(Order.customer_id)))
                                     .where(Order.at >= since, Order.at <= until)) or 0
 
+            from .listing_costs import cost_basis
+            reconciled_listings = {e.evidence_ref.removeprefix("etsy_listing:") for e in s.scalars(
+                select(LedgerEntry).where(LedgerEntry.source == "etsy_listing_ledger"))}
             for c in s.scalars(select(CostEntry).where(CostEntry.at >= since,
                                                        CostEntry.at <= until)):
+                if c.kind == "etsy_listing_fee" and str((c.detail or {}).get("listing_id")) in reconciled_listings:
+                    continue
+                basis = cost_basis(c)
+                if basis != "measured":
+                    pl.unobserved_operating_rows += 1
+                pl.operating_costs_by_basis[basis] = pl.operating_costs_by_basis.get(basis, 0.0) + c.amount_cad
                 kind = c.kind if c.kind in COST_KINDS else "other"
                 pl.cost_by_kind[kind] = pl.cost_by_kind.get(kind, 0.0) + c.amount_cad
 
