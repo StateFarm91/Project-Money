@@ -251,14 +251,24 @@ class _Doc:
         made them do a translation the document was supposed to do for them.
         """
         self.prose.append(f"{key} {value}")
-        self.need(5 * mm)
-        self.c.setFont("Helvetica-Bold", 9)
-        self.c.setFillColor(MUTED)
-        self.c.drawString(MARGIN, self.y, key.upper() if upper else key)
-        self.c.setFont("Helvetica", 10)
-        self.c.setFillColor(INK)
-        self.c.drawString(MARGIN + 42 * mm, self.y, value)
-        self.y -= 5.2 * mm
+        key_lines = _wrap(self.c, key.upper() if upper else key,
+                          "Helvetica-Bold", 9, 39 * mm)
+        value_lines = _wrap(self.c, value, "Helvetica", 10,
+                            PAGE_W - 2 * MARGIN - 42 * mm)
+        line_height = 5.2 * mm
+        self.need(max(len(key_lines), len(value_lines)) * line_height)
+        for i in range(max(len(key_lines), len(value_lines))):
+            # Repeat the space check for unusually long values that span a page.
+            self.need(line_height)
+            if i < len(key_lines):
+                self.c.setFont("Helvetica-Bold", 9)
+                self.c.setFillColor(MUTED)
+                self.c.drawString(MARGIN, self.y, key_lines[i])
+            if i < len(value_lines):
+                self.c.setFont("Helvetica", 10)
+                self.c.setFillColor(INK)
+                self.c.drawString(MARGIN + 42 * mm, self.y, value_lines[i])
+            self.y -= line_height
 
     def image(self, img, running_head: str | None = None, *, max_height=None) -> None:
         from reportlab.lib.utils import ImageReader
@@ -295,7 +305,14 @@ def _wrap(c, text: str, font: str, size: int, width: float) -> list[str]:
             else:
                 if line:
                     out.append(line)
-                line = word
+                # A URL or identifier may be wider than a complete line. Keep
+                # every character, splitting only for display rather than clipping.
+                line = ""
+                for char in word:
+                    if line and c.stringWidth(line + char, font, size) > width:
+                        out.append(line)
+                        line = ""
+                    line += char
         out.append(line)
     return out
 
@@ -1737,7 +1754,9 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
                    "right.")
 
     if cell_mm < CHART_MIN_CELL_MM:
-        return _tiled_chart_art(cir, twin, grid, colour_grid)
+        tiled = _tiled_chart_art(cir, twin, grid, colour_grid)
+        if tiled is not None:
+            return tiled
 
     if cell_mm < CHART_MIN_CELL_MM:
         # Reported with the measurement in it, because "the chart is small" is an opinion and
@@ -1785,7 +1804,7 @@ def _tiled_chart_art(cir, twin, grid, colors):
             break
         if rows >= cols and rows > 1: rows -= 1
         elif cols > 1: cols -= 1
-        else: raise ValueError("chart tile cannot satisfy existing readability floor")
+        else: return None  # Caller retains measured, structured refusal; never PASS.
     tiles = []
     for row in range(0, full_rows, rows):
         for col in range(0, full_cols, cols):
