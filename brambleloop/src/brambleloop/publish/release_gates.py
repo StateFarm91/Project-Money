@@ -716,9 +716,21 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     for kind, entry in sorted(held["reasons"].items()):
         if kind == withholding.TEARDOWN_QA:
             reasons.append(f"release withheld (#163): {entry['reason']}")
+    # F-111 / F-118 / F-120 (cluster C): the product-level scope -- legacy quarantine, and
+    # for a Launch-0 slug the first customer's nine-area gate -- decided in one place.
+    from . import eligibility
+
+    row = _listing(db, slug, version)
+    scope = eligibility.product_publication(
+        db, slug, version,
+        listing=(None if row is None else
+                 {"title": row.title, "description": row.description,
+                  "tags": list(row.tags or []), "price_cad": row.price_cad}))
+    reasons.extend(f"{r['code']}: {r['why']}" for r in scope["reasons"])
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
-            "listing_set": set_verdict, "standards": standards, "withholding": held}
+            "listing_set": set_verdict, "standards": standards, "withholding": held,
+            "publication_scope": scope}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:

@@ -417,3 +417,91 @@ def state() -> dict:
             "gate is consulted independently of it. There is no ordering in which a "
             "disclaimer makes a misleading asset exportable"),
     }
+
+
+# ---- product publication scope (F-111, F-118, F-119, F-120) -----------------------------
+#
+# Everything above decides what a *frame* may do. This decides whether a *product* may be
+# published at all, which the frame rules cannot see.
+#
+# **Legacy quarantine (F-111).** The Build-1 catalogue was authored at typed gauges its own
+# declared yarn cannot make, before calibration existed. It is ineligible for live publication
+# until it is re-engineered or independently validated -- and until now that was a report
+# (`products.launch0.excluded_from_launch0`) and a slug list, with Shadow Mode the only thing
+# actually stopping it. A slug outside Launch-0 is refused here unless its stored certificate
+# was issued under the current gauge standard, which is what "re-certified" means: examined by
+# the check the legacy products were never examined by.
+#
+# **Launch-0 is the scope (F-120).** Launch-0 products clear the quarantine by being Launch-0,
+# and are then held to the first customer's nine-area gate (F-118), whose UNVERIFIABLE and
+# UNRESOLVED states block exactly as FAIL does.
+
+LEGACY_PRE_CALIBRATION = "LEGACY_PRE_CALIBRATION"
+FIRST_CUSTOMER_BLOCKING = "FIRST_CUSTOMER_BLOCKING"
+NOT_CERTIFIED = "NOT_CERTIFIED"
+
+
+def legacy_status(slug: str, certificate: dict | None) -> dict:
+    """Whether a release is in launch scope, legacy, or legacy cleared by re-certification."""
+    from ..gates.certificate import GAUGE_STANDARD
+    from ..products.launch0 import launch_scope_slugs
+
+    in_scope = slug in launch_scope_slugs()
+    cert = certificate or {}
+    recertified = bool(cert.get("granted")) and cert.get("gauge_standard") == GAUGE_STANDARD
+    if in_scope:
+        return {"slug": slug, "in_launch_scope": True, "legacy": False, "cleared": True,
+                "why": "a Launch-0 product"}
+    if recertified:
+        return {"slug": slug, "in_launch_scope": False, "legacy": True, "cleared": True,
+                "why": f"re-certified under the current gauge standard ({GAUGE_STANDARD})"}
+    return {"slug": slug, "in_launch_scope": False, "legacy": True, "cleared": False,
+            "why": (f"outside Launch-0 and not re-certified under the current gauge standard "
+                    f"({GAUGE_STANDARD}); stored standard: "
+                    f"{cert.get('gauge_standard') or 'none -- predates the check'}")}
+
+
+def product_publication(db, slug: str, version: str, *, listing=None, frames=None,
+                        store=None, first_customer=None) -> dict:
+    """May this product be published: one verdict with every reason, never a bare boolean.
+
+    Reads the stored release rather than rebuilding it, so what is refused is what would be
+    shipped. `first_customer` is the gate function, injectable because the real one renders
+    both customer documents; the default is `gates.first_customer.blocking`.
+    """
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = None if product is None else s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id, PatternVersion.version == version))
+        certificate = dict(pv.certificate or {}) if pv is not None else None
+        cir_json = dict(pv.cir_json or {}) if pv is not None else None
+        certified = bool(pv is not None and pv.certified)
+
+    reasons: list[dict] = []
+    if not certified:
+        reasons.append({"code": NOT_CERTIFIED,
+                        "why": f"{slug}@{version} has no certified release on file"})
+    legacy = legacy_status(slug, certificate)
+    if not legacy["cleared"]:
+        reasons.append({"code": LEGACY_PRE_CALIBRATION, "why": legacy["why"]})
+
+    blocking: list[dict] | None = None
+    if legacy["in_launch_scope"] and cir_json:
+        if first_customer is None:
+            from ..gates.first_customer import blocking as first_customer
+        blocking = first_customer(CIR.from_dict(cir_json), listing=listing, frames=frames,
+                                  store=store)
+        for check in blocking:
+            reasons.append({"code": FIRST_CUSTOMER_BLOCKING,
+                            "why": f"{check['area']}: {check['state']} -- "
+                                   f"{str(check['detail'])[:200]}"})
+    return {"slug": slug, "version": version, "publishable": not reasons,
+            "reasons": reasons, "legacy": legacy, "first_customer_blocking": blocking,
+            # Even with nothing blocking, the first Launch-0 listings are published by a
+            # person who has read the document (gates.first_customer.NEVER_AUTHORISES).
+            "owner_review_required": legacy["in_launch_scope"]}

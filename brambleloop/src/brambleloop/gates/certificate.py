@@ -61,6 +61,19 @@ class ReleaseCertificate:
     issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     physical_test_required: bool = False
     physical_test_passed: bool = False
+    # The hash of the content this run examined -- the CIR and the written text -- whether or
+    # not the certificate was granted. `release_hash` exists only on a grant, and a Class C
+    # pattern cannot be granted until a tester has worked it, so the tester needs a name for
+    # the exact text they were handed before any grant exists (F-078). It is the same digest
+    # a grant would carry, so evidence bound to it is bound to the release.
+    content_hash: str | None = None
+    # Which physical evidence this run bound, and which it refused and why (F-078).
+    physical_evidence: dict | None = None
+    # The gauge standard this certificate was examined under (F-112/F-116/F-119). A stored
+    # certificate without it predates the yarn-band check and is legacy by construction.
+    gauge_standard: str | None = None
+    # Per-primitive calibration status of every stitch this pattern uses (F-074).
+    primitives: dict | None = None
 
     @property
     def errors(self) -> list[Finding]:
@@ -84,6 +97,10 @@ class ReleaseCertificate:
             "issued_at": self.issued_at.isoformat(),
             "physical_test_required": self.physical_test_required,
             "physical_test_passed": self.physical_test_passed,
+            "content_hash": self.content_hash,
+            "physical_evidence": self.physical_evidence,
+            "gauge_standard": self.gauge_standard,
+            "primitives": self.primitives,
             "findings": [
                 {"severity": f.severity, "code": f.code, "message": f.message,
                  "component": f.component, "row": f.row}
@@ -129,8 +146,18 @@ def certify(
     cleared_names: set[str] | None = None,
     calibration: float = 1.0,
     platform_policy: dict | None = None,
+    physical_evidence: list[dict] | None = None,
+    prior_risk_class: str | None = None,
+    calibrated_primitives: frozenset[str] | set[str] = frozenset(),
 ) -> ReleaseCertificate:
-    """Run the full release chain and issue -- or refuse -- a certificate."""
+    """Run the full release chain and issue -- or refuse -- a certificate.
+
+    `physical_test_passed` is the old direct assertion, kept for callers that construct a
+    certificate by hand. The runtime passes `physical_evidence` instead -- the stored
+    PhysicalTest rows, each carrying the content hash it was worked against -- and this
+    function decides which of them bind to the content it is examining (F-078). A test of a
+    different text is not evidence for this one, however close the version string.
+    """
     findings: list[Finding] = []
     stages: list[str] = []
 
@@ -177,6 +204,11 @@ def certify(
     # 3. Written pattern, then an independent reverse compile of that exact text.
     pattern_text = write_pattern(cir, result, terminology)
     stages.append("write")
+    # The content this run examines, named before anything decides whether it is granted.
+    content = _release_hash(cir, pattern_text)
+    binding = bind_physical_evidence(physical_evidence or [], slug=cir.slug,
+                                     version=cir.version, content_hash=content)
+    physical_test_passed = bool(physical_test_passed) or binding["passed"]
     reverse_findings = reverse_compare(cir, pattern_text, terminology)
     findings.extend(reverse_findings)
     stages.append("reverse")
@@ -246,6 +278,14 @@ def certify(
             ERROR, "PHYSICAL_TEST_REQUIRED",
             f"risk class {cir.risk_class} requires a physical test before release; "
             "computation alone cannot confirm fit and drape"))
+    primitive_status, _ = primitive_findings(
+        cir, physically_evidenced=physical_test_passed,
+        calibrated_primitives=calibrated_primitives)
+    # 6d. No convenience downgrade (F-090): a lower risk class than this product has held
+    #     before needs evidence, and the only evidence that reduces physical testing is a
+    #     physical test of this content.
+    findings.extend(risk_downgrade_findings(cir, prior_risk_class,
+                                            physically_evidenced=physical_test_passed))
     stages.append("physical_test")
 
     # 7. Confidence, tracked per dimension (section 3). Deliberately computed after every
@@ -271,7 +311,186 @@ def certify(
         twin_summary=twin_summary(cir, twins, geo),
         physical_test_required=physical_required,
         physical_test_passed=physical_test_passed,
+        content_hash=content,
+        physical_evidence=binding,
+        gauge_standard=None,   # stamped only where the gauge check runs (see gauge_findings)
+        primitives=primitive_status,
     )
+
+
+# ---- physical evidence bound to content (F-078, F-081) ----------------------
+
+def bind_physical_evidence(evidence: list[dict], *, slug: str, version: str,
+                           content_hash: str) -> dict:
+    """Which physical tests are evidence for exactly this content, and why the rest are not.
+
+    Each evidence row is a stored PhysicalTest reduced to what binding needs:
+    `{"id", "slug", "version", "passed", "completed_at", "content_hash",
+    "compatible_variants"}`. A row binds when it passed, was completed, and either
+
+    - is for this slug@version and was worked against this exact content hash, or
+    - is for another release and declares this one a compatible variant *with this content
+      hash* (`compatible_variants: [{"slug", "version", "content_hash"}]`), so a variant's
+      own later change invalidates the declaration too.
+
+    A row with no content hash recorded does not bind: "which text did the tester follow" is
+    the whole question, and an absent answer is not a yes. A changed hash is a material change
+    and the evidence is reported as invalidated, never silently dropped.
+    """
+    bound: list = []
+    unbound: list[dict] = []
+    for ev in evidence:
+        ref = ev.get("id")
+        if ev.get("passed") is not True:
+            unbound.append({"id": ref, "why": "did not pass" if ev.get("passed") is False
+                            else "no result recorded"})
+            continue
+        if not ev.get("completed_at"):
+            unbound.append({"id": ref, "why": "not completed"})
+            continue
+        if ev.get("slug") == slug and ev.get("version") == version:
+            tested = ev.get("content_hash")
+            if not tested:
+                unbound.append({"id": ref, "why": "no content hash recorded: which text was "
+                                                  "worked is unknown"})
+            elif tested != content_hash:
+                unbound.append({"id": ref, "why": (
+                    f"invalidated: worked against {tested[:12]}, the content is now "
+                    f"{content_hash[:12]} -- a material change needs a re-test")})
+            else:
+                bound.append(ref)
+            continue
+        declared = [v for v in (ev.get("compatible_variants") or [])
+                    if isinstance(v, dict) and v.get("slug") == slug
+                    and v.get("version") == version]
+        if not declared:
+            continue            # evidence for some other product; not ours to report
+        if any(v.get("content_hash") == content_hash for v in declared):
+            bound.append(ref)
+        else:
+            unbound.append({"id": ref, "why": (
+                "declared this release a compatible variant, but not at its current content "
+                f"{content_hash[:12]}")})
+    return {"content_hash": content_hash, "passed": bool(bound), "bound": bound,
+            "unbound": unbound}
+
+
+# ---- gauge evidence (F-112, F-116) -----------------------------------------
+
+# The standard every certificate issued from here is examined under. A stored certificate
+# without it predates the check -- that is what makes a Build-1 product legacy (F-111/F-119).
+GAUGE_STANDARD = "cyc-sc-band/1"
+
+
+def declared_weight(cir: CIR) -> str | None:
+    """The yarn weight the pattern tells a buyer to use, as written on the pattern."""
+    if cir.gauge is not None and cir.gauge.yarn_weight:
+        return cir.gauge.yarn_weight
+    return next((m.yarn_weight for m in cir.materials if m.yarn_weight), None)
+
+
+def gauge_findings(cir: CIR, *, physically_evidenced: bool = False) -> list[Finding]:
+    """The stated gauge against the declared yarn's published single-crochet band.
+
+    - gauge in band: the band is the evidence (F-116's "declared yarn/material evidence").
+    - gauge outside the band: ERROR, unless a physical test of this content is bound, which
+      is the calibrated evidence F-116 names as the other way through.
+    - a Brambleloop design stating a gauge and no recognisable yarn weight: ERROR -- a gauge
+      with neither yarn nor calibration behind it is a typed constant.
+    - a gauge stated in a stitch other than sc: WARNING, because the published bands are
+      single-crochet bands and nothing here can place a dc gauge in one.
+
+    Benchmarks are records of somebody else's pattern and pass through, as they do the
+    specification gate.
+    """
+    from ..publish.substitution import WEIGHT_BY_KEY, holds_gauge, normalise
+
+    if cir.gauge is None or cir.authored == "benchmark":
+        return []
+    declared = declared_weight(cir)
+    key = normalise(declared or "")
+    sts = cir.gauge.stitches_per_10cm
+    if not key:
+        return [Finding(ERROR, "GAUGE_WITHOUT_YARN_EVIDENCE", (
+            f"the gauge ({sts} sts/10cm) is stated against no standard yarn weight "
+            f"({declared!r}), so nothing but a typed number stands behind every size and "
+            f"yardage figure in the document"))]
+    if (cir.gauge.stitch_type or "sc") != "sc":
+        return [Finding(WARNING, "GAUGE_BAND_NOT_APPLICABLE", (
+            f"the gauge is stated in {cir.gauge.stitch_type}; the published {key} band is a "
+            f"single-crochet band, so this gauge is not evidenced by the declared yarn"))]
+    weight = WEIGHT_BY_KEY[key]
+    if holds_gauge(weight, sts):
+        return []
+    low, high = weight.sc_per_10cm
+    if physically_evidenced:
+        return [Finding(WARNING, "GAUGE_OUTSIDE_BAND_PHYSICALLY_EVIDENCED", (
+            f"{sts} sc/10cm is outside the {key} band ({low:g}-{high:g}); a bound physical "
+            f"test of this content is the evidence for it"))]
+    return [Finding(ERROR, "GAUGE_OUTSIDE_DECLARED_YARN_BAND", (
+        f"{sts} sc/10cm is outside the published {key} band of {low:g}-{high:g} for the "
+        f"declared yarn ({declared}). Every finished size and yardage figure is arithmetic "
+        f"from this gauge, and a 'swatch first' note cannot make it true: derive the gauge "
+        f"from the yarn (creative.prototype.gauge_for), declare the weight that holds it, or "
+        f"bind a physical test of this content"))]
+
+
+# ---- new primitives (F-074) -------------------------------------------------
+
+def primitive_findings(cir: CIR, *, physically_evidenced: bool,
+                       calibrated_primitives=frozenset()) -> tuple[dict, list[Finding]]:
+    """Every stitch this pattern uses, with its calibration status, and what that blocks."""
+    from ..cir.stitches import CALIBRATED, UNCALIBRATED, calibration_status
+
+    used: set[str] = set()
+
+    def walk(nodes):
+        for n in nodes:
+            if hasattr(n, "stitch"):
+                used.add(n.stitch)
+            else:
+                walk(n.ops)
+
+    for _, row in cir.iter_rows():
+        walk(row.ops)
+    status = {code: (CALIBRATED if code in calibrated_primitives
+                     else calibration_status(code)) for code in sorted(used)}
+    uncalibrated = sorted(c for c, st in status.items() if st == UNCALIBRATED)
+    view = {"status": status, "uncalibrated": uncalibrated,
+            "unrestricted": not uncalibrated or physically_evidenced}
+    if not uncalibrated or cir.authored == "benchmark":
+        return view, []
+    if physically_evidenced:
+        return view, [Finding(WARNING, "UNCALIBRATED_PRIMITIVE_EVIDENCED", (
+            f"{uncalibrated} have no calibration on file; a bound physical test of this "
+            f"content stands behind this pattern's claims"))]
+    return view, [Finding(ERROR, "UNCALIBRATED_PRIMITIVE", (
+        f"{uncalibrated} are new primitives no sample has calibrated: their height and yarn "
+        f"behaviour decide this pattern's size and yardage claims, so it is not released for "
+        f"unrestricted use until a physical test of it passes"))]
+
+
+# ---- no convenience downgrade (F-090) ---------------------------------------
+
+_RISK_RANK = {"A": 0, "B": 1, "C": 2}
+
+
+def risk_downgrade_findings(cir: CIR, prior_risk_class: str | None, *,
+                            physically_evidenced: bool) -> list[Finding]:
+    """A lower risk class than the product has held needs evidence, never a deadline."""
+    if prior_risk_class not in _RISK_RANK:
+        return []
+    if _RISK_RANK[cir.risk_class] >= _RISK_RANK[prior_risk_class]:
+        return []
+    if physically_evidenced:
+        return [Finding(WARNING, "RISK_CLASS_DOWNGRADED_ON_EVIDENCE", (
+            f"risk class {prior_risk_class} -> {cir.risk_class}, justified by a bound "
+            f"physical test of this content"))]
+    return [Finding(ERROR, "RISK_CLASS_DOWNGRADE_UNJUSTIFIED", (
+        f"this product has been risk class {prior_risk_class} and is now declared "
+        f"{cir.risk_class} with no recorded evidence. Testing is reduced only because "
+        f"evidence justifies it: bind a passed physical test of this content, or keep the "
+        f"class"))]
 
 
 def specification_findings(cir: CIR) -> list[Finding]:

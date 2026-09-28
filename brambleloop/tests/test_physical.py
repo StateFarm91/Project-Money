@@ -258,6 +258,111 @@ def test_a_sample_that_disagrees_about_size_halts_the_product():
         "a wrong size claim should at minimum be recorded against the product")
 
 
+# ---- F-078 / F-081 through the queue: evidence bound to the content it tested -------------
+
+
+def _class_c_sphere(title: str = "Test Sphere"):
+    from brambleloop.creative.prototype import gauge_for
+    from tests import fixtures
+
+    cir = fixtures.good_sphere()
+    cir.gauge = gauge_for("worsted")
+    cir.risk_class = "C"
+    cir.title = title
+    return cir
+
+
+def _certify_audits(db, artifact: str) -> list:
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        return [(r.action, dict(r.detail or {})) for r in s.scalars(
+            select(AuditLog).where(AuditLog.artifact == artifact,
+                                   AuditLog.action.in_(("gate.certified", "gate.blocked")))
+            .order_by(AuditLog.id))]
+
+
+def _passed_sample(db, slug: str, **measured) -> None:
+    from datetime import datetime, timezone
+
+    with db.session() as s:
+        s.add(PhysicalTest(product_slug=slug, version="1.0.0", tester_ref="tester-1",
+                           completed_at=datetime.now(timezone.utc), passed=True,
+                           measured=dict(measured)))
+
+
+def test_a_class_c_release_unblocks_through_the_queue_on_a_sample_of_its_own_content():
+    """handle_certify reads the stored tests and the certificate binds them (F-078, F-081).
+
+    Blocked with no sample; granted once a tester's passed sample of *this* content is on
+    file -- bound through the audit log, because `physical.record` stores no hash of its
+    own; blocked again, with the evidence reported invalidated, the moment the content
+    changes under the same version.
+    """
+    db = _booted()
+    cir = _class_c_sphere()
+    _certify(db, cir)
+    first = _certify_audits(db, "test-sphere@1.0.0")
+    assert first[-1][0] == "gate.blocked", first
+    assert any("PHYSICAL_TEST_REQUIRED" in r for r in first[-1][1]["reasons"])
+    content = first[-1][1]["content_hash"]
+    assert content, "a blocked examination still names its content"
+
+    _passed_sample(db, "test-sphere")
+    _certify(db, cir)
+    second = _certify_audits(db, "test-sphere@1.0.0")[-1]
+    assert second[0] == "gate.certified", second
+    assert second[1]["physical_evidence"]["passed"] is True
+    from brambleloop.core.models import PatternVersion, Product
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == "test-sphere"))
+        assert pv.certified and pv.certificate["physical_test_passed"] is True
+        assert pv.release_hash == content
+
+    _certify(db, _class_c_sphere("Test Sphere, Revised"))
+    third = _certify_audits(db, "test-sphere@1.0.0")[-1]
+    assert third[0] == "gate.blocked", third
+    assert "invalidated" in third[1]["physical_evidence"]["unbound"][0]["why"]
+
+
+def test_a_sample_recorded_before_the_release_was_ever_examined_binds_to_nothing():
+    """No examination on file means nobody can say which text was worked: fail closed."""
+    db = _booted()
+    _passed_sample(db, "test-sphere")
+    _certify(db, _class_c_sphere())
+    last = _certify_audits(db, "test-sphere@1.0.0")[-1]
+    assert last[0] == "gate.blocked", last
+    assert last[1]["physical_evidence"]["passed"] is False
+
+
+def test_an_explicit_content_hash_on_the_sample_binds_without_the_audit_trail():
+    db = _booted()
+    from brambleloop.gates.certificate import certify
+
+    content = certify(_class_c_sphere()).content_hash
+    _passed_sample(db, "test-sphere", content_hash=content)
+    _certify(db, _class_c_sphere())
+    assert _certify_audits(db, "test-sphere@1.0.0")[-1][0] == "gate.certified"
+
+
+def test_a_risk_class_downgrade_is_refused_at_the_runtime_certify():
+    """F-090 through handle_certify: the stored class is the prior, and C -> B needs evidence."""
+    from brambleloop.core.models import PatternVersion, Product
+
+    db = _booted()
+    with db.session() as s:
+        p = Product(slug="test-sphere", title="Test Sphere", status="certified",
+                    risk_class="C")
+        s.add(p)
+    cir = _class_c_sphere()
+    cir.risk_class = "B"
+    _certify(db, cir)
+    last = _certify_audits(db, "test-sphere@1.0.0")[-1]
+    assert last[0] == "gate.blocked", last
+    assert any("RISK_CLASS_DOWNGRADE_UNJUSTIFIED" in r for r in last[1]["reasons"]), last
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

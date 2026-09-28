@@ -552,6 +552,66 @@ def childrens_statements(cir: CIR, twin: TwinModel,
                                 childrens_facts(cir, twin, audience))
 
 
+_SEAM_WORDS = {"whipstitch": "whipstitch", "slst": "slip-stitch", "mattress": "mattress-stitch",
+               "sew": "sew"}
+
+
+def _piece(name: str) -> str:
+    return name.replace("_", " ")
+
+
+def construction_overview(cir: CIR) -> list[str] | None:
+    """A short construction explanation for a multi-piece or held/resumed design (F-765).
+
+    Built only from `cir.components` (what is made, how many, in what construction, which
+    piece continues from which) and `cir.assembly` (every join, in order, by which method,
+    along which edges). None for a single piece worked start to finish with no joins, which
+    is exactly the case where an overview would only repeat the instructions.
+    """
+    comps = cir.components
+    # Several copies of one piece with nothing joining them (a set of coasters) is not a
+    # construction; several different pieces, or any join, is.
+    multi = len(comps) > 1
+    structural = any(c.holds or c.resumes for c in comps)
+    if not (multi or structural or cir.assembly):
+        return None
+    total = sum(c.make for c in comps)
+    lines: list[str] = []
+    parts = []
+    for c in comps:
+        count = f"{c.make} x " if c.make > 1 else ""
+        how = c.construction.replace("_", " ")
+        extra = f", continued from the {_piece(c.resumes)}" if c.resumes else ""
+        parts.append(f"{count}{_piece(c.name)} ({how}{extra})")
+    lines.append(f"This is made as {total} piece{'s' if total != 1 else ''}, worked in the "
+                 f"order below: " + "; ".join(parts) + ".")
+    for c in comps:
+        for h in c.holds:
+            lines.append(f"The {_piece(c.name)} sets {h.count} stitches aside at row "
+                         f"{h.at_row} ({_piece(h.name)}); they are picked up again later.")
+    for i, seam in enumerate(cir.assembly, start=1):
+        method = _SEAM_WORDS.get(seam.method, seam.method)
+        a, b = _piece(seam.piece_a), _piece(seam.piece_b)
+        if seam.names_its_edges:
+            what = (f"{method} the {a}'s {seam.edge_a} edge to "
+                    + (f"its own {seam.edge_b} edge" if seam.is_self_seam
+                       else f"the {b}'s {seam.edge_b}"
+                       + ("" if seam.edge_b == "opening" else " edge")))
+        elif seam.is_self_seam:
+            what = f"{method} the {a} to itself"
+        else:
+            what = f"{method} the {a} to the {b}"
+        if seam.at_round is not None:
+            target = next((c for c in cir.components if c.name == seam.piece_b), None)
+            unit = ("row" if target is not None and "rows" in target.construction
+                    and "round" not in target.construction else "round")
+            what += f", at {unit} {seam.at_round} of the {b}"
+        if seam.stuff_before_closing:
+            what += ", stuffing before you close it"
+        lines.append(f"Join {i}: {what}.")
+    return lines
+
+
 def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       twin: TwinModel | None = None,
                       designer: str = "Brambleloop Studio",
@@ -623,6 +683,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # sold, and its guarantee is asserted rather than assumed.
     childrens = childrens if childrens is not None else childrens_assignment(cir)
     _refuse_an_undecided_childrens_title(cir, childrens)
+    if childrens is not None:
+        _refuse_what_the_childrens_assessment_refuses(cir, childrens)
 
     total = 0
     for _ in range(4):
@@ -701,6 +763,30 @@ def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> di
         "missing": tuple(k for k in required if k not in present),
         "complete": len(present) == len(required),
     }
+
+
+def _refuse_what_the_childrens_assessment_refuses(cir: CIR,
+                                                  assignment: tuple[str, str]) -> None:
+    """F-363: the parts and ties the *pattern* names, assessed before anything is rendered.
+
+    `intel.childrens.assess` could only see what a Concept declared, and nothing declared the
+    safety eyes a materials list asked for. Here the Concept is read off the CIR, and any
+    REFUSE finding (a detachable part under three, a neck or hood tie, an unassessed part, a
+    prohibited subject) stops the document. Missing statements are not judged here: the
+    rendered-statement audit after layout owns those.
+    """
+    from ..intel import childrens as ch
+
+    subcategory, audience = assignment
+    concept = ch.concept_from_cir(
+        cir, subcategory=subcategory, audience=audience,
+        stated_statements=ch.required_statements(subcategory, audience))
+    refused = [f for f in ch.assess(concept) if f.severity == ch.REFUSE]
+    if refused:
+        raise ValueError(
+            f"refusing to render {cir.slug}: it is a {subcategory} product for children "
+            f"{audience}, and the pattern itself names what intel.childrens refuses -- "
+            + "; ".join(f"{f.code}: {f.detail}" for f in refused))
 
 
 def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_bytes: bytes,
@@ -1012,6 +1098,15 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
 
     # -- instructions ------------------------------------------------------
     doc.new_page(head)
+    # F-765: how the pieces become the object, before any row-level instruction. Derived
+    # from the CIR's own components and assembly, so it cannot describe a join the pattern
+    # does not make; absent for a one-piece item, which has nothing to explain.
+    overview = construction_overview(cir)
+    if overview:
+        doc.heading("How it goes together", size=12)
+        for line in overview:
+            doc.para(line, size=10, running_head=head)
+        doc.space(3 * mm)
     doc.heading(f"Instructions ({terminology} terms)")
     for block in text.split("\n"):
         if not block.strip():

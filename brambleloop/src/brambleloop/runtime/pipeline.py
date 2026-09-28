@@ -67,6 +67,8 @@ class Concept:
     opportunity_score: float = 0.0
     season: str | None = None
     risk_class: str = "A"
+    # The yarn the pattern is written for. The gauge is derived from it (F-116), never typed.
+    yarn_weight: str = "worsted"
 
 
 def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
@@ -76,6 +78,8 @@ def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
     foundation that the repeat divides evenly. If the repeat does not divide the width, this
     returns a CIR that will *fail* compilation rather than quietly fudging the numbers.
     """
+    from ..creative.prototype import gauge_for
+
     unit = sum(n for _, n in c.stitch_repeat)
     palette = list(c.colors)
     rows: list[Row] = []
@@ -97,8 +101,14 @@ def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
         construction="flat_rows",
         risk_class=c.risk_class,
         colors=dict(c.colors),
-        gauge=Gauge(stitches_per_10cm=16, rows_per_10cm=14, stitch_type="sc", hook_mm=5.0),
-        materials=[Material(name="worsted acrylic", yarn_weight="worsted", color_id=p)
+        # F-116: the gauge is the middle of the declared yarn's published band, the same
+        # derivation `creative.prototype` authors with. This line used to be a typed
+        # Gauge(16, 14) against worsted -- a fabric worsted cannot make (band 11-14 sc/10cm),
+        # so every templated concept certified with a size and yardage its own yarn could not
+        # produce.
+        gauge=gauge_for(c.yarn_weight),
+        materials=[Material(name=f"{c.yarn_weight} acrylic", yarn_weight=c.yarn_weight,
+                            color_id=p)
                    for p in palette],
         components=[Component(name="panel", construction="flat_rows", rows=rows,
                               foundation=c.width_stitches, foundation_kind="chain")],
@@ -575,11 +585,25 @@ def handle_certify(ctx: JobContext) -> dict:
                    calibration=calibration_from_db(ctx.db, cir),
                    # #39: the certificate records which reading of the platform's rules it
                    # was issued under, so it can be re-examined when they change.
-                   platform_policy=policy_stamp(ctx.db))
+                   platform_policy=policy_stamp(ctx.db),
+                   # F-078 / F-081: physical evidence is read from the stored tests and bound
+                   # to the content by the certificate itself -- never a constant False (which
+                   # left Class C blocked forever) and never a bare True.
+                   physical_evidence=physical_evidence_rows(ctx.db, cir.slug),
+                   # F-090: the class this product has held before, so a downgrade has to
+                   # bring evidence rather than a deadline.
+                   prior_risk_class=_prior_risk_class(ctx.db, cir.slug),
+                   # F-074: primitives a passed, content-bound sample has actually measured.
+                   calibrated_primitives=calibrated_primitives(ctx.db))
     ctx.audit("gate.certified" if cert.granted else "gate.blocked",
               artifact=f"{cir.slug}@{cir.version}",
               policy_version=cert.policy_version,
-              detail={"granted": cert.granted, "reasons": cert.blocking_reasons[:5]})
+              # `content_hash` is recorded granted or not: it is what a tester's sample,
+              # recorded later without a hash of its own, is bound to (F-078).
+              detail={"granted": cert.granted, "reasons": cert.blocking_reasons[:5],
+                      "content_hash": cert.content_hash,
+                      "physical_test_required": cert.physical_test_required,
+                      "physical_evidence": cert.physical_evidence})
 
     if cert.granted:
         previous_hash = _stored_release_hash(ctx, cir)
@@ -657,6 +681,122 @@ def handle_certify(ctx: JobContext) -> dict:
     return {"artifact": f"{cir.slug}@{cir.version}", "granted": cert.granted,
             "release_hash": cert.release_hash,
             "reasons": cert.blocking_reasons[:5]}
+
+
+CERTIFY_ACTIONS: tuple[str, ...] = ("gate.certified", "gate.blocked")
+
+
+def _naive_utc(dt):
+    """SQLite hands datetimes back naive; everything here is UTC, so compare naive."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
+
+
+def _content_certified_at(s, slug: str, version: str, when) -> str | None:
+    """The content hash the chain last examined for slug@version at or before `when`.
+
+    A sample recorded through `physical.record` carries no hash of its own; the tester was
+    handed whatever the chain had most recently examined for that release. That is read off
+    the append-only audit log, so the binding cannot be edited after the fact, and a sample
+    completed before the chain ever examined the release binds to nothing.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    when = _naive_utc(when)
+    latest = None
+    for row in s.scalars(select(AuditLog).where(
+            AuditLog.artifact == f"{slug}@{version}",
+            AuditLog.action.in_(CERTIFY_ACTIONS)).order_by(AuditLog.id)):
+        at = _naive_utc(row.at)
+        if when is not None and at is not None and at > when:
+            break
+        latest = (row.detail or {}).get("content_hash") or latest
+    return latest
+
+
+def physical_evidence_rows(db, slug: str) -> list[dict]:
+    """Every stored physical test that could be evidence for `slug`, reduced for binding.
+
+    Rows for this slug, and rows for any other slug that declare a compatible variant --
+    which is why the whole table is read rather than filtered by slug: a declaration lives on
+    the tested release, not on the variant it vouches for. The table is small (one row per
+    sample somebody actually crocheted).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PhysicalTest
+
+    out: list[dict] = []
+    with db.session() as s:
+        for t in s.scalars(select(PhysicalTest).order_by(PhysicalTest.id)):
+            measured = t.measured or {}
+            variants = measured.get("compatible_variants") or []
+            if t.product_slug != slug and not any(
+                    isinstance(v, dict) and v.get("slug") == slug for v in variants):
+                continue
+            content = (measured.get("content_hash") or measured.get("release_hash")
+                       or (_content_certified_at(s, t.product_slug, t.version,
+                                                 t.completed_at)
+                           if t.completed_at is not None else None))
+            out.append({"id": t.id, "slug": t.product_slug, "version": t.version,
+                        "passed": t.passed, "completed_at": t.completed_at,
+                        "content_hash": content, "compatible_variants": variants})
+    return out
+
+
+def _prior_risk_class(db, slug: str) -> str | None:
+    """The highest risk class this product has been stored under, or None if never stored."""
+    from sqlalchemy import select
+
+    rank = {"A": 0, "B": 1, "C": 2}
+    seen: list[str] = []
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        if product is None:
+            return None
+        if product.risk_class in rank:
+            seen.append(product.risk_class)
+        for pv in s.scalars(select(PatternVersion).where(
+                PatternVersion.product_id == product.id)):
+            rc = (pv.cir_json or {}).get("risk_class")
+            if rc in rank:
+                seen.append(rc)
+    return max(seen, key=rank.__getitem__) if seen else None
+
+
+def calibrated_primitives(db) -> frozenset[str]:
+    """Stitches a passed physical sample has measured: every primitive in a tested release.
+
+    Only a passed, completed test whose release is stored counts, and only the stitches that
+    release actually uses -- a sample of a plain basket calibrates nothing about bobbles.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PhysicalTest
+
+    out: set[str] = set()
+    with db.session() as s:
+        for t in s.scalars(select(PhysicalTest).where(
+                PhysicalTest.passed == True)):  # noqa: E712
+            if t.completed_at is None:
+                continue
+            product = s.scalar(select(Product).where(Product.slug == t.product_slug))
+            if product is None:
+                continue
+            pv = s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id, PatternVersion.version == t.version))
+            if pv is None or not pv.cir_json:
+                continue
+            try:
+                stored = CIR.from_dict(pv.cir_json)
+            except Exception:  # noqa: BLE001 - a record that no longer parses calibrates nothing
+                continue
+            for _, row in stored.iter_rows():
+                out.update(op.stitch for op in _flatten_stitches(row.ops))
+    return frozenset(out)
 
 
 def _mark_withheld(ctx: JobContext, cir: CIR, reason: str | None,
