@@ -147,12 +147,125 @@ def _provenance_sha(db, slug: str, version: str, row_id: int) -> str | None:
         return (row.sha256 or "") if row is not None else None
 
 
-def claims_of(listing, frames) -> dict:
+def claims_of(listing, frames, search=None) -> dict:
+    """Everything the listing set's certificate is bound to, besides geometry and policy.
+
+    F-294: tags, the taxonomy node and the property payload are claims as much as the title
+    is -- a tag edit, a recategorisation or a changed attribute changes what the listing says
+    to a buyer and to Etsy's search -- so they are in the fingerprint and an edit to any of
+    them invalidates the certificate through `listing_set.still_valid`. `search` is the
+    listing's `ListingSearchProfile` row (or None when listing.seo has not written one, which
+    fingerprints as "no taxonomy, no attributes" rather than being skipped).
+    """
     return {
         "title": getattr(listing, "title", None),
         "description": getattr(listing, "description", None),
+        "tags": list(getattr(listing, "tags", None) or []),
+        "taxonomy_id": getattr(search, "taxonomy_id", None),
+        "attributes": dict(getattr(search, "attributes", None) or {}),
+        "properties": list(getattr(search, "properties", None) or []),
         "frames": {str(f.position): dict(f.claims or {}) for f in frames},
     }
+
+
+def _search_profile(db, slug: str, version: str):
+    from sqlalchemy import select
+
+    from ..core.models import ListingSearchProfile
+
+    with db.session() as s:
+        row = s.scalar(select(ListingSearchProfile).where(
+            ListingSearchProfile.product_slug == slug,
+            ListingSearchProfile.version == version))
+        if row is not None:
+            s.expunge(row)
+        return row
+
+
+def search_fingerprint(*, title: str, description: str, tags: list, taxonomy_id,
+                       properties: list) -> str:
+    """What the search certificate was issued against (F-004, F-294)."""
+    import hashlib
+    import json
+
+    blob = json.dumps({"title": title or "", "description": description or "",
+                       "tags": list(tags or []), "taxonomy_id": taxonomy_id,
+                       "properties": list(properties or [])}, sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def search_gate(db, *, slug: str, version: str, set_verdict: dict | None = None) -> dict:
+    """The search verdict at publish: the drafted certificate, still current, plus the hero.
+
+    F-004: category, attributes, copy, tags and description come from the certificate
+    `listing.seo` wrote; the hero comes from the listing-set verdict computed in the same
+    publish decision (frame 1 through all four gates). F-294: the certificate is bound to a
+    fingerprint of the listing's title, description, tags, taxonomy and properties, so a
+    listing edited after certification reads stale and refuses. No profile, an UNKNOWN
+    category, or any failed or pending check refuses -- search certification is never
+    inferred from the absence of a finding.
+    """
+    profile = _search_profile(db, slug, version)
+    listing = _listing(db, slug, version)
+    if profile is None:
+        return {"ok": False, "verdict": "REFUSED", "reasons": [
+            "search certificate (F-004): listing.seo has recorded no search profile for "
+            f"{slug}@{version}"]}
+    cert = dict(profile.certificate or {})
+    checks = dict(cert.get("checks") or {})
+    reasons: list[str] = []
+    if listing is None:
+        reasons.append("search certificate (F-004): no drafted listing row to certify")
+    else:
+        now = search_fingerprint(title=listing.title, description=listing.description,
+                                 tags=listing.tags, taxonomy_id=profile.taxonomy_id,
+                                 properties=profile.properties)
+        if now != profile.fingerprint:
+            reasons.append("search certificate (F-294): the listing's title, description, "
+                           "tags, taxonomy or properties changed after certification; "
+                           "re-run listing.seo")
+    if profile.category_status != "CHOSEN":
+        reasons.append("search certificate (F-005): category UNKNOWN -- no stored Etsy "
+                       "taxonomy snapshot names a node for this product, and none is assumed")
+    frames = (set_verdict or {}).get("frames") or []
+    hero = next((f for f in frames if f.get("position") == 1), None)
+    hero_ok = bool(hero and hero.get("may_export"))
+    checks["hero"] = {"ok": hero_ok,
+                      "why": ("frame 1 passed all four gates" if hero_ok else
+                              f"frame 1 is not export-ready: "
+                              f"{(hero or {}).get('why') or 'no frame 1 on file'}")[:300]}
+    for key, check in sorted(checks.items()):
+        if check.get("ok") is not True and not (key == "category"
+                                                and profile.category_status != "CHOSEN"):
+            reasons.append(f"search certificate (F-004) {key}: "
+                           f"{check.get('why') or 'not passed'}"[:300])
+    return {"ok": not reasons, "verdict": "PASS" if not reasons else "REFUSED",
+            "reasons": reasons, "checks": checks, "taxonomy_id": profile.taxonomy_id,
+            "category_status": profile.category_status,
+            "profile_verdict": profile.verdict}
+
+
+# ---- F-250: renewal is never a visibility trick ----------------------------------------
+
+RENEWAL_REASONS = ("expired", "material_change")
+
+
+def renewal_decision(*, reason: str, listing_state: str = "",
+                     material_change: str = "") -> dict:
+    """Whether a listing may be renewed. Only on expiry or a material product change.
+
+    A new or renewed listing gets a temporary visibility boost, which makes renewing on a
+    schedule a recency trick (F-250, F-298). Nothing in this company renews listings today;
+    this is the rule any renewal path must pass, so one cannot be added as a boost strategy.
+    """
+    r = (reason or "").strip().lower()
+    if r == "expired" and listing_state == "expired":
+        return {"allowed": True, "why": "the listing expired; renewal restores it"}
+    if r == "material_change" and material_change.strip():
+        return {"allowed": True, "why": f"material product change: {material_change[:200]}"}
+    return {"allowed": False,
+            "why": (f"renewal for {reason!r} refused: a listing is renewed only when it has "
+                    f"expired or the product materially changed, never for recency (F-250)")}
 
 
 # ---- #60: every displayed measurement, traced ---------------------------------------------
@@ -438,7 +551,7 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
                        + "; ".join(f"{v['position']}: {v['why'][:120]}" for v in refused[:3]))
 
     geometry = geometry_of(twin, cir)
-    claims = claims_of(listing, frames)
+    claims = claims_of(listing, frames, _search_profile(db, slug, version))
     cert = certificate_step(db, slug=slug, version=version, release_hash=release_hash or "",
                             frames=frames, per_frame=per_frame, geometry=geometry,
                             claims=claims, issue=issue and not reasons, listing=listing)
@@ -704,6 +817,10 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     reasons.extend(set_verdict["reasons"])
+    # F-004 / F-294: search certification -- category, attributes, copy, tags, description
+    # and hero, bound to the listing as it stands.
+    search = search_gate(db, slug=slug, version=version, set_verdict=set_verdict)
+    reasons.extend(search["reasons"])
     # #153-#160, #220, #228: the standards this company holds itself to, read at the gate.
     standards = standards_gate(db, slug=slug, version=version)
     reasons.extend(standards["reasons"])
@@ -718,7 +835,8 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
             reasons.append(f"release withheld (#163): {entry['reason']}")
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
-            "listing_set": set_verdict, "standards": standards, "withholding": held}
+            "listing_set": set_verdict, "search": search, "standards": standards,
+            "withholding": held}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
