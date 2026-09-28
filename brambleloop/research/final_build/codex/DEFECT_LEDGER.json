@@ -1,5 +1,5 @@
 {
-  "evaluated_head": "7a0de4dd0a8d1abb235d70ade06b82067893bc7b",
+  "evaluated_head": "47a93307688c6b8d82308cf78b7048be7b6a28d5",
   "certified": false,
   "production_actions": [],
   "paid_spend": 0,
@@ -140,25 +140,38 @@
     },
     {
       "id": "PDF-CLOUDLINE-READABILITY",
-      "state": "OPEN repair worker",
+      "state": "Cloudline floor repaired; catalogue and body defects OPEN",
       "finding": "Current Cloudline chart3.2mm cell/~4pt below unchanged9pt minimum",
       "owner": "master_proof",
-      "evidence": "153611035780 commerce7/13",
-      "certified": false
+      "evidence": "root4/4; commerce13/14 in726s; fullpage materials overlap and URL overflow",
+      "certified": false,
+      "repair_commit": "54df8bc"
     },
     {
       "id": "ORIGIN-WRONG-GAP",
-      "state": "repair review follow-on",
+      "state": "local repair independently exercised",
       "finding": "Oldest department gap advanced for unrelated originating product",
       "owner": "learn_launch",
-      "evidence": "ORIGIN_GAP_REVIEW.md;34c667b pending event transactional recheck",
-      "certified": false
+      "evidence": "root9/9 exact origin controls",
+      "certified": false,
+      "repair_commit": "7fd49e8",
+      "remaining_limit": "Legacy origin and PostgreSQL remain UNKNOWN"
     },
     {
       "id": "COMMERCE-FIXTURE-PREREQUISITES",
-      "state": "OPEN test blocker",
+      "state": "scoped fixture isolation verified",
       "finding": "Five old publish/hash checks lack now-required chosen taxonomy; no default restoration permitted",
-      "evidence": "153611035780 commerce7/13",
+      "evidence": "Real taxonomy UNKNOWN refusal plus isolated hash transport cases pass; fullsuite13/14 PDF blocker remains",
+      "certified": false,
+      "remaining_limit": "Synthetic transport profile/images do not prove publication eligibility"
+    },
+    {
+      "id": "EVIDENCE-IMPORT-CACHE",
+      "state": "local repair independently exercised",
+      "repair_commit": "9cb646d+50680c8+47a9330",
+      "finding": "Unkeyed import cache reused changed source; native Windows paths broke import matching",
+      "evidence": "root4freshness+5request+2path checks",
+      "remaining_limit": "Other caches/full report performance unverified; static imports not actual test execution",
       "certified": false
     }
   ]
