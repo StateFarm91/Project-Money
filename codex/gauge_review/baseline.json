@@ -1,0 +1,134 @@
+[
+  {
+    "builder": "basket_small",
+    "slug": "market-basket-small",
+    "gauge": {
+      "stitches_per_10cm": 18,
+      "rows_per_10cm": 20,
+      "stitch_type": "sc",
+      "hook_mm": 4.0,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 14.9,
+    "height_cm": 9.0,
+    "counts": [
+      [
+        32,
+        84
+      ]
+    ],
+    "calibrated": false
+  },
+  {
+    "builder": "basket_medium",
+    "slug": "market-basket-medium",
+    "gauge": {
+      "stitches_per_10cm": 18,
+      "rows_per_10cm": 20,
+      "stitch_type": "sc",
+      "hook_mm": 4.0,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 20.2,
+    "height_cm": 16.0,
+    "counts": [
+      [
+        51,
+        114
+      ]
+    ],
+    "calibrated": false
+  },
+  {
+    "builder": "basket_large",
+    "slug": "market-basket-large",
+    "gauge": {
+      "stitches_per_10cm": 18,
+      "rows_per_10cm": 20,
+      "stitch_type": "sc",
+      "hook_mm": 4.0,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 25.5,
+    "height_cm": 23.0,
+    "counts": [
+      [
+        70,
+        144
+      ]
+    ],
+    "calibrated": false
+  },
+  {
+    "builder": "hexagon_coasters",
+    "slug": "hexagon-coaster-set",
+    "gauge": {
+      "stitches_per_10cm": 20,
+      "rows_per_10cm": 22,
+      "stitch_type": "sc",
+      "hook_mm": 3.5,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 9.6,
+    "height_cm": 9.6,
+    "counts": [
+      [
+        10,
+        60
+      ]
+    ],
+    "calibrated": false
+  },
+  {
+    "builder": "cloudline_blanket",
+    "slug": "cloudline-baby-blanket",
+    "gauge": {
+      "stitches_per_10cm": 16,
+      "rows_per_10cm": 18,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 78.8,
+    "height_cm": 97.2,
+    "counts": [
+      [
+        88,
+        126
+      ]
+    ],
+    "calibrated": false
+  },
+  {
+    "builder": "harvest_runner",
+    "slug": "harvest-table-runner",
+    "gauge": {
+      "stitches_per_10cm": 16,
+      "rows_per_10cm": 18,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 30.0,
+    "height_cm": 123.9,
+    "counts": [
+      [
+        112,
+        48
+      ]
+    ],
+    "calibrated": false
+  }
+]

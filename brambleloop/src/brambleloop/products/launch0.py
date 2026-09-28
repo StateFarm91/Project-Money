@@ -402,7 +402,7 @@ CANDIDATES: tuple[Candidate, ...] = (
         slug="hexagon-coaster-set",
         title="Hexagon Coaster Set (4)",
         what_it_is=(
-            "Four hexagonal coasters, about 9.6 cm across the points, worked in joined rounds "
+            "Four hexagonal coasters, about 9.2 cm across the points, worked in joined rounds "
             "with the increases stacked at six corners and a contrast round one in from the "
             "edge."),
         why_at_launch=(
@@ -413,7 +413,7 @@ CANDIDATES: tuple[Candidate, ...] = (
             "safety statement set in the way. Its merchandising value is review velocity and "
             "price structure, not distinctiveness, and saying so is more useful than dressing "
             "it up."),
-        variants=(Variant("set_of_four", "4 pieces, 9.6 cm across", "hexagon_coasters"),),
+        variants=(Variant("set_of_four", "4 pieces, 9.2 cm across", "hexagon_coasters"),),
         pod="home_decor",
         price=PriceBand(
             *_CLUSTER_BAND, proposed_cad=4.00, basis=SOURCED,
@@ -428,7 +428,7 @@ CANDIDATES: tuple[Candidate, ...] = (
             "point of this listing is the bottom of the ladder",
         ),
         aspiration=(
-            "9.6 cm across is arithmetic from the stated gauge; twin.calibrated is False",
+            "9.2 cm across is arithmetic from the stated gauge; twin.calibrated is False",
             "flatness is predicted by the increase rate and unverified in fabric",
         ),
     ),

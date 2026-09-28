@@ -1,0 +1,92 @@
+[
+  {
+    "builder": "basket_small",
+    "version": "1.1.0",
+    "width": 15.3,
+    "height": 8.7,
+    "granted": true,
+    "errors": [],
+    "shape": "",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "medium",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    }
+  },
+  {
+    "builder": "basket_medium",
+    "version": "1.1.0",
+    "width": 19.9,
+    "height": 15.9,
+    "granted": true,
+    "errors": [],
+    "shape": "",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "medium",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    }
+  },
+  {
+    "builder": "basket_large",
+    "version": "1.1.0",
+    "width": 24.4,
+    "height": 23.2,
+    "granted": true,
+    "errors": [],
+    "shape": "",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "medium",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    }
+  },
+  {
+    "builder": "hexagon_coasters",
+    "version": "1.1.0",
+    "width": 10.5,
+    "height": 10.5,
+    "granted": true,
+    "errors": [],
+    "shape": "",
+    "gauge": {
+      "stitches_per_10cm": 14.5,
+      "rows_per_10cm": 16.0,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "light",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    }
+  },
+  {
+    "builder": "cloudline_blanket",
+    "version": "1.1.0",
+    "width": 79.2,
+    "height": 92.0,
+    "granted": true,
+    "errors": [],
+    "shape": "",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    }
+  }
+]
