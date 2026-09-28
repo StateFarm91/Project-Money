@@ -1607,6 +1607,19 @@ def handle_store_activate(ctx: JobContext) -> dict:
     listing_costs.reserve(ctx.db, listing_id=listing_id, amount=fee_cad,
                           agent=ctx.job.agent, ceiling=ctx.registry.get(ctx.job.agent).daily_cost_ceiling_cad,
                           job_id=ctx.job.id)
+    # Reserving can wait on another accounting transaction. Authority and product truth
+    # must be current after that wait; a revoked attempt retains conservative exposure.
+    final_gates, final_parity = _release_gates(ctx), _listing_parity(ctx)
+    refusal = activation_authority.validate(
+        ctx.db, authorisation, slug=slug, version=version,
+        listing_id=listing_id, release=i.get("release", ""))
+    if os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1":
+        refusal = "owner publishing grant withdrawn during reservation"
+    if final_gates["blocks_release"] or final_parity["blocks_release"]:
+        refusal = "release/parity gates changed during reservation"
+    if refusal:
+        ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": refusal})
+        return {"activated": False, "blocked": True, "reasons": [refusal]}
     ctx.audit("store.activation_authority_used", artifact=artifact,
               detail={"approval_id": int(authorisation), "etsy_listing_id": listing_id})
     try:

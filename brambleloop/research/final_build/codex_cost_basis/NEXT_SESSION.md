@@ -7,3 +7,6 @@ Tests5+21+18+1 pass; no production or provider spend. See report.json for exact 
 Next root: integrate after AB, inspect dashboard nullable cash handling, run affected broad suites;
 audit other cost consumers separately. Postgres concurrency and real Etsy feed remain unverified.
 H blocked WIP unchanged; frozen Visual V2 untouched. No certification/status changes.
+
+Follow-up: post-reservation authority/gates revalidated; adversarial suite now6/6.
+Downstream cost-label audit proposed to coordinator; no consumer edits yet.
