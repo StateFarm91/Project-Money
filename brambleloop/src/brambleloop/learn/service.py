@@ -35,6 +35,10 @@ def topics(value):
                 found.add("technique:" + item + "_loop")
             elif key == "gauge" and item:
                 found.add("technique:gauge")
+            elif key == "yarn_weight" and isinstance(item, str):
+                found.add("yarn:" + item)
+            elif key == "hook_mm" and isinstance(item, (int, float)):
+                found.add("hook_mm:" + str(item))
             elif key == "yarn" and isinstance(item, dict):
                 if item.get("weight"):
                     found.add("yarn:" + str(item["weight"]))
@@ -58,7 +62,7 @@ def validate_spec(spec):
         errors.append("canonical teaching asset/prose provenance required")
     for asset in assets:
         if (asset.get("rights") not in ("brambleloop_original", "licensed")
-                or not asset.get("source") or not asset.get("sha256")
+                or not asset.get("source") or not re.fullmatch(r"[a-f0-9]{64}", str(asset.get("sha256", "")))
                 or (asset.get("rights") == "licensed" and not asset.get("license_ref"))):
             errors.append("asset provenance incomplete")
     for step in spec.get("steps", []):
@@ -89,6 +93,13 @@ def save_lesson(db, slug, spec):
             s.add(Lesson(slug=slug, revision=revision, spec=spec, reviews=[], state="DRAFT"))
         elif row.revision != revision:
             row.spec, row.revision, row.reviews, row.state = spec, revision, [], "DRAFT"
+        s.merge(LearnNode(key="lesson:" + slug, kind="lesson",
+                          detail={"revision": revision}))
+        for topic in spec["topics"]:
+            s.merge(LearnNode(key=topic, kind=topic.split(":")[0], detail={}))
+            s.merge(LearnEdge(key=digest(["lesson:"+slug, revision, topic]),
+                              source="lesson:"+slug, target=topic, relation="teaches",
+                              evidence={"lesson_revision": revision, "approval": "not_implied"}))
     return revision
 
 
@@ -104,7 +115,8 @@ def review_lesson(db, slug, revision, reviewer, verdicts, evidence_ref):
         if reviewer == row.spec.get("author"):
             raise ValueError("lesson author cannot self-approve")
         row.reviews = [{"revision": revision, "reviewer": reviewer,
-                        "verdicts": verdicts, "evidence_ref": evidence_ref}]
+                        "verdicts": verdicts, "evidence_ref": evidence_ref,
+                        "evidence_class": "human_attestation", "automated_truth_proof": False}]
         row.state = "APPROVED" if eligible(row) else "WITHHELD"
 
 

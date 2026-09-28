@@ -692,7 +692,7 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         doc, claims, problems = _render(cir, twin, result, text=text, art=art,
                                         terminology=terminology, designer=designer,
                                         released_on=released_on, total_pages=total,
-                                        childrens=childrens)
+                                        childrens=childrens, lesson_links=lesson_links)
         if doc.pages == total:
             break
         total = doc.pages
@@ -822,7 +822,8 @@ def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_byte
 def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             terminology: str, designer: str, released_on: date,
             total_pages: int,
-            childrens: tuple[str, str] | None = None) -> tuple["_Doc", list[str], list[str]]:
+            childrens: tuple[str, str] | None = None,
+            lesson_links: list[dict] | None = None) -> tuple["_Doc", list[str], list[str]]:
     """Lay the document out. Called twice: once to count the pages, once to print them."""
     doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
                subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}")

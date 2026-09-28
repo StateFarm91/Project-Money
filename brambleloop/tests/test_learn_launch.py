@@ -203,6 +203,65 @@ def test_pdf_links_require_configured_origin_and_approved_revision():
             raise AssertionError("unsafe origin accepted")
 
 
+def test_actual_pdf_render_threads_revision_bound_help_to_layout():
+    from brambleloop.cir.model import CIR, Component, Row, Op, Gauge, Material
+    from brambleloop.publish.pdf import build_pattern_pdf
+    cir = CIR(slug="learn-cloth", title="Learn Cloth", version="1", construction="flat_rows",
+              gauge=Gauge(stitches_per_10cm=14, rows_per_10cm=16, stitch_type="sc", hook_mm=4),
+              colors={"A": "#ffffff"}, materials=[Material(name="cotton", yarn_weight="worsted", colorway="white", color_id="A")],
+              components=[Component(name="cloth", construction="flat_rows", foundation=4,
+                 rows=[Row(index=i,ops=[Op("sc",4)], declared_count=4, color="A", turning_chain=1) for i in range(1,5)])])
+    assert "Technique help" not in build_pattern_pdf(cir).prose
+    rev = "a"*64
+    url = "https://learn.example.test/learn/single-crochet?revision="+rev
+    doc = build_pattern_pdf(cir, lesson_links=[{"url": url, "topics": ["stitch:sc"], "revision": rev}])
+    assert url in doc.prose and "Technique help" in doc.prose
+
+
+def test_authenticated_draft_review_serving_has_distinct_identities():
+    import os
+    from unittest.mock import patch
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from brambleloop.learn.api import router
+    config = {"BRAMBLELOOP_OPS_TOKEN": "editor-test-credential-0000000000",
+              "BRAMBLELOOP_LEARN_REVIEW_TOKEN": "reviewer-test-credential-0000000",
+              "BRAMBLELOOP_LEARN_REVIEWER_ID": "independent-reviewer"}
+    with tempfile.TemporaryDirectory() as td, patch.dict(os.environ, config):
+        db = database(Path(td)/"workflow.db")
+        seed(db)
+        scan(db)
+        app = FastAPI()
+        app.include_router(router(db))
+        client = TestClient(app)
+        editor = {"Authorization": "Bearer "+config["BRAMBLELOOP_OPS_TOKEN"]}
+        reviewer = {"Authorization": "Bearer "+config["BRAMBLELOOP_LEARN_REVIEW_TOKEN"]}
+        assert client.get("/api/learn/queue").status_code == 401
+        assert client.get("/api/learn/queue", headers=editor).status_code == 200
+        response = client.put("/api/learn/lessons/single-crochet", json=spec(), headers=editor)
+        assert response.status_code == 200, response.text
+        rev = response.json()["revision"]
+        assert client.get("/api/learn/lessons/single-crochet", headers=editor).status_code == 401
+        assert client.get("/api/learn/lessons/single-crochet", headers=reviewer).json()["spec"]["author"] == "learn-operator-editor"
+        review = {"revision": rev, "verdicts": dict.fromkeys(DIMENSIONS,"PASS"),
+                  "evidence_ref": "fixture-review-001", "evidence_class": "human_attestation"}
+        assert client.post("/api/learn/lessons/single-crochet/review",json=review,headers=editor).status_code == 401
+        review["verdicts"]["visual_accuracy"] = "UNKNOWN"
+        assert client.post("/api/learn/lessons/single-crochet/review",json=review,headers=reviewer).json()["state"] == "WITHHELD"
+        assert client.get("/learn/single-crochet").status_code == 404
+        review["verdicts"]["visual_accuracy"] = "PASS"
+        response = client.post("/api/learn/lessons/single-crochet/review",json=review,headers=reviewer)
+        assert response.json()["automated_truth_proof"] is False
+        assert client.get("/learn/single-crochet?revision="+rev).status_code == 200
+        changed = spec(); changed["learner_problem"] = "new purpose"
+        client.put("/api/learn/lessons/single-crochet",json=changed,headers=editor)
+        assert client.post("/api/learn/lessons/single-crochet/review",json=review,headers=reviewer).status_code == 422
+        assert client.get("/learn/single-crochet?revision="+rev).status_code == 404
+        with patch.dict(os.environ,{"BRAMBLELOOP_LEARN_REVIEW_TOKEN": config["BRAMBLELOOP_OPS_TOKEN"]}):
+            assert client.get("/api/learn/lessons/single-crochet",headers=editor).status_code == 503
+        db.engine.dispose()
+
+
 if __name__ == "__main__":
     tests = [v for k,v in list(globals().items()) if k.startswith("test_")]
     for test in tests:
