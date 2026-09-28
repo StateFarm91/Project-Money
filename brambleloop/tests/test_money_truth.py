@@ -341,6 +341,7 @@ def test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident
                        "['transactions_r']. ...",
         "no_credential": "no refresh token. ETSY_REFRESH_TOKEN is read from the environment",
     }
+    assert len(cases) == 4
     for expected, message in cases.items():
         db = _db()
         _open_gate(db)
