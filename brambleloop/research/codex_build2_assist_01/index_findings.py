@@ -1,8 +1,9 @@
 """Index the existing 75 findings against pinned integrated source; no source edits."""
-import ast,hashlib,json,subprocess
+import argparse,ast,hashlib,json,subprocess
 from pathlib import Path
 HERE=Path(__file__).resolve().parent;REPO=HERE.parents[2]
 BASE="4edacff1f8b445a84749464dc1d7271e6c71173e"
+ap=argparse.ArgumentParser();ap.add_argument("--base",default=BASE);ap.add_argument("--suffix",default="");args=ap.parse_args();BASE=args.base
 AUDIT="e6c397656d42406d9da338264f15bb36fadab5cf"
 def git(*args):return subprocess.check_output(["git",*args],cwd=REPO)
 def symbols(text,name):
@@ -34,6 +35,6 @@ def main():
           "existing_behavior":f["existing_behavior"],"required_behavior":f["required_behavior"],"affected":affected})
     out=HERE/"out";out.mkdir(exist_ok=True)
     result={"base":BASE,"prior_audit":AUDIT,"records":records}
-    (out/"source_index.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8",newline="\n")
+    (out/("source_index"+args.suffix+".json")).write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8",newline="\n")
     print("Indexed",len(records),"findings; missing affected paths:",sorted({a["path"] for r in records for a in r["affected"] if not a["exists_at_head"]}))
 if __name__=="__main__":main()

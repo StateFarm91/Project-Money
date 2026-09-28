@@ -35,3 +35,10 @@ Initial focused suites: existing test_closure and test_cert_orders, plus the new
 ## Expected Opus handoff
 
 Reviewable commits with a 75-finding status map (only the four owner-permitted labels), evidence citations at the pinned head, exact reproductions/results, freshness/ownership limitations and continuation instructions. This lane may deliver failing adversarial evidence rather than a repair candidate. No COMPLETE+PROVEN decisions. Opus alone integrates, repairs shared code and certifies.
+
+## Bounded follow-ups after initial results
+
+C-75/C-76 tests passed, but a Growth route test hit the harness blocking Windows stdlib socketpair. Re-run only that route test allowing only the stdlib loopback handshake while continuing to deny application/external connections. Add one G02 queue-band adversarial assertion against an actually scheduled seasonal-band job: a single fast-lane steer must not outrank customer/truth work. All new files remain in this research directory. Additional existing dependency/takeover/trend/moat suites were run to verify the corresponding newly integrated Platform claims; their raw outcomes are recorded without treating them as certification.
+
+## Remote advancement
+Claude advanced to 2e66b3a44cf87fb6d99d10f136148899b4177877 during this lane. The Codex branch retains original ancestry for provenance. A detached checkout ../build2-verify-2e66b3a supplies the new source read-only; all harnesses/results remain in the Codex directory. No merge/rebase or shared-source change. Test --source-root/--source-sha/--suffix arguments distinguish current-head results from the historical checkpoint.

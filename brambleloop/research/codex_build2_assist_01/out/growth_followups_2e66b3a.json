@@ -1,0 +1,40 @@
+{
+  "base": "2e66b3a44cf87fb6d99d10f136148899b4177877",
+  "results": [
+    {
+      "test": "existing_growth_route_with_local_socketpair",
+      "status": "PASS",
+      "observed": {
+        "allowed_stdlib_socketpairs": 1,
+        "external_network": "denied"
+      },
+      "error": null,
+      "seconds": 4.458
+    },
+    {
+      "test": "G02_single_fast_lane_steer_preserves_customer_truth_priority",
+      "status": "FAIL",
+      "observed": null,
+      "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\growth_followups.py\", line 32, in run\n    observed=fn();status=\"PASS\";error=None\n             ^^^^\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\growth_followups.py\", line 62, in bands\n    assert after>BAND_BY_KIND[\"truth_defect\"],observations\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: {'before': 25, 'after': 5, 'protected_truth_band': 15, 'moved': [{'job_id': 1, 'job_type': 'chain.rebuild', 'agent': 'listing', 'delta': -20, 'why': 'fast lane admitted (#291)'}]}\n",
+      "seconds": 2.564
+    }
+  ],
+  "band_observations": {
+    "before": 25,
+    "after": 5,
+    "protected_truth_band": 15,
+    "moved": [
+      {
+        "job_id": 1,
+        "job_type": "chain.rebuild",
+        "agent": "listing",
+        "delta": -20,
+        "why": "fast lane admitted (#291)"
+      }
+    ]
+  },
+  "test_sha256": "0664bbded21c3f7080f955b8a17441beaebe476649a0fe927dd224343bc05403",
+  "source_sha256": "9ef3ca24829f2419ad730213bd3f9e9ee3b08b0bcce5c333c444e71fc5eca303",
+  "paid_spend": 0,
+  "note": "No production source patched; exact existing route test rerun only. New queue-band assertion is separate from C75 idempotence."
+}

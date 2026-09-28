@@ -10,7 +10,8 @@ from unittest.mock import patch
 sys.dont_write_bytecode=True
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[1]
-ap=argparse.ArgumentParser();ap.add_argument("--deps",required=True);args=ap.parse_args()
+ap=argparse.ArgumentParser();ap.add_argument("--deps",required=True);ap.add_argument("--source-root");ap.add_argument("--source-sha",default="4edacff1f8b445a84749464dc1d7271e6c71173e");ap.add_argument("--suffix",default="");args=ap.parse_args()
+if args.source_root:ROOT=Path(args.source_root).resolve()
 sys.path[:0]=[str(Path(args.deps).resolve()),str(ROOT/"src"),str(ROOT)]
 for key in list(os.environ):
     if key.startswith(("ANTHROPIC","OPENAI","ETSY","GEMINI","GOOGLE_API","DATABASE_URL","BRAMBLELOOP_DATABASE")):
@@ -24,7 +25,7 @@ from brambleloop.core.models import AuditLog,OAuthCredential,Listing,Order,Order
 from brambleloop.commerce import orders_ingest as oi,buyer_trust
 NOW=datetime(2026,9,27,12,tzinfo=timezone.utc)
 OBSERVATIONS={}
-def receipt(rid=1,*,days=10,paid=True,status="paid",refund=0,amount=1200,buyer=101):
+def receipt(rid=1,*,days=1,paid=True,status="paid",refund=0,amount=1200,buyer=101):
     return {"receipt_id":rid,"buyer_user_id":buyer,"create_timestamp":int((NOW-timedelta(days=days)).timestamp()),
       "update_timestamp":int(NOW.timestamp()),"status":status,"is_paid":paid,
       "refunds":[{"amount":{"amount":refund,"divisor":100,"currency_code":"CAD"}}] if refund else [],
@@ -119,11 +120,13 @@ class Recorder(unittest.TextTestResult):
 if __name__=="__main__":
     out=HERE/"out";out.mkdir(exist_ok=True)
     result=unittest.TextTestRunner(verbosity=1,resultclass=Recorder).run(unittest.defaultTestLoader.loadTestsFromTestCase(ReceiptCases))
-    data={"base_sha":"4edacff1f8b445a84749464dc1d7271e6c71173e","scope":"unchanged source, direct production ingest service; fresh/reopened SQLite; no network",
+    data={"base_sha":args.source_sha,"scope":"unchanged source, direct production ingest service; fresh/reopened SQLite; no network",
+      "source_root":str(ROOT),"script_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+      "fixture_revision":"Default sale is 1 day old after listing version created 2 days ago; explicit historical cases override days. Older runs used 10-day baseline, unsuitable for positive version/recovery controls after a historical-version fix.",
       "tests":result.records,"observations":OBSERVATIONS,"ran":result.testsRun,"failures":len(result.failures),"errors":len(result.errors),
       "spend_usd":0,"source_hashes":{name:hashlib.sha256((ROOT/"src/brambleloop"/name).read_bytes()).hexdigest()
         for name in ["commerce/orders_ingest.py","commerce/cohorts.py","commerce/buyer_trust.py"]},
       "public_fixture_schema_sources":["https://developer.etsy.com/documentation/reference","https://developers.etsy.com/documentation/essentials/definitions/"]}
-    (out/"receipt_adversarial.json").write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
+    (out/("receipt_adversarial"+args.suffix+".json")).write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8",newline="\n")
     print(json.dumps({"tests":data["ran"],"failures":data["failures"],"errors":data["errors"],"paid_spend":0}))
     sys.exit(0 if result.wasSuccessful() else 1)

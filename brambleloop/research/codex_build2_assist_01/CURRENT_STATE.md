@@ -1,42 +1,55 @@
 # Build 2 assist — current state
 
-Updated 2026-09-27. Read CODEX_SCOPE.md first. This is an independent verification lane, not a repair or certification lane.
+Updated 2026-09-27. This is a completed independent verification handoff, not an application repair or certification. Read OPUS_HANDOFF.md, then NEXT_SESSION.md. Do not restart the historical audit.
 
-## Identity and boundaries
-- Branch: codex/build2-assist-01; worktree: ../build2-assist-01.
-- Pinned Claude base / latest fetched remote: 4edacff1f8b445a84749464dc1d7271e6c71173e.
-- Canonical 75-finding audit: e6c397656d42406d9da338264f15bb36fadab5cf, brambleloop/research/codex_b2_integration_pack/FINDINGS.json.
-- Visual remains frozen at 035ff0c62a42dd5fd0b616998dcf98833b5c1097 on codex/visual-v2-rnd.
-- No application/shared-test/requirement-status edits. No merges, deployment, production mutations, Etsy, ads, paid APIs or secrets. Paid spend: $0. Opus alone integrates and certifies.
+## Repository identity
+- Codex branch/worktree: codex/build2-assist-01 / ../build2-assist-01.
+- Branch base: 4edacff1f8b445a84749464dc1d7271e6c71173e.
+- Latest verified Claude remote: 2e66b3a44cf87fb6d99d10f136148899b4177877; re-fetched after interruption, unchanged.
+- Reused detached verification checkout: ../build2-verify-2e66b3a. Application source only read there.
+- Canonical prior audit: e6c397656d42406d9da338264f15bb36fadab5cf; brambleloop/research/codex_b2_integration_pack contains the 75 findings/specs/contracts.
+- Initial pushed checkpoint: 3860881e61cc0c621b7c30fac508b1450a5ac220. Follow-up commits preserve latest-head evidence and this handoff; see branch log.
 
-## Synchronization
-Actual merges since 0d42f2f: Platform bb32b3a, Orders 9931ebf, Growth 63fe5bd. The resume manifest incorrectly still lists Growth as unmerged. C-74/e5239e6 changes P01/P03. Growth merge contains C-75/G01, C-76/G03 and C-77/referral half of X01 repairs; do not inspect only non-merge commits.
+## Fixed boundaries / ownership
+Visual codex/visual-v2-rnd remains 035ff0c62a42dd5fd0b616998dcf98833b5c1097. Do not resume it. No app/shared-test/requirement-status edit, merge, deploy, production write, Etsy, ads, paid API or secret access. Spend $0. Opus alone integrates and certifies.
 
-Design f76d277, Improve d033e02 and Intel 038e873 persist as candidate reports/patches, not integrated code. Git cannot prove live Claude agent liveness or vacant application ownership. Thus selected non-overlapping scope is new Codex research tests and evidence only.
+All changed files are CODEX_SCOPE.md or this research directory. No application-repair vacancy could be proved. Source/history establishes integrated Platform, original Orders, Growth and Design; C-80 names Platform2 pending. Improve d033e02 and Intel 038e873 remain unmerged candidates. Git does not establish live Claude agent liveness.
 
-Latest certification ledger claims 153 OPEN; old manifest claims 133. Neither is a freshly verified count in this environment. Platform validation and local independence 4/4 logs persist. Orders validation log is partial. No current-head full suite or live production gate read was performed.
+## Most important verified result
+C-78/b9f7e3a claims Orders2/3081402 integrated and 23/23 tests. Actual remote source still has identical blobs to 4edacff for 10 critical app files plus test_cert_orders.py. Fresh latest-source run reproduces 9 receipt failures. out/remote_sync.json preserves hashes, commit changed paths, claim text, ownership and history. Do not report the claimed integration as actual code. Opus should reconcile the existing candidate before recreating work.
 
-## Executed evidence
-- out/receipt_adversarial.json: 11 tests, 9 FAIL, 2 PASS, 0 errors. O01 late full refund, partial amount and old-update window; O02 unpaid/canceled; O03 future listing version; O04 first-purchase chronology; O05 post-Order interruption/retry leaves OrderVersion absent; O07 negative contribution clamped. Paid idempotence and closed-gate controls pass. SQLite and synthetic fixtures only. Ledger repairs on O05 retry; sale-version mapping does not. This is deterministic interruption, not an actual worker kill.
-- out/source_index.json: all 75 canonical findings indexed against pinned source with hashes, symbol ranges and missing candidate paths. Indexing is not the final status verdict.
-- out/focused_suites.json plus full logs: test_cert_dependencies, test_cert_takeover, test_cert_trend_evidence and test_moat exit 0. test_closure aborts after failures / gate_checked KeyError; test_cert_orders 13 pass / 1 fail; test_cert_growth_ops 12 pass / 1 fail.
-- Closure and Orders reachability failures expose Windows backslash labels in build2/reachability.py::_rel_of versus literal runtime/worker.py comparisons. Do not report these entire suites as passing.
-- Growth failing route test is blocked by harness socket denial intercepting Windows asyncio's local self-pipe; not evidence of an application route failure. Its C-75 repeated-steering and C-76 scoped-rebuild tests independently passed.
-- out/closure_checks.json: 63 independent controls PASS (60 reopened-row precedence checks and 3 live-gate-read closeout controls). P01/P03 exact defects are fixed.
-- Unmodified Windows closure counts without DB: COMPLETE+PROVEN 88, OWNER-GATED 20, DATA-GATED 21, EXTERNAL-BLOCKED 4, OPEN 187.
-- In-memory _rel_of separator normalization diagnostic only: 103,24,24,4,165 respectively. This is not an unmodified suite pass or certification. Both matrices closed_out=false, indeterminate=true, no live gates checked. Residual 165 versus ledger 153 remains unexplained; do not silently report 153 as reproduced.
+## Completed reconciliation
+RECONCILIATION.md/json cover all 75: 4 FIXED, 39 STILL PRESENT, 30 CHANGED — REAUDIT REQUIRED, 2 BLOCKED FROM DETERMINING. These are independent finding labels, not requirement statuses.
+- Fixed bounded defects: P01 unparked PARTIAL precedence; P03 closeout needs live gate read; G01 third-run steering; G03 scoped-slug rebuild.
+- Still present: all O01–O10, priority escape G02, semantic proof P02, stale frame approval P06, key Design provenance/approval defects, other source-reviewed findings.
+- New Design judge_held producer exists; missing-producer wording is obsolete, but no hash-bound current-board approval established.
+- Unmerged Improve/Intel candidate findings are not marked fixed merely because code is absent.
+- Blocked verdicts: P09 faithful multi-worker admission; G11 future ads execution-time freshness (current production spend hard-refuses).
 
-## Environment / reproductions
-Bundled Python: C:/Users/Jacob McKenna/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe.
-Missing free test dependencies installed in ../runtime-build2 (SQLAlchemy 2.1.1, FastAPI 0.141.1, httpx 0.28.1); scripts insert that directory, since this bundled runtime ignores PYTHONPATH.
-From repository root: python brambleloop/research/codex_build2_assist_01/test_receipt_adversarial.py --deps ../runtime-build2 (expected exit 1 while defects persist).
-Other scripts: index_findings.py (read-only Git source index), run_focused.py --deps ../runtime-build2, verify_closure.py --deps ../runtime-build2. Do not rerun the full historical program.
+## Completed test evidence
+- Latest authoritative receipt result: out/receipt_adversarial_2e66b3a_v2.json. 11 tests: 9 FAIL, 2 PASS, 0 errors, 15.539 seconds. Late full/partial/old refunds; unpaid/canceled; future version; first-customer chronology; post-commit interruption/retry; suppressed loss. Ledger repairs after retry, OrderVersion does not.
+- Fixture correction: baseline paid sale is 1 day old, after listing created 2 days ago. Original 10-day default made positive version/recovery controls inappropriate after a historical-version repair. All assertions preserved, explicit historical cases unchanged, same nine failures. Older runs retained as history.
+- Latest closure: out/closure_checks_2e66b3a.json. 63 controls PASS (60 reopened-row + 3 live-gate decision controls).
+- Latest G02: out/growth_followups_2e66b3a_claim.json. FAIL: priority 25→5; actual durable queue claims chain.rebuild before waiting support.reply at priority 10. No handlers executed/messages sent.
+- Latest narrow existing Growth API route test: PASS, out/growth_followups_2e66b3a.json. Only stdlib socketpair loopback handshake allowed; external/app sockets denied.
+- Historical suites at 4edacff: dependencies, takeover, trend evidence and moat pass; Orders 13/1 (reachability); Growth 12/1 (harness self-pipe, later isolated route passes); closure fails/aborts. Do not relabel those whole suites green or current-head full-suite evidence.
+- Windows _rel_of separator bug affects cadence reachability. Latest native closure: 135 complete / 118 open / 37 owner / 26 data / 4 external. Slash-normalized diagnostic: 159/83/41/33/4. Both indeterminate, no live gate check, closed_out=false.
+- Latest saved ledger/commit claims 176 complete / 66 open. Unreproduced; residual discrepancy after path normalization unresolved. No statuses changed to match totals.
+- No full current-head suite, live production read, multi-worker PostgreSQL trace, actual SIGKILL proof or paid provider run in this lane.
 
-## Active work and exact next actions
-1. Finish the 75-finding reconciliation with only the four owner-approved status labels; distinguish absent/unmerged candidate code from integrated defects.
-2. Targeted source checks for remaining high-risk contracts. Optionally isolate the one Growth route test using a local-socket-compatible, external-network-denying harness.
-3. Explain platform-qualified closure counts and any unresolved discrepancy honestly; no changes to gates or application.
-4. Write OPUS_HANDOFF.md, runtime chain, README and NEXT_SESSION.md with raw evidence links and precise remaining uncertainty.
-5. Verify only scoped new files changed; refetch once for freshness, record any newer Claude head rather than silently replacing this base. Commit and push clean branch.
+## Recovery outcome
+All four in-flight latest-source actions completed before/around interruption: receipt run, Growth follow-ups, source index and closure checks. Closure process exited 0 and was recovered. Remote stayed 2e66b3a. No interrupted edit needs guessing. Completed checks were not rerun except the justified receipt fixture correction and new G02 queue-claim effect assertion.
 
-No application repair candidate is claimed. Receipt failures are reviewable reproduction evidence for the existing cluster owners.
+## Environment and artifacts
+Python: C:/Users/Jacob McKenna/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe.
+Free isolated deps: ../runtime-build2. README contains exact commands; always explicitly choose source-root/source-sha/suffix. The default original scripts otherwise target historical 4ed application source.
+Read OPUS_HANDOFF.md, RUNTIME_TRACES.md, HIGH_RISK_STATUS.md, RECONCILIATION.json, out/remote_sync.json.
+artifact_manifest.json plus verify_package.py check package integrity without repeating experiments.
+Raw .log Git bytes restored to match original recorded output hashes; .gitattributes prevents future newline normalization.
+
+## Exact continuation
+1. Read NEXT_SESSION.md and OPUS_HANDOFF.md. Verify branch/remote freshness and package integrity.
+2. If Claude head changes, inspect only relevant changed source/functions; retain results whose source/contract remains identical. Never substitute a report for code.
+3. Highest priority remains C-78 integration mismatch and G02 priority effect. Deliver these already-written reproductions to Opus/current owners; do not repair overlapping files.
+4. Only if current ownership proves an unowned implementation task, amend CODEX_SCOPE.md before changes and satisfy the owner's repair proof standard.
+5. After actual candidate integration, reuse original adversarial specs for Improve/Intel and re-audit only changed Design contracts.

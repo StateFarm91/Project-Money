@@ -1,0 +1,119 @@
+{
+  "checked_utc": "2026-09-27T23:26:34.800016+00:00",
+  "latest_remote_head": "2e66b3a44cf87fb6d99d10f136148899b4177877",
+  "codex_branch_base": "4edacff1f8b445a84749464dc1d7271e6c71173e",
+  "orders_hardening_claim_commit": "b9f7e3adbe244d341fbd3481824f0b6d09a4219a",
+  "claim_commit_parents": [
+    "3d124919d8eb211824311351c4b237868b405035"
+  ],
+  "claim_commit_changed_paths": [
+    "brambleloop/research/BUILD2_CERTIFICATION.md",
+    "brambleloop/research/b2_resume/reports/orders2_codex_hardening.md",
+    "brambleloop/src/brambleloop/build2/closure.py",
+    "brambleloop/src/brambleloop/build2/executor.py",
+    "brambleloop/src/brambleloop/build2/requirements.json",
+    "brambleloop/src/brambleloop/ops/retention.py",
+    "brambleloop/tests/test_closure.py"
+  ],
+  "claims": [
+    "| C-78 | Critical | commerce / order truth | Codex CB2-O01..O10, every one confirmed against the merged orders cluster: any refund marked every line refunded and old receipts were never re-read; unpaid/cancelled receipts counted as sales; customer/order/version/ledger writes spanned separate transactions; first-purchase cohorts depended on arrival order; unknown Etsy acquisition was booked as organic and loop counters only rose; negative contribution was clamped to zero with fee/FX unlabelled; the delivered version was the current listing's; any newer certificate was treated as a correction; pricing/offer guards annotated rather than stopped; north-star metrics used draft/research proxies | FIXED (orders2, merged): receipts reconciled as state per transaction with a durable update cursor and a 7-day full sweep; SALE/UNPAID/CANCELLED states from Etsy v3 with unknown held by name; one session per line so a crash converges exactly-once; first purchase re-derived from the earliest paid order; unknown attribution stays unknown with a signed loop reconcile; losses retained and money basis labelled on every reading; delivered version from listing history or explicit unknown routed to review; correction notices only for a declared correction on an eligible release; pricing refusals stop the chain; north star from cir.drafted/store.published with proxies reported separately. test_cert_orders 23/23 incl. the adversarial traces (late partial→full refund, unpaid never a sale, crash mid-line, out-of-order arrival, unknown attribution) |",
+    "| C-79 | Medium | closure / gates | the orders cluster's real owner gate (re-authorising the Etsy app with the transactions_r scope) had no executor Gate, so #11/#12 could only be parked on a free-text reason the closure cannot check | FIXED: Gate `transactions_r` (owner) checks the ingest's own gate (scope in the stored grant AND a recorded etsy.probe); #11 #12 parked on it explicitly |",
+    "| C-80 | High | platform (post-integration verification) | an independent read-only verification of the merged platform cluster (research/b2_resume/reports/platform_verification.md) confirmed Codex P05-P13 and found 19 concrete defects: #5's size depth reads CIR keys that never exist (sizes always 1) and cir.compile/gate.certify are never lane-counted; #30's function budgets floor to 1 at a 3-worker pool (the mix is inert); #34's backoff grows per sweep with no new observation and any new build SHA lifts a suspension; #61's frame review compares whats_included/materials/collection frames against an empty claim, converts unjudged to clear and treats an empty frames map as reviewed; #81's escalation rungs enqueue the identical photography job and never advance; #44 recognisability is a signature count; #54 analytics_baseline/rollback are proxies and readiness blocks no job; #172 completion is not bound to the attempt or the new fingerprints and the marketing exception keys on the literal '#172'; the railway probe is a constant; #169 delight scores are constants read slug-wide across versions; #38 MJs observations are unstamped; unit_cost/_progress/evidence_for scan unbounded tables hourly | pending -- #5 #38 #44 #54 #61 #81 kept `partial` (no park until the software halves are fixed); repair wave `platform2` |"
+  ],
+  "critical_source_equality": [
+    {
+      "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+      "before_blob": "a01a09e7ecdc0da2c56354a8b0685da36904748f",
+      "latest_blob": "a01a09e7ecdc0da2c56354a8b0685da36904748f",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/cohorts.py",
+      "before_blob": "8b8a7e15a00cbe3c4687e53dd70bfd85d8f0b1b5",
+      "latest_blob": "8b8a7e15a00cbe3c4687e53dd70bfd85d8f0b1b5",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/buyer_trust.py",
+      "before_blob": "da40bbd1a759393b8b06e266d91cdf74d2f1e590",
+      "latest_blob": "da40bbd1a759393b8b06e266d91cdf74d2f1e590",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/order_readings.py",
+      "before_blob": "48952b4c9dc1a78e3724ea5a0f55c0aa56e9fb4c",
+      "latest_blob": "48952b4c9dc1a78e3724ea5a0f55c0aa56e9fb4c",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/pricing.py",
+      "before_blob": "af252cb3dfea11ad8b3971ddbc8035fdc05583ba",
+      "latest_blob": "af252cb3dfea11ad8b3971ddbc8035fdc05583ba",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/creative/standard.py",
+      "before_blob": "d5cd47f2d9a78b775ed899b7ed3fb8c626b9b4bb",
+      "latest_blob": "d5cd47f2d9a78b775ed899b7ed3fb8c626b9b4bb",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/growth/loops.py",
+      "before_blob": "bdaf5c63b35acc01aeb3cb0138f20d6d365da693",
+      "latest_blob": "bdaf5c63b35acc01aeb3cb0138f20d6d365da693",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/growth/portfolio.py",
+      "before_blob": "3065cd7f7737959878faa64dc8007db13ebd1209",
+      "latest_blob": "3065cd7f7737959878faa64dc8007db13ebd1209",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/integrations/etsy.py",
+      "before_blob": "4aed84bde0d5cce6c7da8a3248277f6f55e12550",
+      "latest_blob": "4aed84bde0d5cce6c7da8a3248277f6f55e12550",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/runtime/orders.py",
+      "before_blob": "5e92a98967c123c8ff1a6ca0b130f7cba6ebc437",
+      "latest_blob": "5e92a98967c123c8ff1a6ca0b130f7cba6ebc437",
+      "identical": true
+    },
+    {
+      "path": "brambleloop/tests/test_cert_orders.py",
+      "before_blob": "1e946c3d0da5263230402536b6da82408378a952",
+      "latest_blob": "1e946c3d0da5263230402536b6da82408378a952",
+      "identical": true
+    }
+  ],
+  "history_since_0d42f2f": [
+    "2e66b3a44cf87fb6d99d10f136148899b4177877 Platform cluster verified row by row (independent read-only verifier): 14 rows covered, #5 #38 #44 #54 #61 #81 stay partial; 19 defects recorded as C-80 (pending); #42 wiring check conditional on the order ingest existing; closure 176 COMPLETE+PROVEN / 66 OPEN",
+    "b9f7e3adbe244d341fbd3481824f0b6d09a4219a Integrate orders hardening (C-78: Codex O01-O10 all confirmed and fixed; C-79 transactions_r owner gate); registry updated from the orders, growth and design reports (160 COMPLETE+PROVEN / 86 OPEN before improve and intel); growth.steered retention; closure twenty-row check flags only unparked gated states",
+    "3d124919d8eb211824311351c4b237868b405035 Integrate repair cluster: design (C-61 original-design pipeline: winner intake, generated briefs, funnel gate at cir.draft, pipeline walker, seasonal transformation briefs, held-winner judgement behind image_vision; #3 #88 #101 #109 #110 #112 #114 #115 #277-#279 #281-#283 #290 #293 #308(partial) #309 #314 #316 #318); orders2 in-progress snapshot and validation logs saved",
+    "4edacff1f8b445a84749464dc1d7271e6c71173e Intel cluster report saved (038e873): 26 rows, gate reclassification, flags for the merge",
+    "63fe5bd201293f670cef38328ea39b9713c7bb27 Integrate repair cluster: growth (C-66/C-70; #7 #17 #18 #19 #24 #27 #237-#239 #242-#253 #255 #257-#262 #264 #267 #273 #275 #276 #291 #294 #295) with Codex-confirmed fixes C-75 (steer-once from immutable receipts), C-76 (chain.rebuild scoped to requested slugs), C-77 (one referral reader); #187 band test restated for bounded, receipted steering",
+    "e5239e6a726e94e8dc46c3778900d86c084b77ce C-74 (Codex P01/P03): an explicit parked_on, not the executor gate table, parks a partial row; closed_out requires live gate reads; 21 hidden reopened rows now read OPEN (153 OPEN). Codex integration pack brought onto the branch as review evidence",
+    "2f9b94f1ca70f2321c878c14cfbd1317f8644256 Pause checkpoint: resume manifest §0 delta (platform+orders merged, improve+growth reported, design+intel in progress), closure state at d4c15b7, all six cluster snapshots refreshed (incl. in-progress uncommitted edits), validation and independence logs as evidence",
+    "d4c15b72cffebb80ad32538e789e7164961ff33a Wiring band test: a lane boost may tie the band above, never pass it",
+    "24e860e349b812fdc74f1bbb865797fa219d1c21 Closure-rule fixtures repointed: commerce/offers.py is now reached through portfolio.review (C-64), so the static-only example is #4's preproduction, with the precondition asserted; growth cluster report saved",
+    "9931ebf335ab5c6f907e351c5175111f25e47481 Integrate repair cluster: orders (C-64 order/receipt ingest behind transactions_r, order readings, trajectory and north star from DB; #11 #12 #13 #22 #26 #42 #47 #49 #104 #132 #233 #234 #235 #252 #256 #269 #271); wiring band test allows the bounded lane-starvation boost (C-68)",
+    "bb32b3a1f6c99780ab4ceb0df680d6bd52b82ccc Integrate repair cluster: platform (C-65 closure call-graph reachability, C-68 worker pool and lane enforcement, C-69 chain.rebuild inputs and provenance, #29 #31 #34 #38 #40 #44 #50 #54 #59 #61 #81 #131 #163 #169); Claude-independence certification test 4/4; production verify evidence 16:25Z"
+  ],
+  "ownership": {
+    "integrator": "Claude/Opus",
+    "integrated_source": [
+      "Platform",
+      "Orders original",
+      "Growth",
+      "Design"
+    ],
+    "orders_hardening": "report/ledger claim integrated; critical code and test bytes remain old; evidence mismatch reproduced",
+    "platform2": "pending repair wave named by C-80; no assumption of vacancy",
+    "Improve": "d033e02 candidate unmerged",
+    "Intel": "038e873 candidate unmerged",
+    "live_agent_liveness": "BLOCKED FROM DETERMINING: remote Git records are not live agent status"
+  },
+  "paid_spend": 0
+}

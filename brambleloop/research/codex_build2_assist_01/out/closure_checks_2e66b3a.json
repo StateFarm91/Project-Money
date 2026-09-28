@@ -1,0 +1,377 @@
+{
+  "base": "2e66b3a44cf87fb6d99d10f136148899b4177877",
+  "checks": [
+    {
+      "test": "P01_39_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_61_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_64_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_104_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_116_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_147_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_165_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_208_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_210_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_211_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_243_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_244_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_245_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_250_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_277_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_278_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_281_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_294_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_295_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_304_unchecked",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_39_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_61_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_64_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_104_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_116_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_147_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_165_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_208_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_210_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_211_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_243_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_244_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_245_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_250_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_277_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_278_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_281_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_294_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_295_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_304_closed",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_39_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_61_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_64_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_104_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_116_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_147_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_165_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_208_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_210_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_211_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_243_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_244_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_245_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_250_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_277_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_278_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_281_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_294_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_295_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P01_304_open",
+      "pass": true,
+      "actual": "OPEN"
+    },
+    {
+      "test": "P03_no_database",
+      "pass": true
+    },
+    {
+      "test": "P03_gate_read_error",
+      "pass": true
+    },
+    {
+      "test": "P03_live_read_control",
+      "pass": true
+    }
+  ],
+  "native_windows": {
+    "total": 320,
+    "counts": {
+      "COMPLETE+PROVEN": 135,
+      "OWNER-GATED": 37,
+      "DATA-GATED": 26,
+      "EXTERNAL-BLOCKED": 4,
+      "OPEN": 118
+    },
+    "closed_out": false,
+    "closeout_indeterminate": true,
+    "gates_checked_live": false
+  },
+  "native_worker_path_label": "runtime\\worker.py",
+  "posix_path_diagnostic": {
+    "total": 320,
+    "counts": {
+      "COMPLETE+PROVEN": 159,
+      "OWNER-GATED": 41,
+      "DATA-GATED": 33,
+      "EXTERNAL-BLOCKED": 4,
+      "OPEN": 83
+    },
+    "closed_out": false,
+    "closeout_indeterminate": true,
+    "gates_checked_live": false
+  },
+  "diagnostic_reachability": {
+    "commerce/orders_ingest.py": {
+      "module": "commerce/orders_ingest.py",
+      "reached": true,
+      "why": "ingest is live: handler commerce.orders_ingest (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_orders_ingest",
+      "live": [
+        "ingest",
+        "_production_reader",
+        "_last_ingested",
+        "_catalogue",
+        "lines",
+        "_record_line",
+        "gate",
+        "_when"
+      ]
+    },
+    "commerce/kill_table.py": {
+      "module": "commerce/kill_table.py",
+      "reached": true,
+      "why": "compose is live: handler commerce.readings (cadence in runtime/worker.py:module constant) -> runtime/commerce_readings.py:handle_commerce_readings -> runtime/commerce_readings.py:read",
+      "live": [
+        "compose",
+        "_defect_rate",
+        "route",
+        "Threshold.to_dict",
+        "Route.to_dict",
+        "Threshold",
+        "Route"
+      ]
+    }
+  },
+  "limitation": "Only in-memory _rel_of separator normalization in diagnostic. No live production gate reads; no requirement status changed.",
+  "paid_spend": 0
+}

@@ -1,0 +1,504 @@
+{
+  "base_sha": "2e66b3a44cf87fb6d99d10f136148899b4177877",
+  "scope": "unchanged source, direct production ingest service; fresh/reopened SQLite; no network",
+  "tests": [
+    {
+      "test": "test_O01_late_full_refund_reconciles_existing_order",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 77, in test_O01_late_full_refund_reconciles_existing_order\n    self.assertEqual((v[\"orders\"][0][\"revenue_cad\"],v[\"ledger\"][0][\"refunds_cad\"]),(0,12))\nAssertionError: Tuples differ: (12.0, 0.0) != (0, 12)\n\nFirst differing element 0:\n12.0\n0\n\n- (12.0, 0.0)\n+ (0, 12)\n"
+    },
+    {
+      "test": "test_O01_old_modified_receipt_is_not_lost_to_creation_watermark",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 87, in test_O01_old_modified_receipt_is_not_lost_to_creation_watermark\n    self.assertEqual(snapshot(self.db)[\"orders\"][0][\"revenue_cad\"],0)\nAssertionError: 12.0 != 0\n"
+    },
+    {
+      "test": "test_O01_partial_refund_preserves_unreturned_revenue",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 81, in test_O01_partial_refund_preserves_unreturned_revenue\n    self.assertEqual((v[\"orders\"][0][\"revenue_cad\"],v[\"ledger\"][0][\"refunds_cad\"]),(10,2))\nAssertionError: Tuples differ: (0.0, 12.0) != (10, 2)\n\nFirst differing element 0:\n0.0\n10\n\n- (0.0, 12.0)\n+ (10, 2)\n"
+    },
+    {
+      "test": "test_O02_cancelled_receipt_creates_no_sales_revenue",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 93, in test_O02_cancelled_receipt_creates_no_sales_revenue\n    self.assertEqual(sum(r[\"revenue_cad\"] for r in v[\"orders\"]),0)\nAssertionError: 12.0 != 0\n"
+    },
+    {
+      "test": "test_O02_unpaid_open_receipt_creates_no_sales_revenue",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 90, in test_O02_unpaid_open_receipt_creates_no_sales_revenue\n    self.assertEqual(sum(r[\"revenue_cad\"] for r in v[\"orders\"]),0)\nAssertionError: 12.0 != 0\n"
+    },
+    {
+      "test": "test_O03_imported_old_sale_does_not_inherit_future_listing_version",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 96, in test_O03_imported_old_sale_does_not_inherit_future_listing_version\n    self.assertNotIn(\"2.0.0\",[r[\"version\"] for r in v[\"versions\"]],\nAssertionError: '2.0.0' unexpectedly found in ['2.0.0'] : Only the current listing version is known, and it postdates this sale; preserve unknown.\n"
+    },
+    {
+      "test": "test_O04_first_purchase_is_earliest_not_first_encountered",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 101, in test_O04_first_purchase_is_earliest_not_first_encountered\n    self.assertTrue(first.startswith((NOW-timedelta(days=60)).date().isoformat()),first)\nAssertionError: False is not true : 2026-09-26T12:00:00\n"
+    },
+    {
+      "test": "test_O05_retry_after_order_commit_repairs_version_evidence",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 108, in test_O05_retry_after_order_commit_repairs_version_evidence\n    self.assertEqual((len(v[\"orders\"]),len(v[\"versions\"]),len(v[\"ledger\"])),(1,1,1))\nAssertionError: Tuples differ: (1, 0, 1) != (1, 1, 1)\n\nFirst differing element 1:\n0\n1\n\n- (1, 0, 1)\n?     ^\n\n+ (1, 1, 1)\n?     ^\n\n"
+    },
+    {
+      "test": "test_O07_negative_contribution_matches_negative_ledger",
+      "status": "FAIL",
+      "detail": "Traceback (most recent call last):\n  File \"C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\build2-assist-01\\brambleloop\\research\\codex_build2_assist_01\\test_receipt_adversarial.py\", line 112, in test_O07_negative_contribution_matches_negative_ledger\n    self.assertAlmostEqual(v[\"orders\"][0][\"contribution_cad\"],v[\"ledger\"][0][\"net_cad\"],places=2)\nAssertionError: 0.0 != -0.27 within 2 places (0.27 difference)\n"
+    },
+    {
+      "test": "test_control_closed_gate_never_reads_feed",
+      "status": "PASS"
+    },
+    {
+      "test": "test_control_paid_receipt_is_idempotent",
+      "status": "PASS"
+    }
+  ],
+  "observations": {
+    "test_O01_late_full_refund_reconciles_existing_order": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-17T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    },
+    "test_O01_old_modified_receipt_is_not_lost_to_creation_watermark": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          },
+          {
+            "external_ref": "etsy:2:20",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          },
+          {
+            "evidence_ref": "etsy:2:20",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          },
+          {
+            "ref": "etsy:2:20",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-07-29T12:00:00"
+          },
+          {
+            "ref": "etsy-user-202",
+            "first_seen_at": "2026-09-26T12:00:00"
+          }
+        ]
+      },
+      "notes": {
+        "requested_since": "2026-09-24T12:00:00+00:00"
+      }
+    },
+    "test_O01_partial_refund_preserves_unreturned_revenue": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 0.0,
+            "contribution_cad": 0.0,
+            "refunded": true,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 12.0,
+            "net_cad": -1.42
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-17T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    },
+    "test_O02_cancelled_receipt_creates_no_sales_revenue": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-17T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    },
+    "test_O02_unpaid_open_receipt_creates_no_sales_revenue": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-17T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    },
+    "test_O03_imported_old_sale_does_not_inherit_future_listing_version": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-07-29T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    },
+    "test_O04_first_purchase_is_earliest_not_first_encountered": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:2:20",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          },
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": true,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:2:20",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          },
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:2:20",
+            "version": "2.0.0"
+          },
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-26T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    },
+    "test_O05_retry_after_order_commit_repairs_version_evidence": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-17T12:00:00"
+          }
+        ]
+      },
+      "notes": {
+        "after_interruption": {
+          "orders": [
+            {
+              "external_ref": "etsy:1:10",
+              "version": "2.0.0",
+              "revenue_cad": 12.0,
+              "contribution_cad": 10.58,
+              "refunded": false,
+              "is_repeat": false,
+              "acquisition_source": "etsy"
+            }
+          ],
+          "ledger": [],
+          "versions": [],
+          "customers": [
+            {
+              "ref": "etsy-user-101",
+              "first_seen_at": "2026-09-17T12:00:00"
+            }
+          ]
+        }
+      }
+    },
+    "test_O07_negative_contribution_matches_negative_ledger": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 0.01,
+            "contribution_cad": 0.0,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 0.01,
+            "refunds_cad": 0.0,
+            "net_cad": -0.27
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-17T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    },
+    "test_control_closed_gate_never_reads_feed": {
+      "state": {
+        "orders": [],
+        "ledger": [],
+        "versions": [],
+        "customers": []
+      },
+      "notes": {}
+    },
+    "test_control_paid_receipt_is_idempotent": {
+      "state": {
+        "orders": [
+          {
+            "external_ref": "etsy:1:10",
+            "version": "2.0.0",
+            "revenue_cad": 12.0,
+            "contribution_cad": 10.58,
+            "refunded": false,
+            "is_repeat": false,
+            "acquisition_source": "etsy"
+          }
+        ],
+        "ledger": [
+          {
+            "evidence_ref": "etsy:1:10",
+            "gross_cad": 12.0,
+            "refunds_cad": 0.0,
+            "net_cad": 10.58
+          }
+        ],
+        "versions": [
+          {
+            "ref": "etsy:1:10",
+            "version": "2.0.0"
+          }
+        ],
+        "customers": [
+          {
+            "ref": "etsy-user-101",
+            "first_seen_at": "2026-09-17T12:00:00"
+          }
+        ]
+      },
+      "notes": {}
+    }
+  },
+  "ran": 11,
+  "failures": 9,
+  "errors": 0,
+  "spend_usd": 0,
+  "source_hashes": {
+    "commerce/orders_ingest.py": "1d767996e0c42f5967a420b6e6e9c7d85fe77635b77776f2cfff9941d5d5f50f",
+    "commerce/cohorts.py": "30339793625fac3da9e852e26fa2b5e5cead6a319246500d8c82df48f303cdb8",
+    "commerce/buyer_trust.py": "f3807713efbd3d1ce8f8584da4d324384adb447fba02a737d2abc7171fce5879"
+  },
+  "public_fixture_schema_sources": [
+    "https://developer.etsy.com/documentation/reference",
+    "https://developers.etsy.com/documentation/essentials/definitions/"
+  ]
+}

@@ -4,7 +4,8 @@ from pathlib import Path
 from unittest.mock import patch
 sys.dont_write_bytecode=True
 HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[1]
-ap=argparse.ArgumentParser();ap.add_argument("--deps",required=True);args=ap.parse_args()
+ap=argparse.ArgumentParser();ap.add_argument("--deps",required=True);ap.add_argument("--source-root");ap.add_argument("--source-sha",default="4edacff1f8b445a84749464dc1d7271e6c71173e");ap.add_argument("--suffix",default="");args=ap.parse_args()
+if args.source_root:ROOT=Path(args.source_root).resolve()
 sys.path[:0]=[str(Path(args.deps).resolve()),str(ROOT/"src")]
 def offline(*a,**k):raise RuntimeError("Network refused")
 socket.socket.connect=offline;socket.socket.connect_ex=offline;socket.create_connection=offline
@@ -43,10 +44,10 @@ finally:
     reach._rel_of=original;reach.clear_cache()
 def compact(m):
     return {k:m[k] for k in ["total","counts","closed_out","closeout_indeterminate","gates_checked_live"]}
-out={"base":"4edacff1f8b445a84749464dc1d7271e6c71173e","checks":checks,
+out={"base":args.source_sha,"checks":checks,
      "native_windows":compact(native),"native_worker_path_label":native_label,
      "posix_path_diagnostic":compact(posix),"diagnostic_reachability":paths,
      "limitation":"Only in-memory _rel_of separator normalization in diagnostic. No live production gate reads; no requirement status changed.",
      "paid_spend":0}
-(HERE/"out/closure_checks.json").write_text(json.dumps(out,indent=2)+"\n",encoding="utf-8",newline="\n")
+(HERE/("out/closure_checks"+args.suffix+".json")).write_text(json.dumps(out,indent=2)+"\n",encoding="utf-8",newline="\n")
 print(json.dumps({"checks_passed":len(checks),"native":out["native_windows"],"posix_diagnostic":out["posix_path_diagnostic"]}))
