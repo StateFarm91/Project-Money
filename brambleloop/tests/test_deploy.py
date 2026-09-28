@@ -131,11 +131,15 @@ def test_the_catalogue_endpoint_is_explicit_that_nothing_is_published():
         assert key in body, key
 
 
-def test_the_finance_endpoint_reports_observed_figures_and_no_forecast():
+def test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast():
+    """F-608: with no order source connected the endpoint used to report CA$0.00 as
+    observed. Missing data is UNKNOWN, never silently zero."""
     with _client() as c:
         body = c.get("/api/finance").json()
-    assert body["profit_and_loss"]["all_figures_observed"] is True
-    assert body["profit_and_loss"]["gross_sales_cad"] == 0.0
+    assert body["profit_and_loss"]["all_figures_observed"] is False
+    assert body["profit_and_loss"]["sales_reading"] == "UNMEASURED"
+    assert body["profit_and_loss"]["gross_sales_cad"] is None
+    assert "transactions_r" in body["profit_and_loss"]["sales_why"]
     assert body["trajectory"]["is_forecast"] is False
     assert body["unit_economics"]["cost_per_acquired_customer_cad"] is None
     assert isinstance(body["cfo_challenges"], list)

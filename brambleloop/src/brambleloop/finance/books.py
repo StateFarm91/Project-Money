@@ -18,6 +18,27 @@ back as though it were a forecast.
 
 **Tax is reserved, not spent.** GST/HST on Canadian sales is money held for a government, and
 counting it as revenue is how a small business discovers a liability it already spent.
+
+**Missing is not zero (F-608).** The paragraph above was written when "revenue is zero" was
+the whole truth. It stopped being the whole truth the moment a shop could sell: Etsy
+delivers a digital file without this system, so a sale completes whether or not the order
+source (`transactions_r`) is connected. While it is not connected -- today -- this file
+used to report CA$0.00 gross sales and 0 orders with `all_figures_observed: true`, which is
+a measured zero nobody measured. Now the sales side has a reading:
+
+* `measured` -- the source is connected and has been read (`orders_ingest.source_state`);
+* `INCOMPLETE` -- sales are recorded but the source is not currently read, so the figures
+  are a lower bound and are labelled one;
+* `UNMEASURED` -- nothing recorded and the source is not read: every sales-derived figure
+  is `None` with the reason, never 0.00.
+
+Operating cost is measured either way (it is read from the cost ledger this system writes),
+so it is always reported.
+
+**A modelled fee is not a charged fee (F-609).** Sale fees are `pricing.fees()` output until
+Etsy's payment-account ledger replaces them (`finance.reconcile`). The P&L reports platform
+fees split by basis -- measured, modelled, unknown -- and `all_figures_observed` is true
+only when every figure on it was observed.
 """
 from __future__ import annotations
 
@@ -56,6 +77,33 @@ class ProfitAndLoss:
     orders: int = 0
     customers: int = 0
 
+    # F-608: the sales side's reading -- "measured", "INCOMPLETE" (a lower bound) or
+    # "UNMEASURED" -- with the reason and the order source state it was read from. Defaults
+    # to measured so a ProfitAndLoss built by hand from known figures reads as it did.
+    sales_reading: str = "measured"
+    sales_why: str = ""
+    order_source: dict = field(default_factory=dict)
+    # F-609: platform fees by how they were obtained.
+    fees_by_basis: dict = field(default_factory=dict)
+    # F-289: orders and revenue per channel, unattributed explicit. None when unmeasured.
+    sales_by_source: dict | None = None
+
+    @property
+    def sales_measured(self) -> bool:
+        return self.sales_reading == "measured"
+
+    @property
+    def sales_unmeasured(self) -> bool:
+        return self.sales_reading == "UNMEASURED"
+
+    @property
+    def fees_basis(self) -> str:
+        """measured | modelled | unknown | mixed | none -- what `platform_fees_cad` is."""
+        present = [k for k, v in (self.fees_by_basis or {}).items() if v]
+        if not present:
+            return "none"
+        return present[0] if len(present) == 1 else "mixed"
+
     @property
     def net_sales_cad(self) -> float:
         return round(self.gross_sales_cad - self.discounts_cad - self.refunds_cad, 2)
@@ -86,7 +134,37 @@ class ProfitAndLoss:
         return self.net_profit_cad
 
     def to_dict(self) -> dict:
+        fees_by_basis = {k: round(v, 2) for k, v in (self.fees_by_basis or {}).items()}
+        observed = (self.sales_measured
+                    and not fees_by_basis.get("modelled") and not fees_by_basis.get("unknown"))
+        common = {
+            "sales_reading": self.sales_reading,
+            "sales_why": self.sales_why,
+            "order_source": self.order_source,
+            "platform_fees_basis": self.fees_basis,
+            "platform_fees_by_basis": fees_by_basis,
+            "sales_by_source": self.sales_by_source,
+            "all_figures_observed": observed,
+        }
+        if self.sales_unmeasured:
+            # Every figure that depends on sales is unknown, and says so. Operating cost is
+            # this system's own spend and is measured regardless.
+            return {
+                "period": {"start": self.period_start, "end": self.period_end},
+                **{k: None for k in ("gross_sales_cad", "discounts_cad", "refunds_cad",
+                                     "net_sales_cad", "platform_fees_cad",
+                                     "tax_reserve_cad", "contribution_margin_cad",
+                                     "net_profit_cad", "cash_cad", "orders", "customers")},
+                "operating_costs_cad": self.operating_costs_cad,
+                "cost_by_kind": {k: round(v, 4)
+                                 for k, v in sorted(self.cost_by_kind.items())},
+                **common,
+                "note": ("Sales are UNMEASURED, not CA$0.00: " + self.sales_why
+                         + ". Operating costs are measured."),
+            }
         return {
+            **common,
+            "sales_is_lower_bound": self.sales_reading == "INCOMPLETE",
             "period": {"start": self.period_start, "end": self.period_end},
             "gross_sales_cad": round(self.gross_sales_cad, 2),
             "discounts_cad": round(self.discounts_cad, 2),
@@ -101,7 +179,6 @@ class ProfitAndLoss:
             "cash_cad": self.cash_cad,
             "orders": self.orders,
             "customers": self.customers,
-            "all_figures_observed": True,
         }
 
 
@@ -116,9 +193,16 @@ class Books:
         pl = ProfitAndLoss(period_start=since.date().isoformat(),
                            period_end=until.date().isoformat())
 
+        from sqlalchemy import func
+
+        from ..commerce import orders_ingest
+        from ..core.models import Order
+        from . import reconcile, sources
+
         with self.db.session() as s:
-            for e in s.scalars(select(LedgerEntry).where(LedgerEntry.at >= since,
-                                                         LedgerEntry.at <= until)):
+            entries = list(s.scalars(select(LedgerEntry).where(LedgerEntry.at >= since,
+                                                               LedgerEntry.at <= until)))
+            for e in entries:
                 pl.gross_sales_cad += e.gross_cad
                 pl.refunds_cad += e.refunds_cad
                 pl.platform_fees_cad += e.fees_cad
@@ -127,11 +211,31 @@ class Books:
                     pl.orders += 1
                 elif e.category == "discount":
                     pl.discounts_cad += e.expense_cad
+            pl.fees_by_basis = reconcile.fee_basis_summary(e for e in entries if e.fees_cad)
+            pl.customers = s.scalar(select(func.count(func.distinct(Order.customer_id)))
+                                    .where(Order.at >= since, Order.at <= until)) or 0
 
             for c in s.scalars(select(CostEntry).where(CostEntry.at >= since,
                                                        CostEntry.at <= until)):
                 kind = c.kind if c.kind in COST_KINDS else "other"
                 pl.cost_by_kind[kind] = pl.cost_by_kind.get(kind, 0.0) + c.amount_cad
+
+        # F-608: what the sales side is, read from the order source rather than assumed.
+        state = orders_ingest.source_state(self.db)
+        pl.order_source = {k: state[k] for k in ("open", "last_read_at", "missing",
+                                                 "owner_action")}
+        recorded_sales = any(e.category == "sale" for e in entries)
+        if state["measured"]:
+            pl.sales_reading = "measured"
+        elif recorded_sales:
+            pl.sales_reading = "INCOMPLETE"
+            pl.sales_why = ("sales are recorded but " + state["why"][0].lower()
+                            + state["why"][1:] + "; the recorded figures are a lower bound")
+        else:
+            pl.sales_reading = "UNMEASURED"
+            pl.sales_why = state["why"]
+        if not pl.sales_unmeasured:
+            pl.sales_by_source = sources.table(self.db, since=since, until=until)
         return pl
 
     def unit_economics(self, *, products_validated: int, listings_drafted: int,
@@ -144,6 +248,7 @@ class Books:
         """
         pl = self.profit_and_loss(since=since)
         opex = pl.operating_costs_cad
+        customers = None if pl.sales_unmeasured else pl.customers
         return {
             "operating_cost_cad": round(opex, 4),
             "validated_patterns": products_validated,
@@ -152,11 +257,14 @@ class Books:
                                                if products_validated else None),
             "cost_per_listing_cad": (round(opex / listings_drafted, 4)
                                      if listings_drafted else None),
-            "customers": pl.customers,
-            "cost_per_acquired_customer_cad": (round(opex / pl.customers, 4)
-                                               if pl.customers else None),
-            "note": ("cost per acquired customer is undefined because there are no customers. "
-                     "That is the honest answer, not a divide-by-zero to paper over."),
+            "customers": customers,
+            "cost_per_acquired_customer_cad": (round(opex / customers, 4)
+                                               if customers else None),
+            "note": (("cost per acquired customer is undefined because customers are "
+                      "UNMEASURED: " + pl.sales_why) if customers is None else
+                     "cost per acquired customer is undefined because there are no customers. "
+                     "That is the honest answer, not a divide-by-zero to paper over."
+                     if not customers else ""),
         }
 
 
@@ -186,7 +294,14 @@ def cfo_challenge(pl: ProfitAndLoss, *, limits: list[SpendLimit] | None = None,
     """
     out: list[Challenge] = []
 
-    if pl.gross_sales_cad == 0:
+    if pl.sales_unmeasured:
+        out.append(Challenge(
+            "note", "revenue",
+            "Revenue is UNMEASURED, not CA$0.00: " + pl.sales_why + ". Every ratio below has "
+            "an unknown denominator, and no pricing, ad or portfolio decision can be justified "
+            "by performance data this system cannot see.",
+            "connect the order source (owner action reauthorise_transactions_r)"))
+    elif pl.gross_sales_cad == 0:
         out.append(Challenge(
             "note", "revenue",
             "Revenue is CA$0.00 and there are no customers. Nothing is published, so this is "
@@ -194,7 +309,13 @@ def cfo_challenge(pl: ProfitAndLoss, *, limits: list[SpendLimit] | None = None,
             "denominator, and no pricing, ad or portfolio decision can be justified by "
             "performance data that does not exist yet."))
 
-    if pl.operating_costs_cad > 0 and pl.gross_sales_cad == 0:
+    if pl.operating_costs_cad > 0 and pl.sales_unmeasured:
+        out.append(Challenge(
+            "concern", "burn",
+            f"CA${pl.operating_costs_cad:.2f} of operating cost against UNMEASURED revenue. "
+            f"The cost is known; whether anything was earned against it is not.",
+            "keep cost-per-validated-pattern in every finance report"))
+    elif pl.operating_costs_cad > 0 and pl.gross_sales_cad == 0:
         out.append(Challenge(
             "concern", "burn",
             f"CA${pl.operating_costs_cad:.2f} of operating cost against CA$0.00 of revenue. "
@@ -211,10 +332,12 @@ def cfo_challenge(pl: ProfitAndLoss, *, limits: list[SpendLimit] | None = None,
             "consequence"))
 
     ads = pl.cost_by_kind.get("ads", 0.0)
-    if ads > 0 and pl.orders == 0:
+    if ads > 0 and (pl.orders == 0 or pl.sales_unmeasured):
         out.append(Challenge(
             "block", "paid media",
-            f"CA${ads:.2f} of advertising with zero attributable orders.",
+            (f"CA${ads:.2f} of advertising with no measured attributable orders (sales are "
+             f"UNMEASURED)." if pl.sales_unmeasured else
+             f"CA${ads:.2f} of advertising with zero attributable orders."),
             "pause the campaign; section 11 requires scaling only on profitable evidence"))
 
     for limit in (limits or []):
@@ -251,6 +374,26 @@ def trajectory(pl: ProfitAndLoss, *, today: date | None = None) -> dict:
     today = today or date.today()
     aov = (pl.net_sales_cad / pl.orders) if pl.orders else None
 
+    if pl.sales_unmeasured:
+        return {
+            "as_of": today.isoformat(),
+            "target_annual_cad": ANNUAL_TARGET_CAD,
+            "sales_reading": "UNMEASURED",
+            "observed_orders": None,
+            "observed_revenue_cad": None,
+            "run_rate_cad": None,
+            "projection": None,
+            "is_forecast": False,
+            "what_the_target_requires": {
+                "at_aov_cad_17": round(ANNUAL_TARGET_CAD / 17, 0),
+                "orders_per_month_at_aov_17": round(ANNUAL_TARGET_CAD / 17 / 12, 0),
+                "orders_per_day_at_aov_17": round(ANNUAL_TARGET_CAD / 17 / 365, 1),
+            },
+            "note": ("Orders are UNMEASURED (" + pl.sales_why + "), so there is no run rate "
+                     "and no projection. The figures above are arithmetic on the target, "
+                     "not a forecast, and must never be presented as one."),
+        }
+
     if not pl.orders:
         return {
             "as_of": today.isoformat(),
@@ -283,6 +426,9 @@ def trajectory(pl: ProfitAndLoss, *, today: date | None = None) -> dict:
         "projection": round(daily * 365, 2),
         "is_forecast": True,
         "share_of_target": round(daily * 365 / ANNUAL_TARGET_CAD, 4),
+        "sales_reading": pl.sales_reading,
         "note": (f"A run rate extrapolated from {days} days and {pl.orders} orders. Treat it "
-                 f"as a direction, not a number."),
+                 f"as a direction, not a number."
+                 + (" The orders are a lower bound (sales INCOMPLETE: the order source is "
+                    "not currently read)." if pl.sales_reading == "INCOMPLETE" else "")),
     }

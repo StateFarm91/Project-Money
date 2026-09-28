@@ -302,10 +302,13 @@ def test_order_readings_drive_every_downstream_reader():
     assert set(checks) == {"show_your_make", "share_the_pattern", "first_purchase_credit"}
     assert "show_your_make" in r["referral"]["may_run"]
     assert checks["first_purchase_credit"]["ok"] is (1.0 <= ltv * 0.30)
-    # #271: the marketplace loop's orders and contribution came from the orders.
+    # #271 read through F-283/F-289: a receipt does not say how the buyer arrived, so the
+    # ingested orders are `unknown` and credit NO loop -- the organic loop is not handed
+    # orders nobody attributed to it (the old blanket "etsy" label did exactly that).
     with db.session() as s:
         etsy = s.scalar(select(GrowthLoop).where(GrowthLoop.key == "etsy_organic"))
-        assert etsy.orders == 43 and etsy.contribution_cad > 0
+        assert etsy.orders == 0 and etsy.contribution_cad == 0
+        assert {o.acquisition_source for o in s.scalars(select(Order))} == {"unknown"}
     # #233: the catalogue on rungs, and #234: pairs from product facts.
     assert r["ladder"]["reading"] == "measured" and r["ladder"]["products"]
     assert "considered" in r["bundles"]

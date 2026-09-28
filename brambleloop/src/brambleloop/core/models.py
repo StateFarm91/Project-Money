@@ -185,6 +185,25 @@ class LedgerEntry(Base):
     refunds_cad: Mapped[float] = mapped_column(Float, default=0.0)
     expense_cad: Mapped[float] = mapped_column(Float, default=0.0)
     evidence_ref: Mapped[str] = mapped_column(String(200), default="")
+    # F-609 (Auditable Ledger): every row says where it came from, which external object it
+    # is, the currency and amount as that object stated them, what kind of money it is, how
+    # each figure was obtained and whether it has been reconciled. Additive columns
+    # (core/migrate.py backfills the literal defaults), so a row written before them reads
+    # as `unknown` / `unreconciled` -- never as measured.
+    #
+    # `basis` is how the gross/expense amount was obtained and `fees_basis` how `fees_cad`
+    # was: a sale's price is read off the receipt (measured) while its fees, until Etsy's
+    # payment-account ledger is read, are `commerce.pricing.fees()` output (modelled). One
+    # flag for both would either call a modelled fee charged or a measured price a guess.
+    source: Mapped[str] = mapped_column(String(40), default="", index=True)
+    external_id: Mapped[str] = mapped_column(String(120), default="", index=True)
+    currency: Mapped[str] = mapped_column(String(3), default="CAD")
+    amount_original: Mapped[float | None] = mapped_column(Float, nullable=True)
+    classification: Mapped[str] = mapped_column(String(40), default="")
+    basis: Mapped[str] = mapped_column(String(12), default="unknown")
+    fees_basis: Mapped[str] = mapped_column(String(12), default="unknown")
+    reconciliation_state: Mapped[str] = mapped_column(String(24), default="unreconciled",
+                                                      index=True)
 
     @property
     def net_cad(self) -> float:
@@ -1899,6 +1918,13 @@ class Order(Base):
     fx_taken_on: Mapped[str] = mapped_column(String(10), default="")
     fx_measured: Mapped[bool] = mapped_column(Boolean, default=False)
     fees_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    # F-609/F-558: whether `fees_cad` is what Etsy charged (`measured`, read from the payment
+    # account ledger) or `commerce.pricing.fees()` output (`modelled`). A modelled fee is
+    # never presented as charged. `unknown` for rows written before the column existed.
+    fees_basis: Mapped[str] = mapped_column(String(12), default="unknown")
+    # F-273: the Offsite Ads fee Etsy charged on this order, read from its ledger. None means
+    # not read (unknown), which is different from 0.0 (read, and no Offsite Ads fee).
+    offsite_ads_fee_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
     # #13: which offer shape this order bought (commerce.offers keys).
     offer: Mapped[str] = mapped_column(String(40), default="single_pattern", index=True)
     # Where the row came from ("etsy_receipts"), so an ingested order is never confused with
