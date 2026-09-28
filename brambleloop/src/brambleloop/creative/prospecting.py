@@ -188,10 +188,14 @@ class Arena:
     benchmark_listings: int
     days_away: int
     forms: dict = field(default_factory=dict)
+    # C-60 (#2): the department's observed market score, where it is rankable; None where it
+    # is not, which sorts after every scored arena rather than as a middling score.
+    arbitrage: float | None = None
 
     def to_dict(self) -> dict:
         return {"event": self.event, "pod": self.pod, "days_away": self.days_away,
-                "benchmark_listings": self.benchmark_listings, "forms": self.forms}
+                "benchmark_listings": self.benchmark_listings, "forms": self.forms,
+                "arbitrage": self.arbitrage}
 
 
 class NoArenasContradictsEvidence(RuntimeError):
@@ -233,13 +237,17 @@ def arenas(db, *, today: date | None = None, limit: int = 12,
             f'this catalogue answers every market the benchmark sells in -- which it does '
             f'not -- or a reader is looking in the wrong place')
 
+    from ..radar import arbitrage
+
+    steer = arbitrage.steering(db)
     out: list[Arena] = []
     for gap in gaps[:limit]:
         out.append(Arena(
             event=gap["event"], pod=gap["department"],
             benchmark_listings=gap["benchmark_listings"] or 0,
             days_away=gap["days_away"],
-            forms=arena_forms(db, gap["department"])["forms"]))
+            forms=arena_forms(db, gap["department"])["forms"],
+            arbitrage=(steer.get(gap["department"]) or {}).get("score")))
     return out
 
 
@@ -989,7 +997,8 @@ def history(db, *, limit: int = 10) -> dict:
 # Which arena an expedition goes to
 
 
-def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Arena:
+def choose(found: list[Arena], *, cycle: int, today: date | None = None,
+           shares: dict[str, float] | None = None) -> Arena:
     """Pick this cycle's arena, honouring the priority programme's reservation.
 
     Plain round-robin over twelve arenas gives Christmas one expedition in twelve, which is
@@ -1026,12 +1035,22 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     # while Christmas sat at 96 and Halloween at 41, because the wheel indexed the list in
     # whatever order the matrix returned it. A discovery run aimed at the occasion furthest
     # away is the one whose runway was least in danger.
-    reserved = priority_shares()["shares"]
-    priority = sorted((a for a in found if a.event in reserved),
-                      key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
-    others = sorted((a for a in found if a.event not in reserved),
-                    key=lambda a: (a.days_away, -a.benchmark_listings, a.pod))
+    # C-60 (#287): with persisted strike teams, their shares are the reservation -- the
+    # occasions that hold a team are the priority half, and the slice of the wheel they get
+    # is the capacity the teams were granted, not the compression seed's figure.
+    reserved = dict(shares) if shares else priority_shares()["shares"]
+    # C-60 (#2): within an occasion, the department the weakness hunt scored most open goes
+    # first; an arena with no rankable market score follows every scored one.
+    def _order(a):
+        arb = getattr(a, "arbitrage", None)
+        return (a.days_away, 1 if arb is None else 0, -(arb or 0.0),
+                -a.benchmark_listings, a.pod)
+
+    priority = sorted((a for a in found if a.event in reserved), key=_order)
+    others = sorted((a for a in found if a.event not in reserved), key=_order)
     if not priority or not others:
+        if any(getattr(a, "arbitrage", None) is not None for a in found):
+            found = sorted(found, key=_order)
         return found[cycle % len(found)]
 
     # The reservation the programme actually holds today, which falls as its lanes close and
@@ -1040,6 +1059,9 @@ def choose(found: list[Arena], *, cycle: int, today: date | None = None) -> Aren
     held = reservation(soonest.event,
                        lane_states(soonest.days_away, today=today or date.today()))
     share = max(held.get("share", 0.0), MIN_PRIORITY_SHARE)
+    if shares:
+        share = max(MIN_PRIORITY_SHARE, min(0.75, sum(
+            float(shares.get(e, 0.0)) for e in {a.event for a in priority})))
 
     # A wheel no longer than the programme's own runway, with its slots *spread* rather than
     # blocked at the front.

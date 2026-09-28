@@ -147,8 +147,7 @@ def whose_language_is_this(db, *, benchmark_key: str = "") -> dict:
         observed = s.scalar(select(func.count(BenchmarkListing.id)).where(
             BenchmarkListing.benchmark_key == benchmark_key)) or 0
 
-    spec = benchmarks.spec_for(benchmark_key)
-    market = (spec.market if spec else "") or benchmarks.UNSTATED_MARKET
+    market = benchmarks.market_of(db, benchmark_key) or benchmarks.UNSTATED_MARKET
     named = market != benchmarks.UNSTATED_MARKET
     describes = next((m.what for m in MARKETS if m.key == market), market)
 
@@ -171,7 +170,7 @@ def whose_language_is_this(db, *, benchmark_key: str = "") -> dict:
         "describes_market": market,
         "measurable": bool(observed),
         "attributable": bool(observed) and named,
-        "markets_in_registry": benchmarks.markets_observed(),
+        "markets_in_registry": benchmarks.markets_observed(db),
         "why": why,
         "what_would_fix_it": ("a benchmark in another market, which is a decision about "
                               "which shops to observe rather than a capability. The Etsy "
@@ -192,8 +191,15 @@ def coverage(db) -> dict:
     """
     from ..intel import benchmarks
 
-    stated = benchmarks.markets_observed()
-    unstated = [b.key for b in benchmarks.REGISTRY if not b.market]
+    from sqlalchemy import select
+
+    from ..core.models import Benchmark
+
+    stated = benchmarks.markets_observed(db)
+    with db.session() as s:
+        keys = [r.key for r in s.scalars(select(Benchmark))]
+    unstated = sorted({b.key for b in benchmarks.REGISTRY if not b.market}
+                      | {k for k in keys if not benchmarks.market_of(db, k)})
     return {
         "markets_with_a_benchmark": stated,
         "benchmarks_with_no_stated_market": unstated,

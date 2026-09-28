@@ -271,7 +271,10 @@ def persist_teams(db, allocation: dict, rolling: dict, catalogue: dict,
                 row = SeasonalTeam(event=team["event"], year=year)
                 s.add(row)
             row.state, row.share, row.standing = "active", team["share"], team["standing"]
-            row.owner_agent = "orchestrator"
+            # C-60 (#287): the agent that owns the team's next piece of work, read from the
+            # team's own products -- not one name for every team.
+            row.owner_agent, owns["owner_reason"] = owner_for(products, owns["product_gaps"],
+                                                              catalogue)
             row.products, row.owns, row.reason = products, owns, team["doing"]
             row.updated_at = now
             written.append(team["event"])
@@ -287,6 +290,124 @@ def persist_teams(db, allocation: dict, rolling: dict, catalogue: dict,
                 row.state, row.reason = "refused", str(refused.get("why", ""))[:500]
                 row.updated_at = now
     return {"active": written, "disbanded": disbanded}
+
+
+def owner_for(products: list[str], gaps: list, catalogue: dict) -> tuple[str, str]:
+    """Which agent owns a team's next step, from what the team's products are waiting on.
+
+    An uncertified product is engineering's; a certified one with no listing is the listing
+    agent's; with everything listed and departments still uncovered it is creative
+    development's; with nothing uncovered and everything listed, growth's.
+    """
+    uncertified = [p for p in products if not catalogue.get(p, {}).get("certified")]
+    unlisted = [p for p in products if catalogue.get(p, {}).get("certified")
+                and not catalogue.get(p, {}).get("listed")]
+    if uncertified:
+        return "crochet_engineer", f"{len(uncertified)} product(s) not yet certified"
+    if unlisted:
+        return "listing", f"{len(unlisted)} certified product(s) with no listing"
+    if gaps or not products:
+        return "creative_director", (f"{len(gaps)} department(s) the occasion spans are "
+                                     f"uncovered" if gaps else "the team has no product yet")
+    return "growth", "every product is certified and listed; the work is demand"
+
+
+def active_shares(db) -> dict[str, float]:
+    """The capacity each active strike team holds (#287), for the work selectors to obey."""
+    from sqlalchemy import select
+
+    from ..core.models import SeasonalTeam
+
+    with db.session() as s:
+        return {r.event: float(r.share or 0.0) for r in s.scalars(select(SeasonalTeam).where(
+            SeasonalTeam.state == "active")) if (r.share or 0) > 0}
+
+
+# ---- #128: breakout mining ------------------------------------------------------------------
+
+BREAKOUT_KIND = "seasonal.breakout_mining"
+ADJACENT_AXES: tuple[tuple[str, str], ...] = (
+    ("format", "what other made object carries the same mechanism for the same buyer?"),
+    ("recipient", "who else would want this mechanism, and what would they need it to be?"),
+    ("complexity", "what is the quick-make version, and what is the heirloom version?"),
+    ("bundle_position", "what entry product or companion piece sits beside it in a set?"),
+)
+
+
+def _traits(item: dict) -> dict:
+    seed = item.get("seed")
+    if seed is None:
+        return {}
+    text = f"{seed.title} {seed.rationale}".lower()
+    return {"category": seed.category, "season": seed.season or "evergreen",
+            "price": ("under_6" if seed.price_cad < 6 else "6_to_10" if seed.price_cad < 10
+                      else "over_10"),
+            "sewing": "no_sew" if "no-sew" in text or "no sew" in text else "sewn_or_na",
+            "aesthetic": seed.family or seed.category,
+            "bundle": "bundle" if seed.is_bundle else "single"}
+
+
+def mine_breakouts(db, catalogue: dict, breakout: dict, *, today: date) -> dict:
+    """Decompose each breakout's winning mechanism and brief adjacent ORIGINAL work (#128).
+
+    The decomposition is `commerce.replication.candidates` over the catalogue with the order
+    counts the breakout was computed from, stored as a reading. The brief holds the most
+    distinguishable dimension and changes format, recipient, complexity and bundle position --
+    never only the palette, which `replication.check_proposal` refuses by name.
+    """
+    from sqlalchemy import select
+
+    from ..commerce import replication
+    from ..core.models import OperatingReading, Order
+
+    winners = list(breakout.get("breakouts") or [])
+    if not winners:
+        return {"reading": breakout.get("reading", "none"), "mined": [], "requests": []}
+    with db.session() as s:
+        counts: dict[str, int] = {}
+        for o in s.scalars(select(Order).where(Order.refunded.is_(False))):
+            counts[o.product_slug] = counts.get(o.product_slug, 0) + 1
+    skus = [replication.Sku(slug=slug, orders=counts.get(slug, 0), weeks_live=0,
+                            traits=_traits(item)) for slug, item in catalogue.items()]
+    mined, requests = [], []
+    for slug in winners:
+        winner = next((x for x in skus if x.slug == slug), None)
+        if winner is None:
+            continue
+        why = replication.candidates(winner, skus)
+        hold = [r["dimension"] for r in why["ranked"][:1]]
+        seed = (catalogue.get(slug) or {}).get("seed")
+        from ..intel import pods
+
+        pod = pods.route(f"{seed.title} {seed.category}") if seed else ""
+        proposal = replication.check_proposal(
+            replication.Proposal(slug=f"{slug}-adjacent", holds=tuple(hold or ["category"]),
+                                 changes=tuple(d for d in ("price", "bundle", "sewing")
+                                               if d not in hold)), winner)
+        mined.append({"winner": slug, "explanations": why["ranked"],
+                      "confounded": why["confounded"], "attributable": why["attributable"],
+                      "holds": hold, "proposal": proposal})
+        requests.append({
+            "lane": "breakout_adjacent", "arena": pod, "pod": pod,
+            "objective": (f"adjacent ORIGINAL opportunities to the breakout {slug}: hold "
+                          f"{hold or ['its category']} and change format, recipient, "
+                          f"complexity and bundle position while the window is open -- "
+                          f"never a recolour or a clone of it"),
+            "diverged_from": slug,
+            "trigger": {"kind": "breakout", "slug": slug, "as_of": today.isoformat()},
+            "briefs": [{"axis": a, "question": q, "claims_market_gap": False,
+                        "vocabulary": []} for a, q in ADJACENT_AXES]})
+    payload = {"as_of": today.isoformat(), "mined": mined}
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == BREAKOUT_KIND,
+            OperatingReading.period_key == today.isoformat()))
+        if row is None:
+            s.add(OperatingReading(kind=BREAKOUT_KIND, period_key=today.isoformat(),
+                                   payload=payload))
+        else:
+            row.payload = payload
+    return {"reading": "measured", "mined": mined, "requests": requests}
 
 
 # ---- #131: takeovers --------------------------------------------------------------------------
@@ -356,11 +477,46 @@ def collections(catalogue: dict) -> dict:
     for event, occasion in CONCEPT_OCCASION.items():
         members = [c for c in concepts if c.occasion == occasion]
         for story in sorted({c.palette_story for c in members}):
-            out.append(coll.assemble(event, key=f"{occasion}:{story}", palette_story=story,
-                                     visual_language=f"{occasion} {story}",
-                                     candidates=members))
+            # The concept vocabulary's occasion, not the calendar's name: `assemble` keeps
+            # only candidates whose occasion equals the one it is given, and "Christmas" is
+            # never equal to "christmas" -- every engine collection read empty (C-60).
+            report = coll.assemble(occasion, key=f"{occasion}:{story}", palette_story=story,
+                                   visual_language=f"{occasion} {story}",
+                                   candidates=members)
+            out.append({**report, "calendar_event": event})
     return {"assessed": len(out), "coherent": [c["collection"] for c in out if c["coherent"]],
             "collections": out}
+
+
+def persist_collections(db, reading: dict) -> dict:
+    """A coherent engine collection becomes a `Collection` row; an incoherent one does not.
+
+    `takeovers()` features a season's Collection row, so this is where the assessment acts:
+    an incoherent grouping is never featured, and a row for a grouping that has stopped being
+    coherent is withdrawn from its season (#289).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Collection
+
+    written, withdrawn = [], []
+    by_key = {c["collection"]: c for c in reading.get("collections") or []}
+    with db.session() as s:
+        for key, c in by_key.items():
+            slug = "engine-" + "".join(ch if ch.isalnum() else "-" for ch in key.lower())[:70]
+            row = s.scalar(select(Collection).where(Collection.slug == slug))
+            if c.get("coherent"):
+                if row is None:
+                    row = Collection(slug=slug, family=c.get("visual_language") or key)
+                    s.add(row)
+                row.title = f"{c.get('visual_language') or key}".title()[:200]
+                row.season = c.get("calendar_event") or c.get("event")
+                row.story = f"engine collection {key}: members {c.get('members')}"[:2000]
+                written.append(slug)
+            elif row is not None and row.season:
+                row.season = None
+                withdrawn.append(slug)
+    return {"written": written, "withdrawn": withdrawn}
 
 
 # ---- #290/#291: half-life and the fast lane --------------------------------------------------
@@ -494,12 +650,14 @@ def run(db, *, today: date | None = None) -> dict:
         "engine": {"allocation": allocation, "scored": [o.to_dict() for o in opp["scored"]],
                    "unscored": opp["unscored"], "squads": squads,
                    "priority_shares": shares,
-                   "breakout": breakouts(db, catalogue, today=today)},
+                   "breakout": (bo := breakouts(db, catalogue, today=today)),
+                   "breakout_mining": mine_breakouts(db, catalogue, bo, today=today)},
         "teams": {**team_alloc, "problem": team_problem, "persisted": persisted},
         "takeovers": takeovers(db, calendar, catalogue, today=today),
         "rollforward": rolled,
         "demand_curves": curves,
-        "collections": collections(catalogue),
+        "collections": (coll_reading := collections(catalogue)),
+        "collections_persisted": persist_collections(db, coll_reading),
         "half_lives": lives,
         "fast_lane": fast_lane(db, calendar, catalogue),
         "provenance": provenance.stamp_all(db, today=today,

@@ -112,14 +112,21 @@ def latest(db, action: str) -> dict | None:
 def lessons(db, *, kind: str, event: str, pod: str) -> dict:
     """#85, #101: lessons and the creative reference brief, through their public readers."""
     from ..improve.bus import brief_lessons
-    from . import reference
+    from . import benchmark_memory, reference
 
     memory = brief_lessons(db, artifact=f"ideation:{kind}:{event}/{pod}")
     ref = {"usable": False, "reason": "not read"}
-    try:
-        ref = reference.brief(db, pod)
-    except Exception as e:  # noqa: BLE001 - a missing reference is reported, not fatal
-        ref = {"usable": False, "reason": f"{type(e).__name__}: {e}"[:200]}
+    # #116: the stored decomposition first -- the record the reference cadence wrote -- and
+    # the live computation only where none is stored yet.
+    stored = reference.stored_decomposition(db, pod)
+    if stored and stored.get("primitives"):
+        ref = {"usable": True, "primitives": stored["primitives"],
+               "reason": f"stored decomposition of {stored.get('as_of')}"}
+    else:
+        try:
+            ref = reference.brief(db, pod)
+        except Exception as e:  # noqa: BLE001 - a missing reference is reported, not fatal
+            ref = {"usable": False, "reason": f"{type(e).__name__}: {e}"[:200]}
     return {
         "lesson_ids": list(memory["lesson_ids"]),
         "lessons_available": len(memory["lessons"]),
@@ -130,6 +137,10 @@ def lessons(db, *, kind: str, event: str, pod: str) -> dict:
         "reference": {"usable": bool(ref.get("usable")),
                       "primitives": ref.get("primitives") or {},
                       "reason": ref.get("reason", "")},
+        # #86: the attributes the market is rewarding, from the stored creativity benchmark
+        # memory. Empty while the memory is UNMEASURED, and the brief says nothing rather
+        # than guessing what sells.
+        "market_attributes": benchmark_memory.rewarded(db, pod=pod),
         "state": ("drew on accumulated lessons" if memory["lesson_ids"] else
                   "no lesson recorded yet: this run starts from the company's absence of "
                   "memory, and the provenance row says so (#101)"),
@@ -581,6 +592,12 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
     if prims:
         lines.append("- reference primitives: " + "; ".join(
             f"{k}={v}" for k, v in sorted(prims.items())))
+    # #86: what the market is rewarding, as attributes of how an offer is built to sell --
+    # never the depicted design -- with the lift each was measured at.
+    for attr in p["lessons"].get("market_attributes") or []:
+        lines.append(
+            f"- market rewards {attr['attribute']} (favourites x{attr['demand_lift']} across "
+            f"{attr['listings']} judged listings): " + "; ".join(attr["phrases"]))
     return "\n".join(lines), b
 
 

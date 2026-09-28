@@ -438,8 +438,9 @@ def _second_market_observed(db, env) -> bool:
         keys = {k for (k,) in s.execute(
             select(BenchmarkListing.benchmark_key).distinct())}
 
-    markets = {spec.market for key in keys
-               if (spec := benchmarks.spec_for(key)) is not None and spec.market}
+    # A discovered panel member (#219) carries its market on its row, read from the shop's
+    # own Etsy location; `market_of` reads the spec first and that row second.
+    markets = {m for key in keys if (m := benchmarks.market_of(db, key))}
     return len(markets) > 1
 
 
@@ -595,7 +596,10 @@ GATES: tuple[Gate, ...] = (
          "a model that can actually look at a picture, over the gallery URLs the sanctioned "
          "Etsy endpoint already returns",
          _vision_usable,
-         (61, 79, 116, 208, 209, 210, 211, 278, 303, 304),
+         # C-60/C-71: #208 #210 #211 were built without a vision model (API evidence, pod
+         # maps, photography coverage) and left the gate; the registry's explicit parks
+         # (#15 #86 #116 #304) are the live half.
+         (61, 79, 116, 209, 278, 303, 304),
          "a recorded vision.probe judged a real observed image -- and a reply that describes "
          "no image is recorded as a failure, because a 200 carrying an apology is the shape "
          "a broken vision path takes"),

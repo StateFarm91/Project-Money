@@ -296,17 +296,29 @@ def _wow(concept: Concept, brief: dict) -> dict:
     return _result(PASS if out.ok else FAIL, out.problems, **out.to_dict())
 
 
-def _top_decile(concept: Concept, brief: dict) -> dict:
-    """#125: a flagship is scored against the category's top decile, not its mean."""
+def _top_decile(concept: Concept, brief: dict, db=None) -> dict:
+    """#125: a flagship is scored against the category's top decile, not its mean.
+
+    C-60: when the brief carries no judged score and no benchmark scores, both are produced
+    by `creative.strength` -- the same deterministic card rubric applied to the concept and
+    to every observed listing in its pod -- so the check measures rather than waits. A brief
+    that does carry a score keeps it, and still needs its judge named.
+    """
     from .invention import FLAGSHIP
     from .standard import aspiration
 
     if concept.make_lane != FLAGSHIP:
         return _result(NOT_APPLICABLE, make_lane=concept.make_lane)
     scores = [float(s) for s in (brief.get("benchmark_scores") or [])]
-    aim = aspiration(scores)
     score = brief.get("strength_score")
     source = str(brief.get("strength_score_source") or "").strip()
+    if db is not None and score is None and not scores:
+        from . import strength
+
+        scores = strength.benchmark_scores(db, concept.pod)
+        mine = strength.concept_score(db, concept)
+        score, source = mine["score"], (mine["source"] if mine["score"] is not None else "")
+    aim = aspiration(scores)
     reasons = []
     if score is None or not source:
         reasons.append(
@@ -521,10 +533,25 @@ def gate_concept(db, concept, *, brief: dict | None = None, catalogue: list | No
         checks["silhouette"] = _silhouette(built, brief)
         checks["motif_grammar"] = _motif_grammar(built, brief)
         checks["wow"] = _wow(built, brief)
-        checks["top_decile"] = _top_decile(built, brief)
+        checks["top_decile"] = _top_decile(built, brief, db)
         checks["grid_tournament"] = _grid(db, built, brief)
         checks["emotional_promise"] = _emotional_promise(built, brief)
         checks["half_life"] = _half_life(built, brief)
+        grid = checks["grid_tournament"]
+        # C-60 (#126): an expensive concept with no board gets one -- rendered from its own
+        # prototype's digital twin, deterministically -- so the grid can be requested.
+        if (db is not None and grid["status"] == UNMEASURED
+                and not grid["detail"].get("board_image")
+                and not grid["detail"].get("recorded")):
+            from .board import make_board
+
+            board = make_board(db, built)
+            if board.get("board_image"):
+                brief = {**brief, "board_image": board["board_image"]}
+                checks["grid_tournament"] = _grid(db, built, brief)
+                checks["grid_tournament"]["detail"]["board"] = board
+            else:
+                grid["detail"]["board"] = board
 
     failed = [n for n in CHECKS if checks[n]["status"] == FAIL]
     unmeasured = [n for n in CHECKS if checks[n]["status"] == UNMEASURED]

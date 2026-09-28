@@ -104,6 +104,17 @@ def _price_cad(listing: dict) -> float:
         return 0.0
 
 
+# The listing-structure fields the sanctioned API returns for options and variants (#208).
+# Badges and cross-sell placement exist only on the rendered page and are not here.
+OPTION_FIELDS = ("has_variations", "is_personalizable", "personalization_is_required",
+                 "is_customizable", "listing_type")
+
+
+def listing_options(listing: dict) -> dict:
+    """Which option / variant structure the listing declares, from API fields only."""
+    return {k: listing[k] for k in OPTION_FIELDS if listing.get(k) is not None}
+
+
 def fingerprint_of(listing: dict) -> str:
     return pods.fingerprint({k: listing.get(k) for k in FINGERPRINTED})
 
@@ -161,6 +172,8 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 # new-or-changed branch covered 25 of 438 listings and had no path to the
                 # rest. Unlike the gallery this costs nothing -- the description arrived with
                 # the catalogue page -- so the whole map closes on the next scan.
+                if "options" not in (row.detail or {}) and listing_options(listing):
+                    row.detail = {**(row.detail or {}), "options": listing_options(listing)}
                 if "deliverable" not in (row.detail or {}):
                     facts = deliverable.read(listing)
                     sizes = deliverable.size_range(listing, pod=row.pod)
@@ -188,6 +201,11 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                           "num_favorers": listing.get("num_favorers"),
                           "who_made": listing.get("who_made"),
                           "when_made": listing.get("when_made")}
+            # #208: options and variants, from the API's own listing fields. Stored only
+            # when the payload carries them -- an absent field is unmeasured, not "none".
+            options = listing_options(listing)
+            if options:
+                row.detail["options"] = options
             # #2's last unmeasured weakness: whether the listing says what arrives. The
             # description is already in this payload and nothing was reading it. It is read
             # here and discarded with the payload -- what is stored is the fact set, which is

@@ -674,6 +674,16 @@ def test_a_bundle_waiting_for_members_waits_and_does_not_die():
         done = s.get(Job, queued_id)
         assert done.status == JobStatus.DONE, done.last_error
         assert done.outputs.get("waiting") is None and len(done.outputs["members"]) == 2
+        # C-60 (#289): the assessment blocks -- two members are a product and its accessory,
+        # not a collection -- so it is refused rather than drafted, and it still never dies.
+        assert done.outputs["refused"] is True and done.outputs["drafted"] is False, done.outputs
+        assert done.outputs["architecture"]["coherent"] is False \
+            and done.outputs["architecture"]["problems"], done.outputs["architecture"]
+        from brambleloop.core.models import Listing
+
+        assert s.scalar(select(Listing).where(
+            Listing.product_slug == "nordic-forest-bundle",
+            Listing.version == "collection")) is None, "an incoherent collection was drafted"
 
 
 # ---- #241: the launch experiment pack ------------------------------------------------------

@@ -4094,6 +4094,22 @@ def api_physical_test(payload: dict) -> dict:
     return {"enqueued": True, "job_id": job.id if job else None}
 
 
+@app.post("/api/physical-photo")
+def api_physical_photo(payload: dict) -> dict:
+    """#64: a tester's or customer's photograph of a finished object, recorded by hash.
+
+    Queued like a physical test: with a rights basis it becomes a listing upgrade task.
+    """
+    missing = [k for k in ("slug", "sha256", "source") if not payload.get(k)]
+    if missing:
+        return JSONResponse({"error": f"missing: {missing}"}, status_code=422)
+    try:
+        job = JobQueue(db).enqueue("quality_director", "physical.photo", payload)
+    except DuplicateJob:
+        return {"enqueued": False, "reason": "this photograph is already queued"}
+    return {"enqueued": True, "job_id": job.id if job else None}
+
+
 @app.get("/api/launch")
 def api_launch() -> dict:
     """What stands between this shop and a live customer, computed on request.

@@ -269,11 +269,21 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
     # gate as finished work rather than moving to another park. Asserted by membership, not a
     # count, so a row silently moving between gates is caught too.
     pbc = q["parked_by_capability"]
-    # #35's class enablement reads the same current policy pages as #39 (C-73).
-    assert pbc["rendered_pages"] == [35, 39], pbc["rendered_pages"]
+    # #39's policy pages are the hand-written table's one rendered_pages requirement; the
+    # registry may park others there (C-60 reopened #35 onto it). Both halves must be
+    # reported, and nothing else may be: a row here that neither half parked is a row the
+    # executor invented a reason for.
+    registry_rendered = {rid for rid, key in E._registry_gates().items()
+                         if key == "rendered_pages"}
+    assert set(pbc["rendered_pages"]) == {39} | registry_rendered, pbc["rendered_pages"]
     assert {1, 37, 236} <= set(pbc.get("insights_access", [])), pbc
     assert {189, 221, 222, 320} <= set(pbc.get("acceptance_ruling", [])), pbc
-    assert not {2, 15} & {r for rows in pbc.values() for r in rows}, "2/15 are done, not parked"
+    parked_anywhere = {r for rows in pbc.values() for r in rows}
+    assert 2 not in parked_anywhere, "#2 is done, not parked"
+    # #15 scores five of its six dimensions from the API index on cadence (C-40, C-71); the
+    # sixth, thumbnail COMPOSITION, is a judgement of an image and waits on image_vision by
+    # name -- that park, and no other, is allowed for it.
+    assert {k for k, rows in pbc.items() if 15 in rows} <= {"image_vision"}, pbc
     assert "reported together" in q["note"]
 
     # The next thing to do is named when there is one, and it is never a parked one. There
@@ -287,8 +297,40 @@ def test_owner_blocked_requirements_are_parked_and_everything_else_continues():
         assert nxt is None, "nothing is ready and the queue named something anyway"
 
 
+def _parked_on_image_generation():
+    """A context in which one otherwise-ready requirement is parked on `image_generation`.
+
+    C-60 re-classified every live row that sat on this gate (#203 onto the external
+    `model_bearing_render`, #300 onto the chain link that actually stops it), so no registry
+    requirement waits on image generation today. The un-park mechanism is still what these
+    tests prove, so the parking is supplied through the same `_registry_gates` hook the
+    registry uses -- a real requirement id, a real gate, a real opening -- rather than by
+    depending on whatever the live registry happens to park there this week.
+    """
+    import contextlib
+
+    @contextlib.contextmanager
+    def ctx():
+        probe = _synced()
+        ready = [r["requirement_id"] for r in E.queue(probe, limit=400)["ready"]]
+        assert ready, "no ready requirement to park, so this proves nothing"
+        rid = ready[0]
+        real = E._registry_gates
+        E._registry_gates = lambda: {**real(), rid: "image_generation"}
+        try:
+            yield rid
+        finally:
+            E._registry_gates = real
+    return ctx()
+
+
 def test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering():
     """The whole reason parking is a checkable condition rather than a note."""
+    with _parked_on_image_generation():
+        _gate_opening_un_parks()
+
+
+def _gate_opening_un_parks():
     db = _synced()
     before = E.queue(db)
 
@@ -380,7 +422,19 @@ def test_a_gate_may_be_satisfied_and_carry_no_requirements():
     # than on a browser: `insights_access`, which counts InsightsSnapshot rows.
     for requirement_id in (1, 37, 236):
         assert E.gate_for(requirement_id) == "insights_access", requirement_id
-    assert reg.get(235).status == reg.DATA_GATED
+    # The fourth, #235, may only ever wait on orders. C-60 (2026-09-27) reopened it as
+    # executable work -- `promotion.incrementality` had no caller -- so today it is parked
+    # nowhere; the day it is parked again, the park must be the data gate `customers` and the
+    # status must say so. Either way it never waits on a credential or a browser.
+    gate_235 = E.gate_for(235)
+    if gate_235 is None:
+        assert reg.get(235).status == reg.PARTIAL, reg.get(235).status
+    else:
+        assert gate_235 == "customers", gate_235
+        # A park is written as `partial` + explicit `parked_on` (C-74: the registry forbids
+        # parked_on on a data_gated row, and only an explicit park parks a partial one).
+        assert reg.get(235).status == reg.PARTIAL and reg.get(235).parked_on == "customers", \
+            (reg.get(235).status, reg.get(235).parked_on)
 
     assert E.reconciliation(db)["balances"] is True
 
@@ -849,6 +903,11 @@ def test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_on
     do it -- the whole reason gates are checked rather than recorded. The registry half must
     behave identically to the table half or it is a quiet way of dropping work.
     """
+    with _parked_on_image_generation():
+        _registry_gate_un_parks()
+
+
+def _registry_gate_un_parks():
     gated = [rid for rid, key in E._registry_gates().items()
              if key == "image_generation"]
     assert gated, "no registry requirement waits on image generation"

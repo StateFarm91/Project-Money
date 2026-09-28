@@ -129,13 +129,39 @@ def spec_for(key: str) -> BenchmarkSpec | None:
     return next((b for b in REGISTRY if b.key == key), None)
 
 
-def markets_observed() -> list[str]:
+def markets_observed(db=None) -> list[str]:
     """Which buyer markets the registry actually covers, ignoring unstated ones.
 
     #268 needs this: a cross-border lens built on one market is a single-market lens with a
     cross-border name, and the count of distinct stated markets is what says which it is.
+    With a database, benchmarks the panel discovered (#219) count too -- but only those with
+    observed listings, because a registered shop nobody has read is not a market observed.
     """
-    return sorted({b.market for b in REGISTRY if b.market})
+    stated = {b.market for b in REGISTRY if b.market}
+    if db is None:
+        return sorted(stated)
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+
+    with db.session() as s:
+        keys = {k for (k,) in s.execute(select(BenchmarkListing.benchmark_key).distinct())}
+    return sorted({m for k in keys if (m := market_of(db, k))} | stated
+                  if keys else stated)
+
+
+def market_of(db, key: str) -> str:
+    """A benchmark's stated buyer market: the code spec's, else the discovered row's."""
+    spec = spec_for(key)
+    if spec is not None and spec.market:
+        return spec.market
+    from sqlalchemy import select
+
+    from ..core.models import Benchmark
+
+    with db.session() as s:
+        row = s.scalar(select(Benchmark).where(Benchmark.key == key))
+        return (row.market or "") if row is not None else ""
 
 
 # ---------------------------------------------------------------------------

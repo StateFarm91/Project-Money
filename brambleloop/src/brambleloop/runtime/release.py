@@ -1867,6 +1867,25 @@ def handle_collection_assemble(ctx: JobContext) -> dict:
     # point; the assessment is recorded with the listing rather than trusted to the name.
     architecture = _collection_architecture(slug, seed, [m.slug for m in members])
     ctx.audit("collection.assessed", artifact=slug, detail=architecture)
+    # C-60 (#289): the assessment blocks. An incoherent collection -- no shared story, a
+    # derivative pair, one price point, too few members -- is not drafted as a listing, and a
+    # draft already on file for it is withdrawn. `chain.rebuild` re-runs this job, so the
+    # collection is drafted on the day its members make it coherent.
+    if not architecture.get("coherent"):
+        with ctx.db.session() as s:
+            stale = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                   Listing.version == "collection"))
+            withdrawn = False
+            if stale is not None and stale.state != "withdrawn":
+                stale.state = "withdrawn"
+                withdrawn = True
+        ctx.audit("collection.refused", artifact=slug, detail={
+            "problems": architecture.get("problems"), "withdrawn_draft": withdrawn,
+            "members": [m.slug for m in members]})
+        return {"slug": slug, "refused": True, "drafted": False,
+                "members": [m.slug for m in members], "withdrawn_draft": withdrawn,
+                "architecture": {k: architecture.get(k) for k in (
+                    "coherent", "problems", "price_points", "members", "without_concept")}}
 
     # #234 (C-64): the bundle engine's own test on the members' product facts. A set whose
     # pairs do not share enough affinities, or that spans too many pods, is a shelf with a
@@ -2064,12 +2083,115 @@ def handle_physical_record(ctx: JobContext) -> dict:
         if job is not None:
             rebuilt.append(f"{slug}@{version}")
 
+    # #64: photographs of the finished sample arrive with the sample. Each is taken in and,
+    # where a rights basis is recorded, becomes an upgrade task for the listing.
+    photos = []
+    for ph in i.get("photos") or []:
+        photos.append(_intake_photo(ctx, {**ph, "slug": slug, "version": version,
+                                          "physical_test_id": row_id}))
+
     return {"slug": slug, "version": version, "physical_test_id": row_id,
             "factor": assessment.factor, "calibration_now": factor,
             "size_agrees": assessment.size_agrees,
             "usable": assessment.usable_for_calibration,
             "findings": [f.code for f in assessment.findings],
-            "rebuilt": rebuilt}
+            "rebuilt": rebuilt, "photos": photos}
+
+
+def _intake_photo(ctx: JobContext, i: dict) -> dict:
+    """Record one physical photo and queue its listing upgrade when rights permit (#64)."""
+    from ..publish import physical_upgrade
+
+    rec = physical_upgrade.intake(
+        ctx.db, slug=i["slug"], version=i.get("version", ""),
+        source=i.get("source", "tester"), sha256=i.get("sha256", ""),
+        rights_basis=i.get("rights_basis", ""), taken_by=i.get("taken_by", ""),
+        physical_test_id=i.get("physical_test_id"), note=i.get("note", ""))
+    queued = None
+    if rec["may_use"]:
+        job = ctx.enqueue("publishing", "assets.physical_upgrade",
+                          {"photo_id": rec["photo_id"]},
+                          idempotency_key=f"physical_upgrade:{rec['photo_id']}")
+        queued = job.id if job is not None else None
+    ctx.audit("physical.photo_received", artifact=i["slug"],
+              detail={**rec, "upgrade_job": queued})
+    return {**rec, "upgrade_job": queued}
+
+
+@handlers.register("physical.photo")
+def handle_physical_photo(ctx: JobContext) -> dict:
+    """#64 intake: a tester's or customer's photograph of a finished Brambleloop object.
+
+    Recorded by hash with its rights basis; with a basis on file it becomes an
+    `assets.physical_upgrade` task. GREEN: internal writes only; nothing is published.
+    """
+    return _intake_photo(ctx, dict(ctx.job.inputs or {}))
+
+
+@handlers.register("assets.physical_upgrade")
+def handle_physical_upgrade(ctx: JobContext) -> dict:
+    """#64: supplement the listing with the physical photograph and record the baseline.
+
+    The new frame is unapproved until asset truth and the listing-set certificate re-run; the
+    changed frame set invalidates the old certificate by fingerprint (#70). GREEN.
+    """
+    from ..publish import physical_upgrade
+
+    out = physical_upgrade.plan_upgrade(ctx.db, int(ctx.job.inputs["photo_id"]),
+                                        today=_mjs_today(ctx))
+    ctx.audit("physical.upgrade_planned", artifact=out.get("slug"), detail=out)
+    return out
+
+
+@handlers.register("creative.reference_reading")
+def handle_reference_reading(ctx: JobContext) -> dict:
+    """#116 / #278: construction readings recorded and department decompositions stored.
+
+    Daily. Refused, with the reason, while image_vision is closed; otherwise reads a bounded
+    batch of judged listings' first images inside the creative_director ceiling, records each
+    reading, and stores each department's decomposition for ideation to read.
+    """
+    import os
+
+    from ..creative import reference
+
+    out = reference.run(ctx.db, env=dict(os.environ), today=_mjs_today(ctx))
+    ctx.audit("creative.reference_reading" if out["ran"] else
+              "creative.reference_reading_blocked", detail=out)
+    return out
+
+
+@handlers.register("visual.identity_drift")
+def handle_identity_drift(ctx: JobContext) -> dict:
+    """#201: the canonical model's identity checked across batches and over time, daily.
+
+    Per-dimension drift share per render batch from the recorded identity verdicts; a
+    dimension rising across batches opens a publication-halting incident. UNMEASURED with
+    fewer than three batches. GREEN: reads audit rows, writes a reading and incidents.
+    """
+    from ..visual import drift_series
+
+    out = drift_series.run(ctx.db, today=_mjs_today(ctx))
+    ctx.audit("visual.identity_drift", detail={k: out[k] for k in (
+        "batches", "frames", "gradual_drift", "measurable", "incidents_opened",
+        "incidents_resolved")})
+    return {"batches": out["batches"], "measurable": out["measurable"],
+            "gradual_drift": [g["dimension"] for g in out["gradual_drift"]],
+            "incidents_opened": out["incidents_opened"]}
+
+
+@handlers.register("physical.upgrade_impact")
+def handle_physical_upgrade_impact(ctx: JobContext) -> dict:
+    """#64: CTR and conversion before/after each physical-proof upgrade, daily.
+
+    UNMEASURED, with the reason, until a live listing produces outcome rows. GREEN.
+    """
+    from ..publish import physical_upgrade
+
+    out = physical_upgrade.measure_impact(ctx.db, today=_mjs_today(ctx))
+    ctx.audit("physical.upgrade_impact", detail=out)
+    return {"upgrades": out["upgrades"],
+            "measured": sum(1 for r in out["readings"] if r["impact"] == "measured")}
 
 
 
@@ -2572,6 +2694,19 @@ def _run_mjs_mission(ctx: JobContext) -> dict:
     result = mission_runtime.process(ctx.db, enqueue=ctx.enqueue, today=_mjs_today(ctx))
     result["tournaments"] = sorted({e["tournament_job_id"] for e in result["events"]
                                     if e.get("tournament_job_id")})
+    # C-60 (#215): a CONCEPTING gap is consumed -- its same-arena original design starts.
+    concepting = mission_runtime.consume_concepting(ctx.db, enqueue=ctx.enqueue,
+                                                    today=_mjs_today(ctx))
+    result["same_arena_started"] = concepting["started"]
+    # C-60 (#211): the director's company-level view, persisted daily and acted on.
+    standing = mission_runtime.company_standing(ctx.db, enqueue=ctx.enqueue,
+                                                today=_mjs_today(ctx))
+    result["company_standing"] = standing["counts"]
+    if concepting["started"] or standing["photography_requested"]:
+        ctx.audit("mjs.director_actions", detail={
+            "same_arena_started": concepting["started"],
+            "photography_requested": standing["photography_requested"],
+            "counts": standing["counts"]})
     if result["pending"] or result["processed"]:
         ctx.audit("mjs.mission_events", detail={
             "pending": result["pending"], "processed": result["processed"],
@@ -2612,11 +2747,85 @@ def handle_intel_pod_learning(ctx: JobContext) -> dict:
     ctx.audit("mjs.response_outcomes", detail=responses)
     result = mission_runtime.pod_capability(ctx.db)
     ctx.audit("mjs.pod_capability", detail=result)
+    # C-60 (#210): each cell's opportunity map, persisted beside its capability reading.
+    maps = mission_runtime.pod_maps(ctx.db, today=_mjs_today(ctx))
+    result["pod_maps"] = sorted(maps["pods"])
     return {"pods": len(result["pods"]), "records": result["records"],
-            "judgements": result["judgements"],
+            "judgements": result["judgements"], "pod_maps": result["pod_maps"],
             "measured": sorted(p for p, r in result["pods"].items() if r["measured"]),
             "responses": {k: responses[k] for k in ("interpretations", "responses_launched",
                                                      "state")}}
+
+
+@handlers.register("creative.benchmark_memory")
+def handle_benchmark_memory(ctx: JobContext) -> dict:
+    """#86: the creativity benchmark memory, folded daily from judged photographs and stored.
+
+    Reads every `gallery_image_observation` for the commercial attributes the vision
+    vocabulary judged (transformation, silhouette strength, characterisation, gift narrative,
+    modularity ...), pairs each with the market outcome on file (favourites, a demand proxy)
+    and with Brambleloop's own outcomes (UNMEASURED until orders exist), and stores the
+    reading. `creative.ideation.lessons` reads it into every tournament and expedition brief.
+    UNMEASURED, with the reason, while no judged image carries an attribute -- the judging runs
+    behind image_vision. GREEN: reads rows, writes one reading, spends nothing.
+    """
+    from ..creative import benchmark_memory
+
+    out = benchmark_memory.build(ctx.db, today=_mjs_today(ctx))
+    ctx.audit(benchmark_memory.ACTION, detail={
+        "state": out["state"], "judged_listings": out["judged_listings"],
+        "attributes": sorted(out["attributes"]),
+        "brambleloop_outcomes": out["outcomes"]["brambleloop"]["reading"],
+        **({"reason": out["reason"]} if not out["measured"] else {})})
+    return {"measured": out["measured"], "state": out["state"],
+            "judged_listings": out["judged_listings"],
+            "attributes": sorted(out["attributes"]),
+            "rewarded": [a["attribute"] for a in benchmark_memory.rewarded(ctx.db)]}
+
+
+@handlers.register("intel.panel_discovery")
+def handle_intel_panel_discovery(ctx: JobContext) -> dict:
+    """#219 / #268: category leaders found in the API search index join the panel and are scanned.
+
+    Weekly. A shop in the index's top results for two or more target queries is read with
+    `getShop` (for its name and its stated market), registered as a non-mandatory benchmark
+    with the evidence that put it there, and its catalogue is scanned with the same sanctioned
+    reader as the anchor. A market the panel does not yet cover is preferred. From then on
+    `mission_runtime.panel_members` counts it and a mechanism shown by it and the anchor
+    becomes learnable (#220). GREEN: public reads only; nothing is published or bought.
+    """
+    import os
+
+    from ..intel import panel_discovery
+
+    result = panel_discovery.discover(ctx.db, env=dict(os.environ))
+    ctx.audit("intel.panel_discovered" if result["ran"] else "intel.panel_discovery_blocked",
+              detail={k: v for k, v in result.items() if k != "note"})
+    return {"ran": result["ran"], "candidates": result["candidates"],
+            "joined": [j["key"] for j in result.get("joined", [])],
+            "scanned": len(result.get("scanned", [])),
+            "markets_observed": result.get("markets_observed", []),
+            **({} if result["ran"] else {"reason": result["reason"][:200]})}
+
+
+@handlers.register("intel.benchmark_refresh")
+def handle_intel_benchmark_refresh(ctx: JobContext) -> dict:
+    """#165: a new category, strong competitor, new format or market shift -> one purchase ask.
+
+    Weekly, free. Reads the panel's observed listings, the SERP laboratory and the purchased
+    library; the first reading is a baseline. Whatever warrants a refresh and is not duplicate
+    information becomes an owner action naming one listing and its observed price as the
+    maximum cost, never more than `benchmark_refresh.MAX_OPEN` open at once. GREEN: nothing
+    is bought here -- buying is the owner's.
+    """
+    from ..intel import benchmark_refresh
+
+    result = benchmark_refresh.assess(ctx.db, today=_mjs_today(ctx))
+    ctx.audit("intel.benchmark_refresh", detail={
+        k: result[k] for k in ("as_of", "baseline", "triggers", "duplicates", "raised",
+                               "held")})
+    return {"baseline": result["baseline"], "triggers": len(result["triggers"]),
+            "raised": [r["key"] for r in result["raised"]], "held": len(result["held"])}
 
 
 @handlers.register("mjs.seasonal_sentinel")
@@ -2883,6 +3092,9 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                 # The improvement pipeline's cards are decisions it raised and closes itself;
                 # this assessment never asked for them, so it is not the one to close them.
                 if key.startswith(OWNER_CARD_PREFIXES):
+                    continue
+                # #165's refresh purchases are raised and bounded by `intel.benchmark_refresh`.
+                if key.startswith("benchmark_refresh:"):
                     continue
                 row.done = True
                 closed.append(key)
@@ -3349,12 +3561,40 @@ def handle_policy_watch(ctx: JobContext) -> dict:
                         "freshness": report}))
             opened.append(source)
 
+    # #39: a material change -- a digest difference from the previous reading -- opens one
+    # blocking incident per source until somebody records it reviewed and tested. The
+    # incident halts publication; `release_gates.staleness` and `check_new_class` refuse on
+    # the same unreviewed change, so the block is enforced where the workflows run.
+    from ..gates.platform_policy import CHANGE_SIGNATURE, unreviewed_changes
+    from ..ops import incident_lifecycle as lifecycle
+
+    changed = {f"{CHANGE_SIGNATURE}{c['source']}": c for c in unreviewed_changes(ctx.db)}
+    with ctx.db.session() as s:
+        change_life = lifecycle.reconcile(
+            s, CHANGE_SIGNATURE, lambda inc: inc.signature in changed,
+            resolution="the material policy change was reviewed and the affected workflows "
+                       "re-tested (review recorded on the snapshot)")
+        changes_opened = []
+        for signature, c in changed.items():
+            _row, new = lifecycle.open_or_restate(
+                s, signature=signature, severity="P1", halts_publication=True,
+                summary=(f"Etsy {c['source'].replace('_', ' ')} changed materially "
+                         f"(reading {c['checked_on']}, version {c['version']}). "
+                         f"{', '.join(c['affects'])} are blocked until the change is "
+                         f"reviewed and tested (#39)."),
+                detail=c)
+            if new:
+                changes_opened.append(c["source"])
+
     ctx.audit("policy.watched", detail={
+        "changes_opened": changes_opened, "changes_resolved": change_life["resolved"],
         "all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
         "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
         "blocked_workflows": report["blocked_workflows"]})
 
     return {"all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
+            "changes_opened": changes_opened, "changes_unreviewed": sorted(
+                c["source"] for c in changed.values()),
             "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
             "blocked_workflows": report["blocked_workflows"],
             "note": ("This cadence does not fetch: direct retrieval is refused by Etsy's bot "
@@ -3556,14 +3796,21 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
                 "regated": regated}
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
-    arena = prospecting.choose(found, cycle=week)
+    # C-60 (#287): the strike teams' persisted shares decide the priority reservation.
+    from ..seasonal.daily import active_shares
+    team_shares = active_shares(ctx.db)
+    arena = prospecting.choose(found, cycle=week, shares=team_shares)
     # #216: a benchmark release queues a divergent ("breakthrough") tournament with its own
     # arena and briefs. It is honoured rather than replaced by the weekly wheel: the arena the
     # release happened in is taken when it is a proven arena, and its divergent briefs are
     # carried into every generator brief below.
     from ..creative.breakthrough import BREAKTHROUGH_LANE
     inputs = ctx.job.inputs or {}
-    breakthrough = inputs if inputs.get("lane") == BREAKTHROUGH_LANE else None
+    from ..intel.mission_runtime import SAME_ARENA_LANE
+    # #215: a same-arena response started from a CONCEPTING gap is honoured the same way.
+    breakthrough = (inputs if inputs.get("lane") in (BREAKTHROUGH_LANE, SAME_ARENA_LANE,
+                                                     "breakout_adjacent")
+                    else None)
     if breakthrough:
         match = [a for a in found if a.pod == breakthrough.get("pod")]
         # The mission names the seasonal event its response is for (#309: demand and season
@@ -3575,7 +3822,7 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
         elif match:
             # The same chooser as the wheel, over the release's pod only, so an arena whose
             # event can no longer be made in time is not picked just because it matched.
-            arena = prospecting.choose(match, cycle=week) or arena
+            arena = prospecting.choose(match, cycle=week, shares=team_shares) or arena
 
     # Every ideation input is read before anything is generated (#85, #101, #105, #117-#122,
     # #124, #142, #232), and the arena moves if saturation leaves it nothing to enter.
@@ -3585,7 +3832,11 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
         return moved_from
     if breakthrough:
         plan["breakthrough"] = {k: breakthrough.get(k) for k in (
-            "arena", "pod", "objective", "diverged_from", "briefs", "trigger")}
+            "arena", "pod", "objective", "diverged_from", "briefs", "trigger", "lane",
+            "entry_axes", "entry_how")}
+    blocked = _ceiling_gate(ctx, plan, arena, kind="tournament")
+    if blocked is not None:
+        return blocked
 
     _task, tier = routing.route(prospecting.IDEATION_TASK)
     gateway = ideation.BriefingGateway(
@@ -3698,7 +3949,8 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     from ..core.models import utcnow
 
     week = int(utcnow().timestamp() // (7 * 24 * 3600))
-    arena = prospecting.choose(found, cycle=week)
+    from ..seasonal.daily import active_shares
+    arena = prospecting.choose(found, cycle=week, shares=active_shares(ctx.db))
 
     arena, plan, moved_from = _ideation_arena(ctx, found, arena, kind="expedition",
                                               cycle=week)
@@ -3707,6 +3959,10 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     from ..creative import intake as winner_intake
 
     winner_intake.regate_held(ctx)
+
+    blocked = _ceiling_gate(ctx, plan, arena, kind="expedition")
+    if blocked is not None:
+        return blocked
     # #117: the expedition's arena loses its saturated, angle-less forms before slots exist.
     arena = ideation.restrict(arena, plan["saturation"]["excluded_forms"])
 
@@ -3777,6 +4033,43 @@ def _winner_intake(ctx: JobContext, selection: dict, plan: dict, *, gateway, are
             "gate_cleared": bool(call.get("cleared_for_engineering")),
             "funnel_carried": took["funnel"], "intake_decision": took["decision"]}
     return gate, took
+
+
+def _ceiling_gate(ctx: JobContext, plan: dict, arena, *, kind: str) -> dict | None:
+    """#227 on the real brief: every objective this run will send to a generator is checked.
+
+    C-60: `ceiling_check` used to judge a default string the mission wrote for itself, so no
+    agent's actual objective was ever read. Here the checked text is what the model is sent
+    -- each rotation of the constraint paragraph `ideation.constraints_text` appends to a
+    generator call, plus the breakthrough / same-arena objective carried in the job inputs.
+    An objective that names matching a competitor as the goal blocks the run before any
+    spend, and the refusal is audited with the offending text.
+    """
+    from ..creative import ideation
+    from ..intel import panel
+
+    texts: list[str] = []
+    bt = plan.get("breakthrough") or {}
+    if bt.get("objective"):
+        texts.append(str(bt["objective"]))
+    for i in range(max(1, len(plan.get("briefs") or []))):
+        try:
+            texts.append(ideation.constraints_text(plan, i)[0])
+        except Exception:  # noqa: BLE001 - a plan without rotations has only its objective
+            break
+    checked = []
+    for text in texts:
+        verdict = panel.ceiling_check(objective=text)
+        checked.append(verdict["permitted"])
+        if not verdict["permitted"]:
+            ctx.audit(f"creative.{kind}_ceiling_refused", artifact=f"{arena.event}/{arena.pod}",
+                      detail={"objective": text[:1200], "matched": verdict.get("matched"),
+                              "against": verdict.get("against"), "why": verdict["why"]})
+            return {"ran": False, "arena": f"{arena.event}/{arena.pod}",
+                    "reason": f"ceiling_check refused the brief: {verdict['why'][:200]}",
+                    "ceiling_refused": True}
+    plan["ceiling_checked"] = {"objectives": len(checked), "permitted": all(checked)}
+    return None
 
 
 def _ideation_arena(ctx: JobContext, found: list, arena, *, kind: str, cycle: int):
@@ -5227,6 +5520,20 @@ def handle_seasonal_engine(ctx: JobContext) -> dict:
         "fast_lane_admitted": reading["fast_lane"]["admitted"],
         "trend_rows_stamped": reading["provenance"]["stamped"],
     }
+    # C-60 (#128): a breakout's decomposition becomes an adjacent-original tournament now,
+    # while the window is open, rather than a line in the reading.
+    queued = []
+    from ..swarm.orchestrate import priority_for
+
+    for req in reading["engine"].get("breakout_mining", {}).get("requests", []):
+        job = ctx.enqueue("creative_director", "creative.tournament", req,
+                          priority=priority_for("creative.tournament"),
+                          idempotency_key=(f"breakout_adjacent:{req['diverged_from']}:"
+                                           f"{reading['period']}"))
+        if job is not None:
+            queued.append(job.id)
+    summary["breakout_adjacent_queued"] = queued
+    summary["collections_persisted"] = reading.get("collections_persisted", {})
     ctx.audit("seasonal.engine", detail=summary)
     return summary
 

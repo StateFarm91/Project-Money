@@ -198,6 +198,46 @@ def cues_for(topic: str) -> list[Cue]:
     return [c for c in CUES if words & set(c.words)]
 
 
+# #139: what makes a topic a quote-class asset, read deterministically from the topic itself.
+# Wikipedia-style qualifiers name the class outright; a quoted span is dialogue; an
+# exclamation or question in a meme / internet-moment title is how catchphrases are titled.
+_QUOTE_QUALIFIERS: tuple[tuple[str, str], ...] = (
+    ("catchphrase", "slogan"), ("slogan", "slogan"), ("advertising slogan", "slogan"),
+    ("tagline", "slogan"), ("motto", "slogan"), ("phrase", "slogan"), ("saying", "slogan"),
+    ("expression", "slogan"), ("quotation", "dialogue"), ("quote", "dialogue"),
+    ("line", "dialogue"), ("song", "lyric"), ("single", "lyric"),
+)
+_QUOTED = re.compile(r"[\"\u201c\u201d]([^\"\u201c\u201d]{3,120})[\"\u201c\u201d]")
+_QUALIFIER = re.compile(r"\(([^)]*)\)")
+
+
+def quote_tokens(topic: str, domain: str) -> list[rights.ProtectedToken]:
+    """Dialogue, lyric and slogan/catchphrase tokens a topic carries (#139).
+
+    Declared at filing, like the title token, so the listing screen has the phrase itself to
+    look for -- the radar may record it as evidence of the humour or moment, and copy may not
+    carry it without a recorded clearance.
+    """
+    cls_of = {"slogan": rights.SLOGAN, "dialogue": rights.DIALOGUE, "lyric": rights.LYRIC}
+    out: list[rights.ProtectedToken] = []
+    label = _QUALIFIER.sub(" ", topic.replace("_", " ")).strip(" \"\u201c\u201d")
+    for quoted in _QUOTED.findall(topic.replace("_", " ")):
+        out.append(rights.ProtectedToken(text=quoted.strip(), asset_class=rights.DIALOGUE,
+                                         source="declared at filing: quoted span"))
+    for qualifier in _QUALIFIER.findall(topic.replace("_", " ")):
+        q = qualifier.strip().lower()
+        hit = next((cls for word, cls in _QUOTE_QUALIFIERS
+                    if q == word or q.endswith(" " + word)), None)
+        if hit and label:
+            out.append(rights.ProtectedToken(text=label, asset_class=cls_of[hit],
+                                             source=f"declared at filing: ({q})"))
+    if not out and domain in ("meme", "internet_moment") and label \
+            and label.rstrip().endswith(("!", "?")) and len(label.split()) >= 2:
+        out.append(rights.ProtectedToken(text=label.rstrip("!? "), asset_class=rights.SLOGAN,
+                                         source="declared at filing: exclaimed meme title"))
+    return out
+
+
 def file_topic(topic: str, placed_domain: str = "") -> dict:
     """Which domain a topic is filed under and what it declares as protected.
 
@@ -224,6 +264,8 @@ def file_topic(topic: str, placed_domain: str = "") -> dict:
                else rights.WORK_TITLE)
         tokens.append(rights.ProtectedToken(text=label, asset_class=cls,
                                             source="declared at filing: unread title"))
+    if not generic:
+        tokens.extend(quote_tokens(topic, domain))
     return {"filed": True, "domain": domain, "cues": cues, "tokens": tokens,
             "generic": generic}
 

@@ -113,6 +113,10 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # C-60 (#201): the identity drift series reads 60 days of model-bearing frames and
+    # persists its own daily reading, so pruning older rows cannot change the series.
+    "assets.model_photography": ("windowed",
+                                 "visual.drift_series reads WINDOW_DAYS=60 of frames"),
     "store.published": ("lifetime_total",
                         "app.main /api/verify `nothing_published` counts all of them"),
     "store.publish_refused": ("lifetime_total",

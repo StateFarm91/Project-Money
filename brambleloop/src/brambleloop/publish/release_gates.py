@@ -669,9 +669,19 @@ def staleness(db, *, slug: str) -> dict:
     if halting:
         reasons.append(f"halted (#173): {len(halting)} open publication-halting incident(s): "
                        + "; ".join(h["summary"] for h in halting[:2]))
+    # #39: a material platform-policy change nobody has reviewed and tested blocks every
+    # product's publication, not one slug's -- the rule changed for the whole shop.
+    from ..gates.platform_policy import unreviewed_changes
+
+    policy = [c for c in unreviewed_changes(db) if "publishing" in c["affects"]]
+    if policy:
+        reasons.append("platform policy changed (#39): "
+                       + ", ".join(c["source"] for c in policy)
+                       + " changed materially and has not been reviewed and tested")
     if not graph["may_publish"]:
         reasons.append(f"rebuild outstanding (#172): {graph['why']}")
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
+            "policy_changes_unreviewed": [c["source"] for c in policy],
             "blocks": bool(reasons), "reasons": reasons}
 
 

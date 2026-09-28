@@ -463,6 +463,19 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("mjs_benchmark_health", "market_radar", "intel.benchmark_health", 24 * 60 * 60),
     ("mjs_pod_learning", "market_radar", "intel.pod_learning", 24 * 60 * 60),
     ("mjs_seasonal_sentinel", "market_radar", "mjs.seasonal_sentinel", 24 * 60 * 60),
+    # C-60 (#219, #268): other category leaders join the elite panel from the API index.
+    ("panel_discovery", "market_radar", "intel.panel_discovery", 7 * 24 * 60 * 60),
+    # C-60 (#165): benchmark refresh recommendations, weekly and free.
+    ("benchmark_refresh", "market_radar", "intel.benchmark_refresh", 7 * 24 * 60 * 60),
+    # C-60 (#64): physical-proof upgrades measured daily; UNMEASURED until listings are live.
+    ("physical_upgrade_impact", "quality_director", "physical.upgrade_impact", 24 * 60 * 60),
+    # C-60 (#201): the canonical identity checked as a series across batches, daily.
+    ("identity_drift", "quality_director", "visual.identity_drift", 24 * 60 * 60),
+    # C-60 (#86): the creativity benchmark memory, daily and free; UNMEASURED until a judged
+    # image carries a commercial attribute (the judging runs behind image_vision).
+    ("benchmark_memory", "creative_director", "creative.benchmark_memory", 24 * 60 * 60),
+    # C-60 (#116): construction readings and stored decompositions, gated on image_vision.
+    ("reference_reading", "creative_director", "creative.reference_reading", 24 * 60 * 60),
     # Weekly. Reviews move slowly, and this is the one observation that reaches the
     # customer_pain domain without this company having customers. It keeps counts per theme
     # and no review text, reviewer or quotation.

@@ -50,6 +50,10 @@ COMPOSITION_FIELDS = ("shot_type", "composition", "product_visibility",
                       "thumbnail_readability", "setting", "palette_role")
 
 
+# Tests set this to a callable returning a recorded reader; production reads the credential.
+READER_FACTORY = None
+
+
 class SerpRefused(RuntimeError):
     """A capture or a judgement this module cannot honestly make."""
 
@@ -145,16 +149,34 @@ def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
     results = list(body.get("results") or [])[:depth]
     count = body.get("count")
 
+    from . import deliverable, pods
+
     ranks: list[dict] = []
     for position, listing in enumerate(results, start=1):
         price, currency = _price(listing)
         favourites = listing.get("num_favorers")
+        title = str(listing.get("title") or "")
+        pod = pods.route(title, str(listing.get("taxonomy_id") or "")) if title else None
+        # Facts, never copy (the deliverable reader's rule): what the result states, read
+        # from the description the search payload already carries, then discarded.
+        facts = deliverable.read(listing)
+        sizes = deliverable.size_range(listing, pod=pod or "") if pod else None
         entry = {"rank": position, "listing_id": listing.get("listing_id"),
                  "shop_id": listing.get("shop_id"),
                  "price": price, "currency": currency,
                  "has_sale": _has_sale(listing),
                  "image_count": None, "thumbnail_url": "",
-                 "favourites": int(favourites) if favourites is not None else None}
+                 "favourites": int(favourites) if favourites is not None else None,
+                 "taxonomy_id": listing.get("taxonomy_id"),
+                 "pod": pod,
+                 "is_pattern": (deliverable.is_digital(listing)
+                                or "pattern" in title.lower()) if (
+                     title or listing.get("is_digital") is not None) else None,
+                 "clarity": (facts or {}).get("clarity"),
+                 "terms_stated": ((facts or {}).get("stated") or {}).get("terms"),
+                 "sizes": (sizes or {}).get("sizes") if (sizes or {}).get("stated") else (
+                     0 if sizes is not None else None),
+                 "has_video": None}
         if position <= detail_top and listing.get("listing_id") is not None:
             try:
                 images = reader.images(listing["listing_id"])
@@ -166,6 +188,13 @@ def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
                 if first:
                     entry["thumbnail_url"] = str(first[0].get("url_570xN")
                                                  or first[0].get("url_fullxfull") or "")
+            # Pattern + video positioning (#15): the sanctioned listing_videos read, taken
+            # for the same top results whose gallery is read. Unreadable stays None.
+            if hasattr(reader, "videos"):
+                try:
+                    entry["has_video"] = bool(reader.videos(listing["listing_id"]))
+                except Exception:  # noqa: BLE001 - unmeasured, not "no video"
+                    entry["has_video"] = None
         ranks.append(entry)
 
     at = _now(now)
@@ -173,13 +202,141 @@ def capture(db, reader, query: str, *, taxonomy_id: int | None = None,
         row = SerpSnapshot(query=query, taxonomy_id=taxonomy_id, captured_at=at,
                            rank_list=ranks,
                            total_count=int(count) if count is not None else None,
-                           basis=BASIS, detail={"depth": depth, "detail_top": detail_top})
+                           basis=BASIS, detail={"depth": depth, "detail_top": detail_top,
+                                                "positioning": positioning(ranks,
+                                                                           top=detail_top)})
         s.add(row)
         s.flush()
         snapshot_id = row.id
     return {"id": snapshot_id, "query": query, "taxonomy_id": taxonomy_id,
             "captured_at": at.isoformat(), "ranked": len(ranks),
             "total_count": int(count) if count is not None else None, "basis": BASIS}
+
+
+# ---------------------------------------------------------------------------
+# Scoring the result set (#15): pattern+video positioning, category diversity, price/sale
+# and social-proof presentation, and where a Brambleloop listing would differ.
+
+# What every Brambleloop release ships, by construction rather than by aspiration: two PDFs
+# (US and UK terms, `commerce.seo`), a graded run compiled and verified across this many
+# sizes (`cir.benchmarks.SIZES`) where size is a variable, and a listing that states what
+# arrives. A result is "differentiable" when it falls short of one of these on facts it
+# states itself; a result whose description was never read counts toward nothing.
+CLEAR_STATEMENT = 0.75
+
+
+def _gradable_sizes() -> int:
+    from ..cir.benchmarks import SIZES
+
+    return len(SIZES)
+
+
+def positioning(ranks: list[dict], *, top: int = DETAIL_TOP) -> dict:
+    """Score one ranked result set on the dimensions #15 names that the index can answer.
+
+    Thumbnail composition is not here: it needs a model to look at the image and is scored by
+    `score_thumbnails` when `image_vision` is open. Rank is directional throughout.
+    """
+    from .deliverable import SIZED_PODS
+
+    head = [e for e in ranks if int(e.get("rank") or 0) <= top]
+    n = len(head)
+    if not n:
+        return {"measurable": False, "top": top,
+                "reason": "no ranked results in this snapshot"}
+
+    def share(xs: list[bool]) -> float | None:
+        return round(sum(1 for x in xs if x) / len(xs), 3) if xs else None
+
+    patterns = [e for e in head if e.get("is_pattern") is not None]
+    is_pattern = [bool(e["is_pattern"]) for e in patterns]
+    video_known = [e for e in head if e.get("has_video") is not None]
+    pattern_video = [e for e in video_known if e.get("is_pattern") and e["has_video"]]
+    first_pv = min((int(e["rank"]) for e in pattern_video), default=None)
+
+    pods_seen = [e["pod"] for e in head if e.get("pod")]
+    shops = [str(e["shop_id"]) for e in head if e.get("shop_id") is not None]
+    top_shop = max((shops.count(sh) for sh in set(shops)), default=0)
+    taxonomies = {e["taxonomy_id"] for e in head if e.get("taxonomy_id") is not None}
+
+    priced = [float(e["price"]) for e in head if e.get("price") is not None]
+    sale_known = [bool(e["has_sale"]) for e in head if e.get("has_sale") is not None]
+    favs = sorted(int(e["favourites"]) for e in head if e.get("favourites") is not None)
+
+    gradable = _gradable_sizes()
+    judged, beaten, reasons = 0, 0, {"terms_unstated": 0, "fewer_sizes": 0,
+                                     "unclear_deliverable": 0}
+    for e in head:
+        if e.get("clarity") is None:
+            continue
+        judged += 1
+        hit = False
+        if e.get("terms_stated") is False:
+            reasons["terms_unstated"] += 1
+            hit = True
+        if e.get("pod") in SIZED_PODS and e.get("sizes") is not None and \
+                int(e["sizes"]) < gradable:
+            reasons["fewer_sizes"] += 1
+            hit = True
+        if float(e["clarity"]) < CLEAR_STATEMENT:
+            reasons["unclear_deliverable"] += 1
+            hit = True
+        beaten += hit
+
+    return {
+        "measurable": True, "top": top, "results": n, "basis": BASIS,
+        "pattern_video": {
+            "pattern_share": share(is_pattern), "patterns_measured": len(patterns),
+            "video_measured": len(video_known),
+            "pattern_with_video": len(pattern_video),
+            "pattern_with_video_share": share([bool(e.get("is_pattern") and e["has_video"])
+                                               for e in video_known]),
+            "first_pattern_with_video_rank": first_pv,
+            "opening": (len(video_known) > 0 and not pattern_video),
+        },
+        "category_diversity": {
+            "distinct_pods": len(set(pods_seen)), "pods_measured": len(pods_seen),
+            "pod_diversity": (round(len(set(pods_seen)) / len(pods_seen), 3)
+                              if pods_seen else None),
+            "distinct_taxonomies": len(taxonomies),
+            "top_shop_share": round(top_shop / len(shops), 3) if shops else None,
+            "distinct_shops": len(set(shops)),
+        },
+        "price_and_sale": {
+            "median_price": (sorted(priced)[len(priced) // 2] if priced else None),
+            "on_sale_share": share(sale_known), "sale_measured": len(sale_known),
+        },
+        "social_proof": {"median_favourites": favs[len(favs) // 2] if favs else None,
+                         "measured": len(favs)},
+        "brambleloop_differentiation": {
+            "value": round(beaten / judged, 3) if judged else None,
+            "judged": judged, "differentiable": beaten, "by": reasons,
+            "against": (f"two PDFs (US and UK terms), a graded run verified across "
+                        f"{gradable} sizes where size varies, and a stated deliverable -- "
+                        f"what every Brambleloop release ships"),
+            "reason": "" if judged else ("no result's description was read, so how a "
+                                         "Brambleloop listing would differ is unmeasured"),
+        },
+        "note": ("the API index's top results; rank is directional. Thumbnail composition "
+                 "is judged separately and only where image_vision is open"),
+    }
+
+
+def differentiation_by_pod(db) -> dict[str, dict]:
+    """The newest snapshot's differentiation per pod query, averaged per pod (feeds #2)."""
+    out: dict[str, list[float]] = {}
+    pod_of = {t["query"]: t.get("pod") for t in target_queries()}
+    for query in queries_captured(db):
+        pod = pod_of.get(query)
+        rows = latest(db, query, n=1)
+        if not pod or not rows:
+            continue
+        pos = (rows[0].detail or {}).get("positioning") or positioning(rows[0].rank_list or [])
+        value = ((pos.get("brambleloop_differentiation") or {}).get("value"))
+        if value is not None:
+            out.setdefault(pod, []).append(float(value))
+    return {pod: {"value": round(sum(v) / len(v), 4), "queries": len(v),
+                  "basis": "serp_positioning"} for pod, v in out.items()}
 
 
 def _recent_queries(db, since: datetime) -> set[str]:
@@ -199,6 +356,8 @@ def capture_targets(db, *, reader=None, transport=None, env: dict | None = None,
 
     now = _now(now)
     queries = queries if queries is not None else target_queries()
+    if reader is None and READER_FACTORY is not None:
+        reader = READER_FACTORY()
     if reader is None:
         credential = etsy_public.ReadCredential.from_env(env)
         if credential is None or not credential.complete:

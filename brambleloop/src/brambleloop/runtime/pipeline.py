@@ -172,13 +172,20 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     """
     today = _scan_date(ctx)
     target = int(ctx.job.inputs.get("target", 10))
-    portfolio = select_portfolio(target=target, today=today)
+    # C-60 (#2): the observed market scores -- the nine-dimension arbitrage card and its
+    # weakness hunt -- steer the pool before selection, so the hunt decides what gets made.
+    from ..radar import arbitrage
+    from ..radar.opportunity import score_pool
+
+    steered, steering = arbitrage.steer_concepts(ctx.db, score_pool(today=today))
+    portfolio = select_portfolio(steered, target=target, today=today)
 
     ctx.audit("radar.scanned", detail={
         "pool": len(portfolio.selected) + len(portfolio.rejected),
         "selected": len(portfolio.selected),
         "constraints_met": portfolio.constraints_met,
         "as_of": today.isoformat(),
+        "arbitrage": steering,
     })
     if not portfolio.ok:
         # Never silently ship a portfolio that violates section 33; say which rule broke.
@@ -212,6 +219,7 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         "selected": [c.slug for c in portfolio.selected],
         "constraints_met": portfolio.constraints_met,
         "swaps": portfolio.reasons,
+        "arbitrage_steered": [m["slug"] for m in steering["steered"]],
         "skill_portfolio": {"segmented": skills["wave"]["segmented"],
                             "shares": skills["wave"]["shares"], "missing": missing,
                             "over": excess},
@@ -240,6 +248,11 @@ def handle_radar_score(ctx: JobContext) -> dict:
 
     today = _scan_date(ctx)
     rescored = score_concept(seed, today)
+    # #2: the same steering as the scan, so a concept is promoted on the score it was selected
+    # on rather than on a base score the market evidence has already moved. Then the #38
+    # evidence discount and the #97 lesson nudge apply to the steered score, in that order.
+    from ..radar import arbitrage
+    rescored = arbitrage.steer_concepts(ctx.db, [rescored])[0][0]
     # #38 (C-69): the score is discounted by the stamped trend evidence about this concept --
     # stale or foreign-population evidence lowers it, and the discounted score is the one
     # that decides promotion.

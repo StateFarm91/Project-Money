@@ -257,6 +257,10 @@ class PublicReader:
                 break
         return out
 
+    def shop(self, shop_id: int | str) -> dict:
+        """One shop's public record (`getShop`): its name and its stated location (#219)."""
+        return self.get("get_shop", path={"shop_id": shop_id})
+
     def listing(self, listing_id: int | str) -> dict:
         return self.get("get_listing", path={"listing_id": listing_id})
 

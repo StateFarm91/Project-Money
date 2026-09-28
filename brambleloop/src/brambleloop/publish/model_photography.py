@@ -413,6 +413,9 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
                     "matches the adjectives"),
         },
         "identity": {
+            # The scored verdict per dimension, which `visual.drift_series` reads as a series
+            # across batches (#201): per-frame "observed" can be free text.
+            "dimensions": drift.get("dimensions") or {},
             "observed": seen,
             "observed_face": face_seen,
             "observed_body": body_seen,

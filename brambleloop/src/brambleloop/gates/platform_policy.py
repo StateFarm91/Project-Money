@@ -179,6 +179,55 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
 
 PAGE_BASIS = "page"
 
+CHANGE_SIGNATURE = "policy_changed:"
+
+
+def unreviewed_changes(db) -> list[dict]:
+    """Sources whose newest reading differs materially from the one before, unreviewed (#39).
+
+    A material change is a digest difference; it stays unreviewed until somebody records
+    that the affected workflows were reviewed and tested against it (`review_change`). Until
+    then those workflows are blocked, which is the requirement's own sentence.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PolicySnapshot
+
+    with db.session() as s:
+        latest: dict[str, PolicySnapshot] = {}
+        for r in s.scalars(select(PolicySnapshot).order_by(PolicySnapshot.id)):
+            latest[r.source] = r
+        return [{"source": src, "snapshot_id": r.id, "checked_on": r.checked_on,
+                 "version": r.version, "affects": list(r.affects or POLICY_SOURCES[src][1])}
+                for src, r in latest.items()
+                if r.material_change and not (r.detail or {}).get("reviewed_at")]
+
+
+def review_change(db, source: str, *, reviewed_by: str, tested: str) -> dict:
+    """Record that a material change was reviewed and the affected workflows re-tested.
+
+    Both halves are required: a review with no statement of what was tested is a signature,
+    and the requirement says "until reviewed/tested".
+    """
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..core.models import PolicySnapshot
+
+    if not (reviewed_by or "").strip() or not (tested or "").strip():
+        raise PolicyRefused("a change review names who reviewed it and what was re-tested")
+    with db.session() as s:
+        row = s.scalars(select(PolicySnapshot).where(PolicySnapshot.source == source)
+                        .order_by(PolicySnapshot.id.desc())).first()
+        if row is None or not row.material_change:
+            raise PolicyRefused(f"{source}: there is no material change to review")
+        detail = dict(row.detail or {})
+        detail.update(reviewed_at=datetime.now(timezone.utc).isoformat(),
+                      reviewed_by=reviewed_by.strip(), tested=tested.strip()[:2000])
+        row.detail = detail
+        flag_modified(row, "detail")
+        return {"source": source, "snapshot_id": row.id, "reviewed": True}
+
 
 def record_page_reading(db, *, source: str, text: str, version: str = "", summary: str = "",
                         read_by: str, checked_on: str = "",
@@ -261,12 +310,15 @@ def freshness(db, *, today: date | None = None) -> dict:
                  "version": row.version, "material_change": row.material_change}
         (stale if age > MAX_AGE_DAYS else current).append(entry)
 
+    changed = unreviewed_changes(db)
     blocked_workflows = sorted({w for src in never + [e["source"] for e in stale]
+                                + [c["source"] for c in changed]
                                 for w in POLICY_SOURCES[src][1]})
     return {
         "current": current,
         "stale": stale,
         "never_checked": never,
+        "changed_unreviewed": [c["source"] for c in changed],
         "all_fresh": not stale and not never,
         "blocked_workflows": blocked_workflows,
         "max_age_days": MAX_AGE_DAYS,
@@ -289,7 +341,8 @@ def policy_stamp(db, *, today: date | None = None) -> dict:
         "sources": latest,
         "unread_sources": f["never_checked"],
         "stale_sources": [e["source"] for e in f["stale"]],
-        "certified_against_current_policy": f["all_fresh"],
+        "changed_unreviewed": f["changed_unreviewed"],
+        "certified_against_current_policy": f["all_fresh"] and not f["changed_unreviewed"],
         "note": ("A certificate that does not say which policy it was read against cannot "
                  "be re-examined after the policy changes, which is the only time anybody "
                  "wants to re-examine it."),
@@ -317,6 +370,10 @@ def check_new_class(db, *, product_class: str, asset_roles: tuple[str, ...] = ()
             f"cannot enable {product_class!r}: policy sources {f['never_checked'] + [e['source'] for e in f['stale']]} "
             f"have not been read within {MAX_AGE_DAYS} days. A new class is exactly when the "
             f"old reading is least likely to cover the case (#35)")
+    if f["changed_unreviewed"]:
+        raise PolicyRefused(
+            f"cannot enable {product_class!r}: policy sources {f['changed_unreviewed']} "
+            f"changed materially and the change has not been reviewed and tested (#39)")
     return {"product_class": product_class, "enabled": True,
             "asset_roles": list(asset_roles), "policy": policy_stamp(db, today=today)}
 
