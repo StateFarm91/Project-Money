@@ -481,17 +481,27 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     from ..integrations.etsy import Credentials
 
     etsy_creds = Credentials.from_env() is not None
+    # F-594: the item reads the controlled round trip's own breadcrumbs instead of being
+    # hard-coded. It turns ready only on a *full* `etsy_exercise` run that finished ok
+    # against openapi.etsy.com (its status says so; a run against the local model of Etsy
+    # never counts) with every draft it created matched by a verified removal, and while
+    # this deployment still holds a credential.
+    exercise = _etsy_exercise_evidence(db)
+    proven = bool(exercise["round_trip_proven"])
     out.append(Requirement(
         key="etsy_integration",
         description="an Etsy integration exists, is credentialled and has been exercised",
-        ready=False,
-        blocked_by=BLOCKED_INTEGRATION,
+        ready=proven and etsy_creds,
+        blocked_by=None if (proven and etsy_creds) else BLOCKED_INTEGRATION,
         evidence={"client_written": True, "credentials_present": etsy_creds,
-                  "ever_called": False,
-                  "note": "the client exists and is unit-tested against a fake transport, "
-                          "and has never been called against Etsy. Written is not "
-                          "connected: it refuses on phase, on owner authority and on "
-                          "missing credentials, and nothing here satisfies any of them"}))
+                  "ever_called": exercise["ever_called_against_etsy"],
+                  **exercise,
+                  "note": ("a full create -> read back -> delete round trip finished ok "
+                           "against openapi.etsy.com and left no draft behind"
+                           if proven else
+                           "the client exists and is tested against a fake transport; no "
+                           "full round trip against openapi.etsy.com is on record with every "
+                           "draft it created confirmed removed. Written is not connected")}))
 
     out.append(Requirement(
         key="artifact_storage",
@@ -856,3 +866,49 @@ def render(readiness: Readiness) -> str:
             f"- *Blocks:* {o.blocks}", "",
         ]
     return "\n".join(lines) + "\n"
+
+
+def _etsy_exercise_evidence(db) -> dict:
+    """What the `etsy_exercise` audit breadcrumbs prove about the Etsy round trip (F-594).
+
+    Read from the append-only ledger `integrations.etsy_exercise` writes: the finished-run
+    rows (mode, ok, status) and the draft created / removed pairs. `_status` in that module
+    starts a successful live run's status with "EXERCISED against openapi.etsy.com" and a
+    run against the local model with "RAN AGAINST A LOCAL MODEL"; only the first counts.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    live_prefix = "EXERCISED against openapi.etsy.com"
+    local_prefix = "RAN AGAINST A LOCAL MODEL"
+    created: set[str] = set()
+    removed: set[str] = set()
+    runs: list[dict] = []
+    if db is None:
+        return {"round_trip_proven": False, "ever_called_against_etsy": False,
+                "exercise_runs": 0, "drafts_created": 0, "drafts_unmatched": []}
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action.in_((
+                "etsy.exercise_finished", "etsy.exercise_draft_created",
+                "etsy.exercise_draft_removed"))).order_by(AuditLog.id)):
+            detail = row.detail or {}
+            if row.action == "etsy.exercise_finished":
+                runs.append({"mode": detail.get("mode"), "ok": bool(detail.get("ok")),
+                             "status": str(detail.get("status") or ""),
+                             "at": row.at.isoformat() if row.at else None})
+            elif detail.get("listing_id"):
+                (created if row.action == "etsy.exercise_draft_created"
+                 else removed).add(str(detail["listing_id"]))
+    live_full = [r for r in runs if r["mode"] == "full" and r["ok"]
+                 and r["status"].startswith(live_prefix)]
+    unmatched = sorted(created - removed)
+    return {
+        "round_trip_proven": bool(live_full) and bool(created) and not unmatched,
+        "ever_called_against_etsy": any(r["status"] and not r["status"].startswith(
+            local_prefix) for r in runs),
+        "exercise_runs": len(runs),
+        "last_full_live_ok_at": live_full[-1]["at"] if live_full else None,
+        "drafts_created": len(created),
+        "drafts_unmatched": unmatched[:10],
+    }

@@ -1056,7 +1056,12 @@ def handle_store_publish(ctx: JobContext) -> dict:
     from .release import _load_cir
 
     cir = _load_cir(ctx, slug, version)
-    payload = build_payload(materials=[m.name for m in cir.materials], **copy)
+    # One builder for publish, activation and the census (runtime.etsy_ops), so the draft
+    # read back and the listing census compare against exactly what was sent. Taxonomy
+    # flows through `build_payload` unchanged.
+    from . import etsy_ops
+
+    payload = etsy_ops.certified_payload(ctx.db, slug, version)
 
     # The bytes have to exist. Without durable storage they may not, and the client refuses
     # an empty upload rather than creating a listing that delivers nothing.
@@ -1115,6 +1120,20 @@ def handle_store_publish(ctx: JobContext) -> dict:
         return {"slug": slug, "version": version, "published": False, "blocked": True,
                 "reasons": release_gates["reasons"]}
 
+    # F-524: the certified listing image bytes, in the listing-set certificate's frame
+    # order. Read before anything is created on Etsy: a draft with no image can never be
+    # activated, so a set whose bytes are missing or unreadable refuses here rather than
+    # leaving an unactivatable listing in the shop.
+    listing_images = etsy_ops.certified_images(
+        ctx.db, slug, version, release=release, store_root=ctx.job.inputs.get("artifact_dir"))
+    if listing_images["problems"]:
+        reasons = [f"certified listing images (F-524): {p}"
+                   for p in listing_images["problems"][:5]]
+        ctx.audit("store.publish_blocked", artifact=f"{slug}@{version}",
+                  detail={"reasons": reasons, "certificate": listing_images["record_id"]})
+        return {"slug": slug, "version": version, "published": False, "blocked": True,
+                "reasons": reasons}
+
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
     stored_by_terminology = {
         t: store.put(f"{slug}/{version}/{pattern_filename(t)}", d.pdf_bytes,
@@ -1122,12 +1141,57 @@ def handle_store_publish(ctx: JobContext) -> dict:
         for t, d in docs.items()}
     stored = stored_by_terminology["US"]
 
+    return _publish_guarded(
+        ctx, client, slug=slug, version=version, release=release, payload=payload,
+        docs=docs, hash_check=hash_check, stored=stored,
+        stored_by_terminology=stored_by_terminology, listing_images=listing_images)
+
+
+def _publish_guarded(ctx: JobContext, client, **kw) -> dict:
+    """`_publish_and_read_back`, with an Etsy credential failure turned into owner work.
+
+    F-541: invalid_grant, revoked access, a spent refresh token or a scope the grant lacks
+    all raise `EtsyAuthNeedsOwner`, and each becomes one idempotent owner action plus one
+    incident rather than a dead job nobody reads. Still raised afterwards: it is terminal,
+    and retrying sends the same refused proof.
+    """
+    from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
+    from . import etsy_ops
+
+    try:
+        return _publish_and_read_back(ctx, client, **kw)
+    except EtsyAuthNeedsOwner as e:
+        raised = etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.publish")
+        ctx.audit("store.publish_auth_needs_owner",
+                  artifact=f"{kw.get('slug')}@{kw.get('version')}",
+                  detail={**raised, "error": str(e)[:300]})
+        raise
+
+
+def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
+                           release: str, payload, docs: dict, hash_check: dict, stored,
+                           stored_by_terminology: dict, listing_images: dict) -> dict:
+    """Create the draft with its certified images and files, then read it back (F-542).
+
+    A 2xx on each write is Etsy accepting a request. The listing is recorded as published
+    only when a separate `getListing` and `getAllListingFiles` afterwards show the certified
+    fields, the certified number of images, the draft state and exactly the certified files.
+    Anything else is `store.publish_incomplete` plus a halting incident on the product.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..core.resilience import PermanentError, TransientError
+    from ..publish.pdf import TERMINOLOGIES, pattern_filename
+    from . import etsy_ops
+
+    doc = docs["US"]
     # The uploaded name comes from the same place as the stored one. It was spelled out here,
     # so the file in the buyer's downloads folder and the file in the artifact store could have
     # been named by two different rules.
     outcome = client.publish(payload=payload,
                              filename=f"{slug}-{pattern_filename('US')}",
-                             data=doc.pdf_bytes)
+                             data=doc.pdf_bytes, images=listing_images["images"])
 
     # The second file, attached after the first.
     #
@@ -1160,25 +1224,64 @@ def handle_store_publish(ctx: JobContext) -> dict:
                         f"upload without returning a file id, so the buyer may receive only "
                         f"the US document the listing copy promises alongside it")
 
+    # F-542 / F-559: read the draft and its files back. Only what Etsy holds afterwards
+    # decides whether this is published; the writes' own 2xx responses cannot.
+    certified = hash_check.get("certified") or {}
+    sent_docs = {f"{slug}-{pattern_filename(t)}": docs[t].pdf_bytes
+                 for t in TERMINOLOGIES
+                 if t == "US" and outcome.file_uploaded or extra_files.get(t)}
+    expected_files = etsy_ops.file_expectations(
+        {f"{slug}-{pattern_filename(t)}": docs[t].pdf_bytes for t in TERMINOLOGIES},
+        {f"{slug}-{pattern_filename(t)}": certified.get(t) for t in TERMINOLOGIES})
+    readback: dict = {"verified": False, "reasons": ["no listing was created"]}
+    if outcome.listing_id:
+        readback = etsy_ops.read_back(
+            client, outcome.listing_id, sent=etsy_ops.sent_fields(payload),
+            expected_files=expected_files, expected_images=len(listing_images["images"]))
+    published = bool(outcome.published and outcome.activatable and not extra_problems
+                     and readback["verified"])
+
     if outcome.listing_id:
         with ctx.db.session() as s:
             row = s.scalar(select(Listing).where(Listing.product_slug == slug,
                                                  Listing.version == version))
             if row is not None:
                 row.etsy_listing_id = outcome.listing_id
-                row.state = "published" if outcome.published else "incomplete_on_etsy"
+                row.state = "published" if published else "incomplete_on_etsy"
 
-    ctx.audit("store.published" if outcome.published else "store.publish_incomplete",
+    ctx.audit("store.published" if published else "store.publish_incomplete",
               artifact=f"{slug}@{version}",
               detail={"etsy_listing_id": outcome.listing_id,
                       "file_uploaded": outcome.file_uploaded,
+                      "images_uploaded": outcome.images_uploaded,
+                      "image_order": listing_images["order"],
+                      "listing_set_certificate": listing_images["record_id"],
                       "pdf_sha256": stored.sha256,
                       "pdf_sha256_by_terminology": {
                           t: art.sha256
                           for t, art in sorted(stored_by_terminology.items())},
                       "files_attached_by_terminology": {
                           "US": outcome.file_uploaded, **extra_files},
-                      "problems": (outcome.problems + extra_problems)[:5]})
+                      "files_sent": [f for f in expected_files if f["name"] in sent_docs],
+                      "read_back": readback,
+                      "problems": (outcome.problems + extra_problems
+                                   + readback.get("reasons", []))[:8]})
+
+    if outcome.listing_id and not published:
+        etsy_ops.open_publish_incomplete(
+            ctx.db, slug=slug, version=version, listing_id=outcome.listing_id,
+            reasons=(outcome.problems + extra_problems + readback.get("reasons", [])))
+    if published:
+        # The activation handler reads this draft back again, checks it against the certified
+        # listing and the release gates, and refuses unless the owner's authority is present
+        # at that moment. Queuing it here is what makes the verification half run for every
+        # draft; the activation half stays refused without a launch authorisation.
+        from .release import chain_key
+
+        ctx.enqueue("store_operator", "store.activate",
+                    {"slug": slug, "version": version, "release": release},
+                    idempotency_key=chain_key("activate", slug, version, release,
+                                              outcome.listing_id or ""))
 
     if outcome.needs_completion:
         # A listing on Etsy with no file attached would take money and deliver nothing.
@@ -1190,11 +1293,175 @@ def handle_store_publish(ctx: JobContext) -> dict:
             text=(f"Etsy listing {outcome.listing_id} exists with no digital file attached. "
                   f"It must be completed or deleted before it can take an order.")))
 
-    return {"slug": slug, "version": version, "published": outcome.published,
+    return {"slug": slug, "version": version, "published": published,
             "etsy_listing_id": outcome.listing_id,
             "file_uploaded": outcome.file_uploaded,
+            "images_uploaded": outcome.images_uploaded,
             "files_attached_by_terminology": {"US": outcome.file_uploaded, **extra_files},
-            "problems": outcome.problems + extra_problems}
+            "read_back_verified": readback["verified"],
+            "problems": outcome.problems + extra_problems + readback.get("reasons", [])}
+
+
+@handlers.register("store.activate")
+def handle_store_activate(ctx: JobContext) -> dict:
+    """Draft to live (F-543): only when Etsy's draft is the certified listing and the owner
+    has authorised publication *at the moment this runs*.
+
+    Order, and why:
+
+    1. The release gates and creative parity are recomputed now, from evidence on file, and
+       recorded -- as store.publish does -- so Shadow Mode still produces the record.
+    2. SHADOW refuses, first and always.
+    3. The remote draft is read back and compared with the certified listing: every field
+       sent (title, description, tags, materials, price, quantity, taxonomy, type), the draft
+       state, the image count against the listing-set certificate's frames, the customer's
+       files by name and exact size against the files the verified publish sent (whose bytes
+       were hash-checked against the release), and the owed disclosures on the copy **as Etsy
+       holds it**. Any gap is a reasoned block, never an activation.
+    4. Authority is revalidated at execution (F-835): the phase from this worker, the owner's
+       publishing grant read from the environment *now*, a Launch-0 authorisation passed to
+       this job, and the store operator's daily spend ceiling with the listing fee in it.
+       Nothing the job carried from when it was planned counts.
+    5. Only then `EtsyClient.activate`, which re-checks image and file itself, and a
+       read-back that the listing is `active` before anything records it as live.
+    """
+    import os
+
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..integrations.etsy import LISTING_FEE_USD, Authority
+    from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
+    from . import etsy_ops
+
+    i = ctx.job.inputs or {}
+    slug, version = i["slug"], i.get("version", "1.0.0")
+    artifact = f"{slug}@{version}"
+    parity_verdict = _listing_parity(ctx)
+    release_gates = _release_gates(ctx)
+    ctx.audit("store.activate_gates", artifact=artifact,
+              detail={"parity_blocks": parity_verdict["blocks_release"],
+                      "release_gates_block": release_gates["blocks_release"],
+                      "reasons": release_gates["reasons"][:5]})
+
+    if ctx.phase is Phase.SHADOW:
+        ctx.audit("store.activate_refused", artifact=artifact,
+                  detail={"reason": "shadow mode: no listing is ever activated"})
+        raise ShadowModeRefusal(
+            "store.activate publishes a listing on etsy.com; the system is in SHADOW mode.")
+
+    with ctx.db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == version))
+        listing_id = listing.etsy_listing_id if listing is not None else ""
+        local_state = listing.state if listing is not None else ""
+    if not listing_id:
+        ctx.audit("store.activate_refused", artifact=artifact,
+                  detail={"reason": "no Etsy draft is recorded for this release"})
+        return {"slug": slug, "version": version, "activated": False,
+                "reasons": ["no Etsy draft is recorded for this release"]}
+    if local_state == "active":
+        return {"slug": slug, "version": version, "activated": False,
+                "etsy_listing_id": listing_id, "reasons": ["already active"]}
+
+    # Read at execution: the grant may have been withdrawn since this job was queued.
+    owner_authorised = os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") == "1"
+    client = etsy_ops.build_client(ctx.db, ctx.phase.value, owner_authorised=owner_authorised)
+    if client.credentials is None:
+        ctx.audit("store.activate_refused", artifact=artifact,
+                  detail={"reason": client.refusal_for(Authority.READ)})
+        raise ShadowModeRefusal(client.refusal_for(Authority.READ) or "no credentials")
+
+    try:
+        remote = client.get_listing(listing_id)
+        remote_files = client.get_listing_files(listing_id)
+    except EtsyAuthNeedsOwner as e:
+        raised = etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")
+        ctx.audit("store.activate_refused", artifact=artifact,
+                  detail={"reason": "Etsy credential needs the owner", **raised})
+        raise
+
+    from ..integrations import etsy_verify
+
+    frames = etsy_ops.certified_frames(ctx.db, slug, version, release=i.get("release", ""))
+    expected_files = etsy_ops.published_files(ctx.db, slug, version, listing_id)
+    verdict = etsy_verify.activation_readiness(
+        sent=etsy_ops.sent_fields(etsy_ops.certified_payload(ctx.db, slug, version)),
+        remote=remote, remote_files=remote_files,
+        expected_files=expected_files or [], expected_images=len(frames["frames"]),
+        listing_id=listing_id, disclosure=etsy_ops.disclosure_on_remote(remote))
+    reasons = list(verdict["reasons"]) + list(frames["problems"])
+    if expected_files is None:
+        reasons.append("no verified store.published record names the files sent to this "
+                       "draft, so the customer's download cannot be checked")
+    if parity_verdict["blocks_release"]:
+        reasons.append(f"creative parity (#75): {parity_verdict['why']}")
+    if release_gates["blocks_release"]:
+        reasons.extend(f"release gate: {r}" for r in release_gates["reasons"][:10])
+    ctx.audit("store.activation_verified", artifact=artifact,
+              detail={"etsy_listing_id": listing_id, "ready": not reasons,
+                      "reasons": reasons[:15], "fields": verdict["fields"],
+                      "files": verdict["files"], "disclosure": verdict["disclosure"]})
+    if reasons:
+        return {"slug": slug, "version": version, "activated": False, "blocked": True,
+                "etsy_listing_id": listing_id, "reasons": reasons}
+
+    # The draft is the certified listing: whatever read-back incident the publish left is
+    # closed by this reading.
+    from ..ops import incident_lifecycle as lifecycle
+
+    with ctx.db.session() as s:
+        lifecycle.resolve_signatures(
+            s, [f"{etsy_ops.PUBLISH_INCOMPLETE}{slug}@{version}"],
+            resolution=f"store.activate read listing {listing_id} back and it matches the "
+                       f"certified listing field by field, with its images and files")
+
+    authorisation = str(i.get("launch_authorisation") or "").strip()
+    refusal = client.refusal_for(Authority.ACTIVATE)
+    if refusal is None and not authorisation:
+        refusal = ("verified and ready, and not activated: activation needs a Launch-0 "
+                   "authorisation passed to this job by the owner")
+    fee_cad = round(LISTING_FEE_USD * 1.37, 2)
+    if refusal is None:
+        agent = ctx.registry.get(ctx.job.agent)
+        spent = ctx.registry.spend_today(ctx.job.agent)
+        if spent + fee_cad > agent.daily_cost_ceiling_cad:
+            refusal = (f"the listing fee (about CA${fee_cad:.2f}) would take "
+                       f"{ctx.job.agent} past its daily ceiling of "
+                       f"CA${agent.daily_cost_ceiling_cad:.2f} (spent CA${spent:.2f})")
+    if refusal is not None:
+        ctx.audit("store.activate_refused", artifact=artifact,
+                  detail={"reason": refusal, "verified": True,
+                          "etsy_listing_id": listing_id})
+        return {"slug": slug, "version": version, "activated": False, "verified": True,
+                "etsy_listing_id": listing_id, "reasons": [refusal]}
+
+    try:
+        client.activate(listing_id, launch_authorisation=authorisation)
+        after = client.get_listing(listing_id)
+    except EtsyAuthNeedsOwner as e:
+        etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")
+        raise
+    ctx.registry.record_cost(ctx.job.agent, fee_cad, kind="etsy_listing_fee",
+                             job_id=ctx.job.id,
+                             detail={"listing_id": listing_id, "usd": LISTING_FEE_USD,
+                                     "basis": "Etsy's listing fee, charged at publication; "
+                                              "converted at 1.37"})
+    live = str(after.get("state") or "") == "active"
+    with ctx.db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        if row is not None and live:
+            row.state = "active"
+    ctx.audit("store.activated" if live else "store.activate_incomplete", artifact=artifact,
+              detail={"etsy_listing_id": listing_id, "state_on_etsy": after.get("state")})
+    if not live:
+        etsy_ops.open_publish_incomplete(
+            ctx.db, slug=slug, version=version, listing_id=listing_id,
+            reasons=[f"activation was accepted and Etsy reports state "
+                     f"{after.get('state')!r}"])
+    return {"slug": slug, "version": version, "activated": live,
+            "etsy_listing_id": listing_id, "state_on_etsy": after.get("state")}
 
 
 def _release_gates(ctx: JobContext) -> dict:
@@ -1645,6 +1912,7 @@ from . import release  # noqa: E402,F401
 from . import commerce_readings  # noqa: E402,F401  (C-59: gated machinery, run daily)
 from . import orders  # noqa: E402,F401  (C-64: order ingest and everything that reads orders)
 from . import growth_ops  # noqa: E402,F401  (C-60: growth, ads, journey, steer)
+from . import etsy_ops  # noqa: E402,F401  (FB-1 B: Etsy read-back, census, shop snapshot)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

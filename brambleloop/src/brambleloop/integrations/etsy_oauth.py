@@ -112,6 +112,9 @@ SCOPES_REQUIRED = {
     "getListingsByShop": ("listings_r",),
     "getShop": (),           # root-level api_key only
     "getListing": (),        # root-level api_key only
+    # F-559: the read-back of the customer's files. Etsy's security block for
+    # getAllListingFiles is `oauth2: listings_r`, which is granted.
+    "getAllListingFiles": ("listings_r",),
     "getMe": ("shops_r",),
     "updateShop": ("shops_w",),
     # The two taxonomy reads step 6 of the authenticated exercise needs. Empty for the same

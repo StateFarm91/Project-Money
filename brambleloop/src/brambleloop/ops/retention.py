@@ -196,6 +196,18 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "concept.autopsy": ("windowed", "runtime.pipeline reads recent autopsies"),
     "seasonal.cycle_proof": ("latest", "runtime.release reads the last cycle proof"),
     "etsy.probe": ("latest", "intel.etsy_public reads the last probe"),
+    # FB-1 B (F-594): launch.readiness reads the controlled Etsy round trip's ledger, and
+    # integrations.etsy_exercise.outstanding_drafts pairs every created draft with its
+    # verified removal. Pruning a created row forgets a draft that may still be in the shop;
+    # pruning a removed row resurrects one; pruning the finished run erases the only proof.
+    "etsy.exercise_finished": ("lifetime_total",
+                               "launch.readiness etsy_integration reads whether any full "
+                               "round trip against openapi.etsy.com finished ok"),
+    "etsy.exercise_draft_created": ("lifetime_total",
+                                    "etsy_exercise.outstanding_drafts and launch.readiness "
+                                    "pair every created draft with its removal"),
+    "etsy.exercise_draft_removed": ("lifetime_total",
+                                    "the matching half of every created draft's pair"),
     "owned_surface.probe": ("latest", "the owned_surfaces gate reads the last probe (C-38)"),
     "etsy.oauth_callback": ("latest",
                             "app.main /api/etsy/oauth/start reports the last authorization "

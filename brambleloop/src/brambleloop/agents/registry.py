@@ -670,3 +670,20 @@ class SpendGuard:
             lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == scope))
             if lim:
                 lim.paused = True
+
+
+# ---------------------------------------------------------------------------
+# FB-1 cluster B (2026-09-28). Appended so no existing entry moves. The orchestrator gains the
+# three daily Etsy observation reads (credential health, shop snapshot, listing census): GREEN,
+# read-only against Etsy, writing only readings, incidents and owner-action state. The store
+# operator gains `store.activate`, which is refused in SHADOW and needs the owner's grant, a
+# per-job Launch-0 authorisation and room under its own daily ceiling for the listing fee.
+for _agent in DEFAULT_AGENTS:
+    if _agent["name"] == "orchestrator":
+        _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + [
+            "etsy.credential_health", "etsy.shop_snapshot", "etsy.listing_census"]
+    elif _agent["name"] == "store_operator":
+        _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + ["store.activate"]
+for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):
+    FORBIDDEN_COMBINATIONS.setdefault(_name, set()).add("store.activate")
+del _agent, _name
