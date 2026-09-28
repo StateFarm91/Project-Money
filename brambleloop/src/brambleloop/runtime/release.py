@@ -4907,6 +4907,14 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
     # unowned open work of one kind (#176) -- and the additions reach the owner as one card.
     added = evolution.additions(ctx.db, measured)
     changes += added
+    # #194: the fourth move. A department's metric UNMEASURED for three cycles while a proxy
+    # reads rows, or moving its good way while its realised outcomes contradict it, becomes
+    # a REVISE_METRIC change under `improve.weekly`'s rules (never self-proposed, never
+    # argued from the number), carded to the owner. `cells_unmeasured` is written into this
+    # cycle's row so the streak is read from rows next week rather than remembered.
+    unmeasured_now = evolution.unmeasured_cells(ctx.db)
+    revisions = evolution.metric_revisions(ctx.db, unmeasured_now=unmeasured_now)
+    changes += revisions["changes"]
     cycle = weekly.cycle(
         readings, changes,
         nothing_to_subtract_because=("" if review["retire"] or review["merge"] else
@@ -4916,6 +4924,12 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
         ctx.db, evolution.ADD_CARD_KEY, [f"add {c.subject}: {c.because}" for c in added],
         reason=("#194: adding a specialist agent is a permission change, reviewed like any "
                 "other; the weekly cycle found work no current agent can own"))
+    revise_card = evolution.route_owner_card(
+        ctx.db, evolution.REVISE_CARD_KEY,
+        [f"revise {c.subject}: {c.replaces_metric} -> {c.new_metric}: {c.because}"
+         for c in revisions["changes"]],
+        reason=("#194: revising a department's success measure is the dangerous move; the "
+                "old metric's history is preserved and the change is the owner's to make"))
     # #53: the STOP half of the review, from rows. Stale experiments are stopped here; the
     # cadence, polish, query and infrastructure stops reach the owner as one card.
     stops = evolution.stop_list(ctx.db)
@@ -4950,6 +4964,12 @@ def handle_weekly_evolution(ctx: JobContext) -> dict:
                                                              "why")}
                                    for k, v in measured.items()},
               "added": [c.subject for c in added], "add_card": add_card,
+              "cells_unmeasured": sorted(unmeasured_now),
+              "metric_revisions": {
+                  "changes": [c.to_dict() for c in revisions["changes"]],
+                  "evidence": revisions["evidence"], "considered": revisions["considered"],
+                  "history_cycles_read": revisions["history_cycles_read"],
+                  "card": revise_card},
               "stop_list": {"stopped": stop_rows, "executed": stops["executed"],
                             "nothing_to_stop_because": stops["review"]["stop"].get(
                                 "nothing_to_stop_because"),
@@ -7400,3 +7420,30 @@ def photoreal_calibration(db) -> dict | None:
             if detail.get("checks_version") == photoreal.CHECKS_VERSION:
                 return detail
     return None
+
+
+@handlers.register("growth.preproduction")
+def handle_preproduction(ctx: JobContext) -> dict:
+    """#4: test concepts before engineering them, without ever implying they can be bought.
+
+    `commerce.preproduction` had the refusals and no caller. This is the caller, daily: the
+    held winners and the newest field's survivors get one concept post per channel, each
+    passing `check_post` or refused by name; posting is refused while the `owned_surfaces`
+    gate is closed and the refusal is recorded; interest is read only from a platform-written
+    `preproduction.interest_observed` row and otherwise recorded UNMEASURED; and a concept
+    whose interest a platform did report becomes a brief input the next tournament is
+    generated under (`creative.ideation.preproduction_interest`), with its receipt.
+
+    GREEN: reads rows, writes its own audit rows. Posts nothing, spends nothing, fetches
+    nothing, and has no path that can write an engagement number.
+    """
+    from ..commerce import preproduction_cycle
+
+    out = preproduction_cycle.run(ctx)
+    ctx.audit(preproduction_cycle.CYCLE_ACTION, detail={
+        k: out[k] for k in ("concepts", "prepared", "refused", "held_for_gate", "publish",
+                            "interest", "unmeasured", "acted_on")})
+    return {"ran": True, "concepts": out["concepts"], "prepared": len(out["prepared"]),
+            "refused": len(out["refused"]), "held_for_gate": out["held_for_gate"],
+            "publish": out["publish"], "unmeasured": out["unmeasured"],
+            "acted_on": out["acted_on"], "brief": out["brief"]["reason"]}

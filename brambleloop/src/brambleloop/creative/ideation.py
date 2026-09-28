@@ -455,6 +455,13 @@ def skill_gap(db) -> dict:
                 "brief": detail.get("brief", ""), "as_of": detail.get("as_of")}
 
 
+def preproduction_interest(db) -> dict:
+    """#4: concepts whose pre-production post drew interest a platform reported, as a brief."""
+    from ..commerce import preproduction_cycle
+
+    return preproduction_cycle.brief(db)
+
+
 # ---------------------------------------------------------------------------
 # The plan
 
@@ -490,6 +497,7 @@ def plan(db, *, kind: str, event: str, pod: str, forms, cycle: int,
         "commerce": commerce_directives(db, today=today),
         "vision": vision(db, pod),
         "skill_gap": skill_gap(db),
+        "preproduction": preproduction_interest(db),
     }
     out["briefs"] = _rotation(out)
     return out
@@ -554,6 +562,12 @@ def constraints_text(p: dict, index: int) -> tuple[str, dict]:
         # #114: the radar measured the wave and found a skill level missing.
         lines.append(f"- this seasonal wave is missing {', '.join(gap['missing'])} work; a "
                      f"concept that fills it is preferred")
+    if (p.get("preproduction") or {}).get("measured"):
+        # #4: interest a platform measured on a concept post before engineering, with the
+        # receipt row. Never a number this system wrote.
+        from ..commerce.preproduction_cycle import brief_lines
+
+        lines.extend(brief_lines(p["preproduction"]))
     for form, angle in sorted(p["saturation"]["angles"].items()):
         lines.append(f"- if the form is {form.replace('_', ' ')}, enter only on this angle: "
                      f"{angle}")

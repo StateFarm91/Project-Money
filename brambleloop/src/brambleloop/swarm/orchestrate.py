@@ -741,6 +741,7 @@ JOB_BANDS: dict[str, str] = {
     "growth.distribution": "new_opportunity",
     "growth.journey": "truth_defect",
     "growth.steer": "housekeeping",
+    "growth.preproduction": "exploration",
     # Learning with no committed value.
     "creative.blinded": "exploration",
     "creative.image_benchmark": "exploration",

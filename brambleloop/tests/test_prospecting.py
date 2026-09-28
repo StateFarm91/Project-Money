@@ -734,18 +734,29 @@ def test_a_proposition_stage_fed_below_its_floor_is_reported_not_skipped():
     assert str(STAGE_BY_KEY["proposition"].floor_in) in str(raised)
 
 
-def test_a_concept_that_cannot_seed_a_family_is_cut_before_engineering():
-    """#111's whole point: after engineering the answer is always yes."""
+def test_a_concept_that_cannot_seed_a_family_is_carried_as_a_single_product_not_cut():
+    """#111's own rule, as its registry note states it: a concept that fails the family test
+    is reported as a single product, not refused; a bundle is derived from two viable roles
+    rather than asserted. Killing it was the wiring defect that stopped every fitted garment
+    at this stage (#308). The family test itself is unchanged and its verdict is recorded."""
     db = _db()
     lone = _survivor("lone", form="stocking", construction="flat_rows")
     out = P.proposition(db, [lone], pod="stockings")
     from brambleloop.creative.family import family_test
 
-    if not family_test(lone.concept)["seeds_a_family"]:
-        assert out["killed"]["lone"] == "no_family", out
-        assert lone.killed_by == "no_family"
+    fam = family_test(lone.concept)
+    assert "lone" not in out["killed"], out
+    assert lone.killed_by == ""
+    assert lone.family_verdict == fam["verdict"]
+    assert out["detail"]["lone"]["bundle_possible"] == fam["bundle_possible"]
+    if not fam["seeds_a_family"]:
+        assert out["single_products"]["lone"] == fam["verdict"], out
+        assert lone.carried_as == "single_product"
+        assert "lone" not in out["family_seeds"]
     else:
-        assert "lone" not in out["killed"], out
+        assert lone.carried_as == "family_seed" and "lone" in out["family_seeds"]
+    assert [c.concept.key for c in out["survivors"]] == ["lone"]
+    assert "never refused" in out["family_rule"]
 
 
 # ---- the handler itself ------------------------------------------------------

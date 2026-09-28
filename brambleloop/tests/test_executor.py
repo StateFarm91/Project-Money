@@ -312,11 +312,19 @@ def _parked_on_image_generation():
     @contextlib.contextmanager
     def ctx():
         probe = _synced()
-        ready = [r["requirement_id"] for r in E.queue(probe, limit=400)["ready"]]
-        assert ready, "no ready requirement to park, so this proves nothing"
-        rid = ready[0]
+        q = E.queue(probe, limit=400)
+        # A ready row if the build still has one; otherwise (the queue at zero, which is the
+        # build working) a parked partial row, re-parked here on image_generation so that the
+        # gate's opening is what makes it ready. Either way the id, the gate and the opening
+        # are real.
+        parked_ids = [rid for rows in q["parked_by_capability"].values() for rid in rows]
+        candidates = ([r["requirement_id"] for r in q["ready"]]
+                      + [rid for rid in parked_ids if reg.get(rid).status == reg.PARTIAL])
+        assert candidates, "no partial requirement to park, so this proves nothing"
+        rid = candidates[0]
         real = E._registry_gates
-        E._registry_gates = lambda: {**real(), rid: "image_generation"}
+        E._registry_gates = lambda: {**{k: v for k, v in real().items() if k != rid},
+                                     rid: "image_generation"}
         try:
             yield rid
         finally:

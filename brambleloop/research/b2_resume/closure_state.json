@@ -1,15 +1,15 @@
 {
- "head_basis": "7b5750c (all six clusters + orders2 merged; registry updated from every cluster report)",
+ "head_basis": "residue merged (all waves integrated; registry updated from every report)",
  "counts": {
-  "OWNER-GATED": 47,
-  "COMPLETE+PROVEN": 222,
-  "OPEN": 9,
+  "OWNER-GATED": 51,
+  "COMPLETE+PROVEN": 226,
   "DATA-GATED": 35,
-  "EXTERNAL-BLOCKED": 7
+  "EXTERNAL-BLOCKED": 8
  },
  "ids": {
   "OWNER-GATED": [
    1,
+   4,
    9,
    10,
    11,
@@ -19,8 +19,11 @@
    16,
    37,
    43,
+   44,
    46,
    51,
+   54,
+   61,
    64,
    67,
    86,
@@ -60,6 +63,7 @@
   "COMPLETE+PROVEN": [
    2,
    3,
+   5,
    6,
    7,
    13,
@@ -74,6 +78,7 @@
    32,
    34,
    36,
+   38,
    40,
    42,
    47,
@@ -103,6 +108,7 @@
    78,
    79,
    80,
+   81,
    83,
    84,
    85,
@@ -202,6 +208,7 @@
    191,
    192,
    193,
+   194,
    196,
    197,
    198,
@@ -281,17 +288,6 @@
    318,
    319
   ],
-  "OPEN": [
-   4,
-   5,
-   38,
-   44,
-   54,
-   61,
-   81,
-   194,
-   308
-  ],
   "DATA-GATED": [
    8,
    18,
@@ -336,41 +332,29 @@
    130,
    202,
    203,
-   300
+   300,
+   308
   ]
  },
  "gates": {
-  "insights_access": 4,
+  "insights_access": 5,
+  "owned_surfaces": 7,
   "customers": 27,
   "tester_roster": 3,
-  "owned_surfaces": 6,
   "transactions_r": 2,
   "live_listings": 9,
-  "image_vision": 6,
+  "image_vision": 8,
   "null": 8,
   "rendered_pages": 2,
   "offsite_storage": 1,
   "physical_proof": 1,
-  "model_bearing_render": 5,
+  "model_bearing_render": 6,
   "benchmark_purchases": 4,
   "acceptance_ruling": 4,
   "production_window": 1,
   "ad_authority": 6
  },
- "open_assignment": {
-  "platform2 (C-80)": [
-   5,
-   38,
-   44,
-   54,
-   61,
-   81
-  ],
-  "residue": [
-   4,
-   194,
-   308
-  ]
- },
- "note": "OPEN rows are all assigned to a running repair wave. Gated rows all carry an explicit parked_on or are registered owner_gated whole."
+ "closed_out_without_db": false,
+ "closeout_indeterminate_without_db": true,
+ "note": "OPEN is empty with the registry alone; the certification bar also needs every gate read live (closure.matrix(db)), the full suite from clean state on this head, and the independent 320-row audit."
 }

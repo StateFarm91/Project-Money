@@ -435,6 +435,11 @@ class Candidate:
     nearest_key: str = ""
     nearest_distance: float = 1.0
     findings: list = field(default_factory=list)
+    # #111 / #308: how the proposition stage carried this concept. "" until that stage runs;
+    # "family_seed" when the hero's construction seeds a family; "single_product" when it
+    # does not -- a legitimate thing to build, carried and recorded as such, never killed.
+    carried_as: str = ""
+    family_verdict: str = ""
 
     @property
     def survives(self) -> bool:
@@ -449,6 +454,7 @@ class Candidate:
             "feeling": self.concept.feeling, "make_lane": self.concept.make_lane,
             "premise": self.concept.premise,
             "survives": self.survives, "killed_by": self.killed_by, "detail": self.detail,
+            "carried_as": self.carried_as, "family_verdict": self.family_verdict,
             "nearest": self.nearest_key, "novelty_distance": self.nearest_distance,
             "findings": [f.to_dict() if hasattr(f, "to_dict") else f for f in self.findings],
             "engine_ready": self.concept.construction in ENGINE_ROUTE
@@ -1540,7 +1546,14 @@ def proposition(db, survivors: list[Candidate], *, pod: str,
     **Family (#111)** is deterministic and already built: `family_test` asks whether the
     hero's construction reaches enough roles, including a cheap one, or whether the
     collection would have to be forced after the hero exists -- which is exactly when the
-    answer is always yes.
+    answer is always yes. Its verdict decides *what* is carried, not *whether*: #111's own
+    rule is that a concept which fails the family test is reported as a single product, not
+    refused, and a bundle is derived from two viable roles rather than asserted. Killing
+    here was a wiring defect (#308): every fitted-garment construction fails the quick-
+    companion role, so no cardigan could ever reach the compiler, and the owner's Christmas
+    cardigan example was being refused by a check whose own note says it must not refuse.
+    A single product is carried with `carried_as="single_product"`, recorded by name in the
+    stage's result, and downstream nothing derives a collection from it.
 
     **Angle** is one-sided on purpose. It refuses a concept arriving in the department's own
     vocabulary, and it does not endorse one whose words simply do not appear: an absent word
@@ -1559,27 +1572,42 @@ def proposition(db, survivors: list[Candidate], *, pod: str,
     kept: list[Candidate] = []
     killed: dict[str, str] = {}
     detail: dict[str, dict] = {}
+    single_products: dict[str, str] = {}
+    family_seeds: list[str] = []
 
     for candidate in survivors:
         concept = candidate.concept
         fam = family_test(concept)
         angle = angle_verdict(concept, crowded)
-        detail[concept.key] = {"family": fam["verdict"], "angle": angle}
-        if not fam["seeds_a_family"]:
-            killed[concept.key] = "no_family"
-            candidate.killed_by = "no_family"
-            candidate.detail = fam["note"][:400]
-            continue
+        detail[concept.key] = {"family": fam["verdict"], "angle": angle,
+                               "bundle_possible": fam["bundle_possible"],
+                               "viable_roles": [v["role"] for v in fam["viable_roles"]]}
         if angle["crowded"]:
             killed[concept.key] = "saturation"
             candidate.killed_by = "saturation"
             candidate.detail = angle["why"][:400]
             continue
+        candidate.family_verdict = fam["verdict"]
+        if fam["seeds_a_family"]:
+            candidate.carried_as = "family_seed"
+            family_seeds.append(concept.key)
+        else:
+            # Reported as a single product, not refused (#111's own rule; #308). The record
+            # is what stops a collection being forced out of it later: `bundle_possible`
+            # stays whatever the family test said, and a bundle is derived from two viable
+            # roles or not at all.
+            candidate.carried_as = "single_product"
+            single_products[concept.key] = fam["verdict"]
         kept.append(candidate)
 
     return {
         "checks": PROPOSITION_CHECKS,
         "applied": ["family", "angle"],
+        "single_products": single_products,
+        "family_seeds": family_seeds,
+        "family_rule": ("a concept that fails the family test is carried as a single "
+                        "product, never refused (#111); the angle check is the stage's only "
+                        "kill"),
         "not_applied": {
             "margin": ("contribution after platform fees is computable and would pass every "
                        "concept, because a digital file has no marginal cost. What decides a "

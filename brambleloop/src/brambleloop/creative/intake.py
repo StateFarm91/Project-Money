@@ -643,6 +643,10 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     detail = {
         "decision": decision, "source": source, "original_key": original_key,
         "concept": designed.to_dict(), "brief": brief, "funnel": funnel,
+        # #111 / #308: a single product is engineered as one; nothing derives a collection
+        # from it. Recorded here so the record says what the proposition stage decided.
+        "carried_as": getattr(candidate, "carried_as", "") or "",
+        "family_verdict": getattr(candidate, "family_verdict", "") or "",
         "funnel_rounds": funnel_rounds or [],
         "gate": {k: verdict.get(k) for k in ("decision", "failed", "unmeasured",
                                               "waiting_on", "reasons")},

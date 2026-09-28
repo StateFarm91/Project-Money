@@ -197,7 +197,9 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
          allowed_job_types=["launch.plan", "marketing.schedule", "content.draft",
                             # C-60: distribution planning and the buyer-journey audit (GREEN).
-                            "growth.distribution", "growth.journey"],
+                            "growth.distribution", "growth.journey",
+                            # #4: concept posts prepared and checked; nothing posted (GREEN).
+                            "growth.preproduction"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="listing", description="Drafts listings and SEO. Cannot spend ad money.",

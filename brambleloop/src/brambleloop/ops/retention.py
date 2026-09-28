@@ -249,6 +249,29 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "seasonal.transformations": ("latest",
                                  "creative.tournament seeds the last run's derived seasonal "
                                  "transformations of the catalogue into its field (#279)"),
+    # #194: the weekly cycle reads its own last two rows' unmeasured cells for the streak.
+    "improve.weekly": ("windowed",
+                       "improve.evolution.metric_revisions reads the last two weekly rows' "
+                       "cells_unmeasured (a three-week streak) inside the horizon"),
+    # #4: pre-production demand validation. Posts and refusals are re-derivable from the
+    # concepts and are re-prepared after the horizon at worst; a platform's interest
+    # observation and the validated reading built on it are evidence nothing can re-derive.
+    "preproduction.concept_post": ("windowed",
+                                   "commerce.preproduction_cycle prepares a post once per "
+                                   "concept and channel it finds a row for"),
+    "preproduction.post_refused": ("windowed",
+                                   "commerce.preproduction_cycle records a refusal once per "
+                                   "concept and channel it finds a row for"),
+    "preproduction.interest": ("windowed",
+                               "commerce.preproduction_cycle re-records a reading only when "
+                               "it changed from the last row"),
+    "preproduction.interest_observed": ("lifetime_total",
+                                        "commerce.preproduction_cycle reads the platform's "
+                                        "observation of a concept post; the only evidence of "
+                                        "interest and never authored here"),
+    "preproduction.validated": ("lifetime_total",
+                                "creative.ideation reads validated interest into every "
+                                "brief, and the cycle acts on an observation once"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(
