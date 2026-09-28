@@ -146,7 +146,8 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                           "a missing row reads as unproven, which blocks publication"),
     "model.probe": ("latest", "gateway.anthropic.provider_usable reads a successful call"),
     "model.analysis": ("windowed", "gateway.routing reads recent analyses"),
-    "ops.health": ("latest", "runtime.release reads the last sweep"),
+    "ops.health": ("windowed", "runtime.release reads the last sweep; ops.dependencies reads "
+                               "the 24h record as the host probe (C-80)"),
     "ops.requeued_for_commit": ("latest", "runtime.pipeline reads the last re-drive"),
     "improve.nightly": ("latest", "runtime.release reads the last nightly"),
     "improve.promoted": ("windowed", "improve.tiers and improve.roi read recent promotions"),
@@ -208,6 +209,18 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "assets.deliverable_problems": ("lifetime_total",
                                     "teardown.lab.measured_self_scores reads whether a "
                                     "release's PDF recorded problems (instruction clarity)"),
+    # C-80 (#81): the parity verdict resumes the escalation ladder from the rung results the
+    # photography job persisted; pruning one would re-run a strategy already tried.
+    "creative.escalation_result": ("lifetime_total",
+                                   "visual.gallery.escalation_progress reads every rung "
+                                   "result for a release to place the next attempt"),
+    # C-80 (#54): the launch gate reads each release's search baseline at drafting and the
+    # latest rollback rehearsal (aged 3 days) per listed release.
+    "listing.query_portfolio": ("lifetime_total",
+                                "launch.readiness reads whether every listed release has a "
+                                "search-coverage baseline recorded at drafting"),
+    "launch.rollback_rehearsed": ("latest", "launch.readiness reads the latest rehearsal per "
+                                            "release, aged out after 3 days"),
     "runtime.started": ("windowed",
                         "ops.health.container_starts reads a 24-hour window to tell a "
                         "restart from a deploy"),

@@ -388,16 +388,20 @@ def _progress(session, *, since: datetime) -> dict:
     from ..core.models import Job, JobStatus
 
     by: dict[str, dict] = {}
-    for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE)
+    # Bounded in SQL (C-80 defect 17): this runs hourly and the DONE table grows by the day.
+    for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE,
+                                                 Job.finished_at >= since)
                                .order_by(Job.id)):
         finished = job.finished_at
         if finished is None or _aware(finished) < since:
             continue
         row = by.setdefault(job.job_type, {"iterations": 0, "cost_cad": 0.0, "states": [],
-                                           "cadence": bool((job.inputs or {}).get("cadence"))})
+                                           "cadence": bool((job.inputs or {}).get("cadence")),
+                                           "last_job_id": None})
         row["iterations"] += 1
         row["cost_cad"] += float(job.cost_cad or 0.0)
         row["states"].append(_state_of(job.outputs))
+        row["last_job_id"] = job.id
     out = {}
     for jt, row in by.items():
         states = row["states"]
@@ -411,6 +415,9 @@ def _progress(session, *, since: datetime) -> dict:
                                     if row["cost_cad"] > 0 else None),
             "identical_tail": (len(tail) == IDENTICAL_STATES and len(set(tail)) == 1),
             "cadence": row["cadence"],
+            # The newest observation counted: a backoff level rises only when a *new*
+            # unchanged observation appears, never on a sweep that saw nothing new.
+            "last_job_id": row["last_job_id"],
         }
     return out
 
@@ -437,12 +444,26 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
                 open_row.resolved = True
                 lifted.append(jt)
             continue
-        level = int(((open_row.detail or {}).get("suspension") or {}).get("level", 0)) + 1 \
-            if open_row is not None else 1
+        previous = ((open_row.detail or {}).get("suspension") or {}) if open_row else {}
+        last_counted = previous.get("last_counted_job_id")
+        if open_row is not None and last_counted is not None \
+                and row.get("last_job_id") == last_counted:
+            # C-80 defect 5 (Codex P07): the same tail seen again is not a new observation.
+            # The level and the absolute deadline stand exactly as they were; the sweep
+            # only restates that the backoff is still in force.
+            applied.append({"job_type": jt, "factor": previous.get("factor"),
+                            "until": previous.get("suspend_until"), "unchanged": True,
+                            "level": previous.get("level")})
+            continue
+        level = int(previous.get("level", 0)) + 1 if open_row is not None else 1
         factor = min(MAX_BACKOFF_FACTOR, 2 ** level)
         until = now + timedelta(seconds=period_of[jt] * factor)
+        if previous.get("suspend_until"):
+            # a new unchanged observation extends the deadline; it never pulls it earlier
+            until = max(until, datetime.fromisoformat(previous["suspend_until"]))
         suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
-                      "suspend_until": until.isoformat(), "code_commit": _commit()}
+                      "suspend_until": until.isoformat(), "code_commit": _commit(),
+                      "last_counted_job_id": row.get("last_job_id")}
         summary = (f"{jt} observed {IDENTICAL_STATES} identical states in a row without "
                    f"progress; polling backs off to every {factor}x its period (#34)")
         if open_row is None:
@@ -454,7 +475,8 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
                                "progress": row}
             open_row.summary = summary
             open_row.report_count = (open_row.report_count or 1) + 1
-        applied.append({"job_type": jt, "factor": factor, "until": until.isoformat()})
+        applied.append({"job_type": jt, "factor": factor, "until": until.isoformat(),
+                        "unchanged": False, "level": level})
     return {"applied": applied, "lifted": lifted}
 
 

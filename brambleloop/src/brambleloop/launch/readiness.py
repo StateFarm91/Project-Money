@@ -671,6 +671,12 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         evidence={"structural": moat_state["structural_advantages"],
                   "built": moat_state["built"], "planned": moat_state["planned"],
                   "not_recognisable_without_model": recognisable.get("not_recognisable"),
+                  # C-80 defect 15: say which basis the recognisability rests on
+                  "recognisability_measured": recognisable.get("measured"),
+                  "recognisability_by_proxy_only": recognisable.get("by_proxy_only"),
+                  "recognisability_proxy": recognisable.get("proxy"),
+                  "recognisability_measurement_gated_on": recognisable.get(
+                      "measurement_gated_on"),
                   "why": ("the canonical model is the most visible asset and the most "
                           "copyable; a brand that is only the model is a brand with a "
                           "week's lead (#44)")}))
@@ -690,8 +696,23 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     return Readiness(requirements=out)
 
 
-# How recent the continuity restore proof must be for the rollback plan to count as proved.
+# How recent the rollback rehearsal must be for the rollback plan to count as proved
+# (C-80 defect 10: a rehearsed withdrawal round trip per listing, not a database restore).
 ROLLBACK_PROOF_MAX_AGE_DAYS = 3
+# The audit the listing stage writes per release with its search coverage at drafting: the
+# pre-launch search baseline (#54). Traffic has no pre-launch reading -- it is UNMEASURED until
+# the first Etsy Stats export is ingested (attribution.stats), and is recorded as such.
+SEARCH_BASELINE_ACTION = "listing.query_portfolio"
+TRAFFIC_BASELINE_KIND = "attribution.stats"
+# #54's package: what must be ready before the owner is asked to open live Etsy operations.
+LAUNCH_PACKAGE_KEYS: frozenset[str] = frozenset({
+    "catalogue_depth", "digital_disclosure", "support_knowledge", "faq",
+    "pricing_promotion_plan", "launch_calendar", "analytics_baseline", "rollback_plan",
+})
+# The owner requests that open or connect live Etsy operations, withheld while the package is
+# not ready (the requirement's own ordering: package first, then the ask).
+OPENS_LIVE_ETSY_KEYS: frozenset[str] = frozenset({"etsy_shop", "payout", "listing_fees",
+                                                  "phase"})
 
 
 def _launch_package_items(db, listings) -> list[Requirement]:
@@ -721,15 +742,21 @@ def _launch_package_items(db, listings) -> list[Requirement]:
         fresh = {(v.artefact_class, v.artefact_key) for v in provenance.check(s, current=current)
                  if v.state == provenance.FRESH}
         audits: dict[str, set[str]] = {}
-        for action in ("pricing.positioned", "launch.planned", "launch.held"):
+        for action in ("pricing.positioned", "launch.planned", "launch.held",
+                       SEARCH_BASELINE_ACTION):
             audits[action] = {str(r.artifact or "") for r in s.scalars(
                 select(AuditLog).where(AuditLog.action == action))}
-        restore = s.scalar(select(AuditLog).where(AuditLog.action == "continuity.verified")
-                           .order_by(desc(AuditLog.id)).limit(1))
-        restore_at = aware(restore.at) if restore is not None else None
-        baseline = s.scalar(select(OperatingReading).order_by(OperatingReading.id).limit(1))
+        traffic = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == TRAFFIC_BASELINE_KIND)
+            .order_by(desc(OperatingReading.id)).limit(1))
+        traffic_at = aware(traffic.at) if traffic is not None else None
         certs = {p.slug: bool(pv.certificate) for pv, p in s.execute(
             select(PatternVersion, Product).join(Product, Product.id == PatternVersion.product_id))}
+    from . import rollback as rollback_mod
+
+    rehearsals = {f"{slug}@{v}": rollback_mod.latest(db, slug=slug, version=v, now=now,
+                                                     max_age_days=ROLLBACK_PROOF_MAX_AGE_DAYS)
+                  for slug, v in releases}
 
     undisclosed = [f"{slug}@{v}" for slug, v in releases
                    if listing_disclosure_finding(db, slug=slug, version=v).get("finding")
@@ -741,10 +768,18 @@ def _launch_package_items(db, listings) -> list[Requirement]:
                      if l.price_cad <= 0 or l.product_slug not in audits["pricing.positioned"]]
     uncalendared = [l.product_slug for l in listings
                     if l.product_slug not in audits["launch.planned"]]
-    no_baseline = [l.product_slug for l in listings if not (l.seo_score or 0) > 0]
+    # C-80 defect 10 (Codex P12): the search baseline is the per-release coverage reading the
+    # listing stage recorded at drafting, not `seo_score > 0`; the traffic baseline is the
+    # first Stats export, UNMEASURED until one exists, and said so rather than proxied.
+    no_baseline = [f"{slug}@{v}" for slug, v in releases
+                   if f"{slug}@{v}" not in audits[SEARCH_BASELINE_ACTION]]
+    traffic_status = ("MEASURED" if traffic_at is not None else
+                      "UNMEASURED: no Etsy Stats export has been ingested; before the shop "
+                      "exists there is no traffic to baseline, and the first export is the "
+                      "baseline this gate will read")
     uncertified = [l.product_slug for l in listings if not certs.get(l.product_slug)]
-    restore_ok = restore_at is not None and now - restore_at <= timedelta(
-        days=ROLLBACK_PROOF_MAX_AGE_DAYS)
+    unrehearsed = [k for k, r in rehearsals.items() if r is None]
+    rehearsal_failed = [k for k, r in rehearsals.items() if r is not None and not r.get("ok")]
 
     def req(key, description, bad, evidence):
         ready = have and not bad
@@ -766,17 +801,26 @@ def _launch_package_items(db, listings) -> list[Requirement]:
         req("launch_calendar", "every listing has a launch date planned against its buying "
             "window", uncalendared, {"uncalendared": uncalendared[:8]}),
         req("analytics_baseline", "a pre-launch baseline exists: each listing's search "
-            "coverage recorded at drafting, and a weekly operating reading taken",
-            no_baseline + ([] if baseline is not None else ["no operating reading"]),
-            {"listings_without_search_baseline": no_baseline[:8],
-             "first_operating_reading": (aware(baseline.at).isoformat()
-                                         if baseline is not None else None)}),
+            "coverage recorded at drafting (the traffic baseline is the first Stats export, "
+            "recorded UNMEASURED until it exists)",
+            no_baseline,
+            {"releases_without_search_baseline": no_baseline[:8],
+             "search_baseline_read_from": SEARCH_BASELINE_ACTION,
+             "traffic_baseline": traffic_status,
+             "traffic_baseline_at": traffic_at.isoformat() if traffic_at else None}),
         req("rollback_plan", "a way to withdraw everything published without losing the "
-            "evidence: every listing's certificate retained and the continuity restore proved "
-            f"within {ROLLBACK_PROOF_MAX_AGE_DAYS} days",
-            uncertified + ([] if restore_ok else ["continuity restore unproven"]),
+            "evidence: every listing's certificate retained and its withdrawal round trip "
+            f"rehearsed (dry) within {ROLLBACK_PROOF_MAX_AGE_DAYS} days",
+            uncertified + [f"unrehearsed:{k}" for k in unrehearsed]
+            + [f"rehearsal_failed:{k}" for k in rehearsal_failed],
             {"without_retained_certificate": uncertified[:8],
-             "last_restore_proof": restore_at.isoformat() if restore_at else None}),
+             "unrehearsed": unrehearsed[:8], "rehearsal_failed": rehearsal_failed[:8],
+             "rehearsals": {k: ({"ok": r.get("ok"), "at": r.get("at"),
+                                 "failed_steps": [st["step"] for st in r.get("steps", [])
+                                                  if not st["ok"]]}
+                                if r is not None else None)
+                            for k, r in sorted(rehearsals.items())[:8]},
+             "read_from": rollback_mod.ACTION}),
     ]
 
 

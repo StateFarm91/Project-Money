@@ -680,9 +680,16 @@ def staleness(db, *, slug: str) -> dict:
                        + " changed materially and has not been reviewed and tested")
     if not graph["may_publish"]:
         reasons.append(f"rebuild outstanding (#172): {graph['why']}")
+    outstanding = list(graph.get("outstanding") or [])
+    # C-80 defect 11: a structured flag for the one exception marketing.schedule may take --
+    # the only thing outstanding is marketing content and nothing halts the product -- so
+    # the caller reads a field, not the wording of a reason.
+    only_marketing = (bool(outstanding) and not halting
+                      and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
             "policy_changes_unreviewed": [c["source"] for c in policy],
-            "blocks": bool(reasons), "reasons": reasons}
+            "blocks": bool(reasons), "reasons": reasons,
+            "outstanding_only_marketing": only_marketing}
 
 
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
@@ -798,4 +805,8 @@ def for_marketing(db, *, slug: str, version: str, today: date | None = None,
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     return {"slug": slug, "version": version, "blocks": bool(reasons), "reasons": reasons,
-            "staleness": stale, "window": window}
+            "staleness": stale, "window": window,
+            # the marketing rebuild may proceed exactly when its own stale content is the
+            # only block: nothing halted, the window open, only marketing_asset outstanding
+            "only_own_marketing_stale": (stale["outstanding_only_marketing"]
+                                         and bool(window["may_launch_seasonally"]))}

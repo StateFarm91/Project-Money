@@ -71,6 +71,103 @@ def test_every_frame_is_measured_and_recorded_unreviewed_when_vision_is_closed()
         == {"unreviewed"}
     state = release.frame_review_state(db, cir.slug, cir.version)
     assert state["reviewed"] is False and "#61" in state["why"]
+    # C-80 defect 6: every role the builder emits has a registered claim (none is reviewed
+    # against nothing), and defect 7: the review records the bytes it was of.
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        stored = {str(r.position): (r.role, r.sha256) for r in s.scalars(
+            select(ListingAsset).where(ListingAsset.product_slug == cir.slug,
+                                       ListingAsset.version == cir.version))}
+    assert len(stored) >= 6
+    assert {role for role, _ in stored.values()} <= set(release.ROLE_CLAIMS), (
+        {role for role, _ in stored.values()} - set(release.ROLE_CLAIMS))
+    assert review["frame_shas"] == {k: sha for k, (_r, sha) in stored.items()}
+    assert not any(v["verdict"] == "unclaimed" for v in review["frames"].values())
+
+
+def _fake_vision(unmade: list[str]):
+    from brambleloop.visual import inspect as inspection
+
+    def fake_inspect(ref, *, db=None, provider=None, claim=None):
+        chart = bool(claim and claim.get("shows_chart_preview"))
+        description = {"object_shown": "a chart" if chart else "a blanket",
+                       "chart_or_diagram": chart, "finished_or_in_progress": "finished",
+                       "object_count": "1", "clarity": "clear", "text_present": True,
+                       "third_party_marks": "none", "human_present": False}
+        return {"described": True, "description": description,
+                "realism": {}, "realism_unjudged": list(unmade),
+                "semantic": inspection.compare(description, claim or {})}
+    return fake_inspect
+
+
+def test_unjudged_stays_unjudged_and_only_a_bound_all_clear_review_opens_publication():
+    """C-80 defects 6 and 7 (Codex P06): an unjudged frame is not cleared because it was
+    described; an empty review or a review of other bytes does not count; a complete clear
+    review of exactly the stored frames does."""
+    from brambleloop.build2 import executor
+    from brambleloop.core.models import ListingAsset
+    from brambleloop.visual import inspect as inspection
+
+    db, cir = _certified()
+    gate = executor.GATE_BY_KEY["image_vision"]
+    original_check, original_inspect = gate.check, inspection.inspect_image
+    gate.check = lambda db_, env: True
+    try:
+        inspection.inspect_image = _fake_vision(["texture_not_repeating"])
+        out = _build(db, cir, "unjudged")
+        review = _review(db, cir)
+        assert set(v["verdict"] for v in review["frames"].values()) == {"unjudged"}, review
+        assert all(v["unmade"] == ["texture_not_repeating"] for v in review["frames"].values())
+        # unjudged does not stop assets.build (nothing failed) but it is not a pass at publish
+        assert out.get("ok") is not False, out
+        state = release.frame_review_state(db, cir.slug, cir.version)
+        assert state["reviewed"] is False and set(state["not_clear"].values()) == {"unjudged"}
+
+        inspection.inspect_image = _fake_vision([])
+        _build(db, cir, "clear")
+        state = release.frame_review_state(db, cir.slug, cir.version)
+        assert state["reviewed"] is True and state["bound_to_stored_frames"] is True, state
+    finally:
+        gate.check, inspection.inspect_image = original_check, original_inspect
+
+    # the same review no longer counts once the stored bytes differ
+    with db.session() as s:
+        row = s.scalar(select(ListingAsset).where(ListingAsset.product_slug == cir.slug,
+                                                  ListingAsset.position == 3))
+        row.sha256 = "0" * 64
+    state = release.frame_review_state(db, cir.slug, cir.version)
+    assert state["reviewed"] is False and state["bound_to_stored_frames"] is False
+    assert "differ" in state["why"]
+
+    # and a review that judged no frames is not a review
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action=release.FRAME_REVIEW_ACTION,
+                       artifact=f"{cir.slug}@{cir.version}",
+                       detail={"vision_open": True, "frames": {}, "frame_shas": {}}))
+    state = release.frame_review_state(db, cir.slug, cir.version)
+    assert state["reviewed"] is False and "empty review" in state["why"]
+
+
+def test_a_frame_role_without_a_registered_claim_is_unclaimed_and_stops_the_chain():
+    db, cir = _certified()
+    real = listing_assets.build_frames
+
+    def renamed(*a, **k):
+        frames = real(*a, **k)
+        next(f for f in frames if f.role == "materials").role = "mystery"
+        return frames
+
+    release.build_frames = renamed
+    try:
+        out = _build(db, cir, "unclaimed")
+    finally:
+        release.build_frames = real
+    assert out.get("ok") is False, out
+    assert any("FRAME_REVIEW_UNCLAIMED" in p and "(mystery)" in p
+               for p in out["blocking_image_problems"]), out["blocking_image_problems"]
+    review = _review(db, cir)
+    assert any(v["verdict"] == "unclaimed" for v in review["frames"].values())
 
 
 def test_type_over_the_chart_on_a_non_hero_frame_stops_the_chain():

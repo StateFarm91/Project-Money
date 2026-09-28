@@ -65,6 +65,48 @@ def test_the_storefront_is_rendered_with_the_live_takeover_and_still_checked():
     assert storefront.check_storefront(store) == store.problems
 
 
+def test_every_applied_surface_is_rendered_on_the_storefront_the_launch_check_reads():
+    """C-80 defect 18: shop_content and featured_collection APPLIED rows reach the rendered
+    storefront (About seasonal copy, pinned collection), through seasonal.engine."""
+    from datetime import timedelta
+
+    db = _db()
+    _seasonal_fixture(db)
+    _run(db, "seasonal.engine", {"as_of": TODAY.isoformat()})
+    live = takeover.active(db, today=TODAY)
+    assert live.get("featured_collection"), live
+    store = storefront.build_storefront(db=db, today=TODAY)
+    assert store.featured_collection == live["featured_collection"]["change"]
+    assert store.to_dict()["featured_collection"] == store.featured_collection
+    assert storefront.check_storefront(store) == store.problems == []
+    # shop_content turns over closer to the event: a plan due today renders onto About
+    plan = takeover.plan("Test", TODAY + timedelta(days=3),
+                         {"shop_content": "A Test section holding the autumn table pieces."},
+                         today=TODAY)
+    out = takeover.execute(db, [plan], today=TODAY)
+    assert out["applied"] and not out["refused"], out
+    store = storefront.build_storefront(db=db, today=TODAY)
+    assert store.about.endswith("A Test section holding the autumn table pieces.")
+    assert store.seasonal_copy and store.problems == []
+
+
+def test_a_featured_collection_that_names_nothing_real_is_refused():
+    db = _db()
+    _seasonal_fixture(db)
+    plan = takeover.plan("Test", TODAY + timedelta_days(3),
+                         {"featured_collection": "The Imaginary Collection"}, today=TODAY)
+    out = takeover.execute(db, [plan], today=TODAY)
+    assert out["applied"] == [] and out["refused"], out
+    assert any("FEATURED_COLLECTION_NAMES_NOTHING" in p for p in out["refused"][0]["problems"])
+    assert storefront.build_storefront(db=db, today=TODAY).featured_collection is None
+
+
+def timedelta_days(n):
+    from datetime import timedelta
+
+    return timedelta(days=n)
+
+
 def test_a_takeover_that_breaks_the_storefront_rules_is_refused_not_applied():
     db = _db()
     plan = takeover.plan("Test", date(2026, 10, 1), {"banner": "x" * 5000}, today=TODAY)

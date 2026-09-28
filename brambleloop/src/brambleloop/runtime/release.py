@@ -322,7 +322,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # what the frame's role claims. It runs when the vision gate is open; otherwise every
     # frame is recorded UNREVIEWED, which the publish path reads as not passed. A frame the
     # review blocks stops the chain here.
-    review = _review_frames(ctx, slug, version, frames, frame_paths)
+    review = _review_frames(ctx, slug, version, frames, frame_paths,
+                            shas={f["position"]: f["sha256"] for f in stored_frames})
     blocking.extend(review["blocking"])
 
     # #36: every listing image is stored with its provenance -- kind, physical or
@@ -878,15 +879,22 @@ def select_incident(Incident, signature: str):
 
 FRAME_REVIEW_ACTION = "assets.frame_review"
 # What each frame's role claims, in the closed vocabulary `visual.inspect.compare` checks.
+# Every role `listing_assets.build_frames` emits has an entry (C-80 defect 6): a frame with
+# no claim would be compared against nothing and pass by having nothing to fail, so a role
+# missing here is recorded UNCLAIMED and blocks, never reviewed vacuously.
 ROLE_CLAIMS: dict[str, dict] = {
     "hero": {"shows_finished_object": True},
+    "whats_included": {"shows_text": True},
     "size": {"shows_size_reference": True},
-    "chart": {"shows_chart_preview": True},
+    "materials": {"shows_text": True},
     "pattern_preview": {"shows_text": True},
+    "chart": {"shows_chart_preview": True},
+    "collection": {"shows_text": True},
 }
 
 
-def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict) -> dict:
+def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict,
+                   shas: dict[int, str] | None = None) -> dict:
     from ..visual import inspect as inspection_mod
     from ..visual.gallery import gates_now
 
@@ -894,7 +902,15 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
     verdicts: dict[int, dict] = {}
     blocking: list[str] = []
     for frame in frames:
-        claim = ROLE_CLAIMS.get(frame.role, {})
+        claim = ROLE_CLAIMS.get(frame.role)
+        if claim is None:
+            verdicts[frame.position] = {"role": frame.role, "verdict": "unclaimed",
+                                        "why": f"no claim is registered for role "
+                                               f"{frame.role!r}; a frame compared against "
+                                               f"nothing is not reviewed (#61)"}
+            blocking.append(f"FRAME_REVIEW_UNCLAIMED: frame {frame.position} ({frame.role}) "
+                            f"has no registered claim to be reviewed against")
+            continue
         if not vision_open:
             verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
                                         "why": "image_vision gate closed: no model has "
@@ -907,13 +923,12 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
             verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
                                         "why": f"{type(exc).__name__}: {exc}"[:200]}
             continue
-        # A deterministic render has no realism to judge; the semantic comparison and the
-        # marks are the review. Unmade realism on a render is not a failure of the frame.
-        if verdict["verdict"] == "unjudged" and got.get("described"):
-            verdict = {"verdict": "clear", "why": "described and compared; realism not "
-                                                  "applicable to a deterministic render"}
+        # C-80 defect 6 (Codex P06): an unjudged verdict stays unjudged. Unmade checks are
+        # not passed checks, whatever kind of frame they were not made on; the publish path
+        # reads anything other than `clear` as not independently reviewed.
         verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
                                     "why": verdict.get("why"),
+                                    "unmade": verdict.get("unmade"),
                                     "semantic": (got.get("semantic") or {}).get("problems")}
         if verdict["verdict"] == "blocked":
             blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
@@ -922,13 +937,23 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
     ctx.audit(FRAME_REVIEW_ACTION, artifact=f"{slug}@{version}",
               detail={"vision_open": vision_open,
                       "frames": {str(k): v for k, v in verdicts.items()},
+                      # the bytes this review was of (C-80 defect 7): the publish path
+                      # accepts the review only for these exact stored frames
+                      "frame_shas": {str(k): v for k, v in (shas or {}).items()},
                       "unreviewed": sorted(k for k, v in verdicts.items()
                                            if v["verdict"] == "unreviewed")})
     return {"verdicts": verdicts, "blocking": blocking, "vision_open": vision_open}
 
 
 def frame_review_state(db, slug: str, version: str) -> dict:
-    """The latest independent review of this release's frames, for the publish path."""
+    """The latest independent review of this release's frames, for the publish path.
+
+    Reviewed only when the review judged a non-empty set of frames, every one is `clear`,
+    and the review was of exactly the frame bytes now stored for the release (the sha set
+    recorded with the review equals the stored frames' sha set). A review of an empty map,
+    of different bytes, or with any frame unreviewed / unjudged / blocked is not a review
+    of this release (C-80 defect 7, Codex P06).
+    """
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog
@@ -937,12 +962,27 @@ def frame_review_state(db, slug: str, version: str) -> dict:
         row = s.scalar(select(AuditLog).where(AuditLog.action == FRAME_REVIEW_ACTION,
                                               AuditLog.artifact == f"{slug}@{version}")
                        .order_by(desc(AuditLog.id)).limit(1))
-    if row is None:
+        detail = dict(row.detail or {}) if row is not None else None
+    if detail is None:
         return {"reviewed": False, "why": "no independent frame review is on record (#61)"}
-    frames = (row.detail or {}).get("frames") or {}
-    bad = {k: v["verdict"] for k, v in frames.items() if v.get("verdict") != "clear"}
-    return {"reviewed": not bad, "not_clear": bad,
-            "why": ("every frame was independently reviewed and communicates its claim"
+    frames = detail.get("frames") or {}
+    bad = {k: v.get("verdict") for k, v in frames.items() if v.get("verdict") != "clear"}
+    if not frames:
+        return {"reviewed": False, "not_clear": {}, "bound_to_stored_frames": False,
+                "why": "the frame review on record judged no frames (#61): an empty review "
+                       "is not a review"}
+    reviewed_shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
+    stored = {str(f["position"]): f["sha256"] for f in _stored_frames(db, slug, version)}
+    bound = bool(reviewed_shas) and bool(stored) and reviewed_shas == stored
+    if not bound:
+        why = ("the frame review on record is not bound to the frames now stored for this "
+               "release (#61): " + ("it recorded no frame hashes" if not reviewed_shas else
+                                    "no frames are stored" if not stored else
+                                    "the stored frame bytes differ from the ones reviewed"))
+        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": False,
+                "why": why}
+    return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
+            "why": ("every stored frame was independently reviewed and communicates its claim"
                     if not bad else f"frames not independently cleared (#61): {bad}")}
 
 
@@ -1426,12 +1466,10 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
                          today=date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
                          positioning=i.get("positioning"))
     outstanding = list(gate["staleness"]["rebuild"]["outstanding"] or [])
-    if (gate["blocks"] and i.get("rebuild") and outstanding
-            and all(k.startswith("marketing_asset:") for k in outstanding)
-            and not gate["staleness"]["halted"]
-            and all("#172" in r for r in gate["reasons"])):
+    if gate["blocks"] and i.get("rebuild") and gate.get("only_own_marketing_stale"):
         # C-69: the only thing outstanding is the content this rebuild exists to remake.
         # Blocking it on its own staleness would make a stale marketing asset unrebuildable.
+        # C-80 defect 11: read from the gate's structured flag, not from reason wording.
         gate = {**gate, "blocks": False, "reasons": [],
                 "rebuilding": outstanding}
     if gate["blocks"]:
@@ -2995,6 +3033,20 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         providers = []
 
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
+
+    # C-80 defect 10 (#54): the rollback plan is rehearsed, per listed release, before it is
+    # assessed -- a dry withdrawal round trip that checks the retained certificate, the
+    # listing's state and that every deliverable a restore would re-serve is on disk.
+    from ..core.models import Listing
+    from ..launch import rollback as rollback_mod
+
+    with ctx.db.session() as s:
+        releases = sorted({(l.product_slug, l.version) for l in s.scalars(
+            select(Listing).where(Listing.state != "withdrawn"))})
+    rehearsed = {f"{slug}@{v}": rollback_mod.rehearse(ctx.db, slug=slug, version=v,
+                                                      store=store, job_id=ctx.job.id)["ok"]
+                 for slug, v in releases}
+
     readiness = assess(ctx.db, phase=ctx.phase.value, providers=providers,
                        storage_durable=store.durable)
 
@@ -3011,8 +3063,19 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     # queues means the owner reads whichever they remember. These are capability requests
     # (#223), not launch requirements, so they are queued but do not move `readiness.ready`.
     from ..launch import access
+    from ..launch.readiness import LAUNCH_PACKAGE_KEYS, OPENS_LIVE_ETSY_KEYS
 
     requests = list(readiness.owner_requests()) + access.owner_requests()
+
+    # #54 (C-80 defect 10): "before asking the owner to open/connect live Etsy operations,
+    # require ..." -- so while any item of that package is still ours to build, the requests
+    # that open live Etsy are withheld from the queue, and the audit says which items held
+    # them. The package items themselves stay in `ours_to_do`.
+    package_blocked = sorted(r.key for r in readiness.buildable if r.key in LAUNCH_PACKAGE_KEYS)
+    withheld: list[str] = []
+    if package_blocked:
+        withheld = sorted(r.key for r in requests if r.key in OPENS_LIVE_ETSY_KEYS)
+        requests = [r for r in requests if r.key not in OPENS_LIVE_ETSY_KEYS]
 
     queued: list[str] = []
     restated: list[str] = []
@@ -3089,6 +3152,10 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
             for key, row in open_actions.items():
                 if key in wanted or key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
                     continue
+                if key in withheld:
+                    # withheld is not done: the request is not being made yet, and marking
+                    # its earlier row done would read as the owner having completed it
+                    continue
                 # The improvement pipeline's cards are decisions it raised and closes itself;
                 # this assessment never asked for them, so it is not the one to close them.
                 if key.startswith(OWNER_CARD_PREFIXES):
@@ -3101,6 +3168,9 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
 
     ctx.audit("launch.assessed", detail={
         "ready": ready,
+        "rollback_rehearsed": rehearsed,
+        "launch_package_blocked": package_blocked,
+        "owner_requests_withheld_until_package_ready": withheld,
         "ready_before_off_device_proof": bool(readiness.ready),
         "off_device_proof": {k: off_device.get(k) for k in (
             "key", "blocking", "status", "unmet", "window_hours", "evidence", "why")},
@@ -3403,7 +3473,31 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         return {"targeted": True, "slug": slug, "version": version, "withheld": True,
                 "rebuilt": []}
 
-    fresh = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
+    fresh_now = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
+
+    # C-80 defect 12 (Codex P10): completion evidence is bound to *this* attempt. A row counts
+    # as rebuilt only when (a) for every requested reference the row's recorded input equals
+    # the fingerprint the request said it must become, and (b) on a verify pass, the row was
+    # written by the stage job this attempt enqueued or a job enqueued after it -- never by
+    # whatever happened to leave the row fresh before the request.
+    def binding(k) -> dict:
+        facts = row_facts.get(k) or {}
+        inputs = facts.get("inputs") or {}
+        mismatched = sorted(ref for ref, fp in fingerprints.items()
+                            if isinstance(fp, dict) and fp.get("new")
+                            and inputs.get(ref) != fp["new"])
+        after = i.get("stage_job") or i.get("requested_by")
+        row_job = facts.get("job_id")
+        job_bound = (not verify) or (after is not None and row_job is not None
+                                     and int(row_job) >= int(after))
+        return {"fingerprints_match": not mismatched, "mismatched_refs": mismatched,
+                "stage_job": i.get("stage_job"), "requested_by": i.get("requested_by"),
+                "row_job": row_job, "job_bound": job_bound,
+                "bound": not mismatched and job_bound}
+
+    bindings = {k: binding(k) for k in fresh_now}
+    fresh = [k for k in fresh_now if bindings[k]["bound"]]
+    unbound = [k for k in fresh_now if not bindings[k]["bound"]]
     stale = [k for k in keys if k not in fresh]
 
     if verify:
@@ -3411,7 +3505,14 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
             ctx.audit("chain.rebuild_completed", artifact=k, detail={
                 "product_slug": slug, "version": version, "reason": reason,
                 "fingerprints": fingerprints, "evidence": row_facts.get(k),
-                "verified_on_check": verify})
+                "bound": bindings[k], "verified_on_check": verify})
+        for k in unbound:
+            ctx.audit("chain.rebuild_unbound", artifact=k, detail={
+                "product_slug": slug, "version": version, "reason": reason,
+                "fingerprints": fingerprints, "evidence": row_facts.get(k),
+                "bound": bindings[k], "check": verify,
+                "why": "the row reads fresh but was not produced by this attempt's stage "
+                       "job, or its inputs are not the fingerprints the request named"})
         if stale and verify < REBUILD_VERIFY_ATTEMPTS:
             ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale,
                                                      "verify": verify + 1},
@@ -3433,9 +3534,9 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                 else:
                     inc.report_count += 1
         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
-            "completed": fresh, "outstanding": stale, "check": verify})
+            "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify})
         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
-                "outstanding": stale}
+                "outstanding": stale, "unbound": unbound}
 
     classes = {k.split(":", 1)[0] for k in stale}
     unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
@@ -3486,13 +3587,17 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         ctx.audit("chain.rebuild_completed", artifact=k, detail={
             "product_slug": slug, "version": version, "reason": reason,
             "fingerprints": fingerprints, "evidence": row_facts.get(k),
-            "already_fresh": True})
+            "bound": bindings[k], "already_fresh": True})
     if stale:
-        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1},
+        # the verify pass carries the attempt it must bind completion to
+        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1,
+                                                 "stage_job": getattr(stage_job, "id", None),
+                                                 "requested_by": ctx.job.id},
                     idempotency_key=f"rebuild-verify:{slug}:{ctx.job.id}:1",
                     run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
     return {"targeted": True, "slug": slug, "version": version, "reason": reason,
             "requested": stale, "already_fresh": fresh, "stage": stage,
+            "fresh_but_unbound": unbound,
             "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
 
 
@@ -4254,6 +4359,20 @@ def handle_model_photography(ctx: JobContext) -> dict:
                                        if listing_asset.needs_the_model(cir) else {}))
 
     ctx.audit(model_photography.ACTION, detail=record)
+    # C-80 defect 8: a model-bearing product's rung attempt is persisted too, so the ladder
+    # resumes rather than restarting (the model path carries no rung brief yet: it is the
+    # same conditioned render, recorded as such).
+    if str(ctx.job.inputs.get("reason") or "").startswith("parity_escalation:"):
+        from ..visual.gallery import ESCALATION_RESULT_ACTION
+
+        ctx.audit(ESCALATION_RESULT_ACTION, artifact=f"{slug}@{cir.version}",
+                  detail={"rung": str(ctx.job.inputs["reason"]).split(":", 1)[1],
+                          "failed": list(ctx.job.inputs.get("failed") or []),
+                          "attempted": bool(record.get("made")), "made": record.get("made"),
+                          "usable": bool(record.get("usable_as_listing_asset")),
+                          "verdict": (record.get("floors") or {}).get("verdict")
+                          if isinstance(record.get("floors"), dict) else None,
+                          "strategy": "model_path_unchanged"})
     # #36: a generated frame is stored with its provenance -- simulated, AI-assisted, the
     # version it depicts -- the moment it exists.
     if record.get("made"):
@@ -6082,7 +6201,7 @@ def _lane_capacity(ctx: JobContext, lanes) -> dict:
             for job in s.scalars(select(Job).where(
                     Job.status.in_((JobStatus.PENDING, JobStatus.FAILED)),
                     Job.job_type.in_(sorted(cap.ENGINEERING_JOB_TYPES)))):
-                slug = str((job.inputs or {}).get("slug") or "")
+                slug = cap.slug_of(job)          # cir.compile/gate.certify carry inputs.cir
                 if cap.product_lane(ctx.db, slug) not in starved:
                     continue
                 floor = max(0, priority_for(job.job_type) - LANE_STARVED_BOOST)
@@ -6648,6 +6767,17 @@ def handle_owned_photography(ctx: JobContext) -> dict:
     if cir is None:
         return {"ran": False, "reason": f"no CIR for {slug!r}"}
 
+    # C-80 defect 8 (Codex P11): a job enqueued as a #81 rung is a distinct strategy. It
+    # reads the rung and the failed dimensions, has its own one-attempt budget, changes what
+    # the rung says it changes (brief, composition or tool), and persists its result so the
+    # next parity verdict resumes the ladder from here instead of at the first rung.
+    rung = str(ctx.job.inputs.get("rung") or "")
+    if not rung and str(ctx.job.inputs.get("reason") or "").startswith("parity_escalation:"):
+        rung = str(ctx.job.inputs["reason"]).split(":", 1)[1]
+    failed = list(ctx.job.inputs.get("failed") or [])
+    if rung:
+        return _owned_photography_rung(ctx, cir, slug, rung, failed)
+
     next_move = owned_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
     if not next_move["render"]:
         return {"ran": False, "reason": next_move["reason"], "slug": slug,
@@ -6674,6 +6804,68 @@ def handle_owned_photography(ctx: JobContext) -> dict:
             "verdict": record.get("verdict"), "why": record.get("why"),
             "usable_as_listing_asset": record.get("usable_as_listing_asset"),
             "spent_cad": record.get("spent_cad", 0.0)}
+
+
+def _owned_photography_rung(ctx: JobContext, cir, slug: str, rung: str,
+                            failed: list[str]) -> dict:
+    """One #81 rung, executed as the strategy it names and recorded as attempted or not."""
+    import os
+
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+    from ..core import workspace
+    from ..publish import owned_photography
+    from ..visual import tournament
+    from ..visual.gallery import ESCALATION_RESULT_ACTION, GENERATION_RUNGS, RUNG_BRIEFS
+
+    version = cir.version
+    key = f"{slug}@{version}"
+
+    def result(**detail):
+        ctx.audit(ESCALATION_RESULT_ACTION, artifact=key,
+                  detail={"rung": rung, "failed": failed, **detail})
+        return {"ran": bool(detail.get("attempted")), "slug": slug, "version": version,
+                "rung": rung, **detail}
+
+    if rung not in GENERATION_RUNGS:
+        return result(attempted=False, reason="not_a_generation_rung",
+                      why=f"{rung!r} is not a rung this job executes")
+    if owned_photography.rung_attempts(ctx.db, slug=slug, version=version, rung=rung):
+        return result(attempted=False, reason="rung_already_attempted",
+                      why="this rung was already attempted for this release; the ladder "
+                          "advances rather than repeating a strategy")
+    brief = RUNG_BRIEFS[rung]
+    env = dict(os.environ)
+    earlier = {a.get("provider") for a in owned_photography.assets_for(
+        ctx.db, slug=slug, version=version) if a.get("provider")}
+    provider_key = ""
+    if brief["provider"] == "alternate":
+        provider_key = tournament.alternate_provider(ctx.db, env, exclude=earlier)
+        if not provider_key:
+            return result(attempted=False, reason="no_alternate_tool",
+                          why=f"no permitted image model other than {sorted(earlier)} is "
+                              f"available in this environment; the rung cannot be executed "
+                              f"and is recorded so, not skipped")
+    constraints = tuple(brief["constraints"])
+    if rung == "regenerate_constrained":
+        constraints += (f"The previous render of this product failed these checks: "
+                        f"{', '.join(failed) or 'unnamed'}. Each must be visibly answered.",)
+    compiled = compile_cir(cir)
+    if not compiled.ok:
+        return result(attempted=False, reason="does_not_compile",
+                      why=f"{slug} does not compile, so there is nothing true to photograph")
+    with workspace.work_dir(ctx.job.inputs.get("work_dir"), prefix="owned-rung-") as work:
+        record = owned_photography.make(
+            ctx.db, cir, build_twin(cir, compiled), occasion=ctx.job.inputs.get("occasion", ""),
+            env=env, work_dir=work, provider_key=provider_key, rung=rung,
+            constraints=constraints)
+    ctx.audit(owned_photography.ACTION, detail=record)
+    return result(attempted=bool(record.get("made")), made=record.get("made"),
+                  usable=bool(record.get("usable_as_listing_asset")),
+                  verdict=record.get("verdict"), why=(record.get("why") or "")[:300],
+                  provider=record.get("provider") or provider_key or None,
+                  composition=brief["composition"], constraints=list(constraints),
+                  spent_cad=record.get("spent_cad", 0.0))
 
 
 def _representative_slug(db) -> str:

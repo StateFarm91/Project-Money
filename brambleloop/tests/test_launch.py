@@ -11,12 +11,19 @@ queue, and every owner action carries the five things the directive asks for.
 """
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+
+# The stocked warehouse puts its frames and PDFs on disk under their hashes, because the
+# rollback rehearsal (#54) checks they are restorable; the store reads its root at import.
+_TMP = tempfile.mkdtemp(prefix="launch_readiness_")
+os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
 
 from sqlalchemy import select  # noqa: E402
 
@@ -58,18 +65,35 @@ def _catalogue_slugs(n: int) -> list[str]:
     return out
 
 
+VERSION = "1.0.0"
+# Listing copy that makes every owed disclosure (#41) where the buyer reads it: the digital
+# nature in the title, the rest on the first screen.
+_TITLE = "{title} - Digital Crochet Pattern (not a finished item)"
+_DESCRIPTION = ("Intermediate skill level. You will need worsted yarn and a 5 mm hook. "
+                "Written in US crochet terms. Instant digital download after purchase. "
+                "Questions? Message us and we answer from the version you bought.")
+
+
 def _stock(db, listings: int = MIN_LISTINGS_TO_OPEN, frames: int = MIN_APPROVED_ASSETS,
-           content_each: int = 1, photographs: bool = True) -> None:
+           content_each: int = 1, photographs: bool = True, package: bool = True) -> None:
     """A warehouse that looks like a company that has done its half of the work.
 
     `photographs=False` is the live situation of 2026-09-23: approved chart frames on every
     listing and not one product photograph that cleared its floors.
+
+    `package=True` (C-80, #54) is the rest of "its half": the launch package the gate reads
+    per listing -- disclosing copy, a current version-keyed support pack, the pricing and
+    launch-calendar audits the stages write, the search baseline recorded at drafting, a PDF
+    and frames on disk under their hashes, and the withdrawal rehearsal run for real over
+    them. `package=False` is a company that has drafted listings and built nothing else yet.
     """
     from brambleloop.agents.registry import Registry
+    from brambleloop.core.artifacts import ArtifactStore
     from brambleloop.products.builder import for_slug
     from brambleloop.publish import owned_photography as _op
 
     slugs = _catalogue_slugs(listings)
+    store = ArtifactStore()
     if photographs:
         for slug in slugs:
             cir = for_slug(slug)
@@ -83,18 +107,56 @@ def _stock(db, listings: int = MIN_LISTINGS_TO_OPEN, frames: int = MIN_APPROVED_
             product = Product(slug=slug, title=f"Product {i}", status="certified")
             s.add(product)
             s.flush()
-            s.add(PatternVersion(product_id=product.id, version="1.0.0",
+            s.add(PatternVersion(product_id=product.id, version=VERSION,
                                  cir_json={}, release_hash="0" * 64, certified=True,
-                                 certificate={"granted": True}))
-            s.add(Listing(product_slug=slug, version="1.0.0", title=f"Product {i}",
-                          description="copy", price_cad=9.5, state="draft"))
+                                 certificate={"granted": True,
+                                              "stages_run": ["compile", "twin", "reverse"]}))
+            s.add(Listing(product_slug=slug, version=VERSION,
+                          title=_TITLE.format(title=f"Product {i}"),
+                          description=_DESCRIPTION, price_cad=9.5, state="draft"))
             for position in range(frames):
-                s.add(ListingAsset(product_slug=slug, version="1.0.0", position=position,
+                # real bytes under their real hash, so a restore has something to re-serve
+                stored = store.put(f"{slug}-frame-{position}",
+                                   f"frame {position} of {slug}".encode(), "image/png")
+                s.add(ListingAsset(product_slug=slug, version=VERSION, position=position,
                                    asset_class="INFOGRAPHIC", role="frame",
-                                   sha256="a" * 64, approved=True))
+                                   sha256=stored.sha256, approved=True))
             for n in range(content_each):
                 s.add(ContentPiece(product_slug=slug, channel="article",
                                    title=f"piece {n}", body="body"))
+    if package:
+        _package(db, slugs)
+
+
+def _package(db, slugs: list[str]) -> None:
+    """The #54 launch package for the stocked releases, as the chain's stages leave it."""
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.core.models import ArtefactProvenance, AuditLog, Job, JobStatus
+    from brambleloop.launch import rollback
+    from brambleloop.ops import artefacts as provenance
+
+    store = ArtifactStore()
+    with db.session() as s:
+        current = provenance.current_from_db(s)
+        for slug in slugs:
+            pdf = store.put(f"{slug}-pdf", f"customer pdf of {slug}".encode(),
+                            "application/pdf")
+            s.add(Job(agent="publisher", job_type="assets.build", status=JobStatus.DONE,
+                      inputs={"slug": slug, "version": VERSION},
+                      outputs={"slug": slug, "version": VERSION, "pdf_sha256": pdf.sha256}))
+            # the version-keyed support pack, fresh against what the system holds now
+            s.add(ArtefactProvenance(
+                artefact_class="support_knowledge", artefact_key=f"{slug}@{VERSION}#support",
+                product_slug=slug, created_by="publisher", validation_status="passed",
+                inputs={ref: current[ref] for ref in
+                        (f"cir:{slug}", f"release:{slug}", "chain:release")}))
+            for action, artifact in (("pricing.positioned", slug), ("launch.planned", slug),
+                                     ("listing.query_portfolio", f"{slug}@{VERSION}")):
+                s.add(AuditLog(actor="orchestrator", action=action, artifact=artifact,
+                               detail={"fixture": "stocked warehouse"}))
+    # the rehearsal is the real one, run over the fixture's rows and bytes
+    for slug in slugs:
+        rollback.rehearse(db, slug=slug, version=VERSION, store=store)
 
 
 def test_an_empty_company_is_blocked_on_itself_not_on_the_owner():
@@ -388,6 +450,16 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
             if not worker.run_once():
                 break
 
+    # C-80 (#54): the requests that open live Etsy (the fee approval among them) are withheld
+    # while any launch-package item is still ours to build -- see
+    # test_live_etsy_asks_are_withheld_while_the_launch_package_is_ours_to_build. `_stock`
+    # builds the package, so the fee request is queued here with that gate live.
+    _adoption_round_trip(db, run_readiness, stale_fee)
+
+
+def _adoption_round_trip(db, run_readiness, stale_fee) -> None:
+    from brambleloop.core.models import OwnerAction
+
     run_readiness("adopt-1")
     with db.session() as s:
         rows = list(s.scalars(select(OwnerAction)))
@@ -414,6 +486,60 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
     fee = [a for a in after if a.requirement_key == "listing_fees"]
     assert len(fee) == 1, [f.action[:60] for f in fee]
     assert fee[0].action != stale_fee, "the adopted row kept its stale figure"
+
+def test_live_etsy_asks_are_withheld_while_the_launch_package_is_ours_to_build():
+    """#54 (C-80 defect 10) through the worker: "before asking the owner to open/connect live
+    Etsy operations, require ..." -- so a company that has drafted its listings and built no
+    package yet is not allowed to ask the owner for the shop, the payout, the fees or the
+    phase, and the assessment says which package items held them. Once the package exists
+    (the same rows the chain's stages write), the asks go out.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import AuditLog, OwnerAction
+    from brambleloop.launch.readiness import LAUNCH_PACKAGE_KEYS, OPENS_LIVE_ETSY_KEYS
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers the handlers
+    from brambleloop.runtime.worker import Worker
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/withheld.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    _stock(db, package=False)
+
+    def run_readiness(key: str) -> dict:
+        JobQueue(db).enqueue("orchestrator", "launch.readiness", {}, idempotency_key=key)
+        worker = Worker(db, "withheld-worker")
+        for _ in range(200):
+            if not worker.run_once():
+                break
+        with db.session() as s:
+            row = s.scalars(select(AuditLog).where(AuditLog.action == "launch.assessed")
+                            .order_by(AuditLog.id.desc())).first()
+            assert row is not None, "the readiness job assessed nothing"
+            return dict(row.detail)
+
+    assessed = run_readiness("withheld-1")
+    with db.session() as s:
+        queued = {a.requirement_key for a in s.scalars(select(OwnerAction))}
+    assert queued, "the readiness job queued nothing"
+    assert not (queued & OPENS_LIVE_ETSY_KEYS), (
+        "a live-Etsy request was queued while the launch package is still ours to build",
+        sorted(queued & OPENS_LIVE_ETSY_KEYS))
+    blocked = set(assessed["launch_package_blocked"])
+    assert blocked and blocked <= LAUNCH_PACKAGE_KEYS, assessed
+    assert {"support_knowledge", "launch_calendar", "rollback_plan"} <= blocked, blocked
+    assert set(assessed["owner_requests_withheld_until_package_ready"]) == OPENS_LIVE_ETSY_KEYS
+
+    # the package gets built (the same rows the chain's stages write) and the asks go out
+    _package(db, _catalogue_slugs(MIN_LISTINGS_TO_OPEN))
+    assessed = run_readiness("withheld-2")
+    assert assessed["launch_package_blocked"] == [], assessed
+    assert assessed["owner_requests_withheld_until_package_ready"] == []
+    with db.session() as s:
+        queued = {a.requirement_key for a in s.scalars(select(OwnerAction))}
+    assert OPENS_LIVE_ETSY_KEYS <= queued, sorted(queued)
+
 
 def test_a_closer_may_only_close_what_it_opens():
     """It tidied away the canonical-model approval on the run after the pack passed.

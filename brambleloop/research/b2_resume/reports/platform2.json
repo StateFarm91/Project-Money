@@ -1,0 +1,77 @@
+{
+ "cluster": "platform2",
+ "branch": "claude/b2r-platform2",
+ "head": "aed58bf",
+ "rows": [
+  {
+   "id": 5,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_lanes_capacity.py::test_size_depth_is_read_from_the_certified_size_run_not_a_constant, ::test_certification_jobs_carrying_the_cir_are_counted_against_their_lane, ::test_a_function_over_its_measured_share_yields_while_the_pool_is_in_use",
+   "note": "C-80: size depth measured from the CIRs' certified size run (cir/graded.size_run) or UNMEASURED; cir.compile/gate.certify lane-counted through inputs.cir.slug; the fast/flagship mix binds on measured job-seconds at the claim even at pool 3."
+  },
+  {
+   "id": 30,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_lanes_capacity.py::test_function_budgets_share_the_pool_by_largest_remainder, ::test_a_function_over_its_measured_share_yields_while_the_pool_is_in_use, ::test_the_measured_share_does_not_reorder_an_idle_pool",
+   "note": "C-80: function budgets by largest remainder over the pool; a function over its share of the last 24h measured job-seconds yields at the claim while an under-share function has runnable work (Worker.run_once)."
+  },
+  {
+   "id": 34,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_thrash.py::test_unchanged_free_polling_backs_off_and_progress_lifts_it, ::test_a_paid_loop_is_suspended_until_the_hypothesis_changes",
+   "note": "C-80: backoff stores last_counted_job_id and increments only on a new unchanged observation with an absolute deadline; suspension lifts on a changed hypothesis (C-85 closes the new-SHA lift)."
+  },
+  {
+   "id": 38,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_trend_evidence.py::test_mjs_benchmark_listings_are_stamped_global_over_their_seen_window_and_discount_scores, ::test_stale_foreign_evidence_discounts_the_score_below_promotion",
+   "note": "C-80: SERP, culture, insights and MJs benchmark listings stamped with source/population/window; radar.score discounts by the stamped evidence and the discounted score decides promotion."
+  },
+  {
+   "id": 44,
+   "status": "partial",
+   "parked_on": "image_vision",
+   "proof": "tests/test_cert_rebuild_chain.py::test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured",
+   "note": "C-80: moat inventory from artefact evidence; recognisability carries its basis -- the signature count is labelled recognisability_proxy and the real measurement (blind hero description against the brand palette) runs behind image_vision and overrides the proxy when present. Parked for the measured half only."
+  },
+  {
+   "id": 54,
+   "status": "partial",
+   "parked_on": "insights_access",
+   "proof": "tests/test_cert_rebuild_chain.py::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced; tests/test_launch.py::test_live_etsy_asks_are_withheld_while_the_launch_package_is_ours_to_build",
+   "note": "C-80: rollback rehearsed (dry withdrawal round trip per listing), search baseline from listing.query_portfolio per release, live-Etsy owner asks withheld at the handler while any package item is BUILD-blocked. The pre-launch TRAFFIC baseline stays UNMEASURED until the owner exports Etsy Stats (insights_access) -- parked for that half only."
+  },
+  {
+   "id": 61,
+   "status": "partial",
+   "parked_on": "image_vision",
+   "proof": "tests/test_cert_listing_frames.py::test_a_frame_role_without_a_registered_claim_is_unclaimed_and_stops_the_chain, ::test_unjudged_stays_unjudged_and_only_a_bound_all_clear_review_opens_publication",
+   "note": "C-80: every frame role has a registered claim (unregistered = UNCLAIMED, blocking); unjudged stays unjudged; a review counts only when non-empty, all clear and bound to the stored frame shas. With image_vision closed every frame is UNREVIEWED and publication is blocked -- honest; the independent review itself waits on the gate."
+  },
+  {
+   "id": 81,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_gallery_escalation.py::test_the_ladder_advances_through_distinct_rungs_from_persisted_results, ::test_an_open_image_gate_attempts_the_first_rung_through_the_photography_job",
+   "note": "C-80: rungs are distinct strategies (GENERATION_RUNGS/RUNG_BRIEFS) with persisted creative.escalation_result; parity.assess starts from the persisted attempt; owned_photography.make takes rung constraints with its own budget; change_tool alternates provider. Proved through store.publish + the photography job rung by rung; gate state read live."
+  },
+  {
+   "id": 169,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_unique_value.py::test_customization_and_support_are_read_from_this_releases_own_artefacts, ::test_delight_is_measured_from_the_products_artefacts_and_the_weakest_is_acted_on",
+   "note": "C-80: delight drivers read from THIS version's artefacts (provenance filtered slug@version); customization from the real size run; nothing-to-read stays unscored, never neutral."
+  },
+  {
+   "id": 172,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_rebuild_chain.py::test_completion_is_not_claimed_for_a_row_this_attempt_did_not_produce, ::test_a_targeted_rebuild_remakes_exactly_the_stale_marketing_and_proves_it",
+   "note": "C-80: targeted rebuild completion requires row.inputs == fingerprints.new for every requested ref and the row's job to be the attempt's stage job or later; the marketing staleness exception is a structured flag."
+  }
+ ]
+}

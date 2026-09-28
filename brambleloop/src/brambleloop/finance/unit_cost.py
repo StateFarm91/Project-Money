@@ -79,11 +79,15 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
     with db.session() as s:
+        # Bounded to the window in SQL (C-80 defect 17): this runs hourly under the governor
+        # and both tables grow by the day; every reader below filters on `>= since` anyway.
+        produced_actions = sorted({a for art in ARTEFACTS for a in art.actions})
         costs = [(c.agent, c.amount_cad, _aware(c.at), c.job_id,
                   float((c.detail or {}).get("latency_ms") or 0.0))
-                 for c in s.scalars(select(CostEntry))]
+                 for c in s.scalars(select(CostEntry).where(CostEntry.at >= since))]
         actions = [(a.action, _aware(a.at), a.job_id, a.detail or {})
-                   for a in s.scalars(select(AuditLog))]
+                   for a in s.scalars(select(AuditLog).where(
+                       AuditLog.at >= since, AuditLog.action.in_(produced_actions)))]
         contribution = s.scalar(select(func.coalesce(
             func.sum(LedgerEntry.gross_cad - LedgerEntry.fees_cad
                      - LedgerEntry.refunds_cad - LedgerEntry.expense_cad), 0.0))) or 0.0

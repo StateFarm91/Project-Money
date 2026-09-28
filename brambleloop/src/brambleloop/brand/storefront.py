@@ -25,6 +25,8 @@ SHOP_NAME = "Brambleloop Studio"
 
 ANNOUNCEMENT_MAX = 160
 ABOUT_MIN = 400
+# Etsy's shop story ("About") field cap, applied when seasonal copy is appended to it.
+ABOUT_MAX = 5000
 
 
 @dataclass
@@ -115,6 +117,10 @@ class Storefront:
     banner_brief: str
     icon_brief: str
     problems: list[str] = field(default_factory=list)
+    # C-80 defect 18 (#131): the collection a live takeover pins to the front of the shop,
+    # and the seasonal copy it added to About -- rendered here, where the launch check reads.
+    featured_collection: str | None = None
+    seasonal_copy: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -124,7 +130,9 @@ class Storefront:
         return {"shop_name": self.shop_name, "announcement": self.announcement,
                 "about": self.about, "policies": dict(self.policies),
                 "sections": list(self.sections), "banner_brief": self.banner_brief,
-                "icon_brief": self.icon_brief, "problems": list(self.problems)}
+                "icon_brief": self.icon_brief, "problems": list(self.problems),
+                "featured_collection": self.featured_collection,
+                "seasonal_copy": self.seasonal_copy}
 
 
 def _banner_brief() -> str:
@@ -144,24 +152,37 @@ def _icon_brief() -> str:
         f"with a shop name in it is illegible at the size it is actually shown.")
 
 
-def build_storefront(season: str | None = None, *, db=None) -> Storefront:
-    """The drafted storefront; with `db`, carrying any takeover the executor applied (#131)."""
+def build_storefront(season: str | None = None, *, db=None, today=None) -> Storefront:
+    """The drafted storefront; with `db`, carrying any takeover the executor applied (#131).
+
+    Every APPLIED surface that has a place on the drafted storefront is rendered: the banner
+    replaces the announcement, `shop_content` is appended to About as seasonal copy, and
+    `featured_collection` is the collection pinned to the front (C-80 defect 18).
+    """
     announcement = ANNOUNCEMENT_TEMPLATES.get(season or "", ANNOUNCEMENT_TEMPLATES["evergreen"])
+    about, featured, seasonal_copy = ABOUT, None, None
     if db is not None:
         from .takeover import active
 
-        live = active(db)
+        live = active(db, today=today)
         if live.get("banner"):
             announcement = live["banner"]["change"]
+        if live.get("shop_content"):
+            seasonal_copy = live["shop_content"]["change"]
+            about = f"{ABOUT}\n\n{seasonal_copy}"
+        if live.get("featured_collection"):
+            featured = live["featured_collection"]["change"]
     store = Storefront(
         shop_name=SHOP_NAME,
         announcement=announcement,
-        about=ABOUT,
+        about=about,
         policies=dict(POLICIES),
         sections=[{"name": s.name, "slug": s.slug, "categories": list(s.categories)}
                   for s in SECTIONS],
         banner_brief=_banner_brief(),
         icon_brief=_icon_brief(),
+        featured_collection=featured,
+        seasonal_copy=seasonal_copy,
     )
     store.problems = check_storefront(store)
     return store
@@ -198,4 +219,11 @@ def check_storefront(store: Storefront) -> list[str]:
     for brief, name in ((store.banner_brief, "banner"), (store.icon_brief, "icon")):
         if not brief.strip():
             problems.append(f"STORE_NO_{name.upper()}_BRIEF")
+    if store.featured_collection is not None and not store.featured_collection.strip():
+        problems.append("STORE_FEATURED_COLLECTION_EMPTY: a pinned collection that names "
+                        "nothing is a front page pointing at a blank")
+    if store.seasonal_copy is not None and len(store.about) > ABOUT_MAX:
+        problems.append(f"STORE_ABOUT_TOO_LONG: {len(store.about)} characters with the "
+                        f"seasonal copy; Etsy's About is capped and a truncated About is "
+                        f"a truncated sentence")
     return problems

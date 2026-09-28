@@ -1665,13 +1665,19 @@ def _listing_parity(ctx: JobContext) -> dict:
     # chart and twin from -- which is what `assets.build` does, free and truthful.
     deterministic = _certified_release(ctx.db, slug, version)
     try:
-        from ..visual.gallery import gates_now
+        from ..visual.gallery import escalation_progress, gates_now
 
+        # C-80 defect 8 (Codex P11): the ladder resumes from the rung results the
+        # photography job persisted, so change_composition and change_tool are reached.
+        progress = escalation_progress(ctx.db, slug=slug, version=version)
         verdict = parity.assess(frames, benchmark_quality=_benchmark_quality(ctx.db, slug),
                                 deterministic_available=(
                                     deterministic is not None
                                     or parity._deterministic_available(frames)),
-                                gate_open=gates_now(ctx.db))
+                                gate_open=gates_now(ctx.db),
+                                start_attempt=progress["start_attempt"])
+        if verdict.get("escalation") is not None:
+            verdict["escalation"]["rung_results"] = progress["results"]
     except parity.ParityRefused as exc:
         # A partial set cannot satisfy #75, and the refusal is the gate working. Reported
         # as blocking rather than raised, so the publish attempt records why.
@@ -1701,8 +1707,9 @@ def _listing_parity(ctx: JobContext) -> dict:
         state = hashlib.sha256(repr(sorted(verdict.get("failed") or [])).encode()
                                ).hexdigest()[:12]
         job = ctx.enqueue("publishing", job_type,
-                          {"slug": slug, "reason": f"parity_escalation:{escalation['taken']}",
-                           "failed": verdict.get("failed")},
+                          {"slug": slug, "version": version,
+                           "reason": f"parity_escalation:{escalation['taken']}",
+                           "rung": escalation["taken"], "failed": verdict.get("failed")},
                           idempotency_key=f"parity-rung:{slug}:{escalation['taken']}:{state}")
         escalation["enqueued"] = {"job_type": job_type, "job_id": getattr(job, "id", None),
                                   "already_queued": job is None}

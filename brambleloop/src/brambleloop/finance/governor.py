@@ -88,18 +88,27 @@ DETAIL_KEY_FOR: dict[str, str] = {"product": "product", "department": "departmen
 NO_WRITER: frozenset[str] = frozenset()
 
 
-def _experiment_of(job) -> str:
-    """The experiment a spending job belongs to, from its inputs or its band."""
+# C-80 defect 13 (Codex P13): how an experiment attribution was read. `tagged` is a real
+# experiment record (a detail or job input naming one); `band_proxy` is spend by an
+# exploration-band job with no experiment named -- learning spend, reported in its own bucket
+# and never as an experiment key.
+BASIS_TAGGED = "tagged"
+BASIS_BAND_PROXY = "band_proxy"
+
+
+def _experiment_of(job) -> dict:
+    """The experiment a spending job belongs to, with the basis it was read on."""
     if job is None:
-        return ""
+        return {"experiment": "", "basis": ""}
     inputs = job.inputs if isinstance(job.inputs, dict) else {}
     tagged = str(inputs.get("experiment") or inputs.get("experiment_id") or "").strip()
     if tagged:
-        return tagged
+        return {"experiment": tagged, "basis": BASIS_TAGGED}
     from ..swarm.orchestrate import band_for
 
-    return (f"exploration:{job.job_type}"
-            if band_for(job.job_type)["kind"] == "exploration" else "")
+    if band_for(job.job_type)["kind"] == "exploration":
+        return {"experiment": f"exploration:{job.job_type}", "basis": BASIS_BAND_PROXY}
+    return {"experiment": "", "basis": ""}
 
 # Days of history before a spike means anything. Two weeks is the smallest window in which a
 # weekday effect and a weekend both appear.
@@ -149,9 +158,12 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
 
     entries, job_types = _rows(db, days=days, now=now)
     buckets: dict[str, float] = {}
+    basis_of: dict[str, str] = {}
+    proxy: dict[str, float] = {}
     unattributed = 0.0
     for entry in entries:
         detail = entry.detail or {}
+        basis = ""
         if dimension == "task":
             key = job_types.get(entry.job_id or -1, "")
         else:
@@ -159,16 +171,25 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
             key = str(getattr(entry, column, "") or "").strip() if column else ""
             if not key:
                 key = str(detail.get(DETAIL_KEY_FOR.get(dimension, dimension)) or "").strip()
+                if key and dimension == "experiment":
+                    basis = BASIS_TAGGED
             if not key and dimension == "experiment":
-                key = job_types.get(("experiment", entry.job_id or -1), "")
+                read = job_types.get(("experiment", entry.job_id or -1)) or {}
+                key, basis = read.get("experiment", ""), read.get("basis", "")
         amount = float(entry.amount_cad or 0.0)
-        if key:
+        if key and basis == BASIS_BAND_PROXY:
+            # C-80 defect 13: exploration-band spend with no experiment named is its own
+            # bucket -- learning spend -- not a row pretending to be an experiment.
+            proxy[key] = proxy.get(key, 0.0) + amount
+        elif key:
             buckets[key] = buckets.get(key, 0.0) + amount
+            if basis:
+                basis_of[key] = basis
         else:
             unattributed += amount
 
     total = round(sum(float(e.amount_cad or 0.0) for e in entries), 6)
-    accounted = round(sum(buckets.values()) + unattributed, 6)
+    accounted = round(sum(buckets.values()) + sum(proxy.values()) + unattributed, 6)
     if abs(total - accounted) > 1e-6:  # pragma: no cover - arithmetic guard
         raise GovernorRefused(
             f"attribution sums to CA${accounted} against a bill of CA${total}. A table that "
@@ -186,8 +207,16 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
         "days": days,
         "total_cad": round(total, 6),
         "rows": [{"key": k, "cad": round(v, 6),
-                  "share": round(v / total, 4) if total else None}
+                  "share": round(v / total, 4) if total else None,
+                  **({"basis": basis_of[k]} if k in basis_of else {})}
                  for k, v in sorted(buckets.items(), key=lambda kv: -kv[1])],
+        # spend attributed by a proxy rather than a record: named as such, summed apart
+        "proxy": {"basis": BASIS_BAND_PROXY if proxy else None,
+                  "cad": round(sum(proxy.values()), 6),
+                  "rows": [{"key": k, "cad": round(v, 6)}
+                           for k, v in sorted(proxy.items(), key=lambda kv: -kv[1])],
+                  "why": ("exploration-band jobs that named no experiment: learning spend, "
+                          "reported as a proxy bucket and never as an experiment (C-80)")},
         "unattributed_cad": round(unattributed, 6),
         "unattributed_share": round(unattributed / total, 4) if total else None,
         "reconciles": True,

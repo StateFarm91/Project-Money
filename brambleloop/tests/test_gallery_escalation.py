@@ -36,7 +36,8 @@ def _frames(*, with_chart: bool) -> list[dict]:
     return frames
 
 
-def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = None) -> dict:
+def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = None,
+                     slug: str = SLUG) -> dict:
     db = Database(f"sqlite:///{tempfile.mkdtemp()}/esc.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
@@ -46,9 +47,9 @@ def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = N
         setup(db)
     with db.session() as s:
         s.add(AuditLog(actor="publishing", action=owned_photography.ACTION,
-                       detail={"made": True, "slug": SLUG, "frames": frames,
+                       detail={"made": True, "slug": slug, "frames": frames,
                                "method_version": owned_photography.METHOD_VERSION}))
-    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": SLUG, "version": "1.0.0"})
+    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": "1.0.0"})
     Worker(db, "w", phase=Phase.SHADOW).run_once()
     with db.session() as s:
         verdicts = [dict(r.detail) for r in s.scalars(select(AuditLog))
@@ -128,6 +129,119 @@ def test_an_open_image_gate_attempts_the_first_rung_through_the_photography_job(
         jobs = [j for j in s.scalars(select(Job)) if j.job_type.startswith("assets.")
                 and "photography" in j.job_type]
         assert jobs and jobs[0].inputs["reason"] == "parity_escalation:regenerate_constrained"
+
+
+def _publish_again(db, *, job_types=("store.publish",), slug: str = SLUG) -> dict:
+    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": "1.0.0"})
+    Worker(db, "w2", phase=Phase.SHADOW, job_types=list(job_types)).run_once()
+    with db.session() as s:
+        verdicts = [dict(r.detail) for r in s.scalars(select(AuditLog))
+                    if r.action == "listing.parity"]
+    return verdicts[-1]
+
+
+def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
+    """C-80 defect 8 (Codex P11): each generation rung is its own strategy -- constrained
+    brief, changed composition, other tool -- with its own budget; the photography job
+    persists the rung's result and the next parity verdict resumes the ladder from it, so
+    change_composition and change_tool are reached and then the deterministic rung."""
+    from brambleloop.build2 import executor
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.gateway import images
+    from brambleloop.visual import tournament
+
+    # a catalogue product `products.builder.for_slug` can build, product-first, compiling
+    slug = "cloudline-baby-blanket"
+    calls: list[dict] = []
+
+    def fake_make(db, cir, twin, **kw):
+        calls.append(dict(kw))
+        return {"made": True, "slug": slug, "version": "1.0.0",
+                "method_version": owned_photography.METHOD_VERSION,
+                "frames": _frames(with_chart=True), "rung": kw.get("rung") or None,
+                "rung_constraints": list(kw.get("constraints") or ()),
+                "provider": kw.get("provider_key") or "gpt-image-2",
+                "usable_as_listing_asset": False, "verdict": "blocked",
+                "why": "fixture: the render failed asset truth", "spent_cad": 0.0}
+
+    gate = executor.GATE_BY_KEY["image_generation"]
+    originals = (gate.check, images.usable, owned_photography.make,
+                 tournament.alternate_provider)
+    gate.check = lambda db, env: True
+    images.usable = lambda db: True
+    owned_photography.make = fake_make
+    tournament.alternate_provider = lambda db=None, env=None, *, exclude=(): "flux-2-pro"
+    dbs: list = []
+    try:
+        verdict = _publish_attempt(_frames(with_chart=True), keep_db=dbs, slug=slug)
+        db = dbs[0]
+        assert verdict["escalation"]["taken"] == "regenerate_constrained"
+
+        def run_rung(expected_rung):
+            with db.session() as s:
+                job = next(j for j in s.scalars(select(Job).where(
+                    Job.job_type == "assets.owned_photography", Job.status == JobStatus.PENDING)))
+                assert job.inputs["rung"] == expected_rung, job.inputs
+                assert job.inputs["version"] == "1.0.0"
+                job_id = job.id
+            Worker(db, "rung", phase=Phase.SHADOW,
+                   job_types=["assets.owned_photography"]).run_once()
+            with db.session() as s:
+                row = s.get(Job, job_id)
+                assert row.status == JobStatus.DONE, row.last_error
+                return dict(row.outputs)
+
+        out = run_rung("regenerate_constrained")
+        assert out["ran"] and out["attempted"] and out["usable"] is False
+        assert any("failed these checks" in c and parity.PRODUCT_TRUTH in c
+                   for c in calls[-1]["constraints"]), calls[-1]
+        progress = gallery.escalation_progress(db, slug=slug, version="1.0.0")
+        assert progress["start_attempt"] == 1 and progress["attempted"] == [
+            "regenerate_constrained"]
+
+        verdict = _publish_again(db, slug=slug)
+        plan = verdict["escalation"]
+        assert plan["taken"] == "change_composition", plan
+        assert plan["start_attempt"] == 1 and "regenerate_constrained" in plan["rung_results"]
+        out = run_rung("change_composition")
+        assert out["composition"] == "alternate"
+        assert any("composition" in c.lower() for c in calls[-1]["constraints"])
+
+        verdict = _publish_again(db, slug=slug)
+        assert verdict["escalation"]["taken"] == "change_tool"
+        out = run_rung("change_tool")
+        assert calls[-1]["provider_key"] == "flux-2-pro" and out["provider"] == "flux-2-pro"
+
+        # every generation rung has been tried once, on its own budget: the ordinary daily
+        # budget is untouched and the ladder now takes the free deterministic rung
+        assert owned_photography.ordinary_attempts(db, slug=slug, version="1.0.0") == []
+        for rung in gallery.GENERATION_RUNGS:
+            assert len(owned_photography.rung_attempts(db, slug=slug, version="1.0.0",
+                                                       rung=rung)) == 1
+        verdict = _publish_again(db, slug=slug)
+        plan = verdict["escalation"]
+        assert plan["start_attempt"] == 3
+        assert plan["taken"] == "deterministic_representation", plan
+        by_action = {r["action"]: r for r in plan["rungs"]}
+        assert set(by_action) == {"deterministic_representation", "acquire_physical_proof",
+                                  "hold_listing"}
+        assert plan["still_blocks_release"] is True
+        # a rung is never repeated: the same job asked again records it and renders nothing
+        JobQueue(db).enqueue("publishing", "assets.owned_photography",
+                             {"slug": slug, "version": "1.0.0", "rung": "change_tool",
+                              "reason": "parity_escalation:change_tool", "failed": ["x"]},
+                             idempotency_key="repeat-rung")
+        before = len(calls)
+        Worker(db, "rung", phase=Phase.SHADOW,
+               job_types=["assets.owned_photography"]).run_once()
+        assert len(calls) == before
+        with db.session() as s:
+            last = [dict(r.detail) for r in s.scalars(select(AuditLog).where(
+                AuditLog.action == gallery.ESCALATION_RESULT_ACTION))][-1]
+        assert last["attempted"] is False and last["reason"] == "rung_already_attempted"
+    finally:
+        (gate.check, images.usable, owned_photography.make,
+         tournament.alternate_provider) = originals
 
 
 def test_unjudged_is_not_escalated_because_nobody_looked():

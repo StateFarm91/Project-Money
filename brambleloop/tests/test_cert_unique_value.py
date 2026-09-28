@@ -123,6 +123,34 @@ def test_delight_is_measured_from_the_products_artefacts_and_the_weakest_is_acte
         assert again.get("already_open"), "the same weakness opens one hypothesis, not two"
 
 
+def test_customization_and_support_are_read_from_this_releases_own_artefacts():
+    """C-80 defects 2 and 16 (Codex P05): customization reads the certified size run (one
+    size here, said so, not a phantom key); provenance is this version's only, so an older
+    version's support pack neither scores nor fails the current release."""
+    from brambleloop.core.models import ArtefactProvenance
+
+    db = _db()
+    cir, out = _certify(db, "nordic-forest-mosaic-throw")
+    scores = lab.measured_self_scores(db, cir.slug)
+    assert scores["customization"]["score"] == 3
+    assert "one certified size" in scores["customization"]["evidence"]
+    assert "support_experience" not in scores, "no support pack exists for this release yet"
+    with db.session() as s:
+        s.add(ArtefactProvenance(artefact_class="support_knowledge",
+                                 artefact_key=f"{cir.slug}@0.9.0#support",
+                                 product_slug=cir.slug, inputs={}, validation_status="failed"))
+    scores = lab.measured_self_scores(db, cir.slug)
+    assert "support_experience" not in scores, "a superseded version's FAQ scored this release"
+    assert "version_aware_support" not in lab._evidenced_beyond_certificate(db, cir.slug)
+    with db.session() as s:
+        s.add(ArtefactProvenance(artefact_class="support_knowledge",
+                                 artefact_key=f"{cir.slug}@{cir.version}#support",
+                                 product_slug=cir.slug, inputs={}, validation_status="passed"))
+    scores = lab.measured_self_scores(db, cir.slug)
+    assert scores["support_experience"]["score"] == 4
+    assert "version_aware_support" in lab._evidenced_beyond_certificate(db, cir.slug)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

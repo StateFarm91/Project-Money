@@ -167,7 +167,12 @@ def test_the_launch_gate_carries_the_v14_additions():
     assert assessed["brand_moat"].ready is False
     assert assessed["brand_moat"].evidence["structural"] == []
     assert assessed["rollback_plan"].ready is False
-    assert assessed["rollback_plan"].evidence["last_restore_proof"] is None
+    # C-80 defect 10: the rollback plan is a rehearsed withdrawal round trip per listing, read
+    # from launch.rollback_rehearsed, not a database restore proof; with no listing there is
+    # nothing rehearsed and the traffic baseline is honestly UNMEASURED
+    assert assessed["rollback_plan"].evidence["read_from"] == "launch.rollback_rehearsed"
+    assert assessed["rollback_plan"].evidence["rehearsals"] == {}
+    assert assessed["analytics_baseline"].evidence["traffic_baseline"].startswith("UNMEASURED")
 
 
 if __name__ == "__main__":

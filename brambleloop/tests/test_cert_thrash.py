@@ -88,11 +88,30 @@ def test_unchanged_free_polling_backs_off_and_progress_lifts_it():
     out = _sweep(db)
     applied = {a["job_type"]: a for a in out["backoff"]["applied"]}
     assert applied["etsy.probe"]["factor"] == 2
+    first_until = applied["etsy.probe"]["until"]
     Scheduler(db).tick()
     assert not _enqueued(db, "etsy.probe")
-    # still unchanged: the backoff doubles
+    # C-80 defect 5 (Codex P07): a second sweep that sees *no new run* is not a new
+    # observation. The level stays at 1, the factor at 2 and the absolute deadline exactly
+    # where the first sweep put it. (This assertion used to enshrine the defect: factor 4
+    # after a sweep with nothing new.)
     out = _sweep(db)
-    assert {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]["factor"] == 4
+    again = {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]
+    assert again["factor"] == 2 and again["unchanged"] is True
+    assert again["until"] == first_until, "the deadline was refreshed with no new observation"
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(
+            Incident.signature == f"{orc.BACKOFF_SIGNATURE_PREFIX}etsy.probe",
+            Incident.resolved.is_(False)))
+        assert inc.detail["suspension"]["level"] == 1
+        assert inc.detail["suspension"]["suspend_until"] == first_until
+    # a NEW run that observes the same unchanged state is the fourth identical observation:
+    # now the backoff doubles, and the deadline moves later, never earlier
+    _done(db, "etsy.probe", {"reachable": False, "checked_at": "y"}, n=1)
+    out = _sweep(db)
+    doubled = {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]
+    assert doubled["factor"] == 4 and doubled["unchanged"] is False
+    assert doubled["until"] > first_until
     # the state changes: progress lifts the backoff
     _done(db, "etsy.probe", {"reachable": True}, n=1)
     out = _sweep(db)
