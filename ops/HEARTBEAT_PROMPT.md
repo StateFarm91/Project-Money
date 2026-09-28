@@ -35,6 +35,12 @@ Do this, in order:
    request owner actions → progressive production.
    Run the test suites before claiming anything works:
    `cd brambleloop && python3 tests/test_compiler.py && python3 tests/test_reverse.py && python3 tests/test_twin.py`
+   Targeted before full (F-347): run the smallest affected suites first with
+   `SUITES="tests/test_x.py ..." bash run_tests.sh`, chaining the full run only when they pass
+   (`THEN_FULL=1`). Never block business progress on a suite (F-349): run the full suite in the
+   background and wait on it with `python3 ops/waiter.py wait <job>` / `ack <job>` — never an
+   ad-hoc `pgrep` loop (F-332, F-334). A release claim needs a `REQUIRE_CLEAN=1` full run whose
+   record is `release_eligible` (F-169).
 5. Before stopping: update `brambleloop/BUILD_STATE.md` (phase, completed capabilities, gates
    passed, honest status, next actions, changelog); `python3 ops/lock.py release <session id>`;
    commit with a clear message; `git pull --rebase` then
