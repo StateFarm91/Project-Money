@@ -53,10 +53,19 @@ def _sandbox() -> Path:
     return repo
 
 
+# The knobs this file exercises. When the outer suite itself was started with one of them
+# (REQUIRE_CLEAN=1 for a release run, say), the sandbox must not inherit it -- and a
+# SUITE_RECORD_DIR inherited from outside would make the sandbox write into the real records.
+_KNOBS = ("SUITES", "REQUIRE_CLEAN", "THEN_FULL", "ALLOW_PARALLEL", "SUITE_RECORD_DIR", "JOBS")
+
+
+def _env(**over) -> dict:
+    e = {k: v for k, v in os.environ.items() if k not in _KNOBS}
+    return {**e, "PY": PY, "JOBS": "2", **over}
+
+
 def _run(repo: Path, suites: str, **env) -> subprocess.CompletedProcess:
-    e = {**os.environ, "PY": PY, "JOBS": "2", "SUITES": suites, **env}
-    if "ALLOW_PARALLEL" not in env:
-        e.pop("ALLOW_PARALLEL", None)
+    e = _env(SUITES=suites, **env)
     return subprocess.run(["bash", str(repo / "run_tests.sh")], capture_output=True, text=True,
                           env=e, timeout=120)
 
@@ -140,8 +149,7 @@ def test_a_second_identical_run_reports_the_running_one_and_exits_without_runnin
     repo = _sandbox()
     gate = repo / "gate"
     try:
-        e = {**os.environ, "PY": PY, "JOBS": "2", "SUITES": "test_gate", "GATE_FILE": str(gate)}
-        e.pop("ALLOW_PARALLEL", None)
+        e = _env(SUITES="test_gate", GATE_FILE=str(gate))
         first = subprocess.Popen(["bash", str(repo / "run_tests.sh")], stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, text=True, env=e)
         deadline = time.time() + 30
@@ -232,8 +240,7 @@ def test_an_interrupted_run_is_recorded_as_interrupted_and_releases_its_lock():
     repo = _sandbox()
     gate = repo / "gate"
     try:
-        e = {**os.environ, "PY": PY, "JOBS": "2", "SUITES": "test_gate", "GATE_FILE": str(gate)}
-        e.pop("ALLOW_PARALLEL", None)
+        e = _env(SUITES="test_gate", GATE_FILE=str(gate))
         p = subprocess.Popen(["bash", str(repo / "run_tests.sh")], stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, text=True, env=e)
         deadline = time.time() + 30
