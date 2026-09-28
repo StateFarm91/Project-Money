@@ -291,17 +291,7 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
         readings.append(Reading("database", DOWN, {"error": str(exc)[:200]},
                                 "the company's memory did not answer"))
 
-    for signal, keys in (("integrations", ("ETSY_API_KEY", "ETSY_SHOP_NAME")),
-                         ("rendered_pages", ("BRAMBLELOOP_BROWSER_URL",)),
-                         ("model_gateway", ("ANTHROPIC_API_KEY",))):
-        present = sorted(k for k in keys if str(env.get(k, "")).strip())
-        readings.append(Reading(
-            signal, HEALTHY if present else UNKNOWN,
-            {"configured": present},
-            "" if present else
-            "not configured, which is a gate rather than a fault: an absent capability is "
-            "not a broken one, and reporting it as down would make the dashboard red for a "
-            "decision nobody has made yet"))
+    readings.extend(capability_readings(db, env))
 
     newest = db.scalar(select(func.max(PatternVersion.created_at))
                        .where(PatternVersion.certified.is_(True)))
@@ -324,6 +314,104 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
     readings.append(_disk(runner_state))
 
     return readings
+
+
+# F-128 / F-131: a capability signal reads the *probe*, never the variable.
+#
+# These three signals used to report HEALTHY when an environment variable was non-empty. That
+# is a label grading itself: the owner's Anthropic key authenticated on 2026-09-19 and could
+# not serve one request (credit balance too low), an Etsy keystring without its shared secret
+# is refused by v3, and a browser-worker URL is a string that Etsy answers 403 to. The
+# executor's gates stopped trusting variables for exactly these reasons; health reading the
+# variable anyway meant the dashboard said HEALTHY for a capability the executor knew was
+# closed. So each signal now reads the same recorded probe the matching executor gate reads
+# (`build2.executor._model_usable`, `_etsy_usable`, `_rendered_pages_usable`), and a
+# configured-but-unproven or configured-and-failing credential reads UNKNOWN with the probe's
+# own words -- a gate rather than a fault, because an absent capability is not a broken one.
+#
+# Which variables are set is still reported, as `configured`, because it answers "has anybody
+# supplied anything"; it is never what decides the state.
+CAPABILITY_SIGNALS: dict[str, dict] = {
+    "integrations": {
+        "keys": ("ETSY_API_KEY", "ETSY_SHOP_NAME"),
+        "probe": "etsy.probe",
+        "gate": "etsy_api",
+    },
+    "rendered_pages": {
+        "keys": ("BRAMBLELOOP_BROWSER_URL",),
+        "probe": "browser.probe",
+        "gate": "rendered_pages",
+    },
+    "model_gateway": {
+        "keys": ("ANTHROPIC_API_KEY",),
+        "probe": "model.probe",
+        "gate": "model_provider",
+    },
+}
+
+
+class _SessionDb:
+    """Lets a probe reader that expects a `Database` read through the caller's session.
+
+    `read` is handed an open session; the probe readers (`gateway.anthropic.last_probe` and
+    friends) open `db.session()` themselves. Yielding the same session -- without committing
+    or closing it, because it is not ours -- keeps this one transaction and one connection.
+    """
+
+    def __init__(self, session):
+        self._s = session
+
+    def session(self):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _cm():
+            yield self._s
+        return _cm()
+
+
+def _last_probe(signal: str, dbish) -> dict | None:
+    if signal == "model_gateway":
+        from ..gateway.anthropic import last_probe
+    elif signal == "integrations":
+        from ..intel.etsy_public import last_probe
+    else:
+        from ..intel.browser import last_probe
+    return last_probe(dbish)
+
+
+def capability_readings(db, env: dict[str, str] | None = None) -> list[Reading]:
+    """The three capability signals, each read from its recorded probe."""
+    env = env or {}
+    dbish = db if hasattr(db, "session") else _SessionDb(db)
+    out: list[Reading] = []
+    for signal, spec in CAPABILITY_SIGNALS.items():
+        present = sorted(k for k in spec["keys"] if str(env.get(k, "")).strip())
+        try:
+            probe = _last_probe(signal, dbish)
+        except Exception as exc:  # noqa: BLE001 -- unreadable evidence is not evidence
+            probe = {"ok": False, "reason": f"probe record unreadable: {str(exc)[:120]}"}
+        proven = bool(probe and probe.get("ok"))
+        evidence = {"configured": present, "source": f"latest {spec['probe']} audit row",
+                    "executor_gate": spec["gate"], "probe_ok": proven,
+                    "probe_ever_run": probe is not None}
+        if proven:
+            out.append(Reading(signal, HEALTHY, evidence, ""))
+            continue
+        if probe is None:
+            detail = ("no probe has ever been recorded, so whether it can serve a request is "
+                      "unknown" + (" -- a variable is set, and a variable is a label, not a "
+                                   "capability" if present else ""))
+        else:
+            detail = ("the last recorded probe failed: "
+                      f"{str(probe.get('reason') or probe.get('error') or '')[:160]}")
+            evidence["probe_reason"] = str(probe.get("reason") or probe.get("error") or "")[:160]
+        out.append(Reading(
+            signal, UNKNOWN, evidence,
+            f"not proven usable ({detail}), which is a gate rather than a fault: an absent "
+            f"capability is not a broken one, and reporting it as down would make the "
+            f"dashboard red for a decision nobody has made yet"))
+    return out
 
 
 def _spend(db, now: datetime) -> Reading:

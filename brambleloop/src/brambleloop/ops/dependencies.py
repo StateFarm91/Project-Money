@@ -153,11 +153,19 @@ def map_state(db=None, env: dict[str, str] | None = None) -> dict:
     company's memory and GitHub holds a copy of code that also exists on disk.
     """
     rows = [d.to_dict(env) for d in DEPENDENCIES]
+    # F-128 / F-131: `configured` is a fact about variables and stays named as one; it is never
+    # the capability. Where a dependency has a probe-based executor gate, `capability` reads
+    # that gate -- the same recorded probe the executor trusts -- and a configured dependency
+    # whose probe has not succeeded reads UNPROVEN, not configured-therefore-fine. Without a
+    # database nothing can be proven, so capability is UNKNOWN rather than inferred.
+    for row in rows:
+        row["capability"] = _capability(row["key"], db, row["configured"])
     by_impact: dict[str, list] = {}
     for row in rows:
         by_impact.setdefault(row["impact"], []).append(row["key"])
 
     unconfigured = [r["key"] for r in rows if r["configured"] is False]
+    unproven = [r["key"] for r in rows if r["capability"]["state"] == "UNPROVEN"]
     single_points = [r["key"] for r in rows if r["impact"] == FATAL]
     owner_only = [r["key"] for r in rows if r["owner_only"]]
 
@@ -166,6 +174,10 @@ def map_state(db=None, env: dict[str, str] | None = None) -> dict:
         "by_impact": {k: by_impact.get(k, []) for k in IMPACTS},
         "single_points_of_failure": single_points,
         "unconfigured": unconfigured,
+        "configured_but_unproven": unproven,
+        "capability_source": ("executor gate predicates over recorded probes "
+                              "(build2.executor.GATE_BY_KEY); environment presence is "
+                              "reported as `configured` and never read as capability"),
         "owner_only_to_recover": owner_only,
         "worst_case_recovery_minutes": max(
             (r["recovery_minutes"] for r in rows if r["impact"] == FATAL), default=0),
@@ -174,6 +186,32 @@ def map_state(db=None, env: dict[str, str] | None = None) -> dict:
                  "map marks three things critical and those are the three somebody was "
                  "already worried about (#50)."),
     }
+
+
+def _capability(key: str, db, configured: bool | None) -> dict:
+    """PROVEN / UNPROVEN / UNKNOWN for one dependency, from its executor gate's probe."""
+    gate_key = PROBE_GATES.get(key)
+    if gate_key is None:
+        return {"state": "UNKNOWN", "gate": None,
+                "why": "no probe-based gate exists for this dependency; UNKNOWN, not healthy"}
+    if db is None:
+        return {"state": "UNKNOWN", "gate": gate_key,
+                "why": "no database was consulted, so no probe could be read"}
+    from ..build2 import executor
+
+    try:
+        ok = bool(executor.GATE_BY_KEY[gate_key].open(db))
+    except Exception as exc:  # noqa: BLE001 -- unreadable evidence is not evidence
+        return {"state": "UNKNOWN", "gate": gate_key,
+                "why": f"the probe could not be read: {type(exc).__name__}"}
+    if ok:
+        return {"state": "PROVEN", "gate": gate_key,
+                "why": f"the {gate_key} gate is open on a recorded probe"}
+    return {"state": "UNPROVEN" if configured else "UNKNOWN", "gate": gate_key,
+            "why": (f"the {gate_key} gate is closed: "
+                    + ("configured, but no recorded probe has succeeded -- a variable is a "
+                       "label, not a capability" if configured else
+                       "nothing configured and nothing proven"))}
 
 
 def drill(key: str) -> dict:
