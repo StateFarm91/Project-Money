@@ -13,7 +13,7 @@ from brambleloop.cir.twin import build_twin
 from brambleloop.cir.writer import write_pattern
 from brambleloop.cir.reverse import compare
 from brambleloop.cir.geometry import corners, VESSEL, DISC
-from brambleloop.gates.certificate import certify, gauge_findings
+from brambleloop.gates.certificate import certify, gauge_findings, GAUGE_STANDARD
 
 class GaugeTests(unittest.TestCase):
     def products(self):
@@ -59,9 +59,41 @@ class GaugeTests(unittest.TestCase):
         c=vessels.build_hexagon_coaster();c.components[0].rows[-1].declared_count+=1
         self.assertFalse(compile_cir(c).ok)
 
-    def test_cloudline_still_explicitly_unqualified(self):
-        c=launch0.cir_for("cloudline_blanket")
-        self.assertIn("GAUGE_OUTSIDE_DECLARED_YARN_BAND",[f.code for f in gauge_findings(c)])
-        self.assertIsNone(certify(c).gauge_standard)
+    def test_legacy_catalogue_does_not_gain_a_gauge_pass(self):
+        from brambleloop.products.builder import for_slug
+        c=for_slug("autumn-oak-mosaic-throw")
+        self.assertEqual(c.gauge.stitches_per_10cm,16)
+        self.assertFalse(certify(c).granted)
+        self.assertIn("GAUGE_OUTSIDE_DECLARED_YARN_BAND",[f.code for f in certify(c).errors])
+
+    def test_cloudline_explicit_symmetric_border_preserves_full_motifs(self):
+        from brambleloop.products.motifs import get
+        c=launch0.cir_for("cloudline_blanket");r=compile_cir(c);t=build_twin(c,r)
+        self.assertTrue(r.ok)
+        self.assertEqual((t.width_cm,t.height_cm),(79.2,97.1))
+        self.assertLess(abs(t.width_cm-78.8),0.5)
+        self.assertLess(abs(t.height_cm-97.2),0.2)
+        self.assertFalse(t.calibrated)
+        self.assertEqual(c.version,"1.1.0")
+        motif=get("diamond-lattice")
+        rows=c.components[0].rows
+        self.assertEqual(len(rows),70)
+        for row in rows[:3]+rows[-3:]:
+            self.assertEqual([(op.stitch,op.count) for op in row.ops],[("sc",99)])
+            self.assertEqual(row.color,"cream")
+        for index,row in enumerate(r.rows[3:-3]):
+            codes=[]
+            for op in row.ops:
+                codes.extend(["1" if op.stitch=="dc" else "0"]*op.produces)
+            self.assertEqual("".join(codes),motif.grid[index%8]*11)
+        text=write_pattern(c,r)
+        self.assertEqual(compare(c,text),[])
+        self.assertIn("3 single-crochet rows",c.designer_notes)
+        cert=certify(c)
+        self.assertTrue(cert.granted,cert.blocking_reasons)
+        self.assertEqual(cert.gauge_standard,GAUGE_STANDARD)
+        # Adversarial mutation cannot retain approval just because dimensions once passed.
+        c.gauge.stitches_per_10cm=16
+        self.assertFalse(certify(c).granted)
 
 if __name__=="__main__": unittest.main()

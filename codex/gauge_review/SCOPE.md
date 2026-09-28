@@ -6,3 +6,5 @@ Baseline recorded baseline.json. Basket tolerance already1.5cm tests/test_geomet
 Acceptance: declared yarn unchanged, gauge_for-derived gauge, complete motif/6-corner geometry, all5Launch0variants compile/twin/write/reverse/certify with no synthetic physical evidence. Old authored gauge refused. Full old-catalogue tests may now expose intentionally quarantined fixtures, not silently weakened.
 
 Final scope correction: only vessels.py and launch0.py round-product portion retained. Cloudline and strict gate were experimentally tested then reverted; archival patch explicitly unqualified. Prototype20% not adopted as Launch0 tolerance.
+
+Successor: explicit symmetric SC-border design authorized by coordinator interpretation of user redesign request; full motifs preserved, size79.2x97.1. Strict staged patch applied atomically with finalCloudline builder and actual claims; all originally scoped gauge surfaces now owned.

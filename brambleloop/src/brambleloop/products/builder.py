@@ -14,7 +14,7 @@ is not sharing a pass.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
 from .motifs import LIBRARY, Motif, get
@@ -73,6 +73,27 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
     blanket with half a fir tree down one side, which compiles perfectly and is a defect
     nobody's arithmetic will ever catch.
     """
+    border_rows = 0
+    if design.slug == "cloudline-baby-blanket" and design == CATALOGUE[design.slug]:
+        # D-FB-6 authorized design revision: complete diamonds, with explicit equal
+        # SC end borders. Published yarn gauge is the input; counts follow it.
+        from ..creative.prototype import gauge_for
+        gauge = gauge_for(design.yarn_weight)
+        motif = get(design.motif)
+        across = round(78.8 * gauge.stitches_per_10cm / (10 * motif.width))
+        target_units = 97.2 * gauge.rows_per_10cm / 10
+        # Each complete motif row contains DC, hence two SC row-height units.
+        # Search complete repeats plus symmetric SC ends, minimizing target drift.
+        candidates = [(abs(2 * repeats * len(motif.grid) + 2 * ends - target_units),
+                       ends, repeats)
+                      for repeats in range(1, round(target_units / (2 * len(motif.grid))) + 1)
+                      for ends in range(1, len(motif.grid) + 1)]
+        _, border_rows, repeats = min(candidates)
+        design = replace(design, width_stitches=across * motif.width, motif_repeats=repeats,
+                         stitches_per_10cm=gauge.stitches_per_10cm,
+                         rows_per_10cm=gauge.rows_per_10cm, hook_mm=gauge.hook_mm)
+        if version == "1.0.0":
+            version = "1.1.0"
     motif: Motif = get(design.motif)
     motif.validate()
     if design.width_stitches % motif.width:
@@ -100,6 +121,18 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
             rows.append(Row(index=index, ops=ops, declared_count=design.width_stitches,
                             turning_chain=1, color=colour))
 
+    if border_rows:
+        # Restore the full first diamond row: the plain foundation is now in the border.
+        rows[0].ops = [Repeat(_runs(motif.grid[0]), times=across)]
+        def edge():
+            return Row(index=0, ops=[Op("sc", design.width_stitches)],
+                       declared_count=design.width_stitches, turning_chain=1,
+                       color=colour_names[0])
+        rows = ([edge() for _ in range(border_rows)] + rows
+                + [edge() for _ in range(border_rows)])
+        for index, row in enumerate(rows, 1):
+            row.index = index
+
     return CIR(
         slug=design.slug,
         title=design.title,
@@ -116,8 +149,13 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
                               foundation=design.width_stitches, foundation_kind="chain")],
         designer_notes=(
             f"{motif.name} on a {motif.width}-stitch repeat, {across} across and "
-            f"{design.motif_repeats} up ({len(rows)} rows). {motif.note}. "
-            f"Colour changes every row; carry the resting colour up the side."
+            + (f"{design.motif_repeats} up ({design.motif_repeats * len(motif.grid)} motif rows). "
+               if border_rows else f"{design.motif_repeats} up ({len(rows)} rows). ")
+            + f"{motif.note}. "
+            + (f"Colour changes every motif row; carry the resting colour up the side. "
+             f"Work {border_rows} single-crochet rows in {colour_names[0]} at each end "
+             f"around the full diamond region; {len(rows)} rows total. " if border_rows else
+             "Colour changes every row; carry the resting colour up the side.")
             + (f" {design.note}" if design.note else "")),
     )
 
@@ -176,7 +214,7 @@ CATALOGUE: dict[str, Design] = {
     "pressed-flower-motifs": Design(
         slug="pressed-flower-motifs", title="Pressed Flower Motif Library (12)",
         motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2,
-        note="A motif sampler: each repeat worked separately as a standalone appliqué."),
+        note="A motif sampler: each repeat worked separately as a standalone appliquÃƒÆ’Ã‚Â©."),
     "cottage-wall-hanging": Design(
         slug="cottage-wall-hanging", title="Cottage Botanical Wall Hanging",
         motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6),

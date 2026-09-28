@@ -1,3 +1,15 @@
+# C2 redesign candidate — strict gate and full Launch0 derivation
+
+Supersedes the partial checkpoint below. Coordinator clarified the current user explicitly authorizes actual Launch0 design revisions, including an honestly modeled border; immutable Visual benchmark restrictions do not prohibit this. Cloudline now has complete64 diamond motif rows (11 full repeats across,8 up), with3 single-crochet cream rows at EACH end. All70 written rows are explicit CIR construction. No clipping, guessed calibration or yarn relabel. Yarn-derived12.5st/13.8rows produces79.2x97.1cm versus intended78.8x97.2 (0.4cm/0.1cm difference). Full motif identity is independently checked row-by-row from compiled operations. Notes/planner report actual size/borders; default version1.1.0 binds changed artifacts. All other flat catalogue designs remain unchanged.
+
+The existing staged strict patch is now APPLIED in the SAME successor commit as qualified Cloudline redesign: certify adds gauge_findings and primitive errors, stamps GAUGE_STANDARD; PDF caveat no longer substitutes warning for refusal. No thresholds weakened. Actual asset dimensional gate SIZE_TOLERANCE is0.10 (gates/asset_truth.py); no prototype20% threshold used here. New tests require much tighter explicit Cloudline <0.5cm width/<0.2cm height differences,6corners/disc/vessel structure, exact full motif bodies, equal SC ends, unchanged yarn, writer/reverse chain, oldgauge/adversarial count refusal, and legacy out-of-band catalogue still refused.
+
+Measured qualified_candidate.json: all5 Launch0 variants compile/twin/reverse/certify with GAUGE_STANDARD and no synthetic physical evidence; twin.calibrated false. Tests5new +44gates +44geometry +16products allpass. Dependency ACL prevented two sandbox-only imports; reruns with owner-accessible installed dependencies passed and logs retained. No heavy/full suite, PDF rendering or final integrated G provenance suite claimed. Root integrator must reconcile builder.py provenance wrapper and PDF Learn links, rerun full affected integration. Certificate granted means local deterministic gate result only, not launch certification/physical validation. Basket stiffness, blanket drape remain unmeasured.
+
+Runtime: pipeline ENGINEERED_REGISTRY hexie-coaster-set -> vessels.build_hexagon_coaster; products.vessels.build -> basket; products.builder.for_slug -> build Cloudline; launch0.cir_for consumes same producers -> compile/twin, certificate gate consumers. Version/content changes invalidate exact-content evidence by existing chain; no existing DB/production records mutated. No requirement statuses changed. Spend0.
+
+## Historical partial checkpoint (superseded; retained for reasoning)
+
 # C2 partial engineering checkpoint — NOT READY FOR GLOBAL STRICT GATE
 
 Base c0a8f3950eaa09d89631faaafec60de7fd989f1b. D-FB-6 read fully. Branch codex/final-gauge-01. Spend $0.

@@ -354,15 +354,15 @@ CANDIDATES: tuple[Candidate, ...] = (
         slug="cloudline-baby-blanket",
         title="Cloudline Baby Blanket",
         what_it_is=(
-            "A 78.8 x 97.2 cm baby blanket in two colours, worked flat. The colour changes "
-            "every row and a raised diamond lattice is worked in double crochet against a "
+            "A 79.2 x 97.1 cm baby blanket in two colours, worked flat. The colour changes "
+            "every motif row, with three plain cream rows at each end, and a raised diamond lattice is worked in double crochet against a "
             "single-crochet ground, so the fabric is a one-row stripe with a relief."),
         why_at_launch=(
             "Keepsake and baby blankets are the research's other first-entry sub-category, and "
             "this is the only blanket in the catalogue whose name does not claim a colourwork "
             "fabric the CIR cannot express. Class A geometry, no fitted sizing, no applied "
             "parts, and the largest single make in Launch-0, which is what carries the price."),
-        variants=(Variant("one_size", "78.8 x 97.2 cm", "cloudline_blanket"),),
+        variants=(Variant("one_size", "79.2 x 97.1 cm", "cloudline_blanket"),),
         pod="blankets",
         subcategory="baby_blanket",
         audience=ch.UNDER_3,
@@ -389,7 +389,7 @@ CANDIDATES: tuple[Candidate, ...] = (
             "is not a baby blanket",
         ),
         aspiration=(
-            "78.8 x 97.2 cm is computed from the stated gauge; twin.calibrated is False",
+            "79.2 x 97.1 cm is computed from the stated gauge; twin.calibrated is False",
             "the children's statement set is rendered by publish/pdf.py and read back out of "
             "the PDF (2026-09-25), so this product now states what it must state. What is "
             "still not stated is a fibre CONTENT: cir.model.Material has no fibre field, so "

@@ -1031,14 +1031,16 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                    f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
                    f"{row['fabric_changes']}")
         if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
-            # Said out loud rather than quietly corrected. Which number is wrong -- the gauge
-            # or the weight on the band -- is decided by a swatch, and this document has not
-            # seen one. Picking a side here would be inventing a measurement.
+            # F-112: this note used to be the whole answer -- "swatch before you buy" printed
+            # over a gauge the declared yarn cannot make. A warning is not a substitute for
+            # truth, so certification now refuses such a pattern (GAUGE_OUTSIDE_DECLARED_YARN
+            # _BAND) unless a physical test of this exact content is bound to it. What is left
+            # here is a statement of fact about a released pattern, not a compensation.
             doc.para(
                 f"Note: the gauge above sits outside the published band for "
-                f"{guide['declared_weight'].replace('_', ' ')} yarn. Swatch before you buy: "
-                f"either this fabric wants a different weight than the one named, or it wants "
-                f"a different hook.", size=9, color=MUTED)
+                f"{guide['declared_weight'].replace('_', ' ')} yarn. It is this pattern's "
+                f"tested gauge rather than the band's; match it with your own swatch.",
+                size=9, color=MUTED)
         doc.para(
             f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
             f"Buying exactly enough is how a project ends one row short in a dye lot that has "
