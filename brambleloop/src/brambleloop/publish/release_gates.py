@@ -40,7 +40,7 @@ ROLE_JOBS: dict[str, tuple[str, str]] = {
 # quotes the whole piece.
 FINISHED = "finished piece"
 
-_SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:cm\s*)?[xÃ—]\s*(\d+(?:\.\d+)?)\s*cm")
+_SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:cm\s*)?[x×]\s*(\d+(?:\.\d+)?)\s*cm")
 
 
 def _asset_id(slug: str, position: int) -> str:
