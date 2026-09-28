@@ -1,0 +1,79 @@
+{
+  "branch": "codex/final-finance-cost-basis-01",
+  "base": "a4c79ed7f5705a680851b75aaddbdc5621f7bb17",
+  "implementation_commit": "c9e038c",
+  "status": "repair candidate; not certification",
+  "scope": "listing activation exposure, payment-ledger listing fee reconciliation and Books operating-cost basis",
+  "runtime_chain": {
+    "producer": "store.activate reserves modelled listing exposure before EtsyClient.activate; existing finance.reconcile.apply receives payment-account ledger entries from orders ingest",
+    "durable": "CostEntry detail basis=modelled/state=reserved_unreconciled; LedgerEntry source=etsy_listing_ledger external entry ID, listing reference, original currency/amount and basis",
+    "consumer": "Books.profit_and_loss classifies each cost/expense by basis; actual listing ledger suppresses corresponding modelled exposure",
+    "effect": "budget amount remains conservative and retry reservation idempotent; cost unknown/modelled blocks observed-cash claim; actual ledger counted once",
+    "visible": "operating_costs_by_basis, unobserved_operating_rows, all_figures_observed, profit_basis, cash_reading and nullable cash_cad"
+  },
+  "classifications": {
+    "activation_0.20USD_times1.37": "modelled; not charged money",
+    "gateway_images_price_basis_assumed": "modelled (gateway/images.py production record calls explicitly write assumed)",
+    "explicit_basis_or_price_basis_measured": "measured declaration retained; not inferred from row existence",
+    "legacy_unclassified": "unknown",
+    "payment_listing_CAD": "measured original amount",
+    "payment_listing_nonCAD_assumed_conversion": "modelled reporting currency; original amount retained"
+  },
+  "tests_run": [
+    {
+      "file": "tests/test_operating_cost_basis.py",
+      "passing": 5,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_finance.py",
+      "passing": 21,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_money_truth.py",
+      "passing": 18,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_etsy_readback_observe.py::test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back",
+      "passing": 1,
+      "failing": 0
+    }
+  ],
+  "adversarial": [
+    "inactive remote result leaves modelled not measured cost",
+    "exposure exists before protected fake effect",
+    "repeat and reopened DB accessor reuse same exposure",
+    "same-listing concurrent SQLite writers return same row",
+    "ceiling failure persists no reservation and does not weaken ceiling",
+    "actual listing fee replay creates one external entry",
+    "late actual fee increment counts once and conservative budget sums actuals",
+    "Books does not add model and actual fee together",
+    "legacy unknown and assumed gateway rows refuse observed cash",
+    "opposite unknown amounts netting zero remain unobserved"
+  ],
+  "tests_changed": [
+    {
+      "file": "tests/test_finance.py::test_tax_is_reserved_and_never_counted_as_ours",
+      "reason": "fixture has unobserved fees/source; retained tax/netprofit arithmetic and now requires unknown cash, then explicit fully-measured aggregate positive control"
+    }
+  ],
+  "initial_failures": [
+    "finance old cash==netprofit assertion contradicted modelled-fee truth; corrected with coordinator approval",
+    "money test expected listing fee unmatched to an order; restored original unmatched-to-order report semantics, retaining separate listing_fee_entries_applied output; test unchanged"
+  ],
+  "limitations": [
+    "Postgres advisory-lock path implemented but not exercised here; SQLite concurrency was tested",
+    "accounting idempotence is not external Etsy exactly-once execution; no transactional cross-system guarantee",
+    "modelled exposure remains until actual fee evidence; ambiguous/no-call crash may conservatively reserve budget indefinitely",
+    "other CostEntry aggregators such as unit_cost/sustainability/spend_report are outside this narrow Books change and may need separate basis labelling audit",
+    "no full suite, heavy certification suite, real payment feed, or production evidence",
+    "actual cash remains a labelled derived proxy even for fully observed inputs, not bank balance",
+    "payment ledger reference_type listing is supported; other listing-fee reference shapes remain unmatched-to-order/unknown until verified"
+  ],
+  "migrations": [],
+  "paid_spend": 0,
+  "visual_modified": false,
+  "requirement_statuses_modified": false
+}
