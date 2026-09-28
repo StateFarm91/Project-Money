@@ -641,7 +641,9 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     read_at = date.today().isoformat()
     queries = queries + [dataclasses.replace(q, provenance="observed:benchmark_titles+serp",
                                              read_at=read_at, family="buyer_language")
-                         for q in buyer["queries"]]
+                         for q in buyer["queries"]
+                         # F-008: observed is not the same as true of this product.
+                         if not search_mod.tag_truth(q.phrase, difficulty=difficulty)]
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
     # #97: Listings read their lesson inbox. A search-language or construction lesson whose
