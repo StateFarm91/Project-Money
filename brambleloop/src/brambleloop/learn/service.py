@@ -50,7 +50,41 @@ def topics(value):
 
 
 def validate_spec(spec):
+    # Reject malformed external JSON before semantic checks dereference nested fields.
+    # Return validation errors (rather than catching arbitrary implementation failures),
+    # so save_lesson raises ValueError and the editor API maps refusal to HTTP 422.
+    if not isinstance(spec, dict):
+        return ["lesson specification must be an object"]
     errors = []
+    for field in ("author", "learner_problem", "terminology"):
+        if not isinstance(spec.get(field), str):
+            errors.append(f"{field} must be a string")
+    lesson_topics = spec.get("topics")
+    if (not isinstance(lesson_topics, list)
+            or any(not isinstance(topic, str) or not topic for topic in lesson_topics)):
+        errors.append("topics must be a list of nonempty strings")
+    assumptions = spec.get("assumptions")
+    if not isinstance(assumptions, dict):
+        errors.append("assumptions must be an object")
+    else:
+        if type(assumptions.get("hook_mm")) not in (int, float):
+            errors.append("hook_mm must be a number")
+        if not isinstance(assumptions.get("yarn_weight"), str):
+            errors.append("yarn_weight must be a string")
+    for field in ("assets", "steps"):
+        entries = spec.get(field, [])
+        if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
+            errors.append(f"{field} must be a list of objects")
+            continue
+        text_fields = ("rights", "source", "sha256") if field == "assets" else ("stitch", "term", "instruction")
+        for entry in entries:
+            if any(not isinstance(entry.get(key), str) for key in text_fields):
+                errors.append(f"{field} entries require string fields: {', '.join(text_fields)}")
+            if field == "assets" and "license_ref" in entry and not isinstance(entry["license_ref"], str):
+                errors.append("license_ref must be a string")
+    if errors:
+        return errors
+
     if not spec.get("author") or not spec.get("learner_problem") or not spec.get("topics") or not spec.get("steps"):
         errors.append("learner problem, topics and executable steps required")
     if spec.get("terminology") not in ("US", "UK"):
