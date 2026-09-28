@@ -15,3 +15,9 @@ Actual ledger has no activation-event binding: retain immutable unresolved model
 append event-dated store_operator budget mirror, count measured ledger once in Books.
 Unknown fee rows cannot become observed when signed amounts net to zero.
 Downstream unit_cost/sustainability/spend_report scope approved but deferred for this repair.
+
+## Downstream basis propagation (after b15b351)
+Parent approved unit_cost.py, sustainability.py, spend_report.py and focused tests.
+Reuse basis summary (row counts, signed sums, nullable actual) from listing_costs.py.
+Preserve exposure amounts and threshold comparators; label recorded vs actual explicitly.
+Legacy maintenance fixture lacks rate evidence: reading UNKNOWN with unchanged amounts.

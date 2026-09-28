@@ -96,3 +96,17 @@ def cost_basis(row):
     if detail.get('price_basis') == 'measured':
         return 'measured'
     return 'unknown'
+
+
+def basis_summary(pairs):
+    """Summarize (amount, basis) without net-zero rows hiding missing evidence."""
+    totals={};counts={}
+    for amount,basis in pairs:
+        basis=basis if basis in ('measured','modelled') else 'unknown'
+        totals[basis]=totals.get(basis,0.0)+float(amount)
+        counts[basis]=counts.get(basis,0)+1
+    reading=next(iter(counts)) if len(counts)==1 else ('mixed' if counts else 'UNMEASURED')
+    return {'reading':reading,'by_basis_cad':{k:round(v,6) for k,v in totals.items()},
+            'rows_by_basis':counts,
+            'actual_cad':round(sum(totals.values()),6) if reading=='measured' else None,
+            'amount_semantics':'recorded exposure; modelled/unknown amounts are not observed charges'}

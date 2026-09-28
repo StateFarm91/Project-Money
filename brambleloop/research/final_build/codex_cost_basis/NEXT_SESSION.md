@@ -1,10 +1,9 @@
 # Finance continuation
-Branch codex/final-finance-cost-basis-01. Prior revalidation checkpoint 67aeda8 pushed.
-Latest event correction supersedes original bdf2bd6 listing-ID suppression: immutable
-initial model exposure stays unresolved, each actual fee writes event-dated external-ID
-budget mirror; Books counts ledger once and labels unresolved exposure separately.
-Unknown signed fee offsets cannot yield observed cash. No production actions or migrations.
-Focused tests: operating_cost_basis 8/8, finance 21/21; money truth 18/18.
-Next approved scope: cost basis labels in unit_cost.py, sustainability.py, spend_report.py.
-No consumer edits made yet. Preserve amounts/budget formulas, nullable actual values,
-recorded exposure comparator labels; no UNKNOWN-to-zero fallback. See parent scope.
+Branch codex/final-finance-cost-basis-01. Event repair b15b351 pushed and parent integrated.
+Consumer basis propagation now completed; CONSUMER_REPORT.json has scope/tests/limitations.
+Three consumer tests, 24 spend policy, 35 spend governance and 18 money truth tests passed.
+Dashboard_spend did not complete TestClient path (>2min no assertions); terminated, UNKNOWN.
+Next: integrator review plus bounded dashboard startup diagnosis if needed; do not call that PASS.
+Actual amounts nullable; exposure amounts and thresholds unchanged. Legacy measured key labelled.
+Ledger backfill and exact activation-event reconciliation remain unresolved; no inferred matches.
+No production, paid calls, status changes or Visual edits. H blocked worktree remains untouched.
