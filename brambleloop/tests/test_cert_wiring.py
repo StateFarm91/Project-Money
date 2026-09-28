@@ -53,6 +53,7 @@ from brambleloop.runtime import worker as worker_mod  # noqa: E402
 from brambleloop.runtime.worker import CADENCES, Scheduler, Worker, handlers  # noqa: E402
 from brambleloop.swarm import orchestrate  # noqa: E402
 from brambleloop.runtime.release import LANE_STARVED_BOOST  # noqa: E402
+from brambleloop.runtime.growth_ops import STEER_CREDIT  # noqa: E402
 
 # The 17 rows closed as wiring, and the job types their closure notes name.
 WIRING_ROWS = (41, 42, 81, 85, 91, 100, 144, 174, 175, 176, 186, 187, 192, 241, 265, 270, 313)
@@ -539,9 +540,15 @@ def test_no_row_whose_wiring_failed_here_is_still_claimed_covered():
     observed = {
         41: bool(st["at_drain"]["disclosure_check"]),
         144: bool(st["at_drain"]["radar.memory"]),
-        187: all(j.priority >= min(orchestrate.BAND_BY_KIND["truth_defect"],
-                                   orchestrate.priority_for(j.job_type))
-                 and j.priority <= orchestrate.priority_for(j.job_type) + 10
+        # Same invariant as test_follow_on_work_is_enqueued_at_its_band_too: the band is the
+        # per-job decision's (unproven listing work is a new opportunity, C-63), movement is
+        # bounded, and nothing outranks the truth-defect band unless it belongs there.
+        187: all(min(orchestrate.BAND_BY_KIND["truth_defect"],
+                     orchestrate.priority_decision(j.job_type, j.inputs or None, db=db)["band"])
+                 - 2 * STEER_CREDIT - orchestrate.MAX_WITHIN_BAND - LANE_STARVED_BOOST
+                 <= j.priority
+                 <= orchestrate.priority_decision(j.job_type, j.inputs or None, db=db)["band"]
+                 + STEER_CREDIT
                  for j in _jobs(db)),
     }
     status = {rid: reqs.get(rid).status for rid in WIRING_ROWS}
