@@ -1,5 +1,5 @@
 {
-  "evaluated_head": "5d543ba173ea7facc6c359b40075bd0f7b553089",
+  "evaluated_head": "f964758",
   "certified": false,
   "production_actions": [],
   "paid_spend": 0,
@@ -173,6 +173,24 @@
       "finding": "Unkeyed import cache reused changed source; native Windows paths broke import matching",
       "evidence": "root4freshness+5request+2path checks",
       "remaining_limit": "Other caches/full report performance unverified; static imports not actual test execution",
+      "certified": false
+    },
+    {
+      "id": "LEARN-INPUT-SHAPES",
+      "state": "local repair independently exercised",
+      "finding": "Malformed external draft fields raised AttributeError/500",
+      "repair_commit": "47879dd",
+      "evidence": "worker19 affected checks; root3 malformed-input/API/state controls PASS",
+      "remaining_limit": "Curriculum/public lessons/reviewer evidence not supplied by validation",
+      "certified": false
+    },
+    {
+      "id": "RUNTIME-GRAPH-CACHE",
+      "state": "local repair independently exercised",
+      "finding": "Source edits retained stale reachability; Windows root paths mismatched",
+      "repair_commit": "9220c58+b7fecd9+c5a759f",
+      "evidence": "root9graph+11fullreachability+5composedsnapshot; closure/API27/27 clean rerun164127186301; initial resolver failure and pre-cleanup warning retained",
+      "remaining_limit": "Static not execution; other caches and filesystem ABA remain; locked production fullsuite unverified",
       "certified": false
     }
   ]
