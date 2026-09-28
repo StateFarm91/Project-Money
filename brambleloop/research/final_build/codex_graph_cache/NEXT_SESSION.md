@@ -6,3 +6,5 @@ REPORT.json documents tests, source producer -> closure consumer, failure paths 
 No full package graph test while root suites run. Static graph is NOT runtime execution.
 Exact sources/root/policy key; request final revalidation; no atomic filesystem/ABA guarantee.
 Other maturity handler caches out of scope. No further work without coordinator assignment.
+
+Top-level package followup: root receipt163510396378 exposed sibling path bug. Explicit empty-component handling fixes it;9 freshness groups, path controls and entire11-test reachability suite (realpackage included) PASS. Ready for root review.

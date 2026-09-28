@@ -140,9 +140,11 @@ def _rel_of(mod: str) -> str:
 
 def _path_of(mod: str) -> Path | None:
     parts = mod.split(".")[1:]
-    f = _package_root().joinpath(*parts).with_suffix(".py")
-    if _source_exists(f):
-        return f
+    # The top-level package is __init__.py, never the sibling PKG.with_suffix(".py").
+    if parts:
+        f = _package_root().joinpath(*parts).with_suffix(".py")
+        if _source_exists(f):
+            return f
     init = _package_root().joinpath(*parts, "__init__.py")
     return init if _source_exists(init) else None
 

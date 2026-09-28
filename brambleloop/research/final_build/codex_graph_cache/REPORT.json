@@ -53,5 +53,17 @@
     "Standalone boundaries still read source bytes; parse reuse is verified, total latency not benchmarked",
     "No requirement status/threshold/Visual changes, paid calls, production mutation or deployment"
   ],
-  "integration_warning": "Review small path commit1942817 plus subsequent cache commit together. Root integrated5d543ba remains untouched while source-bound suites run."
+  "integration_warning": "Review small path commit1942817 plus subsequent cache commit together. Root integrated5d543ba remains untouched while source-bound suites run.",
+  "followup_package_root": {
+    "root_failure_receipt": "163510396378 at integrated b7fecd9",
+    "cause": "top-level brambleloop had zero remaining components; with_suffix(.py) constructed sibling outside snapshot root",
+    "fix": "explicitly skip module-file candidate for zero components; resolve package __init__.py",
+    "regression": "top-level import brambleloop in scheduled worker fixture resolves inside snapshot and preserves live handler",
+    "tests": {
+      "test_graph_cache_freshness.py": "9/9",
+      "test_graph_path_portability.py": "PASS positive+4negatives",
+      "test_reachability.py": "entire suite11/11 including realpackage PASS"
+    },
+    "test_initial_adjustment": "normalize equivalent Windows short/long temp paths in new path assertion; production behavior unchanged"
+  }
 }

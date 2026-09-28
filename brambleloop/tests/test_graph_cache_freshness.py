@@ -150,6 +150,21 @@ def test_closure_matrix_aggregation_captures_twice_and_mutation_aborts():
         fixture._with_package(probe)
 
 
+def test_top_level_package_import_resolves_inside_snapshot():
+    def probe():
+        p=R.PKG/'runtime/worker.py'
+        p.write_text('import brambleloop\n'+p.read_text(encoding='utf-8'),encoding='utf-8')
+        assert R._path_of('brambleloop').resolve()==(R.PKG/'__init__.py').resolve()
+        assert 'brambleloop' in R.reachable()
+        assert R.reached('lib/live.py')['reached']
+        @R._graph_boundary
+        def scoped():
+            assert R._path_of('brambleloop').resolve()==(R.PKG/'__init__.py').resolve()
+            assert R._parse('brambleloop') is not None
+        scoped()
+    fixture._with_package(probe)
+
+
 if __name__=='__main__':
     tests=[v for k,v in list(globals().items()) if k.startswith('test_')]
     for test in tests:test();print('PASS',test.__name__)
