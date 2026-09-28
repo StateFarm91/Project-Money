@@ -200,7 +200,6 @@ def jobs_reaching(module: str) -> tuple[str, ...]:
 # The rungs
 
 
-@lru_cache(maxsize=1)
 def _tested_modules() -> frozenset[str]:
     """Every Brambleloop module the suite imports, parsed rather than grepped.
 
@@ -211,12 +210,21 @@ def _tested_modules() -> frozenset[str]:
     test coverage, it is measuring how people happen to write imports -- and it fails in
     the direction that invents work.
     """
-    if not _TESTS.is_dir():
-        return frozenset()
+    # Content, not timestamps: replacing a test in place must remove obsolete evidence.
+    # Capture current bytes before consulting the cache; read failures propagate instead
+    # of reusing a previous success. Include paths/root so fixture switches invalidate.
+    root = str(_TESTS.resolve())
+    sources = tuple((path.name, path.read_bytes())
+                    for path in sorted(_TESTS.glob("test_*.py"))) if _TESTS.is_dir() else ()
+    return _tested_modules_from_sources(root, sources)
+
+
+@lru_cache(maxsize=1)
+def _tested_modules_from_sources(root: str, sources: tuple) -> frozenset[str]:
     found: set[str] = set()
-    for path in sorted(_TESTS.glob("test_*.py")):
+    for _path, source in sources:
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+            tree = ast.parse(source.decode("utf-8", errors="replace"))
         except SyntaxError:                                     # pragma: no cover
             continue
         for node in ast.walk(tree):
@@ -229,6 +237,11 @@ def _tested_modules() -> frozenset[str]:
                     found.add(alias.name)
     return frozenset(
         n[len("brambleloop."):] for n in found if n.startswith("brambleloop."))
+
+
+# Retain the previous diagnostic/test cache interface.
+_tested_modules.cache_clear = _tested_modules_from_sources.cache_clear
+_tested_modules.cache_info = _tested_modules_from_sources.cache_info
 
 
 def _tested(module: str) -> bool:

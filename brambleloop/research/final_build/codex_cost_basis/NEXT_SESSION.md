@@ -14,3 +14,5 @@ real spend/data/page;7/7 focused checks pass including mixed-cost actualNone. Fu
 performance remains unverified. Requires existing integrated network_guard.py from e0cf403.
 
 Read-only closure performance followup in CLOSURE_PERFORMANCE_REVIEW.json. AST cache cold3.45s/warm2us; repeated module filesystem resolution also costs time. Verified unkeyed test import cache stays stale after source change. No production cache edits; propose content-keyed invalidation before optimization.
+
+Approved freshness repair now implemented in maturity._tested_modules; TEST_CACHE_FRESHNESS.json details4/4tests, unchanged Windows resolver failure,0.056s warm content read overhead. No index optimization and no full report PASS. Root review next.

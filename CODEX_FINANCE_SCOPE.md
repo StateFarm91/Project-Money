@@ -21,3 +21,10 @@ Parent approved unit_cost.py, sustainability.py, spend_report.py and focused tes
 Reuse basis summary (row counts, signed sums, nullable actual) from listing_costs.py.
 Preserve exposure amounts and threshold comparators; label recorded vs actual explicitly.
 Legacy maintenance fixture lacks rate evidence: reading UNKNOWN with unchanged amounts.
+
+## Tested-module cache freshness (after 5bb2c76)
+Approved maturity.py _tested_modules helper/cache only, new focused tests/report.
+Exact source bytes and absolute paths identify cached import set; addition/removal and
+same-size/same-mtime replacement invalidate. No status/reachability/threshold changes.
+Unreadable sources must raise/refuse, not return cached imports. Preserve SyntaxError skip.
+Preserve cache_clear/cache_info compatibility. No resolver index optimization authorized.
