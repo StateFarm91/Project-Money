@@ -132,6 +132,24 @@ def main():
         row.update({"id": req["id"], "title": req["title"], "version": req["version"],
                     "master_priority": req.get("master_priority")})
         matrix.append(row)
+    # Wave overlay: what integrated implementation clusters report for each row. It is kept
+    # beside `maturity`, never folded into it: a worker's DONE is a claim that the next
+    # re-mapping of that row must verify against code before maturity may rise (F-867).
+    integrated = json.loads((HERE / "waves" / "INTEGRATED.json").read_text()) \
+        if (HERE / "waves" / "INTEGRATED.json").exists() else {}
+    by_uid = {r["uid"]: r for r in matrix}
+    for cluster, meta in integrated.items():
+        rep = HERE / "waves" / f"fb1_{cluster}.json"
+        if not rep.exists():
+            continue
+        for item in json.loads(rep.read_text())["requirements"]:
+            row = by_uid.get(item["uid"])
+            if row is not None:
+                row.setdefault("wave", []).append({
+                    "cluster": cluster, "merge": meta["merge"], "status": item["status"],
+                    "remaining": item.get("remaining"),
+                    "note": "worker-reported; integrator ran targeted suites; maturity not "
+                            "re-mapped yet"})
     lc = [r for r in matrix if r["launch_class"] == "LAUNCH-CRITICAL"]
     summary = {
         "rows": len(matrix), "unmapped": absent, "problems": problems,
@@ -144,6 +162,7 @@ def main():
         "coverage": dict(Counter(r.get("coverage") for r in matrix)),
         "downgraded": sum(1 for r in matrix if r["maturity"] != r["maturity_claimed"]),
         "defects": sum(1 for r in matrix if r.get("defect")),
+        "wave_reported": dict(Counter(w["status"] for r in matrix for w in r.get("wave", []))),
     }
     out = {"basis": {"engineering": "019ebf0 (+ Final Build registry commits)",
                      "production": "fcb982d", "registry": "master_registry.json"},

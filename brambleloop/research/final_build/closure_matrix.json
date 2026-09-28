@@ -64,7 +64,12 @@
    "FULL": 150
   },
   "downgraded": 123,
-  "defects": 111
+  "defects": 111,
+  "wave_reported": {
+   "DONE": 34,
+   "PARTIAL": 25,
+   "NOT_STARTED": 1
+  }
  },
  "matrix": [
   {
@@ -2683,7 +2688,16 @@
    "id": "F-071",
    "title": "Owner Is Not the Tester",
    "version": "v0.2",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "PHYSICAL_SAMPLE (the parked owner ask) is kept as a constant by prior decision and never raised; excluded from the scan explicitly.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-072",
@@ -2785,7 +2799,16 @@
    "id": "F-074",
    "title": "New Primitive Physical Calibration",
    "version": "v0.2",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "PARTIAL",
+     "remaining": "The ERROR (UNCALIBRATED_PRIMITIVE refuses unrestricted release without evidence) is staged in research/final_build/waves/fb1_C_strict.patch: it refuses the three texture products (cable/bobble/ribbed), which the pipeline certifies today.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-075",
@@ -2925,7 +2948,16 @@
    "id": "F-078",
    "title": "Pattern Version Binding",
    "version": "v0.2",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "physical.record (runtime/release.py, not C) should stamp measured['content_hash'] itself and accept a release blocked only on physical evidence -- see needs_from_others; today a Class C release cannot be recorded through physical.record because _load_cir requires a certified release.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-079",
@@ -3033,7 +3065,16 @@
    "id": "F-081",
    "title": "High-Risk Full-Make Gate",
    "version": "v0.2",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "PARTIAL",
+     "remaining": "radar.score still refuses to promote any Class C concept ('Class C requires physical testing that does not exist yet', runtime/pipeline.py score handler, not in C's functions); deriving C from CIR features (F-073) not done; the tester workflow deadlock in physical.record (needs_from_others).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-082",
@@ -3215,7 +3256,16 @@
    "id": "F-086",
    "title": "Launch Gate Reconciliation",
    "version": "v0.2",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "PARTIAL",
+     "remaining": "The F-073 risk matrix (derive risk class from CIR features) is not wired into readiness.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-087",
@@ -3355,7 +3405,16 @@
    "id": "F-090",
    "title": "No Convenience Downgrade",
    "version": "v0.2",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-091",
@@ -4190,7 +4249,16 @@
    "id": "F-111",
    "title": "Legacy Product Quarantine",
    "version": "v0.3",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "Until the strict patch lands no certificate carries GAUGE_STANDARD, so no legacy product can clear by re-certification (fail-closed). Pipeline slugs market-basket-trio / hexie-coaster-set are not Launch-0 variant slugs and are therefore treated as legacy.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-112",
@@ -4228,7 +4296,16 @@
    "id": "F-112",
    "title": "No Warning-as-Truth Substitute",
    "version": "v0.3",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "PARTIAL",
+     "remaining": "Not wired on the branch because EVERY product in the repository fails the band -- all 16 flat-catalogue products and nordic-forest (worsted, 16 sc/10cm vs 11-14), market-basket (worsted cotton 18), hexagon-coaster (dk 20 vs 12-17), harbour pullover (worsted 16) -- Launch-0 included. Measured with the patch applied: test_cert_publish_gates 13 failing (nordic forest no longer certifies, so no listing/frames downstream); every pipeline suite that drives catalogue products through the chain is expected to fail the same way. Apply together with the product re-declaration in needs_from_others.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-113",
@@ -4376,7 +4453,16 @@
    "id": "F-116",
    "title": "Gauge Evidence Gate",
    "version": "v0.3",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "PARTIAL",
+     "remaining": "Refusing CIRs whose gauge is typed without yarn/calibration evidence is the staged patch; product modules (vessels, builder, nordic_forest, garments, texture) still type gauges -- not C's files.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-117",
@@ -4458,7 +4544,16 @@
    "id": "F-118",
    "title": "Risk-Based Physical Escalation",
    "version": "v0.3",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "PARTIAL",
+     "remaining": "for_publish passes the stored Listing but not frames (ListingAsset rows are not publish.listing_assets.Frame objects), so 'imagery' reads UNVERIFIABLE on the publish path until frames are persisted in a form check_frame_plan can read. Cost: one call renders both documents (~50 s profiled under load).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-119",
@@ -4492,7 +4587,16 @@
    "id": "F-119",
    "title": "Legacy Launch Count Zero Until Cleared",
    "version": "v0.3",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-120",
@@ -4529,7 +4633,16 @@
    "id": "F-120",
    "title": "Quality Over Salvage",
    "version": "v0.3",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-121",
@@ -4646,7 +4759,16 @@
    "id": "F-123",
    "title": "Vacuous-Test Detector",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "PARTIAL",
+     "remaining": "Fix the 110 baselined loops (add non-emptiness asserts) in files owned by other clusters; heuristic is syntactic (proves a check exists, not that it is correct).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-124",
@@ -4843,7 +4965,16 @@
    "id": "F-128",
    "title": "No Self-Grading Labels",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-129",
@@ -4961,7 +5092,16 @@
    "id": "F-131",
    "title": "Gate Semantic Accuracy",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "The etsy_shop gate itself still ANDs ETSY_SHOP_NAME/ID with usability (GATES semantics, outside E's remit).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-132",
@@ -5981,7 +6121,16 @@
    "id": "F-158",
    "title": "Dependency Integrity Audit",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "The Docker build itself was not run here (no docker); verified by an equivalent --require-hashes install into a clean 3.11 venv. Change record is printed at regeneration and lives in git history of requirements.lock, not in a separate release-evidence file.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-159",
@@ -6017,7 +6166,16 @@
    "id": "F-159",
    "title": "Secret Scan Gate",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "Binary files (NUL in first 8 KiB) and files >20 MB are skipped and compressed PDF streams are not decoded -- stated limits. Runtime logs outside the repo (Railway logs) are not scanned.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-160",
@@ -6050,7 +6208,16 @@
    "id": "F-160",
    "title": "Credential Rotation Register",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "PARTIAL",
+     "remaining": "One-line wiring into the single owner queue (runtime/release.py) and a dashboard card (app/main.py) -- both owned by other clusters.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-161",
@@ -6399,7 +6566,16 @@
    "id": "F-169",
    "title": "Clean-Tree Full Suite",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "PARTIAL",
+     "remaining": "The full suite must actually be run with REQUIRE_CLEAN=1 on the final release candidate (integrator; not run here per brief).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-170",
@@ -6433,7 +6609,16 @@
    "id": "F-170",
    "title": "Suite Result Binding",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-171",
@@ -6620,7 +6805,16 @@
    "id": "F-175",
    "title": "Final Unknowns Register",
    "version": "v0.4",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-176",
@@ -6777,7 +6971,16 @@
    "id": "F-179",
    "title": "Single Owner-Action Source",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "/api/status owner_actions_open still counts the raw table (pinned by test_status_numbers_equal_sql). It is not rendered as an owner surface.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-180",
@@ -6854,7 +7057,16 @@
    "id": "F-181",
    "title": "Action-to-Gate Binding",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-182",
@@ -6887,7 +7099,16 @@
    "id": "F-182",
    "title": "Stale-Action Deployment Check",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-183",
@@ -7000,7 +7221,16 @@
    "id": "F-185",
    "title": "Expected Dead-Letter Presentation",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-186",
@@ -7034,7 +7264,16 @@
    "id": "F-186",
    "title": "Certified-vs-Launch-Cleared Inventory",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "PARTIAL",
+     "remaining": "The canonical launch_cleared belongs in launch/readiness.py with the real gauge-in-yarn-band check (cluster C). Until then the count is 0 by construction.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-187",
@@ -7072,7 +7311,16 @@
    "id": "F-187",
    "title": "Creative Bottleneck Prominence",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-188",
@@ -7143,7 +7391,16 @@
    "id": "F-189",
    "title": "CA5K Probability Semantics",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "JSON consumers that read the raw 'probability' key (finance/reinvestment, growth/weekly, scale/evidence) still see the modelled bound. They should switch to reported_probability/state (other clusters).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-190",
@@ -7401,7 +7658,16 @@
    "id": "F-196",
    "title": "Rendered-Pages Gate Reclassification",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-197",
@@ -7617,7 +7883,16 @@
    "id": "F-202",
    "title": "Last-Deployed SHA and Verification",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "PARTIAL",
+     "remaining": "Deploy time is the container start (a proxy, labelled 'container started'). No platform deploy timestamp is read.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-203",
@@ -7650,7 +7925,16 @@
    "id": "F-203",
    "title": "Data Timestamp Consistency",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "PARTIAL",
+     "remaining": "The as-of is the render/query time, not the latest source row time. The non-block tables (jobs, products, incidents, audit) carry no separate as-of.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-204",
@@ -7725,7 +8009,16 @@
    "id": "F-205",
    "title": "Dashboard Contradiction Test",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-206",
@@ -7758,7 +8051,16 @@
    "id": "F-206",
    "title": "Commercial Truth Above Vanity Counts",
    "version": "v0.5",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-207",
@@ -10379,7 +10681,16 @@
    "id": "F-273",
    "title": "Offsite Ads Accounting",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "DONE",
+     "remaining": "Live verification of the offsite fee ledger_type string (etsy_surfaces notes the ledger description enum may not name an ad fee).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-274",
@@ -10741,7 +11052,16 @@
    "id": "F-283",
    "title": "First-Sale Attribution",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "DONE",
+     "remaining": "Owner / Stats-export attribution route (sources.attribute is callable; no API route because app/main.py is cluster E).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-284",
@@ -10965,7 +11285,16 @@
    "id": "F-289",
    "title": "Traffic Source Separation",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "PARTIAL",
+     "remaining": "Dashboard rendering of sales_by_source (cluster E).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-290",
@@ -12145,7 +12474,16 @@
    "id": "F-321",
    "title": "Per-Listing Maintenance Cost",
    "version": "v0.9",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "PARTIAL",
+     "remaining": "Maintenance jobs (observation, revalidation, refresh, support) must pass product_slug to spend_report.record for attribution; live-at uses Listing.created_at as a floor (no published_at column).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-322",
@@ -12183,7 +12521,16 @@
    "id": "F-322",
    "title": "Cost Per Usable Asset",
    "version": "v0.9",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "NOT_STARTED",
+     "remaining": "Fix is in visual/reliability.py / publish/model_photography.py (not cluster D ownership): add judging cost to spent_cad as judging_cad.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-323",
@@ -12252,7 +12599,16 @@
    "id": "F-324",
    "title": "Break-Even Sales Requirement",
    "version": "v0.9",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "DONE",
+     "remaining": "Depends on product_slug tagging of cost rows; untagged product work is counted as platform spend.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-325",
@@ -12285,7 +12641,16 @@
    "id": "F-325",
    "title": "Steady-State Sustainability Forecast",
    "version": "v0.9",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "DONE",
+     "remaining": "Scenario assumptions are constants in SCENARIOS; no owner-editable input.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-326",
@@ -12431,7 +12796,16 @@
    "id": "F-329",
    "title": "Sustainability Launch Gate",
    "version": "v0.9",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "DONE",
+     "remaining": "With production's current development spend the gate may read blocked until spend is tagged/wound down; that is the intended behaviour.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-330",
@@ -12608,7 +12982,16 @@
    "id": "F-334",
    "title": "Waiter Deduplication",
    "version": "v0.10",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "Nothing forces sessions to use it instead of ad-hoc loops; HEARTBEAT_PROMPT should say so (needs_from_others).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-335",
@@ -12718,7 +13101,16 @@
    "id": "F-337",
    "title": "Expected-Duration Watchdog",
    "version": "v0.10",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "PARTIAL",
+     "remaining": "Covers operator lanes only; the product runtime's jobs table (jobs.started/finished by job_type, flagged in ops/health.py) is not covered -- cluster E owns ops/health.py.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-338",
@@ -12828,7 +13220,16 @@
    "id": "F-340",
    "title": "Waiter Resource Bound",
    "version": "v0.10",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "Memory/CPU of a waiter is not measured (it is a single sleeping process by construction).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-341",
@@ -12968,7 +13369,16 @@
    "id": "F-344",
    "title": "Operational Time Waste Accounting",
    "version": "v0.10",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "PARTIAL",
+     "remaining": "`ops/registry.py ack` itself does not account idle (not this cluster's file); the incident is not yet surfaced to the owner dashboard.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-345",
@@ -13004,7 +13414,16 @@
    "id": "F-345",
    "title": "Test-Suite Run Record",
    "version": "v0.10",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "FAIL/SKIP counts are from column-zero markers (suite exit codes remain authoritative), labelled as such in the record.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-346",
@@ -13037,7 +13456,16 @@
    "id": "F-346",
    "title": "Suite Concurrency Guard",
    "version": "v0.10",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-347",
@@ -13070,7 +13498,16 @@
    "id": "F-347",
    "title": "Targeted Validation Before Full Rerun",
    "version": "v0.10",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "PARTIAL",
+     "remaining": "The targeted-first rule text in ops/HEARTBEAT_PROMPT.md (not in this cluster's ownership).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-348",
@@ -13673,7 +14110,16 @@
    "id": "F-363",
    "title": "Physical Plausibility",
    "version": "v0.11",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "PARTIAL",
+     "remaining": "Opening/closure plausibility (head opening vs CYC head circumference, button-band spacing, armhole/leg openings) not implemented; waist-tie free length is not derivable from the CIR and stays None (unknown).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-364",
@@ -15658,7 +16104,16 @@
    "id": "F-416",
    "title": "Security / Supply-Chain Review",
    "version": "v0.13",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "PARTIAL",
+     "remaining": "Provenance/security review of repositories, binaries, services and models (beyond Python packages) is not covered; base image python:3.11-slim is tag-pinned, not digest-pinned; apt fonts-dejavu-core unpinned.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-417",
@@ -17299,7 +17754,16 @@
    "id": "F-461",
    "title": "Deploy Serialization",
    "version": "v0.14",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "F",
+     "merge": "973318d",
+     "status": "DONE",
+     "remaining": "The deployed commit is passed in by the caller (read from production /api/verify); the guard does not fetch it (no network). No cross-session deploy lease.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-462",
@@ -20652,7 +21116,16 @@
    "id": "F-541",
    "title": "OAuth Failure Recovery",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "DONE",
+     "remaining": "Orders side only; publish side (runtime/pipeline.py::handle_store_publish) is another cluster.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-542",
@@ -21294,7 +21767,16 @@
    "id": "F-558",
    "title": "Order Operations Ledger",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "PARTIAL",
+     "remaining": "UNVERIFIED against a live shop: ledger_type strings and minor-unit amount (finance/reconcile.py LEDGER_AMOUNT_DIVISOR, _FEE_EXACT) must be checked on the first real read. Digital delivery state, buyer-issue linkage and case state are not reconciled. getShopPaymentByReceiptId (Payment amount_fees/adjusted) not used because it is absent from etsy_oauth.SCOPES_REQUIRED (cluster B).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-559",
@@ -23173,7 +23655,16 @@
    "id": "F-608",
    "title": "Independent Accountant",
    "version": "v0.18",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "PARTIAL",
+     "remaining": "No reconciliation against monthly statements / payouts or future accounting integrations; no check that each internal order has a matching ledger entry after N days (the reverse disagreement).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-609",
@@ -23211,7 +23702,16 @@
    "id": "F-609",
    "title": "Auditable Ledger",
    "version": "v0.18",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "D",
+     "merge": "2186184",
+     "status": "PARTIAL",
+     "remaining": "No writers for payouts, owner funding, subscriptions, adjustments; AI/model spend still lives only in cost_entries (not mirrored into the ledger).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-610",
@@ -24550,7 +25050,16 @@
    "id": "F-663",
    "title": "Owner Inbox",
    "version": "v0.19",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "PARTIAL",
+     "remaining": "Deploy to clear the production 19/20 duplicate. Evidence is the gate's check text, not a URL. Standalone decision cards carry only what their OwnerAction row stored.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-664",
@@ -24623,7 +25132,16 @@
    "id": "F-665",
    "title": "Evidence WHY",
    "version": "v0.19",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "PARTIAL",
+     "remaining": "The envelope is not yet on /api/console, /api/finance or /api/launch. The provenance backfill (275 unproven artefacts) needs a deploy plus ops.provenance_backfill.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-666",
@@ -25561,7 +26079,16 @@
    "id": "F-689",
    "title": "Customer Workspace",
    "version": "v0.19",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "PARTIAL",
+     "remaining": "The CX workspace that joins messages, orders, reviews and refunds does not exist; Etsy message/review/refund ingestion is gated on transactions_r (clusters B/D).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-690",
@@ -25849,7 +26376,16 @@
    "id": "F-696",
    "title": "Security & Privacy",
    "version": "v0.19",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "E",
+     "merge": "787895a",
+     "status": "DONE",
+     "remaining": "The HTML dashboard and read-only aggregate routes stay unauthenticated by design (the test proves they carry no customer fields). Role-based separation beyond route-level is not built.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-697",
@@ -28569,7 +29105,16 @@
    "id": "F-765",
    "title": "Construction Overview Before Instructions",
    "version": "v0.22",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "C",
+     "merge": "daf43d5",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-766",

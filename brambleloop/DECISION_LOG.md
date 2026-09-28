@@ -1334,3 +1334,15 @@ redraw is the superseded direction (F-852) and is to be refused by policy (clust
 **D-FB-5. Final Build execution is ten disjoint clusters (A–J) under one integrator** as laid out
 in `research/final_build/FINAL_BUILD_BASELINE_AUDIT.md` §6; the V2 R&D lane stays isolated on
 `codex/visual-v2-rnd`. New ideas are classified launch-critical / post-launch / rejected (F-847).
+
+**D-FB-6. Out-of-band gauges are re-engineered, never relabelled (F-112, F-114, F-116).**
+Cluster C found every catalogue product, Launch-0 included, types a gauge outside its declared
+yarn weight's standard band (worsted at 16–18 sc/10cm vs 11–14; dk coaster at 20 vs 12–17).
+Re-declaring each product's yarn weight so the band fits the typed number is rejected: it
+fits the label to the number, the reverse of F-112. The Master's path is F-114: worthy
+products go through yarn-band gauge derivation (`creative.prototype.gauge_for`) → compiler →
+twin → reverse compiler → release chain, keeping finished dimensions by recomputing counts.
+A deliberately tight gauge (e.g. a dense basket) is allowed only with calibrated physical
+evidence for that yarn/hook (F-116 second clause). The strict refusal
+(`research/final_build/waves/fb1_C_strict.patch`) lands in the same change as the Launch-0
+re-engineering, never before it.
