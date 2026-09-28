@@ -49,7 +49,7 @@ from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (AuditLog, Job, JobStatus, Listing, PatternVersion,  # noqa: E402
                                      Phase, Product)
-from brambleloop.products import nordic_forest as nf  # noqa: E402
+from brambleloop.products import builder as flat  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402  (registers handlers)
 from brambleloop.runtime.worker import Worker  # noqa: E402
@@ -84,7 +84,7 @@ def _drain(w: Worker, limit: int = 400) -> None:
 
 
 def chain() -> dict:
-    """compile the Nordic Forest throw and let the worker take it as far as it goes."""
+    """Compile the gauge-qualified Cloudline fixture; publication gates stay unchanged."""
     if _STATE:
         return _STATE
     from brambleloop.gates import policy
@@ -95,7 +95,7 @@ def chain() -> dict:
         db = Database(f"sqlite:///{_TMP}/commerce.db")
         db.create_all()
         Registry(db).seed_defaults()
-        cir = nf.build()
+        cir = flat.for_slug("cloudline-baby-blanket")
         ai_spy = Spy(policy, "check_ai_disclosure")
         JobQueue(db).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                              idempotency_key="cert-commerce-compile")
