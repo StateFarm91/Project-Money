@@ -1,7 +1,7 @@
 {
   "cluster": "G",
   "branch": "claude/fb1-G",
-  "head": "SEE_GIT_LOG",
+  "head": "f2bc6f4 (report commit; code head is its parent)",
   "base": "be8d416",
   "requirements": [
     {"uid": "F-783", "status": "DONE",
