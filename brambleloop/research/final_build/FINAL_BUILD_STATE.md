@@ -54,3 +54,11 @@ full suite from clean state after each batch; re-aggregate the matrix.
 Authoritative resume document: `FINAL_BUILD_RESUME_MANIFEST.md`. Integrated: F, D, C, E.
 Awaiting integration: A (436f6c4, conflict in publish/release_gates.py). In progress at handoff:
 B, G (branches pushed; WIP snapshots in waves/wip/). Unstarted: C2, H, I, J.
+
+- 2026-09-28T16:15Z heartbeat (trig_019rtbCKLSFc8hNajuiWm9E4): production `/api/verify` read-only
+  check — 12 checks, 0 failing, ok=true (production still fcb982d). Per the owner's handoff
+  instruction no implementation wave and no full-suite run were started, and nothing was pushed to
+  `claude/repository-setup-nc9x6o` (a push there can redeploy production). Resume per
+  `FINAL_BUILD_RESUME_MANIFEST.md`. Note for the next session: `ops/HEARTBEAT_PROMPT.md` still
+  points the heartbeat at the production branch; decide whether heartbeats should operate on the
+  Final Build branch instead (owner/integrator decision, not changed here).
