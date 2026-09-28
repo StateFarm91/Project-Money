@@ -540,6 +540,17 @@ def test_a_teardown_trap_is_enforced_routed_to_pattern_help_and_promoted_on_our_
     with db.session() as s:
         assert s.get(TeardownFinding, fid).detail["adopted"]["floor"] == 4.0
     assert not any("error_recovery" in r for r in _publish_gate_reasons(db, "fixture-good"))
+    # Codex M06: the executed record says what was implemented -- a standard at the release
+    # gate -- and that no artefact was changed by the promotion; the state route agrees.
+    from brambleloop.improve import runner
+
+    executed = done["executed"][0]
+    assert executed["implements"] == "standard" and executed["changes_artifact"] is False
+    assert "release_gates.for_publish" in executed["enforced_by"]
+    assert _improvement(db, iid)[1]["executed"]["implements"] == "standard"
+    assert _improvement(db, iid)[1]["executed"]["changes_artifact"] is False
+    assert runner.state()["executes"]["self_audit"].startswith("standard:")
+    assert any("artefact" in d for d in runner.state()["does_not_execute"])
 
     # #93: a self-audit after promotion that reads below the baseline reverts it and drops
     # the floor, with a rollback incident.
@@ -996,6 +1007,13 @@ def test_weekly_cycle_reads_domains_from_rows_adds_a_specialist_and_stops_things
     assert dm["cost"]["findings"] >= 1 and dm["ads"]["reading"] == "UNMEASURED"
     assert "teardown_finding_steward" in out["added"], out["added"]
     assert out["add_card"] == "queued"
+    # Codex M09: the addition is an owner card and nothing else -- no agent was created, no
+    # job type granted -- and the cycle's state says exactly that.
+    from brambleloop.agents.registry import Registry
+    from brambleloop.improve import weekly
+
+    assert not any(a.name == "teardown_finding_steward" for a in Registry(db).all())
+    assert any("never granted automatically" in c for c in weekly.state()["owner_cards_only"])
     assert out["stop_list"]["executed"] == [{"experiment": 1, "state": "stopped"}]
     with db.session() as s:
         assert s.scalar(select(Experiment)).state == "stopped"
@@ -1048,6 +1066,18 @@ def test_agent_quality_reads_each_agents_function_with_declared_inputs_and_outpu
     assert v["inputs"] and v["outputs"]
     assert v["function_quality"]["metric"] == "compile_pass_rate"
     assert v["function_quality"]["value"] == 0.3 and v["verdict"] == "watch", v
+    # Codex M08: a rate over the rows a function produced is labelled as that proxy, with its
+    # limit stated; only realised uplift is labelled an outcome, and every agent carries one.
+    fq = v["function_quality"]
+    assert fq["evidence"] == "production_rate_proxy" and "does not measure" in fq["limits"]
+    kinds = {a["function_quality"].get("evidence") for a in agents.values()
+             if a["function_quality"]["reading"] != "exempt"}
+    assert None not in kinds and kinds <= {"production_rate_proxy", "internal_score",
+                                           "realised_outcome"}, kinds
+    uplift = [a for a in agents.values()
+              if a["function_quality"]["metric"] == "role_realised_uplift"]
+    assert uplift and all(a["function_quality"]["evidence"] == "realised_outcome"
+                          for a in uplift)
 
 
 def test_priority_uses_deadline_value_and_proven_revenue_inside_the_band():

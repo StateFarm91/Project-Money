@@ -154,6 +154,11 @@ def trial_self_audit(db, improvement_id: int) -> dict:
                     f"against the benchmark's {change.get('benchmark_score')}")}
 
 
+# Codex M06 / M09: what each executor genuinely does when a promotion is applied. Named
+# here so the state route and the executed record say the same thing.
+SELF_AUDIT_IMPLEMENTS = "standard"          # a floor at the release gate, not an artefact change
+LEAGUE_REPLAY_IMPLEMENTS = "job_priority_policy"   # the one configuration the replay produces runs for
+
 TRIALS: dict[str, Callable[..., dict]] = {
     "counterfactual_rollback": trial_counterfactual_rollback,
     "league_replay": trial_league_replay,
@@ -178,9 +183,22 @@ def _execute_self_audit(db, iid: int) -> dict:
         row = s.get(Improvement, iid)
         change = dict((row.evidence or {}).get("change") or {})
         floor = row.result_value
-    return {"executed": "standard floor",
-            **enforce.adopt_floor(db, int(change["finding"]), floor=float(floor),
-                                  improvement_id=iid)}
+    adopted = enforce.adopt_floor(db, int(change["finding"]), floor=float(floor),
+                                  improvement_id=iid)
+    # Codex M06: what this promotion implements is a *standard*, and the record says so.
+    # The floor is the level our own self-audits of the current release reached; adopting it
+    # commits the company to it at the release gate (`release_gates.for_publish` refuses a
+    # release that reads below it) and on support cases (the pattern_help obligations). It
+    # changes no pattern, listing, image or reply itself: the artefact change that raised a
+    # release to this level was made on that artefact's own surface, and a later release that
+    # falls below it is refused, not repaired, by this record.
+    return {"executed": "standard floor", **adopted,
+            "implements": SELF_AUDIT_IMPLEMENTS, "changes_artifact": False,
+            "enforced_by": ("release_gates.for_publish via teardown.enforce._judge (unmet "
+                            "below the floor); teardown.enforce.pattern_help_obligations on "
+                            "open support cases"),
+            "artifact_change": ("none by this promotion: the floor is enforced on every later "
+                                "release, never applied to one")}
 
 
 def _monitor_self_audit(db, iid: int) -> dict:
@@ -765,4 +783,21 @@ def state() -> dict:
         "pre_authorised_tiers": list(upgrades.PRE_AUTHORISED),
         "never": ["invents a sandbox result", "records an owner approval",
                   "approves a change it did not sandbox"],
+        # Codex M06 / M09: the honest extent of what a promotion executes. Nothing here
+        # changes an artefact, routes a model or tool, or grants a permission.
+        "executes": {
+            "self_audit": (f"{SELF_AUDIT_IMPLEMENTS}: a floor on the requirement (#164) "
+                           f"enforced at the release gate and on support cases; no artefact "
+                           f"is changed by the promotion"),
+            "league_replay": (f"{LEAGUE_REPLAY_IMPLEMENTS}: the registry incumbent the "
+                              f"runtime's priority_for reads; the only configuration this "
+                              f"engine replays"),
+        },
+        "does_not_execute": [
+            "model, prompt or tool challengers (compared by improve.league on runs recorded "
+            "elsewhere; promoted only through league._authorise on that evidence)",
+            "architecture changes or specialist additions (owner cards from improve.weekly; "
+            "never an automatic permission grant)",
+            "artefact changes implied by an adopted standard",
+        ],
     }

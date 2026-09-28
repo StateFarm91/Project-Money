@@ -966,6 +966,25 @@ def _owner_problem(agent, job_type: str) -> str:
 FUNCTION_FLOOR = 0.5
 FUNCTION_MIN_SAMPLE = 5
 
+# Codex M08: what kind of evidence each function metric is. Most are a *rate over the rows the
+# function produced* -- how many of its own outputs passed the next stage -- which screens for
+# a function that produces junk and says nothing about whether what passed was good. They are
+# labelled so, never as observed quality. Only realised uplift is an outcome; the SEO score is
+# our own scorer reading our own listing.
+FUNCTION_EVIDENCE: dict[str, str] = {
+    "role_realised_uplift": "realised_outcome",
+    "listing_seo_score": "internal_score",
+}
+PRODUCTION_RATE_PROXY = "production_rate_proxy"
+FUNCTION_EVIDENCE_LIMITS: dict[str, str] = {
+    PRODUCTION_RATE_PROXY: ("a rate over rows this function produced, judged by the next stage "
+                            "it fed; it screens for weak output and does not measure the "
+                            "quality of what passed, so it can lower a verdict to watch and "
+                            "never raise one"),
+    "internal_score": "our own scorer read on our own artefact; not an independent reading",
+    "realised_outcome": "realised uplift attributed to kept proposals (improve.roi's window)",
+}
+
 
 def function_quality(db, name: str, *, now: datetime | None = None) -> dict:
     """The quality of what this agent's function produced, read from its rows (#174)."""
@@ -1048,11 +1067,14 @@ def function_quality(db, name: str, *, now: datetime | None = None) -> dict:
         sample, value = len(rows), (sum(1 for o in rows if not did_no_work(o)) / len(rows)
                                     if rows else None)
     measured = value is not None and sample >= FUNCTION_MIN_SAMPLE
+    evidence = FUNCTION_EVIDENCE.get(metric, PRODUCTION_RATE_PROXY)
     return {"metric": metric, "reads": rule.get("function_reads", ""),
             "value": None if value is None else round(float(value), 4),
             "sample": sample, "reading": "measured" if measured else "UNMEASURED",
             "floor": FUNCTION_FLOOR if metric not in ("role_realised_uplift",
-                                                      "listing_seo_score") else None}
+                                                      "listing_seo_score") else None,
+            # Codex M08: the kind of evidence this number is, and what it cannot say.
+            "evidence": evidence, "limits": FUNCTION_EVIDENCE_LIMITS[evidence]}
 
 
 def _TERMINAL_OK_STATUS():
