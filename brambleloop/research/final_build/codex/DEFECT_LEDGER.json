@@ -1,0 +1,129 @@
+{
+  "evaluated_head": "03aa689910239dda084b0599e15fa215d9f9a6b7",
+  "certified": false,
+  "production_actions": [],
+  "paid_spend": 0,
+  "inherited_matrix": {
+    "records": 866,
+    "launch_critical": 446,
+    "launch_full_claims_inherited": 88,
+    "launch_partial_claims_inherited": 358,
+    "codex_promotions": 0,
+    "note": "Inherited claims are not independent proof; authoritative matrix/statuses unchanged"
+  },
+  "defects": [
+    {
+      "id": "A-EMPTY-CERT",
+      "state": "local repair integrated",
+      "finding": "Search certificates must explicitly contain every required check; omitted/malformed check refuses",
+      "repair_commit": "9c6aa49",
+      "focused_suites": [
+        "test_search_certificate_integrity.py",
+        "test_search_truth.py"
+      ],
+      "remaining_limit": "No live marketplace verification"
+    },
+    {
+      "id": "B-OWNER-AUTH",
+      "state": "local repair integrated",
+      "finding": "Recorded authenticated owner approval bound to current content and revalidated before activation",
+      "repair_commit": "910925c",
+      "focused_suites": [
+        "test_activation_authority.py"
+      ],
+      "remaining_limit": "Shared ops credential is not individual human identity; remote exactly-once unproven"
+    },
+    {
+      "id": "AB-01",
+      "state": "local repair integrated",
+      "finding": "Chosen taxonomy/properties sent, independently read back, bound to approval and census",
+      "repair_commit": "a4c79ed",
+      "focused_suites": [
+        "test_etsy_property_contract.py"
+      ],
+      "remaining_limit": "Local fake transport only; later owner-authorized Etsy exercise remains"
+    },
+    {
+      "id": "I-PDF-DRIFT",
+      "state": "local repair integrated",
+      "finding": "Both render sites resolve identical current revision-bound Learn links; stale approval still changes hash",
+      "repair_commit": "a4c79ed",
+      "focused_suites": [
+        "test_learn_publish_contract.py"
+      ],
+      "remaining_limit": "No approved public lesson collection/deployed origin asserted"
+    },
+    {
+      "id": "G-CORPUS",
+      "state": "local repair integrated",
+      "finding": "Actual licensed intake fingerprints consumed by certification and current protected publication",
+      "repair_commit": "2684cf6",
+      "focused_suites": [
+        "test_originality_runtime.py"
+      ],
+      "remaining_limit": "Similarity proxy is not legal or creative adjudication"
+    },
+    {
+      "id": "G-AUTHOR-LINEAGE",
+      "state": "active worker",
+      "finding": "Preserve concept/brief benchmark and gap provenance through actual authoring",
+      "repair_commit": "",
+      "focused_suites": [],
+      "remaining_limit": "No assigning latest department gap to infer original source"
+    },
+    {
+      "id": "H-CONSTRUCTION",
+      "state": "OPEN launch blocker",
+      "finding": "No qualified full-product construction image producer. Preservation/motif match cannot certify it",
+      "repair_commit": "e6b6d47",
+      "focused_suites": [
+        "test_final_visual_authority.py"
+      ],
+      "remaining_limit": "Refusal controls implemented; H not a renderer. Frozen Visual V2 untouched"
+    },
+    {
+      "id": "DRAFT-CRASH",
+      "state": "active worker",
+      "finding": "Remote create before durable ID can duplicate after crash; durable intent/checkpoint proposed",
+      "repair_commit": "",
+      "focused_suites": [],
+      "remaining_limit": "Unknown outcome must refuse blind retry; no external exactly-once claim"
+    },
+    {
+      "id": "FIN-COST-BASIS",
+      "state": "active worker",
+      "finding": "Modeled listing fee was recorded and reported as measured cost/cash",
+      "repair_commit": "",
+      "focused_suites": [],
+      "remaining_limit": "Preserve conservative budget exposure and actual-ledger idempotence"
+    },
+    {
+      "id": "PORT-CONTINUITY",
+      "state": "local repair integrated",
+      "finding": "Dispose scratch SQLite engine before directory cleanup on success/failure",
+      "repair_commit": "93351c1",
+      "focused_suites": [
+        "test_continuity_cleanup.py"
+      ],
+      "remaining_limit": "Postgres not exercised"
+    },
+    {
+      "id": "PORT-NETWORK",
+      "state": "local repair integrated",
+      "finding": "Allow only internal socket pair for Windows event loop while blocking ordinary network paths",
+      "repair_commit": "e0cf403",
+      "focused_suites": [
+        "test_network_guard.py"
+      ],
+      "remaining_limit": "Full wiring rerun in progress"
+    },
+    {
+      "id": "DEPS-LOCK",
+      "state": "OPEN verification blocker",
+      "finding": "Local dependencies differ from production lock; no locked full-suite proof",
+      "repair_commit": "",
+      "focused_suites": [],
+      "remaining_limit": "SciPy diagnostic optional and unlocked; missing dependency returns UNKNOWN"
+    }
+  ]
+}
