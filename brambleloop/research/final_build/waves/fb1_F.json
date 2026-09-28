@@ -1,7 +1,7 @@
 {
   "cluster": "F",
   "branch": "claude/fb1-F",
-  "head": "PLACEHOLDER",
+  "head": "7dc36ec (report commit; code head c950fa1)",
   "base": "be8d416",
   "requirements": [
     {
