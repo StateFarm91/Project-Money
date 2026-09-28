@@ -75,5 +75,10 @@
   "migrations": [],
   "paid_spend": 0,
   "visual_modified": false,
-  "requirement_statuses_modified": false
+  "requirement_statuses_modified": false,
+  "followup": {
+    "change": "Revalidate gates, content-bound owner approval and publish grant after potentially blocking DB reservation, immediately before activate",
+    "adversarial": "revoke approval / mutate listing / withdraw env grant inside reserve; zero activation calls and conservative exposure retained",
+    "tests": "tests/test_operating_cost_basis.py 6/6 passed"
+  }
 }

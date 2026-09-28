@@ -95,6 +95,36 @@ def test_concurrent_sqlite_reservation_same_listing_has_one_row():
     assert ids[0]==ids[1]
     with db.session() as s:assert len(list(s.scalars(select(CostEntry))))==1
 
+def test_revoke_or_mutate_during_reservation_refuses_external_effect():
+    from tests import test_etsy_readback_observe as f
+    from brambleloop.ops import activation_authority as authority
+    for mode in ('revoke','mutate','grant'):
+        db=f._db();original=f._gates_pass();calls=[]
+        try:
+            with f.FakeEtsy() as fake,patch.dict(os.environ,{'BRAMBLELOOP_PUBLISH_AUTHORISED':'1','BRAMBLELOOP_OPS_TOKEN':'local-owner-test-token-32characters'}):
+                p,lid=f._published(db,fake)
+                content=authority.snapshot(db,p['slug'],p['version'])
+                approval=authority.approve(db,authorization='local-owner-test-token-32characters',slug=p['slug'],version=p['version'],expected_digest=authority.digest(content),reason='review')
+                original_reserve=lc.reserve
+                def reserve_and_change(*args,**kwargs):
+                    result=original_reserve(*args,**kwargs)
+                    if mode=='revoke':
+                        authority.revoke(db,authorization='local-owner-test-token-32characters',approval_id=approval['approval_id'])
+                    elif mode=='grant':
+                        os.environ['BRAMBLELOOP_PUBLISH_AUTHORISED']='0'
+                    else:
+                        with db.session() as session:
+                            row=session.scalar(select(f.Listing));row.title+=' changed'
+                    return result
+                def forbidden(*args,**kwargs):
+                    calls.append(True);raise AssertionError('external activation must not run')
+                with f._Patched(fake),patch.object(lc,'reserve',reserve_and_change),patch.object(f.EtsyClient,'activate',forbidden):
+                    job=f._run(db,'store.activate',{'slug':p['slug'],'version':p['version'],'owner_activation_approval_id':approval['approval_id']},agent='store_operator',phase=f.Phase.LIMITED_PRODUCTION)
+                assert job.outputs['activated'] is False and not calls,job.outputs
+                with db.session() as session:
+                    assert len(list(session.scalars(select(CostEntry).where(CostEntry.kind=='etsy_listing_fee'))))==1
+        finally:f._restore(original)
+
 if __name__=='__main__':
     funcs=[v for k,v in list(globals().items()) if k.startswith('test_')]
     for fn in funcs:fn();print('PASS',fn.__name__)
