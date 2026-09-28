@@ -1,5 +1,5 @@
 {
-  "evaluated_head": "2b5ca0147553a33c5fc57a8077a50db5376d4557",
+  "evaluated_head": "7a0de4dd0a8d1abb235d70ade06b82067893bc7b",
   "certified": false,
   "production_actions": [],
   "paid_spend": 0,
@@ -91,11 +91,14 @@
     },
     {
       "id": "FIN-COST-BASIS",
-      "state": "active worker",
+      "state": "local repair independently exercised",
       "finding": "Modeled listing fee was recorded and reported as measured cost/cash",
-      "repair_commit": "",
-      "focused_suites": [],
-      "remaining_limit": "Preserve conservative budget exposure and actual-ledger idempotence"
+      "repair_commit": "d12b342",
+      "focused_suites": [
+        "test_operating_cost_basis.py:8",
+        "test_cost_consumer_basis.py:3"
+      ],
+      "remaining_limit": "Dashboard path pending bounded diagnostic; no invoice completeness or production proof"
     },
     {
       "id": "PORT-CONTINUITY",
@@ -115,7 +118,7 @@
       "focused_suites": [
         "test_network_guard.py"
       ],
-      "remaining_limit": "Full wiring rerun in progress"
+      "remaining_limit": "Integrated wiring16/16 locally; production lock unverified"
     },
     {
       "id": "DEPS-LOCK",
@@ -127,10 +130,35 @@
     },
     {
       "id": "FIN-PERIOD",
-      "state": "OPEN confirmed counterexample",
+      "state": "local repair independently exercised",
       "finding": "Later actual fee on existing listing erases earlier period exposure and bypasses today budget; actual updated old-dated CostEntry",
       "owner": "b_authorization",
-      "evidence": "learn_launch independent exact bdf2bd6 reproduction; report pending",
+      "evidence": "153721870457 operating cost basis:8/8",
+      "certified": false,
+      "repair_commit": "0cd7c9e",
+      "remaining_limit": "Legacy pre-mirror ledger migration and Postgres unverified"
+    },
+    {
+      "id": "PDF-CLOUDLINE-READABILITY",
+      "state": "OPEN repair worker",
+      "finding": "Current Cloudline chart3.2mm cell/~4pt below unchanged9pt minimum",
+      "owner": "master_proof",
+      "evidence": "153611035780 commerce7/13",
+      "certified": false
+    },
+    {
+      "id": "ORIGIN-WRONG-GAP",
+      "state": "repair review follow-on",
+      "finding": "Oldest department gap advanced for unrelated originating product",
+      "owner": "learn_launch",
+      "evidence": "ORIGIN_GAP_REVIEW.md;34c667b pending event transactional recheck",
+      "certified": false
+    },
+    {
+      "id": "COMMERCE-FIXTURE-PREREQUISITES",
+      "state": "OPEN test blocker",
+      "finding": "Five old publish/hash checks lack now-required chosen taxonomy; no default restoration permitted",
+      "evidence": "153611035780 commerce7/13",
       "certified": false
     }
   ]
