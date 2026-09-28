@@ -511,9 +511,16 @@ def test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_rea
     try:
         with FakeEtsy() as fake:
             p, lid = _published(db, fake)
-            with _Patched(fake):
-                job = _run(db, "store.activate", {"slug": p["slug"], "version": p["version"],
-                                                  "launch_authorisation": "L0-owner"},
+            from brambleloop.ops import activation_authority as authority
+            from unittest.mock import patch
+            with patch.dict(os.environ, {"BRAMBLELOOP_OPS_TOKEN": "test-owner-credential-32-characters"}):
+                content = authority.snapshot(db, p["slug"], p["version"])
+                approval = authority.approve(db, authorization="test-owner-credential-32-characters",
+                    slug=p["slug"], version=p["version"], expected_digest=authority.digest(content),
+                    reason="owner reviewed this exact test draft")
+                with _Patched(fake):
+                    job = _run(db, "store.activate", {"slug": p["slug"], "version": p["version"],
+                                                  "owner_activation_approval_id": approval["approval_id"]},
                            agent="store_operator", phase=Phase.LIMITED_PRODUCTION)
             assert fake.listings[lid]["state"] == "active"
     finally:

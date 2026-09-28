@@ -1319,8 +1319,8 @@ def handle_store_activate(ctx: JobContext) -> dict:
        were hash-checked against the release), and the owed disclosures on the copy **as Etsy
        holds it**. Any gap is a reasoned block, never an activation.
     4. Authority is revalidated at execution (F-835): the phase from this worker, the owner's
-       publishing grant read from the environment *now*, a Launch-0 authorisation passed to
-       this job, and the store operator's daily spend ceiling with the listing fee in it.
+       publishing grant read from the environment *now*, a recorded content-bound owner
+       approval resolved from its ID, and the daily spend ceiling including the listing fee.
        Nothing the job carried from when it was planned counts.
     5. Only then `EtsyClient.activate`, which re-checks image and file itself, and a
        read-back that the listing is `active` before anything records it as live.
@@ -1416,11 +1416,14 @@ def handle_store_activate(ctx: JobContext) -> dict:
             resolution=f"store.activate read listing {listing_id} back and it matches the "
                        f"certified listing field by field, with its images and files")
 
-    authorisation = str(i.get("launch_authorisation") or "").strip()
+    from ..ops import activation_authority
+
+    authorisation = i.get("owner_activation_approval_id")
     refusal = client.refusal_for(Authority.ACTIVATE)
-    if refusal is None and not authorisation:
-        refusal = ("verified and ready, and not activated: activation needs a Launch-0 "
-                   "authorisation passed to this job by the owner")
+    if refusal is None:
+        refusal = activation_authority.validate(
+            ctx.db, authorisation, slug=slug, version=version,
+            listing_id=listing_id, release=i.get("release", ""))
     fee_cad = round(LISTING_FEE_USD * 1.37, 2)
     if refusal is None:
         agent = ctx.registry.get(ctx.job.agent)
@@ -1436,8 +1439,23 @@ def handle_store_activate(ctx: JobContext) -> dict:
         return {"slug": slug, "version": version, "activated": False, "verified": True,
                 "etsy_listing_id": listing_id, "reasons": [refusal]}
 
+    # Read authority and mutable gates again after read-back/budget work, directly at
+    # the effect boundary. A queued magic string is never owner evidence.
+    final_gates, final_parity = _release_gates(ctx), _listing_parity(ctx)
+    refusal = activation_authority.validate(
+        ctx.db, authorisation, slug=slug, version=version,
+        listing_id=listing_id, release=i.get("release", ""))
+    if os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1":
+        refusal = "owner publishing grant withdrawn"
+    if final_gates["blocks_release"] or final_parity["blocks_release"]:
+        refusal = "release/parity gates changed before activation"
+    if refusal:
+        ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": refusal})
+        return {"activated": False, "blocked": True, "reasons": [refusal]}
+    ctx.audit("store.activation_authority_used", artifact=artifact,
+              detail={"approval_id": int(authorisation), "etsy_listing_id": listing_id})
     try:
-        client.activate(listing_id, launch_authorisation=authorisation)
+        client.activate(listing_id, launch_authorisation=f"owner-approval:{authorisation}")
         after = client.get_listing(listing_id)
     except EtsyAuthNeedsOwner as e:
         etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")
