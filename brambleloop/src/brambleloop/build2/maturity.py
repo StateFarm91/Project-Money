@@ -96,23 +96,23 @@ def _module_of(token: str) -> str | None:
     if token.endswith(".py"):
         candidate = _PACKAGE / token
         if candidate.is_file():
-            return token
+            return Path(token).as_posix()
         # A bare `lanes.py` with no package: accept it only if exactly one file matches,
         # because two candidates mean the note did not say which.
         hits = [p for p in _PACKAGE.rglob(token) if p.is_file()]
         if len(hits) == 1:
-            return str(hits[0].relative_to(_PACKAGE))
+            return hits[0].relative_to(_PACKAGE).as_posix()
         return None
     parts = token.split(".")
     candidate = _PACKAGE / Path(*parts[:-1]) / f"{parts[-1]}.py"
     if candidate.is_file():
-        return str(candidate.relative_to(_PACKAGE))
+        return candidate.relative_to(_PACKAGE).as_posix()
     candidate = _PACKAGE / Path(*parts).with_suffix(".py")
     if candidate.is_file():
-        return str(candidate.relative_to(_PACKAGE))
+        return candidate.relative_to(_PACKAGE).as_posix()
     hits = [p for p in _PACKAGE.rglob(f"{parts[0]}.py") if p.is_file()]
     if len(hits) == 1:
-        return str(hits[0].relative_to(_PACKAGE))
+        return hits[0].relative_to(_PACKAGE).as_posix()
     return None
 
 
