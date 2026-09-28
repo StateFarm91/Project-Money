@@ -49,3 +49,8 @@ firewall/originality. Held for later: **H** Visual structural instrument, **I** 
 clusters with no report, telling the new worker to continue from the pushed branch head.
 Integration order when reports arrive: F, E (independent) → C, G (certificate) → A → B → D;
 full suite from clean state after each batch; re-aggregate the matrix.
+
+## HANDOFF 2026-09-28 ~14:30Z (weekly usage limit)
+Authoritative resume document: `FINAL_BUILD_RESUME_MANIFEST.md`. Integrated: F, D, C, E.
+Awaiting integration: A (436f6c4, conflict in publish/release_gates.py). In progress at handoff:
+B, G (branches pushed; WIP snapshots in waves/wip/). Unstarted: C2, H, I, J.
