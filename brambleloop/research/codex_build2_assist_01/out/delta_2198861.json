@@ -1,0 +1,2166 @@
+{
+  "old_head": "2e66b3a44cf87fb6d99d10f136148899b4177877",
+  "new_head": "21988612600a391eca8f6a8e04b47c667a2e328d",
+  "checked_utc": "2026-09-28T01:14:06.856493+00:00",
+  "changed_paths": [
+    "brambleloop/research/BUILD2_CERTIFICATION.md",
+    "brambleloop/src/brambleloop/agents/registry.py",
+    "brambleloop/src/brambleloop/app/main.py",
+    "brambleloop/src/brambleloop/core/models.py",
+    "brambleloop/src/brambleloop/creative/ideation.py",
+    "brambleloop/src/brambleloop/creative/standard.py",
+    "brambleloop/src/brambleloop/culture/radar.py",
+    "brambleloop/src/brambleloop/growth/mix.py",
+    "brambleloop/src/brambleloop/improve/bootstrap.py",
+    "brambleloop/src/brambleloop/improve/cells.py",
+    "brambleloop/src/brambleloop/improve/consume.py",
+    "brambleloop/src/brambleloop/improve/evolution.py",
+    "brambleloop/src/brambleloop/improve/league.py",
+    "brambleloop/src/brambleloop/improve/replay.py",
+    "brambleloop/src/brambleloop/improve/roi.py",
+    "brambleloop/src/brambleloop/improve/roles.py",
+    "brambleloop/src/brambleloop/improve/runner.py",
+    "brambleloop/src/brambleloop/intel/mission_runtime.py",
+    "brambleloop/src/brambleloop/ops/retention.py",
+    "brambleloop/src/brambleloop/publish/release_gates.py",
+    "brambleloop/src/brambleloop/queue/durable.py",
+    "brambleloop/src/brambleloop/runtime/pipeline.py",
+    "brambleloop/src/brambleloop/runtime/release.py",
+    "brambleloop/src/brambleloop/runtime/worker.py",
+    "brambleloop/src/brambleloop/swarm/orchestrate.py",
+    "brambleloop/src/brambleloop/teardown/audits.py",
+    "brambleloop/src/brambleloop/teardown/enforce.py",
+    "brambleloop/src/brambleloop/teardown/lab.py",
+    "brambleloop/src/brambleloop/teardown/pipeline.py",
+    "brambleloop/src/brambleloop/teardown/scorecard.py",
+    "brambleloop/tests/test_cert_improve_wave.py",
+    "brambleloop/tests/test_cert_wiring.py",
+    "brambleloop/tests/test_swarm_runtime.py"
+  ],
+  "critical_file_equality": [
+    {
+      "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/cohorts.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/buyer_trust.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/order_readings.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/commerce/pricing.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/growth/loops.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/growth/portfolio.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/integrations/etsy.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/runtime/orders.py",
+      "unchanged": true
+    },
+    {
+      "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+      "unchanged": true
+    }
+  ],
+  "queue_claim_unchanged": true,
+  "model_changes": "Only TeardownFinding gains confidence/raw_notes; Order/Customer/OrderVersion/Ledger classes unchanged",
+  "source_delta": [
+    {
+      "id": "CB2-P01",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/build2/closure.py",
+          "symbol": "classify",
+          "old_ast_sha256": "ef574a668e78cb93db6515e20ea1e10f77e4c2b363244f75d6893a5ec1db0b74",
+          "new_ast_sha256": "ef574a668e78cb93db6515e20ea1e10f77e4c2b363244f75d6893a5ec1db0b74",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/build2/executor.py",
+          "symbol": "gate_for",
+          "old_ast_sha256": "fa9d199c52c8baec70d98effef600beab78953178a5112fa7557ac7357fd2361",
+          "new_ast_sha256": "fa9d199c52c8baec70d98effef600beab78953178a5112fa7557ac7357fd2361",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P02",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/build2/closure.py",
+          "symbol": "proof_of",
+          "old_ast_sha256": "ade3e8b03eac2cd29ede28278bc8399f9530a529c186b9ed724588ae177433fe",
+          "new_ast_sha256": "ade3e8b03eac2cd29ede28278bc8399f9530a529c186b9ed724588ae177433fe",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/build2/reachability.py",
+          "symbol": "function_reached",
+          "old_ast_sha256": "181062dfbbcc80bef75097b6c716bbce57fb04eec186bba391173ea1e4e19542",
+          "new_ast_sha256": "181062dfbbcc80bef75097b6c716bbce57fb04eec186bba391173ea1e4e19542",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P03",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/build2/closure.py",
+          "symbol": "matrix",
+          "old_ast_sha256": "a54a2f6060ce592893e91277b2df0209d7ea3fd7ddd8dc2f3cf6c545343f667f",
+          "new_ast_sha256": "a54a2f6060ce592893e91277b2df0209d7ea3fd7ddd8dc2f3cf6c545343f667f",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P04",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/teardown/lab.py",
+          "symbol": "compare_advantages",
+          "old_ast_sha256": "bcb63494dc46c5158fdd1445bf2a13db194c3d096251ceabbbf202bbab381f58",
+          "new_ast_sha256": "bcb63494dc46c5158fdd1445bf2a13db194c3d096251ceabbbf202bbab381f58",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/lab.py",
+          "symbol": "product_qa",
+          "old_ast_sha256": "bee3382561d05d50e53753acf40d89956d64ea367b9ef1c995e09408827bca07",
+          "new_ast_sha256": "bee3382561d05d50e53753acf40d89956d64ea367b9ef1c995e09408827bca07",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/scorecard.py",
+          "symbol": "check_unique_value",
+          "old_ast_sha256": "0a808d101e0f9b945ea23d5b21c4add2ca063529ef9c1497ad87d5a14c58aa57",
+          "new_ast_sha256": "0a808d101e0f9b945ea23d5b21c4add2ca063529ef9c1497ad87d5a14c58aa57",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P05",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/teardown/lab.py",
+          "symbol": "measured_self_scores",
+          "old_ast_sha256": "381fa4418fe3d7e0811547ad3545d51dd69fc73b5b99e31eb4c6cd1b93485b5c",
+          "new_ast_sha256": "381fa4418fe3d7e0811547ad3545d51dd69fc73b5b99e31eb4c6cd1b93485b5c",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/lab.py",
+          "symbol": "_act_on_delight",
+          "old_ast_sha256": "526189d0883038906e1c1b4d50466183daa6dde407b1ffe24912650f18dec342",
+          "new_ast_sha256": "526189d0883038906e1c1b4d50466183daa6dde407b1ffe24912650f18dec342",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P06",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "_review_frames",
+          "old_ast_sha256": "207f15c4deb473a405f39e1218e20377aa9dbda23aa3cc4de8bbd29f6bdb0652",
+          "new_ast_sha256": "207f15c4deb473a405f39e1218e20377aa9dbda23aa3cc4de8bbd29f6bdb0652",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "frame_review_state",
+          "old_ast_sha256": "d2c05a4795cd0f6c37945c149a4bb70d21ebd73749abc45ca49c9fc1ea33e10e",
+          "new_ast_sha256": "d2c05a4795cd0f6c37945c149a4bb70d21ebd73749abc45ca49c9fc1ea33e10e",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P07",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/swarm/orchestrate.py",
+          "symbol": "_free_poll_backoff",
+          "old_ast_sha256": "5fdced3d6d1a25b7cb6fccd1164ab05ff2b8f6c1ba0f1a0c7d08d92ff465fc59",
+          "new_ast_sha256": "5fdced3d6d1a25b7cb6fccd1164ab05ff2b8f6c1ba0f1a0c7d08d92ff465fc59",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/swarm/orchestrate.py",
+          "symbol": "suspended_job_types",
+          "old_ast_sha256": "5118987514bfb281b28d94c353c23b1dabc9ba513ef07eaeb3128d9b29de917a",
+          "new_ast_sha256": "5118987514bfb281b28d94c353c23b1dabc9ba513ef07eaeb3128d9b29de917a",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P08",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/swarm/orchestrate.py",
+          "symbol": "retry_allowed",
+          "old_ast_sha256": "56676de0f1b9d499d9d3f82608b1ab7b47e6449a3a7010a78a956f058db0c638",
+          "new_ast_sha256": "56676de0f1b9d499d9d3f82608b1ab7b47e6449a3a7010a78a956f058db0c638",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/swarm/orchestrate.py",
+          "symbol": "suspended_job_types",
+          "old_ast_sha256": "5118987514bfb281b28d94c353c23b1dabc9ba513ef07eaeb3128d9b29de917a",
+          "new_ast_sha256": "5118987514bfb281b28d94c353c23b1dabc9ba513ef07eaeb3128d9b29de917a",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P09",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/swarm/capacity.py",
+          "symbol": "share_decision",
+          "old_ast_sha256": "a8e10fa3ead531f8836121f1f34087c7c1a6bd2d73e899a73256b8f6ee1586a3",
+          "new_ast_sha256": "a8e10fa3ead531f8836121f1f34087c7c1a6bd2d73e899a73256b8f6ee1586a3",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/swarm/orchestrate.py",
+          "symbol": "lane_hold",
+          "old_ast_sha256": "eb90878599d322ebaf461542176c5412cc8cf5488425f5330efb71d2509f1d0d",
+          "new_ast_sha256": "eb90878599d322ebaf461542176c5412cc8cf5488425f5330efb71d2509f1d0d",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/queue/durable.py",
+          "symbol": "claim",
+          "old_ast_sha256": "94762b423f601509ab2de2cf7d9bbaa7289fb0be0f6ea6deb91316cdebaeca03",
+          "new_ast_sha256": "94762b423f601509ab2de2cf7d9bbaa7289fb0be0f6ea6deb91316cdebaeca03",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P10",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "_targeted_rebuild",
+          "old_ast_sha256": "61a4692145b4c7b733f90c0b66cbe53aba6961d45209707e7c81ea42d29a77ea",
+          "new_ast_sha256": "61a4692145b4c7b733f90c0b66cbe53aba6961d45209707e7c81ea42d29a77ea",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_chain_rebuild",
+          "old_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "new_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P11",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/visual/gallery.py",
+          "symbol": "escalation_plan",
+          "old_ast_sha256": "6890a2e7d1a915f40d373af28e9da5111aa7a85d9c8b5ee5dd4b8b6f2069e50e",
+          "new_ast_sha256": "6890a2e7d1a915f40d373af28e9da5111aa7a85d9c8b5ee5dd4b8b6f2069e50e",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "_listing_parity",
+          "old_ast_sha256": "b80e73c4d303b682055c1d53a50a5f3d4463958ab25a7eeb21b6890bbb5eaa13",
+          "new_ast_sha256": "b80e73c4d303b682055c1d53a50a5f3d4463958ab25a7eeb21b6890bbb5eaa13",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P12",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/launch/readiness.py",
+          "symbol": "_launch_package_items",
+          "old_ast_sha256": "22b4e92f0d1bcc073ecdd27471617b5a4abd1b25814a5b878cdf384aa7d36c50",
+          "new_ast_sha256": "22b4e92f0d1bcc073ecdd27471617b5a4abd1b25814a5b878cdf384aa7d36c50",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P13",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/finance/governor.py",
+          "symbol": "_experiment_of",
+          "old_ast_sha256": "1c59f549ba8fafa2b7ae73e0673fe51d63a3e0409720786509ff7b9e5fdef77d",
+          "new_ast_sha256": "1c59f549ba8fafa2b7ae73e0673fe51d63a3e0409720786509ff7b9e5fdef77d",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/finance/governor.py",
+          "symbol": "spend_by",
+          "old_ast_sha256": "5d382cfd3f839fbe73c6b62a2a27ab4929033e561e8772a6d508b63a31c307b2",
+          "new_ast_sha256": "5d382cfd3f839fbe73c6b62a2a27ab4929033e561e8772a6d508b63a31c307b2",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P14",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/ops/dependencies.py",
+          "symbol": "map_state",
+          "old_ast_sha256": "1055c903b2e765426afd4dc140926728a1c8eba83a5a6dfee18bac1936c54c53",
+          "new_ast_sha256": "1055c903b2e765426afd4dc140926728a1c8eba83a5a6dfee18bac1936c54c53",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/ops/dependencies.py",
+          "symbol": "drill",
+          "old_ast_sha256": "50892de6cf7ec744985fde144b8b7bf61ae2a116b47a717d24abf326f36a6c21",
+          "new_ast_sha256": "50892de6cf7ec744985fde144b8b7bf61ae2a116b47a717d24abf326f36a6c21",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/scale/dependency.py",
+          "symbol": "report",
+          "old_ast_sha256": "65d108f950313fb7500a789bf8d40689fb4b137ee190beb0c7315e2d49ddc094",
+          "new_ast_sha256": "65d108f950313fb7500a789bf8d40689fb4b137ee190beb0c7315e2d49ddc094",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P15",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/finance/unit_cost.py",
+          "symbol": "unit_costs",
+          "old_ast_sha256": "fe38bf60c2218a6b92990dd5d553cc4da752d61c8370ee22c3171e4f3db296b9",
+          "new_ast_sha256": "fe38bf60c2218a6b92990dd5d553cc4da752d61c8370ee22c3171e4f3db296b9",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/finance/unit_cost.py",
+          "symbol": "throughput_target",
+          "old_ast_sha256": "0f26f7aa2af74fb7f32e78710d841eb6c089b907dca919168c374c6e161d839c",
+          "new_ast_sha256": "0f26f7aa2af74fb7f32e78710d841eb6c089b907dca919168c374c6e161d839c",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P16",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/brand/moat.py",
+          "symbol": "inventory",
+          "old_ast_sha256": "f5948f2d1a67953b403f2185535be5725bade63a326abf6b84a7b00e75f403fc",
+          "new_ast_sha256": "f5948f2d1a67953b403f2185535be5725bade63a326abf6b84a7b00e75f403fc",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/brand/moat.py",
+          "symbol": "without",
+          "old_ast_sha256": "9f1ea6f297fb976c7647651a7a536cfcaca5b82968f129e7f0024cd9711e951b",
+          "new_ast_sha256": "9f1ea6f297fb976c7647651a7a536cfcaca5b82968f129e7f0024cd9711e951b",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-P17",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/radar/provenance.py",
+          "symbol": "weight",
+          "old_ast_sha256": "fa0f7829bec71d8f83963f28cf704bc68a9e32b264d47aa2cd83664d1cc4b939",
+          "new_ast_sha256": "fa0f7829bec71d8f83963f28cf704bc68a9e32b264d47aa2cd83664d1cc4b939",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/radar/provenance.py",
+          "symbol": "check_presentable_as_current",
+          "old_ast_sha256": "d27ba7de67721ea34f3511db47e160a67bd5ef822952c2ec64388e69b63c5f6d",
+          "new_ast_sha256": "d27ba7de67721ea34f3511db47e160a67bd5ef822952c2ec64388e69b63c5f6d",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/radar/arbitrage.py",
+          "symbol": "score_observed",
+          "old_ast_sha256": "f6bd560bb17db1864ef38ab7fc1649f1a18edc96cf624c6442a86496dd9a830a",
+          "new_ast_sha256": "f6bd560bb17db1864ef38ab7fc1649f1a18edc96cf624c6442a86496dd9a830a",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/serp.py",
+          "symbol": "differentiation_by_pod",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-P18",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/brand/takeover.py",
+          "symbol": "plan",
+          "old_ast_sha256": "e6ae87452e21cb3199e4a4a4701fd4e791aab47819db51d82edb01a06719ff49",
+          "new_ast_sha256": "e6ae87452e21cb3199e4a4a4701fd4e791aab47819db51d82edb01a06719ff49",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/brand/takeover.py",
+          "symbol": "schedule",
+          "old_ast_sha256": "3d060061ae40583583fb93839ff92b5aca737844d8b0ef3a02037478dc633f8a",
+          "new_ast_sha256": "3d060061ae40583583fb93839ff92b5aca737844d8b0ef3a02037478dc633f8a",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/brand/takeover.py",
+          "symbol": "calendar",
+          "old_ast_sha256": "0adb9640d6fb134ca5f3c9f64da79fcf0afa893b6e2a6b0a4fc9a4a02e44a0cc",
+          "new_ast_sha256": "0adb9640d6fb134ca5f3c9f64da79fcf0afa893b6e2a6b0a4fc9a4a02e44a0cc",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/seasonal/daily.py",
+          "symbol": "takeovers",
+          "old_ast_sha256": "35dc3fe9f64437557265bac61bf7c096c5264e609a0e9eac20be6731e53759f9",
+          "new_ast_sha256": "35dc3fe9f64437557265bac61bf7c096c5264e609a0e9eac20be6731e53759f9",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O01",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "lines",
+          "old_ast_sha256": "9abb978ea653460104a445801857fd17143d0b38897c75861e531cb8bc4de92d",
+          "new_ast_sha256": "9abb978ea653460104a445801857fd17143d0b38897c75861e531cb8bc4de92d",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_last_ingested",
+          "old_ast_sha256": "e3ac872aa579138d9e8b33cf69581b26a25a23e85e03b21a89d6d4658953f9e8",
+          "new_ast_sha256": "e3ac872aa579138d9e8b33cf69581b26a25a23e85e03b21a89d6d4658953f9e8",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/cohorts.py",
+          "symbol": "record_order",
+          "old_ast_sha256": "fc91c33ab9822908325fd44da65dc915f56c201e6164df16a4d11ea3e24ceef9",
+          "new_ast_sha256": "fc91c33ab9822908325fd44da65dc915f56c201e6164df16a4d11ea3e24ceef9",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O02",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "lines",
+          "old_ast_sha256": "9abb978ea653460104a445801857fd17143d0b38897c75861e531cb8bc4de92d",
+          "new_ast_sha256": "9abb978ea653460104a445801857fd17143d0b38897c75861e531cb8bc4de92d",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O03",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_catalogue",
+          "old_ast_sha256": "d88853124efce9aaa31809fe9a9e00526bb4a474aac0b369511d318b95b4c770",
+          "new_ast_sha256": "d88853124efce9aaa31809fe9a9e00526bb4a474aac0b369511d318b95b4c770",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/buyer_trust.py",
+          "symbol": "on_certified",
+          "old_ast_sha256": "96de07af3a651fca45a4b35ac537b9c69d123ce13459289ebd679d4a5cd08e2c",
+          "new_ast_sha256": "96de07af3a651fca45a4b35ac537b9c69d123ce13459289ebd679d4a5cd08e2c",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O04",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "ingest",
+          "old_ast_sha256": "7b71e691cd9f95ffbb422bf87fe2412ea5fe6d2c5c8a8b12a06351c02f23a046",
+          "new_ast_sha256": "7b71e691cd9f95ffbb422bf87fe2412ea5fe6d2c5c8a8b12a06351c02f23a046",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/cohorts.py",
+          "symbol": "record_customer",
+          "old_ast_sha256": "c39496d2fdbb92edfee79260d374eb20aca0fc7a73b16402f4c4454f194e5f35",
+          "new_ast_sha256": "c39496d2fdbb92edfee79260d374eb20aca0fc7a73b16402f4c4454f194e5f35",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/cohorts.py",
+          "symbol": "record_order",
+          "old_ast_sha256": "fc91c33ab9822908325fd44da65dc915f56c201e6164df16a4d11ea3e24ceef9",
+          "new_ast_sha256": "fc91c33ab9822908325fd44da65dc915f56c201e6164df16a4d11ea3e24ceef9",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O05",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/cohorts.py",
+          "symbol": "record_order",
+          "old_ast_sha256": "fc91c33ab9822908325fd44da65dc915f56c201e6164df16a4d11ea3e24ceef9",
+          "new_ast_sha256": "fc91c33ab9822908325fd44da65dc915f56c201e6164df16a4d11ea3e24ceef9",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O06",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/order_readings.py",
+          "symbol": "loop_block",
+          "old_ast_sha256": "05fbe7fd8e6e0626a9a93f7b9722211d1fd79d31464112bfb3f7943a0b26f411",
+          "new_ast_sha256": "05fbe7fd8e6e0626a9a93f7b9722211d1fd79d31464112bfb3f7943a0b26f411",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/growth/loops.py",
+          "symbol": "observe",
+          "old_ast_sha256": "45226490695c482cc39ed3cb56f7de44a6b6516da83c01056fe1fcbc9e0afa8b",
+          "new_ast_sha256": "45226490695c482cc39ed3cb56f7de44a6b6516da83c01056fe1fcbc9e0afa8b",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O07",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_to_cad",
+          "old_ast_sha256": "852d76c439591410c87e2b963f6b9017e506aa0294df6302b7e96838f67c8b31",
+          "new_ast_sha256": "852d76c439591410c87e2b963f6b9017e506aa0294df6302b7e96838f67c8b31",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O08",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/pricing.py",
+          "symbol": "decide_price",
+          "old_ast_sha256": "ff87874ce39cdb7cd862d629612090c22243d8d27b2309ad2986a97871526702",
+          "new_ast_sha256": "ff87874ce39cdb7cd862d629612090c22243d8d27b2309ad2986a97871526702",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_pricing_position",
+          "old_ast_sha256": "b74d9ed983529fbc9b45c613081d325b14a3e0f07f0b8c6d396bba39bd2648a3",
+          "new_ast_sha256": "b74d9ed983529fbc9b45c613081d325b14a3e0f07f0b8c6d396bba39bd2648a3",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "handle_portfolio_review",
+          "old_ast_sha256": "0d1f3054399265499f0f0c0c5b9c9074ed6489b53d4a5b9e5c9b886875254f2b",
+          "new_ast_sha256": "0d1f3054399265499f0f0c0c5b9c9074ed6489b53d4a5b9e5c9b886875254f2b",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O09",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/buyer_trust.py",
+          "symbol": "on_certified",
+          "old_ast_sha256": "96de07af3a651fca45a4b35ac537b9c69d123ce13459289ebd679d4a5cd08e2c",
+          "new_ast_sha256": "96de07af3a651fca45a4b35ac537b9c69d123ce13459289ebd679d4a5cd08e2c",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "handle_certify",
+          "old_ast_sha256": "728e47905b365f2196480411c3f7c29326b4408328d885535fb0d1f225a3d5c8",
+          "new_ast_sha256": "35fdd81a6e95c2841843b1a773760e4a92ee95655e9809900827ae1057bc1a15",
+          "unchanged": false,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-O10",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/standard.py",
+          "symbol": "north_star_cohorts",
+          "old_ast_sha256": "5d5f6e610bb781af8fed1c786eb9afc759ae67f5d603a3b8b4a235749f1e544b",
+          "new_ast_sha256": "5d5f6e610bb781af8fed1c786eb9afc759ae67f5d603a3b8b4a235749f1e544b",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/standard.py",
+          "symbol": "north_star_from_db",
+          "old_ast_sha256": "5f848f1668f82224344cee8385604bf326b1d0e08a69d52c07acd4b998c761b2",
+          "new_ast_sha256": "5f848f1668f82224344cee8385604bf326b1d0e08a69d52c07acd4b998c761b2",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G01",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "steer",
+          "old_ast_sha256": "35f5f718a6eb723a37c02855eccf124d8bff396f957f27509cb9e6ce6b9e9e62",
+          "new_ast_sha256": "35f5f718a6eb723a37c02855eccf124d8bff396f957f27509cb9e6ce6b9e9e62",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "handle_growth_steer",
+          "old_ast_sha256": "a18981476b52504dfa5f470196fb192134038ba6c74f3593a0fb10278b296cac",
+          "new_ast_sha256": "a18981476b52504dfa5f470196fb192134038ba6c74f3593a0fb10278b296cac",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "record",
+          "old_ast_sha256": "faa8110c05b7dc831d336919d10ed3349b948bf9e0ec57197d1b03df2add7df8",
+          "new_ast_sha256": "faa8110c05b7dc831d336919d10ed3349b948bf9e0ec57197d1b03df2add7df8",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G02",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "steer",
+          "old_ast_sha256": "35f5f718a6eb723a37c02855eccf124d8bff396f957f27509cb9e6ce6b9e9e62",
+          "new_ast_sha256": "35f5f718a6eb723a37c02855eccf124d8bff396f957f27509cb9e6ce6b9e9e62",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/swarm/orchestrate.py",
+          "symbol": "priority_decision",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "446a98e423ded8d98029d49fd616ca22592c28e0749a96b89ab91b3de37b9230",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-G03",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "handle_growth_steer",
+          "old_ast_sha256": "a18981476b52504dfa5f470196fb192134038ba6c74f3593a0fb10278b296cac",
+          "new_ast_sha256": "a18981476b52504dfa5f470196fb192134038ba6c74f3593a0fb10278b296cac",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_chain_rebuild",
+          "old_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "new_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "_targeted_rebuild",
+          "old_ast_sha256": "61a4692145b4c7b733f90c0b66cbe53aba6961d45209707e7c81ea42d29a77ea",
+          "new_ast_sha256": "61a4692145b4c7b733f90c0b66cbe53aba6961d45209707e7c81ea42d29a77ea",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G04",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/commerce_readings.py",
+          "symbol": "_review_stars",
+          "old_ast_sha256": "bad0c68f1e52021325f3fae33ed45119c6f8297b3065e46a977a63bce28d9980",
+          "new_ast_sha256": "bad0c68f1e52021325f3fae33ed45119c6f8297b3065e46a977a63bce28d9980",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "creators_reading",
+          "old_ast_sha256": "d1595bfc1ee2bb8766641db694faee254b12a929f5a5303e632cf6bc390c44dc",
+          "new_ast_sha256": "d1595bfc1ee2bb8766641db694faee254b12a929f5a5303e632cf6bc390c44dc",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "ads_plan",
+          "old_ast_sha256": "ceacce94ed057a00e53381702d733a51d6c08d17f3f0c7949087663c524e55a0",
+          "new_ast_sha256": "ceacce94ed057a00e53381702d733a51d6c08d17f3f0c7949087663c524e55a0",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/orders_ingest.py",
+          "symbol": "_record_line",
+          "old_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "new_ast_sha256": "2db003ecbf5de59f060ffe70f2d066494aaf2c24de31b1425fe821cad16bf952",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G05",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "creators_reading",
+          "old_ast_sha256": "d1595bfc1ee2bb8766641db694faee254b12a929f5a5303e632cf6bc390c44dc",
+          "new_ast_sha256": "d1595bfc1ee2bb8766641db694faee254b12a929f5a5303e632cf6bc390c44dc",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/growth/creators.py",
+          "symbol": "may_graduate",
+          "old_ast_sha256": "7f9a607010daab24f7c2446571ffdf77e1c4a6ac6d19240abaa8a8cb86e3ee46",
+          "new_ast_sha256": "7f9a607010daab24f7c2446571ffdf77e1c4a6ac6d19240abaa8a8cb86e3ee46",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G06",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "plan_pins",
+          "old_ast_sha256": "039c0320695cce9696f5d0fd1fad1ec662ffff1305598b5f5a3ecb7f95da1cde",
+          "new_ast_sha256": "039c0320695cce9696f5d0fd1fad1ec662ffff1305598b5f5a3ecb7f95da1cde",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "plan_clusters",
+          "old_ast_sha256": "23d6230d3497a45e826af09b55a9dbece3be4eefdbc20a9aae1022912d394e49",
+          "new_ast_sha256": "23d6230d3497a45e826af09b55a9dbece3be4eefdbc20a9aae1022912d394e49",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "plan_video",
+          "old_ast_sha256": "29fe0625414735e788a189c52e74cb50c53cc276bb93d1b0bde5cbef262a91bf",
+          "new_ast_sha256": "29fe0625414735e788a189c52e74cb50c53cc276bb93d1b0bde5cbef262a91bf",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "tools_reading",
+          "old_ast_sha256": "25ec3b447462d6f865cd01205e6e9be95078c2d3cc077e212f76f7e1e58d405d",
+          "new_ast_sha256": "25ec3b447462d6f865cd01205e6e9be95078c2d3cc077e212f76f7e1e58d405d",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "handle_growth_distribution",
+          "old_ast_sha256": "259f076d80b030ecb9f40df8926e43e39d3e7890442500430e7f5c7c6a31f0b2",
+          "new_ast_sha256": "259f076d80b030ecb9f40df8926e43e39d3e7890442500430e7f5c7c6a31f0b2",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G07",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/commerce_readings.py",
+          "symbol": "_club_answers",
+          "old_ast_sha256": "f105c1ff52be780d340b0001ad92bb10602eae9bee1d5d2d1b0c45b37431dd3b",
+          "new_ast_sha256": "f105c1ff52be780d340b0001ad92bb10602eae9bee1d5d2d1b0c45b37431dd3b",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G08",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "_check_and_time_reply",
+          "old_ast_sha256": "ffe05a11f8464a3fa1c2c2d1d61542b268fecbc0b60b582b55ef2a398094dba9",
+          "new_ast_sha256": "ffe05a11f8464a3fa1c2c2d1d61542b268fecbc0b60b582b55ef2a398094dba9",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/support/service.py",
+          "symbol": "record_response",
+          "old_ast_sha256": "b11a7fb5abbd2dbef9fd24fa939b12a2eaa3d9a607f07dd70e2a92a77e35af0f",
+          "new_ast_sha256": "b11a7fb5abbd2dbef9fd24fa939b12a2eaa3d9a607f07dd70e2a92a77e35af0f",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/support/service.py",
+          "symbol": "service_level",
+          "old_ast_sha256": "9a0d6f5ffac2b6b4ea6076c675d87b337bd863b57b17e592698b2691476ad726",
+          "new_ast_sha256": "9a0d6f5ffac2b6b4ea6076c675d87b337bd863b57b17e592698b2691476ad726",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G09",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "benchmark_observations",
+          "old_ast_sha256": "8d1e9d72b55cc0a6fa2b0c1d384c6c70ff6db3244bed9b752566dcdc9682ee72",
+          "new_ast_sha256": "8d1e9d72b55cc0a6fa2b0c1d384c6c70ff6db3244bed9b752566dcdc9682ee72",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "benchmarks_reading",
+          "old_ast_sha256": "f2d3da63fd52f7f991cb526c7f706c2cf89709a16da05e0611cf3dd18a56c8c8",
+          "new_ast_sha256": "f2d3da63fd52f7f991cb526c7f706c2cf89709a16da05e0611cf3dd18a56c8c8",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G10",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/scale/evidence.py",
+          "symbol": "calibration",
+          "old_ast_sha256": "8a779eb08e7fb59b466ab3735961ae0637f1c190fca0c51e89736e5981ab46e7",
+          "new_ast_sha256": "8a779eb08e7fb59b466ab3735961ae0637f1c190fca0c51e89736e5981ab46e7",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/scale/evidence.py",
+          "symbol": "record_forecast",
+          "old_ast_sha256": "e5abcf621585047ec2d17b970e8175457024dc22a4e3969eadbec2bc7c9e98af",
+          "new_ast_sha256": "e5abcf621585047ec2d17b970e8175457024dc22a4e3969eadbec2bc7c9e98af",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/growth/weekly.py",
+          "symbol": "solve",
+          "old_ast_sha256": "c6339f15d9a6405a17026e632f03c92d7ea31f79a6f0f703cd4aa780a386e5bc",
+          "new_ast_sha256": "c6339f15d9a6405a17026e632f03c92d7ea31f79a6f0f703cd4aa780a386e5bc",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G11",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "ads_plan",
+          "old_ast_sha256": "ceacce94ed057a00e53381702d733a51d6c08d17f3f0c7949087663c524e55a0",
+          "new_ast_sha256": "ceacce94ed057a00e53381702d733a51d6c08d17f3f0c7949087663c524e55a0",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "handle_ads_campaign",
+          "old_ast_sha256": "492b37637bb818428af4b14ef9c03a01e98907f21ad00cb90d3839198e63bf11",
+          "new_ast_sha256": "492b37637bb818428af4b14ef9c03a01e98907f21ad00cb90d3839198e63bf11",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "trust_checks",
+          "old_ast_sha256": "c95f52297c375ab07925aa36a43e908d87f40a4eb2be8cfd6f95d946110fa168",
+          "new_ast_sha256": "c95f52297c375ab07925aa36a43e908d87f40a4eb2be8cfd6f95d946110fa168",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G12",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "steer",
+          "old_ast_sha256": "35f5f718a6eb723a37c02855eccf124d8bff396f957f27509cb9e6ce6b9e9e62",
+          "new_ast_sha256": "35f5f718a6eb723a37c02855eccf124d8bff396f957f27509cb9e6ce6b9e9e62",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/scale/war_room.py",
+          "symbol": "board",
+          "old_ast_sha256": "2f7e6f027b50701addd5b066d9e8da18a49069deb591eed0799a1e657b925875",
+          "new_ast_sha256": "2f7e6f027b50701addd5b066d9e8da18a49069deb591eed0799a1e657b925875",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-G13",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "ads_plan",
+          "old_ast_sha256": "ceacce94ed057a00e53381702d733a51d6c08d17f3f0c7949087663c524e55a0",
+          "new_ast_sha256": "ceacce94ed057a00e53381702d733a51d6c08d17f3f0c7949087663c524e55a0",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "handle_ads_adjust",
+          "old_ast_sha256": "4a3b6ff246a9fb190683b90cbddc615b801800d27090ff9a25095cf2547a0443",
+          "new_ast_sha256": "4a3b6ff246a9fb190683b90cbddc615b801800d27090ff9a25095cf2547a0443",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "ad_authority",
+          "old_ast_sha256": "64014480f306a2f4400a8999db37e79066ef2b526a05392764f95c3826e93ef3",
+          "new_ast_sha256": "64014480f306a2f4400a8999db37e79066ef2b526a05392764f95c3826e93ef3",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-D01",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "judgement_for",
+          "old_ast_sha256": "8e834560ccdbf38f5ea21c37e7cf69fab8fd1268e1a171af9bcb1d8ea7e8a209",
+          "new_ast_sha256": "8e834560ccdbf38f5ea21c37e7cf69fab8fd1268e1a171af9bcb1d8ea7e8a209",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "intake",
+          "old_ast_sha256": "6413ea74a1c72265b0d42fd51b0fdad9695794442d7e68ef01e0f1220898d342",
+          "new_ast_sha256": "6413ea74a1c72265b0d42fd51b0fdad9695794442d7e68ef01e0f1220898d342",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/preengineering.py",
+          "symbol": "gate_concept",
+          "old_ast_sha256": "7441700bcc4cc198810fe684c4cf8fa86e88706b4651f8f3c932866594b53663",
+          "new_ast_sha256": "7441700bcc4cc198810fe684c4cf8fa86e88706b4651f8f3c932866594b53663",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-D02",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "regate_held",
+          "old_ast_sha256": "137d0392c37ba489916052c1df92676fa53a4087ef1d2ed6a14b17341ca6eeb0",
+          "new_ast_sha256": "137d0392c37ba489916052c1df92676fa53a4087ef1d2ed6a14b17341ca6eeb0",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "judgement_for",
+          "old_ast_sha256": "8e834560ccdbf38f5ea21c37e7cf69fab8fd1268e1a171af9bcb1d8ea7e8a209",
+          "new_ast_sha256": "8e834560ccdbf38f5ea21c37e7cf69fab8fd1268e1a171af9bcb1d8ea7e8a209",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-D03",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "_gap_for",
+          "old_ast_sha256": "bb319ef640097261c0eed840a07a9d7879163e247f3f8cc1bd402b2a1ef0e06b",
+          "new_ast_sha256": "bb319ef640097261c0eed840a07a9d7879163e247f3f8cc1bd402b2a1ef0e06b",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "advance_gap",
+          "old_ast_sha256": "9cb9a9ba9fadc5860bcdf76bdb4c117a348b75150727da51184f4753bc353d14",
+          "new_ast_sha256": "9cb9a9ba9fadc5860bcdf76bdb4c117a348b75150727da51184f4753bc353d14",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "consume_concepting",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-D04",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "_stage_evidence",
+          "old_ast_sha256": "f48294729f4e8c8f83328182d22684cdbe46429ad8a57127c3585ea0c513d77b",
+          "new_ast_sha256": "f48294729f4e8c8f83328182d22684cdbe46429ad8a57127c3585ea0c513d77b",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "advance_pipeline",
+          "old_ast_sha256": "9d425d09cf27539d2ea9e3ae94bb76b2580185e12cb9f0f9f9701ac5ff1bd91f",
+          "new_ast_sha256": "9d425d09cf27539d2ea9e3ae94bb76b2580185e12cb9f0f9f9701ac5ff1bd91f",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "_challenge_for",
+          "old_ast_sha256": "9120a7c4091f7c83d3b58fd9ec76a43738301c7f57151f95324e73d74e58ad04",
+          "new_ast_sha256": "9120a7c4091f7c83d3b58fd9ec76a43738301c7f57151f95324e73d74e58ad04",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-D05",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "response_outcomes",
+          "old_ast_sha256": "62d39e33d346d5af4ba1ca7752cc095e13ac4cc55636cc74020e34b20eb46a76",
+          "new_ast_sha256": "62d39e33d346d5af4ba1ca7752cc095e13ac4cc55636cc74020e34b20eb46a76",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "response_lesson",
+          "old_ast_sha256": "7d4a4c36ff788e207e6eee7729d379cc60a928aaddabf181df90adbd1f43d41b",
+          "new_ast_sha256": "7d4a4c36ff788e207e6eee7729d379cc60a928aaddabf181df90adbd1f43d41b",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-D06",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "buyer_language",
+          "old_ast_sha256": "c2b816aafa41d2d6d20aa69d146983b436055799e5fe7fac0f5884d0619c35f5",
+          "new_ast_sha256": "c2b816aafa41d2d6d20aa69d146983b436055799e5fe7fac0f5884d0619c35f5",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/intent.py",
+          "symbol": "map_product",
+          "old_ast_sha256": "779c5618e8ef26aa2926e714f5d8fc1b6950be3b5872c1005be3d25b05fe6bf8",
+          "new_ast_sha256": "779c5618e8ef26aa2926e714f5d8fc1b6950be3b5872c1005be3d25b05fe6bf8",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_listing_seo",
+          "old_ast_sha256": "90539208ca25eee06d6b31742b1afd820017f88bd89f2e9ecbe81eafce086944",
+          "new_ast_sha256": "114a9295de34554a966697271839657078ca5d868040e46ed25d6728596357d0",
+          "unchanged": false,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-D07",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "intake",
+          "old_ast_sha256": "6413ea74a1c72265b0d42fd51b0fdad9695794442d7e68ef01e0f1220898d342",
+          "new_ast_sha256": "6413ea74a1c72265b0d42fd51b0fdad9695794442d7e68ef01e0f1220898d342",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_creative_tournament",
+          "old_ast_sha256": "b1d1b7e6a27c9438fb460691af64484b0db47ad29d4ac287aeaabc0e9f82ce83",
+          "new_ast_sha256": "b1d1b7e6a27c9438fb460691af64484b0db47ad29d4ac287aeaabc0e9f82ce83",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "advance_pipeline",
+          "old_ast_sha256": "9d425d09cf27539d2ea9e3ae94bb76b2580185e12cb9f0f9f9701ac5ff1bd91f",
+          "new_ast_sha256": "9d425d09cf27539d2ea9e3ae94bb76b2580185e12cb9f0f9f9701ac5ff1bd91f",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-D08",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/intake.py",
+          "symbol": "verify_funnel",
+          "old_ast_sha256": "6be350632c9a895d68f89a005b3d7cfaa7ce5287fd0c63253bed865464fc912f",
+          "new_ast_sha256": "6be350632c9a895d68f89a005b3d7cfaa7ce5287fd0c63253bed865464fc912f",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "handle_cir_draft",
+          "old_ast_sha256": "3e83d6053bb19a5af89dcd716c05ec7a8b0eabfc8d0be3e96bce84edcdf1a92a",
+          "new_ast_sha256": "3e83d6053bb19a5af89dcd716c05ec7a8b0eabfc8d0be3e96bce84edcdf1a92a",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-M01",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/improve/runner.py",
+          "symbol": "monitor_trials",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "8de5d52ac5bb564005b39c2375d3ad71eca7b2bf45ec8912ae917a9c9d958802",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "rollback",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "6ce66ed775d1badfb0c3bcaba4e4741cdb1eba18b0f4d2a5fe948488b8dfa0fa",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/runner.py",
+          "symbol": "_rollback_self_audit",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "671f7ff7557799b6e1f3eeb5312e8c497dbaa471b3a251ba4b1d00b142c49cc3",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M02",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "historical_jobs",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "86b7330746b509bb2fff9f474a63b1edd26b03748e3fb585547f3b99955417f1",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "simulate_day",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "639e8290514cae8cf55ca2bb8dd2913e4bd97f5af20eccb538b01b600a273015",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "replay",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "a140a3a77e352dfba08ae334fc94cfafe15a13c2c946bdf565fbfa8cbc00999d",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/swarm/capacity.py",
+          "symbol": "share_decision",
+          "old_ast_sha256": "a8e10fa3ead531f8836121f1f34087c7c1a6bd2d73e899a73256b8f6ee1586a3",
+          "new_ast_sha256": "a8e10fa3ead531f8836121f1f34087c7c1a6bd2d73e899a73256b8f6ee1586a3",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-M03",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "cycle",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "0efa9ce50beaf4f8d9baa36f0b2610a480b7a4466256332c28694d90391772c7",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "_latest_pair",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "8d5ef011594df5f677e1fc9472bd7d6b7546ed44245278731f1f96e8bfd0e8ed",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "monitor",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "bc832dc09864da4aa04876baf09079f1d4f81c8ba14f0bc7d243c45fc853bcc2",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M04",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/improve/bootstrap.py",
+          "symbol": "register_code_versions",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "d23eb0ec0da6c21731ccb369be43d44290628a285e4e10fc1eeb80cec7cd610a",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/bootstrap.py",
+          "symbol": "_policy_payloads",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "d47554b2e77df9d4c2c9a1c3c050a843c2d0e4bf40bbc4f9d68dfd77d5ecb48d",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M05",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "handle_radar_score",
+          "old_ast_sha256": "5f5aeac75536a8d342f2d3b5ca80dd9828b505032eac42884870fc1a8052637f",
+          "new_ast_sha256": "d4cbf52276bc885de4230730db4d4030d859190eff84974c9b793f7b0c2b191e",
+          "unchanged": false,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/consume.py",
+          "symbol": "act",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "34a58f31d661a3a039ffd9f208e84278d343ab80deb7e837404c2d9d292d3781",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M06",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/improve/runner.py",
+          "symbol": "trial_self_audit",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "c1b5814a3291063ba1a81d8fe62a04487bbd7066fb4f331e34b324e33bd678aa",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/runner.py",
+          "symbol": "_execute_self_audit",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "456322e40c45652ed716722f965c43d4aaea5b1fc5e1bb92039dd3793ac58de7",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/enforce.py",
+          "symbol": "adopt_floor",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "640a5101ee689f4dc5f40445c7760d6e63adcc789bcd91e4bdd39679427b8fe8",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/enforce.py",
+          "symbol": "apply_pattern_help",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "3af41fff6932318bf7593c42d688e326429594a24b011c1e51d08ca5a5630437",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M07",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/teardown/enforce.py",
+          "symbol": "our_scores",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "902085ec9926dca9b0864753173e991fef34eab8c752b6d57d8bdccab0f639cf",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/enforce.py",
+          "symbol": "support_text_evidence",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "a235c3ebc8d40848ab7be762f700675811b4cef58928e947d17aa5392f9f7fda",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/enforce.py",
+          "symbol": "_judge",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "e0b7e40c4918b563d2fc73c80c23cee8df997f3d81841d159039f6b4a576842a",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/teardown/enforce.py",
+          "symbol": "check",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "cbbdbb354fd44b6bf9ed9933bb2be45e479613c7b2bc07dc3d9cee2d3079c940",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M08",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/standard.py",
+          "symbol": "taste_judge",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "c412cbc80e89540380d5676806425ad8b897abfef638f9d190d104ed85c6218f",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/swarm/orchestrate.py",
+          "symbol": "function_quality",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "af74cc535f90cd64387ee50182182029cbbb6509ab3b379ccb1fa4d40afe2830",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/roles.py",
+          "symbol": "activity_from_db",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "b082f34f6cd77f5e5832cdec963dee9bfc98256aa198fe6510f7956899cf3703",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M09",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/improve/replay.py",
+          "symbol": "cycle",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "0efa9ce50beaf4f8d9baa36f0b2610a480b7a4466256332c28694d90391772c7",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_nightly_improvement",
+          "old_ast_sha256": "e03b1f4bfbd5f82ba1281e8989d629332593154b1644fe7471115ba2d6537f15",
+          "new_ast_sha256": "f4e0306ec1713750deaaeda8fb50d62fa2469983414d5f8974095dde8c5c05ec",
+          "unchanged": false,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/evolution.py",
+          "symbol": "additions",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "180a64894d08367787a9941f70ab3060de668edf173468dcdb6dc0eb9439b2e7",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/improve/evolution.py",
+          "symbol": "route_owner_card",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "0cb8c66a3b545d3cd17b1a6b89f8e2dc69c59a97c25ace53ec49230a182afe06",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-M10",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "handle_certify",
+          "old_ast_sha256": "728e47905b365f2196480411c3f7c29326b4408328d885535fb0d1f225a3d5c8",
+          "new_ast_sha256": "35fdd81a6e95c2841843b1a773760e4a92ee95655e9809900827ae1057bc1a15",
+          "unchanged": false,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "_mark_withheld",
+          "old_ast_sha256": "aeca4debedb6deaf503100172f11afac3392ef4c00bdff2d3e1c70ee2a700495",
+          "new_ast_sha256": "aeca4debedb6deaf503100172f11afac3392ef4c00bdff2d3e1c70ee2a700495",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_chain_rebuild",
+          "old_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "new_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/publish/release_gates.py",
+          "symbol": "standards_gate",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "e28e646810644a7c38d90f471a41065b5063325469bb3fe2474c5a897ea5692e",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-I01",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/gates/platform_policy.py",
+          "symbol": "record_snapshot",
+          "old_ast_sha256": "a693636762b582559847793d446e6434e3cabb3b86b995594372b17c10de2508",
+          "new_ast_sha256": "a693636762b582559847793d446e6434e3cabb3b86b995594372b17c10de2508",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/gates/platform_policy.py",
+          "symbol": "unreviewed_changes",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/gates/platform_policy.py",
+          "symbol": "review_change",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_policy_watch",
+          "old_ast_sha256": "18b318d64dfe6259389bcb9556894be0e54fc4328d8bfcfe5883ba0a109636d5",
+          "new_ast_sha256": "18b318d64dfe6259389bcb9556894be0e54fc4328d8bfcfe5883ba0a109636d5",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-I02",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/strength.py",
+          "symbol": "concept_score",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/strength.py",
+          "symbol": "benchmark_scores",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/preengineering.py",
+          "symbol": "_top_decile",
+          "old_ast_sha256": "ec51606bb86019421962e7c414b6199c6f6b729de270860973a0114f0c2d9492",
+          "new_ast_sha256": "ec51606bb86019421962e7c414b6199c6f6b729de270860973a0114f0c2d9492",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-I03",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/creative/board.py",
+          "symbol": "make_board",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/creative/preengineering.py",
+          "symbol": "gate_concept",
+          "old_ast_sha256": "7441700bcc4cc198810fe684c4cf8fa86e88706b4651f8f3c932866594b53663",
+          "new_ast_sha256": "7441700bcc4cc198810fe684c4cf8fa86e88706b4651f8f3c932866594b53663",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-I04",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/publish/physical_upgrade.py",
+          "symbol": "intake",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "_intake_photo",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/app/main.py",
+          "symbol": "api_physical_photo",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-I05",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/publish/physical_upgrade.py",
+          "symbol": "plan_upgrade",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/publish/physical_upgrade.py",
+          "symbol": "measure_impact",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_physical_upgrade",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-I06",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/intel/panel_discovery.py",
+          "symbol": "market_for",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/panel_discovery.py",
+          "symbol": "discover",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/benchmarks.py",
+          "symbol": "market_of",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/build2/executor.py",
+          "symbol": "_second_market_observed",
+          "old_ast_sha256": "90c0b2228ebf3e50480f6b93ff7dbfce6a7cb81c045a78be5028236f2270ac61",
+          "new_ast_sha256": "90c0b2228ebf3e50480f6b93ff7dbfce6a7cb81c045a78be5028236f2270ac61",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/markets.py",
+          "symbol": "whose_language_is_this",
+          "old_ast_sha256": "f5f1dddbc6e4d0efc6b2d2390c62e4d1e2693898da0a8ae33857e4dfd029172c",
+          "new_ast_sha256": "f5f1dddbc6e4d0efc6b2d2390c62e4d1e2693898da0a8ae33857e4dfd029172c",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-I07",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/visual/drift_series.py",
+          "symbol": "series",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/visual/drift_series.py",
+          "symbol": "run",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-I08",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/intel/benchmark_refresh.py",
+          "symbol": "assess",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/benchmark_refresh.py",
+          "symbol": "_pick",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-I09",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "_our_dims",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/mission_runtime.py",
+          "symbol": "entry_axes",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/intel/serp.py",
+          "symbol": "positioning",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-I10",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/culture/engine.py",
+          "symbol": "quote_tokens",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/culture/engine.py",
+          "symbol": "file_topic",
+          "old_ast_sha256": "7651072f9615f5b1fae061471f1d001023b305a8dca640e614b70b0adace60b2",
+          "new_ast_sha256": "7651072f9615f5b1fae061471f1d001023b305a8dca640e614b70b0adace60b2",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-I11",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/build2/executor.py",
+          "symbol": "gate_for",
+          "old_ast_sha256": "fa9d199c52c8baec70d98effef600beab78953178a5112fa7557ac7357fd2361",
+          "new_ast_sha256": "fa9d199c52c8baec70d98effef600beab78953178a5112fa7557ac7357fd2361",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/build2/closure.py",
+          "symbol": "classify",
+          "old_ast_sha256": "ef574a668e78cb93db6515e20ea1e10f77e4c2b363244f75d6893a5ec1db0b74",
+          "new_ast_sha256": "ef574a668e78cb93db6515e20ea1e10f77e4c2b363244f75d6893a5ec1db0b74",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/tests/test_executor.py",
+          "symbol": "_parked_on_image_generation",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-I12",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_collection_assemble",
+          "old_ast_sha256": "f936de4b88ae3d920ab990b081d4a2fc1ccf569edb390219876563bcaf0f3b78",
+          "new_ast_sha256": "f936de4b88ae3d920ab990b081d4a2fc1ccf569edb390219876563bcaf0f3b78",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "enqueue_member_collections",
+          "old_ast_sha256": "16d633e5a3d1220c36f82b95e622f470eb20c8ca3962bd8a596eccdcdc8255aa",
+          "new_ast_sha256": "16d633e5a3d1220c36f82b95e622f470eb20c8ca3962bd8a596eccdcdc8255aa",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "handle_certify",
+          "old_ast_sha256": "728e47905b365f2196480411c3f7c29326b4408328d885535fb0d1f225a3d5c8",
+          "new_ast_sha256": "35fdd81a6e95c2841843b1a773760e4a92ee95655e9809900827ae1057bc1a15",
+          "unchanged": false,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/tests/test_cert_growth_seasonal.py",
+          "symbol": "test_a_bundle_waiting_for_members_defers_and_does_not_die",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-X01",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/commerce/order_readings.py",
+          "symbol": "promotion_block",
+          "old_ast_sha256": "5b873e4de2cd240e57dd8106147c4a842afaea4a854a719004bacf0595fc064a",
+          "new_ast_sha256": "5b873e4de2cd240e57dd8106147c4a842afaea4a854a719004bacf0595fc064a",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/commerce/order_readings.py",
+          "symbol": "referral_block",
+          "old_ast_sha256": "b19640f36d7b64db2f86750b947c3cbe870be78879a3d814611bbcc03c873b1e",
+          "new_ast_sha256": "b19640f36d7b64db2f86750b947c3cbe870be78879a3d814611bbcc03c873b1e",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/commerce_readings.py",
+          "symbol": "_referral",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "promotion_reading",
+          "old_ast_sha256": "7f6b216aef4fa07965f605ad37ae460e4d65d9c242a4034b8f086ba8bd91887b",
+          "new_ast_sha256": "7f6b216aef4fa07965f605ad37ae460e4d65d9c242a4034b8f086ba8bd91887b",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-X02",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/core/models.py",
+          "symbol": "Order",
+          "old_ast_sha256": "89236f98fc32d6effada62ab488715fc0be1e7e657123631f068188e37b5e54c",
+          "new_ast_sha256": "89236f98fc32d6effada62ab488715fc0be1e7e657123631f068188e37b5e54c",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/core/models.py",
+          "symbol": "PhysicalPhoto",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/core/models.py",
+          "symbol": "TeardownFinding",
+          "old_ast_sha256": "a10a0aea799982025710e5ffef3d30215fe27528d0f9d92127875da7223c3ee9",
+          "new_ast_sha256": "aac08ee19771061a029f1a2063334e470ec08d19f2b836dc94642bc9aeeaf65d",
+          "unchanged": false,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/core/migrate.py",
+          "symbol": "apply",
+          "old_ast_sha256": "8ab32de6478232ffb5e85bd505bcbc233239863378a75c4fe9578c7aa3f2e354",
+          "new_ast_sha256": "8ab32de6478232ffb5e85bd505bcbc233239863378a75c4fe9578c7aa3f2e354",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/agents/registry.py",
+          "symbol": "seed_defaults",
+          "old_ast_sha256": "0670e358309dd66cf99940b63f3bfff6af82e837d4668c015f5285758cbea7cd",
+          "new_ast_sha256": "0670e358309dd66cf99940b63f3bfff6af82e837d4668c015f5285758cbea7cd",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/worker.py",
+          "symbol": "CADENCES",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        }
+      ]
+    },
+    {
+      "id": "CB2-X03",
+      "symbols": [
+        {
+          "path": "brambleloop/src/brambleloop/publish/release_gates.py",
+          "symbol": "staleness",
+          "old_ast_sha256": "7cf40e639d60eb2025216fc033ef635b3ad21c458582df2adc1534724c1df106",
+          "new_ast_sha256": "7cf40e639d60eb2025216fc033ef635b3ad21c458582df2adc1534724c1df106",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/publish/release_gates.py",
+          "symbol": "standards_gate",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "e28e646810644a7c38d90f471a41065b5063325469bb3fe2474c5a897ea5692e",
+          "unchanged": false,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/pipeline.py",
+          "symbol": "handle_certify",
+          "old_ast_sha256": "728e47905b365f2196480411c3f7c29326b4408328d885535fb0d1f225a3d5c8",
+          "new_ast_sha256": "35fdd81a6e95c2841843b1a773760e4a92ee95655e9809900827ae1057bc1a15",
+          "unchanged": false,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/release.py",
+          "symbol": "handle_chain_rebuild",
+          "old_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "new_ast_sha256": "289cacbcee1903632e15001711925e321740fcb15f15ac74b1a2e9d715cacbf0",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/src/brambleloop/runtime/growth_ops.py",
+          "symbol": "handle_ads_campaign",
+          "old_ast_sha256": "492b37637bb818428af4b14ef9c03a01e98907f21ad00cb90d3839198e63bf11",
+          "new_ast_sha256": "492b37637bb818428af4b14ef9c03a01e98907f21ad00cb90d3839198e63bf11",
+          "unchanged": true,
+          "both_present": true
+        }
+      ]
+    },
+    {
+      "id": "CB2-X04",
+      "symbols": [
+        {
+          "path": "brambleloop/tests/test_cert_design_pipeline.py",
+          "symbol": "test_a_carried_judged_winner_is_queued_drafted_and_compiled_3_277_281",
+          "old_ast_sha256": "cfb2de3191ed1361852aa1fb29c68564785f8c1b79a909b5b19a31500615a21b",
+          "new_ast_sha256": "cfb2de3191ed1361852aa1fb29c68564785f8c1b79a909b5b19a31500615a21b",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/tests/test_cert_growth_ops.py",
+          "symbol": "test_commerce_readings_read_stars_club_answers_and_referral_and_act",
+          "old_ast_sha256": "00f59f325b355c014ae1691039842bc5c9c97d698ee2e018ec6082479f60dcad",
+          "new_ast_sha256": "00f59f325b355c014ae1691039842bc5c9c97d698ee2e018ec6082479f60dcad",
+          "unchanged": true,
+          "both_present": true
+        },
+        {
+          "path": "brambleloop/tests/test_cert_intel_wave2.py",
+          "symbol": "test_a_physical_photo_with_rights_upgrades_the_listing_and_measures_impact",
+          "old_ast_sha256": null,
+          "new_ast_sha256": null,
+          "unchanged": true,
+          "both_present": false
+        },
+        {
+          "path": "brambleloop/tests/test_cert_improve_wave.py",
+          "symbol": "test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back",
+          "old_ast_sha256": null,
+          "new_ast_sha256": "a5295fa2d2e4f0d4998728d27591033f79e548d04ccbd6f154dd8a683101b2fa",
+          "unchanged": false,
+          "both_present": false
+        }
+      ]
+    }
+  ],
+  "note": "No experiments repeated for unchanged receipts/explicit-priority queue path. Improve targeted source audit only. C81/C82 are assigned improve2; no proven vacant implementation ownership."
+}

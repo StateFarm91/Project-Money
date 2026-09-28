@@ -1,5 +1,7 @@
 # Runtime traces and proof limits
 
+> Current source assessment: 2198861 (Improve integrated). Read [LATEST_DELTA.md](LATEST_DELTA.md) first. The detailed executable results below remain pinned to 2e66b3a; they were not rerun merely for unchanged code. Current reconciliation: 4 FIXED, 48 STILL PRESENT, 2 BLOCKED FROM DETERMINING, 21 CHANGED — REAUDIT REQUIRED.
+
 Pinned source: 2e66b3a44cf87fb6d99d10f136148899b4177877. Exact symbol links/hashes are in out/source_index_2e66b3a.json.
 
 ## Orders correctness — O01–O10
@@ -40,6 +42,6 @@ Platform limitation: _rel_of emits Windows separators, cadence matching expects 
 
 Design now has a real judge_held producer; it records judge, slug and a truncated board location. Current judgement_for and verify_funnel do not bind approved bytes/payload. _gap_for chooses first gap in a pod rather than exact originating gap. _stage_evidence accepts slug-wide assets/certificates. These are source-reviewed defects, not new paid model results.
 
-Improve replay/rollback/enforce and Intel physical-photo/strength/drift candidate modules remain unmerged. Their original e6c3976 producer/state/consumer/action specifications remain authoritative review inputs. Do not import a candidate test result into the current-head verdict.
+Improve replay/rollback/enforce is now integrated; see LATEST_DELTA.md for the targeted source review. Intel physical-photo/strength/drift remains unmerged. The original e6c3976 producer/state/consumer/action specifications remain authoritative review inputs. Do not import a candidate test result into the current-head verdict.
 
 No current shared application repair vacancy was proven. C-80 names Platform2; Git cannot establish current agent liveness. All implementation handoff remains with Opus.

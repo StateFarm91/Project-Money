@@ -1,11 +1,13 @@
 # Build 2 assist — current state
 
+> Current source assessment: 2198861 (Improve integrated). Read [LATEST_DELTA.md](LATEST_DELTA.md) first. The detailed executable results below remain pinned to 2e66b3a; they were not rerun merely for unchanged code. Current reconciliation: 4 FIXED, 48 STILL PRESENT, 2 BLOCKED FROM DETERMINING, 21 CHANGED — REAUDIT REQUIRED.
+
 Updated 2026-09-27. This is a completed independent verification handoff, not an application repair or certification. Read OPUS_HANDOFF.md, then NEXT_SESSION.md. Do not restart the historical audit.
 
 ## Repository identity
 - Codex branch/worktree: codex/build2-assist-01 / ../build2-assist-01.
 - Branch base: 4edacff1f8b445a84749464dc1d7271e6c71173e.
-- Latest verified Claude remote: 2e66b3a44cf87fb6d99d10f136148899b4177877; re-fetched after interruption, unchanged.
+- Latest assessed Claude remote: 21988612600a391eca8f6a8e04b47c667a2e328d. Last executed checkpoint: 2e66b3a44cf87fb6d99d10f136148899b4177877; source delta recorded separately.
 - Reused detached verification checkout: ../build2-verify-2e66b3a. Application source only read there.
 - Canonical prior audit: e6c397656d42406d9da338264f15bb36fadab5cf; brambleloop/research/codex_b2_integration_pack contains the 75 findings/specs/contracts.
 - Initial pushed checkpoint: 3860881e61cc0c621b7c30fac508b1450a5ac220. Follow-up commits preserve latest-head evidence and this handoff; see branch log.
@@ -13,17 +15,17 @@ Updated 2026-09-27. This is a completed independent verification handoff, not an
 ## Fixed boundaries / ownership
 Visual codex/visual-v2-rnd remains 035ff0c62a42dd5fd0b616998dcf98833b5c1097. Do not resume it. No app/shared-test/requirement-status edit, merge, deploy, production write, Etsy, ads, paid API or secret access. Spend $0. Opus alone integrates and certifies.
 
-All changed files are CODEX_SCOPE.md or this research directory. No application-repair vacancy could be proved. Source/history establishes integrated Platform, original Orders, Growth and Design; C-80 names Platform2 pending. Improve d033e02 and Intel 038e873 remain unmerged candidates. Git does not establish live Claude agent liveness.
+All changed files are CODEX_SCOPE.md or this research directory. No application-repair vacancy could be proved. Source/history establishes integrated Platform, original Orders, Growth, Design and Improve; C-80 names Platform2 pending. Improve is integrated at bb6f3a2; improve2/C-81/C-82 remains pending. Intel 038e873 remains an unmerged candidate. Git does not establish live Claude agent liveness.
 
 ## Most important verified result
 C-78/b9f7e3a claims Orders2/3081402 integrated and 23/23 tests. Actual remote source still has identical blobs to 4edacff for 10 critical app files plus test_cert_orders.py. Fresh latest-source run reproduces 9 receipt failures. out/remote_sync.json preserves hashes, commit changed paths, claim text, ownership and history. Do not report the claimed integration as actual code. Opus should reconcile the existing candidate before recreating work.
 
 ## Completed reconciliation
-RECONCILIATION.md/json cover all 75: 4 FIXED, 39 STILL PRESENT, 30 CHANGED — REAUDIT REQUIRED, 2 BLOCKED FROM DETERMINING. These are independent finding labels, not requirement statuses.
+RECONCILIATION.md/json cover all 75: 4 FIXED, 48 STILL PRESENT, 21 CHANGED — REAUDIT REQUIRED, 2 BLOCKED FROM DETERMINING. These are independent finding labels, not requirement statuses.
 - Fixed bounded defects: P01 unparked PARTIAL precedence; P03 closeout needs live gate read; G01 third-run steering; G03 scoped-slug rebuild.
 - Still present: all O01–O10, priority escape G02, semantic proof P02, stale frame approval P06, key Design provenance/approval defects, other source-reviewed findings.
 - New Design judge_held producer exists; missing-producer wording is obsolete, but no hash-bound current-board approval established.
-- Unmerged Improve/Intel candidate findings are not marked fixed merely because code is absent.
+- Integrated Improve findings M01–M09 remain present after targeted source review; unmerged Intel findings are not marked fixed merely because code is absent.
 - Blocked verdicts: P09 faithful multi-worker admission; G11 future ads execution-time freshness (current production spend hard-refuses).
 
 ## Completed test evidence
@@ -52,4 +54,4 @@ Raw .log Git bytes restored to match original recorded output hashes; .gitattrib
 2. If Claude head changes, inspect only relevant changed source/functions; retain results whose source/contract remains identical. Never substitute a report for code.
 3. Highest priority remains C-78 integration mismatch and G02 priority effect. Deliver these already-written reproductions to Opus/current owners; do not repair overlapping files.
 4. Only if current ownership proves an unowned implementation task, amend CODEX_SCOPE.md before changes and satisfy the owner's repair proof standard.
-5. After actual candidate integration, reuse original adversarial specs for Improve/Intel and re-audit only changed Design contracts.
+5. Use original adversarial specs for integrated Improve and future Intel integration; re-audit only changed Design contracts.

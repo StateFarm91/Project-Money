@@ -33,6 +33,9 @@ route=read("out/growth_followups_2e66b3a.json")
 assert next(r for r in route["results"] if r["test"].startswith("existing_growth"))["status"]=="PASS"
 for row in read("out/focused_suites.json")["results"]:
     assert sha(HERE/"out"/(row["suite"]+".log"))==row["output_sha256"]
+delta=read("out/delta_2198861.json")
+assert delta["new_head"]==recon["claude_head"]
+assert all(f["unchanged"] for f in delta["critical_file_equality"]) and delta["queue_claim_unchanged"]
 sync=read("out/remote_sync.json")
 assert len(sync["critical_source_equality"])==11 and all(r["identical"] for r in sync["critical_source_equality"])
 for p in HERE.glob("*.py"):ast.parse(p.read_text(encoding="utf-8"))

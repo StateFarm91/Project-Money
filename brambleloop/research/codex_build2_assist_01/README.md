@@ -1,5 +1,7 @@
 # Codex Build 2 assist 01
 
+> Current source assessment: 2198861 (Improve integrated). Read [LATEST_DELTA.md](LATEST_DELTA.md) first. The detailed executable results below remain pinned to 2e66b3a; they were not rerun merely for unchanged code. Current reconciliation: 4 FIXED, 48 STILL PRESENT, 2 BLOCKED FROM DETERMINING, 21 CHANGED — REAUDIT REQUIRED.
+
 Read [OPUS_HANDOFF.md](OPUS_HANDOFF.md) first. Durable continuation: [CURRENT_STATE.md](CURRENT_STATE.md) and [NEXT_SESSION.md](NEXT_SESSION.md). Scope: [CODEX_SCOPE.md](../../../CODEX_SCOPE.md).
 
 - [75-finding reconciliation](RECONCILIATION.md), with machine-readable [full evidence map](RECONCILIATION.json).
@@ -28,6 +30,6 @@ Public fixture references: [Etsy API reference](https://developer.etsy.com/docum
 
 ## Interpretation
 
-4 FIXED / 39 STILL PRESENT / 30 CHANGED — REAUDIT REQUIRED / 2 BLOCKED FROM DETERMINING are independent finding classifications, not requirement statuses. No COMPLETE+PROVEN determination. No application code repair delivered.
+4 FIXED / 48 STILL PRESENT / 21 CHANGED — REAUDIT REQUIRED / 2 BLOCKED FROM DETERMINING are independent finding classifications, not requirement statuses. No COMPLETE+PROVEN determination. No application code repair delivered.
 
 First checkpoint 3860881 preserved raw output text through Git newline normalization; final evidence restores original byte-identical logs using explicit -text attributes. Recorded output hashes are verified against the committed bytes at final checkpoint.

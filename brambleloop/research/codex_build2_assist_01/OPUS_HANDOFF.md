@@ -1,10 +1,12 @@
 # Opus handoff — Build 2 assist 01
 
+> Current source assessment: 2198861 (Improve integrated). Read [LATEST_DELTA.md](LATEST_DELTA.md) first. The detailed executable results below remain pinned to 2e66b3a; they were not rerun merely for unchanged code. Current reconciliation: 4 FIXED, 48 STILL PRESENT, 2 BLOCKED FROM DETERMINING, 21 CHANGED — REAUDIT REQUIRED.
+
 Independent verification only. No application repair, requirement-status change or certification decision.
 
 ## Immediate finding: reported Orders hardening is absent from remote source
 
-Verified remote Claude head: **2e66b3a44cf87fb6d99d10f136148899b4177877**. Codex branch **codex/build2-assist-01** retains base **4edacff1f8b445a84749464dc1d7271e6c71173e**; a separate detached checkout supplied the newer source for tests.
+Executed checkpoint: **2e66b3a44cf87fb6d99d10f136148899b4177877**; current source assessment is **2198861**. Codex branch **codex/build2-assist-01** retains base **4edacff1f8b445a84749464dc1d7271e6c71173e**; a separate detached checkout supplied the newer source for tests.
 
 C-78 and commit b9f7e3a report Orders2/3081402 integrated and test_cert_orders 23/23. Actual source contradicts that claim:
 - Ten critical application files and test_cert_orders.py have identical Git blobs at 4edacff and 2e66b3a.
@@ -18,11 +20,11 @@ Evidence: [remote synchronization and blob comparison](out/remote_sync.json), [l
 
 ## Reconciliation and collisions
 
-All 75 canonical audit findings from e6c3976 are classified in [RECONCILIATION.md](RECONCILIATION.md) / [JSON](RECONCILIATION.json): **4 FIXED; 39 STILL PRESENT; 30 CHANGED — REAUDIT REQUIRED; 2 BLOCKED FROM DETERMINING**. [HIGH_RISK_STATUS.md](HIGH_RISK_STATUS.md) maps the owner's priority list.
+All 75 canonical audit findings from e6c3976 are classified in [RECONCILIATION.md](RECONCILIATION.md) / [JSON](RECONCILIATION.json): **4 FIXED; 48 STILL PRESENT; 21 CHANGED — REAUDIT REQUIRED; 2 BLOCKED FROM DETERMINING**. [HIGH_RISK_STATUS.md](HIGH_RISK_STATUS.md) maps the owner's priority list.
 
 Confirmed bounded fixes: P01 reopened-row precedence, P03 live-gate closeout, G01 third-run steering idempotence, G03 scoped-slug rebuild. Fixed findings do not certify their parent requirements.
 
-Current persisted ownership: Platform/Orders original/Growth/Design integrated; Platform2 named as pending C-80 work; Improve d033e02 and Intel 038e873 remain unmerged candidates. C-78 claims Orders2 integrated but source disagrees. Remote Git does not reveal whether Claude repair agents are currently alive. No application scope was proven vacant, so Codex owns only CODEX_SCOPE.md and this new research directory. Do not cherry-pick a hypothetical application repair from this lane.
+Current persisted ownership: Platform/Orders original/Growth/Design/Improve integrated; Platform2 named as pending C-80 work; Improve is integrated at bb6f3a2; improve2/C-81/C-82 remains pending. Intel 038e873 remains an unmerged candidate. C-78 claims Orders2 integrated but source disagrees. Remote Git does not reveal whether Claude repair agents are currently alive. No application scope was proven vacant, so Codex owns only CODEX_SCOPE.md and this new research directory. Do not cherry-pick a hypothetical application repair from this lane.
 
 ## Fresh adversarial results
 
@@ -71,7 +73,7 @@ Recommended Opus sequence:
 3. Give G02's actual queue-order reproduction to the current Growth/Platform owner. Enforce a shared priority policy at composition/claim; do not adjust the customer/truth threshold.
 4. Let Platform2 own the C-80/P05–P13 application repairs. Preserve P01/P03 fixes and rerun exact-source closure on the production OS; counters alone cannot certify output semantics.
 5. Re-audit integrated Design's exact gap provenance (D03), release-bound stages (D04), funnel payload binding (D08) and new judgement hash binding (D01).
-6. After actual Improve/Intel integration, execute the already-written original adversarial specs. Missing replay/photo/strength code is unresolved, not a PASS.
+6. Execute the original specs on integrated Improve and, after it lands, Intel. Missing replay/photo/strength code is unresolved, not a PASS.
 
 ## Delivery and boundaries
 
