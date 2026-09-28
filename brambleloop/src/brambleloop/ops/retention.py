@@ -236,6 +236,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "seasonal.transformations": ("latest",
                                  "creative.tournament seeds the last run's derived seasonal "
                                  "transformations of the catalogue into its field (#279)"),
+    # #194: the weekly cycle reads its own last two rows' unmeasured cells for the streak.
+    "improve.weekly": ("windowed",
+                       "improve.evolution.metric_revisions reads the last two weekly rows' "
+                       "cells_unmeasured (a three-week streak) inside the horizon"),
     # #4: pre-production demand validation. Posts and refusals are re-derivable from the
     # concepts and are re-prepared after the horizon at worst; a platform's interest
     # observation and the validated reading built on it are evidence nothing can re-derive.

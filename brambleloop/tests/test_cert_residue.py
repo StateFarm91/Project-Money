@@ -208,6 +208,162 @@ def test_preproduction_source_still_cannot_author_a_number_4():
             assert f'"{metric}":' not in source, (rel, metric)
 
 
+# ---------------------------------------------------------------------------
+# #194: the weekly deep evolution cycle can revise a metric, from evidence, to the owner
+
+
+def _weekly_row(db, unmeasured: list[str]) -> None:
+    """A previous weekly cycle's row, as handle_weekly_evolution writes it."""
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action="improve.weekly",
+                       detail={"complete": False, "cells_unmeasured": sorted(unmeasured)}))
+
+
+def test_weekly_cycle_revises_a_metric_unmeasured_for_three_cycles_with_a_proxy_194():
+    """#194 through `improve.weekly` on the worker. finance's `forecast_error` cannot be read
+    (no revenue) while cost entries carrying estimates exist; after three consecutive
+    unmeasured cycles the cycle generates a REVISE_METRIC change to `cost_estimate_error`
+    under improve.weekly's rules and cards it to the owner. Two cycles are not enough, a
+    department with no proxy rows is reported and not revised, and the old metric's history
+    is untouched. Nothing is measured that the rows do not hold."""
+    from brambleloop.core.models import CostEntry
+    from brambleloop.improve import cells, evolution
+
+    _scheduled("improve.weekly", "orchestrator")
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for i in range(4):
+            s.add(CostEntry(agent="market_radar", kind="llm", amount_cad=0.5 + 0.1 * i,
+                            estimated_cad=0.4, department="market_radar",
+                            at=now - timedelta(days=i)))
+    _weekly_row(db, ["finance", "growth", "quality", "pricing"])
+
+    first = _run(db, "improve.weekly", "orchestrator")
+    mr = first["metric_revisions"]
+    assert mr["history_cycles_read"] == 1 and mr["changes"] == [], mr
+    assert "finance" in first["cells_unmeasured"]
+    assert mr["considered"]["finance"].startswith("unmeasured 2 cycle(s) of the 3")
+    with db.session() as s:
+        assert s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == evolution.REVISE_CARD_KEY)) is None
+
+    # The first run wrote its own row: the streak is now three, read from rows.
+    second = _run(db, "improve.weekly", "orchestrator")
+    mr = second["metric_revisions"]
+    assert mr["history_cycles_read"] == 2, mr
+    subjects = {c["subject"]: c for c in mr["changes"]}
+    assert "finance" in subjects, mr
+    fin = subjects["finance"]
+    assert fin["move"] == "revise_metric" and fin["proposed_by"] == "improvement_director"
+    assert fin["replaces_metric"] == cells.BY_KEY["finance"].metric == "forecast_error"
+    assert fin["new_metric"] == "cost_estimate_error"
+    assert "UNMEASURED for 3 weekly cycles" in fin["because"]
+    assert "preserved under the old metric" in fin["history"]
+    assert mr["evidence"]["finance"]["proxy"]["rows"] == 4
+    assert mr["evidence"]["finance"]["kind"] == "unmeasured_streak"
+    # growth is unmeasured for the streak too, but no experiment row exists to read: the
+    # proxy has nothing, so nothing is proposed and the reason says so. quality has no proxy.
+    assert "growth" not in subjects and "nothing is invented" in mr["considered"]["growth"]
+    assert "quality" not in subjects and "no proxy" in mr["considered"]["quality"]
+    assert second["architecture"]["metrics_revised"] == len(mr["changes"]) >= 1
+    # Carded to the owner, with the evidence, as one batched card.
+    assert mr["card"] == "queued"
+    with db.session() as s:
+        card = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == evolution.REVISE_CARD_KEY))
+        assert card is not None and "forecast_error -> cost_estimate_error" in card.action
+        assert card.max_cost_cad == 0.0 and not card.done
+    # The old metric's history is untouched: no capability point was written or migrated.
+    assert cells.capability_history(db, "finance") == []
+    row = _rows(db, "improve.weekly")[-1][2]
+    assert row["metric_revisions"]["changes"][0]["subject"] == "finance"
+
+
+def test_weekly_cycle_revises_a_metric_whose_realised_outcomes_contradict_it_194():
+    """The second kind of evidence: pricing's `contribution_margin` moved up across its
+    readings while both assessed promotions in pricing realised nothing against their own
+    baselines (improve.roi). The cycle proposes the department's proxy from rows -- drafted
+    listing prices against the observed band -- and cards it; a department whose contradiction
+    has no proxy rows is reported, not revised."""
+    from brambleloop.core.models import BenchmarkListing, CapabilityPoint, Improvement, Listing
+    from brambleloop.improve import cells, evolution
+    from brambleloop.intel import benchmarks
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for i, base in enumerate((0.70, 0.72)):
+            s.add(Improvement(cell="pricing", metric="contribution_margin", state=cells.PROMOTED,
+                              hypothesis="h", baseline_value=base, evidence={},
+                              promoted_at=now - timedelta(days=30 + i), at=now - timedelta(days=40)))
+        for i, base in enumerate((0.40, 0.42)):
+            s.add(Improvement(cell="quality", metric="defects_found_after_release",
+                              state=cells.PROMOTED, hypothesis="h", baseline_value=base,
+                              evidence={}, promoted_at=now - timedelta(days=30 + i),
+                              at=now - timedelta(days=40)))
+        # Readings written after the promotions, by the measurer, never by the promotion.
+        for i, v in enumerate((0.50, 0.60)):
+            s.add(CapabilityPoint(cell="pricing", metric="contribution_margin", value=v,
+                                  sample=5, detail={"from": "improve.measure"},
+                                  at=now - timedelta(days=10 - i)))
+        for i, v in enumerate((0.60, 0.50)):   # lower is better: "improved"
+            s.add(CapabilityPoint(cell="quality", metric="defects_found_after_release",
+                                  value=v, sample=5, detail={"from": "improve.measure"},
+                                  at=now - timedelta(days=10 - i)))
+        for i in range(3):
+            s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref=f"P{i}",
+                                   title="Pattern", pod="hats", price_cad=6.0 + i))
+        s.add(Listing(product_slug="p1", version="1.0.0", title="t", description="d",
+                      price_cad=7.0))
+        s.add(Listing(product_slug="p2", version="1.0.0", title="t", description="d",
+                      price_cad=14.0))
+    out = _run(db, "improve.weekly", "orchestrator")
+    mr = out["metric_revisions"]
+    subjects = {c["subject"]: c for c in mr["changes"]}
+    assert "pricing" in subjects, mr
+    pr = subjects["pricing"]
+    assert pr["replaces_metric"] == "contribution_margin"
+    assert pr["new_metric"] == "listing_price_inside_observed_band"
+    assert "realised nothing" in pr["because"] and "0.5 -> 0.6" in pr["because"]
+    ev = mr["evidence"]["pricing"]
+    assert ev["kind"] == "contradiction" and ev["assessed"] == 2
+    assert ev["proxy"]["value"] == 0.5 and ev["proxy"]["rows"] == 5
+    # quality: the same contradiction, no proxy defined -> reported, never revised.
+    assert "quality" not in subjects
+    assert mr["evidence"]["quality"]["kind"] == "contradiction_unrevisable"
+    assert "not revised" in mr["considered"]["quality"]
+    assert mr["card"] == "queued"
+    with db.session() as s:
+        card = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == evolution.REVISE_CARD_KEY))
+        assert "contribution_margin -> listing_price_inside_observed_band" in card.action
+        assert "quality" not in card.action
+    # A revision proposed by the department itself, or argued from the number, is refused
+    # by improve.weekly whatever this module does -- the rule is enforced there.
+    from brambleloop.improve import weekly
+    try:
+        weekly.ArchitectureChange(move=weekly.REVISE_METRIC, subject="pricing",
+                                  proposed_by="pricing", replaces_metric="contribution_margin",
+                                  new_metric="listing_price_inside_observed_band",
+                                  because="it fails to measure what the department produces")
+    except weekly.WeeklyRefused as exc:
+        assert "moved the goalposts" in str(exc)
+    else:
+        raise AssertionError("a department revised its own metric")
+
+
+def test_weekly_cycle_with_nothing_to_revise_proposes_nothing_194():
+    """No prior cycle rows, no promotions, no proxy rows: every department is considered and
+    none is revised. A revision has to come from rows."""
+    db = _db()
+    out = _run(db, "improve.weekly", "orchestrator")
+    mr = out["metric_revisions"]
+    assert mr["changes"] == [] and mr["card"] == "none"
+    assert mr["history_cycles_read"] == 0
+    assert set(mr["considered"]) == set(out["cells_unmeasured"]) and mr["considered"]
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
