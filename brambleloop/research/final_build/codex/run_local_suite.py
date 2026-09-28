@@ -21,6 +21,7 @@ def source_fingerprint(root):
     HEAD alone cannot detect concurrent edits. Evidence outputs and bytecode are excluded
     because the run itself creates those; Python/config/test inputs are included.
     """
+    root = root.resolve()
     files = set()
     for directory in (root / 'src', root / 'tests'):
         files.update(p for p in directory.rglob('*') if p.is_file()
