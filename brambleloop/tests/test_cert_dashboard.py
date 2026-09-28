@@ -353,7 +353,7 @@ def test_every_headline_kpi_carries_its_evidence_envelope():
 def test_the_ca5k_card_reads_unmeasured_rather_than_zero():
     """F-189: insufficient commercial evidence is displayed as UNMEASURED, not 0.00."""
     html = seeded().get("/").text
-    m = re.search(r"<td>probability of CA\$5,000/month</td><td>([^<]*)</td>", html)
+    m = re.search(r"<td>modelled probability of CA\$5,000/month</td><td>([^<]*)</td>", html)
     assert m, "the CA$5K row did not render"
     assert m.group(1) == "UNMEASURED / insufficient commercial evidence", m.group(1)
 

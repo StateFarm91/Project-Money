@@ -4998,7 +4998,7 @@ def dashboard() -> str:
         gate = p["evidence_gate"]
         return rows([
             # F-189: UNMEASURED while the evidence gate is unmet; 0.00 would be a claim.
-            ("probability of CA$5,000/month", p["display"]),
+            ("modelled probability of CA$5,000/month", p["display"]),
             ("binding layer", p["weakest_critical_layer"]),
             ("capped by", p["capped_by"]),
             ("evidence gate", "met" if gate["satisfied"] else
