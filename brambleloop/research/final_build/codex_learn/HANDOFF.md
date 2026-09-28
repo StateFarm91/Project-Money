@@ -30,3 +30,7 @@ All assigned Master rows remain engineering PARTIAL, not certified. F-801 core s
 
 ## Next actions
 Integrate full branch into coordinator branch, mount router, run focused test_learn_launch plus affected PDF/runtime suites on final clean tree. Independent reviewer audit should particularly challenge reviewer credential/identity boundary, stale canonical mutations, and protected PDF consumption. Do not mark unbuilt curriculum/automatic QA complete.
+
+## Follow-on PDF publish contract review
+On3ba5359, assets.build passes pdf_help_links into renderer; publish-side re-render does not. With configured origin plus an approved lesson this reliably blocks at existing PDF_HASH_DRIFT. No incorrect document is uploaded, but valid publication cannot complete. AB worker owns narrow fix in _publish_and_read_back after coordinator integration.
+Added tests/test_learn_publish_contract.py: explicit static two-call-site resolver assertion (fails before fix), real deterministic PDF bytes through check_pdf_hashes (passes), and omitted/current/stale revision public API semantics (passes). Local result2/3, sole expected failure is missing publish resolver. This test commit is adversarial evidence, not a repair candidate or green suite claim. Parent/AB worker reruns after merge. No runtime source modified in this follow-on.
