@@ -1,5 +1,5 @@
 {
-  "evaluated_head": "03aa689910239dda084b0599e15fa215d9f9a6b7",
+  "evaluated_head": "2b5ca0147553a33c5fc57a8077a50db5376d4557",
   "certified": false,
   "production_actions": [],
   "paid_spend": 0,
@@ -124,6 +124,14 @@
       "repair_commit": "",
       "focused_suites": [],
       "remaining_limit": "SciPy diagnostic optional and unlocked; missing dependency returns UNKNOWN"
+    },
+    {
+      "id": "FIN-PERIOD",
+      "state": "OPEN confirmed counterexample",
+      "finding": "Later actual fee on existing listing erases earlier period exposure and bypasses today budget; actual updated old-dated CostEntry",
+      "owner": "b_authorization",
+      "evidence": "learn_launch independent exact bdf2bd6 reproduction; report pending",
+      "certified": false
     }
   ]
 }

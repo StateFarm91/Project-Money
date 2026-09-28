@@ -1,70 +1,58 @@
-# Codex Final Build execution state
+# Codex Final Build — CURRENT durable state
 
-Integration branch: codex/final-build-integration-01.
-Claude handoff base / initial accepted HEAD: c0a8f3950eaa09d89631faaafec60de7fd989f1b (descendant of requested ae34590).
-Master supplied PDF SHA256 matches committed Master: 526ed69c8cf9b50e8b5ed736301607b0d314f7e80126ebd5a2178e9689471a99. Full-text reading underway.
-Authority: Codex integrates only on dedicated Codex branch; Opus independently certifies. No production merge/deploy, Etsy writes, paid calls, secrets or spend. Visual V2 035ff0c frozen.
+Resume this state, not the historical conversation. Engineering continues; this is NOT a frozen release candidate or certification.
 
-## First wave ownership
-- Integrator: shared-file reconciliation, integration branch, assignment/state/defect ledger, final matrix evidence. Review A and G integrations; quiet-machine heavy validation.
-- B worker (pending dispatch): isolated branch from Claude B 449ce60; F-835/F-703 execution-time owner approval binding; owns integrations/etsy_ops.py and focused new authorization tests; inspect actual handler before any extra ownership. No shared-file edits without coordinator agreement.
-- I worker (pending dispatch): isolated branch from c0a8f39; F-799/801/804/805/806/808/815/821/822/826/828 Learn launch architecture; owns new learn package and tests; shared runtime/model/PDF wiring proposed to integrator.
-- Master/J reviewer (pending dispatch): isolated branch from c0a8f39; full Master reading, errata validation and F-831..840/843/845..850/867 proof-validator scope. Owns codex master review artifacts and new validator/tests only; no matrix/status promotion.
+## Checkpoints and authority
+- Branch: codex/final-build-integration-01; integrated source before this state commit: 2b5ca0147553a33c5fc57a8077a50db5376d4557.
+- Worktree: final-build-integration-01 under the parent workspace. Use this directory explicitly; chat cwd is not a Git root.
+- Origin: https://github.com/StateFarm91/Project-Money.git.
+- Claude remote re-fetched September28 remains c0a8f3950eaa09d89631faaafec60de7fd989f1b, descendant of requested ae34590. Never modify it.
+- Certified Build2 ancestor019ebf0; production baselinefcb982d. Neither is replaced by Codex.
+- Frozen Visual V2: codex/visual-v2-rnd @035ff0c62a42dd5fd0b616998dcf98833b5c1097. Never modify/restart that lane.
+- User's latest Final Build attachment authorizes Codex-only integration, local code/tests, worktrees, commit/push and bounded parallel agents. Opus independently certifies. No deploy/live mutations/Etsy writes/ads/paid calls/purchases/credential changes. Spend0.
+- User explicitly reconfirmed Final Build H gate edits in reply after automatic reviewer initially rejected them. H now integrated; thresholds/V2 unchanged.
+- Master PDF hash526ed69c8cf9b50e8b5ed736301607b0d314f7e80126ebd5a2178e9689471a99 verified against supplied file. Team read entire extracted Master. Source631–650 absent;514–520 duplicate histories retain qualifiedIDs;866records859IDs. Do not invent rows.
 
-## Current evidence
-F/D/C/E integrated by Claude. Latest A 436f6c4, B 449ce60, G ddc4d34 await integration. Prior worker tests are claims pending local verification. No local Final Build tests run yet. No full suite on merged Final Build.
-Matrix inherited: 866 rows; 446 launch critical; 413 mature; 7 NA. Maturity inherited/stale, not promoted. Full chain required: requirement -> producer -> durable state -> consumer -> decision -> protected effect -> observable result -> independent proof.
-C2/H unstarted; queue after initial integrations. Preserve D-FB-6 (actual-yarn gauge redesign plus refusal together); no yarn relabelling. H main-line truthful gates permitted, Visual V2 R&D untouched.
-Owner/data/external gates remain in FINAL_BUILD_RESUME_MANIFEST.md section 11; no current external authorization.
+## Accepted engineering slices (local, not certified)
+- A436f6c4 reconciled with C; both search/publication_scope survive. Root9c6aa49 repairs empty/malformed search-check false PASS.
+- Gddc4d34 initial provenance; G12684cf6 actual licensed PDF intake fingerprints consumed at certify(db) and protected publication. G2a4ad5ad source IDs/briefs preserved through intake/author/compile; exact originating gap remains UNKNOWN.
+- B449ce60 plus owner authority f134a9a/910925c: authenticated recorded approval, content digest/expiry/revocation, execution rechecks. Root mounted router.
+- ABa4c79ed: taxonomy/properties reach PUT and independentGET, owner snapshot, activation/census. Learn publish rerender uses identical links.
+- Learn3ba5359 +test8e89034: durable graph/gaps, scheduled source scan, authenticated draft/reviewer workflow, current revision serving/PDF links. Root router mounted. Human attestation is not automated truth proof; missing configured origin emits no links.
+- C2b056306+6747ddd: actual yarn-supported Launch0 redesign with strict gauge/primitive gate in same slice. Cloudline full64motif rows +3SCeachend =79.2x97.1cm vs78.8x97.2 intended. Uncalibrated physical behavior remains unproven. Root restored accidental unrelated sampler encoding corruption.
+- He6b6d47 +root5c983e4: refuse product redraw, cached usable flags cannot clear unknown construction; exact pixel preservation separate from construction; bounded star proxy unchanged. No qualified full-product image producer exists. This is a launch blocker, NOT a rendering solution. Legacy V1 success tests intentionally still fail; not waived.
+- J54ef60a+4a051fb: evidence packet consistency validator; malformed/absent protected-action applicability refuses. REVIEWABLE is not certification, authenticity/semantics still require independent review.
+- Continuity93351c1: scratch SQLite disposal on all paths; root e0cf403 network harness preserves only internal Windows socketpair while ordinary connect/connect_ex/DNS remain blocked.
+- Financebdf2bd6 +67aeda8: modeled fee exposure before activation, actual ledger ingestion/basis/P&L, post-reservation authority recheck. IMPORTANT independent counterexample below remains open.
+- Draft081c47e: additive unique draft_creation_intents table, claim before create, checkpoint remoteID+Listing before uploads. Unknown outcome refuses blind retry. SQLite/process crash tested; no external exactly-once claim. Execution-time byte/gate recheck follow-on in progress.
 
-## Exact next steps
-Dispatch bounded workers with exact base/files. Read entire Master and remaining state/decisions. Establish local test launcher and run inherited outstanding suites on quiet machine. Reconcile A (both Launch-0 eligibility and search gate), G, then repaired B on Codex integration branch only. Test each. Continue C2/H/I/J and remaining executable gaps. Commit/push every meaningful slice. Never award certification.
+## Active workers / disjoint ownership
+- b_authorization: codex/final-finance-cost-basis-01. Owns finance/listing_costs.py, books.py,reconcile.py, pipeline.handle_store_activate, focused tests; approved downstream unit_cost/sustainability/spend_report basis propagation. PRIORITY repair new period/budget defect before cosmetic labels.
+- master_proof: new draft execution revalidation branch (base081c47e); owns _publish_and_read_back/newhelper, EtsyClient.publish before_create callback, focused tests. Must reread current grant/phase/gates/payload/PDF/image identity immediately before create. Activation excluded.
+- learn_launch: report-only independent Finance review on final-draft-durability-01; no finance source edits. Reproducer sent Finance owner. Draft implementation handed off; H/continuity done.
+Root alone integrates shared files; workers never merge themselves into root. Max4agents total including root.
 
-## Recovery
-Read this file and FINAL_BUILD_RESUME_MANIFEST.md first. Inspect actual branch/status/remotes and worker reports before restarting. Prior Build2 assist remains codex/build2-assist-01 @19180b3; do not repeat its historical audit. No unsaved worker work existed at this checkpoint. Test failures/worker commits will be appended as obtained.
+## Independent results and honest limits
+Receipts/logs: research/final_build/codex/evidence/. Each names exact SHA/loghash and source digest (new runner). No receipt is release-eligible.
+- Initial publish suite10pass/8fail due missingfont; root font config fixed;18/18 on192176e. Root font controls2pass.
+- A32search+2adversarial; Ginitial28originality; Bowner2 on c93b136.
+- Learn13 on a2658f8; C2new5 +44gates+44geometry+16products; J10; runner2 on e70e9e6.
+- AB4 and LearnPDF3 on e0cf403. H initially8/9 missingSciPy, preserved; then10/10 at5c983e4 with existing optional diagnostic dependency.
+- Continuity3 and G1runtime7 on03aa689.
+- Stable wiring436568f14/16 exposed SQLite cleanup +Windows eventloop harness; both fixed. Combined03aa68916/16 in150s, unchanged source digest. Earlier worker mixed-tree11/16 INVALID_SOURCE_CHANGED is never proof.
+- Finance5 +21finance+18money on0c3098a allpass. Later independent counterexample invalidates any full financial-readiness inference from them.
+- Worker-only pending root reproduction: G2new5+28originality+8prototype; draft6crash/concurrency+17Etsy; financepost-reserve6.
+- Production lock not reproduced. Local Python3.12, numpy2.3.5; lock numpy2.4.6. Optional SciPy1.17.1 existing runtime-python not in production lock. No package installed. Missing diagnostic dependency returnsUNKNOWN. No container available found; WSL command exposed only installation stub/help; Git Bash exists but Linux/proc parity unproven. No canonical full-suite PASS.
 
-## 2026-09-28 first local verification
-Workers active on codex/final-b-owner-auth (base449ce60), codex/final-learn-01 and codex/final-proof-01 (basec0a8f39). Exact scope additions approved by integrator: B owns only pipeline.handle_store_activate plus new authority/router/tests; I owns additive DB import/learn agent/cadence/loader and assets/PDF contextual links. Root owns app router registration and all merge reconciliation.
-Master full-text read independently by master_proof worker; supplied PDF hash verified by root. No invented missing IDs; preserve duplicate internal UIDs.
+## Open blockers / exact next actions
+1. FIN-PERIOD: independent exactbdf2bd6 repro: reserve listing55 .27 dated40daysago; actual CAD1.50 same listing fee today. Prior-periodBooks .27→0 via all-time listing-ID suppression. Today's ceiling1 incorrectly permits another .27 because actual updates old CostEntry.amount without moving at. Separate event/period allocation; current-period actual must consume budget; no implicit matching of every later fee to initial exposure. Finance worker owns fix; preserve adverse evidence.
+2. Review draft effect-boundary follow-on. Planning gates before PDF/claim are insufficient. Keep unknown intent blocking retries even when later authority refused; no guessed recovery.
+3. Run focused draft/G2/post-reserve suites on current combined tree, then review/integrate fixes, rerun affected suites. Broader cert_commerce, cert_rebuild_chain, cert_parity_copy, publish_gates/product_run/shadow and final locked full suite outstanding. Avoid redundant heavy runs while source changes.
+4. H full construction pixels remain unqualified, public Learn curriculum/reviewer evidence absent, exact originating gap producer missing. Do not invent PASS to escape these. User permits truthful nonphoto representation but no customer-ready construction producer has been proven here.
+5. Recompute per-row closure evidence from actual chains after waves, not prose. Inherited matrix866rows:446launchcritical,413mature,7NA; launch88FULL/358PARTIAL inherited claims, zero Codex promotions. Overall maturity247DEPLOYED/165MISSING/86IMPLEMENTED/302INTEGRATED/19EXERCISED/47TESTED is stale historical metadata. Build2 statuses unchanged.
+6. Need final empty/new/populated DB/migration/Postgres evidence, independent protected-action/retry/restart checks, then OPUS_FINAL_HANDOFF.md only when engineering reaches actual gates. No final candidate yet.
 
-Inherited test_cert_publish_gates on f9e72b4: 12 passing / 8 failing. Diagnostic local DB assets.build output explicitly LISTING_NO_FONT and 10pt fallback text; no listing was produced, downstream tests could not reach gates. Classified local environment failure, not accepted evidence. Initial attempt also failed importing SQLAlchemy because sandbox account cannot read preinstalled dependencies; escalation resolved access.
-Integrator bounded repair F-148/F-150: publish/charts.py adds explicit BRAMBLELOOP_FONT_PATH for existing real font bytes; no fallback/quality threshold change. New test_font_discovery: 2 passing including missing-font refusal-state control. Local font source bundled Poppler DejaVuSans.ttf. Added run_local_suite.py: exact-source single-suite logs/receipts, isolated scratch, no inherited provider/database credentials, never release-eligible. Canonical full suite still required later. Next: rerun publish gates with real font; then A/G integration and focused suites. No other source tests completed yet.
-
-## A integration review
-Base192176e; Claude A436f6c4 merged on Codex staging e9f7599; release_gates.for_publish retains BOTH search and publication_scope verdicts. Independent adversarial regression proved empty search-certificate checks passed (AssertionError before repair). Required category/attributes/copy/tags/description evidence now explicit, missing/malformed/UNKNOWN refuses; 2 new tests pass including each omitted field and malformed inputs. Runtime consumer: store.publish -> for_publish -> search_gate reads durable listing_search_profiles. Existing A runtime suite next; no maturity promotion yet.
-
-## SAFE RESUME CHECKPOINT — first integration wave
-A accepted after32search checks +2adversarial missing-check controls: stagingd17936b merged0dfd17f. G merged643783f; independent28originality checks passed on that combined tree, receipt committed3d7c647. B449ce60 plus f134a9a/910925c authority repair merged on dedicated Codex branch; root registers authenticated router in app/main.py. Proof54ef60a+4a051fb integrated after root found malformed-input and missing protected-effect applicability bypasses; follow-on10tests worker-passed; independent rerun pending.
-Correction: inherited publish suite has18tests, not20; initial font-failure run was10pass/8fail. Font-configured clean192176e run18pass/0fail; raw hash-bound receipt committedd24488e.
-
-Active workers: learn_launch finishing human-review producer and PDF threading fix (DO NOT accept0bb3436 alone); b_authorization now H on codex/final-visual-gates-01 (main-line no-redraw/structural refusal/export consumers; V2 untouched); master_proof now C2 on codex/final-gauge-01, partialb056306 rounds validated, Cloudline redesign ongoing. C2 may genuinely add modeled border from proven primitives under explicit redesign authority; must preserve intended sizes, no invented calibration or tolerance weakening. Strict global patch must land with complete qualified redesign, not alone.
-Learn cert_wiring was mixed-tree during worker edits: INVALID_SOURCE_CHANGED regardless results. Found actual missing lesson_links forwarding in PDF; worker repairing. Windows file/socket failures need classify. No source exact-head PASS inferred.
-
-## Open integration defects / next work
-- AB-01 F005/007/543: runtime.etsy_ops.certified_payload still calls build_payload default taxonomy66; A category.publish_inputs unconsumed. No updateListingProperty client method. Root owns next contract repair in integrations/etsy.py, etsy_oauth.py, runtime/etsy_ops.py, pipeline publication methods, focused fake transport tests. Must bind authority snapshot to properties, send correct node/property payload and independently read back exact properties before activation. Unknown taxonomy refuses; no fallback66.
-- Official API reference verified2026-09-28 https://developer.etsy.com/documentation/reference : updateListingProperty PUT /shops/{shop_id}/listings/{listing_id}/properties/{property_id}, form value_ids+values, optionalscale_id,listings_w. getListingProperties GET /shops/{shop_id}/listings/{listing_id}/properties api_key, results list. Single getListingProperty is feedback-only and may501: use plural. No live Etsy call made.
-- G runtime followups remain per fb1_G report: concept_to_cir provenance, DB-ledger/fingerprint/licence consumption at certify, prepublish independent similarity job. Unit28pass is NOT end-to-end certification.
-- B exact once multiworker/crash and modeled listing fee recorded as charged require targeted review; authority repair alone doesn't prove these.
-- Remaining inherited heavy suites cert_wiring/shadow/product_run plus Acommerce/rebuild/parity and combined full suite still outstanding. Run centrally on stable tree; no current root suite process running.
-- Matrix maturity remains inherited/stale; don't promote from worker prose. A/G/B overlay not yet recomputed. Need independent re-map actual chains.
-- Final Master read completely by master_proof; root has read broad source ranges and authoritative addenda. Missing631..650 and duplicate514..520 preserved, no fabricated requirements.
-Exact next: commit/router test; finish ABcontract; review/integrate I fixes, H and complete C2; rerun affected + heavy suites; J actual receipts/rehearsal; subsequent open executable waves. Keep owner/data/external gates explicit. No certification/full-suite claim.
-
-## Integration checkpoint — Learn and C2
-Learn entire3ba5359 and C2 entire6747ddd merged after review. Git reconciled builder provenance and PDF help plus strict-gauge text without conflicts; root inspected both. Root mounted Learn router and restored accidental C2 encoding corruption in unrelated sampler note. Worker focused counts are13Learn and5+44+44+16C2; independent combined reruns pending. B root activation authority2checks passed c93b136, rawreceipt986ea60.
-H WIP is BLOCKED by two automatic approval-review rejections of listing_asset eligibility mutations despite newer H scope cited. Preserve final-visual-gates-01/H_BLOCKED_STATE.md; no H integration or repeated mutation attempts. Six source edits only syntax checked, no functional proof. Need explicit resolution of that external approval block. VisualV2 untouched.
-Active: b_authorization reassigned AB-01 contract on new isolated branch fromc93b136, will incorporate same Learn links in publishing rerender. learn_launch checks PDF digest contract (confirmed missing links causes safe PDF_HASH_DRIFT) and prepares isolated regression; master_proof readonly G runtime review. Root owns integrated reruns and source-binding runner improvements. No certification or maturity changes.
-
-## SAFE RESUME CHECKPOINT — integrated local validation
-Accepted integration e70e9e6: A/G/B, Learn3ba5359 plus test8e89034, C26747ddd, J4a051fb. Independent local checks: Learn13 at a2658f8; C2new5, gates44, geometry44, products16, proof10, runner2 at e70e9e6 allpassed. Source digest before/after unchanged. Later suite trees contain only earlier untracked receipt/log artifacts, explicitly recorded; these are NOT clean full-release suite proof. Import-failed Learn receipt preserved; runner fixed sourcepaths. New runner selftest initially failed Windows shortpath canonicalization (2errors), fixed by resolve; final2passed. No assertion weakened.
-User NOW explicitly authorized scoped Final Build H gate changes in clarification reply; earlier reviewer block superseded. learn_launch worker continues recovered H WIP; V2 immutable. b_authorization owns AB taxonomy/properties+Learn publish PDFlinks. master_proof owns G durable-corpus certification/publish revalidation on newbranch from479fc67 after readonly confirmed falsePASS (DBaware checker flags wording while standalonecertify ignoresDB). NewGintake PDF fingerprint producer approved afterlicensed intake, failuresUNKNOWN. No current certification/full-suite/maturitypromotion.
-Next: quiet stable-tree cert_wiring; inspect/reconcile AB,H,G commits; focused reruns; subsequent runtime durability/economics issues and exact closure evidence. Preserve production/action restrictions, spend0.
-
-## Wiring portability repair scope
-Clean stable436568f wiring result14/16,146s: continuity temporary SQLite file still open (WinError32); API in-process TestClient Windows event-loop socketpair blocked by harness. Raw logs/receipt d661128. No failure waived. Root owns tests/network_guard.py, tests/test_network_guard.py and test_cert_wiring network installation only; permit exclusively internally created connected socket pair while ordinary connect/connect_ex/DNS remain refused. Acceptance: actual pair carries bytes; all outbound/ordinary loopback paths still throw before network; focused API reachability then full wiring. learn_launch owns separate continuity resource cleanup branch; no overlapping source edits. ABa4c79ed and He6b6d47 now reviewed/integrated. H is deliberately fail-closed without a qualified full-construction renderer; not launch-ready, legacy V1 success suites red. G corpus-revalidation and Finance modeled/actual listing-cost truth workers ongoing. No status promotion.
-
-## SAFE RESUME CHECKPOINT — third engineering wave
-Root integrated ABa4c79ed and He6b6d47, then continuity93351c1 and originality2684cf6. Restored accidentalGregex UTF8 multiplication character before acceptance. H local10/10pass5c983e4 with EXISTING optionalSciPy1.17.1 runtime-python and bundlednumpy2.3.5; production locknumpy2.4.6/absentSciPy differs. Locked-env fullsuite remains UNKNOWN. InitialH8/9 missingSciPy failure retained, dependencyabsence now explicitUNKNOWN atdiagnose; optional instrument is not productionconstructiongate producer. AB4/4 andLearnPDF3/3 independentpassed e0cf403.
-G1 actual licensedPDFintake→durablefingerprints→certify(db) and livepublishrecheck nowintegrated,7new+28originality+44gates workerpassed; rootrerunpending. Continuity3new+15existingworkerpassed; rootrerunpending. Rootnetworkguard2newpassed; fullwiringrerunpending withbothfixes. Claude remote re-fetched remainsc0a8f39, untouched.
-Activeworkers: learn_launch draftcreationcrashdurability (newuniqueintenttable+dbregistration, publishcallback immediatelyaftercreate; unresolvedoutcome refuses retries, noexactlyonceclaim); b_authorization Finance listingfees modelled exposure vs measured ledger/P&L; master_proof G2 runtimeauthor provenance/brief lineage awaitingfinalscope. All isolatedCodexworktrees. Hknownconstructionrenderer gap keepsphotographyunqualified; nofullgreen/launchcertclaim.
-Exactnext: rootfocusedcontinuity/originality +stablewiring; review/integrateFinance,draftdurability,G2; reevaluateprotectedexecutionandremaininglaunchcriticalmatrix withoutprosepromotion. Existingfullsuite/emptynewpopulatedDB/Postgresvalidation remain outstanding. Spend0.
+## Recovery and tools
+Run bundled Python with explicit deps; PYTHONPATH ignored by bundled interpreter. Local runner research/final_build/codex/run_local_suite.py accepts suite, --deps <workspace>/runtime-build2, optional --extra-deps <workspace>/runtime-python, --font bundled Poppler DejaVuSans.ttf. It removes inherited provider/DB credentials, uses isolated temp, binds source before/after, records unlocked dependencies, never certifies release. Use escalation when installed dependency ACLs require it. No tests currently running at this state write.
+Git writes: configured per command user.name=Codex,user.email=codex@openai.com. Use UTF8 bytes for source edits, preserve line endings; incidental regex/sampler encoding regressions were repaired. Managedworktree tool unavailable at nongit chatcwd; manual isolatedworktrees were authorized and used. No cleanup/deletion necessary.
+Read DEFECT_LEDGER.json plus worker handoffs: H_HANDOFF.md, DRAFT_DURABILITY_HANDOFF.md, CONTINUITY_HANDOFF.md, codex/originality_review/REPORT.md, codex/lineage_review/REPORT.md, research/final_build/codex_cost_basis/report.json, codex_ab/report.json, codex_learn/HANDOFF.md. Previousaudit e6c3976 is durable; do not repeat it. Continue this same thread and checkpoint before context pressure.
