@@ -117,9 +117,14 @@ os.environ["BRAMBLELOOP_DATABASE_URL"] = f"sqlite:///{_TMP.name}/app.sqlite"
 os.environ.setdefault("BRAMBLELOOP_PHASE", "shadow")
 from fastapi.testclient import TestClient  # noqa: E402
 from brambleloop.app import main as _main  # noqa: E402
-with TestClient(_main.app) as _c:
-    _r = _c.get("/api/closure")
-    _j = _r.json() if _r.status_code == 200 else {}
+try:
+    with TestClient(_main.app) as _c:
+        _r = _c.get("/api/closure")
+        _j = _r.json() if _r.status_code == 200 else {}
+finally:
+    # Release SQLite pool handles before deleting the test's temporary directory.
+    _main.db.engine.dispose()
+    _TMP.cleanup()
 check("/api/closure serves the matrix with gates checked live", _r.status_code == 200 and _j.get("gates_checked_live") is True and _j.get("gates_unchecked") is None and sum(_j.get("counts", {}).values()) == 320, str(_r.status_code))
 check("/api/closure agrees with the module on every state count except gate-opened rows", set(_j.get("counts", {})) == set(m["counts"]))
 # C-65 (Codex P01): the executor gate table does not park a row; only an explicit parked_on does.
