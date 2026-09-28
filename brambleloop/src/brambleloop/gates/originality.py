@@ -730,11 +730,11 @@ def similarity_review(cir, *, pattern_text: str | None = None, db=None,
             "comparisons": comparisons}
 
 
-def similarity_findings(cir, *, pattern_text: str | None = None) -> list[Finding]:
+def similarity_findings(cir, *, pattern_text: str | None = None, db=None) -> list[Finding]:
     """The certificate's similarity stage: material overlap is an ERROR, never a footnote."""
     if getattr(cir, "authored", "brambleloop") != "brambleloop":
         return []
-    review = similarity_review(cir, pattern_text=pattern_text)
+    review = similarity_review(cir, pattern_text=pattern_text, db=db)
     out = [Finding(ERROR, "SIMILARITY_ESCALATED",
                    f"{cir.slug} overlaps materially with {e['benchmark']} on "
                    f"{e['dimensions']}: escalated for redesign (F-795). A purchased benchmark "
@@ -750,9 +750,44 @@ def similarity_findings(cir, *, pattern_text: str | None = None) -> list[Finding
     return out
 
 
-def release_findings(cir, *, pattern_text: str | None = None) -> list[Finding]:
-    """Everything this module contributes to a release certificate, in one call."""
-    return provenance_findings(cir) + similarity_findings(cir, pattern_text=pattern_text)
+def release_findings(cir, *, pattern_text: str | None = None, db=None) -> list[Finding]:
+    """Re-read durable evidence at the decision; no cached corpus approval."""
+    prov = getattr(cir, "provenance", None)
+    consulted = tuple(getattr(prov, "benchmarks_consulted", ()) or ())
+    ledger = ledger_from_db(db, prov.concept_key) if db is not None and prov else None
+    findings = provenance_findings(cir, ledger=ledger)
+    findings.extend(similarity_findings(cir, pattern_text=pattern_text, db=db))
+    if db is None:
+        findings.append(Finding(WARNING, "ORIGINALITY_DURABLE_EVIDENCE_UNCHECKED",
+                                "standalone check: no current database corpus/licence review; "
+                                "not full runtime originality proof"))
+        if consulted:
+            findings.append(Finding(ERROR, "ORIGINALITY_EVIDENCE_UNKNOWN",
+                                    "consulted sources require current durable evidence"))
+        return findings
+    from ..teardown import licence
+    from sqlalchemy import select
+    from ..core.models import BenchmarkProduct
+    # Uploaded PDFs without readable wording are known unknowns, never silently absent.
+    fingerprints = {f.ref: f for f in fingerprints_from_db(db)}
+    with db.session() as session:
+        purchased = list(session.scalars(select(BenchmarkProduct)))
+        pdf_refs = {p.ref for p in purchased if any(
+            str(f.get("name", f.get("path", ""))).lower().endswith(".pdf")
+            for f in (p.files or []) if isinstance(f, dict))}
+    for ref in sorted(pdf_refs | set(consulted)):
+        if ref not in fingerprints or not fingerprints[ref].wording:
+            findings.append(Finding(ERROR, "ORIGINALITY_EVIDENCE_UNKNOWN",
+                                    f"{ref}: uploaded/consulted source has no readable wording fingerprint"))
+    for ref in consulted:
+        terms = licence.licence_for(db, ref)
+        research_use = ("general_technique_research" if terms.source_kind in
+                        ("public_web", "public_video") else "private_analysis")
+        for use in (research_use, "similarity_review"):
+            allowed, reason = terms.permits(use)
+            if not allowed:
+                findings.append(Finding(ERROR, "ORIGINALITY_LICENCE_REFUSED", reason))
+    return findings
 
 
 # ---------------------------------------------------------------------------

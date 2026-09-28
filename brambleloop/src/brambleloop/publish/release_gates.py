@@ -40,7 +40,7 @@ ROLE_JOBS: dict[str, tuple[str, str]] = {
 # quotes the whole piece.
 FINISHED = "finished piece"
 
-_SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:cm\s*)?[x×]\s*(\d+(?:\.\d+)?)\s*cm")
+_SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:cm\s*)?[xÃ—]\s*(\d+(?:\.\d+)?)\s*cm")
 
 
 def _asset_id(slug: str, position: int) -> str:
@@ -814,6 +814,30 @@ def staleness(db, *, slug: str) -> dict:
             "outstanding_only_marketing": only_marketing}
 
 
+def originality_gate(db, *, slug: str, version: str) -> dict:
+    """Current corpus/rights at protected execution, including evidence added after QA."""
+    from ..cir.compiler import compile_cir
+    from ..cir.writer import write_pattern
+    from ..gates import originality
+    try:
+        cir, release_hash = _release(db, slug, version)
+        if cir is None:
+            return {"blocks": True, "reasons": ["originality: no certified source CIR"],
+                    "state": "UNKNOWN"}
+        result = compile_cir(cir)
+        if not result.ok:
+            return {"blocks": True, "reasons": ["originality: source CIR no longer compiles"],
+                    "state": "UNKNOWN"}
+        findings = originality.release_findings(cir, pattern_text=write_pattern(cir, result), db=db)
+        reasons = [f"{f.code}: {f.message}" for f in findings if f.is_error]
+        return {"blocks": bool(reasons), "reasons": reasons,
+                "state": "REFUSED" if reasons else "CHECKED", "release_hash": release_hash,
+                "limitation": "deterministic comparison is not independent legal/creative adjudication"}
+    except Exception as exc:
+        return {"blocks": True, "reasons": ["originality evidence unavailable: " + type(exc).__name__],
+                "state": "UNKNOWN"}
+
+
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
                 positioning: str | None = None, store_root=None) -> dict:
     """Everything store.publish must refuse on, computed once and returned as one verdict."""
@@ -823,6 +847,8 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     set_verdict = listing_set(db, slug=slug, version=version, store_root=store_root,
                               issue=not stale["blocks"] and window["may_launch_seasonally"])
     reasons = list(stale["reasons"])
+    originality = originality_gate(db, slug=slug, version=version)
+    reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     reasons.extend(set_verdict["reasons"])
@@ -856,7 +882,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
             "listing_set": set_verdict, "search": search, "standards": standards,
-            "withholding": held, "publication_scope": scope}
+            "withholding": held, "publication_scope": scope, "originality": originality}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
@@ -940,6 +966,8 @@ def for_marketing(db, *, slug: str, version: str, today: date | None = None,
     window = window_decision(db, slug=slug, version=version, today=today,
                              positioning=positioning)
     reasons = list(stale["reasons"])
+    originality = originality_gate(db, slug=slug, version=version)
+    reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     return {"slug": slug, "version": version, "blocks": bool(reasons), "reasons": reasons,

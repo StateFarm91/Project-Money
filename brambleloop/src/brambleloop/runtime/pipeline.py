@@ -581,7 +581,7 @@ def handle_certify(ctx: JobContext) -> dict:
 
     from ..gates.platform_policy import policy_stamp
 
-    cert = certify(cir, assets=[hero], listing=listing,
+    cert = certify(cir, assets=[hero], listing=listing, db=ctx.db,
                    calibration=calibration_from_db(ctx.db, cir),
                    # #39: the certificate records which reading of the platform's rules it
                    # was issued under, so it can be re-examined when they change.

@@ -334,17 +334,19 @@ def test_certify_requires_the_ledger_when_provenance_lists_benchmarks():
     cir = fixtures.good_mosaic_panel()
     cir.provenance.benchmarks_consulted = ("synthetic-bench-a",)
     codes = [f.code for f in certify(cir).errors]
-    assert codes == ["DESIGN_LEDGER_MISSING"], codes
+    assert codes == ["DESIGN_LEDGER_MISSING", "ORIGINALITY_EVIDENCE_UNKNOWN"], codes
     O.DECLARED_LEDGERS["test-mosaic"] = tuple(
         O.LedgerEntry.from_dict({**MATERIAL_LEDGER[0], "changed": [
             {"aspect": "colour", "what": "wine instead of red"}]}) for _ in [0])
     try:
         codes = [f.code for f in certify(cir).errors]
-        assert codes == ["REDESIGN_NOT_MEANINGFUL"], codes
+        assert codes == ["REDESIGN_NOT_MEANINGFUL", "ORIGINALITY_EVIDENCE_UNKNOWN"], codes
         O.DECLARED_LEDGERS["test-mosaic"] = tuple(
             O.LedgerEntry.from_dict(e) for e in MATERIAL_LEDGER)
         cert = certify(cir)
-        assert cert.granted, cert.blocking_reasons
+        # A material in-memory ledger cannot prove current corpus/licence checks.
+        assert not cert.granted
+        assert [f.code for f in cert.errors] == ["ORIGINALITY_EVIDENCE_UNKNOWN"]
     finally:
         O.DECLARED_LEDGERS.pop("test-mosaic", None)
 

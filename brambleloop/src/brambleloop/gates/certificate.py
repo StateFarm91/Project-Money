@@ -140,6 +140,7 @@ CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
 def certify(
     cir: CIR,
     *,
+    db=None,
     assets: list[Asset] | None = None,
     listing: ListingDraft | None = None,
     physical_test_passed: bool = False,
@@ -242,7 +243,7 @@ def certify(
                                            "cir.designer_notes"))
     # Design provenance, the design-difference ledger and the similarity review against
     # every purchased benchmark (F-783, F-798, F-794, F-791, F-795): `gates/originality.py`.
-    findings.extend(_originality.release_findings(cir, pattern_text=pattern_text))
+    findings.extend(_originality.release_findings(cir, pattern_text=pattern_text, db=db))
     stages.append("originality")
 
     # 4. Asset truth.

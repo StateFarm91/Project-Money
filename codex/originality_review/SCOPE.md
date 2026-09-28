@@ -1,0 +1,4 @@
+# G runtime repair scope
+Base479fc67794444ccc1b9db72c20626e3c583b1bfe; branch codex/final-originality-01.
+Own originality.py, new test_originality_runtime.py; coordinated certificate.py optional db, pipeline.handle_certify db argument, release_gates.for_publish new currentDB originality gate (no A/C gate changes). Approved intake.receive uploadedPDF reader invocation after licencecapture; no synthetic proof_run writes. Rights researched private_analysis/similarity_review, not implied commercial adaptation; no licensed-input schema exists.
+Acceptance: actual local synthetic PDF intake writes durablehashes; reopenedDB samewording refusal; later corpus/licencechanges invalidate protectedpublish without network; absent/unreadable evidence remainsUNKNOWN; failurepath. No secrets/spend/statusupdates/production.
