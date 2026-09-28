@@ -484,40 +484,47 @@ def prove_restore(db: Database, work_dir: str | Path) -> RestoreProof:
     # exemption existed, which is the guard working and the call site being wrong.
     scratch = Database(f"sqlite:///{scratch_path}", scratch=True)
 
-    problems: list[str] = []
+    # Session scopes close transactions, but pooled SQLite connections still own file
+    # handles. Dispose our scratch engine before the caller's temporary workspace exits,
+    # including failed restores and failed round-trip exports. Never dispose the source
+    # engine: it belongs to the running application, not this proof.
     try:
-        restored_counts = restore(source_path, scratch)
-    except Exception as e:  # noqa: BLE001 - a failed restore is the finding, not a crash
-        return RestoreProof(ok=False, export=original, restored_counts={},
-                            mismatches={}, round_trip_digest="",
-                            problems=[f"restore raised {type(e).__name__}: {e}"])
+        problems: list[str] = []
+        try:
+            restored_counts = restore(source_path, scratch)
+        except Exception as e:  # noqa: BLE001 - a failed restore is the finding, not a crash
+            return RestoreProof(ok=False, export=original, restored_counts={},
+                                mismatches={}, round_trip_digest="",
+                                problems=[f"restore raised {type(e).__name__}: {e}"])
 
-    expected = {t.name: t.rows for t in original.tables}
-    mismatches = {
-        name: (expected.get(name, 0), restored_counts.get(name, 0))
-        for name in set(expected) | set(restored_counts)
-        if expected.get(name, 0) != restored_counts.get(name, 0)
-    }
+        expected = {t.name: t.rows for t in original.tables}
+        mismatches = {
+            name: (expected.get(name, 0), restored_counts.get(name, 0))
+            for name in set(expected) | set(restored_counts)
+            if expected.get(name, 0) != restored_counts.get(name, 0)
+        }
 
-    # The part that makes this a proof rather than a headcount.
-    round_trip = export(scratch, work / "continuity-roundtrip.jsonl")
-    if round_trip.digest != original.digest:
-        differing = [
-            t.name for t in original.tables
-            if t.sha256 != next((r.sha256 for r in round_trip.tables if r.name == t.name), "")
-        ]
-        problems.append(
-            "restored data does not hash identically to the source; tables differing: "
-            + ", ".join(sorted(differing)[:10]))
+        # The part that makes this a proof rather than a headcount.
+        round_trip = export(scratch, work / "continuity-roundtrip.jsonl")
+        if round_trip.digest != original.digest:
+            differing = [
+                t.name for t in original.tables
+                if t.sha256 != next((r.sha256 for r in round_trip.tables if r.name == t.name), "")
+            ]
+            problems.append(
+                "restored data does not hash identically to the source; tables differing: "
+                + ", ".join(sorted(differing)[:10]))
 
-    return RestoreProof(
-        ok=not mismatches and not problems,
-        export=original,
-        restored_counts=restored_counts,
-        mismatches=mismatches,
-        round_trip_digest=round_trip.digest,
-        problems=problems,
-    )
+        return RestoreProof(
+            ok=not mismatches and not problems,
+            export=original,
+            restored_counts=restored_counts,
+            mismatches=mismatches,
+            round_trip_digest=round_trip.digest,
+            problems=problems,
+        )
+    finally:
+        scratch.engine.dispose()
 
 
 def counts_by_table(db: Database) -> dict[str, int]:
