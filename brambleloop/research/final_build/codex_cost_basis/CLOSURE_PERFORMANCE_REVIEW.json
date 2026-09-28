@@ -1,0 +1,38 @@
+{
+  "base": "f2e077d",
+  "mode": "read-only investigation; no maturity/closure production edits",
+  "network": "existing certification network guard; no external calls",
+  "measurements": {
+    "test_files": 309,
+    "test_bytes": 4583100,
+    "package_py_files": 397,
+    "sample16_parse_seconds": 0.079,
+    "sample16_ast_walk_seconds": 0.051,
+    "tested_modules_cold_seconds": 3.453,
+    "tested_modules_warm_seconds": 2.1e-06,
+    "tested_module_tokens": 868,
+    "registry_rows": 320,
+    "module_token_calls": 2438,
+    "unique_module_tokens": 723,
+    "first25_resolution_seconds": 0.167,
+    "indexed_candidate80_tokens": {
+      "output_identity": true,
+      "original_seconds": 0.661,
+      "index_build_seconds": 0.059,
+      "indexed_resolution_seconds": 0.303
+    }
+  },
+  "trace_correction": "25s page trace sampled _tested_modules; separate20s probe progressed past it and stalled in repeated _module_of pathlib.rglob. AST scan alone is not established dominant cause. No repeated minutes-long full-page runs.",
+  "cache_findings": {
+    "tested_modules": "lru_cache(maxsize=1), no arguments/fingerprint: source changes do not invalidate",
+    "reproducer": "temporary test_a.py import brambleloop.alpha; warm cache; overwrite same path with import brambleloop.bravo; returned alpha unchanged",
+    "other_caches": "maturity handler/import maps and reachability use caching; not audited fully here"
+  },
+  "proposal": "First address stale tested_modules cache with exact content-keyed parse result; optimize resolver only request-locally or against an immutable path snapshot, never unkeyed process cache. Preserve output; mutation/add/remove/ambiguity tests required. Do not claim measured speedup for whole closure from80-token sample.",
+  "unresolved": [
+    "Full closure execution includes reachability/static graph costs beyond measured subset",
+    "Cold full dashboard performance still open",
+    "Source edits not authorized yet; parent review required before implementation"
+  ],
+  "production_actions": false
+}

@@ -12,3 +12,5 @@ Dashboard diagnosis completed: network-refused25s trace localized cold-page stal
 Build2 closure test-corpus AST scan. Approved harness-only isolation retains closure UNKNOWN,
 real spend/data/page;7/7 focused checks pass including mixed-cost actualNone. Full dashboard
 performance remains unverified. Requires existing integrated network_guard.py from e0cf403.
+
+Read-only closure performance followup in CLOSURE_PERFORMANCE_REVIEW.json. AST cache cold3.45s/warm2us; repeated module filesystem resolution also costs time. Verified unkeyed test import cache stays stale after source change. No production cache edits; propose content-keyed invalidation before optimization.
