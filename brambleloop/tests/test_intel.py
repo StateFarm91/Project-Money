@@ -652,8 +652,15 @@ def test_an_arena_the_benchmark_sells_and_we_do_not_becomes_queued_work():
     assert queue and all(g["state"] == coverage.UNCOVERED for g in queue)
     top = queue[0]
     # Scored only on observable evidence, and the score says how little of itself is evidence.
-    assert set(top["components"]["components"]) == {"apparent_demand", "portfolio_fit"}
-    assert top["components"]["evidence_weight"] < 0.4
+    # #314 (C-61) added the components a scan can read from rows -- seasonal timing and make
+    # time -- beside demand and fit; what needs sales or a judged concept (contribution,
+    # creative potential) is named missing, never scored.
+    comps = top["components"]
+    assert {"apparent_demand", "portfolio_fit"} <= set(comps["components"])
+    assert set(comps["components"]) <= {"apparent_demand", "portfolio_fit", "seasonal_timing",
+                                        "make_time", "search_opportunity"}
+    assert {"expected_contribution", "creative_potential"} <= set(comps["missing"])
+    assert comps["evidence_weight"] < 1.0
 
 
 def test_a_scan_with_no_credential_explains_itself_instead_of_pretending():

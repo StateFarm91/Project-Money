@@ -425,9 +425,17 @@ def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
         broken = [(j.job_type, (j.last_error or "")[:80]) for j in s.scalars(_select(Job))
                   if j.status in (JobStatus.DEAD, JobStatus.FAILED)
                   and j.job_type != "store.publish"]
+        # The collection stage is reached either way; what it produces depends on the
+        # catalogue. #289 (C-71) refuses a two-member "collection" as a product and its
+        # accessory, and this warehouse certifies exactly two nordic-forest members, so the
+        # stage's evidence is the assessment and the refusal, not a Collection row.
+        from brambleloop.core.models import AuditLog as _AuditLog
+        collection_stage = [a for a in s.scalars(_select(_AuditLog)) if a.action in (
+            "collection.assessed", "collection.refused", "collection.assembled")]
     assert not broken, broken
     assert len(listings) >= 10, f"the rebuild reached only {len(listings)} listings"
-    assert images and content and collections
+    assert images and content
+    assert collections or collection_stage, "the rebuild never reached the collection stage"
     assert {l.chain_version for l in listings} == {CHAIN_VERSION}
 
 

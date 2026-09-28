@@ -121,9 +121,12 @@ def test_a_dimension_nothing_writes_says_so_instead_of_reading_as_sloppiness():
     spend_report.record(db, agent="a", amount_cad=1.0, purpose="p", department="intel")
 
     out = _gov(db, "experiment")
+    # C-80 gave the experiment dimension a tag (detail or the spending job's inputs); C-86
+    # then found the only thing that ever wrote it was a test fixture. So with nothing
+    # tagged the dimension has no writer and says why: UNMEASURED, not zero.
     assert out["has_writer"] is False
     assert out["unattributed_cad"] == 1.0
-    assert "cannot be tagged" in out["why_unattributed"]
+    assert "UNMEASURED" in out["why_unattributed"] and "enqueue no work" in out["why_unattributed"]
     assert _gov(db, "department")["has_writer"] is True
 
 

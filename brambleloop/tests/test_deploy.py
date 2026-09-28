@@ -569,6 +569,23 @@ def test_a_reworded_owner_action_is_restated_in_place_not_queued_twice():
                 "drained the queue itself, so this is the handler not running rather than a "
                 "worker that was too busy to reach it")
 
+    # #54 (C-80) withholds every ask that opens live Etsy -- the fee approval included --
+    # while any launch-package item is still ours to build, and this suite's warehouse has
+    # built none. Withholding is proved in test_launch; this test is about the RESTATE path
+    # of a request that is made, so the withholding key set is emptied for its duration.
+    from brambleloop.launch import readiness as _readiness
+
+    saved_keys = _readiness.OPENS_LIVE_ETSY_KEYS
+    _readiness.OPENS_LIVE_ETSY_KEYS = frozenset()
+    try:
+        _restate_in_place(run_readiness, fee_rows)
+    finally:
+        _readiness.OPENS_LIVE_ETSY_KEYS = saved_keys
+
+
+def _restate_in_place(run_readiness, fee_rows) -> None:
+    from brambleloop.core.models import Listing
+
     run_readiness("test:restate-1")
     first = fee_rows()
     assert len(first) == 1, first

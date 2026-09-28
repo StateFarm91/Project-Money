@@ -101,8 +101,15 @@ def test_the_split_gates_hold_what_they_say_they_hold():
     page_gate = E.GATE_BY_KEY["rendered_pages"]
 
     assert not set(image_gate.requirement_ids) & set(page_gate.requirement_ids)
-    # #209 and #304 are the gallery-analysis pair and must not need a browser.
-    assert 209 in image_gate.requirement_ids
+    # #209 and #304 are the gallery-analysis pair and must not need a browser. A row the
+    # registry has since closed leaves the table (C-86: a covered row in a gate tuple made
+    # the queue report it parked); one still waiting stays on the image gate, never the page
+    # gate.
+    from brambleloop.build2 import requirements as reg
+
+    for rid in (209, 304):
+        assert rid not in page_gate.requirement_ids
+        assert rid in image_gate.requirement_ids or reg.get(rid).status == reg.COVERED, rid
     assert 304 in image_gate.requirement_ids
     # Marketplace Insights has no sanctioned endpoint: it waits on readings the owner records
     # (certification C-40), not on a browser. The SERP laboratory moved off this gate when
