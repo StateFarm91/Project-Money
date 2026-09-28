@@ -174,7 +174,10 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # The refusal is load-bearing here: a gap in the table stops this handler rather than
     # shipping a UK document that instructs the wrong stitch.
     released_on = _released_on(ctx, slug, version)
-    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on)
+    from ..learn.service import pdf_help_links
+    lesson_links = pdf_help_links(ctx.db, cir.to_dict())
+    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on,
+                                 lesson_links=lesson_links)
             for t in TERMINOLOGIES}
     doc = docs["US"]
     # Every file this handler stores is a derived artefact the provenance sentinel watches,

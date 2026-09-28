@@ -46,6 +46,9 @@ app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 from .activation_authority_api import make_router as activation_authority_router
 
 app.include_router(activation_authority_router(db))
+from ..learn.api import router as learn_router
+
+app.include_router(learn_router(db))
 
 
 # What the last boot's enqueues did, readable from /health.

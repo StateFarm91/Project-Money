@@ -24,10 +24,11 @@ from dataclasses import dataclass
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
 from ..gates.originality import catalogue_provenance
 
-# Cotton at a firm gauge, because a basket that flops is not a basket. These are the same
-# family of constants the flat catalogue uses, at the tighter end.
-COTTON_GAUGE = Gauge(stitches_per_10cm=18, rows_per_10cm=20, stitch_type="sc", hook_mm=4.0)
-COASTER_GAUGE = Gauge(stitches_per_10cm=20, rows_per_10cm=22, stitch_type="sc", hook_mm=3.5)
+# D-FB-6: derive from the existing declared yarn, never relabel yarn to fit old counts.
+# These are published-band starting assumptions, not physical stiffness calibration.
+from ..creative.prototype import gauge_for
+COTTON_GAUGE = gauge_for("worsted")
+COASTER_GAUGE = gauge_for("dk")
 
 PALETTE = {"cream": "#FAF6EB", "wine": "#6E1F2A"}
 
@@ -103,7 +104,7 @@ def _disc_rounds(base_count: int, color: str, wedges: int = 6,
     return rows
 
 
-def build_basket(size: str = "medium", version: str = "1.0.0") -> CIR:
+def build_basket(size: str = "medium", version: str = "1.1.0") -> CIR:
     """A basket: a flat disc base, then straight walls at the base's stitch count."""
     spec = next((s for s in BASKET_SIZES if s.key == size), None)
     if spec is None:
@@ -163,8 +164,8 @@ def build_basket(size: str = "medium", version: str = "1.0.0") -> CIR:
     )
 
 
-def build_hexagon_coaster(across_cm: float = 10.0, make: int = 4,
-                          version: str = "1.0.0") -> CIR:
+def build_hexagon_coaster(across_cm: float = 9.6, make: int = 4,
+                          version: str = "1.1.0") -> CIR:
     """A six-sided coaster, worked in joined rounds with the increases stacked at the corners."""
     count = base_stitches_for(across_cm, COASTER_GAUGE)
     # The size on the listing is the size the stitch count makes, not the size that was
@@ -208,6 +209,6 @@ def build_hexagon_coaster(across_cm: float = 10.0, make: int = 4,
     )
 
 
-def build(version: str = "1.0.0") -> CIR:
+def build(version: str = "1.1.0") -> CIR:
     """The headline basket, for the engineered-design registry."""
     return build_basket("medium", version=version)
