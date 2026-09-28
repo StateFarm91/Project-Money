@@ -212,6 +212,11 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
                                    f"{ids}: Etsy charges it only on a sale it attributes to "
                                    f"an offsite ad")
     unmatched = [e for e in fees if e["entry_id"] not in matched_ids]
+    # F-608: a fee Etsy charged against a receipt or transaction this system has no order
+    # for is a disagreement between Etsy and the internal orders -- an order we cannot see.
+    # It becomes a reconciliation incident, never a silent line in a report.
+    orphans = [e for e in unmatched if e["reference_type"].lower() in ORDER_REFERENCE_TYPES]
+    incident = reconciliation_incident(db, orphans) if orphans else None
     return {
         "entries": len(norm), "fee_entries": len(fees),
         "unclassified": sorted({e["ledger_type"] for e in norm if e["kind"] == "unclassified"}),
@@ -223,7 +228,45 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
                                    "reference": f"{e['reference_type']}:{e['reference_id']}",
                                    "charge": e["charge"], "currency": e["currency"]}
                                   for e in unmatched][:50],
+        "orphan_fee_entries": len(orphans),
+        "reconciliation_incident": incident,
     }
+
+
+# Ledger references that name an order. A fee against one of these that matches no order
+# means Etsy has an order this system does not.
+ORDER_REFERENCE_TYPES = ("receipt", "transaction", "payment")
+RECONCILIATION_SIGNATURE = "finance.reconciliation.etsy_vs_orders"
+
+
+def reconciliation_incident(db, orphans: list[dict]) -> str:
+    """Open (or add to) the one incident for Etsy fees with no internal order. Idempotent."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    refs = sorted({f"{e['reference_type']}:{e['reference_id']}" for e in orphans})
+    ids = sorted({e["entry_id"] for e in orphans})
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature == RECONCILIATION_SIGNATURE,
+                                              Incident.resolved == False))  # noqa: E712
+        if inc is None:
+            s.add(Incident(signature=RECONCILIATION_SIGNATURE, severity="P2",
+                           summary=(f"Etsy charged {len(ids)} fee(s) against "
+                                    f"{len(refs)} order reference(s) with no internal order: "
+                                    f"Etsy and the order ledger disagree"),
+                           detail={"entry_ids": ids, "references": refs}))
+            return "opened"
+        detail = dict(inc.detail or {})
+        known = set(detail.get("entry_ids") or [])
+        new_ids = [i for i in ids if i not in known]
+        if not new_ids:
+            return "unchanged"
+        detail["entry_ids"] = sorted(known | set(new_ids))
+        detail["references"] = sorted(set(detail.get("references") or []) | set(refs))
+        inc.detail = detail
+        inc.report_count = int(inc.report_count or 1) + 1
+        return "counted"
 
 
 def fee_basis_summary(rows: Iterable[Any]) -> dict:

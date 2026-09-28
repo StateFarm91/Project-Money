@@ -237,6 +237,24 @@ def test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attri
     assert sources.table(db)["channels"]["offsite_ads"]["orders"] == 1
 
 
+def test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident():
+    """F-608: disagreement between Etsy and the internal orders is an incident."""
+    db = _db()
+    _listing(db)
+    _open_gate(db)
+    receipts = [_receipt(1, 501, "222", 900)]
+    orphan = _entry(7001, "transaction", "transaction", 999990, -59)
+    got = orders_ingest.ingest(db, reader=LedgerFeed(receipts, _ledger_entries() + [orphan]))
+    assert got["fees"]["orphan_fee_entries"] == 1
+    assert got["fees"]["reconciliation_incident"] == "opened"
+    again = orders_ingest.ingest(db, reader=LedgerFeed(receipts, _ledger_entries() + [orphan]))
+    assert again["fees"]["reconciliation_incident"] == "unchanged"
+    with db.session() as s:
+        incidents = list(s.scalars(select(Incident).where(
+            Incident.signature == reconcile.RECONCILIATION_SIGNATURE)))
+    assert len(incidents) == 1 and "transaction:999990" in incidents[0].detail["references"]
+
+
 def test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally():
     db = _db()
     _listing(db)
