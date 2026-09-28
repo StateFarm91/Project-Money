@@ -2,7 +2,7 @@
 import sys,os,tempfile
 from pathlib import Path
 from unittest.mock import patch
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'src'),str(ROOT)]
 from brambleloop.core.db import Database
 from brambleloop.core.models import CostEntry,LedgerEntry
@@ -25,15 +25,18 @@ def test_reservation_retries_restart_and_reconciliation_do_not_doublecount():
     reconcile.apply(db,[entry]);reconcile.apply(db,[entry])
     with db.session() as s:
         assert len(list(s.scalars(select(LedgerEntry))))==1
-        assert len(list(s.scalars(select(CostEntry))))==1
-        assert s.scalar(select(CostEntry)).amount_cad==.31
+        assert len(list(s.scalars(select(CostEntry))))==2
+        assert s.get(CostEntry,first).amount_cad==.27
     pl=Books(db).profit_and_loss()
-    assert pl.operating_costs_cad==.31,pl.to_dict()
-    assert pl.operating_costs_by_basis=={'measured':.31}
+    assert pl.operating_costs_cad==.58,pl.to_dict()
+    assert pl.unresolved_listing_exposure_cad==.27
+    assert pl.operating_costs_by_basis=={'measured':.31,'modelled':.27}
     later={**entry,'entry_id':8,'amount':{'amount':-25,'divisor':100,'currency_code':'CAD'}}
     reconcile.apply(db,[entry,later]);reconcile.apply(db,[entry,later])
-    assert Books(db).profit_and_loss().operating_costs_cad==.56
-    with db.session() as s:assert s.scalar(select(CostEntry)).amount_cad==.56
+    assert Books(db).profit_and_loss().operating_costs_cad==.83
+    with db.session() as s:
+        assert s.get(CostEntry,first).amount_cad==.27
+        assert len(list(s.scalars(select(CostEntry))))==3
 
 
 def test_unknown_legacy_and_assumed_provider_costs_cannot_be_cash():
@@ -124,6 +127,40 @@ def test_revoke_or_mutate_during_reservation_refuses_external_effect():
                 with db.session() as session:
                     assert len(list(session.scalars(select(CostEntry).where(CostEntry.kind=='etsy_listing_fee'))))==1
         finally:f._restore(original)
+
+def test_later_renewal_cannot_rewrite_old_period_or_escape_today_budget():
+    from brambleloop.agents.registry import BudgetExceeded
+    db=dbnew();now=datetime.now(timezone.utc);old=now-timedelta(days=40)
+    first=lc.reserve(db,listing_id='55',amount=.27,agent='store_operator',ceiling=1)
+    with db.session() as s:s.get(CostEntry,first).at=old
+    before=Books(db).profit_and_loss(since=old-timedelta(days=1),until=old+timedelta(days=1))
+    e={'kind':'listing_fee','reference_type':'listing','reference_id':'55',
+       'entry_id':'later-renewal','at':now.isoformat(),'charge':1.50,'currency':'CAD'}
+    lc.ingest_actual(db,[e]);lc.ingest_actual(Database(str(db.engine.url)),[e])
+    after=Books(db).profit_and_loss(since=old-timedelta(days=1),until=old+timedelta(days=1))
+    assert before.operating_costs_cad==after.operating_costs_cad==.27
+    today=Books(db).profit_and_loss(since=now-timedelta(hours=1))
+    assert today.operating_costs_cad==1.50 and today.operating_costs_by_basis=={'measured':1.50}
+    try:lc.reserve(db,listing_id='66',amount=.27,agent='store_operator',ceiling=1)
+    except BudgetExceeded:pass
+    else:raise AssertionError('actual renewal absent from current daily budget')
+    with db.session() as s:
+        assert len(list(s.scalars(select(CostEntry))))==2
+        assert s.get(CostEntry,first).amount_cad==.27
+    # Actual fees without any initial reservation still consume the store budget.
+    other=dbnew();lc.ingest_actual(other,[e])
+    try:lc.reserve(other,listing_id='66',amount=.27,agent='store_operator',ceiling=1)
+    except BudgetExceeded:pass
+    else:raise AssertionError('unreserved actual fee absent from daily budget')
+
+
+def test_unknown_fee_offsets_remain_unobserved():
+    db=dbnew()
+    with db.session() as s:
+        for amount in (1,-1):s.add(LedgerEntry(category='expense',fees_cad=amount,fees_basis='unknown'))
+    pl=Books(db).profit_and_loss();pl.sales_reading='measured'
+    assert pl.platform_fees_cad==0 and pl.unobserved_fee_rows==2
+    assert pl.cash_cad is None and not pl.all_observed
 
 if __name__=='__main__':
     funcs=[v for k,v in list(globals().items()) if k.startswith('test_')]
