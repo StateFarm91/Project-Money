@@ -966,8 +966,6 @@ def for_marketing(db, *, slug: str, version: str, today: date | None = None,
     window = window_decision(db, slug=slug, version=version, today=today,
                              positioning=positioning)
     reasons = list(stale["reasons"])
-    originality = originality_gate(db, slug=slug, version=version)
-    reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     return {"slug": slug, "version": version, "blocks": bool(reasons), "reasons": reasons,

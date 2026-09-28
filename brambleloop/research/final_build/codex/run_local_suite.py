@@ -76,6 +76,7 @@ def main():
         'NUMBER_OF_PROCESSORS'}}
     env['BRAMBLELOOP_FONT_PATH'] = str(Path(args.font).resolve())
     env['PYTHONIOENCODING'] = 'utf-8'
+    env['PYTHONUTF8'] = '1'
     code = ('import sys,runpy,json; sys.path[:0]=json.loads(sys.argv[1])+[sys.argv[2],sys.argv[3]]; '
             'suite=sys.argv[4]; sys.argv=[suite]; runpy.run_path(suite,run_name="__main__")')
     result = 1
