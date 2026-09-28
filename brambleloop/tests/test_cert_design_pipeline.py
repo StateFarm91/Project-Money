@@ -561,7 +561,18 @@ def test_mjs_response_is_walked_from_listing_to_engineering_309():
         M._restore(saved)
     with db.session() as s:
         ev = s.scalar(select(MjsMissionEvent).where(MjsMissionEvent.listing_ref == "1101"))
-        assert ev is not None and ev.entered, "the stocking listing was not entered"
+        # The response to a proven arena is a tournament either way: same-arena when the
+        # listing's own evidence gives us a superiority axis (#215, C-71: axes are read from the
+        # listing, never assumed), a breakthrough tournament when it offers only parity -- as
+        # this clear, unsized stocking listing does. Parity never enters; it never stops the
+        # walk either.
+        assert ev is not None and ev.decision == "run_a_tournament", (ev and ev.decision)
+        assert ev.tournament_job_id is not None, "no tournament was queued for the listing"
+        response = ev.steps["response"]["consider_arena"]
+        assert response["enter"] is ev.entered
+        if not ev.entered:
+            assert "parity" in response["reason"], response["reason"]
+            assert ev.steps["breakthrough"]["enqueued"] is True, ev.steps["breakthrough"]
         job = s.get(Job, ev.tournament_job_id)
         inputs, event_id = dict(job.inputs), ev.id
     assert inputs["seasonal_target"] == "Christmas"
