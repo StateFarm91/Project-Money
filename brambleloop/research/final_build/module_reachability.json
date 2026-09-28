@@ -1,0 +1,1895 @@
+{
+ "basis": "019ebf0 reachability.reached(); production tree fcb982d",
+ "modules": {
+  "__init__.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "agents/__init__.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "agents/registry.py": {
+   "reached": true,
+   "why": "stewardship is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime -> swarm/orchestrate.py:agent_quality",
+   "in_production_fcb982d": true
+  },
+  "app/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "app/access_log.py": {
+   "reached": true,
+   "why": "install is live: module body app/main.py -> app/main.py:<module>",
+   "in_production_fcb982d": true
+  },
+  "app/main.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": true
+  },
+  "app/runner.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": true
+  },
+  "app/scheduler_entry.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": true
+  },
+  "app/worker_entry.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": true
+  },
+  "brand/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "brand/bible.py": {
+   "reached": true,
+   "why": "check_collection_name is live: handler collection.assemble (enqueued by runtime/pipeline.py:handle_cir_draft) -> runtime/release.py:handle_collection_assemble",
+   "in_production_fcb982d": true
+  },
+  "brand/moat.py": {
+   "reached": true,
+   "why": "inventory is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+   "in_production_fcb982d": true
+  },
+  "brand/storefront.py": {
+   "reached": true,
+   "why": "check_storefront is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+   "in_production_fcb982d": true
+  },
+  "brand/takeover.py": {
+   "reached": true,
+   "why": "active is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/storefront.py:build_storefront",
+   "in_production_fcb982d": true
+  },
+  "build2/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "build2/autonomy.py": {
+   "reached": true,
+   "why": "health is live: API get api_build -> app/main.py:api_build",
+   "in_production_fcb982d": true
+  },
+  "build2/closure.py": {
+   "reached": true,
+   "why": "matrix is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": false
+  },
+  "build2/executor.py": {
+   "reached": true,
+   "why": "approval_inbox is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "build2/maturity.py": {
+   "reached": true,
+   "why": "ladder is live: API get api_build2_maturity -> app/main.py:api_build2_maturity",
+   "in_production_fcb982d": true
+  },
+  "build2/reachability.py": {
+   "reached": true,
+   "why": "reached is live: API get dashboard -> app/main.py:dashboard -> build2/closure.py:matrix -> build2/closure.py:classify -> build2/closure.py:proof_of",
+   "in_production_fcb982d": false
+  },
+  "build2/requirements.py": {
+   "reached": true,
+   "why": "load is live: API get dashboard -> app/main.py:dashboard -> build2/closure.py:matrix",
+   "in_production_fcb982d": true
+  },
+  "cir/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "cir/assembly.py": {
+   "reached": true,
+   "why": "assemble is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.py:b",
+   "in_production_fcb982d": true
+  },
+  "cir/benchmarks.py": {
+   "reached": true,
+   "why": "cardigan is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/certificate.py:specification_findings -> cir/specificat",
+   "in_production_fcb982d": true
+  },
+  "cir/compiler.py": {
+   "reached": true,
+   "why": "compile_cir is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans",
+   "in_production_fcb982d": true
+  },
+  "cir/geometry.py": {
+   "reached": true,
+   "why": "measure is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans -> seasonal/leadtime.py:maker_skill_for -> cir/twin.py:build_twin",
+   "in_production_fcb982d": true
+  },
+  "cir/graded.py": {
+   "reached": true,
+   "why": "GradedDesign.__post_init__ is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author -> creative/garment_design.py:design_for",
+   "in_production_fcb982d": false
+  },
+  "cir/grading.py": {
+   "reached": true,
+   "why": "GradingRefused is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author -> creative/garment_design.py:design_for -> cir/graded.py:",
+   "in_production_fcb982d": true
+  },
+  "cir/model.py": {
+   "reached": true,
+   "why": "CIR.__post_init__ is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans",
+   "in_production_fcb982d": true
+  },
+  "cir/reverse.py": {
+   "reached": true,
+   "why": "compare is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+   "in_production_fcb982d": true
+  },
+  "cir/rowcycle.py": {
+   "reached": true,
+   "why": "describe is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.py:b",
+   "in_production_fcb982d": true
+  },
+  "cir/shaping.py": {
+   "reached": true,
+   "why": "taper is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author -> creative/garment_design.py:design_for -> products/garments.py:ra",
+   "in_production_fcb982d": false
+  },
+  "cir/specification.py": {
+   "reached": true,
+   "why": "refuse_an_underspecified_design is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/certificate.py:specification_fin",
+   "in_production_fcb982d": true
+  },
+  "cir/stitches.py": {
+   "reached": true,
+   "why": "get is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans -> cir/model.py:CIR.from_dict -> cir/model.py:Op.__post_init__",
+   "in_production_fcb982d": true
+  },
+  "cir/twin.py": {
+   "reached": true,
+   "why": "build_twin is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans -> seasonal/leadtime.py:maker_skill_for",
+   "in_production_fcb982d": true
+  },
+  "cir/writer.py": {
+   "reached": true,
+   "why": "collapses_rows is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build -> publish/listing_assets.py:build_frames",
+   "in_production_fcb982d": true
+  },
+  "commerce/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "commerce/attribution.py": {
+   "reached": true,
+   "why": "join_stats is live: API post api_attribution_stats -> app/main.py:api_attribution_stats",
+   "in_production_fcb982d": true
+  },
+  "commerce/benchmarks.py": {
+   "reached": true,
+   "why": "cells is live: API get api_benchmarks -> app/main.py:api_benchmarks -> runtime/growth_ops.py:benchmarks_reading",
+   "in_production_fcb982d": true
+  },
+  "commerce/bundles.py": {
+   "reached": true,
+   "why": "attribution_from_db is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review -> growth/weekly.py:solve",
+   "in_production_fcb982d": true
+  },
+  "commerce/buyer_trust.py": {
+   "reached": true,
+   "why": "on_certified is live: handler gate.certify (enqueued by runtime/pipeline.py:handle_cir_compile) -> runtime/pipeline.py:handle_certify",
+   "in_production_fcb982d": true
+  },
+  "commerce/club.py": {
+   "reached": true,
+   "why": "research_plan is live: handler commerce.readings (cadence in runtime/worker.py:module constant) -> runtime/commerce_readings.py:handle_commerce_readings -> runtime/commerce_readings.py:read",
+   "in_production_fcb982d": true
+  },
+  "commerce/cohorts.py": {
+   "reached": true,
+   "why": "record_customer is live: handler commerce.orders_ingest (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_orders_ingest -> commerce/orders_ingest.py:ingest -> commerce/orders_",
+   "in_production_fcb982d": false
+  },
+  "commerce/elasticity.py": {
+   "reached": true,
+   "why": "memory is live: API get api_commercial -> app/main.py:api_commercial",
+   "in_production_fcb982d": true
+  },
+  "commerce/fee_schedule.py": {
+   "reached": true,
+   "why": "listing_fee_cad is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:module constant",
+   "in_production_fcb982d": false
+  },
+  "commerce/first_hundred.py": {
+   "reached": true,
+   "why": "before_the_first_customer is live: handler launch.readiness (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_launch_readiness",
+   "in_production_fcb982d": true
+  },
+  "commerce/friction.py": {
+   "reached": true,
+   "why": "listing_audit is live: handler growth.journey (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_journey -> runtime/growth_ops.py:friction_reading",
+   "in_production_fcb982d": true
+  },
+  "commerce/intent.py": {
+   "reached": true,
+   "why": "strategy is live: API get api_search_intent -> app/main.py:api_search_intent",
+   "in_production_fcb982d": true
+  },
+  "commerce/kill_table.py": {
+   "reached": true,
+   "why": "compose is live: handler commerce.readings (cadence in runtime/worker.py:module constant) -> runtime/commerce_readings.py:handle_commerce_readings -> runtime/commerce_readings.py:read",
+   "in_production_fcb982d": false
+  },
+  "commerce/ladder.py": {
+   "reached": true,
+   "why": "shape is live: handler commerce.order_readings (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_order_readings -> commerce/order_readings.py:read -> commerce/order_readings.p",
+   "in_production_fcb982d": true
+  },
+  "commerce/lanes.py": {
+   "reached": true,
+   "why": "observe is live: API get api_lanes -> app/main.py:api_lanes",
+   "in_production_fcb982d": true
+  },
+  "commerce/launch.py": {
+   "reached": true,
+   "why": "plan_launch is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan",
+   "in_production_fcb982d": true
+  },
+  "commerce/listing_tests.py": {
+   "reached": true,
+   "why": "known is live: API get api_listing_tests -> app/main.py:api_listing_tests",
+   "in_production_fcb982d": true
+  },
+  "commerce/markets.py": {
+   "reached": true,
+   "why": "lens is live: API get api_markets -> app/main.py:api_markets",
+   "in_production_fcb982d": true
+  },
+  "commerce/offers.py": {
+   "reached": true,
+   "why": "may_retire is live: handler portfolio.review (cadence in runtime/worker.py:module constant) -> runtime/pipeline.py:handle_portfolio_review",
+   "in_production_fcb982d": true
+  },
+  "commerce/order_readings.py": {
+   "reached": true,
+   "why": "read is live: handler commerce.order_readings (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_order_readings",
+   "in_production_fcb982d": false
+  },
+  "commerce/orders_ingest.py": {
+   "reached": true,
+   "why": "ingest is live: handler commerce.orders_ingest (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_orders_ingest",
+   "in_production_fcb982d": false
+  },
+  "commerce/paid_media.py": {
+   "reached": true,
+   "why": "Caps.validate is live: handler ads.campaign (enqueued by runtime/growth_ops.py:handle_ads_adjust) -> runtime/growth_ops.py:handle_ads_campaign",
+   "in_production_fcb982d": true
+  },
+  "commerce/portfolio.py": {
+   "reached": true,
+   "why": "diversification is live: API get api_portfolio -> app/main.py:api_portfolio",
+   "in_production_fcb982d": true
+  },
+  "commerce/preproduction.py": {
+   "reached": true,
+   "why": "ConceptPost.to_dict is live: handler growth.preproduction (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_preproduction -> commerce/preproduction_cycle.py:run",
+   "in_production_fcb982d": true
+  },
+  "commerce/preproduction_cycle.py": {
+   "reached": true,
+   "why": "brief is live: API get api_preproduction -> app/main.py:api_preproduction",
+   "in_production_fcb982d": false
+  },
+  "commerce/pricing.py": {
+   "reached": true,
+   "why": "decide_price is live: handler pricing.position (enqueued by runtime/release.py:handle_assets_build) -> runtime/release.py:handle_pricing_position",
+   "in_production_fcb982d": true
+  },
+  "commerce/pricing_intel.py": {
+   "reached": true,
+   "why": "price_bundle is live: handler collection.assemble (enqueued by runtime/pipeline.py:handle_cir_draft) -> runtime/release.py:handle_collection_assemble",
+   "in_production_fcb982d": true
+  },
+  "commerce/promotion.py": {
+   "reached": true,
+   "why": "dependence is live: API get api_promotion -> app/main.py:api_promotion",
+   "in_production_fcb982d": true
+  },
+  "commerce/referral.py": {
+   "reached": true,
+   "why": "outcome is live: handler commerce.order_readings (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_order_readings -> commerce/order_readings.py:read -> commerce/order_readings",
+   "in_production_fcb982d": true
+  },
+  "commerce/repeat.py": {
+   "reached": true,
+   "why": "windows is live: handler commerce.order_readings (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_order_readings -> commerce/order_readings.py:read -> commerce/order_readings",
+   "in_production_fcb982d": false
+  },
+  "commerce/replication.py": {
+   "reached": true,
+   "why": "candidates is live: handler seasonal.engine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_engine -> seasonal/daily.py:run -> seasonal/daily.py:mine_breakouts",
+   "in_production_fcb982d": true
+  },
+  "commerce/reviews.py": {
+   "reached": true,
+   "why": "distribution is live: handler commerce.readings (cadence in runtime/worker.py:module constant) -> runtime/commerce_readings.py:handle_commerce_readings -> runtime/commerce_readings.py:read",
+   "in_production_fcb982d": true
+  },
+  "commerce/search.py": {
+   "reached": true,
+   "why": "build_query_set is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo",
+   "in_production_fcb982d": true
+  },
+  "commerce/seo.py": {
+   "reached": true,
+   "why": "build_title is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo",
+   "in_production_fcb982d": true
+  },
+  "commerce/shop_package.py": {
+   "reached": true,
+   "why": "policies is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/storefront.py:build_storefront -> brand/storefront.py:module constant",
+   "in_production_fcb982d": true
+  },
+  "commerce/terms.py": {
+   "reached": true,
+   "why": "consistency is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo -> runtime/release.py:_support_knowledge",
+   "in_production_fcb982d": true
+  },
+  "commerce/thumbnail.py": {
+   "reached": true,
+   "why": "evaluate_thumbnail is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build",
+   "in_production_fcb982d": true
+  },
+  "commerce/trust.py": {
+   "reached": true,
+   "why": "may_scale_ads is live: API get api_trust -> app/main.py:api_trust",
+   "in_production_fcb982d": true
+  },
+  "core/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "core/artifacts.py": {
+   "reached": true,
+   "why": "ArtifactStore.__init__ is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/moat.py:inventory -> brand/moat.py:evidence -> brand/moat.py:measure_recognisability",
+   "in_production_fcb982d": true
+  },
+  "core/backup.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "core/build.py": {
+   "reached": true,
+   "why": "identity is live: API on_event _startup -> app/main.py:_startup",
+   "in_production_fcb982d": true
+  },
+  "core/continuity.py": {
+   "reached": true,
+   "why": "retained is live: API get api_continuity -> app/main.py:api_continuity",
+   "in_production_fcb982d": true
+  },
+  "core/db.py": {
+   "reached": true,
+   "why": "Database.__init__ is live: API post api_offsite_archive -> app/main.py:api_offsite_archive -> core/offsite.py:archive",
+   "in_production_fcb982d": true
+  },
+  "core/migrate.py": {
+   "reached": true,
+   "why": "apply is live: API post api_offsite_archive -> app/main.py:api_offsite_archive -> core/offsite.py:archive -> core/db.py:Database.create_all",
+   "in_production_fcb982d": true
+  },
+  "core/models.py": {
+   "reached": true,
+   "why": "LedgerEntry.net_cad is live: API get dashboard -> app/main.py:dashboard -> scale/confidence.py:probability -> scale/confidence.py:gate_status -> scale/confidence.py:_counts",
+   "in_production_fcb982d": true
+  },
+  "core/oauth_store.py": {
+   "reached": true,
+   "why": "live_handshakes is live: API get api_etsy_oauth_status -> app/main.py:api_etsy_oauth_status",
+   "in_production_fcb982d": true
+  },
+  "core/offsite.py": {
+   "reached": true,
+   "why": "state is live: API get api_offsite -> app/main.py:api_offsite",
+   "in_production_fcb982d": true
+  },
+  "core/opsauth.py": {
+   "reached": true,
+   "why": "check is live: API post api_culture_clearance -> app/main.py:_teardown_ops_refusal",
+   "in_production_fcb982d": true
+  },
+  "core/resilience.py": {
+   "reached": true,
+   "why": "CircuitBreaker.is_open is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> gateway/model_gateway.py:ModelGateway._",
+   "in_production_fcb982d": true
+  },
+  "core/sealed.py": {
+   "reached": true,
+   "why": "configured is live: API get api_etsy_oauth_callback -> app/main.py:api_etsy_oauth_callback -> integrations/etsy_authorise.py:finish",
+   "in_production_fcb982d": true
+  },
+  "core/workspace.py": {
+   "reached": true,
+   "why": "work_dir is live: API post api_offsite_archive -> app/main.py:api_offsite_archive -> core/offsite.py:archive",
+   "in_production_fcb982d": true
+  },
+  "creative/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "creative/audit.py": {
+   "reached": true,
+   "why": "catalogue_concepts is live: API get api_dependency -> app/main.py:api_dependency -> scale/dependency.py:report",
+   "in_production_fcb982d": true
+  },
+  "creative/benchmark_memory.py": {
+   "reached": true,
+   "why": "build is live: handler creative.benchmark_memory (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_benchmark_memory",
+   "in_production_fcb982d": false
+  },
+  "creative/blind_review.py": {
+   "reached": true,
+   "why": "run is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review",
+   "in_production_fcb982d": false
+  },
+  "creative/blinded.py": {
+   "reached": true,
+   "why": "last_run is live: API get api_creative_blinded -> app/main.py:api_creative_blinded",
+   "in_production_fcb982d": true
+  },
+  "creative/board.py": {
+   "reached": true,
+   "why": "make_board is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft -> creative/preengineering.py:gate_concept",
+   "in_production_fcb982d": false
+  },
+  "creative/breakthrough.py": {
+   "reached": true,
+   "why": "diverge is live: API get api_breakthrough -> app/main.py:api_breakthrough",
+   "in_production_fcb982d": true
+  },
+  "creative/certification.py": {
+   "reached": true,
+   "why": "release is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> creative/prospecting.py:tournament",
+   "in_production_fcb982d": true
+  },
+  "creative/concept.py": {
+   "reached": true,
+   "why": "Concept.__post_init__ is live: API get api_dependency -> app/main.py:api_dependency -> scale/dependency.py:report -> creative/audit.py:catalogue_concepts -> creative/audit.py:concept_from_design",
+   "in_production_fcb982d": true
+  },
+  "creative/discovery.py": {
+   "reached": true,
+   "why": "white_space is live: handler creative.white_space (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_white_space",
+   "in_production_fcb982d": true
+  },
+  "creative/family.py": {
+   "reached": true,
+   "why": "shift_capacity is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> creative/prospecting.py:tournament",
+   "in_production_fcb982d": true
+  },
+  "creative/funnel.py": {
+   "reached": true,
+   "why": "advance is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> creative/prospecting.py:tournament",
+   "in_production_fcb982d": true
+  },
+  "creative/garment_design.py": {
+   "reached": true,
+   "why": "design_for is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author",
+   "in_production_fcb982d": false
+  },
+  "creative/ideation.py": {
+   "reached": true,
+   "why": "mine_complaints is live: handler creative.white_space (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_white_space",
+   "in_production_fcb982d": false
+  },
+  "creative/intake.py": {
+   "reached": true,
+   "why": "verify_funnel is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft",
+   "in_production_fcb982d": false
+  },
+  "creative/invention.py": {
+   "reached": true,
+   "why": "promise is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prospecting.py:propose -> creative/preengineering.py:promise_for",
+   "in_production_fcb982d": true
+  },
+  "creative/jury.py": {
+   "reached": true,
+   "why": "judge is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft -> creative/preengineering.py:gate_concept -> creative/preengineering.py:_jury",
+   "in_production_fcb982d": true
+  },
+  "creative/outcome_learning.py": {
+   "reached": true,
+   "why": "learn is live: handler creative.outcome_learning (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_outcome_learning",
+   "in_production_fcb982d": false
+  },
+  "creative/preengineering.py": {
+   "reached": true,
+   "why": "gate_concept is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft",
+   "in_production_fcb982d": false
+  },
+  "creative/prospecting.py": {
+   "reached": true,
+   "why": "history is live: API get api_creative_prospects -> app/main.py:api_creative_prospects",
+   "in_production_fcb982d": true
+  },
+  "creative/prototype.py": {
+   "reached": true,
+   "why": "author is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+   "in_production_fcb982d": true
+  },
+  "creative/reference.py": {
+   "reached": true,
+   "why": "run is live: handler creative.reference_reading (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_reference_reading",
+   "in_production_fcb982d": true
+  },
+  "creative/seasonal_transform.py": {
+   "reached": true,
+   "why": "evaluate is live: handler seasonal.remerchandising (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_remerchandising_review -> seasonal/remerchandising.py:transformations",
+   "in_production_fcb982d": true
+  },
+  "creative/standard.py": {
+   "reached": true,
+   "why": "autopsy_patterns is live: API get api_invention -> app/main.py:api_invention",
+   "in_production_fcb982d": true
+  },
+  "creative/strength.py": {
+   "reached": true,
+   "why": "benchmark_scores is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft -> creative/preengineering.py:gate_concept -> creative/preengineering.py:_to",
+   "in_production_fcb982d": false
+  },
+  "creative/style_learning.py": {
+   "reached": true,
+   "why": "knowledge is live: API get api_creative_learning -> app/main.py:api_creative_learning",
+   "in_production_fcb982d": false
+  },
+  "creative/tournament.py": {
+   "reached": true,
+   "why": "Result.to_dict is live: handler improve.weekly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_weekly_evolution -> creative/audit.py:persist_catalogue_audit -> creative/aud",
+   "in_production_fcb982d": true
+  },
+  "creative/universe.py": {
+   "reached": true,
+   "why": "diversity is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> creative/ideation.py:select",
+   "in_production_fcb982d": true
+  },
+  "culture/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "culture/cast.py": {
+   "reached": true,
+   "why": "dependence is live: API get api_culture_development -> app/main.py:api_culture_development -> culture/engine.py:ip_direction",
+   "in_production_fcb982d": true
+  },
+  "culture/classify.py": {
+   "reached": true,
+   "why": "classify is live: handler culture.sweep (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_culture_sweep",
+   "in_production_fcb982d": true
+  },
+  "culture/demand.py": {
+   "reached": true,
+   "why": "record is live: handler culture.sweep (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_culture_sweep",
+   "in_production_fcb982d": true
+  },
+  "culture/engine.py": {
+   "reached": true,
+   "why": "clear is live: API post api_culture_clearance -> app/main.py:api_culture_clearance",
+   "in_production_fcb982d": false
+  },
+  "culture/feeds.py": {
+   "reached": true,
+   "why": "usable is live: API get api_culture -> app/main.py:api_culture",
+   "in_production_fcb982d": true
+  },
+  "culture/radar.py": {
+   "reached": true,
+   "why": "sweep is live: API get api_culture -> app/main.py:api_culture",
+   "in_production_fcb982d": true
+  },
+  "culture/rapid.py": {
+   "reached": true,
+   "why": "check is live: handler culture.sweep (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_culture_sweep -> culture/engine.py:run -> culture/engine.py:rapid_response",
+   "in_production_fcb982d": true
+  },
+  "culture/rights.py": {
+   "reached": true,
+   "why": "record_basis is live: API post api_culture_clearance -> app/main.py:api_culture_clearance -> culture/engine.py:clear",
+   "in_production_fcb982d": true
+  },
+  "culture/score.py": {
+   "reached": true,
+   "why": "score is live: handler culture.sweep (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_culture_sweep -> culture/engine.py:run -> culture/engine.py:process_signal",
+   "in_production_fcb982d": true
+  },
+  "culture/translate.py": {
+   "reached": true,
+   "why": "collection is live: API get api_culture_development -> app/main.py:api_culture_development -> culture/engine.py:collection_plans",
+   "in_production_fcb982d": true
+  },
+  "finance/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "finance/books.py": {
+   "reached": true,
+   "why": "Books.__init__ is live: handler plan.strategy (cadence in runtime/worker.py:module constant) -> runtime/pipeline.py:handle_plan_strategy",
+   "in_production_fcb982d": true
+  },
+  "finance/currency.py": {
+   "reached": true,
+   "why": "contribution is live: handler pricing.position (enqueued by runtime/release.py:handle_assets_build) -> runtime/release.py:handle_pricing_position -> commerce/pricing.py:decide_price -> commerce/pricin",
+   "in_production_fcb982d": true
+  },
+  "finance/governor.py": {
+   "reached": true,
+   "why": "report is live: API get api_governor -> app/main.py:api_governor",
+   "in_production_fcb982d": true
+  },
+  "finance/reinvestment.py": {
+   "reached": true,
+   "why": "recommend is live: handler commerce.order_readings (cadence in runtime/worker.py:module constant) -> runtime/orders.py:handle_order_readings -> commerce/order_readings.py:read -> commerce/order_readin",
+   "in_production_fcb982d": true
+  },
+  "finance/reservations.py": {
+   "reached": true,
+   "why": "outstanding_in is live: API get dashboard -> app/main.py:dashboard -> ops/health.py:read -> ops/health.py:_spend",
+   "in_production_fcb982d": true
+  },
+  "finance/spend_policy.py": {
+   "reached": true,
+   "why": "headroom is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance",
+   "in_production_fcb982d": true
+  },
+  "finance/spend_report.py": {
+   "reached": true,
+   "why": "governance is live: API get dashboard -> app/main.py:_spend_governance_data",
+   "in_production_fcb982d": true
+  },
+  "finance/unit_cost.py": {
+   "reached": true,
+   "why": "unit_costs is live: handler finance.governor (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_finance_governor -> finance/governor.py:enforce -> finance/governor.py:_act_on_",
+   "in_production_fcb982d": true
+  },
+  "gates/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "gates/asset_truth.py": {
+   "reached": true,
+   "why": "Provenance.is_complete is live: handler gate.certify (enqueued by runtime/pipeline.py:handle_cir_compile) -> runtime/pipeline.py:handle_certify",
+   "in_production_fcb982d": true
+  },
+  "gates/certificate.py": {
+   "reached": true,
+   "why": "certify is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+   "in_production_fcb982d": true
+  },
+  "gates/confidence.py": {
+   "reached": true,
+   "why": "assess is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+   "in_production_fcb982d": true
+  },
+  "gates/first_customer.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "gates/incidents.py": {
+   "reached": true,
+   "why": "IncidentTracker.__init__ is live: handler gate.certify (enqueued by runtime/pipeline.py:handle_cir_compile) -> runtime/pipeline.py:handle_certify",
+   "in_production_fcb982d": true
+  },
+  "gates/platform_policy.py": {
+   "reached": true,
+   "why": "record_page_reading is live: API post api_policy_snapshot -> app/main.py:api_policy_snapshot",
+   "in_production_fcb982d": true
+  },
+  "gates/policy.py": {
+   "reached": true,
+   "why": "check_originality is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+   "in_production_fcb982d": true
+  },
+  "gates/policy_knowledge.py": {
+   "reached": true,
+   "why": "seed_snapshots is live: handler ops.policy_watch (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_policy_watch",
+   "in_production_fcb982d": false
+  },
+  "gates/regression.py": {
+   "reached": true,
+   "why": "load_all is live: API get api_lanes -> app/main.py:api_lanes -> commerce/lanes.py:observe -> commerce/lanes.py:_regression_state",
+   "in_production_fcb982d": true
+  },
+  "gateway/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "gateway/anthropic.py": {
+   "reached": true,
+   "why": "probe is live: handler model.probe (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_model_probe",
+   "in_production_fcb982d": true
+  },
+  "gateway/evals.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "gateway/image_bench.py": {
+   "reached": true,
+   "why": "state is live: API get api_image_benchmark -> app/main.py:api_image_benchmark",
+   "in_production_fcb982d": true
+  },
+  "gateway/images.py": {
+   "reached": true,
+   "why": "state is live: API get api_image_generation -> app/main.py:api_image_generation",
+   "in_production_fcb982d": true
+  },
+  "gateway/model_gateway.py": {
+   "reached": true,
+   "why": "available_providers is live: API get api_dependency -> app/main.py:api_dependency -> scale/dependency.py:report",
+   "in_production_fcb982d": true
+  },
+  "gateway/prompts.py": {
+   "reached": true,
+   "why": "get is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> gateway/model_gateway.py:ModelGateway.complete_json",
+   "in_production_fcb982d": true
+  },
+  "gateway/routing.py": {
+   "reached": true,
+   "why": "budget is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "growth/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "growth/clusters.py": {
+   "reached": true,
+   "why": "plan is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution -> runtime/growth_ops.py:plan_clusters",
+   "in_production_fcb982d": true
+  },
+  "growth/content.py": {
+   "reached": true,
+   "why": "build_ecosystem is live: handler marketing.schedule (enqueued by runtime/release.py:handle_launch_plan) -> runtime/release.py:handle_marketing_schedule",
+   "in_production_fcb982d": true
+  },
+  "growth/creators.py": {
+   "reached": true,
+   "why": "roster is live: API get api_creators -> app/main.py:api_creators",
+   "in_production_fcb982d": true
+  },
+  "growth/experiments.py": {
+   "reached": true,
+   "why": "register_at_launch is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan",
+   "in_production_fcb982d": true
+  },
+  "growth/free_to_paid.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "growth/interviews.py": {
+   "reached": true,
+   "why": "may_open is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution -> runtime/growth_ops.py:interviews_reading",
+   "in_production_fcb982d": true
+  },
+  "growth/loops.py": {
+   "reached": true,
+   "why": "evidence_summary is live: API get dashboard -> app/main.py:dashboard -> scale/confidence.py:probability -> scale/confidence.py:ladder",
+   "in_production_fcb982d": true
+  },
+  "growth/mix.py": {
+   "reached": true,
+   "why": "report is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review -> growth/weekly.py:solve",
+   "in_production_fcb982d": true
+  },
+  "growth/owned.py": {
+   "reached": true,
+   "why": "counterparts is live: API get api_owned -> app/main.py:api_owned",
+   "in_production_fcb982d": true
+  },
+  "growth/pins.py": {
+   "reached": true,
+   "why": "check_set is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution -> runtime/growth_ops.py:plan_pins",
+   "in_production_fcb982d": true
+  },
+  "growth/portfolio.py": {
+   "reached": true,
+   "why": "SkuMetrics.ctr is live: handler portfolio.review (cadence in runtime/worker.py:module constant) -> runtime/pipeline.py:handle_portfolio_review",
+   "in_production_fcb982d": true
+  },
+  "growth/tools.py": {
+   "reached": true,
+   "why": "Tool.__post_init__ is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution -> runtime/growth_ops.py:tools_reading",
+   "in_production_fcb982d": true
+  },
+  "growth/video.py": {
+   "reached": true,
+   "why": "plan is live: handler growth.distribution (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_distribution -> runtime/growth_ops.py:plan_video",
+   "in_production_fcb982d": true
+  },
+  "growth/weekly.py": {
+   "reached": true,
+   "why": "solve is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review",
+   "in_production_fcb982d": false
+  },
+  "improve/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "improve/bootstrap.py": {
+   "reached": true,
+   "why": "ensure is live: handler improve.league (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_improve_league -> improve/league.py:cycle",
+   "in_production_fcb982d": false
+  },
+  "improve/bus.py": {
+   "reached": true,
+   "why": "compounding is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "improve/cells.py": {
+   "reached": true,
+   "why": "retrospective is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "improve/consume.py": {
+   "reached": true,
+   "why": "matching is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo",
+   "in_production_fcb982d": false
+  },
+  "improve/director.py": {
+   "reached": true,
+   "why": "backlogs is live: API get api_improve -> app/main.py:api_improve",
+   "in_production_fcb982d": false
+  },
+  "improve/evolution.py": {
+   "reached": true,
+   "why": "domain_findings is live: handler improve.weekly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_weekly_evolution",
+   "in_production_fcb982d": false
+  },
+  "improve/freshness.py": {
+   "reached": true,
+   "why": "sweep is live: handler improve.weekly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_weekly_evolution",
+   "in_production_fcb982d": true
+  },
+  "improve/governance.py": {
+   "reached": true,
+   "why": "check is live: API post api_teardown_qa -> app/main.py:api_teardown_qa -> teardown/lab.py:product_qa_all -> teardown/lab.py:product_qa -> teardown/lab.py:_act_on_delight -> improve/cells.py:propose",
+   "in_production_fcb982d": true
+  },
+  "improve/league.py": {
+   "reached": true,
+   "why": "standings is live: API get api_league -> app/main.py:api_league",
+   "in_production_fcb982d": true
+  },
+  "improve/measure.py": {
+   "reached": true,
+   "why": "record_all is live: handler improve.measure (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capability_measure",
+   "in_production_fcb982d": false
+  },
+  "improve/mine.py": {
+   "reached": true,
+   "why": "mine is live: handler improve.mine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_failure_mine",
+   "in_production_fcb982d": false
+  },
+  "improve/monitor.py": {
+   "reached": true,
+   "why": "sweep is live: handler improve.monitor (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_promotion_monitor",
+   "in_production_fcb982d": false
+  },
+  "improve/nightly.py": {
+   "reached": true,
+   "why": "stage_ran is live: handler improve.nightly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_nightly_improvement",
+   "in_production_fcb982d": true
+  },
+  "improve/profiles.py": {
+   "reached": true,
+   "why": "review_all is live: API get api_profiles -> app/main.py:api_profiles",
+   "in_production_fcb982d": true
+  },
+  "improve/replay.py": {
+   "reached": true,
+   "why": "cycle is live: handler improve.replay (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_improve_replay",
+   "in_production_fcb982d": false
+  },
+  "improve/roi.py": {
+   "reached": true,
+   "why": "realised_benefit is live: API get api_roi -> app/main.py:api_roi",
+   "in_production_fcb982d": true
+  },
+  "improve/roles.py": {
+   "reached": true,
+   "why": "scorecard is live: handler improve.role_work (cadence in runtime/worker.py:_role_cadences) -> runtime/release.py:handle_role_work",
+   "in_production_fcb982d": true
+  },
+  "improve/runner.py": {
+   "reached": true,
+   "why": "run is live: handler improve.sandbox (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_improve_sandbox",
+   "in_production_fcb982d": false
+  },
+  "improve/tiers.py": {
+   "reached": true,
+   "why": "state is live: API get api_tiers -> app/main.py:api_tiers",
+   "in_production_fcb982d": true
+  },
+  "improve/upgrades.py": {
+   "reached": true,
+   "why": "close_owner_card is live: handler improve.league (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_improve_league -> improve/league.py:cycle",
+   "in_production_fcb982d": true
+  },
+  "improve/velocity.py": {
+   "reached": true,
+   "why": "Stop.__post_init__ is live: handler improve.weekly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_weekly_evolution -> improve/evolution.py:stop_list",
+   "in_production_fcb982d": true
+  },
+  "improve/weekly.py": {
+   "reached": true,
+   "why": "DomainReading.__post_init__ is live: handler improve.weekly (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_weekly_evolution",
+   "in_production_fcb982d": true
+  },
+  "integrations/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "integrations/etsy.py": {
+   "reached": true,
+   "why": "Credentials.__repr__ is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+   "in_production_fcb982d": true
+  },
+  "integrations/etsy_authorise.py": {
+   "reached": true,
+   "why": "begin is live: API get api_etsy_oauth_start -> app/main.py:api_etsy_oauth_start",
+   "in_production_fcb982d": true
+  },
+  "integrations/etsy_exercise.py": {
+   "reached": true,
+   "why": "run is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise",
+   "in_production_fcb982d": true
+  },
+  "integrations/etsy_oauth.py": {
+   "reached": true,
+   "why": "new_verifier is live: API get api_etsy_oauth_start -> app/main.py:api_etsy_oauth_start -> integrations/etsy_authorise.py:begin",
+   "in_production_fcb982d": true
+  },
+  "integrations/etsy_probe.py": {
+   "reached": true,
+   "why": "run_exercise is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run",
+   "in_production_fcb982d": true
+  },
+  "integrations/etsy_verify.py": {
+   "reached": true,
+   "why": "verify is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_probe.py:run_exercise",
+   "in_production_fcb982d": true
+  },
+  "integrations/http.py": {
+   "reached": true,
+   "why": "UrllibTransport.request is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run",
+   "in_production_fcb982d": true
+  },
+  "intel/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "intel/acceptance.py": {
+   "reached": true,
+   "why": "describe is live: API get api_acceptance -> app/main.py:api_acceptance",
+   "in_production_fcb982d": false
+  },
+  "intel/benchmark_refresh.py": {
+   "reached": true,
+   "why": "assess is live: handler intel.benchmark_refresh (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_intel_benchmark_refresh",
+   "in_production_fcb982d": false
+  },
+  "intel/benchmark_set.py": {
+   "reached": true,
+   "why": "compare_listing_set is live: handler creative.blind_review (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_blind_review -> creative/blind_review.py:run -> creative/blind_re",
+   "in_production_fcb982d": false
+  },
+  "intel/benchmarks.py": {
+   "reached": true,
+   "why": "seed is live: API on_event _startup -> app/main.py:_startup",
+   "in_production_fcb982d": true
+  },
+  "intel/browser.py": {
+   "reached": true,
+   "why": "probe is live: handler ops.capability_probes (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capability_probes",
+   "in_production_fcb982d": true
+  },
+  "intel/cadence.py": {
+   "reached": true,
+   "why": "next_interval is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "intel/capacity.py": {
+   "reached": true,
+   "why": "reserve_lane is live: handler swarm.backlog (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_swarm_backlog -> swarm/orchestrate.py:feed_idle -> swarm/orchestrate.py:allocate",
+   "in_production_fcb982d": true
+  },
+  "intel/childrens.py": {
+   "reached": true,
+   "why": "render_statements is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish",
+   "in_production_fcb982d": true
+  },
+  "intel/coverage.py": {
+   "reached": true,
+   "why": "summary is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report",
+   "in_production_fcb982d": true
+  },
+  "intel/deliverable.py": {
+   "reached": true,
+   "why": "read is live: handler intel.panel_discovery (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_intel_panel_discovery -> intel/panel_discovery.py:discover -> intel/observe.py:s",
+   "in_production_fcb982d": true
+  },
+  "intel/etsy_public.py": {
+   "reached": true,
+   "why": "capability is live: API get api_etsy -> app/main.py:api_etsy",
+   "in_production_fcb982d": true
+  },
+  "intel/etsy_surfaces.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "intel/insights.py": {
+   "reached": true,
+   "why": "snapshots is live: API get api_insights -> app/main.py:api_insights",
+   "in_production_fcb982d": false
+  },
+  "intel/insights_budget.py": {
+   "reached": true,
+   "why": "allocate is live: handler commerce.readings (cadence in runtime/worker.py:module constant) -> runtime/commerce_readings.py:handle_commerce_readings -> runtime/commerce_readings.py:read",
+   "in_production_fcb982d": false
+  },
+  "intel/learning.py": {
+   "reached": true,
+   "why": "observations is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "intel/market_map.py": {
+   "reached": true,
+   "why": "build is live: API get api_teardown -> app/main.py:api_teardown",
+   "in_production_fcb982d": true
+  },
+  "intel/mechanisms.py": {
+   "reached": true,
+   "why": "Mechanism.__post_init__ is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan -> runtime/release.py:_run_mjs_mission -> intel/mission_runtime.p",
+   "in_production_fcb982d": true
+  },
+  "intel/memory.py": {
+   "reached": true,
+   "why": "report is live: API get api_teardown -> app/main.py:api_teardown",
+   "in_production_fcb982d": true
+  },
+  "intel/mission.py": {
+   "reached": true,
+   "why": "mission_report is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "intel/mission_runtime.py": {
+   "reached": true,
+   "why": "record_veto is live: API post api_mjs_veto -> app/main.py:api_mjs_veto",
+   "in_production_fcb982d": false
+  },
+  "intel/observe.py": {
+   "reached": true,
+   "why": "scan_or_explain is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan",
+   "in_production_fcb982d": true
+  },
+  "intel/panel.py": {
+   "reached": true,
+   "why": "ceiling_check is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> runtime/release.py:_ceiling_gate",
+   "in_production_fcb982d": true
+  },
+  "intel/panel_discovery.py": {
+   "reached": true,
+   "why": "discover is live: handler intel.panel_discovery (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_intel_panel_discovery",
+   "in_production_fcb982d": false
+  },
+  "intel/pod_learning.py": {
+   "reached": true,
+   "why": "capability is live: handler intel.pod_learning (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_intel_pod_learning -> intel/mission_runtime.py:pod_capability",
+   "in_production_fcb982d": true
+  },
+  "intel/pods.py": {
+   "reached": true,
+   "why": "Pod._first is live: API get dashboard -> app/main.py:dashboard -> intel/mission.py:mission_report -> intel/pods.py:module constant",
+   "in_production_fcb982d": true
+  },
+  "intel/purchase_selection.py": {
+   "reached": true,
+   "why": "select is live: API post api_teardown_intake -> app/main.py:api_teardown_intake -> teardown/intake.py:receive -> teardown/intake.py:_why_selected",
+   "in_production_fcb982d": true
+  },
+  "intel/response.py": {
+   "reached": true,
+   "why": "PipelineRun.advance is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> intel/mission_runtime.py:advance_pipeline",
+   "in_production_fcb982d": true
+  },
+  "intel/serp.py": {
+   "reached": true,
+   "why": "state is live: API get api_serp -> app/main.py:api_serp",
+   "in_production_fcb982d": false
+  },
+  "intel/veto.py": {
+   "reached": true,
+   "why": "Veto.__post_init__ is live: API post api_mjs_veto -> app/main.py:api_mjs_veto -> intel/mission_runtime.py:record_veto",
+   "in_production_fcb982d": true
+  },
+  "intel/vision.py": {
+   "reached": true,
+   "why": "plan is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "launch/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "launch/access.py": {
+   "reached": true,
+   "why": "available is live: API get dashboard -> app/main.py:dashboard -> intel/vision.py:plan",
+   "in_production_fcb982d": true
+  },
+  "launch/readiness.py": {
+   "reached": true,
+   "why": "assess is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "launch/rollback.py": {
+   "reached": true,
+   "why": "latest is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_launch_package_items",
+   "in_production_fcb982d": false
+  },
+  "ops/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "ops/artefacts.py": {
+   "reached": true,
+   "why": "expected_from_db is live: API get api_provenance -> app/main.py:api_provenance",
+   "in_production_fcb982d": true
+  },
+  "ops/backfill.py": {
+   "reached": true,
+   "why": "run is live: handler ops.provenance_backfill (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_provenance_backfill",
+   "in_production_fcb982d": false
+  },
+  "ops/dependencies.py": {
+   "reached": true,
+   "why": "map_state is live: API get api_dependencies -> app/main.py:api_dependencies",
+   "in_production_fcb982d": true
+  },
+  "ops/funding.py": {
+   "reached": true,
+   "why": "note is live: handler model.probe (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_model_probe -> gateway/anthropic.py:probe",
+   "in_production_fcb982d": true
+  },
+  "ops/health.py": {
+   "reached": true,
+   "why": "verdict is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "ops/incident_lifecycle.py": {
+   "reached": true,
+   "why": "snapshot is live: API get api_incidents -> app/main.py:api_incidents",
+   "in_production_fcb982d": false
+  },
+  "ops/provider_accounts.py": {
+   "reached": true,
+   "why": "reconcile is live: API get api_funding -> app/main.py:api_funding",
+   "in_production_fcb982d": true
+  },
+  "ops/rebuild_graph.py": {
+   "reached": true,
+   "why": "enqueue is live: handler ops.sentinel (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_stale_artefact_sentinel",
+   "in_production_fcb982d": true
+  },
+  "ops/retention.py": {
+   "reached": true,
+   "why": "apply is live: handler ops.retention (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_retention",
+   "in_production_fcb982d": true
+  },
+  "products/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "products/builder.py": {
+   "reached": true,
+   "why": "for_slug is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+   "in_production_fcb982d": true
+  },
+  "products/garments.py": {
+   "reached": true,
+   "why": "StitchFamily.__post_init__ is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author -> creative/garment_design.py:design_for",
+   "in_production_fcb982d": false
+  },
+  "products/launch0.py": {
+   "reached": true,
+   "why": "childrens_assignment is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publ",
+   "in_production_fcb982d": true
+  },
+  "products/motifs.py": {
+   "reached": true,
+   "why": "Motif.width is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> products/builder.py:for_slug -> products/builder.py:build",
+   "in_production_fcb982d": true
+  },
+  "products/nordic_forest.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "products/personalisation.py": {
+   "reached": true,
+   "why": "catalogue is live: handler commerce.readings (cadence in runtime/worker.py:module constant) -> runtime/commerce_readings.py:handle_commerce_readings -> runtime/commerce_readings.py:read",
+   "in_production_fcb982d": true
+  },
+  "products/texture.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "products/vessels.py": {
+   "reached": true,
+   "why": "build_basket is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run",
+   "in_production_fcb982d": true
+  },
+  "publish/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "publish/abbreviations.py": {
+   "reached": true,
+   "why": "unlocalised is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.p",
+   "in_production_fcb982d": true
+  },
+  "publish/brief.py": {
+   "reached": true,
+   "why": "brief_for_release is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build",
+   "in_production_fcb982d": true
+  },
+  "publish/charts.py": {
+   "reached": true,
+   "why": "reset_render_flags is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build -> publish/listing_assets.py:build_frames",
+   "in_production_fcb982d": true
+  },
+  "publish/defects.py": {
+   "reached": true,
+   "why": "capture is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build",
+   "in_production_fcb982d": true
+  },
+  "publish/difficulty.py": {
+   "reached": true,
+   "why": "difficulty is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans -> seasonal/leadtime.py:maker_skill_for",
+   "in_production_fcb982d": true
+  },
+  "publish/dimensions.py": {
+   "reached": true,
+   "why": "Canonical.__post_init__ is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan -> publish/release_gates.py:listing_set -> publish/rel",
+   "in_production_fcb982d": true
+  },
+  "publish/eligibility.py": {
+   "reached": true,
+   "why": "Candidate.__post_init__ is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan -> publish/release_gates.py:listing_set",
+   "in_production_fcb982d": true
+  },
+  "publish/layout_qa.py": {
+   "reached": true,
+   "why": "inspect is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build -> publish/listing_assets.py:check_frame_plan",
+   "in_production_fcb982d": true
+  },
+  "publish/listing_asset.py": {
+   "reached": true,
+   "why": "last is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run",
+   "in_production_fcb982d": true
+  },
+  "publish/listing_assets.py": {
+   "reached": true,
+   "why": "build_frames is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build",
+   "in_production_fcb982d": true
+  },
+  "publish/listing_schema.py": {
+   "reached": true,
+   "why": "verification_matrix is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_probe.py:run_exercise -> integrations/etsy_probe.py:c",
+   "in_production_fcb982d": true
+  },
+  "publish/listing_set.py": {
+   "reached": true,
+   "why": "certify is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan -> publish/release_gates.py:listing_set -> publish/release_gates.py:ce",
+   "in_production_fcb982d": true
+  },
+  "publish/mobile.py": {
+   "reached": true,
+   "why": "ContextRender.__post_init__ is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan -> publish/release_gates.py:listing_set -> publish",
+   "in_production_fcb982d": true
+  },
+  "publish/model_photography.py": {
+   "reached": true,
+   "why": "last_asset is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> publish/listing_asset.py:last",
+   "in_production_fcb982d": true
+  },
+  "publish/motif_fidelity.py": {
+   "reached": true,
+   "why": "chart_image is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> publish/listing_asset.py:make -> publish/owned_pho",
+   "in_production_fcb982d": true
+  },
+  "publish/owned_photography.py": {
+   "reached": true,
+   "why": "needs_no_model is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+   "in_production_fcb982d": true
+  },
+  "publish/pdf.py": {
+   "reached": true,
+   "why": "pattern_filename is live: handler assets.build (enqueued by runtime/pipeline.py:handle_listing_draft) -> runtime/release.py:handle_assets_build",
+   "in_production_fcb982d": true
+  },
+  "publish/physical_upgrade.py": {
+   "reached": true,
+   "why": "measure_impact is live: handler physical.upgrade_impact (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_physical_upgrade_impact",
+   "in_production_fcb982d": false
+  },
+  "publish/release_gates.py": {
+   "reached": true,
+   "why": "window_decision is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan",
+   "in_production_fcb982d": false
+  },
+  "publish/schematic.py": {
+   "reached": true,
+   "why": "schematic_for is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf",
+   "in_production_fcb982d": false
+  },
+  "publish/substitution.py": {
+   "reached": true,
+   "why": "guidance is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.py:b",
+   "in_production_fcb982d": true
+  },
+  "publish/value_stack.py": {
+   "reached": true,
+   "why": "outcome_price is live: handler pricing.position (enqueued by runtime/release.py:handle_assets_build) -> runtime/release.py:handle_pricing_position -> runtime/release.py:_outcome_price",
+   "in_production_fcb982d": true
+  },
+  "publish/withholding.py": {
+   "reached": true,
+   "why": "record is live: handler gate.certify (enqueued by runtime/pipeline.py:handle_cir_compile) -> runtime/pipeline.py:handle_certify -> runtime/pipeline.py:_mark_withheld",
+   "in_production_fcb982d": false
+  },
+  "quality/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "quality/physical.py": {
+   "reached": true,
+   "why": "calibration_from_db is live: handler gate.certify (enqueued by runtime/pipeline.py:handle_cir_compile) -> runtime/pipeline.py:handle_certify",
+   "in_production_fcb982d": true
+  },
+  "quality/proof.py": {
+   "reached": true,
+   "why": "check_claim is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/policy.py:check_listing -> gates/policy.py:check_pro",
+   "in_production_fcb982d": true
+  },
+  "quality/testers.py": {
+   "reached": true,
+   "why": "plan is live: handler gate.lanes (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_lane_routing",
+   "in_production_fcb982d": true
+  },
+  "queue/__init__.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "queue/durable.py": {
+   "reached": true,
+   "why": "JobQueue.__init__ is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "radar/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "radar/arbitrage.py": {
+   "reached": true,
+   "why": "state is live: API get api_arbitrage -> app/main.py:api_arbitrage",
+   "in_production_fcb982d": true
+  },
+  "radar/market.py": {
+   "reached": true,
+   "why": "shopping_window is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan",
+   "in_production_fcb982d": true
+  },
+  "radar/opportunity.py": {
+   "reached": true,
+   "why": "_event is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan",
+   "in_production_fcb982d": true
+  },
+  "radar/provenance.py": {
+   "reached": true,
+   "why": "evidence_for is live: handler radar.score (enqueued by runtime/pipeline.py:handle_portfolio_review) -> runtime/pipeline.py:handle_radar_score",
+   "in_production_fcb982d": true
+  },
+  "radar/report.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "runtime/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "runtime/commerce_readings.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": false
+  },
+  "runtime/growth_ops.py": {
+   "reached": true,
+   "why": "benchmarks_reading is live: API get api_benchmarks -> app/main.py:api_benchmarks",
+   "in_production_fcb982d": false
+  },
+  "runtime/orders.py": {
+   "reached": true,
+   "why": "_previous is live: API get api_trajectory -> app/main.py:api_trajectory",
+   "in_production_fcb982d": false
+  },
+  "runtime/pipeline.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": true
+  },
+  "runtime/release.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": true
+  },
+  "runtime/worker.py": {
+   "reached": true,
+   "why": "runtime root",
+   "in_production_fcb982d": true
+  },
+  "scale/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "scale/allocation.py": {
+   "reached": true,
+   "why": "allocate is live: API get api_allocation -> app/main.py:api_allocation",
+   "in_production_fcb982d": true
+  },
+  "scale/calibration.py": {
+   "reached": true,
+   "why": "Period.__post_init__ is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review -> growth/weekly.py:solve -> scale/evidence.py:calibratio",
+   "in_production_fcb982d": true
+  },
+  "scale/confidence.py": {
+   "reached": true,
+   "why": "probability is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "scale/dependency.py": {
+   "reached": true,
+   "why": "report is live: API get api_dependency -> app/main.py:api_dependency",
+   "in_production_fcb982d": true
+  },
+  "scale/evidence.py": {
+   "reached": true,
+   "why": "confidence_reading is live: API get api_scale -> app/main.py:api_scale",
+   "in_production_fcb982d": false
+  },
+  "scale/leading.py": {
+   "reached": true,
+   "why": "dashboard is live: API get api_leading -> app/main.py:api_leading",
+   "in_production_fcb982d": false
+  },
+  "scale/readiness.py": {
+   "reached": true,
+   "why": "gate is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review -> growth/weekly.py:solve",
+   "in_production_fcb982d": false
+  },
+  "scale/runrate.py": {
+   "reached": true,
+   "why": "constraint is live: API get api_trajectory -> app/main.py:api_trajectory -> scale/trajectory.py:nightly",
+   "in_production_fcb982d": true
+  },
+  "scale/target.py": {
+   "reached": true,
+   "why": "binding_constraint is live: handler ops.capacity (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_capacity_review -> growth/weekly.py:solve",
+   "in_production_fcb982d": true
+  },
+  "scale/trajectory.py": {
+   "reached": true,
+   "why": "nightly is live: API get api_trajectory -> app/main.py:api_trajectory",
+   "in_production_fcb982d": true
+  },
+  "scale/war_room.py": {
+   "reached": true,
+   "why": "board is live: handler growth.steer (cadence in runtime/worker.py:module constant) -> runtime/growth_ops.py:handle_growth_steer -> runtime/growth_ops.py:steer",
+   "in_production_fcb982d": false
+  },
+  "seasonal/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "seasonal/benchmark_matrix.py": {
+   "reached": true,
+   "why": "matrix is live: API get api_seasonal_benchmark_matrix -> app/main.py:api_seasonal_benchmark_matrix",
+   "in_production_fcb982d": true
+  },
+  "seasonal/calendar.py": {
+   "reached": true,
+   "why": "heaviest_launchable_lane is live: API get api_seasonal_feasibility -> app/main.py:api_seasonal_feasibility",
+   "in_production_fcb982d": true
+  },
+  "seasonal/collections.py": {
+   "reached": true,
+   "why": "assemble is live: handler collection.assemble (enqueued by runtime/pipeline.py:handle_cir_draft) -> runtime/release.py:handle_collection_assemble -> runtime/release.py:_collection_architecture",
+   "in_production_fcb982d": true
+  },
+  "seasonal/colour.py": {
+   "reached": true,
+   "why": "forecast is live: API get api_colour -> app/main.py:api_colour",
+   "in_production_fcb982d": true
+  },
+  "seasonal/compression.py": {
+   "reached": true,
+   "why": "programme is live: API get api_seasonal_compression -> app/main.py:api_seasonal_compression",
+   "in_production_fcb982d": true
+  },
+  "seasonal/cycle.py": {
+   "reached": true,
+   "why": "run is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle",
+   "in_production_fcb982d": true
+  },
+  "seasonal/daily.py": {
+   "reached": true,
+   "why": "run is live: handler seasonal.engine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_engine",
+   "in_production_fcb982d": false
+  },
+  "seasonal/depth.py": {
+   "reached": true,
+   "why": "depth_plan is live: API get api_seasonal_depth -> app/main.py:api_seasonal_depth",
+   "in_production_fcb982d": true
+  },
+  "seasonal/engine.py": {
+   "reached": true,
+   "why": "allocate is live: handler seasonal.engine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_engine -> seasonal/daily.py:run",
+   "in_production_fcb982d": true
+  },
+  "seasonal/fastlane.py": {
+   "reached": true,
+   "why": "admit is live: handler seasonal.engine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_engine -> seasonal/daily.py:run -> seasonal/daily.py:fast_lane",
+   "in_production_fcb982d": true
+  },
+  "seasonal/harvest.py": {
+   "reached": true,
+   "why": "adjusted_assumptions is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans",
+   "in_production_fcb982d": false
+  },
+  "seasonal/leadtime.py": {
+   "reached": true,
+   "why": "catalogue_plans is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": true
+  },
+  "seasonal/remerchandising.py": {
+   "reached": true,
+   "why": "plan is live: API get api_seasonal_remerchandising -> app/main.py:api_seasonal_remerchandising",
+   "in_production_fcb982d": true
+  },
+  "seasonal/rollforward.py": {
+   "reached": true,
+   "why": "roll_forward is live: handler seasonal.engine (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_engine -> seasonal/daily.py:run",
+   "in_production_fcb982d": true
+  },
+  "seasonal/teams.py": {
+   "reached": true,
+   "why": "allocate is live: API get api_seasonal_teams -> app/main.py:api_seasonal_teams",
+   "in_production_fcb982d": true
+  },
+  "seasonal/uncertainty.py": {
+   "reached": true,
+   "why": "sample_count is live: API get api_seasonal_feasibility -> app/main.py:api_seasonal_feasibility",
+   "in_production_fcb982d": true
+  },
+  "support/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "support/concierge.py": {
+   "reached": true,
+   "why": "version_answer is live: handler support.triage (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_support_triage -> support/department.py:CustomerExperience.handle",
+   "in_production_fcb982d": true
+  },
+  "support/department.py": {
+   "reached": true,
+   "why": "CustomerExperience.__init__ is live: handler support.triage (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_support_triage",
+   "in_production_fcb982d": true
+  },
+  "support/service.py": {
+   "reached": true,
+   "why": "service_level is live: API get api_trust -> app/main.py:api_trust",
+   "in_production_fcb982d": true
+  },
+  "swarm/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "swarm/capacity.py": {
+   "reached": true,
+   "why": "share_decision is live: runtime loop runtime/worker.py -> runtime/worker.py:Worker.run_once -> swarm/orchestrate.py:lane_hold",
+   "in_production_fcb982d": false
+  },
+  "swarm/orchestrate.py": {
+   "reached": true,
+   "why": "work_items is live: API get api_swarm_runtime -> app/main.py:api_swarm_runtime",
+   "in_production_fcb982d": true
+  },
+  "teardown/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "teardown/audits.py": {
+   "reached": true,
+   "why": "publishing_requirements is live: API get api_teardown -> app/main.py:api_teardown",
+   "in_production_fcb982d": true
+  },
+  "teardown/enforce.py": {
+   "reached": true,
+   "why": "apply_pattern_help is live: handler support.triage (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_support_triage",
+   "in_production_fcb982d": false
+  },
+  "teardown/intake.py": {
+   "reached": true,
+   "why": "receive is live: API post api_teardown_intake -> app/main.py:api_teardown_intake",
+   "in_production_fcb982d": true
+  },
+  "teardown/lab.py": {
+   "reached": true,
+   "why": "product_qa_all is live: API post api_teardown_qa -> app/main.py:api_teardown_qa",
+   "in_production_fcb982d": false
+  },
+  "teardown/library.py": {
+   "reached": true,
+   "why": "scan is live: API post api_teardown_intake -> app/main.py:api_teardown_intake -> teardown/intake.py:receive",
+   "in_production_fcb982d": true
+  },
+  "teardown/pipeline.py": {
+   "reached": true,
+   "why": "status is live: API get api_teardown -> app/main.py:api_teardown",
+   "in_production_fcb982d": true
+  },
+  "teardown/proof_run.py": {
+   "reached": true,
+   "why": "run is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check",
+   "in_production_fcb982d": true
+  },
+  "teardown/reader.py": {
+   "reached": true,
+   "why": "self_test is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check",
+   "in_production_fcb982d": true
+  },
+  "teardown/readiness.py": {
+   "reached": true,
+   "why": "check is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+   "in_production_fcb982d": true
+  },
+  "teardown/scorecard.py": {
+   "reached": true,
+   "why": "composite_standard is live: API get api_teardown -> app/main.py:api_teardown",
+   "in_production_fcb982d": true
+  },
+  "visual/__init__.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/bible.py": {
+   "reached": true,
+   "why": "gate is live: handler seasonal.cycle_proof (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_seasonal_cycle_proof -> publish/listing_asset.py:make -> publish/model_photograph",
+   "in_production_fcb982d": true
+  },
+  "visual/brief.py": {
+   "reached": true,
+   "why": "owner_candidate_supplied is live: handler creative.model_tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_model_tournament",
+   "in_production_fcb982d": true
+  },
+  "visual/correspondence.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/crochet_topology.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/d_judge.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": false
+  },
+  "visual/drape.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/drift_series.py": {
+   "reached": true,
+   "why": "run is live: handler visual.identity_drift (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_identity_drift",
+   "in_production_fcb982d": false
+  },
+  "visual/fabric.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/final_standard.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/freeze.py": {
+   "reached": true,
+   "why": "freeze is live: API post api_model_identity_freeze -> app/main.py:api_model_identity_freeze",
+   "in_production_fcb982d": true
+  },
+  "visual/gallery.py": {
+   "reached": true,
+   "why": "minimum_quality is live: handler launch.plan (enqueued by runtime/release.py:handle_listing_seo) -> runtime/release.py:handle_launch_plan -> publish/release_gates.py:listing_set",
+   "in_production_fcb982d": true
+  },
+  "visual/hand_tension.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/identity.py": {
+   "reached": true,
+   "why": "status is live: API get api_model_identity -> app/main.py:api_model_identity -> visual/model_registry.py:state",
+   "in_production_fcb982d": true
+  },
+  "visual/inspect.py": {
+   "reached": true,
+   "why": "calibrate is live: API get api_gallery_calibration -> app/main.py:api_gallery_calibration",
+   "in_production_fcb982d": true
+  },
+  "visual/linkage.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/milestone_d.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": false
+  },
+  "visual/milestones.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/model_registry.py": {
+   "reached": true,
+   "why": "state is live: API get api_model_identity -> app/main.py:api_model_identity",
+   "in_production_fcb982d": true
+  },
+  "visual/parity.py": {
+   "reached": true,
+   "why": "assess is live: handler store.publish (enqueued by runtime/release.py:handle_launch_plan) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_listing_parity",
+   "in_production_fcb982d": true
+  },
+  "visual/pbr_scene.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/photoreal.py": {
+   "reached": true,
+   "why": "carried_portrait is live: API get api_carried_portrait -> app/main.py:api_carried_portrait",
+   "in_production_fcb982d": true
+  },
+  "visual/portrait_repair.py": {
+   "reached": true,
+   "why": "reassess is live: API get api_portrait_repair -> app/main.py:api_portrait_repair",
+   "in_production_fcb982d": true
+  },
+  "visual/presentation.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "visual/provider_trial.py": {
+   "reached": true,
+   "why": "pick_challenger is live: API on_event _startup -> app/main.py:_startup",
+   "in_production_fcb982d": true
+  },
+  "visual/reference_pack.py": {
+   "reached": true,
+   "why": "plan is live: API get api_model_pack -> app/main.py:api_model_pack",
+   "in_production_fcb982d": true
+  },
+  "visual/relaxation.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/reliability.py": {
+   "reached": true,
+   "why": "measure is live: handler assets.model_photography (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_model_photography -> publish/model_photography.py:what_to_do_next -> publi",
+   "in_production_fcb982d": true
+  },
+  "visual/render.py": {
+   "reached": true,
+   "why": "fabric_raster is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft -> creative/preengineering.py:gate_concept -> creative/board.py:make_board",
+   "in_production_fcb982d": true
+  },
+  "visual/sc_swatch.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": false
+  },
+  "visual/stitch_shape.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  },
+  "visual/tournament.py": {
+   "reached": true,
+   "why": "generate_candidates is live: handler creative.model_tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_model_tournament",
+   "in_production_fcb982d": true
+  },
+  "visual/yarn.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": true
+  },
+  "visual/yarn_construction.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": true
+  }
+ }
+}
