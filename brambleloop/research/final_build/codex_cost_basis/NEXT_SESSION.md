@@ -7,3 +7,8 @@ Next: integrator review plus bounded dashboard startup diagnosis if needed; do n
 Actual amounts nullable; exposure amounts and thresholds unchanged. Legacy measured key labelled.
 Ledger backfill and exact activation-event reconciliation remain unresolved; no inferred matches.
 No production, paid calls, status changes or Visual edits. H blocked worktree remains untouched.
+
+Dashboard diagnosis completed: network-refused25s trace localized cold-page stall to
+Build2 closure test-corpus AST scan. Approved harness-only isolation retains closure UNKNOWN,
+real spend/data/page;7/7 focused checks pass including mixed-cost actualNone. Full dashboard
+performance remains unverified. Requires existing integrated network_guard.py from e0cf403.
