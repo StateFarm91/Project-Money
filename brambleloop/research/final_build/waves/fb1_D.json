@@ -1,7 +1,7 @@
 {
  "cluster": "D",
  "branch": "claude/fb1-D",
- "head": "<see final commit>",
+ "head": "76fa06d (code); report commit follows",
  "base": "be8d416",
  "requirements": [
   {
