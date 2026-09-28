@@ -31,3 +31,8 @@ Read this first after any compaction/restart (F-861..F-864).
 ## Next action
 Map every registry record to evidence (slices under `research/final_build/mapping/`), then
 aggregate into `closure_matrix.json` and `FINAL_BUILD_BASELINE_AUDIT.md`.
+
+## Assignments (2026-09-28, mapping wave M1)
+Nine read-only mapping workers, disjoint slices, brief `mapping/MAPPING_BRIEF.md`, uids in
+`mapping/s1..s9_uids.json`, outputs `mapping/s1..s9.json`. If a session reset kills them,
+re-dispatch only the slices whose output file is missing or fails `json.load`.
