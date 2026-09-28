@@ -1253,3 +1253,58 @@ complete on the image-vision path are COMPLETE+PROVEN with that stated; their pr
 are refused before spending, not failed, until funding returns.
 | B-601 | 2026-09-27 | The mission's allowlist gains one endpoint: findAllListingsActive (`GET /v3/application/listings/active`). | #2, #15 and #98 need the marketplace's search index, and Etsy's published OpenAPI marks this endpoint api_key-only, the same as the nine already allowed (etsy_surfaces records this). It widens what is read, not what is authorised: same credential, no OAuth scope, no Authorization header, no write. The allowlist stays an allowlist (B-121): the addition is one named entry with its reason beside it, and `search()` refuses undeclared orderings and unscoped searches. Its ranking (sort_on=score) and count are the API index's, labelled api_index_score_sort / api_index_count, never the rendered search page; rank is directional. Found by the Build 2 certification (defect C-40): these rows had been parked on a browser gate while software could do the work. | Yes |
 | B-602 | 2026-09-27 | The research judge (`visual/d_judge.py`) runs only under an operator-stated spend cap, `BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD`, enforced in code before each request. | It is the one paid call in `src/` that reaches a provider outside the gateway (by hand-built HTTP, which the spend-path scanner could not see). The owner's rule is a ceiling in code even for authorised spend; a research script that forgets the variable is refused, not billed. `tests/test_cert_spend_hosts.py` pins every file that addresses a paid provider host so the next one cannot appear unreviewed. Found by the Build 2 certification (C-54). | Yes |
+
+## 2026-09-27/28 — Build 2 certification repair wave (isolated branch claude/visual-investigation)
+
+**D-B2C-13. An independent audit that refutes certification is acted on as a repair
+wave, not argued with.** The 9434c53 closeout was audited independently (55 invalid, 96
+weak) and again by Codex (75 findings). Every finding was adjudicated against the code
+(confirmed / partly / refuted with file:line evidence), the confirmed ones repaired in six
+parallel clusters plus four follow-on waves, and each merge validated with the cluster's own
+handler-level tests plus the standard closure/reachability/platform/orchestration/gates/
+executor/wiring suites before the next merge. Ledger C-60..C-86 records each defect, its
+evidence and its fix.
+
+**D-B2C-14. Only an explicit `parked_on` parks a partial row; the executor gate table parks
+nothing on its own (C-74).** A row an audit reopens by clearing `parked_on` must read OPEN,
+whatever gate once stood in front of it. `closed_out` requires zero OPEN with every gate read
+live; without a database the bar is indeterminate, never met.
+
+**D-B2C-15. Reachability is a call graph from live roots, and it is necessary evidence, not
+sufficient proof (C-65).** A module reached only by a static route or an audit receipt is
+unreached. A row is COMPLETE+PROVEN only when a handler-level test proves the producer →
+durable evidence → runtime consumer → decision → protected action chain; a fixture that
+injects evidence production never produces proves the consumer, not the row.
+
+**D-B2C-16. A row whose end-to-end effect waits on a closed owner credit gate is parked on
+that gate, not registered covered (C-86).** The design pipeline's winners wait at intake on
+image_vision; #277 #281 #309 #88 #126 #308 are partial on image_vision with the built half
+proven, consistent with #86. A measurement proxy is labelled a proxy and the measured half is
+parked where its data comes from (#163 benchmark_purchases, #169 and #31 customers).
+
+**D-B2C-17. A capability the world has not produced is BLOCKED, never a pass (C-86, B-611
+kept).** `seasonal.cycle` reports the model-bearing render path as BLOCKED on
+`model_bearing_render` with the gate named; unlike GATED it never lets the cycle report
+complete. Our own unfinished work still FAILS; an invented wait still FAILS.
+
+**D-B2C-18. A changed hypothesis is a change to the code that runs the tripped loop, not a
+new build (C-85).** Suspensions record the handler module's source digest and lift only when
+it changes or a person resolves the incident.
+
+**D-B2C-19. Commercial truth is reconciled state, not appended events (C-78).** Receipts are
+reconciled per transaction with a durable update cursor; only paid, non-cancelled receipts
+are sales; unknown states and unknown acquisition stay unknown; losses are retained; money
+inputs carry their basis (estimated vs measured); a crash between writes converges to
+exactly-once on the next run.
+
+**D-B2C-20. One durable release-eligibility record carries every withholding reason
+(C-84).** Owner veto, teardown QA, competitive standard and binding teardown requirements are
+kinds on one record read by certify, launch, draft, rebuild and publish; clearing one never
+clears another.
+
+**D-B2C-21. Bounded, receipted priority movement is legitimate; untraceable priority is not
+(C-73, C-75, #187).** A job may be lifted inside its band by deadline/value and by a starved
+lane's boost, and moved by growth.steer by a stated credit that may cross into the adjacent
+band; every steered move leaves a receipt with the job ids; nothing outranks the truth-defect
+band unless it belongs there; the day's reading accumulates and steering is idempotent
+across runs.

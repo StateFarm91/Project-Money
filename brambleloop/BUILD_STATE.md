@@ -1,6 +1,6 @@
 # BUILD_STATE
 
-> **2026-09-27 (paused ~17:10Z) — BUILD 2 CERTIFICATION IN PROGRESS (not certified).** The final independent audit of 9434c53 refuted certification (55 invalid, 96 weak; defects C-60..C-72 open, C-73 fixed). Repair wave: platform and orders clusters are merged and validated; improve and growth are reported and saved but not merged; design and intel were still in progress. Claude-independence certification test added (4/4: kill/restart on durable state, no loss, no duplication; live Railway restart drill remains owner-gated). Honest closure at d4c15b7 (registry not yet updated from cluster reports): 116 COMPLETE+PROVEN, 133 OPEN, 42/24/5 gated. **Resume from `research/b2_resume/RESUME_MANIFEST.md` §0.**
+> **2026-09-28 — BUILD 2 CERTIFICATION: repair wave complete, final verification in progress.** Two independent audits (9434c53: 55 invalid/96 weak; Codex: 75 findings) refuted the earlier closeout. Every finding was adjudicated and the confirmed ones repaired in six clusters plus four follow-on waves (ledger C-60..C-86, all FIXED except the honesty items closed by relabelling). A fresh independent 320-row audit of 15c5d1b found no phantom module or unreached handler; its 11 labelling findings are applied. Honest closure at a885680: **218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated · 7 external-blocked**, with every gate read live on a fresh database. The full suite from clean state on a885680 is the last step; see "2026-09-28 — Build 2 certification" below and `research/b2_resume/RESUME_MANIFEST.md`. Nothing deployed, published or spent; phase shadow.
 
 
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
@@ -385,6 +385,53 @@ still a guess.
 1 open incident (the Halloween P2, correctly raised).
 
 ## Last completed milestone
+
+### 2026-09-28 — Build 2 certification: the repair wave, integrated and audited
+
+**What was wrong.** The 2026-09-27 closeout (9434c53) called 320 rows closed. An independent audit
+refuted it: 55 rows invalid, 96 weak — modules that existed and were tested but that nothing in
+the running system ever called; readings persisted that nothing acted on; fixtures injecting
+evidence production never produces; gates parked in front of executable work. Codex audited the
+six repair patches independently and preserved 75 findings (`research/codex_b2_integration_pack/`).
+
+**What was done.** Six repair clusters (platform, orders, growth, design, improve, intel) and four
+follow-on waves (orders2, platform2, improve2, residue) rebuilt the missing chains — producer →
+durable evidence → runtime consumer on a cadence → decision → protected action — each with a
+handler-level test through `Worker.run_once` on a real database, sockets refused. The lead merged
+one cluster at a time, reconciled every shared-file and semantic conflict by hand (radar.score
+composes #2 steering, the #38 evidence discount and the #97 lesson nudge; one referral reader; one
+withholding record; bounded receipted priority movement), adjudicated every Codex finding against
+the merged code, and recorded each defect and fix in `research/BUILD2_CERTIFICATION.md` (C-60..C-86).
+Highlights: the closure rule itself (C-74: only an explicit park parks; C-65: call-graph
+reachability), order truth reconciled as state (C-78), durable rollback and one release-eligibility
+record (C-81, C-84), steering idempotent across runs (C-75), thrash suspensions lifted only by a
+real change (C-85), the Christmas cardigan engineered end to end and stopped only by owned imagery
+(#308), and the Claude-independence test (boot from a scrubbed environment, shadow publish refused,
+SIGKILL mid-job, restart with no loss or duplication, cadences continue) 4/4.
+
+**Fresh independent audit of 15c5d1b** (`research/b2_resume/reports/independent_audit_15c5d1b.md`):
+217 VALID · 9 WEAK · 0 INVALID · 92 GATED-OK · 2 GATED-BAD; verdict "the C-60 class of exists,
+tested, never runs is gone; every remaining defect is a labelling or measurement-honesty defect".
+All 11 were applied as C-86: #31 #163 #169 parked on the data their measured half needs, #277 #281
+#309 #88 #126 #308 parked on `image_vision` (the design pipeline is built; its winners wait on the
+owner's provider credit), `seasonal.cycle` reports the model-bearing render path BLOCKED on the
+external gate and never complete, the governor says plainly that no experiment-driven job spends yet.
+
+**Honest closure at a885680:** 218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated ·
+7 external-blocked; `closure.matrix(db)` on a fresh database reads every gate live, none open,
+`closed_out: true`. Production (`/api/verify`, 02:27Z): all 12 checks passing, shadow, ad spend 0.
+Product-Only Visual V1 remains NOT LOCKED; the model-bearing render path remains external (0/16,
+0/7 draws).
+
+**Full suite from clean state on a885680:** PENDING — recorded below when it finishes.
+
+**Remaining gates, all real, all typed (row ids in `research/b2_resume/closure_state.json`).**
+Owner (58): fund the vision/model provider account (`image_vision`: 15 rows incl. the whole
+original-design path), re-authorise the Etsy app with `transactions_r` (11, 12), record the
+`acceptance_ruling` (189 221 222 320), benchmark purchases (165 168 315 317), owned surfaces (7),
+ad authority (6), live listings (9), Insights/Stats exports (5), tester roster (3), offsite
+storage (51), production window (195). Data (37): customers/orders. External (7): the
+model-bearing render (72 130 202 203 300 308) and Etsy's 403 on policy pages (35 39).
 
 ### 2026-09-26 — Product-only Visual V1 graduation (blind Brambleloop product): deterministic chain PASS, 0 of 16 certified — NOT LOCKED
 
