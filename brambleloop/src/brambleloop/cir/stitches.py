@@ -211,3 +211,41 @@ class UnknownStitch(KeyError):
 
     def __str__(self) -> str:
         return f"unknown stitch {self.code!r}; known: {', '.join(known_codes())}"
+
+
+# ---- per-primitive calibration status (F-074) ----------------------------------------------
+#
+# Every primitive is in exactly one of three states, and the second is not the first:
+#
+#   CALIBRATED   -- a passed physical sample has measured it. Nothing is, today; the state
+#                   exists so that the table cannot be read as "calibrated" by omission. It is
+#                   granted by evidence at certification time (`gates.certificate.certify`'s
+#                   `calibrated_primitives`), never by editing this table.
+#   CONVENTION   -- a basic stitch whose height and yarn behaviour are published craft
+#                   conventions the twin already carries inside its stated tolerance. Its
+#                   figures are estimates, which the documents say, but they are not new.
+#   UNCALIBRATED -- a new stitch or construction primitive: post stitches, bobbles, cable
+#                   crossings, the star family. Its real height and yarn draw decide size and
+#                   yardage claims, and no sample has measured them, so a pattern using one
+#                   is not released for unrestricted use until a physical test of it passes.
+#
+# A code absent from CONVENTION is UNCALIBRATED. Failing closed is the point: a primitive
+# added to the registry tomorrow starts restricted, and someone has to bring evidence -- not
+# an edit -- to lift it.
+CALIBRATED = "calibrated"
+CONVENTION = "convention"
+UNCALIBRATED = "uncalibrated"
+
+CONVENTION_PRIMITIVES: frozenset[str] = frozenset({
+    "ch", "slst", "sc", "hdc", "dc", "tr", "inc", "dec", "dc_inc", "dc_dec", "sk",
+})
+
+
+def calibration_status(code: str) -> str:
+    """CONVENTION for a basic stitch, UNCALIBRATED for anything new. Never CALIBRATED here."""
+    return CONVENTION if code in CONVENTION_PRIMITIVES else UNCALIBRATED
+
+
+def calibration_table() -> dict[str, str]:
+    """Every registered primitive and its status from the table alone (no evidence applied)."""
+    return {code: calibration_status(code) for code in known_codes()}

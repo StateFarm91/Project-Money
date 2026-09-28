@@ -1096,6 +1096,75 @@ class Concept:
     stated_statements: tuple[str, ...] = ()
 
 
+# ---- the concept read off the pattern (F-363) ---------------------------------------------
+#
+# `Concept.applied_parts` and the tie fields used to be *declared* by whoever built the
+# Concept, so a pattern whose materials list said "safety eyes" could be assessed as having no
+# applied parts at all -- the assessment was of a description, not of the pattern. These read
+# them off the CIR itself: every place the pattern can name a part or a tie (materials,
+# pieces, notes on pieces, rows, stitches and joins, the designer's notes).
+
+def _cir_texts(cir) -> list[str]:
+    texts = [m.name or "" for m in cir.materials]
+    texts += [cir.title or "", cir.designer_notes or "", cir.finished_size_note or ""]
+    for comp in cir.components:
+        texts += [comp.name.replace("_", " "), comp.note or ""]
+        for row in comp.rows:
+            texts.append(row.note or "")
+            stack = list(row.ops)
+            while stack:
+                node = stack.pop()
+                texts.append(getattr(node, "note", None) or "")
+                stack.extend(getattr(node, "ops", []) or [])
+    texts += [seam.note or "" for seam in cir.assembly]
+    return [t for t in texts if t]
+
+
+def _part_pattern(part: str) -> "re.Pattern[str]":
+    import re
+
+    words = part.split("_")
+    last = words[-1][:-1] if words[-1].endswith("s") and len(words[-1]) > 3 else words[-1]
+    body = r"[\s_-]+".join([re.escape(w) for w in words[:-1]] + [re.escape(last) + "s?"])
+    return re.compile(r"\b" + body + r"\b", re.IGNORECASE)
+
+
+def parts_in_cir(cir) -> tuple[str, ...]:
+    """Every applied part or integral feature the pattern itself names, in vocabulary terms."""
+    texts = _cir_texts(cir)
+    found = [part for part in sorted(DETACHABLE_APPLIED_PARTS | INTEGRAL_FEATURES)
+             if any(_part_pattern(part).search(t) for t in texts)]
+    return tuple(found)
+
+
+def neck_or_hood_tie_in_cir(cir) -> bool:
+    """Whether any sentence of the pattern puts a tie, cord or drawstring at a neck or hood."""
+    import re
+
+    tie = re.compile(r"\b(drawstrings?|draw strings?|ties?|cords?|laces?)\b", re.IGNORECASE)
+    place = re.compile(r"\b(neck|neckline|hood|collar)\b", re.IGNORECASE)
+    for text in _cir_texts(cir):
+        for sentence in re.split(r"[.;\n]", text):
+            if tie.search(sentence) and place.search(sentence):
+                return True
+    return False
+
+
+def concept_from_cir(cir, *, subcategory: str, audience: str,
+                     stated_statements: tuple[str, ...] = (),
+                     declared_parts: tuple[str, ...] = ()) -> "Concept":
+    """The Concept `assess` reads, with parts and ties taken from the pattern (F-363).
+
+    `declared_parts` are kept and unioned, never replaced: a part somebody declared and the
+    pattern does not name is still a part. Waist-tie length is not derivable from the CIR --
+    no field carries a tie's free length -- so it stays None (unknown) rather than zero.
+    """
+    parts = tuple(sorted(set(declared_parts) | set(parts_in_cir(cir))))
+    return Concept(subject=cir.title, subcategory=subcategory, audience=audience,
+                   applied_parts=parts, neck_or_hood_drawstring=neck_or_hood_tie_in_cir(cir),
+                   stated_statements=stated_statements)
+
+
 @dataclass(frozen=True)
 class Finding:
     """One thing the assessment measured, and what it found."""

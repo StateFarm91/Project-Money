@@ -32,7 +32,7 @@ from brambleloop.core.models import (  # noqa: E402
     ContentPiece, Listing, ListingAsset, PatternVersion, PhysicalTest, Product,
 )
 from brambleloop.launch.readiness import (  # noqa: E402
-    BLOCKED_BUILD, BLOCKED_INTEGRATION, BLOCKED_OWNER, MIN_APPROVED_ASSETS,
+    BLOCKED_BUILD, BLOCKED_INTEGRATION, BLOCKED_OWNER, BLOCKED_TESTER, MIN_APPROVED_ASSETS,
     MIN_LISTINGS_TO_OPEN, assess, render,
 )
 
@@ -66,6 +66,7 @@ def _catalogue_slugs(n: int) -> list[str]:
 
 
 VERSION = "1.0.0"
+from brambleloop.gates.certificate import GAUGE_STANDARD as _GAUGE_STANDARD  # noqa: E402
 # Listing copy that makes every owed disclosure (#41) where the buyer reads it: the digital
 # nature in the title, the rest on the first screen.
 _TITLE = "{title} - Digital Crochet Pattern (not a finished item)"
@@ -109,7 +110,11 @@ def _stock(db, listings: int = MIN_LISTINGS_TO_OPEN, frames: int = MIN_APPROVED_
             s.flush()
             s.add(PatternVersion(product_id=product.id, version=VERSION,
                                  cir_json={}, release_hash="0" * 64, certified=True,
+                                 # F-119: a company that has done its half has
+                                 # re-certified under the current gauge standard; a
+                                 # certificate without the stamp is legacy and counts zero.
                                  certificate={"granted": True,
+                                              "gauge_standard": _GAUGE_STANDARD,
                                               "stages_run": ["compile", "twin", "reverse"]}))
             s.add(Listing(product_slug=slug, version=VERSION,
                           title=_TITLE.format(title=f"Product {i}"),
@@ -206,7 +211,8 @@ def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
     readiness = assess(db, phase="shadow")
     assert not readiness.buildable, [r.key for r in readiness.buildable]
     remaining = {r.blocked_by for r in readiness.outstanding}
-    assert remaining <= {BLOCKED_OWNER, BLOCKED_INTEGRATION}, remaining
+    # F-071: a sample waits on an independent tester -- a person, and not the owner.
+    assert remaining <= {BLOCKED_OWNER, BLOCKED_INTEGRATION, BLOCKED_TESTER}, remaining
 
 
 def test_a_thin_catalogue_is_ours_to_fix():
@@ -696,7 +702,9 @@ def test_the_owner_is_not_asked_to_crochet_the_calibration_sample():
     physical = next(r for r in report.requirements if r.key == "physical_calibration")
 
     assert physical.ready is False                 # unmet, and still blocking
-    assert physical.blocked_by == rd.BLOCKED_OWNER
+    # F-071 / F-086: the blocker is the independent tester route, never the owner.
+    assert physical.blocked_by == rd.BLOCKED_TESTER
+    assert not any(r.key == "physical_calibration" for r in report.blocked_on(rd.BLOCKED_OWNER))
     assert physical.evidence["owner_parked"]["parked_by"] == "owner"
     assert "tester_roster" in physical.evidence["owner_parked"]["the_other_way_through"]
     assert not any(o.key == "physical_calibration" for o in report.owner_requests())
@@ -766,6 +774,54 @@ def test_the_photography_requirement_reads_the_same_source_as_the_coverage_endpo
     source = _inspect.getsource(readiness_mod.assess)
     assert "owned_photography.coverage" in source, (
         "a second implementation of coverage would disagree with the first one day")
+
+
+# ---- F-119 / F-120: legacy counts zero; F-175: the unknowns register -----------------------
+
+
+def _certified(db, slug: str, certificate: dict) -> None:
+    with db.session() as s:
+        product = Product(slug=slug, title=slug, status="certified")
+        s.add(product)
+        s.flush()
+        s.add(PatternVersion(product_id=product.id, version=VERSION, cir_json={},
+                             release_hash="1" * 64, certified=True, certificate=certificate))
+
+
+def test_a_legacy_certification_counts_zero_toward_launch_until_recertified():
+    """F-119: old certification is not current readiness, and the zero is reported, not hidden."""
+    from brambleloop.gates.certificate import GAUGE_STANDARD
+
+    db = _db()
+    _certified(db, "harvest-table-runner", {"granted": True})            # Build-1, no stamp
+    _certified(db, "cloudline-baby-blanket", {"granted": True})          # Launch-0
+    _certified(db, "cottage-wall-hanging",
+               {"granted": True, "gauge_standard": GAUGE_STANDARD})       # re-certified
+
+    report = assess(db, phase="shadow", providers=[], storage_durable=False)
+    depth = next(r for r in report.requirements if r.key == "catalogue_depth").evidence
+    assert depth["certified_patterns"] == 2, depth
+    assert depth["certified_in_launch_scope"] == 1
+    assert depth["certified_legacy_recertified"] == 1
+    assert depth["legacy_counted_zero"]["versions"] == 1
+    assert depth["legacy_counted_zero"]["slugs"] == ["harvest-table-runner"]
+    assert depth["certified_all_including_legacy"] == 3
+
+
+def test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today():
+    """F-175: assumptions and unknowns are collected into the report the owner reads."""
+    db = _db()
+    report = assess(db, phase="shadow", providers=[], storage_durable=False)
+    keys = {u["key"] for u in report.unknowns}
+    assert report.unknowns, "an empty register with no evidence is not a clean bill"
+    assert "physical_calibration" in keys                   # nothing has been crocheted
+    assert "uncalibrated_primitives" in keys                # F-074's table, read here
+    assert any(k.startswith("etsy_surface:") for k in keys)
+    assert any(k.startswith("launch0_make_time:") for k in keys)
+    for u in report.unknowns:
+        assert u["source"] and u["unknown"] and u["touches"], u
+    assert report.to_dict()["unknowns"] == report.unknowns
+    assert "Unknowns and assumptions" in render(report)
 
 
 if __name__ == "__main__":

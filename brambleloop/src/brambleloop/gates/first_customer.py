@@ -506,6 +506,19 @@ def gate_product(cir, *, listing=None, frames=None, store=None) -> ProductGate:
     ))
 
 
+def blocking(cir, *, listing=None, frames=None, store=None) -> list[dict]:
+    """What still stops this product's first listing, as the runtime reads it (F-118).
+
+    The nine-area gate had no runtime caller: it reported UNRESOLVED physical claims to a test
+    and to nobody else. `publish.eligibility.product_publication` calls this for every
+    Launch-0 slug on the way to publication, so a claim resting on an uncalibrated twin, an
+    unbuilt image set or an unread Etsy listing refuses publication instead of being a line
+    in a report. Empty means ready for *owner review*, never authorised: see NEVER_AUTHORISES.
+    """
+    gate = gate_product(cir, listing=listing, frames=frames, store=store)
+    return [c.to_dict() for c in gate.blocking]
+
+
 def gate_launch0(*, listings=None, frames=None, store=None) -> dict:
     """Every Launch-0 variant, and the one sentence the whole module exists to make true.
 

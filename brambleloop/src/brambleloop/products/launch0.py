@@ -461,6 +461,27 @@ LAUNCH0_SLUGS: tuple[str, ...] = (
 )
 
 
+_LAUNCH_SCOPE: frozenset[str] | None = None
+
+
+def launch_scope_slugs() -> frozenset[str]:
+    """Every slug that is Launch-0: the candidate slugs and each variant's own CIR slug.
+
+    Measures: the variants' CIRs, built once. Why: a basket variant is published under its
+    CIR's slug (`market-basket-small`), not the candidate's (`nursery-nesting-baskets`), and a
+    quarantine keyed on only one of the two would refuse the product it exists to let through
+    or admit one it exists to hold back (F-111, F-119, F-120).
+    """
+    global _LAUNCH_SCOPE
+    if _LAUNCH_SCOPE is None:
+        slugs = set(LAUNCH0_SLUGS)
+        for slug in LAUNCH0_SLUGS:
+            for v in candidate(slug).variants:
+                slugs.add(cir_for(v.build).slug)
+        _LAUNCH_SCOPE = frozenset(slugs)
+    return _LAUNCH_SCOPE
+
+
 def candidate(slug: str) -> Candidate:
     for c in CANDIDATES:
         if c.slug == slug:
@@ -829,10 +850,18 @@ def childrens_view(cand: Candidate) -> dict:
     sub = ch.SUBCATEGORIES[cand.subcategory]
     required = ch.required_statements(cand.subcategory, cand.audience or ch.UNDER_3)
 
+    # F-363: the parts and ties are read off every variant's pattern, not declared empty.
+    derived = [ch.concept_from_cir(cir_for(v.build), subcategory=cand.subcategory,
+                                   audience=cand.audience or ch.UNDER_3)
+               for v in cand.variants]
+    parts = tuple(sorted({p for c in derived for p in c.applied_parts}))
+    neck_tie = any(c.neck_or_hood_drawstring for c in derived)
+
     def run(stated: tuple[str, ...]) -> dict:
         concept = ch.Concept(subject=cand.title, subcategory=cand.subcategory,
                              audience=cand.audience or ch.UNDER_3,
-                             applied_parts=(), stated_statements=stated)
+                             applied_parts=parts, neck_or_hood_drawstring=neck_tie,
+                             stated_statements=stated)
         findings = ch.assess(concept)
         missing = sorted(f.detail for f in findings if f.code == "STATEMENT_MISSING")
         return {
@@ -867,11 +896,18 @@ def childrens_view(cand: Candidate) -> dict:
         "as_built_measured_on": ("the text extracted from the rendered customer PDF for "
                                  f"variant {cand.variants[0].key!r}"),
         "as_planned": run(cand.committed_statements),
-        "applied_parts": (),
+        # Read off the patterns (F-363), so "none" is a measurement of every variant's
+        # materials, pieces and notes rather than an assertion about them.
+        "applied_parts": parts,
+        "neck_or_hood_tie": neck_tie,
+        "applied_parts_measured_on": ("intel.childrens.concept_from_cir over every "
+                                      "variant's CIR"),
         "applied_parts_why": (
-            "none, by design. Under 36 months a detachable applied part is refused rather "
-            "than warned about, so the Brambleloop default is an integral surface: nothing on "
-            "any Launch-0 product is held on by friction, a washer or glue."),
+            ("none, by design. Under 36 months a detachable applied part is refused rather "
+             "than warned about, so the Brambleloop default is an integral surface: nothing "
+             "on any Launch-0 product is held on by friction, a washer or glue.")
+            if not parts else
+            f"the patterns name {list(parts)}; the assessment above rules on each"),
     }
 
 
@@ -1237,7 +1273,13 @@ PIPELINE: tuple[PipelineEntry, ...] = (
             "hood tie on children's upper outerwear 2T-12, and no toggle or knot on a waist "
             "tie's free end",
         ),
-        owner_of_the_blocker="quality/physical.py plus an owner action to crochet samples",
+        # F-071 / F-086: the owner is not the tester. Physical validation is delegated to an
+        # independent tester or contract crocheter through the tester roster; this line used
+        # to name "an owner action to crochet samples", which the owner has twice declined
+        # and the Master forbids any launch requirement from needing.
+        owner_of_the_blocker=("independent tester route: quality/testers.py plan, the "
+                              "`tester_roster` gate, and quality/physical.py to record the "
+                              "sample"),
     ),
 )
 

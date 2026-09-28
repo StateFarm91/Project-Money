@@ -462,6 +462,140 @@ def test_an_owed_ai_disclosure_missing_verbatim_is_a_sourced_error():
         f.code for f in check_listing(draft, classification=plain)]
 
 
+# ---- physical evidence bound to content (F-078, F-081) ------------------------------------
+
+
+def _in_band(cir):
+    """The fixture at a gauge its own declared yarn holds, so only the physical rule is under test."""
+    from brambleloop.creative.prototype import gauge_for
+
+    cir.gauge = gauge_for("worsted")
+    return cir
+
+
+def _class_c():
+    cir = _in_band(fixtures.good_sphere())
+    cir.risk_class = "C"
+    return cir
+
+
+def _evidence(content_hash, **kw):
+    row = {"id": 1, "slug": "test-sphere", "version": "1.0.0", "passed": True,
+           "completed_at": "2026-09-28T00:00:00+00:00", "content_hash": content_hash,
+           "compatible_variants": []}
+    row.update(kw)
+    return row
+
+
+def test_a_class_c_pattern_unblocks_on_bound_evidence_and_never_on_none():
+    """F-081: evidence can unblock Class C; its absence never does."""
+    cir = _class_c()
+    blocked = certify(cir, physical_evidence=[])
+    assert not blocked.granted
+    assert "PHYSICAL_TEST_REQUIRED" in {f.code for f in blocked.errors}
+    assert blocked.content_hash, "a blocked run still names the content a tester would work"
+    assert blocked.release_hash is None
+
+    granted = certify(cir, physical_evidence=[_evidence(blocked.content_hash)])
+    assert granted.granted, granted.blocking_reasons
+    assert granted.physical_test_passed is True
+    assert granted.physical_evidence["bound"] == [1]
+    # The release hash of the grant is the very content the tester worked.
+    assert granted.release_hash == blocked.content_hash
+
+
+def test_physical_evidence_binds_only_to_the_exact_content_it_was_worked_against():
+    """F-078: a material change invalidates the evidence; so does an unrecorded text."""
+    cir = _class_c()
+    tested = certify(cir).content_hash
+
+    changed = _class_c()
+    changed.title = "Test Sphere, Revised"
+    after = certify(changed, physical_evidence=[_evidence(tested)])
+    assert not after.granted
+    assert after.physical_test_passed is False
+    assert "invalidated" in after.physical_evidence["unbound"][0]["why"]
+
+    for bad in (_evidence(None), _evidence(tested, passed=False),
+                _evidence(tested, completed_at=None), _evidence(tested, version="1.0.1")):
+        cert = certify(cir, physical_evidence=[bad])
+        assert not cert.granted, bad
+    # A bare "a test exists" is not evidence for this release.
+    assert "no content hash" in certify(cir, physical_evidence=[_evidence(None)]) \
+        .physical_evidence["unbound"][0]["why"]
+
+
+def test_a_declared_compatible_variant_binds_only_at_its_own_current_content():
+    cir = _class_c()
+    content = certify(cir).content_hash
+    variant_row = _evidence("f" * 64, id=7, slug="test-sphere-large", compatible_variants=[
+        {"slug": "test-sphere", "version": "1.0.0", "content_hash": content}])
+    assert certify(cir, physical_evidence=[variant_row]).granted
+
+    stale = _evidence("f" * 64, id=8, slug="test-sphere-large", compatible_variants=[
+        {"slug": "test-sphere", "version": "1.0.0", "content_hash": "0" * 64}])
+    cert = certify(cir, physical_evidence=[stale])
+    assert not cert.granted
+    assert cert.physical_evidence["unbound"][0]["id"] == 8
+
+
+def test_a_risk_class_downgrade_without_evidence_is_refused():
+    """F-090: testing is reduced only because evidence justifies it."""
+    cir = _in_band(fixtures.good_sphere())          # declared B
+    refused = certify(cir, prior_risk_class="C")
+    assert "RISK_CLASS_DOWNGRADE_UNJUSTIFIED" in {f.code for f in refused.errors}
+
+    content = refused.content_hash
+    justified = certify(cir, prior_risk_class="C", physical_evidence=[_evidence(content)])
+    assert justified.granted, justified.blocking_reasons
+    assert "RISK_CLASS_DOWNGRADED_ON_EVIDENCE" in {f.code for f in justified.findings}
+
+    assert certify(cir, prior_risk_class="B").granted          # same class: nothing to justify
+    assert certify(cir, prior_risk_class="A").granted          # an upgrade needs no evidence
+
+
+def test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalibrated():
+    """F-074: basic stitches are conventions, new primitives are uncalibrated, none calibrated."""
+    from brambleloop.cir import stitches as st
+
+    table = st.calibration_table()
+    assert set(table) == set(st.known_codes())
+    assert st.CALIBRATED not in table.values(), "calibration comes from evidence, not the table"
+    assert table["sc"] == st.CONVENTION and table["dc"] == st.CONVENTION
+    for novel in ("fpdc", "bpdc", "bob", "cable2x2", "star_st"):
+        assert table[novel] == st.UNCALIBRATED, novel
+    assert st.calibration_status("a-stitch-added-tomorrow") == st.UNCALIBRATED
+
+    cert = certify(_in_band(fixtures.good_sphere()))
+    assert cert.primitives["status"] == {"dec": st.CONVENTION, "inc": st.CONVENTION,
+                                         "sc": st.CONVENTION}
+    evidenced = certify(_in_band(fixtures.good_sphere()), calibrated_primitives={"sc"})
+    assert evidenced.primitives["status"]["sc"] == st.CALIBRATED
+
+
+
+# ---- F-116 (runtime half): the live author derives its gauge ------------------------------
+
+
+def test_the_runtime_author_derives_its_gauge_from_the_declared_yarn():
+    """F-116: concept_to_cir no longer types worsted at 16/14."""
+    from brambleloop.creative.prototype import gauge_for
+    from brambleloop.runtime.pipeline import Concept, concept_to_cir
+
+    concept = Concept(slug="templ", title="Templated Panel", category="blanket",
+                      stitch_repeat=[("sc", 2), ("dc", 2)], width_stitches=40, rows=6,
+                      colors={"a": "#244A3A", "b": "#FAF6EB"})
+    cir = concept_to_cir(concept)
+    want = gauge_for("worsted")
+    assert (cir.gauge.stitches_per_10cm, cir.gauge.rows_per_10cm) == \
+        (want.stitches_per_10cm, want.rows_per_10cm)
+    assert (cir.gauge.stitches_per_10cm, cir.gauge.rows_per_10cm) != (16, 14)
+    assert not {f.code for f in certify(cir).findings} & {
+        "GAUGE_OUTSIDE_DECLARED_YARN_BAND", "GAUGE_WITHOUT_YARN_EVIDENCE"}
+    dk = concept_to_cir(Concept(**{**concept.__dict__, "yarn_weight": "dk"}))
+    assert dk.gauge.stitches_per_10cm == gauge_for("dk").stitches_per_10cm
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

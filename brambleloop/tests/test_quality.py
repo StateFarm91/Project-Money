@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+from tests import fixtures  # noqa: E402
 
 from fixtures import (  # noqa: E402
     broken_repeat, broken_stitch_count, broken_unknown_color, good_mosaic_panel,
@@ -104,7 +105,7 @@ def test_an_unmapped_claim_is_refused_rather_than_waved_through():
 
 def test_the_certificate_carries_the_confidence_profile():
     cert = certify(nf.build("throw"))
-    assert cert.granted
+    assert fixtures.clean_but_for_product_truth(cert), cert.blocking_reasons   # F-112
     assert "confidence" in cert.stages_run
     assert cert.confidence["scores"]["physical"] == 0.0
     assert cert.confidence["weakest"] == "physical"

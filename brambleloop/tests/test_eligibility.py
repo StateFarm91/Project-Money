@@ -288,6 +288,96 @@ def test_state_names_both_axes_and_the_chart_case():
     assert any("chart-as-hero" in r for r in out["refuses"])
 
 
+# ---- product publication scope (F-111, F-118, F-120) ------------------------------------
+
+
+def _release(slug, certificate, cir=None):
+    import tempfile
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import PatternVersion, Product
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/elig.sqlite")
+    db.create_all()
+    with db.session() as s:
+        p = Product(slug=slug, title=slug, status="certified")
+        s.add(p)
+        s.flush()
+        s.add(PatternVersion(product_id=p.id, version="1.0.0",
+                             cir_json=(cir.to_dict() if cir is not None else {}),
+                             release_hash="a" * 64, certified=True, certificate=certificate))
+    return db
+
+
+def test_a_legacy_catalogue_slug_is_refused_publication_until_recertified():
+    """F-111: quarantine enforced on the publish path, not only reported."""
+    from brambleloop.gates.certificate import GAUGE_STANDARD
+
+    db = _release("harvest-table-runner", {"granted": True})
+    v = E.product_publication(db, "harvest-table-runner", "1.0.0")
+    assert not v["publishable"]
+    assert [r["code"] for r in v["reasons"]] == [E.LEGACY_PRE_CALIBRATION], v["reasons"]
+    assert v["legacy"]["legacy"] and not v["legacy"]["cleared"]
+
+    db = _release("harvest-table-runner", {"granted": True, "gauge_standard": GAUGE_STANDARD})
+    v = E.product_publication(db, "harvest-table-runner", "1.0.0")
+    assert v["publishable"], v["reasons"]
+    assert v["legacy"]["cleared"] and not v["legacy"]["in_launch_scope"]
+    # A stamp on a refused certificate clears nothing.
+    assert not E.legacy_status("harvest-table-runner",
+                               {"granted": False, "gauge_standard": GAUGE_STANDARD})["cleared"]
+
+
+def test_an_uncertified_release_is_refused():
+    import tempfile
+
+    from brambleloop.core.db import Database
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/none.sqlite")
+    db.create_all()
+    v = E.product_publication(db, "cloudline-baby-blanket", "1.0.0",
+                              first_customer=lambda *a, **k: [])
+    assert E.NOT_CERTIFIED in [r["code"] for r in v["reasons"]]
+
+
+def test_a_launch0_slug_is_held_to_the_first_customer_gate():
+    """F-118: gates.first_customer.blocking() is on the publish path for Launch-0 slugs."""
+    from brambleloop.products import launch0 as l0
+
+    cir = l0.cir_for("hexagon_coasters")
+    db = _release(cir.slug, {"granted": True}, cir)
+    calls = []
+
+    def gate(c, **kw):
+        calls.append((c.slug, kw))
+        return [{"area": "gauge_and_size_claims", "state": "UNRESOLVED",
+                 "detail": "twin.calibrated is False"}]
+
+    v = E.product_publication(db, cir.slug, "1.0.0", listing={"title": "t"},
+                              first_customer=gate)
+    assert calls and calls[0][0] == cir.slug and calls[0][1]["listing"] == {"title": "t"}
+    assert not v["publishable"]
+    assert [r["code"] for r in v["reasons"]] == [E.FIRST_CUSTOMER_BLOCKING]
+    assert v["owner_review_required"] is True
+    assert not v["legacy"]["legacy"]
+
+    # Nothing blocking: publishable as far as software can say, and still owner-reviewed.
+    v = E.product_publication(db, cir.slug, "1.0.0", first_customer=lambda c, **k: [])
+    assert v["publishable"] and v["owner_review_required"]
+
+
+def test_the_real_first_customer_gate_blocks_launch0_today():
+    """The default gate, unstubbed: UNRESOLVED physical claims block publication (F-118)."""
+    from brambleloop.products import launch0 as l0
+
+    cir = l0.cir_for("hexagon_coasters")
+    db = _release(cir.slug, {"granted": True}, cir)
+    v = E.product_publication(db, cir.slug, "1.0.0")
+    assert not v["publishable"]
+    areas = {b["area"]: b["state"] for b in v["first_customer_blocking"]}
+    assert areas.get("gauge_and_size_claims") == "UNRESOLVED", areas
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -1,0 +1,422 @@
+{
+  "cluster": "C",
+  "branch": "claude/fb1-C",
+  "head": "HEAD of claude/fb1-C (the commit adding this file); code head 85a5aba",
+  "base": "be8d416",
+  "requirements": [
+    {
+      "uid": "F-078",
+      "status": "DONE",
+      "what_changed": "certify() takes physical_evidence rows and binds them to the content hash (CIR + written text, the same digest a grant carries) computed on every run, granted or not; exact slug@version+hash, or a declared compatible variant carrying this content hash; a changed hash is reported 'invalidated', a row with no hash does not bind. handle_certify reads PhysicalTest rows (measured.content_hash, else the content the append-only certify audit recorded for slug@version at or before completed_at) and audits content_hash + binding on gate.certified/gate.blocked.",
+      "producer": "gates/certificate.py::bind_physical_evidence, certify(content_hash, physical_evidence); runtime/pipeline.py::physical_evidence_rows/_content_certified_at",
+      "consumer": "runtime/pipeline.py::handle_certify -> certify -> PatternVersion.certificate / gate.* audit",
+      "live_root": "gate.certify job (enqueued by cir.compile)",
+      "tests": [
+        "tests/test_gates.py::test_physical_evidence_binds_only_to_the_exact_content_it_was_worked_against",
+        "tests/test_gates.py::test_a_declared_compatible_variant_binds_only_at_its_own_current_content",
+        "tests/test_physical.py::test_a_class_c_release_unblocks_through_the_queue_on_a_sample_of_its_own_content",
+        "tests/test_physical.py::test_a_sample_recorded_before_the_release_was_ever_examined_binds_to_nothing",
+        "tests/test_physical.py::test_an_explicit_content_hash_on_the_sample_binds_without_the_audit_trail"
+      ],
+      "remaining": "physical.record (runtime/release.py, not C) should stamp measured['content_hash'] itself and accept a release blocked only on physical evidence -- see needs_from_others; today a Class C release cannot be recorded through physical.record because _load_cir requires a certified release."
+    },
+    {
+      "uid": "F-081",
+      "status": "PARTIAL",
+      "what_changed": "Class C unblocks at certify on bound evidence and never on none (was fail-closed forever: physical_test_passed was never supplied).",
+      "producer": "gates/certificate.py::certify",
+      "consumer": "runtime/pipeline.py::handle_certify",
+      "live_root": "gate.certify",
+      "tests": [
+        "tests/test_gates.py::test_a_class_c_pattern_unblocks_on_bound_evidence_and_never_on_none",
+        "tests/test_physical.py::test_a_class_c_release_unblocks_through_the_queue_on_a_sample_of_its_own_content"
+      ],
+      "remaining": "radar.score still refuses to promote any Class C concept ('Class C requires physical testing that does not exist yet', runtime/pipeline.py score handler, not in C's functions); deriving C from CIR features (F-073) not done; the tester workflow deadlock in physical.record (needs_from_others)."
+    },
+    {
+      "uid": "F-090",
+      "status": "DONE",
+      "what_changed": "certify refuses RISK_CLASS_DOWNGRADE_UNJUSTIFIED when the CIR's class is below the highest class the product has been stored under (Product.risk_class / PatternVersion.cir_json) unless a physical test of this content is bound.",
+      "producer": "gates/certificate.py::risk_downgrade_findings; runtime/pipeline.py::_prior_risk_class",
+      "consumer": "handle_certify",
+      "live_root": "gate.certify",
+      "tests": [
+        "tests/test_gates.py::test_a_risk_class_downgrade_without_evidence_is_refused",
+        "tests/test_physical.py::test_a_risk_class_downgrade_is_refused_at_the_runtime_certify"
+      ],
+      "remaining": ""
+    },
+    {
+      "uid": "F-074",
+      "status": "PARTIAL",
+      "what_changed": "cir/stitches.py: per-primitive calibration status (CONVENTION for basic stitches, UNCALIBRATED for post/bobble/cable/star family and anything unregistered; CALIBRATED only from evidence). Every certificate records primitives{status, uncalibrated, unrestricted}; handle_certify passes calibrated_primitives derived from passed, completed physical tests' stored releases. The readiness unknowns register reports the uncalibrated primitives.",
+      "producer": "cir/stitches.py::calibration_status/calibration_table; gates/certificate.py::primitive_findings; runtime/pipeline.py::calibrated_primitives",
+      "consumer": "certificate (recorded); launch/readiness.py::unknowns",
+      "live_root": "gate.certify; launch readiness",
+      "tests": [
+        "tests/test_gates.py::test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalibrated"
+      ],
+      "remaining": "The ERROR (UNCALIBRATED_PRIMITIVE refuses unrestricted release without evidence) is staged in research/final_build/waves/fb1_C_strict.patch: it refuses the three texture products (cable/bobble/ribbed), which the pipeline certifies today."
+    },
+    {
+      "uid": "F-112",
+      "status": "PARTIAL",
+      "what_changed": "gates/certificate.py::gauge_findings implements GAUGE_OUTSIDE_DECLARED_YARN_BAND (ERROR unless bound physical evidence), GAUGE_WITHOUT_YARN_EVIDENCE (ERROR), non-sc gauge WARNING; the certify wiring, GAUGE_STANDARD stamp, the PDF note rewrite and four tests are staged in research/final_build/waves/fb1_C_strict.patch (git apply --check passes on this head).",
+      "producer": "gates/certificate.py::gauge_findings",
+      "consumer": "certify (after the patch)",
+      "live_root": "gate.certify (after the patch)",
+      "tests": [
+        "(in patch) tests/test_gates.py::test_a_worsted_16_sts_pattern_fails_certification_rather_than_printing_a_swatch_note",
+        "(in patch) test_an_out_of_band_gauge_is_released_only_on_a_sample_of_this_content",
+        "(in patch) test_a_gauge_typed_against_no_yarn_is_refused_and_a_benchmark_is_not_judged",
+        "(in patch) test_a_pattern_using_an_uncalibrated_primitive_is_restricted_until_evidence"
+      ],
+      "remaining": "Not wired on the branch because EVERY product in the repository fails the band -- all 16 flat-catalogue products and nordic-forest (worsted, 16 sc/10cm vs 11-14), market-basket (worsted cotton 18), hexagon-coaster (dk 20 vs 12-17), harbour pullover (worsted 16) -- Launch-0 included. Measured with the patch applied: test_cert_publish_gates 13 failing (nordic forest no longer certifies, so no listing/frames downstream); every pipeline suite that drives catalogue products through the chain is expected to fail the same way. Apply together with the product re-declaration in needs_from_others."
+    },
+    {
+      "uid": "F-116",
+      "status": "PARTIAL",
+      "what_changed": "runtime/pipeline.concept_to_cir derives its gauge from the declared yarn via creative.prototype.gauge_for (Concept.yarn_weight, default worsted -> 12.5/13.8) instead of the typed Gauge(16,14).",
+      "producer": "creative/prototype.py::gauge_for",
+      "consumer": "runtime/pipeline.py::concept_to_cir",
+      "live_root": "cir.draft (templated concepts)",
+      "tests": [
+        "tests/test_gates.py::test_the_runtime_author_derives_its_gauge_from_the_declared_yarn"
+      ],
+      "remaining": "Refusing CIRs whose gauge is typed without yarn/calibration evidence is the staged patch; product modules (vessels, builder, nordic_forest, garments, texture) still type gauges -- not C's files."
+    },
+    {
+      "uid": "F-111",
+      "status": "DONE",
+      "what_changed": "publish/eligibility.product_publication + legacy_status: a slug outside products.launch0.launch_scope_slugs() (candidates + each variant's CIR slug) is refused LEGACY_PRE_CALIBRATION unless its stored certificate was granted under the current GAUGE_STANDARD; uncertified is NOT_CERTIFIED. Consumed by release_gates.for_publish, which store.publish refuses on.",
+      "producer": "publish/eligibility.py::product_publication/legacy_status; products/launch0.py::launch_scope_slugs",
+      "consumer": "publish/release_gates.py::for_publish -> runtime/pipeline.py::_release_gates -> handle_store_publish",
+      "live_root": "store.publish job",
+      "tests": [
+        "tests/test_eligibility.py::test_a_legacy_catalogue_slug_is_refused_publication_until_recertified",
+        "tests/test_eligibility.py::test_an_uncertified_release_is_refused",
+        "tests/test_launch0.py::test_launch_scope_holds_every_variant_slug_and_only_launch0"
+      ],
+      "remaining": "Until the strict patch lands no certificate carries GAUGE_STANDARD, so no legacy product can clear by re-certification (fail-closed). Pipeline slugs market-basket-trio / hexie-coaster-set are not Launch-0 variant slugs and are therefore treated as legacy."
+    },
+    {
+      "uid": "F-118",
+      "status": "PARTIAL",
+      "what_changed": "gates/first_customer.blocking(cir, listing, frames, store) added and called by eligibility.product_publication for every Launch-0 slug on the store.publish path; UNVERIFIABLE/UNRESOLVED block like FAIL; owner_review_required stays true.",
+      "producer": "gates/first_customer.py::blocking",
+      "consumer": "publish/eligibility.py::product_publication <- release_gates.for_publish",
+      "live_root": "store.publish job",
+      "tests": [
+        "tests/test_eligibility.py::test_a_launch0_slug_is_held_to_the_first_customer_gate",
+        "tests/test_eligibility.py::test_the_real_first_customer_gate_blocks_launch0_today"
+      ],
+      "remaining": "for_publish passes the stored Listing but not frames (ListingAsset rows are not publish.listing_assets.Frame objects), so 'imagery' reads UNVERIFIABLE on the publish path until frames are persisted in a form check_frame_plan can read. Cost: one call renders both documents (~50 s profiled under load)."
+    },
+    {
+      "uid": "F-119",
+      "status": "DONE",
+      "what_changed": "launch/readiness catalogue_depth counts only certified versions in launch scope or re-certified under GAUGE_STANDARD (the same legacy_status the publish path uses); legacy is reported separately under legacy_counted_zero with slugs and why; certified_all_including_legacy kept for visibility.",
+      "producer": "launch/readiness.py::_launch_scope_counts",
+      "consumer": "launch/readiness.py::assess (launch.assess cadence, /api readiness)",
+      "live_root": "launch readiness assessment",
+      "tests": [
+        "tests/test_launch.py::test_a_legacy_certification_counts_zero_toward_launch_until_recertified"
+      ],
+      "remaining": ""
+    },
+    {
+      "uid": "F-120",
+      "status": "DONE",
+      "what_changed": "LAUNCH0 scope is now the enforced publication and readiness scope (F-111/F-119), not only a plan.",
+      "producer": "products/launch0.py::launch_scope_slugs",
+      "consumer": "eligibility.legacy_status; readiness._launch_scope_counts",
+      "live_root": "store.publish; launch readiness",
+      "tests": [
+        "tests/test_launch0.py::test_launch_scope_holds_every_variant_slug_and_only_launch0",
+        "tests/test_launch.py::test_a_legacy_certification_counts_zero_toward_launch_until_recertified"
+      ],
+      "remaining": ""
+    },
+    {
+      "uid": "F-071",
+      "status": "DONE",
+      "what_changed": "products/launch0.py childrens-fitted-garments owner_of_the_blocker now names the independent tester route (quality/testers plan, tester_roster gate, quality/physical to record); readiness physical_calibration is blocked_by the new BLOCKED_TESTER ('tester'), never the owner; test scans owner-facing strings (launch0 pipeline plan, every OwnerRequest that can be raised) for an owner-crochet ask.",
+      "producer": "products/launch0.py PIPELINE; launch/readiness.py BLOCKED_TESTER",
+      "consumer": "launch0.report / readiness.assess",
+      "live_root": "launch readiness; launch0 report",
+      "tests": [
+        "tests/test_launch0.py::test_no_owner_facing_string_asks_the_owner_to_crochet",
+        "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample"
+      ],
+      "remaining": "PHYSICAL_SAMPLE (the parked owner ask) is kept as a constant by prior decision and never raised; excluded from the scan explicitly."
+    },
+    {
+      "uid": "F-086",
+      "status": "PARTIAL",
+      "what_changed": "Owner-crochet wording replaced; the physical requirement is blocked on the tester route.",
+      "producer": "as F-071",
+      "consumer": "as F-071",
+      "live_root": "as F-071",
+      "tests": [
+        "tests/test_launch0.py::test_no_owner_facing_string_asks_the_owner_to_crochet"
+      ],
+      "remaining": "The F-073 risk matrix (derive risk class from CIR features) is not wired into readiness."
+    },
+    {
+      "uid": "F-175",
+      "status": "DONE",
+      "what_changed": "launch/readiness.unknowns(db, requirements) collects: no physical sample (twin uncalibrated), uncalibrated primitives, every intel.etsy_surfaces unknown, Launch-0 ESTIMATED/UNKNOWN price and make-time bases, proxy-only measurements and an unprobed model provider; Readiness.unknowns, to_dict()['unknowns'] and a render() section.",
+      "producer": "launch/readiness.py::unknowns",
+      "consumer": "readiness.assess/to_dict/render",
+      "live_root": "launch readiness assessment",
+      "tests": [
+        "tests/test_launch.py::test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today"
+      ],
+      "remaining": ""
+    },
+    {
+      "uid": "F-765",
+      "status": "DONE",
+      "what_changed": "publish/pdf.construction_overview(cir) builds a 'How it goes together' section from cir.components (pieces, counts, construction, resumes, holds) and cir.assembly (every join, method, edges, row/round placement) and prints it before the Instructions heading; None for a one-piece item or copies of one piece with no joins.",
+      "producer": "publish/pdf.py::construction_overview",
+      "consumer": "publish/pdf.py::build_pattern_pdf",
+      "live_root": "assets.build (runtime/release.py::handle_assets_build)",
+      "tests": [
+        "tests/test_schematic.py::test_a_garment_pdf_explains_its_construction_before_the_instructions"
+      ],
+      "remaining": ""
+    },
+    {
+      "uid": "F-363",
+      "status": "PARTIAL",
+      "what_changed": "intel/childrens.concept_from_cir / parts_in_cir / neck_or_hood_tie_in_cir read applied parts and neck/hood ties off the CIR (materials, piece names/notes, row/op notes, seam notes, designer notes); publish/pdf refuses to render a children's pattern whose own text trips a REFUSE finding; launch0.childrens_view uses the derived parts instead of a hard-coded ().",
+      "producer": "intel/childrens.py::concept_from_cir",
+      "consumer": "publish/pdf.py::_refuse_what_the_childrens_assessment_refuses; products/launch0.py::childrens_view",
+      "live_root": "assets.build",
+      "tests": [
+        "tests/test_childrens.py::test_applied_parts_and_neck_ties_are_read_off_the_cir_not_declared",
+        "tests/test_childrens.py::test_a_childrens_pdf_whose_pattern_names_safety_eyes_under_three_is_refused"
+      ],
+      "remaining": "Opening/closure plausibility (head opening vs CYC head circumference, button-band spacing, armhole/leg openings) not implemented; waist-tie free length is not derivable from the CIR and stays None (unknown)."
+    }
+  ],
+  "tests_run": [
+    {
+      "file": "tests/test_cert_commerce.py",
+      "passing": 13,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_cert_publish_gates.py",
+      "passing": 18,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_certification.py",
+      "passing": 12,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_childrens.py",
+      "passing": 40,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_cir_roundtrip.py",
+      "passing": 6,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_compiler.py",
+      "passing": 9,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_eligibility.py",
+      "passing": 33,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_etsy.py",
+      "passing": 17,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_first_customer_gate.py",
+      "passing": 12,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_garments.py",
+      "passing": 15,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_gates.py",
+      "passing": 40,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_geometry.py",
+      "passing": 44,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_launch.py",
+      "passing": 27,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_launch0.py",
+      "passing": 52,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_physical.py",
+      "passing": 18,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_products.py",
+      "passing": 16,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_prototype.py",
+      "passing": 8,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_quality.py",
+      "passing": 17,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_reachability.py",
+      "passing": 11,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_reverse.py",
+      "passing": 18,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_schematic.py",
+      "passing": 5,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_specification.py",
+      "passing": 24,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_substitution.py",
+      "passing": 7,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_texture.py",
+      "passing": 25,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_twin.py",
+      "passing": 8,
+      "failing": 0
+    },
+    {
+      "file": "tests/test_cert_publish_gates.py (WITH fb1_C_strict.patch applied)",
+      "passing": null,
+      "failing": 13,
+      "note": "fallout of the staged patch, see F-112"
+    },
+    {
+      "file": "tests/test_cert_wiring.py",
+      "passing": null,
+      "failing": 3,
+      "note": "drain timed out (131 jobs/1200 s) under load avg ~15; the other two failures follow from the incomplete drain; profiled cost of C's additions ~61 s of 1661 s"
+    },
+    {
+      "file": "tests/test_shadow.py",
+      "passing": null,
+      "failing": null,
+      "note": "killed at 1500 s timeout under machine load; not attributable, rerun on a quiet machine"
+    }
+  ],
+  "tests_changed": [
+    {
+      "test": "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample",
+      "uid": "F-071",
+      "why": "asserted physical_calibration.blocked_by == BLOCKED_OWNER; F-071 forbids the owner being the blocker, now BLOCKED_TESTER and asserted absent from blocked_on(owner)."
+    },
+    {
+      "test": "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people",
+      "uid": "F-071",
+      "why": "the people set now includes the independent tester alongside owner and integration."
+    },
+    {
+      "test": "tests/test_launch.py::_stock (fixture)",
+      "uid": "F-119",
+      "why": "stocked certificates now carry the current GAUGE_STANDARD stamp; an unstamped Build-1 certificate counts zero by requirement (separate test covers that)."
+    },
+    {
+      "test": "tests/fixtures.py good_sphere/good_mosaic_panel + test_certification._pair",
+      "uid": "F-112",
+      "why": "declare the yarn weight that holds their gauge (sport for 20 sc, dk for 16 sc); geometry unchanged."
+    },
+    {
+      "test": "tests/test_physical.py::_basket",
+      "uid": "F-112",
+      "why": "the basket re-declares sport cotton (holds 18 sc) so a sample can be recorded against a certifiable release; subject of those tests is the sample, not the yarn."
+    },
+    {
+      "test": "tests/test_products.py (flagship, two designs), test_garments (every size), test_geometry (round-worked), test_quality (confidence), test_texture (all three, prose shape check)",
+      "uid": "F-112/F-074",
+      "why": "assert via fixtures.clean_but_for_product_truth: granted, or refused only by the product-truth codes -- any other stage's regression still fails; release_hash comparisons use content_hash (always present). Pass on this head and with the strict patch applied."
+    }
+  ],
+  "files_touched": [
+    "brambleloop/research/final_build/waves/fb1_C_strict.patch",
+    "brambleloop/src/brambleloop/cir/stitches.py",
+    "brambleloop/src/brambleloop/gates/certificate.py",
+    "brambleloop/src/brambleloop/gates/first_customer.py",
+    "brambleloop/src/brambleloop/intel/childrens.py",
+    "brambleloop/src/brambleloop/launch/readiness.py",
+    "brambleloop/src/brambleloop/products/launch0.py",
+    "brambleloop/src/brambleloop/publish/eligibility.py",
+    "brambleloop/src/brambleloop/publish/pdf.py",
+    "brambleloop/src/brambleloop/publish/release_gates.py",
+    "brambleloop/src/brambleloop/runtime/pipeline.py",
+    "brambleloop/tests/fixtures.py",
+    "brambleloop/tests/test_certification.py",
+    "brambleloop/tests/test_childrens.py",
+    "brambleloop/tests/test_eligibility.py",
+    "brambleloop/tests/test_garments.py",
+    "brambleloop/tests/test_gates.py",
+    "brambleloop/tests/test_geometry.py",
+    "brambleloop/tests/test_launch.py",
+    "brambleloop/tests/test_launch0.py",
+    "brambleloop/tests/test_physical.py",
+    "brambleloop/tests/test_products.py",
+    "brambleloop/tests/test_quality.py",
+    "brambleloop/tests/test_schematic.py",
+    "brambleloop/tests/test_texture.py",
+    "brambleloop/research/final_build/waves/fb1_C.json"
+  ],
+  "migrations": [],
+  "needs_from_others": [
+    "PRODUCT RE-DECLARATION (owner of products/*, no FB-1 cluster owns them) before applying research/final_build/waves/fb1_C_strict.patch: declare the weight whose published band holds each typed gauge -- builder.Design yarn 'worsted acrylic'/'worsted' -> 'dk acrylic'/'dk' (16 sc); nordic_forest.py:157 same; texture.py worsted designs -> dk; garments.harbour_pullover 'worsted wool' -> 'dk wool' (16 sc); vessels.build_basket 'worsted cotton' -> 'sport cotton'/'sport' (18 sc); vessels.build_hexagon_coaster 'dk cotton' -> 'sport cotton'/'sport' (20 sc). Twin geometry/yardage do not read the weight, so sizes are unchanged; release hashes change and every product re-certifies (which is what clears legacy quarantine). Alternatively derive gauges via creative.prototype.gauge_for (changes every finished size). Texture products stay refused by UNCALIBRATED_PRIMITIVE until a tester sample.",
+    "runtime/release.py::handle_physical_record (unowned): stamp measured['content_hash'] = the certificate content hash of the text the tester worked, accept compatible_variants from the payload, and let _load_cir serve a release whose only blocking findings are physical-evidence ones (PHYSICAL_TEST_REQUIRED, GAUGE_OUTSIDE_DECLARED_YARN_BAND, UNCALIBRATED_PRIMITIVE) -- today Class C cannot be recorded because it can never be certified first.",
+    "runtime/pipeline.py score handler (not C's functions): stop refusing Class C promotion outright now that evidence can unblock it (F-081).",
+    "Cluster B / integrator: I added the product-scope call inside publish/release_gates.for_publish (not claims_of, which A owns) -- 10 lines appended before the return, plus 'publication_scope' in the verdict. Please keep it when resolving release_gates.py.",
+    "Cluster H / integrator: persist the listing frames as publish.listing_assets.Frame-compatible records so first_customer's imagery area can be read on the publish path (today UNVERIFIABLE there)."
+  ],
+  "risks": [
+    "With the strict patch NOT applied, gauge_findings is a library no runtime path calls (F-112 PARTIAL); applying it without the product re-declaration refuses every catalogue product including Launch-0 and turns many pipeline suites red (measured: test_cert_publish_gates 13 failing).",
+    "store.publish for a Launch-0 slug now renders both customer documents via the first-customer gate (~50 s profiled under cProfile on a loaded machine). In SHADOW the gates are computed before the phase refusal, so each shadow store.publish for a Launch-0 slug pays it.",
+    "test_cert_wiring and test_shadow timed out on this shared machine (load avg ~15 on 4 cores). A cProfile of the full cert_wiring drain on this branch: 223 jobs in 1661 s, of which this cluster's additions are ~61 s (for_publish product scope 51 s, handle_certify additions <1 s, unknowns 0.04 s). The integrator should rerun them on a quiet machine.",
+    "readiness now has blocked_by 'tester' for physical_calibration; runtime/release.py launch.assessed reports blocked_on('owner') and blocked_on('integration') only, so the tester blocker is not in that audit summary (it is in the requirement list)."
+  ]
+}

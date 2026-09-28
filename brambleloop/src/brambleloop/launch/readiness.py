@@ -28,6 +28,10 @@ from typing import Iterable
 BLOCKED_BUILD = "build"
 BLOCKED_INTEGRATION = "integration"
 BLOCKED_OWNER = "owner"
+# F-071 / F-086: blocked on an independent tester or contract crocheter -- the tester roster,
+# which is outreach and never the owner. Physical validation is delegated; the owner is not
+# the tester, so a requirement waiting on a sample is not waiting on the owner.
+BLOCKED_TESTER = "tester"
 
 # A shop with three listings reads as abandoned to a browsing buyer, and section 33's
 # portfolio arithmetic assumes a spread. This is the floor for opening, not a target.
@@ -72,6 +76,9 @@ class Requirement:
 @dataclass
 class Readiness:
     requirements: list[Requirement] = field(default_factory=list)
+    # F-175: what the report does not know, named. Empty is not the goal -- an empty register
+    # without evidence is a register nobody filled in -- so it is reported as it is.
+    unknowns: list[dict] = field(default_factory=list)
 
     @property
     def ready(self) -> bool:
@@ -106,6 +113,7 @@ class Readiness:
                  "blocks": o.blocks}
                 for o in self.owner_requests()
             ],
+            "unknowns": list(self.unknowns),
         }
 
 
@@ -381,11 +389,30 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                                  if p.id in certified_ids)
 
     # -- what the company has built for itself ------------------------------
+    #
+    # F-119 / F-120: old certification is not current readiness. Only a certified version in
+    # launch scope (Launch-0), or a legacy one re-certified under the current gauge standard,
+    # counts toward the catalogue; every other legacy certification counts zero and is
+    # reported beside the count rather than inside it. The same rule the publish path refuses
+    # on (`publish.eligibility.legacy_status`), so the readiness report cannot count a
+    # product the publish gate would refuse.
+    counted, legacy_uncleared = _launch_scope_counts(db, certified)
+    listed_in_scope = [l for l in listings if l.product_slug in counted["slugs"]]
     out.append(_build(
         "catalogue_depth",
-        f"at least {MIN_LISTINGS_TO_OPEN} certified patterns with listings",
-        len(listings) >= MIN_LISTINGS_TO_OPEN and len(certified) >= MIN_LISTINGS_TO_OPEN,
-        {"certified_patterns": len(certified), "listings": len(listings)}))
+        f"at least {MIN_LISTINGS_TO_OPEN} certified launch-scope patterns with listings",
+        len(listed_in_scope) >= MIN_LISTINGS_TO_OPEN
+        and counted["versions"] >= MIN_LISTINGS_TO_OPEN,
+        {"certified_patterns": counted["versions"],
+         "certified_in_launch_scope": counted["in_launch_scope"],
+         "certified_legacy_recertified": counted["legacy_recertified"],
+         "listings": len(listings), "listings_in_scope": len(listed_in_scope),
+         "legacy_counted_zero": {"versions": len(legacy_uncleared),
+                                 "slugs": sorted({x["slug"] for x in legacy_uncleared})[:20],
+                                 "why": ("pre-calibration Build-1 certifications count zero "
+                                         "until re-certified under the current gauge "
+                                         "standard (F-119)")},
+         "certified_all_including_legacy": len(certified)}))
 
     by_listing: dict[str, list] = {}
     for a in assets:
@@ -539,7 +566,8 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     out.append(Requirement(
         key="physical_calibration",
         description="at least one physical sample has calibrated the yardage estimate",
-        ready=bool(physical_done), blocked_by=None if physical_done else BLOCKED_OWNER,
+        # F-071 / F-086: waiting on an independent tester, never on the owner.
+        ready=bool(physical_done), blocked_by=None if physical_done else BLOCKED_TESTER,
         evidence={"completed_tests": len(physical_done),
                   **({} if physical_done else {"owner_parked": PHYSICAL_SAMPLE_PARKED})},
         # Never the owner's ask any more, only ever unmet. See PHYSICAL_SAMPLE_PARKED.
@@ -721,7 +749,104 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         evidence={"phase": phase, "providers": sorted(providers)},
         owner_request=None if phase.lower() not in ("shadow", "staging") else GRADUATION))
 
-    return Readiness(requirements=out)
+    return Readiness(requirements=out, unknowns=unknowns(db, out))
+
+
+def _launch_scope_counts(db, certified) -> tuple[dict, list[dict]]:
+    """Certified versions split into what counts toward launch and legacy that counts zero."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+    from ..publish.eligibility import legacy_status
+
+    with db.session() as s:
+        slug_of = {p.id: p.slug for p in s.scalars(select(Product))}
+    counted = {"versions": 0, "in_launch_scope": 0, "legacy_recertified": 0,
+               "slugs": set()}
+    legacy: list[dict] = []
+    for pv in certified:
+        slug = slug_of.get(pv.product_id, "")
+        status = legacy_status(slug, pv.certificate)
+        if not status["cleared"]:
+            legacy.append({"slug": slug, "version": pv.version, "why": status["why"]})
+            continue
+        counted["versions"] += 1
+        counted["slugs"].add(slug)
+        counted["in_launch_scope" if status["in_launch_scope"] else "legacy_recertified"] += 1
+    return counted, legacy
+
+
+# ---- the unknowns register (F-175) --------------------------------------------------------
+
+def unknowns(db, requirements: list[Requirement] | None = None) -> list[dict]:
+    """Every assumption and unknown the launch report rests on, collected in one place.
+
+    Each entry names where it was read from, what is not known, and what it touches. They
+    were recorded module by module -- the Etsy surface registry's unknowns, Launch-0's
+    ESTIMATED and UNKNOWN labels, the twin's uncalibrated figures, the primitives no sample has
+    measured -- and never gathered into the report the owner reads before launching. Zero is
+    not a goal: an empty register with no evidence behind it would be the worst entry of all.
+    """
+    from sqlalchemy import func, select
+
+    from ..cir.stitches import UNCALIBRATED, calibration_table
+    from ..core.models import PhysicalTest
+
+    out: list[dict] = []
+
+    def add(key: str, source: str, unknown: str, touches: str) -> None:
+        out.append({"key": key, "source": source, "unknown": unknown, "touches": touches})
+
+    with db.session() as s:
+        passed = s.scalar(select(func.count()).select_from(PhysicalTest).where(
+            PhysicalTest.passed == True)) or 0  # noqa: E712
+    if not passed:
+        add("physical_calibration", "core.models.PhysicalTest",
+            "no physical sample has been worked: every finished size, yardage and make-time "
+            "figure is arithmetic from a stated gauge (twin.calibrated is False)",
+            "size and yardage claims, Class C release, first-customer gauge_and_size_claims")
+
+    uncalibrated = sorted(c for c, st in calibration_table().items() if st == UNCALIBRATED)
+    if uncalibrated:
+        add("uncalibrated_primitives", "cir.stitches.calibration_table",
+            f"{len(uncalibrated)} stitch primitives have no measured height or yarn draw: "
+            f"{', '.join(uncalibrated)}", "any pattern using them (F-074)")
+
+    try:
+        from ..intel import etsy_surfaces
+
+        for surface, items in sorted(etsy_surfaces.coverage()["unknowns"].items()):
+            for item in items:
+                add(f"etsy_surface:{surface}", "intel.etsy_surfaces.coverage", item,
+                    f"the Etsy surface {surface!r}")
+    except Exception as e:  # noqa: BLE001 - an unreadable source is itself an unknown
+        add("etsy_surfaces", "intel.etsy_surfaces.coverage",
+            f"the surface registry could not be read: {type(e).__name__}", "Etsy surfaces")
+
+    try:
+        from ..products import launch0 as l0
+
+        for slug in l0.LAUNCH0_SLUGS:
+            cand = l0.candidate(slug)
+            if cand.price.basis in (l0.ESTIMATED, l0.UNKNOWN):
+                add(f"launch0_price:{slug}", "products.launch0.CANDIDATES",
+                    f"the price band is {cand.price.basis}, not sourced", f"{slug} pricing")
+            add(f"launch0_make_time:{slug}", "products.launch0.make_time",
+                "make time is ESTIMATED at an assumed 700 stitches an hour, unmeasured until "
+                "a sample is worked", f"{slug} make-time and lead-time claims")
+    except Exception as e:  # noqa: BLE001
+        add("launch0", "products.launch0", f"could not be read: {type(e).__name__}",
+            "Launch-0")
+
+    for r in requirements or []:
+        ev = r.evidence or {}
+        if ev.get("recognisability_by_proxy_only"):
+            add(f"proxy:{r.key}", f"launch.readiness:{r.key}",
+                f"measured by proxy only ({ev.get('recognisability_proxy')})", r.description)
+        if r.key == "model_credits" and not ev.get("probed"):
+            add("model_provider", "gateway.anthropic.last_probe",
+                "the model provider has never been probed", r.description)
+    return out
 
 
 # How recent the rollback rehearsal must be for the rollback plan to count as proved
@@ -869,6 +994,13 @@ def render(readiness: Readiness) -> str:
         lines += [f"- {r.description} ({r.evidence})" for r in buildable]
     else:
         lines.append("Nothing. Every remaining requirement needs a person or an account.")
+
+    lines += ["", "## Unknowns and assumptions (F-175)", ""]
+    if readiness.unknowns:
+        lines += [f"- **{u['key']}** ({u['source']}): {u['unknown']} -- touches {u['touches']}"
+                  for u in readiness.unknowns]
+    else:
+        lines.append("None recorded -- which is itself unverified, not a clean bill.")
 
     requests = readiness.owner_requests()
     lines += ["", "## OWNER ACTION REQUIRED", ""]

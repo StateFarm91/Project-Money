@@ -672,6 +672,55 @@ def test_two_sources_cannot_give_one_product_two_audiences():
 
 
 
+# ---- F-071 / F-086: the owner is not the tester ----------------------------------------
+
+
+_OWNER_CROCHET_ASK = __import__("re").compile(
+    r"\bowner\b[^.;]{0,40}\b(action|must|should|needs? to|to)\b[^.;]{0,25}\bcrochet",
+    __import__("re").IGNORECASE)
+
+
+def test_no_owner_facing_string_asks_the_owner_to_crochet():
+    """F-071: no launch requirement may need the owner to crochet a product.
+
+    Scans the strings an owner reads -- the Launch-0 report, every pipeline blocker and its
+    named owner, and every owner action the readiness report can raise -- for an ask that the
+    owner crochet something. The residual "an owner action to crochet samples" on the
+    children's fitted garments blocker is what this was written against.
+    """
+    import json
+
+    from brambleloop.launch import readiness as rd
+    from brambleloop.products import launch0 as l0
+
+    texts = [json.dumps(l0.pipeline_plan(date(2026, 9, 28)), default=str)]
+    texts += [f"{p.owner_of_the_blocker} {' '.join(p.blocked_on)}" for p in l0.PIPELINE]
+    requests = [v for v in vars(rd).values() if isinstance(v, rd.OwnerRequest)
+                and v is not rd.PHYSICAL_SAMPLE]       # kept, parked, never raised
+    requests.append(rd.listing_fees_request(3))
+    texts += [f"{o.action} {o.reason} {o.blocks}" for o in requests]
+    hits = [m.group(0) for t in texts for m in [_OWNER_CROCHET_ASK.search(t)] if m]
+    assert not hits, hits
+    garments = next(p for p in l0.PIPELINE if p.slug == "childrens-fitted-garments")
+    assert "independent tester" in garments.owner_of_the_blocker
+    assert "tester_roster" in garments.owner_of_the_blocker
+    # And the scan would have caught the old wording.
+    assert _OWNER_CROCHET_ASK.search("quality/physical.py plus an owner action to crochet "
+                                     "samples")
+
+
+def test_launch_scope_holds_every_variant_slug_and_only_launch0():
+    """F-111 / F-120: the scope is the candidates and the CIR slug each variant publishes as."""
+    from brambleloop.products import launch0 as l0
+
+    scope = l0.launch_scope_slugs()
+    assert set(l0.LAUNCH0_SLUGS) <= scope
+    assert {"market-basket-small", "market-basket-medium", "market-basket-large",
+            "hexagon-coaster-set", "cloudline-baby-blanket"} <= scope
+    assert "harvest-table-runner" not in scope          # the reserve is not launched
+    assert "nordic-forest-mosaic-throw" not in scope
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

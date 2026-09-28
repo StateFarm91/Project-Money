@@ -513,6 +513,51 @@ def test_an_unknown_size_raises_rather_than_guessing():
         raise AssertionError("an unpublished size was answered")
 
 
+
+# ---- F-363: the concept read off the pattern -------------------------------------------
+
+
+def _cir_with(material: str = "worsted cotton", note: str | None = None):
+    from brambleloop.cir.model import Material
+    from tests import fixtures
+
+    cir = fixtures.good_sphere()
+    cir.materials = [Material(name=material, yarn_weight="worsted", color_id="cream")]
+    cir.designer_notes = note
+    return cir
+
+
+def test_applied_parts_and_neck_ties_are_read_off_the_cir_not_declared():
+    cir = _cir_with("safety eyes, 9 mm")
+    assert ch.parts_in_cir(cir) == ("safety_eyes",)
+    concept = ch.concept_from_cir(cir, subcategory="amigurumi_toy", audience=ch.UNDER_3)
+    assert "SMALL_PART_UNDER_3" in {f.code for f in ch.assess(concept)}
+
+    tie = _cir_with(note="Thread a drawstring through the neck edge and tie a bow.")
+    assert ch.neck_or_hood_tie_in_cir(tie) is True
+    assert ch.neck_or_hood_tie_in_cir(_cir_with(note="Tie off and weave in the ends.")) is False
+
+    plain = _cir_with()
+    assert ch.parts_in_cir(plain) == ()
+    # A declared part survives derivation; the pattern only ever adds to it.
+    kept = ch.concept_from_cir(plain, subcategory="amigurumi_toy", audience=ch.UNDER_3,
+                               declared_parts=("buttons",))
+    assert kept.applied_parts == ("buttons",)
+
+
+def test_a_childrens_pdf_whose_pattern_names_safety_eyes_under_three_is_refused():
+    """The live consumer: publish.pdf refuses before rendering (F-363)."""
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    cir = _cir_with("safety eyes, 9 mm")
+    try:
+        build_pattern_pdf(cir, childrens=("amigurumi_toy", ch.UNDER_3))
+    except ValueError as e:
+        assert "SMALL_PART_UNDER_3" in str(e), e
+    else:
+        raise AssertionError("a pattern naming safety eyes rendered for under-3s")
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
