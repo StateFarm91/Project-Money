@@ -278,6 +278,12 @@ def certify(
             ERROR, "PHYSICAL_TEST_REQUIRED",
             f"risk class {cir.risk_class} requires a physical test before release; "
             "computation alone cannot confirm fit and drape"))
+    # 6b/6c. The gauge-band and new-primitive refusals (F-112, F-116, F-074) are computed by
+    #     `gauge_findings` / `primitive_findings` below. The primitive status is recorded on
+    #     every certificate; turning either into a refusal is staged separately
+    #     (research/final_build/waves/fb1_C_strict.patch) because every product module in the
+    #     catalogue declares a yarn weight whose band cannot hold its typed gauge, and the
+    #     refusal lands together with the product re-declaration, not ahead of it.
     primitive_status, _ = primitive_findings(
         cir, physically_evidenced=physical_test_passed,
         calibrated_primitives=calibrated_primitives)
@@ -313,7 +319,10 @@ def certify(
         physical_test_passed=physical_test_passed,
         content_hash=content,
         physical_evidence=binding,
-        gauge_standard=None,   # stamped only where the gauge check runs (see gauge_findings)
+        # Stamped only where `gauge_findings` refuses (the staged strict patch). Until then no
+        # certificate claims the current gauge standard, so no legacy product clears
+        # quarantine by re-certification -- the fail-closed direction (F-111, F-119).
+        gauge_standard=None,
         primitives=primitive_status,
     )
 

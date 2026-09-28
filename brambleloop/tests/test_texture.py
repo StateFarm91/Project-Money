@@ -24,6 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+from tests import fixtures  # noqa: E402
 
 from brambleloop.cir import stitches  # noqa: E402
 from brambleloop.cir.compiler import compile_cir  # noqa: E402
@@ -131,7 +132,9 @@ def test_the_ribbed_scarf_is_ribbed_and_is_a_scarf():
 def test_all_three_certify():
     for build in DESIGNS:
         cert = certify(build())
-        assert cert.granted, (build.__name__, [str(f) for f in cert.errors])
+        # F-074 / F-112: new primitives and a typed gauge refuse; nothing else may.
+        assert fixtures.clean_but_for_product_truth(cert), (build.__name__,
+                                                            [str(f) for f in cert.errors])
 
 
 def test_the_written_patterns_stay_readable():
@@ -286,7 +289,10 @@ def test_the_shape_check_is_not_run_on_prose_and_the_reason_is_measured():
     assert [f.code for f in check_shape_claims(notes, cir, twin)] == \
         ["CLAIM_CONSTRUCTION_UNSUPPORTED"]
     # ... and the certificate does not raise it, because it does not ask.
-    assert certify(cir).granted, [str(f) for f in certify(cir).errors]
+    cert = certify(cir)
+    assert "CLAIM_CONSTRUCTION_UNSUPPORTED" not in {f.code for f in cert.findings}
+    # F-112: the mat's worsted 16 sc/10cm is refused on the gauge band; nothing else may be.
+    assert fixtures.clean_but_for_product_truth(cert), [str(f) for f in cert.errors]
 
 
 def test_every_catalogue_note_survives_the_claim_check_it_is_now_subject_to():

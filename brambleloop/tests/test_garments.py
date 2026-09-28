@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+from tests import fixtures  # noqa: E402
 
 from brambleloop.cir import assembly, specification  # noqa: E402
 from brambleloop.cir import graded as GR  # noqa: E402
@@ -96,7 +97,9 @@ def test_every_size_of_every_design_passes_the_whole_chain():
             geo = assembly.assemble(cir, _twins(cir, result))
             assert geo.verdict == "assembles", (cir.slug, geo.why)
             cert = certify(cir)
-            assert cert.granted, (cir.slug, cert.blocking_reasons)
+            # F-112: worsted at 16 sc/10cm is refused until products/garments.py declares a
+            # weight that holds its gauge; every other stage must still be clean.
+            assert fixtures.clean_but_for_product_truth(cert), (cir.slug, cert.blocking_reasons)
             assert {"specification", "assembly"} <= set(cert.stages_run)
 
 

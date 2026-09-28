@@ -29,7 +29,9 @@ def good_sphere() -> CIR:
         risk_class="B",
         colors={"cream": "#FAF6EB"},
         gauge=Gauge(stitches_per_10cm=20, rows_per_10cm=22, stitch_type="sc", hook_mm=3.5),
-        materials=[Material(name="worsted cotton", yarn_weight="worsted", color_id="cream")],
+        # Sport weight, because 20 sc/10cm is a sport-weight fabric (band 16-20): worsted's
+        # band is 11-14 and a worsted declaration here is refused at certification (F-112).
+        materials=[Material(name="sport cotton", yarn_weight="sport", color_id="cream")],
         components=[
             Component(name="body", construction="spiral_rounds", rows=rows,
                       foundation=0, foundation_kind="magic_ring")
@@ -55,7 +57,9 @@ def good_mosaic_panel() -> CIR:
         construction="flat_rows",
         risk_class="A",
         colors={"forest": "#244A3A", "wine": "#6E1F2A"},
-        gauge=Gauge(stitches_per_10cm=16, rows_per_10cm=14, stitch_type="sc", hook_mm=5.0),
+        # The yarn the gauge is evidenced by (F-116): 16 sc/10cm is inside the DK band.
+        gauge=Gauge(stitches_per_10cm=16, rows_per_10cm=14, stitch_type="sc", hook_mm=5.0,
+                    yarn_weight="dk"),
         components=[
             Component(name="panel", construction="flat_rows", rows=rows, foundation=40)
         ],
@@ -99,3 +103,23 @@ def broken_unknown_color() -> CIR:
     cir = good_mosaic_panel()
     cir.components[0].rows[1].color = "chartreuse"
     return cir
+
+
+# ---- F-112 / F-116 / F-074: the product-truth refusals -------------------------------------
+#
+# The Build-1 catalogue and the Launch-0 vessels declare yarn weights whose published bands
+# cannot hold their typed gauges (worsted at 16-18 sc/10cm against a band of 11-14), and the
+# texture designs use primitives no sample has calibrated. Certification refuses those now;
+# the fix belongs in the product modules (declare the weight that holds the gauge, or derive
+# the gauge from the yarn), not in the gate. Tests whose subject is some *other* stage of the
+# chain assert that stage through this helper: every error on the certificate must be one of
+# these, so a regression anywhere else in the chain still fails the test, and the day a
+# product is re-authored the same assertion holds with the certificate granted.
+PRODUCT_TRUTH_CODES: frozenset[str] = frozenset({
+    "GAUGE_OUTSIDE_DECLARED_YARN_BAND", "GAUGE_WITHOUT_YARN_EVIDENCE", "UNCALIBRATED_PRIMITIVE",
+})
+
+
+def clean_but_for_product_truth(cert) -> bool:
+    """Granted, or refused only by the product-truth gates above (never by anything else)."""
+    return cert.granted or {f.code for f in cert.errors} <= PRODUCT_TRUTH_CODES

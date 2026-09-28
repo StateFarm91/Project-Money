@@ -156,7 +156,7 @@ def _pair(*, strip_sts=32, edges=("bottom", "top"), authored="brambleloop"):
             Row(i, [Op("sc", n)], declared_count=n, turning_chain=1)
             for i in range(1, rows + 1)])
     return CIR(slug="panel-and-band", title="Panel and Band", version="1",
-               construction="flat_rows", gauge=Gauge(16, 18), authored=authored,
+               construction="flat_rows", gauge=Gauge(16, 18, yarn_weight="dk"), authored=authored,
                components=[piece("panel", 32, 30), piece("band", strip_sts, 4, make=2)],
                assembly=[Seam("whipstitch", "band", "panel", edge_a=edges[0],
                               edge_b=edges[1])])

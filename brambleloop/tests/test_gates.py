@@ -573,6 +573,29 @@ def test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalib
     assert evidenced.primitives["status"]["sc"] == st.CALIBRATED
 
 
+
+# ---- F-116 (runtime half): the live author derives its gauge ------------------------------
+
+
+def test_the_runtime_author_derives_its_gauge_from_the_declared_yarn():
+    """F-116: concept_to_cir no longer types worsted at 16/14."""
+    from brambleloop.creative.prototype import gauge_for
+    from brambleloop.runtime.pipeline import Concept, concept_to_cir
+
+    concept = Concept(slug="templ", title="Templated Panel", category="blanket",
+                      stitch_repeat=[("sc", 2), ("dc", 2)], width_stitches=40, rows=6,
+                      colors={"a": "#244A3A", "b": "#FAF6EB"})
+    cir = concept_to_cir(concept)
+    want = gauge_for("worsted")
+    assert (cir.gauge.stitches_per_10cm, cir.gauge.rows_per_10cm) == \
+        (want.stitches_per_10cm, want.rows_per_10cm)
+    assert (cir.gauge.stitches_per_10cm, cir.gauge.rows_per_10cm) != (16, 14)
+    assert not {f.code for f in certify(cir).findings} & {
+        "GAUGE_OUTSIDE_DECLARED_YARN_BAND", "GAUGE_WITHOUT_YARN_EVIDENCE"}
+    dk = concept_to_cir(Concept(**{**concept.__dict__, "yarn_weight": "dk"}))
+    assert dk.gauge.stitches_per_10cm == gauge_for("dk").stitches_per_10cm
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

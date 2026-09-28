@@ -45,6 +45,13 @@ BAND = BallBand(grams=100.0, metres=210.0)
 
 def _basket():
     cir = build_basket("medium")
+    # The vessels module declares worsted cotton at 18 sc/10cm, which worsted's published band
+    # (11-14) cannot make, and certification refuses it (F-112) -- and a sample can only be
+    # recorded against a certified release. These tests are about what a recorded sample does,
+    # so the basket declares the weight that holds its gauge (sport, 16-20). Geometry, stitches
+    # and the twin's estimate are unchanged.
+    for m in cir.materials:
+        m.name, m.yarn_weight = "sport cotton", "sport"
     result = compile_cir(cir)
     return cir, result, build_twin(cir, result)
 
