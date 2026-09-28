@@ -1308,3 +1308,29 @@ lane's boost, and moved by growth.steer by a stated credit that may cross into t
 band; every steered move leaves a receipt with the job ids; nothing outranks the truth-defect
 band unless it belongs there; the day's reading accumulates and steering is idempotent
 across runs.
+
+## Final Build (Master v1.0) — 2026-09-28
+
+**D-FB-1. Final Build works on `claude/visual-investigation` after the frozen 019ebf0.** The
+designated `claude/repository-setup-nc9x6o` equals production fcb982d; pushing Final Build work
+there would be a production merge, which is not authorised. 019ebf0 stays the certified baseline
+(F-841) until a reviewed successor release candidate is frozen.
+
+**D-FB-2. F-514..F-520 are two requirement sets, both in force.** v0.15 and v0.16 assign the same
+IDs different, non-conflicting requirements and neither supersedes the other; they are carried as
+`F-5xx@v0.15` and `F-5xx@v0.16`. F-631..F-650 do not exist in the Master and are recorded absent.
+
+**D-FB-3. EXERCISED requires a committed production artefact.** BUILD_STATE prose or remembered UI
+readings are secondary records; rows resting only on them are DEPLOYED at most. TESTED requires a
+cited test that exists; INTEGRATED requires the producer reached from a live root; DEPLOYED
+requires it in fcb982d. Enforced by `research/final_build/aggregate.py`, pinned by
+`tests/test_final_closure_matrix.py`.
+
+**D-FB-4. Launch does not wait on Visual V2 graduation unless photoreal heroes are required.**
+F-857 binds before any photoreal product image is published. A listing whose imagery is
+deterministic and truthfully presented can launch without it. The main-line generative product
+redraw is the superseded direction (F-852) and is to be refused by policy (cluster H).
+
+**D-FB-5. Final Build execution is ten disjoint clusters (A–J) under one integrator** as laid out
+in `research/final_build/FINAL_BUILD_BASELINE_AUDIT.md` §6; the V2 R&D lane stays isolated on
+`codex/visual-v2-rnd`. New ideas are classified launch-critical / post-launch / rejected (F-847).

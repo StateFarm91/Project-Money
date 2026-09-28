@@ -24,13 +24,14 @@ Read this first after any compaction/restart (F-861..F-864).
       `F-5xx@v0.15` and `F-5xx@v0.16`).
 - [x] Module evidence: `module_reachability.json` (live-root reachability on 019ebf0 + presence in
       production tree fcb982d) for 378 modules.
-- [ ] Closure matrix: F-req → maturity/producer/state/consumer/effect/tests/gate/next action.
-- [ ] FINAL BUILD BASELINE AUDIT document.
+- [x] Closure matrix: `closure_matrix.json` (866 rows, adjudicated; pinned by tests/test_final_closure_matrix.py).
+- [x] FINAL BUILD BASELINE AUDIT: `FINAL_BUILD_BASELINE_AUDIT.md`.
 - [ ] Begin executable launch-critical work.
 
 ## Next action
-Map every registry record to evidence (slices under `research/final_build/mapping/`), then
-aggregate into `closure_matrix.json` and `FINAL_BUILD_BASELINE_AUDIT.md`.
+Wave FB-1: execute clusters per audit §6 in isolated worktrees (disjoint ownership), integrate,
+re-run `aggregate.py` after each integration (update worker rows via `overrides.json` with
+reasons, or re-map the touched rows). Owner packets per audit §9.
 
 ## Assignments (2026-09-28, mapping wave M1)
 Nine read-only mapping workers, disjoint slices, brief `mapping/MAPPING_BRIEF.md`, uids in

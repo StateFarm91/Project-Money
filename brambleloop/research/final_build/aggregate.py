@@ -64,6 +64,14 @@ def cap(row, reach):
     if i >= LEVELS.index("COMMERCIALLY-EVIDENCED"):
         notes.append("no customer/revenue evidence exists -> capped at PRODUCTION-OBSERVED")
         i = LEVELS.index("PRODUCTION-OBSERVED")
+    if i >= LEVELS.index("EXERCISED"):
+        # EXERCISED means the real runtime ran it and a durable production artefact says so.
+        # BUILD_STATE prose describing production is a secondary record, not the artefact.
+        ev = " ".join(map(str, row.get("evidence") or []))
+        if not re.search(r"research/b2_resume/evidence/prod_|prod_api_verify_\d", ev):
+            notes.append("exercise evidence is not a committed production artefact "
+                         "(status prose is secondary) -> capped at DEPLOYED")
+            i = LEVELS.index("DEPLOYED")
     if i >= LEVELS.index("TESTED"):
         real = [t for t in row.get("tests") or [] if _test_exists(t)]
         if not real:
