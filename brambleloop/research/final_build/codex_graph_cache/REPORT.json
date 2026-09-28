@@ -1,0 +1,57 @@
+{
+  "base": "5d543ba173ea7facc6c359b40075bd0f7b553089",
+  "branch": "codex/final-graph-cache-01",
+  "worktree": "final-finance-cost-basis-01 reused; prior finance branch preserved",
+  "path_commit": "1942817",
+  "status": "repair candidate, not certification",
+  "defects": {
+    "native_path": "_rel_of emitted Windows backslashes; scheduled worker comparisons expected runtime/worker.py. Existing fixture reached False; temporary slash normalization alone made correct scheduled path True.",
+    "stale_graph": "Warm reachable retained lib.live after its runtime import/call was removed; clear_cache changed result to False. After path fix stronger reached regression also reproduced old live-call cache risk."
+  },
+  "implementation": [
+    "one-line relative.as_posix normalization, separate commit",
+    "Exact package path/source bytes and ROOTS/other existing policy constants key parse/import/graph analysis caches",
+    "ContextVar freezes sources and policy within each graph boundary; nested lookups share snapshot",
+    "Entry capture and final exact recapture; changed/unreadable source refuses entire result; os.walk onerror rejects unreadable subtrees",
+    "closure.matrix outer graph wrapper; existing inner test-import snapshot unchanged. Graph revalidation occurs after inner test validation.",
+    "Standalone reached/analysis/function_reached/reachable are also validated boundaries; unchanged source AST reused",
+    "Existing reachable/_references cache_clear compatibility retained"
+  ],
+  "runtime_chain": {
+    "entry": "app/main.py dashboard _build2 -> closure.matrix(db), plus closure readers",
+    "producer": "current checked-out package Python source and runtime root/policy constants",
+    "evidence": "immutable exact-byte source snapshot and content-keyed parsed AST/analysis cache; no new durable certification state",
+    "consumer": "closure.proof_of -> reachability.reached, traversing original static algorithm",
+    "effect": "same static verdict with current evidence, or RuntimeError/no report result if evidence changed/unreadable"
+  },
+  "tests": {
+    "test_graph_path_portability.py": "scheduled positive +4 negative controls PASS",
+    "test_graph_cache_freshness.py": "8/8 grouped controls PASS",
+    "test_reachability.py": "10 existing fixture tests PASS; heavy real-package test intentionally not run during root suites",
+    "test_maturity_request_snapshot.py": "5/5 PASS with composed graph/test-source wrappers"
+  },
+  "graph_test_names": [
+    "test_same_size_mtime_call_removal_refutes_warm_reachability",
+    "test_import_removal_and_source_add_delete_invalidate",
+    "test_root_policy_change_invalidates_cached_graph",
+    "test_unreadable_entry_or_changed_boundary_never_returns_success",
+    "test_unchanged_graph_reuses_parse_and_preserves_fixture_verdicts",
+    "test_concurrent_scopes_keep_immutable_sources_and_abort_old_result",
+    "test_traversal_error_and_nested_exception_fail_closed",
+    "test_closure_matrix_aggregation_captures_twice_and_mutation_aborts"
+  ],
+  "measurements": {
+    "unchanged_graph_ast_parse_calls": 0,
+    "aggregate_fixture_rows": 3,
+    "aggregate_source_captures": 2
+  },
+  "limits": [
+    "Static reachability is not execution/production evidence and cannot prove branch actually runs",
+    "Boundary snapshots are not atomic filesystem transactions; ABA mutation restored before final read not detected",
+    "Other maturity handler/release mapping caches remain outside scope",
+    "No full integrated suite or overall dashboard performance claim",
+    "Standalone boundaries still read source bytes; parse reuse is verified, total latency not benchmarked",
+    "No requirement status/threshold/Visual changes, paid calls, production mutation or deployment"
+  ],
+  "integration_warning": "Review small path commit1942817 plus subsequent cache commit together. Root integrated5d543ba remains untouched while source-bound suites run."
+}
