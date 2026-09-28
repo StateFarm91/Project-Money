@@ -543,11 +543,11 @@ GATES: tuple[Gate, ...] = (
     Gate("benchmark_observation",
          "read-only Etsy API credentials that can actually serve a request",
          _etsy_usable,
-         (206, 301, 303, 319),
+         (),
          "a recorded etsy.probe succeeded -- a real sanctioned read, not a variable being set"),
     Gate("model_provider", "a model provider that can actually serve a request",
          _model_usable,
-         (94, 104, 177, 178, 277, 281),
+         (94, 277, 281),
          "a recorded model.probe succeeded -- a real call, not a variable being set"),
     # Satisfied 2026-09-19: BrambleloopStudio exists, empty, zero sales. Kept rather than
     # deleted, and carrying no requirements rather than the four it used to. Those four --
@@ -599,7 +599,7 @@ GATES: tuple[Gate, ...] = (
          # C-60/C-71: #208 #210 #211 were built without a vision model (API evidence, pod
          # maps, photography coverage) and left the gate; the registry's explicit parks
          # (#15 #86 #116 #304) are the live half.
-         (61, 79, 116, 209, 278, 303, 304),
+         (61, 116, 304),
          "a recorded vision.probe judged a real observed image -- and a reply that describes "
          "no image is recorded as a failure, because a 200 carrying an apology is the shape "
          "a broken vision path takes"),
@@ -681,7 +681,7 @@ GATES: tuple[Gate, ...] = (
          "this true"),
     Gate("benchmark_purchases", "roughly ten purchased competitor patterns",
          _benchmarks_purchased,
-         (165, 166, 168, 317),
+         (165, 168, 317),
          "at least one BenchmarkProduct row exists -- counted, not asked about"),
     # Certification (#195): the off-device proof is computed and launch-blocking, and its
     # pass can only come from a production window running this build unattended. Deploying
@@ -771,7 +771,7 @@ GATES: tuple[Gate, ...] = (
          "a connected source of cultural signal -- search interest, social or trend data -- "
          "which this company has never had",
          _culture_feed_connected,
-         (133, 140, 147),
+         (140, 147),
          "at least one CultureObservation row names the source it came from. An observation "
          "with no source is the same unverifiable thing as no observation"),
     # Added 2026-09-26. #72, #130 and #202 each said in prose "waits on the model-bearing

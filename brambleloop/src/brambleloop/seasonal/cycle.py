@@ -34,6 +34,12 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 RAN, GATED, FAILED = "ran", "gated", "failed"
+# A link stopped by a capability that does not exist outside this build either (C-86): no
+# provider has produced a faithful model-bearing render (0/16, 0/7 draws; D-B2C-1). It is
+# reported as what it is -- externally blocked, with the gate named -- and, unlike GATED, it
+# never lets the cycle report complete: the acceptance test has not been passed, it has
+# been stopped by the world.
+BLOCKED = "blocked"
 
 # Every link the requirement names, in the order it names them. A cycle that stopped early
 # has steps that are *absent*, and absent is not gated: the first version of this reported
@@ -282,8 +288,12 @@ def run(db, *, today: date | None = None, gateway=None,
             # Unrecognised waits fail rather than gate, so a new refusal reason added
             # somewhere else cannot quietly buy itself a pass.
             external = waiting in EXTERNAL_WAITS
-            assets.state = GATED if external else FAILED
-            assets.gated_on = waiting if external else ""
+            blocked_gate = EXTERNAL_BLOCKS.get(waiting)
+            if blocked_gate:
+                assets.state, assets.gated_on = BLOCKED, blocked_gate
+            else:
+                assets.state = GATED if external else FAILED
+                assets.gated_on = waiting if external else ""
             assets.evidence["form"] = declined.get("form") or owned_photography.form_of(cir)
             assets.why = declined.get("why", "the asset maker declined without a reason")
         elif in_catalogue:
@@ -406,6 +416,12 @@ def _launch_for(arena, slot, *, today: date):
 # Deliberately a closed set with a failing default. An unrecognised wait is treated as
 # unfinished work, so a refusal reason invented elsewhere cannot buy itself a pass by
 # naming something plausible.
+# Waits on a capability the world has not produced (C-86, #300): named as the external gate
+# closure parks on, reported BLOCKED, and never a pass -- `complete` stays False.
+EXTERNAL_BLOCKS: dict[str, str] = {
+    "model_bearing_render_path": "model_bearing_render",
+}
+
 EXTERNAL_WAITS: frozenset[str] = frozenset({
     "model_provider_balance",     # the provider's account is empty; only the owner adds to it
     "canonical_model",            # the owner has not approved an identity
@@ -425,6 +441,7 @@ def _verdict(steps: list[Step], today: date, arena, launch) -> dict:
     ran = [s for s in steps if s.state == RAN]
     gated = [s for s in steps if s.state == GATED]
     failed = [s for s in steps if s.state == FAILED]
+    blocked = [s for s in steps if s.state == BLOCKED]
 
     in_time = None
     timing = {}
@@ -458,12 +475,13 @@ def _verdict(steps: list[Step], today: date, arena, launch) -> dict:
 
     reached = {s.key for s in steps}
     missing = [key for key in EXPECTED_STEPS if key not in reached]
-    complete = not failed and not missing and in_time is True
+    complete = not failed and not blocked and not missing and in_time is True
     return {
         "today": today.isoformat(),
         "steps": [s.to_dict() for s in steps],
         "ran": [s.key for s in ran],
         "gated": {s.key: s.gated_on for s in gated},
+        "blocked": {s.key: s.gated_on for s in blocked},
         "failed": [s.key for s in failed],
         "customer_can_finish_in_time": in_time,
         "timing": timing,
@@ -472,6 +490,7 @@ def _verdict(steps: list[Step], today: date, arena, launch) -> dict:
         # A gate that stopped the run outranks the steps it stopped: those are consequences,
         # and the gate is the thing somebody can act on.
         "weakest_link": (failed[0].key if failed else
+                         blocked[0].key if blocked else
                          gated[0].key if gated and missing else
                          missing[0] if missing else
                          "timing" if in_time is False else

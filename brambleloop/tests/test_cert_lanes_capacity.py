@@ -432,6 +432,7 @@ def test_experiment_spend_is_attributed_from_the_spending_job():
                         status=JobStatus.DONE)
         s.add_all([tagged, explore, committed])
         s.flush()
+        tagged_id = tagged.id
         for j, amt in ((tagged, 0.5), (explore, 0.25), (committed, 0.1)):
             s.add(CostEntry(agent=j.agent, amount_cad=amt, job_id=j.id))
     with db.session() as s:
@@ -445,6 +446,16 @@ def test_experiment_spend_is_attributed_from_the_spending_job():
     assert {r["key"]: r["cad"] for r in out["proxy"]["rows"]} == {
         "exploration:creative.blinded": 0.25}
     assert abs(out["unattributed_cad"] - 0.1) < 1e-9 and out["has_writer"] is True
+    # C-86: the writer above is this test's fixture. With no tagged row the dimension says
+    # so -- UNMEASURED, not zero -- because nothing in the runtime enqueues experiment work
+    # today; the day it does, the tag is what makes it attributable.
+    with db.session() as s:
+        for row in s.scalars(select(CostEntry)):
+            if (row.detail or {}).get("experiment") or row.job_id == tagged_id:
+                s.delete(row)
+        empty = governor.spend_by(s, "experiment")
+    assert empty["has_writer"] is False and empty["rows"] == [], empty
+    assert "UNMEASURED" in empty["why_unattributed"] and "enqueue no work" in empty["why_unattributed"]
     assert abs(out["total_cad"] - 0.85) < 1e-9, "rows + proxy + unattributed reconcile"
 
 

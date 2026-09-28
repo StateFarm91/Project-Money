@@ -234,6 +234,19 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
             f"column for it and no writer for the detail key. These dollars are untagged "
             f"because they cannot be tagged, which is a different fault from a call site "
             f"that forgot, and it is fixed in a different place")
+    elif dimension == "experiment":
+        # C-86 (independent audit of 15c5d1b): the only writer of a tagged experiment row was
+        # a test fixture. Experiments are decided from readings and enqueue no work today, so
+        # a writer exists only when a tagged row actually exists in the window -- and its
+        # absence is said plainly rather than read as zero cost per experiment.
+        tagged = [r for r in out["rows"] if r.get("basis") == BASIS_TAGGED]
+        out["has_writer"] = bool(tagged)
+        if not tagged:
+            out["why_unattributed"] = (
+                "no experiment-driven job spent in this window: experiments are registered "
+                "and decided from readings and enqueue no work of their own yet, so cost per "
+                "experiment is UNMEASURED here, not zero. The day experiment work is "
+                "enqueued it must carry inputs['experiment'] to be attributed")
     else:
         out["has_writer"] = True
     return out
