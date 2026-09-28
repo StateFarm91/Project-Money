@@ -1,0 +1,107 @@
+== test_cert_improve_wave
+rc=0
+0 failure(s)
+== test_swarm_runtime
+rc=0
+== test_cert_wiring
+rc=0
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+OK   test_no_row_whose_wiring_failed_here_is_still_claimed_covered
+16/16 passed in 275s
+== test_closure
+rc=0
+  26 passing, 0 failing
+== test_reachability
+rc=0
+PASS: 0 failing
+== test_platform
+rc=0
+OK   test_permanent_failure_skips_retries
+== test_cert_orchestration
+rc=0
+0 failure(s)
+== test_capability_gates
+rc=0
+OK   test_a_model_answering_the_wrong_question_is_counted_as_a_failure
+OK   test_a_vision_probe_with_no_image_refuses_rather_than_passing
+== test_executor
+rc=1
+FAIL test_a_gate_may_be_satisfied_and_carry_no_requirements AssertionError()
+FAIL test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering AssertionError('this evidence opens nothing, so the test proves nothing')
+FAIL test_the_registry_gate_un_parks_on_the_same_condition_as_the_hand_written_one AssertionError('no registry requirement waits on image generation')
+== test_cert_publish_gates
+rc=0
+0 failed
+== test_cert_growth_ops
+rc=0
+PASS: 0 failing
+== test_cert_orders
+rc=0
+PASS: 0 failing
+== test_cert_design_pipeline
+rc=1
+Traceback (most recent call last):
+FAIL test_a_winner_the_funnel_did_not_carry_is_never_engineered_3: list index out of range
+16 passing, 1 failing
+== test_cert_culture_teardown
+rc=0
+0 failed
+== test_teardown
+rc=0
+== test_league
+rc=0
+== test_improve
+rc=0
+== test_roles
+rc=0
+OK   test_nothing_proposed_is_unmeasured_rather_than_a_failure
+== test_cert_trend_evidence
+rc=0
+PASS: 0 failing
+== test_cert_parity_copy
+rc=0
+  20 passing, 0 failing
+== test_cert_design
+rc=0
+  14 passing, 0 failing
+== test_cert_improve_autonomy
+rc=0
+OK   test_an_empty_regression_suite_is_a_failed_run_not_a_pass (0.0s)
+0 failure(s)
+== test_cert_learning
+rc=0
+OK   test_failed_or_baseline_less_experiments_cannot_promote (0.2s)
+0 failure(s)
+== test_cert_ideation
+rc=0
+OK   test_the_floor_rises_with_the_trailing_cohort_and_cuts_what_would_once_have_passed
+0 failed
+== test_cert_preengineering
+rc=0
+OK   test_unjudged_taste_waits_and_is_never_passed
+OK   test_a_passed_concept_enqueued_directly_is_refused_by_the_funnel
+0 failure(s)
+== test_cert_commerce
+rc=0
+13/13 passed in 293s
+== test_cert_growth_seasonal
+rc=1
+FAIL test_a_bundle_waiting_for_members_waits_and_does_not_die AssertionError()
+Traceback (most recent call last):
+OK   test_a_team_whose_occasion_has_passed_is_disbanded_not_deleted
+1 failure(s)
+== test_cert_rebuild_chain
+rc=0
+PASS: 0 failing
+== test_cert_unique_value
+rc=0
+PASS: 0 failing
+== test_cost_governance_wave2
+rc=0
+== test_scheduler
+missing
+== test_nightly
+rc=0
+== test_weekly
+rc=0
+DONE

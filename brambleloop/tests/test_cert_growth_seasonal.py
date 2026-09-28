@@ -660,7 +660,13 @@ def test_a_bundle_waiting_for_members_waits_and_does_not_die():
         queued = [j for j in s.scalars(select(Job).where(
             Job.job_type == "collection.assemble", Job.status == JobStatus.PENDING))]
         assert len(queued) == 1
-        assert queued[0].priority == orchestrate.priority_for("collection.assemble")
+        # At its band as decided for THIS job (C-73's concern was the 999 outside every band):
+        # the type's band, demoted to new_opportunity while no member has attributed revenue
+        # (#187, C-63), and never above the type's band.
+        decided = orchestrate.priority_decision("collection.assemble", queued[0].inputs, db=db)
+        assert queued[0].priority == decided["priority"], (queued[0].priority, decided)
+        assert orchestrate.priority_for("collection.assemble") <= queued[0].priority \
+            <= orchestrate.BAND_BY_KIND["new_opportunity"], queued[0].priority
         queued_id = queued[0].id
     while worker.run_once():
         pass
