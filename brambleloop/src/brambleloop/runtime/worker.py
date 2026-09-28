@@ -378,6 +378,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("swarm_allocate", "swarm_steward", "swarm.allocate", 60 * 60),
     ("swarm_orphans", "swarm_steward", "swarm.orphans", 60 * 60),
     ("swarm_backlog", "swarm_steward", "swarm.backlog", 60 * 60),
+    # #4: concept posts prepared and checked daily for the concepts held before engineering;
+    # posting refused while owned_surfaces is closed, interest UNMEASURED until a platform
+    # reports it, and a measured result steers the next field's brief.
+    ("preproduction_validation", "growth", "growth.preproduction", 24 * 60 * 60),
     # #241/#265: experiments persisted with owner, expected value and a kill rule.
     ("growth_experiments", "experiment_steward", "growth.experiments", 24 * 60 * 60),
     # #75 COMPETITIVE and #222/#320: the blind review and the acceptance runner read stored

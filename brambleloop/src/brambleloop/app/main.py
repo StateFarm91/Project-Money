@@ -2774,15 +2774,27 @@ def api_preproduction() -> dict:
     Nothing is published: no social credential has been granted. The refusals run anyway, so
     they are tested before the day they matter.
     """
-    from ..commerce import preproduction
+    from sqlalchemy import desc, select
 
+    from ..commerce import preproduction, preproduction_cycle
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        last = s.scalar(select(AuditLog).where(
+            AuditLog.action == preproduction_cycle.CYCLE_ACTION)
+            .order_by(desc(AuditLog.id)).limit(1))
+        cycle = ({"at": last.at.isoformat(), **dict(last.detail or {})} if last is not None
+                 else {"at": None, "why": "growth.preproduction has not run yet"})
     return {
         "must_say_it_is_a_concept": list(preproduction.CONCEPT_MARKERS),
         "refused_because_they_imply_a_purchase": [
             {"pattern": pattern, "why": why}
             for pattern, why in preproduction.IMPLIES_AVAILABILITY],
         "never_fabricated": list(preproduction.NEVER_FABRICATED),
-        "publishing": {"state": "gated", "gated_on": "social_credentials"},
+        "publishing": {"state": "gated", "gated_on": preproduction_cycle.GATE,
+                       "open": preproduction_cycle.gate_open(db)["open"]},
+        "last_cycle": cycle,
+        "brief": preproduction_cycle.brief(db),
         "note": ("A picture of a thing that does not exist, posted where people buy things, "
                  "is a pre-order somebody will try to place. No code path here can author an "
                  "engagement number."),

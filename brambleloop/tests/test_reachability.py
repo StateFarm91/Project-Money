@@ -196,10 +196,15 @@ def test_the_real_package_still_reaches_its_handlers_libraries():
     # must say which handler, not merely that a route imports it.
     offers = R.reached("commerce/offers.py")
     assert offers["reached"] and "handler " in str(offers.get("why", "")), offers
-    # A library that is still only imported by app/main.py (#4's commerce/preproduction.py,
-    # not in any repair wave yet) stays unreached. If this fires because #4 got wired, that
-    # is the repair working: pick another static-only fixture rather than loosening the rule.
-    static_only = R.reached("commerce/preproduction.py")
+    # #4 was wired by the residue repair wave: commerce/preproduction.py must now read as
+    # reached through the growth.preproduction cadence handler, not merely the route.
+    wired = R.reached("commerce/preproduction.py")
+    assert wired["reached"] and "handler growth.preproduction" in str(wired.get("why", "")), wired
+    # A library that is still only used by an app/main.py route (growth/free_to_paid.py:
+    # growth/clusters.py imports one constant from it and /api reads it) stays unreached. If
+    # this fires because it got wired, that is a repair working: pick another static-only
+    # fixture rather than loosening the rule.
+    static_only = R.reached("growth/free_to_paid.py")
     assert not static_only["reached"], ("fixture wired; choose another static-only module",
                                         static_only)
 

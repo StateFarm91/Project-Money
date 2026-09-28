@@ -7197,3 +7197,30 @@ def photoreal_calibration(db) -> dict | None:
             if detail.get("checks_version") == photoreal.CHECKS_VERSION:
                 return detail
     return None
+
+
+@handlers.register("growth.preproduction")
+def handle_preproduction(ctx: JobContext) -> dict:
+    """#4: test concepts before engineering them, without ever implying they can be bought.
+
+    `commerce.preproduction` had the refusals and no caller. This is the caller, daily: the
+    held winners and the newest field's survivors get one concept post per channel, each
+    passing `check_post` or refused by name; posting is refused while the `owned_surfaces`
+    gate is closed and the refusal is recorded; interest is read only from a platform-written
+    `preproduction.interest_observed` row and otherwise recorded UNMEASURED; and a concept
+    whose interest a platform did report becomes a brief input the next tournament is
+    generated under (`creative.ideation.preproduction_interest`), with its receipt.
+
+    GREEN: reads rows, writes its own audit rows. Posts nothing, spends nothing, fetches
+    nothing, and has no path that can write an engagement number.
+    """
+    from ..commerce import preproduction_cycle
+
+    out = preproduction_cycle.run(ctx)
+    ctx.audit(preproduction_cycle.CYCLE_ACTION, detail={
+        k: out[k] for k in ("concepts", "prepared", "refused", "held_for_gate", "publish",
+                            "interest", "unmeasured", "acted_on")})
+    return {"ran": True, "concepts": out["concepts"], "prepared": len(out["prepared"]),
+            "refused": len(out["refused"]), "held_for_gate": out["held_for_gate"],
+            "publish": out["publish"], "unmeasured": out["unmeasured"],
+            "acted_on": out["acted_on"], "brief": out["brief"]["reason"]}
