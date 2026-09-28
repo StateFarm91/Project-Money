@@ -1332,9 +1332,30 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # The uploaded name comes from the same place as the stored one. It was spelled out here,
     # so the file in the buyer's downloads folder and the file in the artifact store could have
     # been named by two different rules.
-    outcome = client.publish(payload=payload,
-                             filename=f"{slug}-{pattern_filename('US')}",
-                             data=doc.pdf_bytes, images=listing_images["images"])
+    from ..publish import draft_intent
+    import hashlib
+    import json
+    binding = {"release": release, "pdfs": hash_check.get("certified") or {},
+               "images": [(name, hashlib.sha256(data).hexdigest()) for name,data in listing_images["images"]],
+               "image_order": listing_images.get("order"), "listing_set": listing_images.get("record_id"),
+               "payload": etsy_ops.sent_fields(payload)}
+    content_digest = hashlib.sha256(json.dumps(binding,sort_keys=True,default=str).encode()).hexdigest()
+    intent_key, intent_token = draft_intent.claim(
+        ctx.db,slug=slug,version=version,release=release,content_digest=content_digest)
+    try:
+        outcome = client.publish(payload=payload,
+                                 filename=f"{slug}-{pattern_filename('US')}",
+                                 data=doc.pdf_bytes, images=listing_images["images"],
+                                 on_created=lambda remote_id: draft_intent.checkpoint(
+                                     ctx.db,intent_key,intent_token,remote_id))
+    except BaseException:
+        # Hard process death cannot run this block; the committed CREATING intent still
+        # blocks the next attempt. Ordinary failures additionally open a visible incident.
+        draft_intent.uncertain(ctx.db,intent_key,intent_token)
+        raise
+    if not outcome.listing_id:
+        draft_intent.uncertain(ctx.db,intent_key,intent_token)
+
 
     # The second file, attached after the first.
     #

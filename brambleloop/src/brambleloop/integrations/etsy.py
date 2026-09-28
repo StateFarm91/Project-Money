@@ -1087,7 +1087,8 @@ class EtsyClient:
     # ---- the publish path, unchanged in what it permits -------------------
 
     def publish(self, *, payload: ListingPayload, filename: str, data: bytes,
-                images: list[tuple[str, bytes]] | None = None) -> PublishOutcome:
+                images: list[tuple[str, bytes]] | None = None,
+                on_created=None) -> PublishOutcome:
         """Create the draft, attach the file and upload the images, reporting each honestly.
 
         Still creates a draft and still stops there: activation is gated. What has changed is
@@ -1106,6 +1107,10 @@ class EtsyClient:
             return PublishOutcome(published=False, problems=[reason])
 
         listing_id = self.create_draft(payload)
+        # A runtime caller checkpoints the irreversible remote ID before any upload.
+        # Callback failure must abort; swallowing it would reopen the duplicate-create gap.
+        if on_created is not None:
+            on_created(listing_id)
         try:
             uploaded = self.attach_file(listing_id, filename=filename, data=data)
         except (TransientError, EtsyRejected) as e:
