@@ -44,11 +44,18 @@ def args():
     return dict(slug='original',version='1',release='release-a',payload=ListingPayload(title='Original pattern',description='Fixture',price=8,tags=[],materials=[]),docs={'US':SimpleNamespace(pdf_bytes=b'pdf'),'UK':SimpleNamespace(pdf_bytes=b'uk')},hash_check={'certified':{'US':'a'*64,'UK':'b'*64}},stored=SimpleNamespace(sha256='a'*64),stored_by_terminology={},listing_images={'images':[('image.png',b'fake')],'order':['hero'],'record_id':1})
 
 
+def _crash_fixture_publish(*a, **kw):
+    # Crash isolation only: fabricated hashes do not establish release approval.
+    # Strict final missing-evidence refusals are tested in test_publish_execution_gate.
+    with patch.object(pipeline, "_revalidate_publish_effect", return_value=None):
+        return pipeline._publish_and_read_back(*a, **kw)
+
+
 def crash_case(phase):
     with tempfile.TemporaryDirectory() as td:
         path=Path(td)/'state.db';db=setup(path);remote=FakeRemote(db,phase)
         try:
-            try:pipeline._publish_and_read_back(ctx(db),remote,**args())
+            try:_crash_fixture_publish(ctx(db),remote,**args())
             except Crash:pass
             else:raise AssertionError('failure injection not reached')
             expected=0 if phase=='before_create' else 1
@@ -61,7 +68,7 @@ def crash_case(phase):
             db.engine.dispose()
             # New Database object/pool is a process restart analogue; no in-memory lock.
             db=Database('sqlite:///'+str(path),scratch=True);remote.db=db
-            try:pipeline._publish_and_read_back(ctx(db),remote,**args())
+            try:_crash_fixture_publish(ctx(db),remote,**args())
             except intents.ReconciliationRequired:pass
             else:raise AssertionError('retry created another remote draft')
             assert remote.creates==expected
@@ -85,11 +92,11 @@ def test_checkpoint_failure_after_id_return_prevents_upload_and_retry():
         db=setup(Path(td)/'state.db');remote=FakeRemote(db,'after_checkpoint')
         try:
             with patch.object(intents,'checkpoint',side_effect=Crash('checkpoint failure')):
-                try:pipeline._publish_and_read_back(ctx(db),remote,**args())
+                try:_crash_fixture_publish(ctx(db),remote,**args())
                 except Crash:pass
                 else:raise AssertionError('checkpoint failure not reached')
             assert remote.creates==1 and remote.uploads==0
-            try:pipeline._publish_and_read_back(ctx(db),remote,**args())
+            try:_crash_fixture_publish(ctx(db),remote,**args())
             except intents.ReconciliationRequired:pass
             else:raise AssertionError('blind retry allowed')
             assert remote.creates==1
@@ -132,7 +139,7 @@ def test_hard_process_exit_leaves_creating_intent_that_blocks_new_process():
         remote=FakeRemote(db,"after_checkpoint")
         try:
             with db.session() as s:assert s.get(intents.DraftIntent,intents.key_for("original","1")).state=="CREATING"
-            try:pipeline._publish_and_read_back(ctx(db),remote,**args())
+            try:_crash_fixture_publish(ctx(db),remote,**args())
             except intents.ReconciliationRequired:pass
             else:raise AssertionError("hard process crash authorized duplicate creation")
             assert remote.creates==0 and marker.read_text()=="one remote create"
@@ -148,7 +155,7 @@ if __name__=='__main__':
             Path(sys.argv[3]).write_text('one remote create')
             os._exit(23)
         remote.create_draft=die
-        pipeline._publish_and_read_back(ctx(db),remote,**args())
+        _crash_fixture_publish(ctx(db),remote,**args())
         raise AssertionError('child failed to exit')
     failures=0;tests=[(n,f) for n,f in list(globals().items()) if n.startswith('test_') and callable(f)]
     for name,test in tests:
