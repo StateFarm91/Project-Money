@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..gates.originality import catalogue_provenance
 from .motifs import LIBRARY, Motif, get
 
 PALETTES: dict[str, dict[str, str]] = {
@@ -119,6 +120,13 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
             f"{design.motif_repeats} up ({len(rows)} rows). {motif.note}. "
             f"Colour changes every row; carry the resting colour up the side."
             + (f" {design.note}" if design.note else "")),
+        # F-783: where this design came from. Built from the Brambleloop motif library and
+        # palette table by this module's deterministic tiler; no benchmark was consulted.
+        provenance=catalogue_provenance(
+            design.slug, {"builder": "products.builder.build", "design": vars(design),
+                          "motif_grid": list(motif.grid)},
+            ("products.builder", f"products.motifs:{motif.slug}",
+             f"products.builder.PALETTES:{design.palette}")),
     )
 
 

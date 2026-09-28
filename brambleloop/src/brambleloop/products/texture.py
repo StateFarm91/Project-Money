@@ -19,6 +19,7 @@ and arithmetic the compiler checks rather than a designer's confidence.
 from __future__ import annotations
 
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..gates.originality import catalogue_provenance
 
 WORSTED = Gauge(stitches_per_10cm=16, rows_per_10cm=18, stitch_type="sc", hook_mm=5.0)
 CHUNKY = Gauge(stitches_per_10cm=11, rows_per_10cm=13, stitch_type="sc", hook_mm=6.5)
@@ -93,6 +94,12 @@ def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
         designer_notes=("Every row works front and back post stitches into the same columns, "
                         "which is what makes the rib stand up rather than merely look "
                         "striped."),
+        # F-783: generic post-stitch ribbing sized by this module; no benchmark consulted.
+        provenance=catalogue_provenance(
+            "chunky-ribbed-scarf",
+            {"builder": "products.texture.build_ribbed_scarf", "width": width, "rows": 101,
+             "rib": "fpdc2/bpdc2", "gauge": vars(CHUNKY)},
+            ("products.texture", "post_stitch_ribbing")),
     )
 
 
@@ -162,6 +169,12 @@ def build_bobble_pillow(version: str = "1.0.0") -> CIR:
             f"{panel_cm:.1f} cm across at the stated gauge -- {fit} -- so the pad fills the "
             f"cover out instead of swimming in it. Bobble fabric draws in as well, so work "
             f"the gauge swatch in pattern rather than in plain single crochet."),
+        # F-783: a staggered bobble grid sized to the pad by this module.
+        provenance=catalogue_provenance(
+            "bobble-floor-pillow",
+            {"builder": "products.texture.build_bobble_pillow", "width": width,
+             "blocks": 13, "pad_cm": PAD_CM, "gauge": vars(WORSTED)},
+            ("products.texture", "staggered_bobble_grid")),
     )
 
 
@@ -210,4 +223,10 @@ def build_cable_throw(version: str = "1.0.0") -> CIR:
         finished_size_note=(
             f"About {wide_cm:.0f} cm wide at the stated gauge. Cable fabric draws in across "
             f"its width, which the gauge swatch has to be worked in pattern to show."),
+        # F-783: cable columns built on the compiler's composite crossing stitch.
+        provenance=catalogue_provenance(
+            "heirloom-cable-blanket",
+            {"builder": "products.texture.build_cable_throw", "width": width, "blocks": 30,
+             "column": 8, "gauge": vars(WORSTED)},
+            ("products.texture", "cir.stitches:cable2x2", "post_stitch_ribbing")),
     )

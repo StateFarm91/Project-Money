@@ -333,7 +333,8 @@ def mirror(db, ref: str, files: list[library.IntakeFile], folder: Path,
 
 def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
             env: dict[str, str] | None = None, paid_cad: float | None = None,
-            purchased_on: str | None = None, mirror_files: bool = True) -> dict:
+            purchased_on: str | None = None, mirror_files: bool = True,
+            licence_terms: dict | None = None) -> dict:
     """Write one purchase into the quarantine and generate everything derivable from it.
 
     `uploads` is what the form sent: (filename, bytes). Everything else is looked up.
@@ -395,6 +396,17 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
 
     _set_state(db, ref, AWAITING_ANALYST, title=row["title"])
 
+    # F-786/F-788: the purchase's licence, captured with the files. Terms supplied at upload
+    # are recorded as given; otherwise the conservative personal-use reading, which never
+    # overwrites terms somebody already recorded. The code-declared benchmark licences are
+    # written alongside on first arrival so every agent reads one table.
+    from . import licence as licence_terms_mod
+
+    licence_record = licence_terms_mod.capture_purchase(
+        db, ref, terms=licence_terms, source_url=str(row.get("url") or ""),
+        attribution=f"{benchmarks.MJS_SHOP} (seller)")
+    licence_terms_mod.seed_known(db)
+
     audit = deliverable_audit(promises, scan.inferred)
     # #151: the scorecard's promise-to-delivery audit, on the same inputs, so the alignment
     # figure the teardown reports is computed at the moment the files arrive. And #159/#170:
@@ -424,6 +436,9 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
         "promise_alignment": alignment,
         "audit_prefill": prefilled,
         "offsite": mirrored,
+        "licence": {k: licence_record.get(k) for k in (
+            "terms_source", "allowed_uses", "prohibited_uses", "finished_item_rights",
+            "pattern_rights", "written")},
         "durable": bool(mirrored.get("durable")),
         "needs_owner": [n for n in scan.needs_owner
                         if "listing reference" not in n and "what was paid" not in n

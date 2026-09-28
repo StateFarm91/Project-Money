@@ -22,6 +22,7 @@ import math
 from dataclasses import dataclass
 
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..gates.originality import catalogue_provenance
 
 # Cotton at a firm gauge, because a basket that flops is not a basket. These are the same
 # family of constants the flat catalogue uses, at the tighter end.
@@ -152,6 +153,13 @@ def build_basket(size: str = "medium", version: str = "1.0.0") -> CIR:
             f"About {diameter_cm(base_count, COTTON_GAUGE):.0f} cm across and "
             f"{wall_rounds * row_cm:.0f} cm tall at the stated gauge, measured from the "
             f"base."),
+        # F-783: a disc base from this module's wedge arithmetic and straight walls.
+        provenance=catalogue_provenance(
+            "market-basket-trio",
+            {"builder": "products.vessels.build_basket", "size": spec.key,
+             "across_cm": spec.across_cm, "tall_cm": spec.tall_cm,
+             "gauge": vars(COTTON_GAUGE)},
+            ("products.vessels", "products.vessels._disc_rounds", "joined_rounds")),
     )
 
 
@@ -191,6 +199,12 @@ def build_hexagon_coaster(across_cm: float = 10.0, make: int = 4,
             f"About {diameter_cm(count, COASTER_GAUGE):.1f} cm across the points at the "
             f"stated gauge. Lies flat: the radius grows at one row height per round, which "
             f"is what makes a flat disc."),
+        # F-783: the same wedge arithmetic, six increases stacked at the corners.
+        provenance=catalogue_provenance(
+            "hexie-coaster-set",
+            {"builder": "products.vessels.build_hexagon_coaster", "across_cm": across_cm,
+             "make": make, "gauge": vars(COASTER_GAUGE)},
+            ("products.vessels", "products.vessels._disc_rounds", "joined_rounds")),
     )
 
 
