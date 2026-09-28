@@ -74,7 +74,7 @@ def module_name(rel: str) -> str:
 
 def _rel_of(mod: str) -> str:
     p = _path_of(mod)
-    return str(p.relative_to(PKG)) if p else mod
+    return p.relative_to(PKG).as_posix() if p else mod
 
 
 def _path_of(mod: str) -> Path | None:
