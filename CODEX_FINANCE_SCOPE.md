@@ -28,3 +28,6 @@ Exact source bytes and absolute paths identify cached import set; addition/remov
 same-size/same-mtime replacement invalidate. No status/reachability/threshold changes.
 Unreadable sources must raise/refuse, not return cached imports. Preserve SyntaxError skip.
 Preserve cache_clear/cache_info compatibility. No resolver index optimization authorized.
+
+## Resolver portability (after7ab2a6f)
+Approved _module_of return-path normalization only plus focused tests. Path.as_posix preserves selection/ambiguity logic; no full report run or proofthreshold change. Direct absolute helper inputs retain original resolution behavior with slash spelling.
