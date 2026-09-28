@@ -233,7 +233,8 @@ def test_a_benchmark_or_seller_image_is_refused_as_a_generation_reference():
         refused = [
             _png(lib / "mjs-9" / "cover.png"),                    # inside the quarantine
             _png(tmp / "seller_photos" / "a.png"),                 # seller photography
-            _png(tmp / "work" / "designer-photo-3.png"),           # named as such
+            _png(tmp / "work" / "seller-photo-3.png"),             # named as such
+            _png(tmp / "bench" / "designer_photos" / "p1.png"),    # a benchmark designer's
             _png(tmp / "research" / "bench2" / "out" / "ref.png"),  # a benchmark reconstruction
         ]
         provider = I.BY_KEY["gpt-image-2"]

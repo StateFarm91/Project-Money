@@ -46,6 +46,7 @@ the rule of `teardown/library.py` -- no table holds a competitor's instructions 
 """
 from __future__ import annotations
 
+import dataclasses
 import functools
 import hashlib
 import json
@@ -714,10 +715,10 @@ def similarity_review(cir, *, pattern_text: str | None = None, db=None,
     if db is not None and benchmarks is None:
         for fp in fingerprints_from_db(db):
             have = pool.get(fp.ref)
-            if have is None:
-                pool[fp.ref] = fp
-            else:
-                have.wording = have.wording | fp.wording
+            # A copy, never the shared code fingerprint: one database's captured wording must
+            # not leak into the next review in the same process.
+            pool[fp.ref] = fp if have is None else dataclasses.replace(
+                have, wording=have.wording | fp.wording)
     comparisons = [compare(cir, b, pattern_text=pattern_text) for b in pool.values()]
     escalated = [c for c in comparisons if c["material"]]
     return {"slug": cir.slug, "benchmarks_compared": sorted(pool),
@@ -764,7 +765,10 @@ _BENCHMARK_PATH_PARTS: frozenset[str] = frozenset({
     "benchmark_library", "seller_photos", "designer_photos", "competitor_photos",
     "benchmark_photos", "bench1", "bench2",
 })
-_BENCHMARK_NAME = re.compile(r"(seller|designer|competitor|benchmark)[-_ ]?(photo|image|img)",
+# "designer" is deliberately not in the name pattern: Brambleloop's own designer photography is
+# a permitted source (`asset_truth.PERMITTED_SOURCES`). A benchmark designer's photographs are
+# caught by the directory they are filed in (`designer_photos`, as research/bench2 files them).
+_BENCHMARK_NAME = re.compile(r"(seller|competitor|benchmark)[-_ ]?(photo|image|img)",
                              re.I)
 
 

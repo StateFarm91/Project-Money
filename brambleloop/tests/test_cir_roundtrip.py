@@ -119,6 +119,10 @@ def test_the_fields_the_old_reader_dropped_are_read_back():
 def test_provenance_is_omitted_when_absent_and_kept_when_present():
     """Absent, not null: existing products' serialised forms are frozen digests."""
     plain = fixtures.good_sphere()
+    # The known-good fixture now carries a provenance (F-783: certification requires one), so
+    # the absent case is made explicitly -- it is the serialisation being tested, not the
+    # fixture.
+    plain.provenance = None
     assert "provenance" not in plain.to_dict()
     assert plain.provenance is None
 
