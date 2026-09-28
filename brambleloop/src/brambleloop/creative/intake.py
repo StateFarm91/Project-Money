@@ -494,7 +494,8 @@ def brief_for(db, concept: Concept, *, event: str = "", event_date: date | None 
 
 GATE_BRIEF_FIELDS: tuple[str, ...] = (
     "thumbnail_storyboard", "motifs", "season", "wow_mechanism", "wow_grounding",
-    "silhouette_qualifiers", "techniques", "trend_domain")
+    "silhouette_qualifiers", "techniques", "trend_domain",
+    "benchmarks_consulted", "design_difference_ledger", "source_context")
 
 
 # ---------------------------------------------------------------------------
@@ -598,12 +599,8 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     concept: Concept = candidate.concept
     original_key = concept.key
     slug = design_slug(concept)
-    # A seasonal transformation of a catalogue product (#279) keeps its parent in its
-    # provenance, so the design records what it was transformed from as well as the run.
-    lineage = (f" <- {concept.provenance}" if str(concept.provenance or "")
-               .startswith("transformed:") else "")
-    designed = replace(concept, key=slug,
-                       provenance=f"{source}:{original_key}{lineage}"[:120])
+    # The run's source belongs in the intake record, not over the original lineage.
+    designed = replace(concept, key=slug)
     judged = judgement_for(db, slug)
     if judged:
         designed = replace(designed, **{k: judged[k] for k in ("thumbnail_reads_small",
@@ -613,6 +610,17 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     brief = brief_for(db, designed, event=event, event_date=event_date, days_to_event=days,
                       vision=plan.get("vision"), trend_domain=culture_domain(db, culture_id),
                       today=today)
+    supplied = plan.get("brief") or {}
+    if not isinstance(supplied, dict):
+        raise ValueError("source brief must be an object; provenance UNKNOWN")
+    for field in ("benchmarks_consulted", "design_difference_ledger", "source_context"):
+        if field in supplied:
+            brief[field] = supplied[field]
+    from .prototype import source_provenance
+    lineage_record = source_provenance(designed.key, designed.to_dict(), brief,
+                                       ("creative.intake",))
+    if lineage_record is not None:
+        brief["benchmarks_consulted"] = list(lineage_record.benchmarks_consulted)
     funnel = funnel_verdict(funnel_rounds, original_key)
     gate = ideation.pre_engineering_gate(
         db, SimpleNamespace(concept=designed), ctx=ctx, source=source,

@@ -157,7 +157,7 @@ PROTOTYPE_REPEAT: tuple[tuple[str, int], ...] = (("sc", 4),)
 
 
 def author(concept: Concept, *, version: str = "0.1.0",
-           yarn_weight: str = DEFAULT_WEIGHT) -> CIR:
+           yarn_weight: str = DEFAULT_WEIGHT, brief: dict | None = None) -> CIR:
     """Build a compilable CIR for one concept, or refuse and say why.
 
     The stitch and row counts are computed from the finished size and the gauge, then the
@@ -179,6 +179,10 @@ def author(concept: Concept, *, version: str = "0.1.0",
         except (garment_design.GarmentDesignRefused, ValueError) as exc:
             raise PrototypeRefused(str(exc)) from exc
         cir.version = version
+        existing = cir.provenance
+        cir.provenance = source_provenance(
+            concept.key, concept.to_dict(), brief,
+            tuple(existing.primitives_used) if existing else ("creative.garment_design.design_for",))
         return cir
 
     geometry = geometry_for(concept.form)
@@ -229,25 +233,49 @@ def author(concept: Concept, *, version: str = "0.1.0",
         # F-783: certification refuses a Brambleloop release with no design provenance. The
         # geometry is this module's (finished size x published gauge); a concept whose lineage
         # names a benchmark carries it, so certification asks for its ledger (F-794).
-        provenance=_provenance(concept, geometry, gauge, construction, stitches, rows_count),
+        provenance=_provenance(concept, geometry, gauge, construction, stitches, rows_count, brief),
     )
 
 
-def _provenance(concept: Concept, geometry, gauge, construction: str, stitches: int,
-                rows_count: int):
-    from ..gates.originality import catalogue_provenance
+def source_provenance(concept_key: str, inputs: dict, brief: dict | None,
+                      primitives: tuple[str, ...]):
+    """Record actual author inputs, without asserting independently verified ownership."""
+    from ..cir.model import Provenance
+    from ..gates.originality import brief_digest
+    if brief is not None and not isinstance(brief, dict):
+        raise PrototypeRefused("source brief must be an object; provenance UNKNOWN")
+    source = inputs.get("provenance")
+    if not isinstance(source, str) or not source.strip():
+        return None  # raw geometry is not an approved design source
+    refs = (brief or {}).get("benchmarks_consulted", [])
+    if refs is None:
+        refs = []
+    if not isinstance(refs, (list, tuple)) or any(
+            not isinstance(ref, str) or not ref.strip() for ref in refs):
+        raise PrototypeRefused("benchmark source identities malformed; provenance UNKNOWN")
+    refs = list(refs)
+    if source.startswith("benchmark:"):
+        ref = source[len("benchmark:"):]
+        if not ref.strip():
+            raise PrototypeRefused("empty benchmark identity; provenance UNKNOWN")
+        refs.append(ref)
+    return Provenance(
+        concept_key=concept_key,
+        brief_digest=brief_digest({"concept": inputs, "brief": brief,
+                                   "primitives": list(primitives)}),
+        primitives_used=primitives, benchmarks_consulted=tuple(dict.fromkeys(refs)),
+        generated_by="brambleloop")
 
-    prov = catalogue_provenance(
+
+def _provenance(concept: Concept, geometry, gauge, construction: str, stitches: int,
+                rows_count: int, brief: dict | None):
+    return source_provenance(
         concept.key,
-        {"author": "creative.prototype.author", "concept": concept.to_dict(), "form": concept.form,
+        {**concept.to_dict(), "author": "creative.prototype.author",
          "construction": construction, "stitches": stitches, "rows": rows_count,
          "gauge": [gauge.stitches_per_10cm, gauge.rows_per_10cm, gauge.yarn_weight]},
-        ("creative.prototype.author", f"creative.prototype.geometry_for:{concept.form}",
-         f"creative.prototype.gauge_for:{gauge.yarn_weight}"))
-    lineage = str(getattr(concept, "provenance", "") or "")
-    if lineage.startswith("benchmark:") and lineage[len("benchmark:"):].strip():
-        prov.benchmarks_consulted = (lineage[len("benchmark:"):].strip(),)
-    return prov
+        brief, ("creative.prototype.author", f"creative.prototype.geometry_for:{concept.form}",
+                f"creative.prototype.gauge_for:{gauge.yarn_weight}"))
 
 
 def _drift(geometry: Geometry, width_cm: float, height_cm: float) -> dict[str, float]:

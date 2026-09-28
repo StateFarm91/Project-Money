@@ -69,6 +69,8 @@ class Concept:
     risk_class: str = "A"
     # The yarn the pattern is written for. The gauge is derived from it (F-116), never typed.
     yarn_weight: str = "worsted"
+    source_brief: dict | None = None
+    source_provenance: str | None = None
 
 
 def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
@@ -78,7 +80,7 @@ def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
     foundation that the repeat divides evenly. If the repeat does not divide the width, this
     returns a CIR that will *fail* compilation rather than quietly fudging the numbers.
     """
-    from ..creative.prototype import gauge_for
+    from ..creative.prototype import gauge_for, source_provenance
 
     unit = sum(n for _, n in c.stitch_repeat)
     palette = list(c.colors)
@@ -113,6 +115,9 @@ def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
         components=[Component(name="panel", construction="flat_rows", rows=rows,
                               foundation=c.width_stitches, foundation_kind="chain")],
         designer_notes=f"{c.category} concept, unit repeat {unit} sts",
+        provenance=source_provenance(c.slug,
+            {**c.__dict__, "provenance": c.source_provenance}, c.source_brief,
+            ("runtime.pipeline.concept_to_cir", "creative.prototype.gauge_for")),
     )
 
 
@@ -511,7 +516,8 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
     concept = CreativeConcept(**{k: v for k, v in raw.items()
                                  if k in CreativeConcept.__dataclass_fields__})
     try:
-        cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"))
+        cir = author(concept, version=str(ctx.job.inputs.get("version") or "1.0.0"),
+                     brief=ctx.job.inputs.get("brief"))
     except PrototypeRefused as exc:
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": str(exc)[:400], "gate": "engine"})

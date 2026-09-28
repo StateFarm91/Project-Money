@@ -1,0 +1,54 @@
+test_actual_intake_preserves_benchmark_lineage_and_brief (test_author_provenance.AuthorProvenance.test_actual_intake_preserves_benchmark_lineage_and_brief) ... ok
+test_brief_only_source_survives_author_and_blocks_certify_publish (test_author_provenance.AuthorProvenance.test_brief_only_source_survives_author_and_blocks_certify_publish) ... ok
+test_exact_source_ids_and_context_change_digest (test_author_provenance.AuthorProvenance.test_exact_source_ids_and_context_change_digest) ... ok
+test_malformed_source_identity_is_not_stringified (test_author_provenance.AuthorProvenance.test_malformed_source_identity_is_not_stringified) ... ok
+test_raw_geometry_without_source_stays_unqualified (test_author_provenance.AuthorProvenance.test_raw_geometry_without_source_stays_unqualified) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 8.974s
+
+OK
+invalid pdf header: b'PDF'
+EOF marker not found
+EOF marker not found
+invalid pdf header: b'PDF'
+EOF marker not found
+EOF marker not found
+OK   test_every_catalogue_cir_carries_complete_design_provenance
+OK   test_the_backfill_changes_no_design_only_the_record
+OK   test_the_catalogue_builders_import_nothing_from_benchmarks_or_research
+OK   test_a_brambleloop_release_without_provenance_is_refused
+OK   test_an_incomplete_or_foreign_provenance_is_refused
+OK   test_a_benchmark_record_is_not_asked_for_design_provenance
+OK   test_a_prototype_authored_design_carries_its_provenance
+OK   test_finished_item_rights_and_pattern_rights_are_separate_fields
+OK   test_a_public_source_can_never_grant_a_publishing_use
+OK   test_unknown_terms_read_conservatively_and_never_permissively
+OK   test_intake_captures_the_licence_and_it_survives_a_restart
+OK   test_the_library_refuses_a_use_the_licence_does_not_grant
+OK   test_a_benchmark_or_seller_image_is_refused_as_a_generation_reference
+OK   test_a_renamed_copy_of_a_purchased_file_is_refused_by_its_bytes
+OK   test_a_ledger_of_material_redesign_passes
+OK   test_a_ledger_of_superficial_changes_is_refused
+OK   test_a_superficial_change_labelled_material_is_still_superficial
+OK   test_every_consulted_benchmark_needs_its_own_entry
+OK   test_certify_requires_the_ledger_when_provenance_lists_benchmarks
+OK   test_pre_engineering_refuses_a_competitor_informed_concept_without_a_real_redesign
+OK   test_the_ledger_is_made_durable_when_the_gate_records_its_verdict
+OK   test_the_review_compares_against_both_purchased_benchmarks
+OK   test_a_relabelled_benchmark_1_is_escalated_for_redesign
+OK   test_a_light_derivative_of_benchmark_2_is_escalated_for_redesign
+OK   test_no_catalogue_product_escalates_against_either_benchmark
+OK   test_an_unusual_numeric_run_in_the_text_escalates_but_an_arithmetic_one_does_not
+OK   test_wording_overlap_is_measured_from_hashes_and_escalates
+OK   test_the_teardown_reader_fingerprints_wording_and_keeps_no_text
+
+  28 passing, 0 failing
+OK   test_a_compiling_cir_that_describes_the_wrong_object_is_refused
+OK   test_a_construction_with_no_engine_route_is_a_named_gap_not_a_bad_concept
+OK   test_a_form_with_no_finished_size_is_refused_rather_than_guessed
+OK   test_a_garment_concept_is_authored_from_its_own_words
+OK   test_no_model_is_consulted_about_what_the_pattern_says
+OK   test_the_finished_size_is_the_input_and_the_stitch_count_is_derived
+OK   test_the_gauge_is_derived_from_the_yarn_rather_than_typed
+OK   test_the_stage_cuts_what_cannot_be_built_and_carries_what_can
