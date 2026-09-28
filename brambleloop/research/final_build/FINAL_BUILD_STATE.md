@@ -37,3 +37,15 @@ reasons, or re-map the touched rows). Owner packets per audit §9.
 Nine read-only mapping workers, disjoint slices, brief `mapping/MAPPING_BRIEF.md`, uids in
 `mapping/s1..s9_uids.json`, outputs `mapping/s1..s9.json`. If a session reset kills them,
 re-dispatch only the slices whose output file is missing or fails `json.load`.
+
+## Wave FB-1 (dispatched 2026-09-28, base be8d416, brief `waves/FB1_BRIEF.md`)
+Seven implementation workers, one per cluster, each in worktree `.claude/worktrees/fb1-<X>` on
+branch `claude/fb1-<X>` (pushed incrementally): **E** owner visibility/security (first: auth on
+customer-data reads), **B** Etsy publish/activate/read-back/observation, **A** listing search
+truth, **C** product-truth gates, **D** money/order truth, **F** release/supply chain, **G** IP
+firewall/originality. Held for later: **H** Visual structural instrument, **I** Learn skeleton,
+**J** certification machinery (after merges). On a session reset: check `git ls-remote origin
+'claude/fb1-*'` and each branch's `research/final_build/waves/fb1_<X>.json`; re-dispatch only
+clusters with no report, telling the new worker to continue from the pushed branch head.
+Integration order when reports arrive: F, E (independent) → C, G (certificate) → A → B → D;
+full suite from clean state after each batch; re-aggregate the matrix.
