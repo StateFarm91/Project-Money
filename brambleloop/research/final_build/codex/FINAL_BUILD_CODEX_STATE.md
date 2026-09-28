@@ -22,3 +22,10 @@ Dispatch bounded workers with exact base/files. Read entire Master and remaining
 
 ## Recovery
 Read this file and FINAL_BUILD_RESUME_MANIFEST.md first. Inspect actual branch/status/remotes and worker reports before restarting. Prior Build2 assist remains codex/build2-assist-01 @19180b3; do not repeat its historical audit. No unsaved worker work existed at this checkpoint. Test failures/worker commits will be appended as obtained.
+
+## 2026-09-28 first local verification
+Workers active on codex/final-b-owner-auth (base449ce60), codex/final-learn-01 and codex/final-proof-01 (basec0a8f39). Exact scope additions approved by integrator: B owns only pipeline.handle_store_activate plus new authority/router/tests; I owns additive DB import/learn agent/cadence/loader and assets/PDF contextual links. Root owns app router registration and all merge reconciliation.
+Master full-text read independently by master_proof worker; supplied PDF hash verified by root. No invented missing IDs; preserve duplicate internal UIDs.
+
+Inherited test_cert_publish_gates on f9e72b4: 12 passing / 8 failing. Diagnostic local DB assets.build output explicitly LISTING_NO_FONT and 10pt fallback text; no listing was produced, downstream tests could not reach gates. Classified local environment failure, not accepted evidence. Initial attempt also failed importing SQLAlchemy because sandbox account cannot read preinstalled dependencies; escalation resolved access.
+Integrator bounded repair F-148/F-150: publish/charts.py adds explicit BRAMBLELOOP_FONT_PATH for existing real font bytes; no fallback/quality threshold change. New test_font_discovery: 2 passing including missing-font refusal-state control. Local font source bundled Poppler DejaVuSans.ttf. Added run_local_suite.py: exact-source single-suite logs/receipts, isolated scratch, no inherited provider/database credentials, never release-eligible. Canonical full suite still required later. Next: rerun publish gates with real font; then A/G integration and focused suites. No other source tests completed yet.

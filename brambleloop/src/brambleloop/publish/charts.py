@@ -12,6 +12,7 @@ so they are consistent, legible and reproducible for every size we publish.
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
@@ -186,7 +187,10 @@ def round_cue_labels(cir: CIR, twin: TwinModel, *, ring_px: int,
 def _font(size: int) -> ImageFont.ImageFont:
     """Load a real TrueType face when one exists, else fall back without crashing."""
     global FONT_FALLBACK_IN_USE
-    for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    # Local verification hosts may keep the same font outside Linux's system paths.
+    # This selects bytes, never overrides the downstream legibility/fallback gate.
+    configured = os.environ.get("BRAMBLELOOP_FONT_PATH", "").strip()
+    for path in ((configured,) if configured else ()) + ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                  "/usr/share/fonts/truetype/DejaVuSansMono.ttf"):
         try:
