@@ -1,0 +1,2991 @@
+[
+ {
+  "uid": "F-351",
+  "launch_class": "MATURE",
+  "launch_class_reason": "catalogue-priority/research-planning statement; first sale needs safe children's products, not category priority",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "priority is expressed in a curated Launch-0 list and hand-set radar priors; no runtime mechanism marks baby/children's as a priority family across research, expansion and seasonal planning",
+  "producer": "src/brambleloop/products/launch0.py::pipeline_plan",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "children's sub-categories (nursery decor, keepsake/baby blanket) lead Launch-0 and the children's pipeline",
+  "tests": [
+   "tests/test_launch0.py::test_the_two_childrens_products_are_the_sub_categories_the_research_leads_with",
+   "tests/test_launch0.py::test_the_pipeline_order_matches_the_researched_entry_order"
+  ],
+  "evidence": [
+   "research/CHILDRENS_CATEGORY.md (2026-09-24 market/safety/taxonomy research)",
+   "research/LAUNCH0_CATALOGUE.md: 2 of 3 Launch-0 products are children's (nursery baskets, Cloudline baby blanket)",
+   "src/brambleloop/intel/childrens.py SUBCATEGORIES verdicts LEAD/BUILD/CAREFUL/AVOID/NEVER",
+   "src/brambleloop/radar/opportunity.py CATEGORY_DEMAND baby 0.82 / nursery 0.60 (hand-set priors)",
+   "launch0.report/pipeline_plan have no API or handler caller (only tests); childrens_assignment is live via publish/pdf and runtime/release"
+  ],
+  "build2_rows": [
+   "#113 COMPLETE+PROVEN (recipient matrix incl. child/baby_nursery)"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "expose launch0.pipeline_plan/report on an API route or dashboard block and have radar.score read a children's-family priority weight from intel/childrens SUBCATEGORIES verdicts",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-352",
+  "launch_class": "MATURE",
+  "launch_class_reason": "selection-evidence discipline for catalogue expansion; not a first-sale customer protection",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "demand/competition for children's sub-categories are hand-set priors (radar/opportunity CATEGORY_DEMAND/COMPETITION), not measured; launch-readiness evidence is used, market evidence is proxy",
+  "producer": "src/brambleloop/radar/opportunity.py::score_concept",
+  "durable_state": null,
+  "consumer": "src/brambleloop/radar/opportunity.py::select_portfolio",
+  "protected_effect": "a children's concept is scored like any other on demand, competition, price, seasonality and verifiability class",
+  "tests": [
+   "tests/test_launch0.py::test_the_report_carries_no_demand_or_velocity_score_for_a_product",
+   "tests/test_childrens.py::test_no_demand_price_or_competition_number_lives_in_the_safety_table"
+  ],
+  "evidence": [
+   "radar/opportunity.py reached via launch.plan handler (module_reachability)",
+   "research/CHILDRENS_CATEGORY.md s3: Etsy counts UNKNOWN (403); Wikimedia pageviews proxy and EtsyHunt third-party estimates"
+  ],
+  "build2_rows": [
+   "#1 OWNER-GATED (Marketplace Insights demand oracle)",
+   "#23 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "measured Etsy demand for children's sub-categories needs the owner's Marketplace Insights/Stats export"
+  },
+  "defect": "radar/opportunity priors for 'baby'/'nursery' are proxy numbers used as scoring inputs",
+  "next_action": "replace CATEGORY_DEMAND['baby'/'nursery'] with radar/provenance-stamped evidence (culture/feeds Wikimedia baby_shower series) and mark priors UNMEASURED; add test that an unstamped prior is discounted",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-353",
+  "launch_class": "MATURE",
+  "launch_class_reason": "category research coverage; research depth is post-launch",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "research covers blankets, nursery decor, hats/booties, lovey, amigurumi, mobiles, garments as one class; no dedicated research of cardigans vs sweaters vs jackets vs dresses vs vests vs hooded vs matching sets vs bonnets vs collars vs sibling/multi-size products",
+  "producer": "src/brambleloop/intel/childrens.py::SUBCATEGORIES",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_childrens.py::test_the_table_covers_both_ends_of_the_decision"
+  ],
+  "evidence": [
+   "research/CHILDRENS_CATEGORY.md s1.2 sub-categories",
+   "intel/childrens.py childrens_garment is a single CAREFUL sub-category"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "extend research/CHILDRENS_CATEGORY.md and intel/childrens.SUBCATEGORIES with the named garment sub-types (cardigan, sweater, jacket, dress, top/vest, hooded, matching set, bonnet, collar, holiday, unisex, sibling/multi-size), each with constraints and a verdict",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-354",
+  "launch_class": "MATURE",
+  "launch_class_reason": "merchandising/value optimisation for multi-size products",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no evaluation of customer value/search demand/support burden/conversion of multi-size vs split listings; multi-size is built (CYC child 2-16 grading in one CIR set) but not evaluated",
+  "producer": "src/brambleloop/cir/graded.py::GradedDesign",
+  "durable_state": null,
+  "consumer": "src/brambleloop/creative/garment_design.py::design_for",
+  "protected_effect": "one design grades across CYC child/youth 2-16 sizes",
+  "tests": [
+   "tests/test_graded.py::test_every_graded_size_compiles_reverse_compiles_and_rises_monotonically",
+   "tests/test_garments.py::test_sizes_grow_monotonically_and_hit_their_intended_chest"
+  ],
+  "evidence": [
+   "cir/graded.py reached via api_seasonal_cycle (not in fcb982d)",
+   "products/garments.py child raglan cardigan CYC child/youth 2-16"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "conversion/support comparison of multi-size vs split listings needs live listings and orders"
+  },
+  "defect": null,
+  "next_action": "add commerce/multisize.py evaluate(design) computing grading complexity (sizes x pieces), expected support load and a split-vs-bundle recommendation, with UNMEASURED demand/conversion until listing data exists",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-355",
+  "launch_class": "MATURE",
+  "launch_class_reason": "demand measurement for beginner children's designs; growth optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no children's-specific beginner demand measurement; skill-level portfolio and difficulty exist generally",
+  "producer": "src/brambleloop/publish/difficulty.py::difficulty",
+  "durable_state": null,
+  "consumer": "src/brambleloop/creative/ideation.py::skill_gap",
+  "protected_effect": "skill gap in the catalogue steers ideation briefs",
+  "tests": [
+   "tests/test_leadtime.py::test_a_beginner_pattern_is_scheduled_for_a_beginner"
+  ],
+  "evidence": [
+   "#114 Skill-Level Portfolio repair: ideation.skill_gap reads radar.skill_gap into briefs"
+  ],
+  "build2_rows": [
+   "#114 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "beginner demand needs search/sales data"
+  },
+  "defect": null,
+  "next_action": "add a children's x skill-level cell to radar skill_gap and record beginner demand from Etsy search terms once attribution stats exist",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-356",
+  "launch_class": "MATURE",
+  "launch_class_reason": "gift-intent merchandising; conversion optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "gift occasions exist as facets/contexts but no model of gift purchase intent for children's products is measured or used in selection",
+  "producer": "src/brambleloop/creative/universe.py::coverage",
+  "durable_state": null,
+  "consumer": "src/brambleloop/commerce/intent.py::strategy",
+  "protected_effect": "baby_shower/new_baby/nursery contexts and gifting facets shape briefs and search phrases",
+  "tests": [
+   "tests/test_intent.py::test_the_gifting_facets_are_required_because_that_is_how_seasonal_buyers_search",
+   "tests/test_universe.py::test_the_context_list_is_people_and_places_both"
+  ],
+  "evidence": [
+   "creative/universe.py CONTEXTS baby_shower, nursery, child; creative/concept.py occasions new_baby, recipient new_parent/child",
+   "commerce/intent.py reached via api_search_intent"
+  ],
+  "build2_rows": [
+   "#113 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "measured gift-intent conversion needs orders"
+  },
+  "defect": null,
+  "next_action": "add baby-shower/newborn-gift/birthday facets to commerce/intent for children's sub-categories and record gift-intent outcomes per listing in growth outcome learning",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-357",
+  "launch_class": "MATURE",
+  "launch_class_reason": "seasonal timing optimisation for children's catalogue",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "seasonal engine/lead-time cover events incl. baby showers generally; no children's-garment specific seasonal demand tracking",
+  "producer": "src/brambleloop/seasonal/leadtime.py::catalogue_plans",
+  "durable_state": null,
+  "consumer": "src/brambleloop/publish/release_gates.py::window_decision",
+  "protected_effect": "launch dates computed backward from demand windows including make time",
+  "tests": [
+   "tests/test_leadtime.py::test_a_long_make_gets_an_earlier_launch_than_a_quick_one_by_arithmetic",
+   "tests/test_launch0.py::test_the_two_measured_series_are_counter_seasonal"
+  ],
+  "evidence": [
+   "seasonal/engine.py lists 'baby showers', 'births/nursery'",
+   "launch0.seasonality Wikimedia Amigurumi vs Baby_shower counter-seasonal (tests only)"
+  ],
+  "build2_rows": [
+   "#283 COMPLETE+PROVEN",
+   "#284 COMPLETE+PROVEN",
+   "#286 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "have culture/feeds re-take the Wikimedia Baby_shower/Amigurumi series on its cadence and feed seasonal/leadtime demand windows for children's sub-categories",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-358",
+  "launch_class": "MATURE",
+  "launch_class_reason": "style-segment research; merchandising",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no gender-neutral vs style-specific demand research or segment tracking for children's products",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/CHILDRENS_CATEGORY.md has no gender-neutral segment analysis"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add a gender-neutral/style-segment facet to commerce/intent and creative/universe for children's contexts and record segment demand from search terms",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'gender|unisex|neutral' src/brambleloop research/CHILDRENS_CATEGORY.md: no segment model"
+ },
+ {
+  "uid": "F-359",
+  "launch_class": "MATURE",
+  "launch_class_reason": "catalogue family design; post-launch expansion",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "family test is general; no sibling-set/coordinated children's variant evaluation",
+  "producer": "src/brambleloop/creative/family.py::shift_capacity",
+  "durable_state": null,
+  "consumer": "src/brambleloop/creative/tournament.py",
+  "protected_effect": "family members derived only when the hero idea survives; near-duplicate recolours refused",
+  "tests": [
+   "tests/test_family.py::test_a_family_member_is_never_the_hero_in_another_palette",
+   "tests/test_family.py::test_size_compatibility_alone_does_not_invent_a_member"
+  ],
+  "evidence": [
+   "creative/family.py reached via creative.tournament cadence"
+  ],
+  "build2_rows": [
+   "#111 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add a sibling/matching-set role to creative/family for children's contexts (sizes spanning two age bands) with the same anti-duplication test",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-360",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth for children's sizing/age labeling; Launch-0 includes children's products",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "babywear (0-24 months) cannot be graded: garment_design refuses new_parent recipients because no sourced baby body table is used by the grader (intel/childrens BABY_SIZES is chest-only and unused by cir/graded); ease/fit is not physically verified (twin.calibrated False)",
+  "producer": "src/brambleloop/cir/graded.py::GradedDesign",
+  "durable_state": "graded size tables written with the CIR",
+  "consumer": "src/brambleloop/cir/specification.py::refuse_an_underspecified_design",
+  "protected_effect": "child garments graded from sourced CYC child/youth table; neck-fit and monotonic grading gates refuse bad sizes; unsourced babywear refused rather than graded",
+  "tests": [
+   "tests/test_graded.py::test_what_the_source_does_not_publish_is_unsourced_and_grading_to_it_refuses",
+   "tests/test_graded.py::test_negative_ease_and_unknown_measurements_are_refused",
+   "tests/test_garments.py::test_raglan_neck_fits_the_body_at_every_size",
+   "tests/test_childrens.py::test_the_cyc_tables_match_the_published_charts"
+  ],
+  "evidence": [
+   "cir/graded.py reached via api_seasonal_cycle; not in fcb982d",
+   "creative/garment_design.py UNSIZED_RECIPIENTS new_parent refused",
+   "Launch-0 children's products are a blanket and baskets (no sized wearable)"
+  ],
+  "build2_rows": [
+   "#283 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "physical_proof",
+   "detail": "fit/ease verification of children's garments needs a physical sample"
+  },
+  "defect": null,
+  "next_action": "transcribe the full CYC baby chart (all published rows) into cir/graded as a BABY BodyTable with source/date and allow garment_design to grade new_parent recipients against it; add tests mirroring test_graded for the baby table",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-361",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "same quality floors for children's products; Launch-0 contains two children's products",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/pipeline.py (gate.certify chain)",
+  "durable_state": "releases/certificates",
+  "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf",
+  "protected_effect": "children's products pass the same compiler/twin/certify/asset gates plus additional statement and refusal checks; no children's exemption path exists",
+  "tests": [
+   "tests/test_launch0.py::test_everything_listed_for_launch_passes_every_gate",
+   "tests/test_deliverable_qa.py::test_a_childrens_document_missing_a_statement_is_refused_rather_than_shipped",
+   "tests/test_product_run.py::test_a_childrens_listing_carries_its_statements_through_the_real_chain"
+  ],
+  "evidence": [
+   "publish/pdf._refuse_an_incomplete_childrens_document present in fcb982d",
+   "gates/first_customer.py (not reached) also checks children's statements"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-362",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful age/size representation in listing and PDF for Launch-0 baby blanket",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "no statement that finished measurements, not age, govern fit for multi-size children's garments; children's assignment exists only for Launch-0 slugs",
+  "producer": "src/brambleloop/intel/childrens.py::render_statements",
+  "durable_state": "rendered PDF bytes/listing copy",
+  "consumer": "src/brambleloop/commerce/seo.py::build_description",
+  "protected_effect": "age band and finished size rendered in the PDF ('Who this is for') and listing statement block; a document missing a required statement is refused",
+  "tests": [
+   "tests/test_deliverable_qa.py::test_a_childrens_pattern_carries_every_statement_its_audience_requires",
+   "tests/test_childrens.py::test_a_fact_nobody_recorded_makes_the_statement_unrenderable_rather_than_invented",
+   "tests/test_launch0.py::test_the_statement_gap_is_measured_on_the_document_and_is_closed",
+   "tests/test_commerce.py::test_a_listing_for_a_product_that_is_not_for_a_child_carries_no_safety_block"
+  ],
+  "evidence": [
+   "runtime/release.py handle_listing_seo passes childrens statements (line ~664)",
+   "render_statements, childrens_statements_in, seo.childrens_listing_* present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add an 'age is a guide; measurements govern fit' statement to intel/childrens.STATEMENT_SET for childrens_garment and render the per-size finished-measurement table for graded children's garments",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-363",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth for children's wearables (blocking only if a wearable enters the launch set; Launch-0 has none)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "neck/yoke fit, drawstring/tie refusal and applied-part refusal exist; no explicit checks of closures/button spacing, armhole/leg openings, seams and trim for baby wearables",
+  "producer": "src/brambleloop/cir/specification.py::refuse_an_underspecified_design",
+  "durable_state": null,
+  "consumer": "src/brambleloop/intel/childrens.py::assess",
+  "protected_effect": "a neck that cannot sit on the size's body is refused; hood/neck drawstrings and over-long waist ties refused; detachable parts under 3 refused",
+  "tests": [
+   "tests/test_garments.py::test_raglan_neck_fits_the_body_at_every_size",
+   "tests/test_childrens.py::test_a_hood_or_neck_tie_on_a_childs_garment_is_refused",
+   "tests/test_childrens.py::test_safety_eyes_under_three_are_refused_not_warned_about"
+  ],
+  "evidence": [
+   "intel/childrens.assess is reached (dashboard/readiness) but Concept inputs are hand-built; no runtime path derives applied parts/ties from a CIR"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "physical_proof",
+   "detail": "practical wearability needs a worked sample"
+  },
+  "defect": "intel/childrens.assess is not fed from the CIR: applied parts and ties are declared in a Concept, not extracted from the pattern",
+  "next_action": "add cir-derived extraction of applied parts/ties/closures into childrens.Concept and opening/closure plausibility checks (head opening vs CYC head circumference, button band spacing) in cir/specification for children's garments",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-364",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful listing imagery for children's products",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "no children's-specific emotional/gifting imagery system; general visual truth gates only; Visual V1 not locked",
+  "producer": "src/brambleloop/gates/asset_truth.py",
+  "durable_state": null,
+  "consumer": "src/brambleloop/visual/gallery.py::minimum_quality",
+  "protected_effect": "generated imagery cannot make claims about the finished object; float/colourwork claims refused against the CIR",
+  "tests": [
+   "tests/test_style_learning.py::test_a_promotion_that_changes_product_truth_policy_or_identity_is_refused"
+  ],
+  "evidence": [
+   "gates/asset_truth reached via gate.certify, in fcb982d",
+   "BUILD_STATE: Product-Only Visual V1 NOT LOCKED"
+  ],
+  "build2_rows": [
+   "#36 COMPLETE+PROVEN",
+   "#82 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "image_vision",
+   "detail": "listing imagery production/judging is gated on image vision/generation capability"
+  },
+  "defect": null,
+  "next_action": "once Visual V1 locks, add a children's shot-list (nursery context, gift framing) to publish/listing_assets frame job map, with asset_truth applied unchanged",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-365",
+  "launch_class": "MATURE",
+  "launch_class_reason": "storefront taxonomy depth; justified only when catalogue depth exists",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "section is 'Baby & Nursery' for categories baby/nursery only; children's garments/hats route to 'To Wear'; no size/age-range navigation",
+  "producer": "src/brambleloop/brand/storefront.py::section_for",
+  "durable_state": null,
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "protected_effect": "baby/nursery products file under a Baby & Nursery section",
+  "tests": [
+   "tests/test_brand.py (section_for over seeds, line ~178)"
+  ],
+  "evidence": [
+   "brand/storefront.py SECTIONS in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "route products with an intel/childrens assignment to the baby section regardless of form category and add age-band tags/sections once >=N children's listings exist",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-366",
+  "launch_class": "MATURE",
+  "launch_class_reason": "launch-catalogue mix planning; not customer-protective",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Launch-0 is a curated static list that includes children's products; no optimizer weighs children's vs adult/home/seasonal/accessories",
+  "producer": "src/brambleloop/products/launch0.py::launch0",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_launch0.py::test_the_two_childrens_products_are_the_sub_categories_the_research_leads_with",
+   "tests/test_launch0.py::test_a_portfolio_holding_both_swings_less_than_either_alone"
+  ],
+  "evidence": [
+   "research/LAUNCH0_CATALOGUE.md",
+   "radar/opportunity.select_portfolio has category caps but no children's axis"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add an audience axis (children's vs adult) to radar/opportunity.select_portfolio diversification checks and report it in launch.plan",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-367",
+  "launch_class": "MATURE",
+  "launch_class_reason": "competitive intelligence for children's shops; research depth",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "no children's-specific competitor study at runtime; general MJs/panel intelligence and one-off research doc",
+  "producer": "src/brambleloop/intel/market_map.py::build",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/CHILDRENS_CATEGORY.md s3.2-3.3 (EtsyHunt third-party, not verified)",
+   "intel/panel_discovery elite panel is category-general"
+  ],
+  "build2_rows": [
+   "#219 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "deep children's teardowns need purchased benchmark patterns"
+  },
+  "defect": null,
+  "next_action": "add a children's pod key to intel/pods routing (audience axis) so panel discovery can admit children's shops and record their product families/pricing",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-368",
+  "launch_class": "MATURE",
+  "launch_class_reason": "anti-duplication catalogue discipline",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/creative/strength.py::benchmark_scores",
+  "durable_state": null,
+  "consumer": "src/brambleloop/creative/preengineering.py::gate_concept",
+  "protected_effect": "near-duplicate concepts refused by novelty distance/anti-clone gate before engineering",
+  "tests": [
+   "tests/test_family.py::test_a_family_member_is_never_the_hero_in_another_palette",
+   "tests/test_universe.py::test_popularity_is_not_an_argument_for_imitation"
+  ],
+  "evidence": [
+   "#87 Novelty Distance / Anti-Clone Gate",
+   "creative/preengineering reached via cir.draft"
+  ],
+  "build2_rows": [
+   "#87 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-369",
+  "launch_class": "MATURE",
+  "launch_class_reason": "post-launch portfolio measurement",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "portfolio metrics are per SKU/category; no children's-audience rollup of impressions/clicks/favourites/conversion/refunds/repeat",
+  "producer": "src/brambleloop/growth/portfolio.py::SkuMetrics",
+  "durable_state": null,
+  "consumer": "src/brambleloop/commerce/offers.py::may_retire",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_portfolio.py::test_an_empty_catalogue_is_not_a_diversified_one"
+  ],
+  "evidence": [
+   "growth/portfolio reached via portfolio.review cadence"
+  ],
+  "build2_rows": [
+   "#231 COMPLETE+PROVEN",
+   "#23 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs live listing and order data"
+  },
+  "defect": null,
+  "next_action": "add an audience rollup (childrens_assignment != None) to growth/portfolio review output and /api/portfolio",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-370",
+  "launch_class": "MATURE",
+  "launch_class_reason": "post-launch autonomous rebalancing",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no rebalancing of children's catalogue share from measured performance",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "commerce/portfolio diversification is category-general; no audience share control"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "requires sufficient live evidence"
+  },
+  "defect": null,
+  "next_action": "after F-369 rollup exists, add a bounded audience-share adjustment in radar/opportunity priors driven by growth/portfolio outcomes, governed by improve/tiers scoring tier",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'rebalanc|share of' src/brambleloop/commerce src/brambleloop/growth: nothing audience-specific"
+ },
+ {
+  "uid": "F-371",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability: cloud workers/scheduler/queue must run with the owner PC off",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Build 2 not deployed; off-device proof of this build not passed (production_window); authorized business operations (publishing) not live",
+  "producer": "src/brambleloop/runtime/worker.py",
+  "durable_state": "jobs/audit_log (Postgres on Railway)",
+  "consumer": "src/brambleloop/ops/health.py::verdict",
+  "protected_effect": "worker, scheduler and durable queue run on Railway independent of any owner device; health reads progress, not HTTP 200",
+  "tests": [
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_health.py::test_everything_alive_and_nothing_happening_is_idle_rather_than_healthy",
+   "tests/test_cert_improve_autonomy.py::test_launch_readiness_carries_the_off_device_proof_as_a_blocking_item"
+  ],
+  "evidence": [
+   "BUILD_STATE: production /api/verify 12 of 12 repeatedly (e.g. 2026-09-28 08:16Z)",
+   "#195 note: off_device_proof run against production reports four of five met on real rows"
+  ],
+  "build2_rows": [
+   "#181 COMPLETE+PROVEN",
+   "#182 COMPLETE+PROVEN",
+   "#184 COMPLETE+PROVEN",
+   "#185 COMPLETE+PROVEN",
+   "#195 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "deploying Build 2 and an unattended production window is the owner's decision"
+  },
+  "defect": null,
+  "next_action": "owner: approve Build 2 deploy; then let build2/autonomy.off_device_proof read PROVEN over a full unattended window",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-372",
+  "launch_class": "MATURE",
+  "launch_class_reason": "continuous improvement loop is post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "business-outcome domains (conversion, pricing, ads, seasonality) have no data; only internal/replay trials can run",
+  "producer": "src/brambleloop/improve/runner.py::run",
+  "durable_state": "improvements, league configs, lessons tables",
+  "consumer": "src/brambleloop/improve/nightly.py::stage_ran",
+  "protected_effect": "nightly/weekly cadences mine, propose, sandbox, promote and monitor improvements",
+  "tests": [
+   "tests/test_cert_improve_autonomy.py::test_sandbox_takes_a_declining_proposal_through_trial_tests_approval_and_promotion",
+   "tests/test_improve_handlers.py::test_the_nightly_sweep_ingests_mines_and_queues_for_real"
+  ],
+  "evidence": [
+   "improve/runner, mine, measure reached by cadences on 019ebf0; not in fcb982d"
+  ],
+  "build2_rows": [
+   "#90 COMPLETE+PROVEN",
+   "#92 COMPLETE+PROVEN",
+   "#179 COMPLETE+PROVEN",
+   "#193 COMPLETE+PROVEN",
+   "#194 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "business-outcome improvement domains need live listings/orders"
+  },
+  "defect": null,
+  "next_action": "deploy Build 2 (owner) so improve cadences run on production rows; no further software needed for the loop itself",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-373",
+  "launch_class": "MATURE",
+  "launch_class_reason": "improvement governance for post-launch changes",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/cells.py::propose",
+  "durable_state": "improvements (baseline_value, expected_effect, evidence)",
+  "consumer": "src/brambleloop/improve/runner.py::order",
+  "protected_effect": "a proposal without a baseline, measurable success criterion or source rows is refused",
+  "tests": [
+   "tests/test_improve.py::test_the_baseline_is_taken_before_the_change_or_there_is_no_baseline",
+   "tests/test_roi.py::test_a_candidate_that_cannot_say_what_would_count_as_working_is_refused",
+   "tests/test_upgrades.py::test_a_hypothesis_nobody_could_disagree_with_is_refused"
+  ],
+  "evidence": [
+   "#177 profiles proposals carry the rows they came from"
+  ],
+  "build2_rows": [
+   "#92 COMPLETE+PROVEN",
+   "#99 COMPLETE+PROVEN",
+   "#177 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-374",
+  "launch_class": "MATURE",
+  "launch_class_reason": "experiment isolation for the post-launch improvement loop (hard-floor protection is F-376)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "only three sandbox trial kinds exist (counterfactual_rollback, league_replay, self_audit); other proposals wait untested; replay is a simulator of history",
+  "producer": "src/brambleloop/improve/runner.py::trial_for",
+  "durable_state": "improvements.evidence (trial results)",
+  "consumer": "src/brambleloop/improve/runner.py::run",
+  "protected_effect": "trials run on replay/counterfactual data; a full nightly+weekly run changes no threshold and no product truth",
+  "tests": [
+   "tests/test_improve_handlers.py::test_a_full_nightly_and_weekly_run_changes_no_threshold_and_no_product_truth",
+   "tests/test_cert_improve_wave.py::test_the_replay_scopes_its_claim_to_the_simulator_it_ran",
+   "tests/test_cert_improve_autonomy.py::test_adversarial_test_catches_a_tampered_sandbox_result"
+  ],
+  "evidence": [
+   "phase shadow in production"
+  ],
+  "build2_rows": [
+   "#92 COMPLETE+PROVEN",
+   "#178 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add trial kinds for listing-copy and pricing proposals (shadow evaluation on stored listing rows) in improve/runner.TRIALS",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-375",
+  "launch_class": "MATURE",
+  "launch_class_reason": "champion-challenger optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/league.py::compare",
+  "durable_state": "league config versions and runs",
+  "consumer": "src/brambleloop/improve/league.py::cycle",
+  "protected_effect": "a challenger replaces the incumbent only with a margin on shared tasks and no regression on cost/reliability/latency; rolled back if it later reads worse",
+  "tests": [
+   "tests/test_league.py::test_a_challenger_that_brings_its_own_tasks_is_refused",
+   "tests/test_league.py::test_a_small_gain_is_noise_and_promoting_on_it_makes_a_league_churn",
+   "tests/test_cert_improve_wave.py::test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back"
+  ],
+  "evidence": [
+   "improve/replay cadence records league runs (not in fcb982d)"
+  ],
+  "build2_rows": [
+   "#95 COMPLETE+PROVEN",
+   "#180 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-376",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "hard floors (Product Truth, policy, spend) must not be optimisable away once the loop runs in production",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/governance.py::check",
+  "durable_state": "improvements (refusals audited)",
+  "consumer": "src/brambleloop/improve/cells.py::promote",
+  "protected_effect": "proposals weakening a protected gate or product truth are refused at propose time; gate-tier changes need recorded owner approval",
+  "tests": [
+   "tests/test_improve.py::test_a_gate_may_never_be_loosened_to_improve_the_number_it_produces",
+   "tests/test_cert_learning.py::test_gate_weakening_and_product_truth_evasions_are_refused_at_propose",
+   "tests/test_cert_learning.py::test_product_truth_change_cannot_promote_without_owner_approval",
+   "tests/test_style_learning.py::test_a_promotion_that_changes_product_truth_policy_or_identity_is_refused"
+  ],
+  "evidence": [
+   "governance.check exists in fcb982d (223 lines) but C-17..C-22 hardening landed after; so INTEGRATED not DEPLOYED"
+  ],
+  "build2_rows": [
+   "#102 COMPLETE+PROVEN",
+   "#178 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch (deploy Build 2 to reach DEPLOYED)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-377",
+  "launch_class": "MATURE",
+  "launch_class_reason": "durable learning is post-launch compounding",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/bus.py::publish",
+  "durable_state": "lessons table; tests/regressions/*.json; creative.defect_fixture rows",
+  "consumer": "src/brambleloop/improve/consume.py::matching",
+  "protected_effect": "validated lessons, defect fixtures and versioned configs persist and are read where decisions are made",
+  "tests": [
+   "tests/test_cert_learning.py::test_lessons_persist_across_connections_and_reach_other_products_briefs",
+   "tests/test_acceptance_gates.py::test_gate_b_a_corrected_bug_creates_a_regression_test"
+  ],
+  "evidence": [
+   "gates/regression.py captures defective CIRs as fixtures"
+  ],
+  "build2_rows": [
+   "#97 COMPLETE+PROVEN",
+   "#101 COMPLETE+PROVEN",
+   "#68 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-378",
+  "launch_class": "MATURE",
+  "launch_class_reason": "failure memory for methods/providers is an efficiency/learning capability",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no fingerprinted registry of rejected methods/providers/prompts/architectures; stop_doing is advisory and does not block re-proposal; visual/provider rejections live in prose (DECISION_LOG, module docstrings)",
+  "producer": "src/brambleloop/improve/director.py::stop_doing",
+  "durable_state": "improvements (REJECTED/REVERTED with why)",
+  "consumer": "src/brambleloop/improve/cells.py::retrospective",
+  "protected_effect": "tactics rejected repeatedly and reverted changes are surfaced as STOP items; dead jobs are not re-driven under the same build without a changed hypothesis",
+  "tests": [
+   "tests/test_improve_director.py::test_the_retrospective_names_what_to_stop_and_what_is_next",
+   "tests/test_persistence.py::test_a_workers_capability_refusal_is_never_redriven_and_never_pruned_as_a_defect"
+  ],
+  "evidence": [
+   "#34 stagnation: requeue_dead refuses re-drive under same SHA; suspension lifts on changed hypothesis"
+  ],
+  "build2_rows": [
+   "#34 COMPLETE+PROVEN",
+   "#53 COMPLETE+PROVEN",
+   "#127 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": "stop_doing output is advisory; cells.propose does not consult it",
+  "next_action": "add improve/failure_memory.py (fingerprint = cell+normalised hypothesis/method+premise digest, evidence ids) and make cells.propose refuse a matching fingerprint unless new evidence ids or a changed premise are supplied; seed with visual/provider rejections from DECISION_LOG",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-379",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "authority/spend controls: self-improvement cannot widen authority or raise ceilings",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/governance.py::check_owner_authority",
+  "durable_state": "spend policy (env may lower, never raise)",
+  "consumer": "src/brambleloop/finance/spend_policy.py::headroom",
+  "protected_effect": "the system cannot grant itself authority, raise a spending ceiling or publish outside shadow",
+  "tests": [
+   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
+   "tests/test_spend_policy.py::test_the_environment_may_lower_the_ceiling_and_never_raise_it",
+   "tests/test_tiers.py::test_the_gate_tier_never_promotes_without_a_person"
+  ],
+  "evidence": [
+   "spend_policy, governance, tiers present in fcb982d; production shadow phase 0 published"
+  ],
+  "build2_rows": [
+   "#102 COMPLETE+PROVEN",
+   "#178 COMPLETE+PROVEN",
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-380",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "safe deployment/recovery of production code changes",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "the runtime makes no autonomous code changes (only DB-versioned scoring/config); code changes come from Claude sessions via git + Railway deploy with manual /api/verify observation; no automated deploy gate requiring tests and recording deploy evidence",
+  "producer": "src/brambleloop/core/build.py::identity",
+  "durable_state": "deployed SHA in audit/startup",
+  "consumer": "src/brambleloop/improve/tiers.py",
+  "protected_effect": "code-tier changes require regression test + rollback evidence; deployed image identifies its SHA; deploys re-drive only what they fixed",
+  "tests": [
+   "tests/test_tiers.py::test_each_tier_requires_the_evidence_its_failure_mode_needs",
+   "tests/test_persistence.py::test_a_deploy_re_drives_what_it_fixed_exactly_once"
+  ],
+  "evidence": [
+   "BUILD_STATE heartbeat entries: production /api/verify after deploys",
+   "core/build.py in fcb982d"
+  ],
+  "build2_rows": [
+   "#190 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add scripts/deploy_gate.sh (or CI workflow) that refuses a Railway deploy unless run_tests.sh passed on the SHA, then records deploy SHA + /api/verify result as an audit row",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-381",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "recovery/rollback for autonomous changes and publications",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "code-deploy rollback relies on Railway's previous deployment (not rehearsed in code); improvement/config and listing-withdrawal rollbacks exist",
+  "producer": "src/brambleloop/improve/runner.py::monitor_trials",
+  "durable_state": "improvements (rollback_pending), league rollbacks, launch.rollback_rehearsed audit rows",
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "protected_effect": "a promoted change reading worse is reverted automatically; a rollback killed mid-way is resumed; the listing withdrawal round trip is rehearsed and aged",
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost",
+   "tests/test_improve_director.py::test_a_regression_below_baseline_is_reverted_with_a_rollback_proposal",
+   "tests/test_league_holdout.py::test_rollback_restores_the_named_version_and_retires_the_current_one",
+   "tests/test_launch.py (rollback.rehearse)"
+  ],
+  "evidence": [
+   "launch/rollback.py reached via dashboard/readiness, not in fcb982d"
+  ],
+  "build2_rows": [
+   "#93 COMPLETE+PROVEN",
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add a code-deploy rollback runbook check: record previous Railway deployment id at each deploy and a rehearsal that redeploys it to a staging environment",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-382",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: maturity must not be overstated",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "ladder is computed per Build 2 requirement, not per adopted improvement; improvements carry states (proposed/testing/promoted/reverted) not ladder rungs",
+  "producer": "src/brambleloop/build2/maturity.py::ladder",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::api_build2_maturity",
+  "protected_effect": "implemented/tested/deployed/exercised/evidenced/production_observed computed from evidence; registry status never counts",
+  "tests": [
+   "tests/test_maturity.py::test_the_registrys_own_status_is_never_evidence_for_a_rung",
+   "tests/test_maturity.py::test_the_suite_cannot_satisfy_the_production_rung",
+   "tests/test_maturity.py::test_a_rung_above_a_failure_is_a_failure_rather_than_a_fresh_start"
+  ],
+  "evidence": [
+   "build2/maturity.py in fcb982d (469 lines)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "extend build2/maturity to Final Master requirements (this closure matrix) and add a ladder column to improve director history for promoted improvements",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-383",
+  "launch_class": "MATURE",
+  "launch_class_reason": "post-launch business-outcome learning",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no business outcome data exists; learning machinery unfed",
+  "producer": "src/brambleloop/commerce/attribution.py::join_stats",
+  "durable_state": "attribution.stats, listing tests, experiments",
+  "consumer": "src/brambleloop/growth/experiments.py::register_at_launch",
+  "protected_effect": "results without a control are recorded as association, never causal",
+  "tests": [
+   "tests/test_listing_tests.py::test_only_a_causal_design_may_close_a_question",
+   "tests/test_outcome_learning.py::test_an_empty_database_is_unmeasured_with_reasons"
+  ],
+  "evidence": [
+   "growth.conclude control_present (#266)"
+  ],
+  "build2_rows": [
+   "#237 OWNER-GATED",
+   "#266 OWNER-GATED",
+   "#16 OWNER-GATED",
+   "#89 DATA-GATED",
+   "#257 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs live listings, orders and the owner's Etsy Stats export"
+  },
+  "defect": null,
+  "next_action": "none in software \u2014 wait for live listings/orders; owner exports Etsy Stats CSV to POST /api/attribution/stats",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-384",
+  "launch_class": "MATURE",
+  "launch_class_reason": "post-launch portfolio learning",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no measured market/customer evidence yet; kill/scale thresholds UNLEARNED",
+  "producer": "src/brambleloop/growth/portfolio.py::SkuMetrics",
+  "durable_state": null,
+  "consumer": "src/brambleloop/commerce/offers.py::may_retire",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_portfolio.py::test_a_catalogue_all_reaching_for_one_term_is_concentrated_and_cannibalising"
+  ],
+  "evidence": [
+   "commerce/kill_table thresholds UNLEARNED"
+  ],
+  "build2_rows": [
+   "#23 DATA-GATED",
+   "#231 COMPLETE+PROVEN",
+   "#114 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs sales/traffic"
+  },
+  "defect": null,
+  "next_action": "none in software until live data; then calibrate kill_table thresholds",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-385",
+  "launch_class": "MATURE",
+  "launch_class_reason": "pattern-system learning from defects/testers",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "tester evidence and physical reconstruction findings not flowing (no testers, no purchased benchmarks)",
+  "producer": "src/brambleloop/publish/defects.py::capture",
+  "durable_state": "creative.defect_fixture rows, tests/regressions",
+  "consumer": "src/brambleloop/teardown/enforce.py::apply_pattern_help",
+  "protected_effect": "defects become regression fixtures; teardown findings become enforced floors via self-audit trials",
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_a_teardown_trap_is_enforced_routed_to_pattern_help_and_promoted_on_our_self_audit",
+   "tests/test_acceptance_gates.py::test_gate_b_a_corrected_bug_creates_a_regression_test"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#68 COMPLETE+PROVEN",
+   "#164 COMPLETE+PROVEN",
+   "#43 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "tester evidence needs a tester roster; teardowns need benchmark purchases"
+  },
+  "defect": null,
+  "next_action": "none in software until testers/benchmarks exist",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-386",
+  "launch_class": "MATURE",
+  "launch_class_reason": "visual learning from outcomes is post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no CTR/conversion data; approved benchmark photography learning limited",
+  "producer": "src/brambleloop/creative/style_learning.py::knowledge",
+  "durable_state": "style preferences",
+  "consumer": "src/brambleloop/app/main.py::api_creative_learning",
+  "protected_effect": "style promotion refuses any rule touching Product Truth, policy or identity",
+  "tests": [
+   "tests/test_style_learning.py::test_a_promotion_that_changes_product_truth_policy_or_identity_is_refused",
+   "tests/test_style_learning.py::test_a_generated_style_cannot_be_preferred_for_a_proof_frame"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#82 DATA-GATED",
+   "#68 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs impressions/conversions"
+  },
+  "defect": null,
+  "next_action": "none in software until listing data exists",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-387",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Etsy search optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no Etsy search-term/impression data ingested yet; Search Visibility guidance not retrieved (etsy.com 403)",
+  "producer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "durable_state": "attribution.stats",
+  "consumer": "src/brambleloop/commerce/search.py::build_query_set",
+  "protected_effect": "vanity terms swapped for earning terms; lesson-matched queries get a tag slot",
+  "tests": [
+   "tests/test_listing_tests.py::test_a_readable_test_reads",
+   "tests/test_portfolio.py::test_tags_spending_their_slots_on_one_word_are_stuffing"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#237 OWNER-GATED",
+   "#240 COMPLETE+PROVEN",
+   "#16 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "owner must export Etsy Stats/search terms"
+  },
+  "defect": null,
+  "next_action": "owner: export Etsy Stats CSV; software already ingests it",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-388",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Ads disabled until owner authority (F-875)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no attributable ad performance; allocation learning unfed",
+  "producer": "src/brambleloop/commerce/paid_media.py::Caps.validate",
+  "durable_state": "spend limits",
+  "consumer": "src/brambleloop/runtime/growth_ops.py (ads.adjust)",
+  "protected_effect": "ads.campaign dead-lettered without an owner SpendLimit; organic-first gate blocks paid scaling of weak listings; no path authorises spend",
+  "tests": [
+   "tests/test_paid_media_economics.py::test_no_path_enqueues_or_authorises_ad_spend",
+   "tests/test_paid_media_economics.py::test_a_weak_listing_is_not_hidden_behind_paid_traffic_and_no_baseline_is_unmeasured"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#242 OWNER-GATED",
+   "#243 OWNER-GATED",
+   "#294 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "ad_authority",
+   "detail": "an approved advertising budget"
+  },
+  "defect": null,
+  "next_action": "none until owner grants ad authority",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-389",
+  "launch_class": "MATURE",
+  "launch_class_reason": "cost optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no loop proposes cheaper routes/context sizes automatically; cost is an axis in league compare and routing/caching exist",
+  "producer": "src/brambleloop/gateway/routing.py::budget",
+  "durable_state": "cost entries",
+  "consumer": "src/brambleloop/improve/league.py::compare",
+  "protected_effect": "a cheaper configuration that fails more often has not won; a downgrade argued from cost alone is refused",
+  "tests": [
+   "tests/test_league.py::test_a_configuration_that_wins_when_it_answers_and_fails_more_often_has_not_won",
+   "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name"
+  ],
+  "evidence": [
+   "gateway/routing content-fingerprint cache (#225)"
+  ],
+  "build2_rows": [
+   "#225 COMPLETE+PROVEN",
+   "#188 COMPLETE+PROVEN",
+   "#96 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "register cheaper-route challengers for each routed task in improve/bootstrap so improve.replay evaluates them",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-390",
+  "launch_class": "MATURE",
+  "launch_class_reason": "seasonal learning needs a season of data",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no season has produced data",
+  "producer": "src/brambleloop/seasonal/harvest.py::adjusted_assumptions",
+  "durable_state": "season harvest rows",
+  "consumer": "src/brambleloop/seasonal/leadtime.py::catalogue_plans",
+  "protected_effect": "harvest only raises buffers for next year's calendar",
+  "tests": [
+   "tests/test_harvest.py::test_the_learned_timing_is_what_next_years_calendar_reads",
+   "tests/test_harvest.py::test_a_passed_event_with_no_orders_is_refused_and_recorded_with_its_reason"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#298 DATA-GATED",
+   "#120 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs a season of orders"
+  },
+  "defect": null,
+  "next_action": "none in software until a season completes",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-391",
+  "launch_class": "MATURE",
+  "launch_class_reason": "feedback learning is post-launch (support remedy itself is covered elsewhere)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no customers/support cases yet",
+  "producer": "src/brambleloop/support/department.py::CustomerExperience",
+  "durable_state": "support cases, lessons",
+  "consumer": "src/brambleloop/teardown/enforce.py::apply_pattern_help",
+  "protected_effect": "customer reports route to themes/incidents; a report never becomes a fixture unless the compiler confirms it",
+  "tests": [
+   "tests/test_cert_improve_autonomy.py::test_support_triage_cadence_enqueues_draft_replies_and_counts_confusion"
+  ],
+  "evidence": [
+   "gates/regression.py docstring: unconfirmed customer report is not captured"
+  ],
+  "build2_rows": [
+   "#257 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs customers"
+  },
+  "defect": null,
+  "next_action": "none in software until customers exist",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-392",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "reliability/recovery: incidents must not silently recur",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "incident rows record signature/restatement/resolution, but root cause and durable prevention are human process (BUILD_STATE defect ledger); regression capture is automatic only for CIR defects and visual defect classes",
+  "producer": "src/brambleloop/ops/incident_lifecycle.py::snapshot",
+  "durable_state": "incidents table",
+  "consumer": "src/brambleloop/app/main.py::api_incidents",
+  "protected_effect": "a condition that still holds is restated on one row; resolution requires a reason; corrected pattern bugs become regression fixtures",
+  "tests": [
+   "tests/test_incident_lifecycle.py::test_a_resolution_without_words_is_refused",
+   "tests/test_incident_lifecycle.py::test_a_condition_that_still_holds_is_restated_on_one_row",
+   "tests/test_acceptance_gates.py::test_gate_b_a_corrected_bug_creates_a_regression_test"
+  ],
+  "evidence": [
+   "research/BUILD2_CERTIFICATION.md defect ledger C-60..C-87 (process)"
+  ],
+  "build2_rows": [
+   "#185 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add root_cause and prevention_ref (test id/commit) fields to Incident resolution and refuse resolve() of severity>=high incidents without them",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-393",
+  "launch_class": "MATURE",
+  "launch_class_reason": "operating efficiency principle",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/orchestrate.py::work_items",
+  "durable_state": null,
+  "consumer": "src/brambleloop/improve/nightly.py::stage_ran",
+  "protected_effect": "idle backlog work is GREEN-only and never spends; a clean record proposes nothing",
+  "tests": [
+   "tests/test_nightly.py::test_a_sweep_that_found_nothing_anywhere_is_still_complete",
+   "tests/test_weekly.py::test_a_week_that_only_added_is_asked_why"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#186 COMPLETE+PROVEN",
+   "#177 COMPLETE+PROVEN",
+   "#53 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-394",
+  "launch_class": "MATURE",
+  "launch_class_reason": "improvement prioritisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "ranking is expected gain/cost/stagnation; no explicit launch-blocker precedence or reversibility term inside the improvement ranking",
+  "producer": "src/brambleloop/improve/roi.py::prioritise",
+  "durable_state": null,
+  "consumer": "src/brambleloop/improve/runner.py::order",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_sandbox_orders_by_expected_impact_and_throttles_a_stagnating_department",
+   "tests/test_roi.py::test_a_free_change_with_real_expected_impact_outranks_a_paid_one"
+  ],
+  "evidence": [
+   "swarm priority_for adds deadline/value inside bands (#187)"
+  ],
+  "build2_rows": [
+   "#99 COMPLETE+PROVEN",
+   "#187 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add reversibility (tier rank) and a launch-blocker flag (readiness item reference) to roi.prioritise ordering with a test",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-395",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: consequential decisions surfaced concisely",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/executor.py::approval_inbox",
+  "durable_state": "owner_actions",
+  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "protected_effect": "owner cards carry what/why/cost/risk/rollback/consequence of waiting, batched free-and-quick first; nothing blocked on build is sent to the owner",
+  "tests": [
+   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format",
+   "tests/test_launch.py::test_nothing_blocked_on_build_is_ever_sent_to_the_owner",
+   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues"
+  ],
+  "evidence": [
+   "executor.approval_inbox in fcb982d; served on dashboard"
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-396",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability without HQ",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "offsite archive destination not configured (owner); Build 2 off-device proof not passed",
+  "producer": "src/brambleloop/runtime/worker.py",
+  "durable_state": "Postgres on Railway",
+  "consumer": "src/brambleloop/ops/health.py::verdict",
+  "protected_effect": "observation, evidence capture and cadences run in the cloud; no HQ path in production",
+  "tests": [
+   "tests/test_persistence.py::test_state_survives_a_full_process_restart_on_disk",
+   "tests/test_offsite.py::test_an_unconfigured_archive_records_a_failure_rather_than_skipping"
+  ],
+  "evidence": [
+   "BUILD_STATE: Remote Control for HQ is C-class convenience, not a launch blocker; production verified 12/12 with HQ uninvolved"
+  ],
+  "build2_rows": [
+   "#182 COMPLETE+PROVEN",
+   "#195 OWNER-GATED",
+   "#51 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "Build 2 deploy + unattended window; offsite_storage for archive"
+  },
+  "defect": null,
+  "next_action": "owner: configure offsite storage destination and approve Build 2 deploy",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-397",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "production must not depend on HQ-only artifacts",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "no promotion gate detects production reading an artifact that exists only on HQ; relies on Dockerfile copying src and a GET-route walk test",
+  "producer": "src/brambleloop/core/artifacts.py::ArtifactStore",
+  "durable_state": "artifact store on cloud volume",
+  "consumer": "src/brambleloop/app/main.py",
+  "protected_effect": "production reads only packaged files and cloud storage",
+  "tests": [
+   "tests/test_offsite.py::test_a_complete_round_trip_restores_the_company"
+  ],
+  "evidence": [
+   "BUILD_STATE: /api/build2 returned 500 in production because registry JSON sat outside src; fixed by moving into package + route-walk test",
+   "Visual V2 R&D (035ff0c) and HQ renders are not on the main line"
+  ],
+  "build2_rows": [
+   "#182 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add a test that every file path read by src/brambleloop at import/runtime resolves inside the package or ArtifactStore (scan for Path(__file__).parents[>=3] reads)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-398",
+  "launch_class": "MATURE",
+  "launch_class_reason": "improvement audit trail",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no single record joins spend and deploy SHA to each adopted improvement; quality-floor verdicts are in evidence JSON not normalised",
+  "producer": "src/brambleloop/improve/cells.py::promote",
+  "durable_state": "improvements (baseline, result, evidence, rollback ref); league config versions (why, tests_run, cost)",
+  "consumer": "src/brambleloop/improve/director.py::backlogs",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_tests_run_holds_only_observed_runs_bound_to_the_versions_digest",
+   "tests/test_league.py::test_promotion_records_the_run_that_justified_it"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#96 COMPLETE+PROVEN",
+   "#93 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add spend_cad and build_sha columns to Improvement set at promote/execute time and include them in /api/improve history",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-399",
+  "launch_class": "MATURE",
+  "launch_class_reason": "learning health reporting",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "repeated-failure avoidance and cost per adopted improvement are not computed",
+  "producer": "src/brambleloop/improve/director.py::experiments",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::api_improve",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_improve.py::test_the_retrospective_reports_what_regressed_and_what_was_never_measured",
+   "tests/test_roi.py::test_nothing_promoted_says_so_rather_than_reporting_a_hit_rate"
+  ],
+  "evidence": [
+   "/api/improve, /api/roi, /api/league"
+  ],
+  "build2_rows": [
+   "#100 COMPLETE+PROVEN",
+   "#99 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add adoption/rejection rate, regressions caught, repeated-failure-avoided and cost-per-adopted metrics to improve/director retrospective",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-400",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: launch blockers separated from optimisation",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Final Master launch classification not yet encoded in code (this matrix is research); readiness separates build/owner blockers for Build 2 scope",
+  "producer": "src/brambleloop/launch/readiness.py::assess",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "protected_effect": "launch readiness lists only blocking items and who owns them",
+  "tests": [
+   "tests/test_launch.py::test_an_empty_company_is_blocked_on_itself_not_on_the_owner",
+   "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people"
+  ],
+  "evidence": [
+   "launch/readiness in fcb982d"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "load the Final Build closure matrix launch_class into build2/closure (or a final_build module) so readiness blocks only on LAUNCH-CRITICAL gaps",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-401",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research depth is post-launch (F-698 Studio/department maturity)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no dedicated research capability invokable by agents or self-triggered",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-402",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research discipline",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no runtime research-before-invention step",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "CLAUDE.md/DECISION_LOG process for Claude sessions only"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-403",
+  "launch_class": "MATURE",
+  "launch_class_reason": "unknown detection feeding research",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "unknowns are surfaced as explicit states (UNMEASURED/UNKNOWN/unrenderable/not_audited) but not routed to a research queue",
+  "producer": "src/brambleloop/intel/learning.py::radar",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py",
+  "protected_effect": "gaps named rather than filled with plausible values",
+  "tests": [
+   "tests/test_childrens.py::test_the_sources_we_could_not_read_are_listed_rather_than_glossed",
+   "tests/test_weekly.py::test_a_domain_with_nothing_read_is_not_audited",
+   "tests/test_intent.py::test_with_no_market_evidence_every_phrase_is_labelled_assumed"
+  ],
+  "evidence": [
+   "build2/maturity UNMEASURABLE; creative/outcome_learning UNMEASURED; intel/childrens unfetched_sources; improve/weekly not_audited"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "emit a research.question row whenever a reading returns UNMEASURED/UNKNOWN on a decision path (start with intel/childrens unfetched_sources and learning unobserved domains)",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-404",
+  "launch_class": "MATURE",
+  "launch_class_reason": "confidence-triggered research",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "weak evidence is discounted (radar/provenance) but never triggers research",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "radar/provenance.evidence_for discounts unstamped evidence (#38)"
+  ],
+  "build2_rows": [
+   "#38 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-405",
+  "launch_class": "MATURE",
+  "launch_class_reason": "internal-evidence-first research",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "only model-analysis reuse exists (content-fingerprint cache); no search of BUILD_STATE/DECISION_LOG/experiments/lessons before external research",
+  "producer": "src/brambleloop/gateway/routing.py",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "unchanged evidence is not paid for twice",
+  "tests": [
+   "tests/test_model_access.py::test_the_cache_key_changes_when_the_routing_does"
+  ],
+  "evidence": [
+   "gateway/routing.py caches analysis on content+model fingerprint (#225), in fcb982d"
+  ],
+  "build2_rows": [
+   "#225 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "LOW",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-406",
+  "launch_class": "MATURE",
+  "launch_class_reason": "external research escalation",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "scheduled external readings exist (culture feeds, MJs scans) but no escalation from insufficient internal evidence",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "culture/feeds Wikimedia; intel/observe MJs scan"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-407",
+  "launch_class": "MATURE",
+  "launch_class_reason": "source hierarchy for research",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "retrieval class (fetched vs search summary vs rendered image) and jurisdiction are recorded only for children's safety sources; no general primary/secondary ranking",
+  "producer": "src/brambleloop/intel/childrens.py::unfetched_sources",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_childrens.py::test_every_source_carries_a_url_a_date_and_how_it_was_obtained",
+   "tests/test_childrens.py::test_a_statement_read_from_an_image_is_counted_as_its_own_evidence_class"
+  ],
+  "evidence": [
+   "intel/childrens.py Source.retrieval/jurisdiction; in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "generalise intel/childrens.Source (retrieval class + authority tier primary/secondary/community) into a shared evidence.Source used by intel/learning.record and gates/policy_knowledge",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-408",
+  "launch_class": "MATURE",
+  "launch_class_reason": "multi-source verification",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no cross-checking of consequential findings against independent sources",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-409",
+  "launch_class": "MATURE",
+  "launch_class_reason": "fact/claim/inference separation",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "separation is signal vs internal causal evidence and observed vs assumed phrases; no hypothesis/unresolved classes; research docs use SOURCED/DERIVED/ESTIMATED/UNKNOWN only as prose",
+  "producer": "src/brambleloop/intel/learning.py::support",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py",
+  "protected_effect": "a read signal is never promoted into causal evidence",
+  "tests": [
+   "tests/test_learning.py::test_a_signal_passed_as_internal_evidence_is_refused",
+   "tests/test_learning.py::test_a_claim_resting_on_signals_alone_is_allowed_and_says_so",
+   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list"
+  ],
+  "evidence": [
+   "intel/learning.as_evidence/support in fcb982d"
+  ],
+  "build2_rows": [
+   "#98 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add a claim_class field (fact/source_claim/inference/hypothesis/unresolved) to learning observations and research task outputs",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-410",
+  "launch_class": "MATURE",
+  "launch_class_reason": "recency of external claims",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "per-domain freshness exists for learning signals and policy snapshots; policy page retrieval is external-blocked (etsy.com 403)",
+  "producer": "src/brambleloop/gates/platform_policy.py::record_page_reading",
+  "durable_state": null,
+  "consumer": "src/brambleloop/gates/policy_knowledge.py::seed_snapshots",
+  "protected_effect": "stale policy blocks the workflows it governs",
+  "tests": [
+   "tests/test_learning.py::test_freshness_is_per_domain_because_a_policy_ages_faster_than_a_stitch",
+   "tests/test_platform_policy.py::test_a_stale_reading_blocks_only_the_workflows_its_policy_governs"
+  ],
+  "evidence": [
+   "intel/learning DOMAINS fresh_for_days; gates/platform_policy stale reading blocks governed workflows; intel/childrens SNAPSHOT_DATE"
+  ],
+  "build2_rows": [
+   "#39 EXTERNAL-BLOCKED",
+   "#191 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "etsy_policy_pages_403",
+   "detail": "etsy.com policy pages return 403; a person records snapshots via POST /api/policy/snapshot"
+  },
+  "defect": null,
+  "next_action": "none in software beyond F-401; owner/operator records policy snapshots via POST /api/policy/snapshot",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-411",
+  "launch_class": "MATURE",
+  "launch_class_reason": "applicability testing of methods",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no runtime applicability evaluation",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-412",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research-to-experiment bridge",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "improvement loop turns internal observations into sandbox trials (improve/mine -> runner) but research findings have no path into it",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "improve/mine.py -> cells.propose -> runner trials"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-413",
+  "launch_class": "MATURE",
+  "launch_class_reason": "engineering-choice principle",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no recorded 'existing methods considered' step at runtime; builders follow it by process (e.g. reportlab/pypdf/numpy adopted)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-414",
+  "launch_class": "NA",
+  "launch_class_reason": "pure permission statement (custom invention allowed); no executable content",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "nothing to enforce",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 permission statement; no enforcement needed",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-415",
+  "launch_class": "MATURE",
+  "launch_class_reason": "licensing review for adopted external code/assets",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no licence/attribution register for dependencies, models, datasets or assets",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "requirements.txt lists packages without licence records",
+   "research/VISUAL_BENCH2.md notes a benchmark pattern licence in prose"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add research/final_build/LICENSES.json (or src/brambleloop/ops/licenses.py) listing each dependency/model/font/asset with licence and commercial-use constraint, plus a test that every requirements.txt entry has a row",
+  "confidence": "HIGH",
+  "searched": "grep -ril 'licen' src/brambleloop: only product-rights modules (culture/rights, commerce terms); no dependency licence register"
+ },
+ {
+  "uid": "F-416",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "production image built from unpinned dependencies is a recovery/durability and security risk",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no dependency pinning, hash locks or provenance review; requirements.txt uses >= ranges",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "requirements.txt: sqlalchemy>=2.0, fastapi>=0.115, ... unpinned",
+   "core/offsite.py hand-signs SigV4 to avoid a dependency (design intent only)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": "production dependencies unpinned (>=), so a rebuild can pull untested major versions",
+  "next_action": "generate a pinned lock (pip-compile --generate-hashes) into requirements.lock, install with --require-hashes in Dockerfile, and add a test that the lock covers requirements.txt",
+  "confidence": "HIGH",
+  "searched": "grep for pip-audit/--require-hashes/lock files: none"
+ },
+ {
+  "uid": "F-417",
+  "launch_class": "MATURE",
+  "launch_class_reason": "cost review for adopted architecture",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no per-adoption cost/infrastructure record; finance/unit_cost measures running costs only",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "finance/unit_cost.unit_costs (running cost), DECISION_LOG cost notes (process)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-418",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "spend control: research cannot raise its own budget",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "no research-specific budget because no research agent exists; global ceilings apply to every model/provider call",
+  "producer": "src/brambleloop/finance/spend_policy.py::headroom",
+  "durable_state": null,
+  "consumer": "src/brambleloop/gateway/routing.py::budget",
+  "protected_effect": "no call can spend past the owner ceiling",
+  "tests": [
+   "tests/test_spend_policy.py::test_the_environment_may_lower_the_ceiling_and_never_raise_it",
+   "tests/test_spend_policy.py::test_no_module_hardcodes_a_ceiling_literal"
+  ],
+  "evidence": [
+   "finance/spend_policy (single ceiling, env may lower never raise), gateway/routing.budget, finance/reservations; in fcb982d"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "when F-401 lands, give research.run its own spend scope under finance/spend_policy and refuse runs without a declared bound",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-419",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research stop conditions",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "only benchmark purchase selection carries a stop reason; no general research task spec",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_purchase_selection.py::test_ten_of_the_same_thing_stops_at_one"
+  ],
+  "evidence": [
+   "intel/purchase_selection stop reason 'out of money, not out of information'"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-420",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research value discipline",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no general check that research changed confidence; benchmark picks must name the unknown they answer",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_purchase_selection.py::test_every_pick_names_the_unknown_it_answers"
+  ],
+  "evidence": [
+   "intel/purchase_selection every pick names its unknown; intel/benchmark_refresh drops duplicate information"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-421",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research method",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no iterative search strategy implementation",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-422",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research method",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no terminology discovery step",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-423",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research method",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no runtime cross-domain search; visual R&D sessions used textile/knitting literature (process, R&D branch)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/YARN_SLIP_RESEARCH.md (process)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-424",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research reproducibility",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "external observations record source/citation/date but not queries/terms or resulting decisions",
+  "producer": "src/brambleloop/intel/learning.py::record",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_learning.py::test_an_observation_with_no_citation_is_refused"
+  ],
+  "evidence": [
+   "intel/learning.record refuses no source/citation/date; intel/childrens sources carry URL/date/retrieval"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add query_terms and decision_ref fields to learning observations and research tasks",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-425",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "provenance of claims that reach customers (children's safety statements, policy)",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "provenance exists for children's safety constraints/statements, policy knowledge and trend evidence; general research conclusions (research/*.md) are not machine-linked to the code/decisions they support",
+  "producer": "src/brambleloop/intel/childrens.py::render_statements",
+  "durable_state": null,
+  "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf",
+  "protected_effect": "every children's safety statement in a shipped PDF traces to a dated source",
+  "tests": [
+   "tests/test_childrens.py::test_every_statement_cites_a_source_that_exists_or_admits_it_has_none",
+   "tests/test_childrens.py::test_every_constraint_names_a_source_that_exists"
+  ],
+  "evidence": [
+   "intel/childrens statements cite SOURCES; gates/policy_knowledge carries etsy.com URLs; radar/provenance stamps source/population/window (#38)"
+  ],
+  "build2_rows": [
+   "#38 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch for customer-facing claims; F-401 research tasks should store source ids the same way",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-426",
+  "launch_class": "MATURE",
+  "launch_class_reason": "contradiction handling in research",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no reconciliation/unresolved state for conflicting sources",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime); grep -ri contradict src/brambleloop: only prospecting.NoArenasContradictsEvidence and visual inspect captions"
+ },
+ {
+  "uid": "F-427",
+  "launch_class": "MATURE",
+  "launch_class_reason": "negative evidence as knowledge",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "rejected/reverted improvements are durable; negative research findings (visual methods) live only in DECISION_LOG prose",
+  "producer": "src/brambleloop/improve/director.py::experiments",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::api_improve",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_improve_director.py::test_the_retrospective_names_what_to_stop_and_what_is_next"
+  ],
+  "evidence": [
+   "improvements REJECTED/REVERTED rows kept; director.experiments reports killed"
+  ],
+  "build2_rows": [
+   "#127 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "see F-378: structured failure memory with scope field",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-428",
+  "launch_class": "MATURE",
+  "launch_class_reason": "scope discipline of negative results",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "only the replay trial scopes its claim; no general scope field on rejected methods",
+  "producer": "src/brambleloop/improve/replay.py::cycle",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_the_replay_scopes_its_claim_to_the_simulator_it_ran"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add a scope field (method, class, conditions) to the F-378 failure-memory record and refuse generalisation beyond it",
+  "confidence": "LOW",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-429",
+  "launch_class": "MATURE",
+  "launch_class_reason": "architecture challenge",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no path for evidence to flag architecture review; weekly evolution reviews org structure only",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "improve/weekly architecture moves (merge/retire specialists)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-430",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "hard floors/authority cannot be weakened by any justification",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "research outputs have no route into governance because no research agent exists; any proposal path is checked regardless of cited evidence",
+  "producer": "src/brambleloop/improve/governance.py::check",
+  "durable_state": null,
+  "consumer": "src/brambleloop/improve/cells.py::promote",
+  "protected_effect": "gate weakening refused",
+  "tests": [
+   "tests/test_improve.py::test_a_paraphrase_does_not_get_a_weakening_past_the_boundary",
+   "tests/test_learning.py::test_an_observation_cannot_be_promoted_into_evidence"
+  ],
+  "evidence": [
+   "improve/governance.check refuses weakening protected gates whatever the rationale; intel/learning.as_evidence refuses signals as evidence"
+  ],
+  "build2_rows": [
+   "#102 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "when F-401 lands, route research recommendations through cells.propose so governance.check applies",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-431",
+  "launch_class": "MATURE",
+  "launch_class_reason": "durable knowledge promotion",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "validated internal lessons/fixtures persist; external research findings are not promoted into structured knowledge (research/*.md prose)",
+  "producer": "src/brambleloop/improve/bus.py::publish",
+  "durable_state": null,
+  "consumer": "src/brambleloop/improve/consume.py::matching",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_learning.py::test_lessons_persist_across_connections_and_reach_other_products_briefs"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#97 COMPLETE+PROVEN",
+   "#101 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-432",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research deduplication",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "dedup exists for model analysis (cache), listing-test questions (memory reopens only on named context change) and benchmark refresh; no research question registry",
+  "producer": "src/brambleloop/gateway/routing.py",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_intel_wave.py::test_benchmark_refresh_drops_duplicate_information",
+   "tests/test_listing_tests.py::test_a_variable_outside_the_vocabulary_cannot_be_remembered"
+  ],
+  "evidence": [
+   "gateway/routing cache (#225) in fcb982d; commerce/listing_tests memory (#16); intel/benchmark_refresh drops duplicates"
+  ],
+  "build2_rows": [
+   "#225 COMPLETE+PROVEN",
+   "#16 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-433",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research freshness semantics",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "freshness applies to internal cells, learning signal domains and policy; no expiry on research/*.md conclusions",
+  "producer": "src/brambleloop/improve/freshness.py::sweep",
+  "durable_state": null,
+  "consumer": "src/brambleloop/improve/nightly.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_freshness.py::test_compiler_mathematics_has_no_interval_rather_than_a_long_one",
+   "tests/test_freshness.py::test_the_same_age_is_stale_for_one_department_and_fresh_for_another"
+  ],
+  "evidence": [
+   "improve/freshness world speeds, compiler answered by code fingerprint; in fcb982d"
+  ],
+  "build2_rows": [
+   "#191 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "attach expires_on/domain to research findings (F-401 task rows) using improve/freshness world speeds",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-434",
+  "launch_class": "MATURE",
+  "launch_class_reason": "automatic re-research",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "policy staleness and market shifts raise incidents/owner asks; nothing re-researches automatically (retrieval blocked or owner purchase)",
+  "producer": "src/brambleloop/intel/benchmark_refresh.py::assess",
+  "durable_state": null,
+  "consumer": "src/brambleloop/build2/executor.py::approval_inbox",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_intel_wave.py::test_benchmark_refresh_baselines_then_recommends_a_new_category_and_bounds_the_asks",
+   "tests/test_platform_policy.py::test_never_checked_is_not_the_same_as_unchanged"
+  ],
+  "evidence": [
+   "ops.policy_watch cadence -> policy_knowledge.seed_snapshots/unreviewed_changes; intel.benchmark_refresh weekly"
+  ],
+  "build2_rows": [
+   "#39 EXTERNAL-BLOCKED",
+   "#165 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "etsy_policy_pages_403",
+   "detail": "etsy.com 403 blocks automatic policy re-retrieval"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-435",
+  "launch_class": "MATURE",
+  "launch_class_reason": "structured research outputs",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no machine-usable research conclusion schema; learning observations lack confidence/alternatives/applicability/next test",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/*.md prose; intel/learning observations (domain/source/citation/summary)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-436",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research tool choice",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "model routing picks cheap/deep tiers per task, but no research-method selection",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "gateway/routing tiers; finance/spend_policy tier assignments"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-437",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "safe publication depends on verified Etsy API behaviour, not remembered behaviour",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "live capability verification exists but has never run authenticated against Etsy",
+  "producer": "src/brambleloop/integrations/etsy_exercise.py::run",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::api_etsy_exercise",
+  "protected_effect": "listing schema verified against live capability before publication",
+  "tests": [
+   "tests/test_etsy_exercise.py"
+  ],
+  "evidence": [
+   "integrations/etsy_exercise + etsy_verify + publish/listing_schema.verification_matrix reached via POST /api/etsy/exercise, in fcb982d",
+   "research/ETSY_SURFACE_REGISTRY.md",
+   "BUILD_STATE: nothing had ever made an authenticated Etsy call"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "an authenticated Etsy API credential/shop is needed to exercise live capability"
+  },
+  "defect": null,
+  "next_action": "owner: complete Etsy OAuth; then run POST /api/etsy/exercise and record the verification matrix",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-438",
+  "launch_class": "MATURE",
+  "launch_class_reason": "academic research for hard gaps",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no runtime literature search; visual R&D sessions did it by hand (R&D branch 035ff0c, research/VISUAL_*.md)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-439",
+  "launch_class": "MATURE",
+  "launch_class_reason": "marketplace research discipline",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "first-party Etsy insights not available; popularity-vs-demand guard exists in benchmark selection and ideation",
+  "producer": "src/brambleloop/radar/provenance.py::evidence_for",
+  "durable_state": null,
+  "consumer": "src/brambleloop/radar/opportunity.py::score_concept",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_purchase_selection.py::test_popularity_is_not_the_objective",
+   "tests/test_universe.py::test_popularity_is_not_an_argument_for_imitation"
+  ],
+  "evidence": [
+   "radar/provenance stamps population/geography; learning signals vs causal evidence; listing_tests causal design"
+  ],
+  "build2_rows": [
+   "#38 COMPLETE+PROVEN",
+   "#1 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "first-party Marketplace Insights export"
+  },
+  "defect": null,
+  "next_action": "none in software until insights_access opens",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-440",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "never copy competitor instructions/designs (non-negotiable IP/marketplace compliance)",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/policy.py::check_originality",
+  "durable_state": null,
+  "consumer": "src/brambleloop/gates/certificate.py::certify",
+  "protected_effect": "copy-language premises and competitor-named objectives refused; originality checked at certification",
+  "tests": [
+   "tests/test_cert_intel_wave.py::test_the_ceiling_check_reads_the_tournament_brief_and_blocks_a_matching_objective",
+   "tests/test_cert_design_pipeline.py::test_copy_language_premises_are_refused_at_generation_109",
+   "tests/test_universe.py::test_popularity_is_not_an_argument_for_imitation"
+  ],
+  "evidence": [
+   "gates/policy.check_originality reached via seasonal cycle, in fcb982d; teardown restricted content handling (#167); MJs same-arena differentiator (#306); intel/panel.ceiling_check (#227)"
+  ],
+  "build2_rows": [
+   "#167 COMPLETE+PROVEN",
+   "#227 COMPLETE+PROVEN",
+   "#305 COMPLETE+PROVEN",
+   "#306 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-441",
+  "launch_class": "MATURE",
+  "launch_class_reason": "dependency/provider selection",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "providers chosen by measured trials (image benchmark, provider trial) but licence/maintenance/reversibility not recorded",
+  "producer": "src/brambleloop/visual/provider_trial.py::pick_challenger",
+  "durable_state": null,
+  "consumer": "src/brambleloop/gateway/image_bench.py::state",
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "gateway/image_bench B-050/B-051; visual/provider_trial with CA$4 ceiling; both in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add licence/maintenance/reversibility fields to provider trial and league config records",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-442",
+  "launch_class": "MATURE",
+  "launch_class_reason": "benchmark acquisition surfaced to owner",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/benchmark_refresh.py::assess",
+  "durable_state": null,
+  "consumer": "src/brambleloop/build2/executor.py::approval_inbox",
+  "protected_effect": "purchases are owner asks with expected information value, never self-authorised",
+  "tests": [
+   "tests/test_purchase_selection.py::test_every_pick_names_the_unknown_it_answers",
+   "tests/test_purchase_selection.py::test_every_pick_names_what_it_beat_and_what_that_would_have_taught",
+   "tests/test_cert_intel_wave.py::test_benchmark_refresh_baselines_then_recommends_a_new_category_and_bounds_the_asks"
+  ],
+  "evidence": [
+   "intel/benchmark_refresh weekly raises bounded OwnerAction purchase asks; intel/purchase_selection names the unknown each pick answers and the runner-up"
+  ],
+  "build2_rows": [
+   "#165 OWNER-GATED",
+   "#166 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "the purchase itself is owner spend"
+  },
+  "defect": null,
+  "next_action": "owner: approve benchmark purchases; software complete",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-443",
+  "launch_class": "MATURE",
+  "launch_class_reason": "real-object benchmarking",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "teardown lab awaits purchased benchmarks; no physical calibration sample",
+  "producer": "src/brambleloop/teardown/intake.py::receive",
+  "durable_state": null,
+  "consumer": "src/brambleloop/teardown/scorecard.py::composite_standard",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_purchase_selection.py::test_an_unread_deliverable_is_unknown_rather_than_unstated"
+  ],
+  "evidence": [
+   "teardown/intake, library, scorecard reached via API"
+  ],
+  "build2_rows": [
+   "#148 COMPLETE+PROVEN",
+   "#317 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "roughly ten purchased competitor patterns"
+  },
+  "defect": null,
+  "next_action": "owner: purchase benchmarks; software complete",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-444",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research failure escalation",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "escalation exists for gated requirements (owner cards with smallest action), not for research questions",
+  "producer": "src/brambleloop/build2/executor.py::approval_inbox",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format"
+  ],
+  "evidence": [
+   "build2/executor gates + approval_inbox; intel/childrens.unfetched_sources lists what could not be read"
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-445",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "no fabricated sources/capabilities in customer-facing or decision evidence",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "enforced for children's statements (source must exist, unfetched listed), learning signals (source/citation required) and capability claims (no silent downgrade); no general check that a cited URL was actually retrieved",
+  "producer": "src/brambleloop/intel/childrens.py::statements_citing_a_missing_source",
+  "durable_state": null,
+  "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf",
+  "protected_effect": "a statement cannot cite a source that does not exist",
+  "tests": [
+   "tests/test_childrens.py::test_every_statement_cites_a_source_that_exists_or_admits_it_has_none",
+   "tests/test_learning.py::test_an_observation_with_no_source_is_refused"
+  ],
+  "evidence": [
+   "intel/childrens statements_citing_a_missing_source; intel/access.accept_evidence (#224); learning.record refusals"
+  ],
+  "build2_rows": [
+   "#224 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch for customer-facing claims",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-446",
+  "launch_class": "MATURE",
+  "launch_class_reason": "parallelism of blocked work",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "general: blocked requirements park while other work continues; no research-specific lane",
+  "producer": "src/brambleloop/build2/executor.py",
+  "durable_state": null,
+  "consumer": "src/brambleloop/swarm/orchestrate.py::work_items",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues"
+  ],
+  "evidence": [
+   "build2/executor parks owner-blocked rows; swarm.backlog work-conserving"
+  ],
+  "build2_rows": [
+   "#186 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-447",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "authority control: research grants no deploy/publish/spend authority",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "no research agent exists to bind; authority model enforced for all proposals",
+  "producer": "src/brambleloop/improve/governance.py::check_owner_authority",
+  "durable_state": null,
+  "consumer": "src/brambleloop/improve/cells.py::promote",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
+   "tests/test_tiers.py::test_the_gate_tier_never_promotes_without_a_person"
+  ],
+  "evidence": [
+   "improve/governance.check_owner_authority; tiers gate tier; shadow-mode publication refusals in production"
+  ],
+  "build2_rows": [
+   "#102 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "when F-401 lands, make research outputs recommendations only (no write path to gates, publish or spend)",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-448",
+  "launch_class": "MATURE",
+  "launch_class_reason": "owner-supplied evidence ingestion",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "owner-supplied URLs, policy snapshots and Stats CSVs are ingested as rows; owner-supplied terminology/links in chat are not captured as research evidence",
+  "producer": "src/brambleloop/gates/platform_policy.py::record_page_reading",
+  "durable_state": null,
+  "consumer": "src/brambleloop/gates/policy_knowledge.py::seed_snapshots",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_policy_intake.py"
+  ],
+  "evidence": [
+   "Benchmark owner_supplied URL (#205); POST /api/policy/snapshot; POST /api/attribution/stats"
+  ],
+  "build2_rows": [
+   "#205 COMPLETE+PROVEN",
+   "#237 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "add POST /api/research/evidence (ops-token) storing owner-supplied sources/terms as learning observations with kind=owner_supplied",
+  "confidence": "MEDIUM",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-449",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research quality metrics",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no research metrics (none can exist without F-401)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ },
+ {
+  "uid": "F-450",
+  "launch_class": "MATURE",
+  "launch_class_reason": "research as core autonomy is a maturity goal",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "no autonomous 'I do not know enough' -> research loop",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "no external gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "build src/brambleloop/intel/research.py (ResearchTask row: question, trigger, internal-evidence search result, sources with retrieval class/date, fact/claim/inference labels, confidence, stop condition, spend bound, outcome) plus a research.run job type wired from worker cadence and from unknown-detection triggers",
+  "confidence": "HIGH",
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+ }
+]
