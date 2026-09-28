@@ -1088,7 +1088,7 @@ class EtsyClient:
 
     def publish(self, *, payload: ListingPayload, filename: str, data: bytes,
                 images: list[tuple[str, bytes]] | None = None,
-                on_created=None) -> PublishOutcome:
+                on_created=None, before_create=None) -> PublishOutcome:
         """Create the draft, attach the file and upload the images, reporting each honestly.
 
         Still creates a draft and still stops there: activation is gated. What has changed is
@@ -1106,6 +1106,8 @@ class EtsyClient:
         if reason is not None:
             return PublishOutcome(published=False, problems=[reason])
 
+        if before_create is not None:
+            before_create()  # failure aborts before any create request
         listing_id = self.create_draft(payload)
         # A runtime caller checkpoints the irreversible remote ID before any upload.
         # Callback failure must abort; swallowing it would reopen the duplicate-create gap.

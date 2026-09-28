@@ -1317,6 +1317,83 @@ def _publish_guarded(ctx: JobContext, client, **kw) -> dict:
         raise
 
 
+def _publish_content_digest(release, payload, docs, listing_images):
+    import hashlib
+    import json
+    from . import etsy_ops
+    binding = {"release": release,
+               "pdfs": {t: hashlib.sha256(doc.pdf_bytes).hexdigest() for t, doc in docs.items()},
+               "images": [(name, hashlib.sha256(data).hexdigest()) for name, data in listing_images["images"]],
+               "image_order": listing_images.get("order"), "listing_set": listing_images.get("record_id"),
+               "payload": etsy_ops.sent_fields(payload)}
+    return hashlib.sha256(json.dumps(binding, sort_keys=True).encode()).hexdigest()
+
+
+def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, listing_images,
+                               reserved_digest=None):
+    """Current evidence bound to the exact bytes about to leave; unknown is a refusal."""
+    import hashlib
+    import os
+    from types import SimpleNamespace
+    from copy import copy
+    from sqlalchemy import select
+    from ..core.models import Listing
+    from ..core.resilience import PermanentError
+    from ..integrations.etsy import PHASES_THAT_MAY_PUBLISH
+    from ..publish.pdf import TERMINOLOGIES
+    from . import etsy_ops
+    try:
+        if reserved_digest is not None and reserved_digest != _publish_content_digest(
+                release, payload, docs, listing_images):
+            raise ValueError("actual content changed after durable intent reservation")
+        phase = getattr(ctx.phase, "value", None)
+        configured = os.environ.get("BRAMBLELOOP_PHASE", phase)
+        if phase not in PHASES_THAT_MAY_PUBLISH or configured not in PHASES_THAT_MAY_PUBLISH:
+            raise ValueError("current runtime phase forbids publication")
+        if os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1":
+            raise ValueError("current owner publication authority absent")
+        # Historical replay dates cannot stand in for current execution evidence.
+        inputs = dict(ctx.job.inputs)
+        inputs.pop("as_of", None)
+        inputs.update(slug=slug, version=version, release=release)
+        current_ctx = copy(ctx)
+        current_ctx.job = SimpleNamespace(**{**vars(ctx.job), "inputs": inputs})
+        parity, gates = _listing_parity(current_ctx), _release_gates(current_ctx)
+        if parity.get("blocks_release") is not False or gates.get("blocks_release") is not False:
+            raise ValueError("current parity/release gate refuses or is UNKNOWN")
+        with ctx.db.session() as session:
+            listing = session.scalar(select(Listing).where(
+                Listing.product_slug == slug, Listing.version == version))
+            pv = session.scalar(select(PatternVersion).join(Product).where(
+                Product.slug == slug, PatternVersion.version == version))
+            if (not release or listing is None or pv is None or not pv.certified
+                    or listing.release_hash != release or pv.release_hash != release):
+                raise ValueError("current certified release binding differs or is absent")
+        if etsy_ops.sent_fields(etsy_ops.certified_payload(ctx.db, slug, version)) != etsy_ops.sent_fields(payload):
+            raise ValueError("actual payload differs from current certified listing")
+        if set(docs) != set(TERMINOLOGIES):
+            raise ValueError("actual document set differs from certified terminology set")
+        check_pdf_hashes(ctx.db, slug=slug, version=version, release=release,
+                         rendered={t: docs[t].pdf_bytes for t in TERMINOLOGIES})
+        current = etsy_ops.certified_images(ctx.db, slug, version, release=release,
+                                          store_root=inputs.get("artifact_dir"))
+        def image_binding(value):
+            return (value["record_id"], value["order"],
+                    [(name, hashlib.sha256(data).hexdigest()) for name, data in value["images"]])
+        if current.get("problems") != [] or not current.get("images"):
+            raise ValueError("current image evidence refuses or is UNKNOWN")
+        if image_binding(current) != image_binding(listing_images):
+            raise ValueError("actual images differ from current certified image set")
+        if (os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1"
+                or getattr(ctx.phase, "value", None) not in PHASES_THAT_MAY_PUBLISH
+                or os.environ.get("BRAMBLELOOP_PHASE", phase) not in PHASES_THAT_MAY_PUBLISH):
+            raise ValueError("owner authority or runtime phase changed during revalidation")
+    except Exception as exc:
+        raise PermanentError("PUBLISH_EXECUTION_REFUSED: " + str(exc)) from exc
+    ctx.audit("store.execution_revalidated", artifact=f"{slug}@{version}",
+              detail={"release": release, "current_evidence": True})
+
+
 def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                            release: str, payload, docs: dict, hash_check: dict, stored,
                            stored_by_terminology: dict, listing_images: dict) -> dict:
@@ -1339,19 +1416,17 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # so the file in the buyer's downloads folder and the file in the artifact store could have
     # been named by two different rules.
     from ..publish import draft_intent
-    import hashlib
-    import json
-    binding = {"release": release, "pdfs": hash_check.get("certified") or {},
-               "images": [(name, hashlib.sha256(data).hexdigest()) for name,data in listing_images["images"]],
-               "image_order": listing_images.get("order"), "listing_set": listing_images.get("record_id"),
-               "payload": etsy_ops.sent_fields(payload)}
-    content_digest = hashlib.sha256(json.dumps(binding,sort_keys=True,default=str).encode()).hexdigest()
+    content_digest = _publish_content_digest(release, payload, docs, listing_images)
     intent_key, intent_token = draft_intent.claim(
         ctx.db,slug=slug,version=version,release=release,content_digest=content_digest)
     try:
         outcome = client.publish(payload=payload,
                                  filename=f"{slug}-{pattern_filename('US')}",
                                  data=doc.pdf_bytes, images=listing_images["images"],
+                                 before_create=lambda: _revalidate_publish_effect(
+                                     ctx, slug=slug, version=version, release=release,
+                                     payload=payload, docs=docs, listing_images=listing_images,
+                                     reserved_digest=content_digest),
                                  on_created=lambda remote_id: draft_intent.checkpoint(
                                      ctx.db,intent_key,intent_token,remote_id))
     except BaseException:
