@@ -87,6 +87,8 @@ class ProfitAndLoss:
     fees_by_basis: dict = field(default_factory=dict)
     operating_costs_by_basis: dict = field(default_factory=dict)
     unobserved_operating_rows: int = 0
+    unobserved_fee_rows: int = 0
+    unresolved_listing_exposure_cad: float = 0.0
     # F-289: orders and revenue per channel, unattributed explicit. None when unmeasured.
     sales_by_source: dict | None = None
 
@@ -138,7 +140,7 @@ class ProfitAndLoss:
     @property
     def all_observed(self):
         costs = self.operating_costs_by_basis
-        return (not self.unobserved_operating_rows and self.sales_measured and not any(self.fees_by_basis.get(k) for k in ("modelled", "unknown"))
+        return (not self.unobserved_operating_rows and not self.unobserved_fee_rows and self.sales_measured and not any(self.fees_by_basis.get(k) for k in ("modelled", "unknown"))
                 and not any(costs.get(k) for k in ("modelled", "unknown"))
                 and (not self.operating_costs_cad or bool(costs)))
 
@@ -155,6 +157,9 @@ class ProfitAndLoss:
             "all_figures_observed": observed,
             "operating_costs_by_basis": dict(self.operating_costs_by_basis),
             "unobserved_operating_rows": self.unobserved_operating_rows,
+            "unobserved_fee_rows": self.unobserved_fee_rows,
+            "unresolved_listing_exposure_cad": round(self.unresolved_listing_exposure_cad, 4),
+            "operating_cost_reading": "conservative exposure plus ledger expenses; unresolved reservations may overlap fees" if self.unresolved_listing_exposure_cad else "basis-labelled costs",
             "profit_basis": "measured" if observed else "mixed_or_unknown",
             "cash_reading": "derived_cash_proxy" if observed else "UNKNOWN",
         }
@@ -227,17 +232,23 @@ class Books:
                     pl.orders += 1
                 elif e.category == "discount":
                     pl.discounts_cad += e.expense_cad
+            pl.unobserved_fee_rows = sum(1 for e in entries if e.fees_cad and e.fees_basis != "measured")
             pl.fees_by_basis = reconcile.fee_basis_summary(e for e in entries if e.fees_cad)
             pl.customers = s.scalar(select(func.count(func.distinct(Order.customer_id)))
                                     .where(Order.at >= since, Order.at <= until)) or 0
 
             from .listing_costs import cost_basis
-            reconciled_listings = {e.evidence_ref.removeprefix("etsy_listing:") for e in s.scalars(
-                select(LedgerEntry).where(LedgerEntry.source == "etsy_listing_ledger"))}
+            # Exclude only a budget mirror with an exact event identity present in
+            # the same period ledger. Listing identity alone cannot settle a reserve.
+            ledger_events = {(e.source, e.external_id) for e in entries}
             for c in s.scalars(select(CostEntry).where(CostEntry.at >= since,
                                                        CostEntry.at <= until)):
-                if c.kind == "etsy_listing_fee" and str((c.detail or {}).get("listing_id")) in reconciled_listings:
+                detail = c.detail or {}
+                if (c.kind == "etsy_listing_fee_actual" and detail.get("role") == "budget_mirror"
+                        and (detail.get("ledger_source"), detail.get("ledger_external_id")) in ledger_events):
                     continue
+                if c.kind == "etsy_listing_fee":
+                    pl.unresolved_listing_exposure_cad += c.amount_cad
                 basis = cost_basis(c)
                 if basis != "measured":
                     pl.unobserved_operating_rows += 1

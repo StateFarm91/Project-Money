@@ -69,12 +69,18 @@ def ingest_actual(db, entries):
                              classification='listing_fee',basis='measured' if rate_measured else 'modelled',
                              reconciliation_state='matched_etsy_ledger',
                              description='Payment-account listing fee; conversion basis retained'))
-            exposure=_exposure(s,e['reference_id'])
-            if exposure is not None:
-                # The ceiling remains conservative; Books consumes actual ledger, not both.
-                actual_total=float(s.scalar(select(func.sum(LedgerEntry.expense_cad)).where(
-                    LedgerEntry.source == "etsy_listing_ledger", LedgerEntry.evidence_ref == ref)) or 0.0)
-                exposure.amount_cad=max(exposure.amount_cad,actual_total)
+            # A listing ID identifies a product, not an activation/renewal event.
+            # Never rewrite an older reservation or infer that this fee settles it.
+            # This mirror feeds budget readers; Books counts its LedgerEntry only.
+            s.add(CostEntry(at=at, agent='store_operator', kind='etsy_listing_fee_actual',
+                            amount_cad=amount, detail={
+                                'listing_id': str(e['reference_id']),
+                                'basis': 'measured' if rate_measured else 'modelled',
+                                'ledger_source': 'etsy_listing_ledger',
+                                'ledger_external_id': external,
+                                'role': 'budget_mirror',
+                                'agent_attribution': 'listing fees belong to store_operator',
+                                'event_match': 'initial activation reservation unresolved'}))
             applied.append(external)
     return applied
 

@@ -184,7 +184,12 @@ def test_tax_is_reserved_and_never_counted_as_ours():
     assert pl.cash_cad is None
     assert pl.to_dict()["all_figures_observed"] is False
     # Arithmetic stays independently pinned; a fully measured reading permits the proxy.
-    pl.fees_by_basis = {"measured": pl.platform_fees_cad}
+    from sqlalchemy import select
+    from brambleloop.core.models import LedgerEntry
+    with db.session() as session:
+        for entry in session.scalars(select(LedgerEntry)):
+            entry.fees_basis = "measured"
+    pl = Books(db).profit_and_loss()
     pl.sales_reading = "measured"
     assert pl.cash_cad == pl.net_profit_cad
 
