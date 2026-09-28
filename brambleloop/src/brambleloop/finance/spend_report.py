@@ -21,6 +21,7 @@ against the wrong number and none of them failed. Variance is reported per purpo
 purpose whose estimates are consistently low is a ceiling with a hole in it.
 """
 from __future__ import annotations
+from .listing_costs import cost_basis, basis_summary
 
 from datetime import date, datetime, timedelta, timezone
 
@@ -177,14 +178,19 @@ def variance(rows_) -> dict:
             unestimated += 1
             continue
         key = (row.purpose or "").strip() or UNATTRIBUTED
-        bucket = out.setdefault(key, {"estimated_cad": 0.0, "actual_cad": 0.0, "calls": 0})
+        bucket = out.setdefault(key, {"estimated_cad": 0.0, "recorded_cad": 0.0, "calls": 0, "_basis": []})
         bucket["estimated_cad"] = round(bucket["estimated_cad"] + estimate, 6)
-        bucket["actual_cad"] = round(bucket["actual_cad"] + float(row.amount_cad or 0.0), 6)
+        bucket["recorded_cad"] = round(bucket["recorded_cad"] + float(row.amount_cad or 0.0), 6)
+        bucket["_basis"].append((float(row.amount_cad or 0.0),cost_basis(row)))
         bucket["calls"] += 1
 
     for key, bucket in out.items():
+        basis = basis_summary(bucket.pop("_basis"))
+        bucket["cost_basis"] = basis
+        bucket["actual_cad"] = basis["actual_cad"]
+        bucket["comparison_basis"] = "recorded_exposure_vs_reservation"
         estimated = bucket["estimated_cad"]
-        bucket["ratio"] = round(bucket["actual_cad"] / estimated, 4) if estimated else None
+        bucket["ratio"] = round(bucket["recorded_cad"] / estimated, 4) if estimated else None
         bucket["within_tolerance"] = (
             bucket["ratio"] is not None
             and abs(bucket["ratio"] - 1.0) <= VARIANCE_TOLERANCE)
@@ -193,7 +199,7 @@ def variance(rows_) -> dict:
         bucket["under_estimated"] = bucket["ratio"] is not None and bucket["ratio"] > 1.0
 
     return {
-        "by_purpose": dict(sorted(out.items(), key=lambda kv: -kv[1]["actual_cad"])),
+        "by_purpose": dict(sorted(out.items(), key=lambda kv: -kv[1]["recorded_cad"])),
         "calls_with_no_reservation": unestimated,
         "tolerance": VARIANCE_TOLERANCE,
         "why_it_matters": (
@@ -223,6 +229,7 @@ def what_it_bought(db, *, now: datetime | None = None) -> dict:
     return {
         "month": start.date().isoformat(),
         "spent_cad": spent,
+        "cost_basis": basis_summary((r.amount_cad or 0.0,cost_basis(r)) for r in month),
         "calls": len(month),
         "burn_rate_cad_per_day": burn,
         "projected_month_end_cad": round(burn * days_in_month, 4),
@@ -306,7 +313,7 @@ def per_agent_today(db, *, now: datetime | None = None) -> dict:
         "over": over,
         "spenders_with_no_agent_row": unregistered,
         "why": ("an agent's daily ceiling is consulted by `registry.record_cost` and by "
-                "nothing else. This is what was actually spent beside what was allowed"),
+                "nothing else. This is recorded exposure beside what was allowed"),
     }
 
 
@@ -386,7 +393,7 @@ def estimate_drift(db, *, now: datetime | None = None) -> dict:
     for key, bucket in outside.items():
         reasons.append(
             f"{key}: {bucket['calls']} calls estimated CA${bucket['estimated_cad']:.4f} and "
-            f"billed CA${bucket['actual_cad']:.4f} (ratio {bucket['ratio']}), outside "
+            f"recorded CA${bucket['recorded_cad']:.4f} ({bucket['cost_basis']['reading']}; ratio {bucket['ratio']}), outside "
             f"±{int(VARIANCE_TOLERANCE * 100)}%"
             + (" -- under-estimated, which is the direction that breaks the ceiling"
                if bucket["under_estimated"] else ""))
@@ -402,7 +409,8 @@ def estimate_drift(db, *, now: datetime | None = None) -> dict:
         "why": "; ".join(reasons),
         "purposes_outside_tolerance": outside,
         "purposes_measured": {k: b for k, b in v["by_purpose"].items()
-                              if b["calls"] >= DRIFT_MIN_CALLS},
+                              if b["calls"] >= DRIFT_MIN_CALLS and b["actual_cad"] is not None},
+        "purposes_recorded": {k: b for k, b in v["by_purpose"].items() if b["calls"] >= DRIFT_MIN_CALLS},
         "purposes_too_few_calls_to_judge": sorted(
             k for k, b in v["by_purpose"].items() if b["calls"] < DRIFT_MIN_CALLS),
         "min_calls_to_judge": DRIFT_MIN_CALLS,
@@ -415,7 +423,7 @@ def estimate_drift(db, *, now: datetime | None = None) -> dict:
                        "cad": round(sum(float(r.amount_cad or 0.0) for r in image_rows), 6),
                        "reconciles_by_construction": True,
                        "why": ("an image is priced per image and reserved at that price, so "
-                               "its estimate and its bill agree by definition. Set aside so "
+                               "its estimate and its recorded exposure agree by construction, not observed billing. Set aside so "
                                "it cannot flatter the token-priced calls that can drift")},
     }
 
@@ -443,7 +451,7 @@ def governance(db, *, now: datetime | None = None) -> dict:
             out[key] = {"unavailable": f"{type(exc).__name__}: {exc}"[:200]}
 
     produced = what_it_bought(db, now=now)
-    out["month"] = {"spent_cad": produced["spent_cad"], "calls": produced["calls"],
+    out["month"] = {"cost_basis": produced["cost_basis"], "spent_cad": produced["spent_cad"], "calls": produced["calls"],
                     "burn_rate_cad_per_day": produced["burn_rate_cad_per_day"],
                     "projected_month_end_cad": produced["projected_month_end_cad"],
                     "by_provider": produced["by_provider"]}

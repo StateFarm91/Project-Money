@@ -1,0 +1,33 @@
+{
+  "base": "b15b351",
+  "scope": [
+    "finance/listing_costs.py basis summary",
+    "finance/unit_cost.py",
+    "finance/sustainability.py",
+    "finance/spend_report.py"
+  ],
+  "status": "review candidate; no certification",
+  "change": "Preserve recorded cost amounts and budget ratios; propagate row-count basis, nullable actual, explicit recorded comparator. Unknown signed offsets cannot acquire measured label. Maintenance fixture unknown rather than measured. Governance month retains basis.",
+  "runtime": "Existing CostEntry producers -> stored rate basis -> unit_costs/listing_maintenance_cost/forecast/what_it_bought/variance/estimate_drift/governance; threshold formulas unchanged.",
+  "tests": {
+    "test_cost_consumer_basis.py": "3/3",
+    "test_spend_policy.py": "24/24",
+    "test_spend_governance.py": "35/35",
+    "test_money_truth.py": "18/18",
+    "test_dashboard_spend.py": "BLOCKED: TestClient startup/page path produced no assertion output for over two minutes; terminated locally, not PASS"
+  },
+  "adversarial": [
+    "legacy unknown amount remains actual=null yet exposure drift still refuses",
+    "unknown signed offsets cannot yield actual",
+    "measured positive control preserves amount",
+    "modelled/unknown maintenance cannot claim measured",
+    "nullable JSON report serializes"
+  ],
+  "limitations": [
+    "No browser rendering verification; dashboard test did not complete",
+    "Legacy numeric field names spent/measured retained for compatibility but paired with basis metadata",
+    "No backfill of historical ledger mirrors",
+    "Unit-cost existing attribution arithmetic unchanged; cost-basis metadata does not independently prove every fee event or provider invoice",
+    "No live providers, paid spend, statuses, deployment or Visual edits"
+  ]
+}

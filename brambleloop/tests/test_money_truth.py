@@ -457,7 +457,8 @@ def test_break_even_and_maintenance_split_creation_from_recurring_cost():
     assert be["contribution_basis"].startswith("modelled")
     assert be["break_even_sales"] == -(-3.0 // be["contribution_per_sale_cad"])
     m = sustainability.listing_maintenance_cost(db, now=NOW)
-    assert m["reading"] == "measured" and m["per_listing_month_cad"] > 0
+    assert m["reading"] == "unknown" and m["per_listing_month_cad"] > 0
+    assert m["cost_basis"]["actual_cad"] is None  # legacy fixture has no charged-rate evidence
     assert sustainability.listing_maintenance_cost(_db())["reading"] == "UNMEASURED"
 
 
