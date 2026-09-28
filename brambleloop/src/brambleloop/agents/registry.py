@@ -205,7 +205,9 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="listing", description="Drafts listings and SEO. Cannot spend ad money.",
          allowed_job_types=["seasonal.remerchandising",
                             "listing.draft", "listing.seo", "collection.assemble",
-                            "chain.rebuild"],
+                            "chain.rebuild",
+                            # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
+                            "listing.taxonomy_refresh"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",
