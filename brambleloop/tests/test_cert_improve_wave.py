@@ -703,6 +703,107 @@ def test_release_eligibility_is_one_record_and_clearing_one_reason_never_clears_
     assert view["blocks_publish"] and not view["blocks_build"] and view["summary"] is None
 
 
+def test_withholding_survives_every_rebuild_path_through_the_worker():
+    """C-67 / C-69 (Codex M10), through `Worker.run_once`: with the teardown QA's withhold
+    (#163) and the owner's veto (#228) both on the release's record, the hourly rebuild sweep,
+    a targeted rebuild and `listing.draft` each refuse and each names both reasons; lifting
+    the veto leaves every path refusing on the QA alone (the veto's clearing took nothing
+    else); clearing the QA opens every path."""
+    from types import SimpleNamespace
+
+    from brambleloop.core.models import AuditLog, Job, JobStatus, PatternVersion, Phase
+    from brambleloop.intel import mission_runtime
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline, release  # noqa: F401 -- registers handlers
+    from brambleloop.runtime.worker import Worker
+
+    db = _db()
+    _benchmark_and_product(db, "fixture-worker")
+    slug, version = "fixture-worker", "1.0.0"
+    cir = SimpleNamespace(slug=slug, version=version)
+    n = [0]
+
+    def _job(job_type: str, inputs: dict) -> dict:
+        n[0] += 1
+        job = JobQueue(db).enqueue("listing", job_type, inputs,
+                                   idempotency_key=f"wh:{job_type}:{n[0]}")
+        worker = Worker(db, f"wh-{n[0]}", phase=Phase.SHADOW, job_types=[job_type])
+        for _ in range(6):                  # an opened sweep enqueues its own listing.draft
+            assert worker.run_once(), job_type
+            with db.session() as s:
+                row = s.get(Job, job.id)
+                if row.status == JobStatus.DONE:
+                    return dict(row.outputs or {})
+                assert row.status == JobStatus.PENDING, (job_type, row.status, row.last_error)
+        raise AssertionError(f"{job_type} never ran")
+
+    def _record() -> dict:
+        with db.session() as s:
+            return dict((s.scalar(select(PatternVersion)).certificate or {}).get(
+                "withholding") or {})
+
+    def _last(action: str) -> dict:
+        with db.session() as s:
+            row = s.scalar(select(AuditLog).where(AuditLog.action == action)
+                           .order_by(AuditLog.id.desc()))
+            return dict(row.detail or {}) if row is not None else {}
+
+    def _every_path() -> tuple[dict, dict, dict]:
+        sweep = _job("chain.rebuild", {"slugs": [slug]})
+        targeted = _job("chain.rebuild", {"product_slug": slug, "reason": "test",
+                                          "artefacts": [f"seo:{slug}@{version}"]})
+        draft = _job("listing.draft", {"slug": slug, "version": version, "release": "a" * 64})
+        return sweep, targeted, draft
+
+    # Two reasons, written where the running system writes them: the certification path's
+    # teardown QA mark and the owner's ruling.
+    pipeline._mark_withheld(_ctx(db, "gate.certify", agent="quality_director"), cir,
+                            "teardown QA (#163): parity with every benchmark")
+    mission_runtime.record_veto(db, subject_ref=f"product:{slug}",
+                                scope="flagship_creative_quality", reason="generic")
+    sweep, targeted, draft = _every_path()
+    assert f"{slug}@{version}" in sweep["withheld"] and not sweep["restarted"], sweep
+    swept = _last("chain.rebuilt")["listings"][slug]
+    assert "teardown QA" in swept and "owner veto" in swept, swept
+    assert targeted["withheld"] is True and targeted["rebuilt"] == []
+    refused = _last("chain.rebuild_refused")["why"]
+    assert "teardown QA" in refused and "owner veto" in refused, refused
+    assert draft["drafted"] is False
+    assert "teardown QA" in draft["withheld"] and "owner veto" in draft["withheld"]
+    assert set(_record()) == {"teardown_qa", "owner_veto"}
+
+    # The owner lifts the veto. Every path re-reads the ruling, drops that one reason and
+    # still refuses on the QA: clearing one kind never cleared another.
+    mission_runtime.record_veto(db, subject_ref=f"product:{slug}",
+                                scope="flagship_creative_quality", owner_vetoed=False)
+    sweep, targeted, draft = _every_path()
+    assert f"{slug}@{version}" in sweep["withheld"] and not sweep["restarted"], sweep
+    swept = _last("chain.rebuilt")["listings"][slug]
+    assert "teardown QA" in swept and "owner veto" not in swept, swept
+    assert targeted["withheld"] is True
+    refused = _last("chain.rebuild_refused")["why"]
+    assert "teardown QA" in refused and "owner veto" not in refused, refused
+    assert draft["drafted"] is False
+    assert "teardown QA" in draft["withheld"] and "owner veto" not in draft["withheld"]
+    assert set(_record()) == {"teardown_qa"}
+
+    # The QA passes at a later certification: its kind clears and every path opens.
+    pipeline._mark_withheld(_ctx(db, "gate.certify", agent="quality_director"), cir, None)
+    assert _record() == {}
+    sweep, targeted, draft = _every_path()
+    assert sweep["withheld"] == [] and f"{slug}@{version}" in sweep["restarted"], sweep
+    assert targeted.get("withheld") is not True, targeted
+    assert draft["drafted"] is True, draft
+
+    # And a veto ruled after that is read by the next rebuild without any certification
+    # running: the record is re-evaluated from the ruling, never trusted stale.
+    mission_runtime.record_veto(db, subject_ref=f"product:{slug}",
+                                scope="flagship_creative_quality", reason="off_identity")
+    sweep = _job("chain.rebuild", {"slugs": [slug]})
+    assert f"{slug}@{version}" in sweep["withheld"], sweep
+    assert set(_record()) == {"owner_veto"}
+
+
 def test_owner_veto_and_competitive_standard_block_at_the_gates():
     from brambleloop.core.models import (AuditLog, CompetitiveStandard, ListingAsset)
     from brambleloop.intel import mission_runtime

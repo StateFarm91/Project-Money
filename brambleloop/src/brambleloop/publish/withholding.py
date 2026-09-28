@@ -54,6 +54,21 @@ def _release(s, slug: str, version: str):
                                                  PatternVersion.version == version))
 
 
+def _stored(cert: dict) -> dict:
+    """The record as the certificate holds it, with a pre-record mark read as what it was.
+
+    Before the record existed the teardown QA (#163) wrote its one string straight into
+    `certificate["withheld"]`. A deployed release still carrying that bare mark and no record
+    is withheld for that reason: it is read as the teardown QA's kind, never dropped as
+    unknown, so migrating to the record can never un-withhold a release.
+    """
+    reasons = dict(cert.get(RECORD) or {})
+    if not reasons and cert.get(SUMMARY):
+        reasons[TEARDOWN_QA] = {"reason": str(cert[SUMMARY])[:400], "at": None,
+                                "migrated_from": SUMMARY}
+    return reasons
+
+
 def _summary(reasons: dict) -> str | None:
     parts = [str(reasons[k]["reason"]) for k in BUILD_BLOCKING if reasons.get(k)]
     return "; ".join(parts) if parts else None
@@ -81,7 +96,7 @@ def record(db, slug: str, version: str, *, kind: str, reason: str | None) -> dic
             return {"slug": slug, "version": version, "recorded": False, "reasons": {},
                     "why": "no stored release to withhold"}
         cert = dict(pv.certificate or {})
-        reasons = dict(cert.get(RECORD) or {})
+        reasons = _stored(cert)
         changed = False
         if reason:
             entry = reasons.get(kind) or {}
@@ -113,7 +128,7 @@ def reasons(db, slug: str, version: str) -> dict:
     """The record as stored, without re-evaluating anything."""
     with db.session() as s:
         pv = _release(s, slug, version)
-        stored = dict((pv.certificate or {}).get(RECORD) or {}) if pv is not None else {}
+        stored = _stored(dict(pv.certificate or {})) if pv is not None else {}
     return _view(slug, version, stored)
 
 

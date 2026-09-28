@@ -285,12 +285,21 @@ def test_a_withheld_release_is_never_redriven():
         draft = _run(db, "listing", "listing.draft", {"slug": slug, "version": version},
                      "draft-withheld")
         assert draft.outputs["drafted"] is False and draft.outputs["withheld"]
+        # C-67 / M10: a pre-record mark is read as the teardown QA's reason on the release's
+        # one withholding record, never dropped as unknown.
+        with db.session() as s:
+            product = s.scalar(select(Product).where(Product.slug == slug))
+            pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id))
+            record = dict((pv.certificate or {}).get("withholding") or {})
+        assert set(record) == {"teardown_qa"}, record
+        assert record["teardown_qa"]["reason"] == "teardown QA (#163): test"
     finally:
         with db.session() as s:
             product = s.scalar(select(Product).where(Product.slug == slug))
             pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id))
             cert = dict(pv.certificate or {})
             cert.pop("withheld", None)
+            cert.pop("withholding", None)          # the record the mark migrated into
             pv.certificate = cert
 
 
