@@ -3185,6 +3185,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     from ..core.models import OwnerAction
     from ..gateway.model_gateway import available_providers
     from ..launch.readiness import assess
+    from . import etsy_ops
 
     try:
         providers = available_providers()
@@ -3322,8 +3323,16 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                 # #165's refresh purchases are raised and bounded by `intel.benchmark_refresh`.
                 if key.startswith("benchmark_refresh:"):
                     continue
+                # FB-1 B (F-593, F-541): the Etsy owner-only queue and the re-authorisation
+                # action are closed by `runtime.etsy_ops` on the reading their evidence names.
+                if key.startswith(etsy_ops.OWNER_PREFIXES):
+                    continue
                 row.done = True
                 closed.append(key)
+
+    # F-593 / F-547: the Etsy owner-only queue from `intel.etsy_surfaces`, adopted into the
+    # one owner queue by key. Idempotent; closed only on evidence (see runtime.etsy_ops).
+    etsy_queue = etsy_ops.seed_owner_queue(ctx.db)
 
     ctx.audit("launch.assessed", detail={
         "ready": ready,
@@ -3340,6 +3349,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         "owner_actions_queued": queued,
         "owner_actions_restated": restated,
         "owner_actions_closed": closed,
+        "etsy_owner_queue": etsy_queue,
         "capabilities_unavailable": access.unmet_report()["unmet_capabilities"]})
 
     outstanding = [r.key for r in readiness.outstanding]

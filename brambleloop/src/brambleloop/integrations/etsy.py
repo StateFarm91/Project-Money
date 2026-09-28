@@ -725,6 +725,22 @@ class EtsyClient:
         results = body.get("results")
         return list(results) if isinstance(results, list) else []
 
+    def get_listing_files(self, listing_id: str) -> list[dict[str, Any]]:
+        """The digital files Etsy holds for a listing, as Etsy reports them (F-559).
+
+        `getAllListingFiles`. This is the only authoritative answer to "which PDF will the
+        buyer download": `uploadListingFile` returning a file id says Etsy accepted one upload,
+        not that the listing now carries exactly the certified set and nothing stale beside
+        it. Etsy's ShopListingFile carries `filename` and `size_bytes`; it carries **no hash**,
+        so byte identity on Etsy's side is not observable through the API and
+        `etsy_verify.verify_files` says so rather than implying it.
+        """
+        creds = self._require(Authority.READ)
+        body = self._call("GET", f"/shops/{creds.shop_id}/listings/{listing_id}/files",
+                          operation="getAllListingFiles", authority=Authority.READ).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
     def listing_exists(self, listing_id: str) -> tuple[bool, str]:
         """Whether Etsy still holds this listing, and what state it is in. Never raises a 404.
 

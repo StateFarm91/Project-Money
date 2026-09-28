@@ -336,6 +336,15 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     gates = Spy(pipeline, "_release_gates",
                 replacement=lambda ctx: {"blocks_release": False, "reasons": [],
                                          "forced": "cert harness"})
+    # FB-1 B (F-524): the certified listing images are read after the release gates and
+    # before anything is stored or sent, and are proven to refuse on a missing or unreadable
+    # frame in tests/test_etsy_readback_observe.py. Forced here like the gates above, so this
+    # file keeps measuring the hash check and the upload behind them.
+    from brambleloop.runtime import etsy_ops
+    images = Spy(etsy_ops, "certified_images",
+                 replacement=lambda *a, **k: {"images": [("f-1.png", b"\x89PNG-cert")],
+                                              "order": [], "record_id": None,
+                                              "problems": []})
     render = Spy(pdf_mod, "build_pattern_pdf", replacement=render_patch) if render_patch else None
     # Earlier publish attempts in this file failed into retry backoff; once their backoff
     # elapses the worker would claim one of them instead of this job. Park them.
@@ -357,6 +366,7 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
         parity.restore()
         grid.restore()
         gates.restore()
+        images.restore()
         if render:
             render.restore()
         for name in injected:

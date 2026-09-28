@@ -1,0 +1,363 @@
+{
+ "cluster": "B",
+ "branch": "claude/fb1-B",
+ "head": "see final commit on claude/fb1-B (report committed after 5ef5031)",
+ "base": "be8d416",
+ "requirements": [
+  {
+   "uid": "F-524",
+   "status": "PARTIAL",
+   "what_changed": "store.publish reads the valid listing-set certificate's frames in position order, fetches each frame's bytes from ArtifactStore by the certified sha256 (re-hashed on read), and passes them to EtsyClient.publish(images=...); a missing/unreadable/non-image frame blocks before any Etsy write (store.publish_blocked). store.published records image_order with hashes.",
+   "producer": "runtime/etsy_ops.py::certified_images",
+   "consumer": "runtime/pipeline.py::_publish_and_read_back -> EtsyClient.publish",
+   "live_root": "store.publish handler (enqueued by the release chain)",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_publish_sends_the_certified_image_bytes_in_certificate_order_and_reads_back",
+    "tests/test_etsy_readback_observe.py::test_a_missing_frame_refuses_before_anything_is_created_on_etsy"
+   ],
+   "remaining": "hero-image experiments with rollback have no runtime path; no alt text sent; image bytes still depend on non-durable artifact storage (owner storage decision)",
+   "next_action": "hero-image experiments with rollback have no runtime path; no alt text sent; image bytes still depend on non-durable artifact storage (owner storage decision)"
+  },
+  {
+   "uid": "F-543",
+   "status": "PARTIAL",
+   "what_changed": "New store.activate handler: recomputes parity and release gates at execution, refuses in SHADOW before any read, reads the remote draft + files back and checks every sent field (price/quantity/taxonomy as sent/tags/title/description/materials/type), draft state, image count vs certified frames, files by name+exact size vs the verified publish's files_sent, and owed disclosures on the copy as Etsy holds it; then revalidates authority at execution (phase, BRAMBLELOOP_PUBLISH_AUTHORISED read now, per-job launch_authorisation, store_operator daily ceiling incl. listing fee) before EtsyClient.activate, reads back state=active, records the fee as a CostEntry. A verified publish enqueues store.activate, which verifies and refuses for lack of launch authorisation.",
+   "producer": "runtime/pipeline.py::handle_store_activate, integrations/etsy_verify.py::activation_readiness",
+   "consumer": "EtsyClient.activate; Listing.state; incidents",
+   "live_root": "store.activate enqueued by store.publish after a verified publish",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_activation_in_shadow_is_refused_before_any_etsy_read",
+    "tests/test_etsy_readback_observe.py::test_activation_verifies_the_draft_and_without_a_launch_authorisation_does_not_activate",
+    "tests/test_etsy_readback_observe.py::test_the_owner_grant_is_read_when_activation_runs_not_when_it_was_planned",
+    "tests/test_etsy_readback_observe.py::test_a_draft_edited_on_etsy_is_not_activated_and_says_which_field",
+    "tests/test_etsy_readback_observe.py::test_a_failing_release_gate_at_execution_blocks_activation",
+    "tests/test_etsy_readback_observe.py::test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back"
+   ],
+   "remaining": "no owner route to enqueue store.activate with a launch_authorisation (cluster E); taxonomy properties not checked (cluster A); gated on publication_authority",
+   "next_action": "no owner route to enqueue store.activate with a launch_authorisation (cluster E); taxonomy properties not checked (cluster A); gated on publication_authority"
+  },
+  {
+   "uid": "F-542",
+   "status": "DONE",
+   "what_changed": "After publish + attach_file, getListing (with Images) and getAllListingFiles are read and judged by etsy_verify.verify / verify_files; published=True only when verified; otherwise Listing.state=incomplete_on_etsy, store.publish_incomplete with the read-back, and a halting P1 incident store.publish_incomplete:<slug>@<version> (resolved by a later verified activation read-back). store.activate is only enqueued for a verified draft.",
+   "producer": "runtime/etsy_ops.py::read_back",
+   "consumer": "runtime/pipeline.py::_publish_and_read_back; incidents (halts_publication)",
+   "live_root": "store.publish",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_a_write_etsy_silently_changed_is_caught_by_read_back_and_halts_the_product",
+    "tests/test_etsy_readback_observe.py::test_publish_sends_the_certified_image_bytes_in_certificate_order_and_reads_back"
+   ],
+   "remaining": "never run against real Etsy (owner-gated exercise round trip)"
+  },
+  {
+   "uid": "F-559",
+   "status": "PARTIAL",
+   "what_changed": "EtsyClient.get_listing_files (getAllListingFiles, listings_r added to SCOPES_REQUIRED); etsy_verify.verify_files compares filename + exact size_bytes, requires sent sha256 == certified release sha256, flags stale/extra/duplicate files; Etsy exposes no file hash and the summary says so (HASH_NOT_EXPOSED_BY_ETSY). Called after every publish and in store.activate.",
+   "producer": "integrations/etsy_verify.py::verify_files",
+   "consumer": "_publish_and_read_back, handle_store_activate",
+   "live_root": "store.publish / store.activate",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_file_read_back_matches_name_and_exact_size_and_says_etsy_exposes_no_hash",
+    "tests/test_etsy_readback_observe.py::test_a_stale_file_beside_the_certified_one_fails_file_read_back",
+    "tests/test_etsy_readback_observe.py::test_a_same_named_file_of_another_size_or_uncertified_bytes_fails",
+    "tests/test_etsy_readback_observe.py::test_an_unread_file_list_is_unverified_rather_than_clean",
+    "tests/test_etsy_readback_observe.py::test_uploaded_bytes_that_are_not_the_certified_release_fail_file_read_back",
+    "tests/test_etsy_readback_observe.py::test_the_client_reads_a_listings_files_through_get_all_listing_files"
+   ],
+   "remaining": "daily census does not re-read files per listing; language-variant and post-purchase availability checks not built; gates/first_customer not wired into readiness (not in my ownership)",
+   "next_action": "daily census does not re-read files per listing; language-variant and post-purchase availability checks not built; gates/first_customer not wired into readiness (not in my ownership)"
+  },
+  {
+   "uid": "F-541",
+   "status": "PARTIAL",
+   "what_changed": "EtsyAuthNeedsOwner in store.publish (and store.activate, shop snapshot, census, credential health) becomes one idempotent OwnerAction 'etsy.auth:reauthorise' + one P1 incident etsy.auth_needs_owner, classified (invalid_grant, revoked_access, scope_drift, no_token, changed_encryption_key); closed only when a later authenticated call works and the named scope is granted. record_auth_needs_owner is public for the orders path.",
+   "producer": "runtime/etsy_ops.py::record_auth_needs_owner",
+   "consumer": "owner_actions, incidents (readiness no_open_incidents)",
+   "live_root": "store.publish, etsy.* cadences",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_invalid_grant_on_publish_becomes_one_owner_action_and_one_incident",
+    "tests/test_etsy_readback_observe.py::test_revoked_access_on_publish_is_an_owner_action_too",
+    "tests/test_etsy_readback_observe.py::test_a_scope_the_grant_lacks_is_refused_before_the_request_and_queued_for_the_owner",
+    "tests/test_etsy_readback_observe.py::test_a_credential_sealed_under_another_key_is_unhealthy_and_queued_for_the_owner",
+    "tests/test_etsy_readback_observe.py::test_the_classifier_names_every_failure_class_f541_lists"
+   ],
+   "remaining": "orders path (commerce/orders_ingest) belongs to cluster D",
+   "next_action": "orders path (commerce/orders_ingest) belongs to cluster D"
+  },
+  {
+   "uid": "F-540",
+   "status": "PARTIAL",
+   "what_changed": "Daily etsy.credential_health cadence: reads oauth_store.credential_health (fingerprints only), flags not-openable and scope drift vs required scopes, then one getMe through the persisting TokenProvider (refresh + rotation written back under CAS); stores an operating_readings row; opens/resolves etsy.credential_health:unhealthy and the F-541 owner path; closes reauthorise_transactions_r when transactions_r is granted.",
+   "producer": "runtime/etsy_ops.py::handle_credential_health",
+   "consumer": "operating_readings, incidents, owner_actions",
+   "live_root": "cadence etsy_credential_health (orchestrator, daily)",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_credential_health_refreshes_rotates_and_persists_and_closes_a_reauth_action",
+    "tests/test_etsy_readback_observe.py::test_scope_drift_on_the_stored_credential_is_an_incident",
+    "tests/test_etsy_readback_observe.py::test_the_census_is_a_daily_cadence_on_a_permitted_agent"
+   ],
+   "remaining": "rotation in production is proven only after deploy (owner production_window)",
+   "next_action": "rotation in production is proven only after deploy (owner production_window)"
+  },
+  {
+   "uid": "F-553",
+   "status": "PARTIAL",
+   "what_changed": "Daily etsy.listing_census cadence reads getListingsByShop for active/draft/inactive/sold_out/expired, stores the estate (id, state, taxonomy, price, quantity, ending_timestamp, should_auto_renew, ours/slug) as an operating_readings row, runs listing_census_drift against Listing rows (+ outstanding exercise drafts).",
+   "producer": "runtime/etsy_ops.py::handle_listing_census",
+   "consumer": "operating_readings, incidents",
+   "live_root": "cadence etsy_listing_census",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown"
+   ],
+   "remaining": "no Listing columns (remote_state/last_seen/expires_at) - kept in the reading to avoid a migration; fees, properties and per-listing files not collected",
+   "next_action": "no Listing columns (remote_state/last_seen/expires_at) - kept in the reading to avoid a migration; fees, properties and per-listing files not collected"
+  },
+  {
+   "uid": "F-544",
+   "status": "PARTIAL",
+   "what_changed": "Census compares every present listing we created field-by-field with the certified payload (title, description, tags, materials, price, quantity, taxonomy, type) and opens halting P1 etsy.listing_drift:<id> per drift; never writes to Etsy; resolves when the census sees it match.",
+   "producer": "runtime/etsy_ops.py::_field_drift",
+   "consumer": "incidents",
+   "live_root": "cadence etsy_listing_census",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_a_listing_edited_on_etsy_is_field_drift_and_is_never_overwritten",
+    "tests/test_etsy_readback_observe.py::test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves"
+   ],
+   "remaining": "files and image drift not compared in the census",
+   "next_action": "files and image drift not compared in the census"
+  },
+  {
+   "uid": "F-568",
+   "status": "PARTIAL",
+   "what_changed": "A created listing that vanished or changed state opens policy_violation_suspected:<id> (P1, halts_publication, source_text, deadline +2d, remediation_owner, closure_evidence) and reopens the policy_violations_check owner action; an unread census resolves nothing.",
+   "producer": "runtime/etsy_ops.py::handle_listing_census",
+   "consumer": "incidents, owner_actions",
+   "live_root": "cadence etsy_listing_census",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
+    "tests/test_etsy_readback_observe.py::test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves"
+   ],
+   "remaining": "owner-recorded notices route POST /api/policy-violation belongs to cluster E",
+   "next_action": "owner-recorded notices route POST /api/policy-violation belongs to cluster E"
+  },
+  {
+   "uid": "F-515@v0.16",
+   "status": "PARTIAL",
+   "what_changed": "Daily etsy.shop_snapshot stores getShop and runs assess_shop; any failed trust surface (icon, banner, title, announcement, policies, digital sale message) opens P1 etsy.shop:incomplete, which holds launch readiness via its no_open_incidents item.",
+   "producer": "runtime/etsy_ops.py::handle_shop_snapshot",
+   "consumer": "incidents -> launch/readiness no_open_incidents",
+   "live_root": "cadence etsy_shop_snapshot",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_missing_trust_surfaces_cannot_pass_silently",
+    "tests/test_etsy_readback_observe.py::test_no_credentials_means_no_reading_not_an_empty_shop"
+   ],
+   "remaining": "a dedicated readiness item reading the snapshot (NO_EVIDENCE != pass) is outside my readiness ownership - needs_from_others",
+   "next_action": "a dedicated readiness item reading the snapshot (NO_EVIDENCE != pass) is outside my readiness ownership - needs_from_others"
+  },
+  {
+   "uid": "F-577",
+   "status": "PARTIAL",
+   "what_changed": "Snapshot closes etsy_surface:payment_settings_setup on is_etsy_payments_onboarded=true and opens a halting P1 etsy.shop:payments_drift + reopens it when it flips from true to false. No code path writes payout settings.",
+   "producer": "runtime/etsy_ops.py::handle_shop_snapshot",
+   "consumer": "owner_actions, incidents",
+   "live_root": "cadence etsy_shop_snapshot",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
+    "tests/test_etsy_readback_observe.py::test_a_complete_shop_is_stored_and_closes_the_owner_actions_it_evidences"
+   ],
+   "remaining": "production observation after deploy",
+   "next_action": "production observation after deploy"
+  },
+  {
+   "uid": "F-585",
+   "status": "PARTIAL",
+   "what_changed": "Vacation mode and non-CAD currency on the stored getShop open halting P1 incidents, resolved on a later reading.",
+   "producer": "runtime/etsy_ops.py::handle_shop_snapshot",
+   "consumer": "incidents (halts_publication)",
+   "live_root": "cadence etsy_shop_snapshot",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_vacation_mode_and_a_foreign_currency_open_halting_incidents"
+   ],
+   "remaining": "only the Options getShop exposes; readiness item not added (ownership)",
+   "next_action": "only the Options getShop exposes; readiness item not added (ownership)"
+  },
+  {
+   "uid": "F-593",
+   "status": "DONE",
+   "what_changed": "launch.readiness seeds etsy_surfaces.owner_queue() into OwnerAction keyed etsy_surface:<key> (idempotent, adopts keyless rows, never re-adds a done row), reason carries why-software-cannot, risk and closing evidence; readiness's close sweep skips these prefixes; the snapshot/credential cadences close them on evidence.",
+   "producer": "runtime/etsy_ops.py::seed_owner_queue",
+   "consumer": "owner_actions (/api/owner-actions)",
+   "live_root": "launch.readiness handler",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence",
+    "tests/test_etsy_readback_observe.py::test_a_seeded_action_closed_on_evidence_is_not_asked_again",
+    "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+    "tests/test_launch.py::test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplicated"
+   ],
+   "remaining": "statement-closed actions (apps, ads-off, etc.) close only by the owner marking them done"
+  },
+  {
+   "uid": "F-547",
+   "status": "DONE",
+   "what_changed": "Same seeding as F-593: the Etsy browser-only queue now lives in the one owner queue the inbox reads.",
+   "producer": "runtime/etsy_ops.py::seed_owner_queue",
+   "consumer": "owner_actions",
+   "live_root": "launch.readiness",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence"
+   ],
+   "remaining": "approval-inbox rendering is cluster E"
+  },
+  {
+   "uid": "F-594",
+   "status": "PARTIAL",
+   "what_changed": "readiness etsy_integration reads etsy_exercise breadcrumbs: ready only with credentials present AND a full run finished ok whose status starts 'EXERCISED against openapi.etsy.com' AND every exercise draft created has a verified removal; local-model runs never count. Retention now protects the three exercise actions (lifetime_total).",
+   "producer": "launch/readiness.py::_etsy_exercise_evidence",
+   "consumer": "launch.readiness",
+   "live_root": "launch.readiness cadence",
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_etsy_integration_turns_ready_only_on_a_live_full_round_trip_with_nothing_left",
+    "tests/test_etsy_readback_observe.py::test_the_readiness_item_needs_credentials_as_well_as_the_proof",
+    "tests/test_launch.py::test_etsy_is_reported_as_written_but_never_called"
+   ],
+   "remaining": "file-verification, search-readiness and first_customer items not added (edit only the etsy_integration item); owner-authorised round trip not run",
+   "next_action": "file-verification, search-readiness and first_customer items not added (edit only the etsy_integration item); owner-authorised round trip not run"
+  }
+ ],
+ "tests_run": [
+  {
+   "file": "tests/test_etsy_readback_observe.py",
+   "passing": 37,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_launch.py",
+   "passing": "all (no FAIL lines)",
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_wiring.py",
+   "passing": 16,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_reachability.py",
+   "passing": 11,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cost_governance_wave2.py",
+   "passing": 39,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy_oauth_callback.py",
+   "passing": 41,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_deploy.py",
+   "passing": 32,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_oauth_security_audit.py",
+   "passing": 87,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy.py",
+   "passing": 17,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy_transport.py",
+   "passing": 44,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy_surfaces.py",
+   "passing": 52,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy_exercise.py",
+   "passing": 31,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_etsy_capability.py",
+   "passing": 9,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_publish_gates.py",
+   "passing": 18,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_shadow.py",
+   "passing": 10,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_acceptance_gates.py",
+   "passing": 23,
+   "failing": 0
+  },
+  {
+   "file": "tests/test_cert_commerce.py",
+   "passing": 13,
+   "failing": 0,
+   "note": "full rerun after harness fix 5ef5031: 13/13 green"
+  }
+ ],
+ "tests_changed": [
+  {
+   "test": "tests/test_etsy.py::test_the_drift_check_sits_after_the_shadow_refusal_and_before_any_upload",
+   "uid": "F-542",
+   "why": "client.publish moved into _publish_and_read_back (behind _publish_guarded) so read-back and F-541 wrap it; the order is now pinned through _publish_guarded and client.publish < read_back"
+  },
+  {
+   "test": "tests/test_cert_commerce.py::_publish_past_shadow",
+   "uid": "F-524",
+   "why": "harness forces etsy_ops.certified_images like it already forces parity/grid/release gates; the image gate is proven in test_etsy_readback_observe.py and this file keeps measuring the hash check and upload"
+  },
+  {
+   "test": "tests/fake_etsy.py",
+   "uid": "F-559",
+   "why": "additive: getAllListingFiles endpoint with size_bytes rows, configurable getShop body"
+  }
+ ],
+ "files_touched": [
+  "src/brambleloop/integrations/etsy.py",
+  "src/brambleloop/integrations/etsy_oauth.py",
+  "src/brambleloop/integrations/etsy_verify.py",
+  "src/brambleloop/runtime/etsy_ops.py (new)",
+  "src/brambleloop/runtime/pipeline.py",
+  "src/brambleloop/runtime/worker.py",
+  "src/brambleloop/runtime/release.py",
+  "src/brambleloop/launch/readiness.py",
+  "src/brambleloop/agents/registry.py",
+  "src/brambleloop/ops/retention.py",
+  "tests/fake_etsy.py",
+  "tests/test_etsy.py",
+  "tests/test_cert_commerce.py",
+  "tests/test_etsy_readback_observe.py (new)"
+ ],
+ "migrations": [],
+ "needs_from_others": [
+  "D: call runtime.etsy_ops.record_auth_needs_owner(db, e, where='orders_ingest') where commerce/orders_ingest catches EtsyAuthNeedsOwner (F-541 orders half)",
+  "E: owner route to enqueue store.activate with inputs {slug, version, launch_authorisation} (store_operator); POST /api/policy-violation for owner-recorded notices (F-568)",
+  "E/C (readiness owner): a readiness item reading etsy_ops.latest_reading(db,'etsy.shop_snapshot') via etsy_surfaces.assess_shop so NO_EVIDENCE blocks (F-515), plus F-594 items for file verification / search readiness / gates.first_customer",
+  "A: taxonomy/properties chosen in cluster A flow through etsy_ops.certified_payload (the single payload builder used by publish, activation and census); if A adds updateListingProperty, activation_readiness should also compare properties",
+  "Integrator: agents/registry.py (unowned) was edited additively (append block granting orchestrator the three etsy.* cadence job types and store_operator store.activate); ops/retention.py (unowned) got three KNOWN_READ_ACTIONS entries; release.py handle_launch_readiness got a prefix skip + seeding call"
+ ],
+ "risks": [
+  "etsy.credential_health and every Etsy read refresh the access token through the persisting provider, so after deploy the stored refresh token rotates daily; CAS protects races but this is the first unattended rotation in production",
+  "etsy.shop:incomplete is a P1 and will hold launch readiness (no_open_incidents) until the owner completes the shop's trust surfaces - intended, but visible",
+  "store.activate spends the Etsy listing fee (US$0.20, recorded as CA$0.27 at 1.37) only with phase, owner env grant and a per-job launch_authorisation; the launch_authorisation is an opaque non-empty string, not verified against an owner record",
+  "images depend on artifact bytes surviving (DurableArtifact recovery if kept); on ephemeral disk publish blocks with a reason rather than creating an image-less draft",
+  "listing census flags every pre-existing listing not created by this system as an unexpected P2 incident"
+ ]
+}
