@@ -307,9 +307,9 @@
   },
   {
    "file": "tests/test_cert_commerce.py",
-   "passing": "12 of 13 completed after harness fix",
+   "passing": 13,
    "failing": 0,
-   "note": "rerun after the harness fix (5ef5031): both formerly failing tests now OK; the last test (deliverable QA, unaffected by this change) was still running at checkpoint"
+   "note": "full rerun after harness fix 5ef5031: 13/13 green"
   }
  ],
  "tests_changed": [
