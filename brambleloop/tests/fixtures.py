@@ -6,7 +6,19 @@ specific defect rather than failing for an unrelated reason.
 """
 from __future__ import annotations
 
-from brambleloop.cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from brambleloop.cir.model import CIR, Component, Gauge, Material, Op, Provenance, Repeat, Row
+
+
+def _own(key: str) -> Provenance:
+    """The design provenance a known-good Brambleloop fixture carries.
+
+    F-783/F-798: certification refuses a Brambleloop-authored release without a complete
+    provenance record, so a fixture that is meant to certify has to have one -- exactly as
+    every catalogue product now does.
+    """
+    return Provenance(concept_key=key, brief_digest=f"fixture-{key}",
+                      primitives_used=("tests.fixtures",), benchmarks_consulted=(),
+                      generated_by="brambleloop")
 
 
 def good_sphere() -> CIR:
@@ -34,6 +46,7 @@ def good_sphere() -> CIR:
             Component(name="body", construction="spiral_rounds", rows=rows,
                       foundation=0, foundation_kind="magic_ring")
         ],
+        provenance=_own("test-sphere"),
     )
 
 
@@ -59,6 +72,7 @@ def good_mosaic_panel() -> CIR:
         components=[
             Component(name="panel", construction="flat_rows", rows=rows, foundation=40)
         ],
+        provenance=_own("test-mosaic"),
     )
 
 

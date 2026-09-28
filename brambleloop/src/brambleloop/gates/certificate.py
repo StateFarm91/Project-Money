@@ -27,6 +27,7 @@ from .asset_truth import (
     Asset, check_assets, check_shape_claims, check_technique_claims,
 )
 from .confidence import assess
+from . import originality as _originality
 from .policy import (
     POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
 )
@@ -207,6 +208,9 @@ def certify(
     # that way or it does not -- which is why this half is safe on prose and that half is not.
     findings.extend(check_technique_claims(cir.designer_notes or "", cir, twin,
                                            "cir.designer_notes"))
+    # Design provenance, the design-difference ledger and the similarity review against
+    # every purchased benchmark (F-783, F-798, F-794, F-791, F-795): `gates/originality.py`.
+    findings.extend(_originality.release_findings(cir, pattern_text=pattern_text))
     stages.append("originality")
 
     # 4. Asset truth.

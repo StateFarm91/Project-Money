@@ -65,8 +65,14 @@ def library_root(env: dict[str, str] | None = None) -> Path:
     return Path(e.get(LIBRARY_ENV) or DEFAULT_LIBRARY).resolve()
 
 
-def retrieve(relative_path: str, role: str, env: dict[str, str] | None = None) -> bytes:
-    """Open one benchmark file. The only reader, and it argues with you first."""
+def retrieve(relative_path: str, role: str, env: dict[str, str] | None = None, *,
+             db=None, use: str = "private_analysis") -> bytes:
+    """Open one benchmark file. The only reader, and it argues with you first.
+
+    Two arguments now, not one: the role (who is reading) and, with a database, the use (what
+    for) against the purchase's machine-readable licence (F-786). Private analysis is what
+    every purchase permits; a use the licence does not grant is refused before the file opens.
+    """
     reason = FORBIDDEN_ROLES.get(role)
     if reason:
         raise LibraryRefused(f"{role!r} may not read the benchmark library: {reason}")
@@ -85,6 +91,13 @@ def retrieve(relative_path: str, role: str, env: dict[str, str] | None = None) -
             f"quarantine; a reader that can walk out of it is not one")
     if not target.is_file():
         raise LibraryRefused(f"no such benchmark file: {relative_path!r}")
+    if db is not None:
+        from .licence import LicenceRefused, ref_of, refuse_unless_permitted
+
+        try:
+            refuse_unless_permitted(db, ref_of(relative_path), use)
+        except LicenceRefused as exc:
+            raise LibraryRefused(f"{relative_path!r} may not be read for {use!r}: {exc}") from exc
     return target.read_bytes()
 
 

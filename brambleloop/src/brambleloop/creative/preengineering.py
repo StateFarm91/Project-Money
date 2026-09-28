@@ -44,13 +44,15 @@ PASS, FAIL, UNMEASURED, NOT_APPLICABLE = "pass", "fail", "unmeasured", "not_appl
 
 CHECKS: tuple[str, ...] = ("premise_thumbnail", "jury", "novelty", "silhouette",
                            "motif_grammar", "wow", "top_decile", "grid_tournament",
-                           "emotional_promise", "half_life")
+                           "emotional_promise", "half_life", "redesign")
 
 # Which requirement each check is the runtime form of.
 REQUIREMENT: dict[str, int] = {
     "premise_thumbnail": 88, "jury": 83, "novelty": 87, "silhouette": 108,
     "motif_grammar": 110, "wow": 115, "top_decile": 125, "grid_tournament": 126,
     "emotional_promise": 109, "half_life": 290,
+    # Master v1.0 ids from here on; the numbers above are the v1.4.3 plan's.
+    "redesign": "F-791",
 }
 
 # #126: "before CIR engineering for *expensive* concepts". Expensive is the make lane, which
@@ -79,6 +81,9 @@ BRIEF_FIELDS: tuple[str, ...] = (
     "thumbnail_storyboard", "silhouette_qualifiers", "motifs", "wow_mechanism",
     "wow_grounding", "strength_score", "strength_score_source", "benchmark_scores",
     "board_image", "techniques", "season", "trend_domain",
+    # F-794: a competitor-informed concept names the benchmarks it learned from and carries
+    # its design-difference ledger (a list of `gates.originality.LedgerEntry` dicts).
+    "benchmarks_consulted", "design_difference_ledger",
 )
 
 _CONCEPT_FIELDS: tuple[str, ...] = (
@@ -499,6 +504,43 @@ def _half_life(concept: Concept, brief: dict) -> dict:
     return _result(PASS, make_lane=concept.make_lane, **got)
 
 
+def benchmarks_consulted(concept: Concept, brief: dict) -> list[str]:
+    """Which benchmarks informed this concept, from the brief and the concept's lineage."""
+    named = [str(b) for b in (brief.get("benchmarks_consulted") or []) if str(b).strip()]
+    lineage = str(getattr(concept, "provenance", "") or "")
+    if lineage.startswith("benchmark:") and lineage[len("benchmark:"):].strip():
+        named.append(lineage[len("benchmark:"):].strip())
+    return list(dict.fromkeys(named))
+
+
+def _redesign(db, concept: Concept, brief: dict) -> dict:
+    """F-791/F-794: a competitor-informed concept enters engineering only with a ledger that
+    documents original design decisions materially distinguishing it from every benchmark
+    consulted. A concept that consulted none is not competitor-informed and the check does
+    not apply -- which is recorded, not passed."""
+    from ..gates import originality
+
+    consulted = benchmarks_consulted(concept, brief)
+    if not consulted:
+        return _result(NOT_APPLICABLE, ["no benchmark consulted"])
+    entries = list(brief.get("design_difference_ledger") or [])
+    source = "brief"
+    if not entries and db is not None:
+        entries = originality.ledger_from_db(db, concept.key)
+        source = "database"
+    if not entries:
+        return _result(FAIL, [
+            f"consulted {consulted} with no design-difference ledger: record what was "
+            f"learned, what changed, why it is better and what was designed independently"],
+            consulted=consulted)
+    verdict = originality.redesign_verdict(entries, consulted)
+    ledger = [e.to_dict() if isinstance(e, originality.LedgerEntry) else dict(e)
+              for e in entries]
+    return _result(PASS if verdict["passed"] else FAIL, verdict["reasons"][:6],
+                   consulted=consulted, ledger=ledger, ledger_source=source,
+                   per_benchmark=verdict["per_benchmark"])
+
+
 # ---------------------------------------------------------------------------
 # The gate
 
@@ -537,6 +579,7 @@ def gate_concept(db, concept, *, brief: dict | None = None, catalogue: list | No
         checks["grid_tournament"] = _grid(db, built, brief)
         checks["emotional_promise"] = _emotional_promise(built, brief)
         checks["half_life"] = _half_life(built, brief)
+        checks["redesign"] = _redesign(db, built, brief)
         grid = checks["grid_tournament"]
         # C-60 (#126): an expensive concept with no board gets one -- rendered from its own
         # prototype's digital twin, deterministically -- so the grid can be requested.
@@ -606,6 +649,18 @@ def record(ctx, verdict: dict, *, source: str) -> dict:
                          for n, c in verdict["checks"].items()}
     ctx.audit(f"{GATE_ACTION}_{verdict['decision']}", artifact=key, detail=summary)
     effects: dict = {"audited": f"{GATE_ACTION}_{verdict['decision']}"}
+
+    # F-794: a ledger that came with the brief is made durable, with the redesign gate's
+    # reading of it, whatever the decision -- a refused ledger is the record of why.
+    redesign = verdict["checks"].get("redesign", {}).get("detail", {})
+    if redesign.get("ledger_source") == "brief" and redesign.get("ledger") and key:
+        from ..gates import originality
+
+        originality.record_ledger(ctx.db, key, redesign["ledger"])
+        ctx.audit(originality.LEDGER_ACTION, artifact=key,
+                  detail={"benchmarks": redesign.get("consulted"),
+                          "passed": verdict["checks"]["redesign"]["status"] == PASS})
+        effects["ledger_recorded"] = True
 
     if verdict["decision"] == REFUSED:
         from .standard import autopsy

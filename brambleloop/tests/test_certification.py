@@ -149,7 +149,7 @@ def test_a_refusal_by_the_chain_is_the_chain_working():
 
 def _pair(*, strip_sts=32, edges=("bottom", "top"), authored="brambleloop"):
     """A panel with a band sewn along its top: the smallest honest multi-piece object."""
-    from brambleloop.cir.model import CIR, Component, Gauge, Op, Row, Seam
+    from brambleloop.cir.model import CIR, Component, Gauge, Op, Provenance, Row, Seam
 
     def piece(name, n, rows, make=1):
         return Component(name, "flat_rows", foundation=n, make=make, rows=[
@@ -159,7 +159,11 @@ def _pair(*, strip_sts=32, edges=("bottom", "top"), authored="brambleloop"):
                construction="flat_rows", gauge=Gauge(16, 18), authored=authored,
                components=[piece("panel", 32, 30), piece("band", strip_sts, 4, make=2)],
                assembly=[Seam("whipstitch", "band", "panel", edge_a=edges[0],
-                              edge_b=edges[1])])
+                              edge_b=edges[1])],
+               # F-783: a Brambleloop release carries its design provenance.
+               provenance=(Provenance("panel-and-band", "fixture-panel-and-band",
+                                      ("tests.test_certification",))
+                           if authored == "brambleloop" else None))
 
 
 def test_certify_twins_every_piece_and_sums_the_yarn():

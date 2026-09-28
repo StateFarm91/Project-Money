@@ -1162,6 +1162,87 @@ class TeardownFinding(Base):
 
 
 # ---------------------------------------------------------------------------
+# The IP firewall's durable records (Master v1.0 v0.23 s78-79; F-786..F-788, F-794, F-795).
+# New tables only: `create_all` makes them on an existing database and nothing is altered.
+
+
+class BenchmarkLicence(Base):
+    """The machine-readable terms of one benchmark source (F-786, F-787, F-788).
+
+    One row per purchased benchmark *and* per public source (a blog post, a video): a creator
+    publishing instructions for free grants no right to republish them (F-787), so the same
+    record -- with `pattern_rights` "none" -- is what makes that refusal mechanical. Finished-
+    item rights and pattern rights are separate columns because they are separate rights
+    (F-788): permission to sell what you make is not permission to sell, adapt or redistribute
+    the instructions.
+    """
+
+    __tablename__ = "benchmark_licences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_ref: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    # "purchased" | "public_web" | "public_video" | "owner_supplied"
+    source_kind: Mapped[str] = mapped_column(String(30), default="purchased", index=True)
+    source_url: Mapped[str] = mapped_column(Text, default="")
+    # Where the terms were read: a listing section, a page of the PDF, the owner, or
+    # "unstated" -- in which case the defaults below are the conservative reading.
+    terms_source: Mapped[str] = mapped_column(Text, default="")
+    allowed_uses: Mapped[list] = mapped_column(JSON, default=list)
+    prohibited_uses: Mapped[list] = mapped_column(JSON, default=list)
+    attribution: Mapped[str] = mapped_column(Text, default="")
+    finished_item_rights: Mapped[str] = mapped_column(String(40), default="unknown")
+    pattern_rights: Mapped[str] = mapped_column(String(40), default="none")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    recorded_by: Mapped[str] = mapped_column(String(60), default="")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DesignDifferenceLedger(Base):
+    """One benchmark's line in a competitor-informed concept's design ledger (F-794)."""
+
+    __tablename__ = "design_difference_ledgers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    concept_key: Mapped[str] = mapped_column(String(120), index=True)
+    benchmark_ref: Mapped[str] = mapped_column(String(160), index=True)
+    learned: Mapped[str] = mapped_column(Text, default="")
+    changed: Mapped[list] = mapped_column(JSON, default=list)
+    why_better: Mapped[str] = mapped_column(Text, default="")
+    independent_aspects: Mapped[list] = mapped_column(JSON, default=list)
+    # The meaningful-redesign gate's reading of this entry (F-791), recomputable from the
+    # fields above; stored so the owner can see what was judged superficial.
+    verdict: Mapped[dict] = mapped_column(JSON, default=dict)
+    passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    recorded_by: Mapped[str] = mapped_column(String(60), default="")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("concept_key", "benchmark_ref",
+                                       name="uq_design_ledger_concept_benchmark"),)
+
+
+class BenchmarkFingerprintRecord(Base):
+    """What the similarity review compares a candidate against (F-795).
+
+    Hashes, numbers and vocabulary keys. `wording_shingles` are salted truncated hashes of
+    word 6-grams (`gates.originality.shingles`): they measure shared phrasing and cannot be
+    turned back into a sentence, so no competitor text is stored.
+    """
+
+    __tablename__ = "benchmark_fingerprints"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_ref: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    wording_shingles: Mapped[list] = mapped_column(JSON, default=list)
+    features: Mapped[list] = mapped_column(JSON, default=list)
+    construction: Mapped[list] = mapped_column(JSON, default=list)
+    size_sequences: Mapped[dict] = mapped_column(JSON, default=dict)
+    piece_numbers: Mapped[dict] = mapped_column(JSON, default=dict)
+    source: Mapped[str] = mapped_column(String(40), default="teardown")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
 # Continuous improvement (v1.4.3 sections 90-104).
 
 

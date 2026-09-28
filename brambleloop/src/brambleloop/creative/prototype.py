@@ -226,7 +226,28 @@ def author(concept: Concept, *, version: str = "0.1.0",
         designer_notes=(f"prototype of {concept.key}: {geometry.what}, "
                         f"{geometry.width_cm:g} x {geometry.height_cm:g} cm at "
                         f"{gauge.stitches_per_10cm:g} sts/10cm"),
+        # F-783: certification refuses a Brambleloop release with no design provenance. The
+        # geometry is this module's (finished size x published gauge); a concept whose lineage
+        # names a benchmark carries it, so certification asks for its ledger (F-794).
+        provenance=_provenance(concept, geometry, gauge, construction, stitches, rows_count),
     )
+
+
+def _provenance(concept: Concept, geometry, gauge, construction: str, stitches: int,
+                rows_count: int):
+    from ..gates.originality import catalogue_provenance
+
+    prov = catalogue_provenance(
+        concept.key,
+        {"author": "creative.prototype.author", "concept": concept.to_dict(), "form": concept.form,
+         "construction": construction, "stitches": stitches, "rows": rows_count,
+         "gauge": [gauge.stitches_per_10cm, gauge.rows_per_10cm, gauge.yarn_weight]},
+        ("creative.prototype.author", f"creative.prototype.geometry_for:{concept.form}",
+         f"creative.prototype.gauge_for:{gauge.yarn_weight}"))
+    lineage = str(getattr(concept, "provenance", "") or "")
+    if lineage.startswith("benchmark:") and lineage[len("benchmark:"):].strip():
+        prov.benchmarks_consulted = (lineage[len("benchmark:"):].strip(),)
+    return prov
 
 
 def _drift(geometry: Geometry, width_cm: float, height_cm: float) -> dict[str, float]:
