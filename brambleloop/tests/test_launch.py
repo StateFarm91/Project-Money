@@ -126,6 +126,29 @@ def _stock(db, listings: int = MIN_LISTINGS_TO_OPEN, frames: int = MIN_APPROVED_
                                    title=f"piece {n}", body="body"))
     if package:
         _package(db, slugs)
+        _economics(db, slugs)
+
+
+def _economics(db, slugs: list[str]) -> None:
+    """F-329: a company that has done its half has also shown its economics are sustainable.
+
+    Thirty days of modest measured AI/API spend -- platform cadences plus the creation spend
+    tagged to each product -- so the steady-state forecast can be computed rather than
+    refused. The sustainability gate reads these rows; nothing here asserts a verdict.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.core.models import CostEntry
+
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        for d in range(1, 31):
+            s.add(CostEntry(agent="gateway", kind="llm", amount_cad=0.02,
+                            at=now - timedelta(days=d), purpose="observation"))
+        for slug in slugs:
+            s.add(CostEntry(agent="gateway", kind="llm", amount_cad=0.5,
+                            at=now - timedelta(days=20), product_slug=slug,
+                            purpose="creation"))
 
 
 def _package(db, slugs: list[str]) -> None:
