@@ -60,19 +60,26 @@ def _certify(db, n: int, physical: int = 0) -> None:
 # ---- the attacks ----------------------------------------------------------
 
 
-def test_a_sophisticated_system_that_has_sold_nothing_reports_effectively_zero():
-    """#230, stated as plainly as the requirement states it.
+def test_a_sophisticated_system_that_has_sold_nothing_reports_unmeasured():
+    """#230, stated as plainly as the requirement states it -- and F-189 on how it is shown.
 
     Nineteen certified designs, a deterministic compiler, a reverse compiler, release gates,
-    a benchmark mission and a seasonal engine — and not one customer. The number has to be
-    near zero, and the statement has to say that no amount of further building moves it.
+    a benchmark mission and a seasonal engine — and not one customer. The modelled bound has
+    to stay near zero, the statement has to say that no amount of further building moves it,
+    and (F-189) what is *reported* is UNMEASURED, never 0.00: zero is a quantitative claim,
+    and a company with no customers has measured nothing. This test used to pin the words
+    "Effectively zero", which is the behaviour F-189 forbids.
     """
     db = _db()
     _certify(db, 19, physical=0)
 
     result = confidence.probability(db)
     assert result["probability"] < 0.05, result["ladder"]
-    assert "Effectively zero" in result["honest_statement"]
+    assert result["state"] == confidence.UNMEASURED
+    assert result["reported_probability"] is None
+    assert result["display"] == "UNMEASURED / insufficient commercial evidence"
+    assert "Effectively zero" not in result["honest_statement"]
+    assert result["honest_statement"].startswith("UNMEASURED / insufficient commercial evidence")
     assert "only customers do" in result["honest_statement"]
 
     # And the rung that is actually earned says so, rather than everything reading as zero
@@ -219,6 +226,10 @@ def test_the_gate_opening_is_what_finally_allows_a_high_number():
     assert result["evidence_gate"]["satisfied"] is True
     assert result["probability"] > 0.75, result["ladder"]
     assert result["capped_by"] == "the weakest critical layer"
+    # F-189: with the evidence gate met the figure is a measurement and is reported as one.
+    assert result["state"] == confidence.MEASURED
+    assert result["reported_probability"] == result["probability"]
+    assert result["display"] == f"{result['probability']:.2f}"
 
 
 def test_every_count_satisfied_and_one_condition_missing_still_closes_the_gate():

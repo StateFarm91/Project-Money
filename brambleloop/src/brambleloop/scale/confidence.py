@@ -44,6 +44,11 @@ GATE = {
 }
 GATE_CEILING = 0.74  # what may be claimed while the gate is unmet
 
+# F-189: what the model reports while the evidence gate is unmet.
+MEASURED = "MEASURED"
+UNMEASURED = "UNMEASURED"
+UNMEASURED_DISPLAY = "UNMEASURED / insufficient commercial evidence"
+
 # Sample sizes at which an observed rate is worth as much as the prior says it is. Below this,
 # an observed rate is shrunk toward the pessimistic end: the arithmetic of "we converted our
 # first two visitors" should not produce confidence.
@@ -441,8 +446,19 @@ def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
         modelled = calibrated
         capped_by = "forecast calibration (#262): the model has been optimistic"
 
+    # F-189: insufficient commercial evidence is a refusal to measure, not a zero. `0.00` is a
+    # quantitative claim -- "we measured and it is nil" -- and a company with no customers has
+    # measured nothing. So while the #275 evidence gate is unmet the *reported* figure is None
+    # and the state is UNMEASURED; `probability` keeps the modelled internal bound (the minimum
+    # over rungs, capped) because downstream gates consume it as a conservative ceiling, and it
+    # is labelled `modelled_bound` there, never shown as a measurement.
+    measured = bool(gate["satisfied"])
     return {
         "probability": round(modelled, 3),
+        "state": MEASURED if measured else UNMEASURED,
+        "reported_probability": round(modelled, 3) if measured else None,
+        "modelled_bound": round(modelled, 3),
+        "display": (f"{modelled:.2f}" if measured else UNMEASURED_DISPLAY),
         "target_cad_per_month": target_cad,
         "weakest_critical_layer": weakest.key,
         "capped_by": capped_by,
@@ -460,16 +476,18 @@ def probability(db, *, target_cad: float = 5000.0, **evidence) -> dict:
 
 
 def _statement(modelled: float, weakest: Rung, gate: dict) -> str:
-    if modelled < 0.05:
-        return (f"Effectively zero, and correctly so. The binding layer is {weakest.key!r}: "
-                f"{weakest.what_would_move_it}. No amount of further building moves this "
-                f"number — only customers do. A sophisticated architecture with no sales is "
-                f"the exact case #230 was written to refuse.")
+    if not gate["satisfied"] and modelled < 0.05:
+        return (f"{UNMEASURED_DISPLAY}. There is no commercial evidence to measure a "
+                f"probability from, and zero would be a measurement. The binding layer is "
+                f"{weakest.key!r}: {weakest.what_would_move_it}. No amount of further "
+                f"building moves this — only customers do. A sophisticated architecture with "
+                f"no sales is the exact case #230 was written to refuse.")
     if not gate["satisfied"]:
         missing = ", ".join(sorted(gate["unmet"]))
-        return (f"Capped at {gate['ceiling_while_unmet']} because the evidence standard is "
-                f"unmet: {missing}. The modelled figure may not be reported at or above 75% "
-                f"until those counts exist.")
+        return (f"{UNMEASURED_DISPLAY}: the evidence standard is unmet ({missing}). The "
+                f"modelled bound ({modelled:.2f}, capped at {gate['ceiling_while_unmet']}) is "
+                f"not a measurement and may not be reported at or above 75% until those "
+                f"counts exist.")
     return (f"Limited by {weakest.key!r} at {weakest.confidence:.2f}. "
             f"{weakest.what_would_move_it}")
 
@@ -487,6 +505,8 @@ def bands(db, **evidence) -> dict:
         result = probability(db, target_cad=target, **evidence)
         out.append({"target_cad_per_month": target,
                     "probability": result["probability"],
+                    "state": result["state"],
+                    "display": result["display"],
                     "weakest_critical_layer": result["weakest_critical_layer"],
                     "capped_by": result["capped_by"]})
     stages = [r.to_dict() for r in ladder(db, **{k: v for k, v in evidence.items()

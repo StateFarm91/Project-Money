@@ -1429,45 +1429,180 @@ def _urgency(card: dict) -> tuple:
     return (card["max_cost_cad"], card["minutes"], -card["unblocks_count"])
 
 
+# F-179 / F-663: the legacy OwnerAction table and the gate cards are ONE queue.
+#
+# Production rendered two owner surfaces -- "Owner action required" from OwnerAction rows and
+# "Waiting on the owner" from these gate cards -- and nothing reconciled them, so the owner
+# was asked twice for one decision (actions 19/20) and, worse, asked for things already done.
+# An OwnerAction row is bound to the gate it would open through its `requirement_key`: either
+# the key *is* a gate key, or it is one of the aliases below (the readiness and access
+# assessments name the same decision differently). A bound row is merged into its gate's card
+# rather than listed beside it; a row whose gate is already open is not presented at all and
+# is reported under `satisfied_but_open`, which `/api/verify` fails on (F-182). A row bound to
+# nothing is a genuine standalone decision (a budget, a retirement review) and is presented as
+# its own card, keyed on its requirement.
+OWNER_ACTION_GATE_ALIASES: dict[str, str] = {
+    "model_credits": "model_provider",
+    "reauthorise_transactions_r": "transactions_r",
+    "canonical_model_selection": "canonical_model",
+    "canonical_model_approval": "canonical_model",
+    ACCEPTANCE_RULING_KEY: "acceptance_ruling",
+}
+
+
+def gate_for_owner_action(requirement_key: str | None) -> str | None:
+    """The executor gate an OwnerAction row would open, or None for a standalone decision."""
+    key = (requirement_key or "").strip()
+    if key in GATE_BY_KEY:
+        return key
+    return OWNER_ACTION_GATE_ALIASES.get(key)
+
+
 def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
-    """Every open owner action as a card, with what continues regardless (#196).
+    """The one owner queue: every genuine owner decision as a card, ranked (#196, F-663).
 
     Each card carries the seven things #196 asks for -- what, why, capability, maximum spend,
-    risk, rollback, consequence of waiting -- plus the count of requirements it would
-    un-park, which is the number that actually decides the order somebody answers them in.
+    risk, rollback, consequence of waiting -- plus the requirements it would un-park, the
+    evidence that will show it done (`evidence`) and the exact step (`steps`).
+
+    What is *not* a card, and why (F-181, F-196):
+    - a gate that is open (satisfied work is never asked for again);
+    - a gate whose kind is external (`closure.EXTERNAL_GATES`): no owner action opens it, so
+      it is listed under `external_capability_unavailable`, never as an owner request -- the
+      owner must not be asked to buy a browser Etsy will answer 403;
+    - a data gate (`customers`): only a buyer opens it, listed under `waiting_on_data`;
+    - an owner gate that un-parks nothing: listed under `suppressed_unblocks_nothing`,
+      because an action that no longer unblocks anything is not active.
     """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
     from ..launch import access
+    from . import closure
 
     requests = {r.key: r for r in access.pending_requests(env)}
-    cards = []
+    parked_by_gate: dict[str, list[int]] = {}
+    for rid, key in gated_requirements().items():
+        parked_by_gate.setdefault(key, []).append(rid)
+
+    with db.session() as s:
+        rows = [{"id": a.id, "requirement_key": a.requirement_key or "", "action": a.action,
+                 "reason": a.reason or "", "max_cost_cad": float(a.max_cost_cad or 0.0),
+                 "minutes": int(a.minutes or 0),
+                 "consequence_of_delay": a.consequence_of_delay or "",
+                 "blocks": a.blocks or "", "at": a.at.isoformat() if a.at else None}
+                for a in s.scalars(select(OwnerAction).where(
+                    OwnerAction.done == False))]  # noqa: E712
+    rows_by_gate: dict[str, list[dict]] = {}
+    standalone: list[dict] = []
+    for row in rows:
+        g = gate_for_owner_action(row["requirement_key"])
+        if g is None:
+            standalone.append(row)
+        else:
+            rows_by_gate.setdefault(g, []).append(row)
+
+    cards: list[dict] = []
+    external: list[dict] = []
+    data_wait: list[dict] = []
+    suppressed: list[dict] = []
+    satisfied_but_open: list[dict] = []
+    gate_open: dict[str, bool] = {}
     for gate in GATES:
-        if gate.open(db, env):
+        is_open = gate.open(db, env)
+        gate_open[gate.key] = is_open
+        bound = rows_by_gate.get(gate.key, [])
+        if is_open:
+            satisfied_but_open += [{"owner_action_id": r["id"], "gate": gate.key,
+                                    "requirement_key": r["requirement_key"],
+                                    "action": r["action"]} for r in bound]
             continue
-        parked = [r for r in gate.requirement_ids]
+        parked = sorted(parked_by_gate.get(gate.key, []))
+        kind = closure.kind_of(gate.key)
+        if kind == closure.EXTERNAL_BLOCKED:
+            external.append({
+                "gate": gate.key, "what": gate.what, "kind": kind,
+                "label": "external capability unavailable",
+                "why": closure.EXTERNAL_GATES.get(gate.key, ""),
+                "unblocks": parked, "unblocks_count": len(parked),
+                "owner_action_ids": [r["id"] for r in bound],
+                "how_it_is_checked": gate.how})
+            continue
+        if kind == closure.DATA_GATED:
+            data_wait.append({"gate": gate.key, "what": gate.what, "kind": kind,
+                              "unblocks": parked, "how_it_is_checked": gate.how})
+            continue
+        if not parked:
+            suppressed.append({"gate": gate.key, "what": gate.what,
+                               "owner_action_ids": [r["id"] for r in bound],
+                               "why": "closed, but no requirement is parked on it, so "
+                                      "opening it unblocks nothing"})
+            continue
         request = requests.get(gate.key)
+        row = bound[0] if bound else None
         cards.append({
             "gate": gate.key,
+            "kind": kind,
+            "requirement_key": row["requirement_key"] if row else gate.key,
+            "owner_action_id": row["id"] if row else None,
+            "merged_owner_action_ids": [r["id"] for r in bound],
             "what": gate.what,
-            "action": (request.action if request else
+            "action": (row["action"] if row else request.action if request else
                        f"grant {gate.what}"),
-            "why": (request.purpose if request else
+            "why": (row["reason"] if row and row["reason"] else
+                    request.purpose if request else
                     f"{len(parked)} requirements are parked on it"),
             "capability_unlocked": (request.unlocks if request else gate.what),
-            "max_spend_cad": request.max_cost_cad if request else 0.0,
+            "max_spend_cad": (row["max_cost_cad"] if row else
+                              request.max_cost_cad if request else 0.0),
             "monthly_ceiling_cad": request.monthly_ceiling_cad if request else 0.0,
-            "minutes": request.minutes if request else 10,
+            "minutes": (row["minutes"] if row and row["minutes"] else
+                        request.minutes if request else 10),
             "risk": (request.security_scope if request else
                      "scope not yet described in the access registry"),
             "rollback": ("revocable at the source at any time; the gate closes again and "
                          "its requirements re-park automatically"),
-            "consequence_of_waiting": (request.consequence_of_declining if request else
+            "consequence_of_waiting": (row["consequence_of_delay"] if row and
+                                       row["consequence_of_delay"] else
+                                       request.consequence_of_declining if request else
                                        f"requirements {parked} stay parked"),
             "continues_regardless": (request.continues_without if request else
                                      "every requirement not parked on this gate"),
             "unblocks": parked,
             "unblocks_count": len(parked),
             "how_it_is_checked": gate.how,
-            "max_cost_cad": request.max_cost_cad if request else 0.0,
+            "evidence": f"gate {gate.key!r} opens when: {gate.how}",
+            "steps": (row["action"] if row else request.action if request else
+                      f"grant {gate.what}"),
+            "max_cost_cad": (row["max_cost_cad"] if row else
+                             request.max_cost_cad if request else 0.0),
+        })
+    for row in standalone:
+        cards.append({
+            "gate": None,
+            "kind": "OWNER-DECISION",
+            "requirement_key": row["requirement_key"],
+            "owner_action_id": row["id"],
+            "merged_owner_action_ids": [row["id"]],
+            "what": row["action"],
+            "action": row["action"],
+            "why": row["reason"] or "a decision only the owner can make",
+            "capability_unlocked": row["blocks"] or row["requirement_key"],
+            "max_spend_cad": row["max_cost_cad"],
+            "monthly_ceiling_cad": 0.0,
+            "minutes": row["minutes"],
+            "risk": "stated in the action" if row["reason"] else "not described",
+            "rollback": "the decision is recorded and can be reversed by a later decision",
+            "consequence_of_waiting": row["consequence_of_delay"] or "not stated",
+            "continues_regardless": "every requirement not waiting on this decision",
+            "unblocks": [row["blocks"] or row["requirement_key"]],
+            "unblocks_count": 1,
+            "how_it_is_checked": (f"OwnerAction #{row['id']} "
+                                  f"({row['requirement_key'] or 'no key'}) is marked done"),
+            "evidence": (f"OwnerAction #{row['id']} raised {row['at'] or 'at an unknown time'}"
+                         f" for {row['requirement_key'] or 'an unkeyed decision'}"),
+            "steps": row["action"],
+            "max_cost_cad": row["max_cost_cad"],
         })
 
     cards.sort(key=_urgency)
@@ -1476,7 +1611,14 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
     return {
         "cards": cards,
         "open_actions": len(cards),
-        "batched_free_and_quick": [c["gate"] for c in free_and_quick],
+        "batched_free_and_quick": [c["gate"] or c["requirement_key"] for c in free_and_quick],
+        "external_capability_unavailable": external,
+        "waiting_on_data": data_wait,
+        "suppressed_unblocks_nothing": suppressed,
+        "satisfied_but_open": satisfied_but_open,
+        "gate_open": gate_open,
+        "source": ("one queue: executor gate state merged with OwnerAction rows by "
+                   "requirement_key (build2.executor.approval_inbox)"),
         "total_parked": snapshot["parked_total"],
         "ready_regardless": snapshot["ready_total"],
         "blocking_the_build": False,
