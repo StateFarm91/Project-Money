@@ -592,8 +592,43 @@ def api_finance() -> dict:
     }
 
 
+# F-696 / F-689: routes that return customer, order or support *content* -- anything a buyer
+# wrote, or anything that identifies a buyer -- are operator reads, not dashboard reads.
+#
+# The dashboard's read-only views are unauthenticated on purpose (an absent owner opens a URL),
+# and that convenience is exactly how `/api/support` came to serve customer question text to
+# anyone who could reach the service. Aggregates (counts, rates, service levels) stay open;
+# the rows themselves do not. Every route listed here goes through `_operator_read_refusal`,
+# and `tests/test_customer_data_auth.py` enumerates every GET route the app registers against
+# seeded customer sentinels, so a new route that starts quoting a customer fails the suite
+# until it is listed here.
+CUSTOMER_DATA_ROUTES: frozenset[str] = frozenset({
+    "/api/support",
+})
+
+
+def _operator_read_refusal(authorization: str) -> JSONResponse | None:
+    """The operator-credential check for a read that carries customer content.
+
+    Same semantics as every write guard: absent token is closed (503), a wrong or missing
+    credential is 401, and the refusal never echoes what was presented or what was expected.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required: this route returns "
+                                      "customer content"}, status_code=401)
+    return None
+
+
 @app.get("/api/support")
-def api_support(limit: int = 50) -> dict:
+def api_support(limit: int = 50, authorization: str = Header(default="")):
+    """Support cases with their question and answer text. Operator credential required."""
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
     with db.session() as s:
         cases = list(s.scalars(select(SupportCase).order_by(SupportCase.id.desc())
                                .limit(min(limit, 500))))
@@ -4071,16 +4106,36 @@ def api_jobs(limit: int = 50) -> dict:
 
 @app.get("/api/owner-actions")
 def api_owner_actions() -> dict:
-    with db.session() as s:
-        rows = list(s.scalars(
-            select(OwnerAction).where(OwnerAction.done == False)  # noqa: E712
-        ))
-        return {"actions": [
-            {"id": a.id, "action": a.action, "reason": a.reason,
-             "max_cost_cad": a.max_cost_cad, "minutes": a.minutes,
-             "consequence_of_delay": a.consequence_of_delay, "blocks": a.blocks}
-            for a in rows
-        ]}
+    """The one owner queue (F-179): the same model the dashboard renders.
+
+    This served the raw OwnerAction table, which is exactly the second source F-179 forbids:
+    it asked for work whose gate was already open. It now serves `executor.approval_inbox`,
+    whose cards merge those rows with live gate state, and it names the rows it withheld
+    because their gate is already satisfied.
+    """
+    from ..build2 import executor
+
+    inbox = executor.approval_inbox(db, env=dict(os.environ))
+    return {"actions": [
+        {"id": c["owner_action_id"], "gate": c["gate"], "kind": c["kind"],
+         "requirement_key": c["requirement_key"], "action": c["action"],
+         "reason": c["why"], "max_cost_cad": c["max_cost_cad"], "minutes": c["minutes"],
+         "consequence_of_delay": c["consequence_of_waiting"], "unblocks": c["unblocks"],
+         "evidence": c["evidence"], "steps": c["steps"]}
+        for c in inbox["cards"]],
+        "external_capability_unavailable": inbox["external_capability_unavailable"],
+        "withheld_satisfied": inbox["satisfied_but_open"],
+        "source": inbox["source"]}
+
+
+@app.get("/api/headline")
+def api_headline() -> dict:
+    """The dashboard's commercial-truth headline with an evidence envelope per KPI (F-665)."""
+    from ..build2 import executor
+    from . import dashboard_truth
+
+    inbox = executor.approval_inbox(db, env=dict(os.environ))
+    return dashboard_truth.headline(db, api_status(), inbox)
 
 
 @app.post("/api/physical-test")
@@ -4159,6 +4214,10 @@ def api_audit(limit: int = 100, action: str | None = None) -> dict:
              "detail": a.detail}
             for a in rows
         ]}
+
+
+# F-202: the audit action each /api/verify outcome is recorded under.
+VERIFY_AUDIT_ACTION = "verify.completed"
 
 
 @app.get("/api/verify")
@@ -4324,7 +4383,37 @@ def api_verify() -> JSONResponse:
                "shadow mode refusing to publish, and a job standing aside for the build "
                "that can run it. Both are refusals working; neither is a death to explain")})
 
+    # F-182: no owner action is presented as required while its gate's live evidence says it
+    # is already satisfied. Each presented card's gate is re-evaluated here independently of
+    # the inbox's own pass, and rows withheld as satisfied are carried as evidence so a stale
+    # legacy row is visible rather than silently dropped.
+    from ..build2 import executor
+
+    inbox = executor.approval_inbox(db, env=dict(os.environ))
+    presented_satisfied = [
+        {"gate": c["gate"], "owner_action_id": c["owner_action_id"], "action": c["action"]}
+        for c in inbox["cards"]
+        if c["gate"] and executor.GATE_BY_KEY[c["gate"]].open(db, dict(os.environ))]
+    external_presented = [c["gate"] for c in inbox["cards"]
+                          if c["gate"] in {e["gate"] for e in
+                                           inbox["external_capability_unavailable"]}]
+    check("no_satisfied_owner_action_presented",
+          not presented_satisfied and not external_presented,
+          {"presented_cards": len(inbox["cards"]),
+           "presented_but_satisfied": presented_satisfied,
+           "external_presented_as_owner_request": external_presented,
+           "withheld_because_satisfied": inbox["satisfied_but_open"],
+           "source": inbox["source"]})
+
     passed = all(c["ok"] for c in checks)
+    # F-202: the outcome is persisted so the dashboard header can show when production last
+    # verified clean. Best effort: a verification that cannot record itself still answers.
+    try:
+        Registry(db).audit("orchestrator", VERIFY_AUDIT_ACTION, detail={
+            "ok": passed, "failing": [c["check"] for c in checks if not c["ok"]],
+            "commit": build_identity()["commit"]})
+    except Exception:  # noqa: BLE001
+        pass
     return JSONResponse({"ok": passed, "checks": checks},
                         status_code=200 if passed else 503)
 
@@ -4654,6 +4743,9 @@ tr:last-child td{border-bottom:none}
 .failed{background:#fdf3e2;color:#9a6b1f}
 .empty{color:var(--muted);font-style:italic;padding:12px}
 .owner{border-left:4px solid var(--gold);background:#fffaf0}
+.card small{display:block;color:var(--muted);font-size:11px;margin-top:4px;line-height:1.3}
+.card.alarm{border-left:4px solid #cf222e}
+.asof{color:var(--muted);font-size:11px;margin:-6px 0 6px}
 """
 
 
@@ -4683,8 +4775,6 @@ def dashboard() -> str:
         audits = list(s.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(15)))
         incidents = list(s.scalars(
             select(Incident).where(Incident.resolved == False)))  # noqa: E712
-        owner = list(s.scalars(
-            select(OwnerAction).where(OwnerAction.done == False)))  # noqa: E712
         products = list(s.scalars(select(Product).order_by(Product.id.desc()).limit(10)))
         agents = list(s.scalars(select(Agent).order_by(Agent.name)))
 
@@ -4718,24 +4808,48 @@ def dashboard() -> str:
     # Every block is guarded: a dashboard that fails to render because one subsystem is
     # unhappy tells the owner nothing about the twelve that are fine.
     def _block(title: str, build) -> str:
+        # F-203: every block states when it was read. The blocks are computed on request, so
+        # the as-of is the query time; a block reading an older snapshot says so itself.
+        asof = f'<div class="asof">as of {utcnow():%Y-%m-%d %H:%M:%S} UTC</div>'
         try:
-            return f"<h2>{title}</h2>" + build()
+            return f"<h2>{title}</h2>" + asof + build()
         except Exception as e:  # noqa: BLE001
-            return (f'<h2>{title}</h2><div class="empty">unavailable: '
+            return (f'<h2>{title}</h2>{asof}<div class="empty">unavailable: '
                     f'{type(e).__name__}: {e}</div>')
 
-    def _approvals() -> str:
-        """What is waiting on the owner (#183). A count does not answer the question."""
-        from ..build2 import executor
+    # F-179 / F-663: ONE owner surface. The legacy OwnerAction table is merged into the gate
+    # cards by `executor.approval_inbox`; there is no second "Owner action required" list.
+    try:
+        from ..build2 import executor as _executor
 
-        inbox = executor.approval_inbox(db, env=dict(os.environ))
+        inbox = _executor.approval_inbox(db, env=dict(os.environ))
+    except Exception:  # noqa: BLE001 - the block below reports it in place
+        inbox = None
+
+    def _approvals() -> str:
+        """What is waiting on the owner (#183, F-663). One ranked queue; a count is not it."""
+        if inbox is None:
+            raise RuntimeError("the owner inbox could not be computed")
         cards = inbox.get("cards") or []
         return rows(
-            [(c["gate"], c["action"], c.get("consequence_of_waiting", ""),
-              c.get("requirements_unparked", c.get("parked", "")))
+            [(c["gate"] or c["requirement_key"], c["action"],
+              f"CA${c['max_cost_cad']:.2f}", f"{c['minutes']} min",
+              c.get("consequence_of_waiting", ""), c["unblocks_count"],
+              c.get("evidence", ""))
              for c in cards],
-            [["Gate", "Action", "Consequence of waiting", "Unparks"]],
+            [["Gate / decision", "Action", "Max cost", "Time", "Consequence of waiting",
+              "Unblocks", "Evidence it is done"]],
             "nothing is waiting on the owner")
+
+    def _external() -> str:
+        """F-196: gates no owner action can open. Listed, never asked for."""
+        if inbox is None:
+            raise RuntimeError("the owner inbox could not be computed")
+        ext = inbox.get("external_capability_unavailable") or []
+        return rows([(e["gate"], e["label"], e["unblocks_count"], (e["why"] or "")[:220])
+                     for e in ext],
+                    [["Capability", "State", "Parked requirements", "Why"]],
+                    "no external capability is unavailable")
 
     def _learning() -> str:
         """What this company has learned since yesterday, and where it came from (#183)."""
@@ -4883,7 +4997,8 @@ def dashboard() -> str:
         p = probability(db)
         gate = p["evidence_gate"]
         return rows([
-            ("modelled probability of CA$5,000/month", f"{p['probability']:.2f}"),
+            # F-189: UNMEASURED while the evidence gate is unmet; 0.00 would be a claim.
+            ("modelled probability of CA$5,000/month", p["display"]),
             ("binding layer", p["weakest_critical_layer"]),
             ("capped by", p["capped_by"]),
             ("evidence gate", "met" if gate["satisfied"] else
@@ -4930,6 +5045,21 @@ def dashboard() -> str:
         lines += [(c["name"], c["state"]) for c in statuses()]
         return rows(lines, [["Capability", "State"]], "")
 
+    # F-206 / F-186 / F-187: commercial truth leads; volume counts are demoted below it.
+    try:
+        from . import dashboard_truth
+
+        head = dashboard_truth.headline(db, st, inbox)
+        headline_html = '<div class="grid">' + "".join(
+            f'<div class="card{" alarm" if k["alarm"] else ""}"><span>{k["label"]}</span>'
+            f'<b>{k["value"]}</b><small title="{k["evidence"]["transform"]}">'
+            f'{k["why"][:140]}<br>source: {k["evidence"]["source"][:80]} &middot; as of '
+            f'{k["evidence"]["as_of"]}</small></div>'
+            for k in head["kpis"]) + "</div>"
+    except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
+        headline_html = (f'<div class="empty">headline unavailable: {type(e).__name__}: '
+                         f'{e}</div>')
+
     command_centre = (
         _block("Build 2 coverage", _build2)
         + _block("Visual pipeline", _visual_pipeline)
@@ -4941,23 +5071,32 @@ def dashboard() -> str:
         + _block("Capabilities and spend", _models)
     )
 
-    owner_html = ""
-    if owner:
-        items = [(a.action, f"CA${a.max_cost_cad:.2f}", f"{a.minutes} min",
-                  a.consequence_of_delay) for a in owner]
-        owner_html = "<h2>Owner action required</h2>" + rows(
-            items, [["Action", "Max cost", "Time", "Consequence of delay"]], "")
+    # F-202: which build is on screen, when its container started, and when production last
+    # verified clean -- so a pushed fix and an older rendered dashboard cannot be confused.
+    ident = build_identity()
+    with db.session() as s:
+        last_ok = next((a for a in s.scalars(
+            select(AuditLog).where(AuditLog.action == VERIFY_AUDIT_ACTION)
+            .order_by(AuditLog.id.desc()).limit(200)) if (a.detail or {}).get("ok")), None)
+        last_ok_at = f"{last_ok.at:%Y-%m-%d %H:%M} UTC" if last_ok else "never recorded"
+    started = st["runner"].get("worker_started_at") or "unknown"
 
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Brambleloop Studio OS</title><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>{_CSS}</style></head><body>
 <header><h1>BRAMBLELOOP STUDIO</h1>
-<div class="sub">Autonomous crochet commerce OS &middot; v{APP_VERSION} &middot; {utcnow():%Y-%m-%d %H:%M} UTC</div>
+<div class="sub">Autonomous crochet commerce OS &middot; v{APP_VERSION} &middot; rendered {utcnow():%Y-%m-%d %H:%M} UTC
+&middot; commit <b>{ident['commit_short']}</b> ({ident['branch']}) &middot; container started {started}
+&middot; last clean /api/verify: <b>{last_ok_at}</b></div>
 </header><main>
+{headline_html}
+{_block("Waiting on the owner", _approvals)}
+{_block("External capability unavailable", _external)}
+<h2>Volume and operations</h2>
+<div class="sub" style="color:var(--muted);font-size:12px">Output volume, not business readiness.</div>
 <div class="grid">
   <div class="card"><span>Queue pending</span><b>{st['queue'].get('pending',0)}</b></div>
   <div class="card"><span>Running</span><b>{st['queue'].get('running',0)}</b></div>
-  <div class="card"><span>Dead letters</span><b>{st['dead_letters']}</b></div>
   <div class="card"><span>Certified releases</span><b>{st['certified_versions']}</b></div>
   <div class="card"><span>Open incidents</span><b>{st['open_incidents']}</b></div>
   <div class="card"><span>Agent opex</span><b>CA${st['agent_opex_cad']:.2f}</b></div>
@@ -4974,10 +5113,8 @@ Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
 &middot; scheduler {st['runner']['scheduler_last_tick'] or 'never'}
 {('&middot; last error: ' + st['runner']['last_error']) if st['runner']['last_error'] else ''}
 </div>
-{owner_html}
 {command_centre}
 {_block("Health", _health)}
-{_block("Waiting on the owner", _approvals)}
 {_block("Learning changes", _learning)}
 {launch_html}
 <h2>Recent jobs</h2>

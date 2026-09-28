@@ -140,10 +140,67 @@ def test_an_unconfigured_integration_is_unknown_rather_than_down():
     assert H.verdict(_read(db))["down"] == []
 
 
+def _probe(db, action, ok, reason=""):
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=action,
+                       detail={"ok": ok, "reason": reason}))
+
+
 def test_a_configured_integration_reads_healthy():
+    """F-128 / F-131: HEALTHY needs the recorded probe the executor gate reads, not a variable.
+
+    This test used to assert HEALTHY from `ANTHROPIC_API_KEY` alone -- the exact label the
+    Master forbids to grade itself (the owner's key authenticated and could serve nothing).
+    It now asserts that a configured key is UNKNOWN until a probe succeeds, and HEALTHY after.
+    """
     db = _db()
-    readings = {r.signal: r for r in _read(db, env={"ANTHROPIC_API_KEY": "sk-x"})}
+    env = {"ANTHROPIC_API_KEY": "sk-x", "ETSY_API_KEY": "k", "ETSY_SHOP_NAME": "s",
+           "BRAMBLELOOP_BROWSER_URL": "https://worker.invalid"}
+    readings = {r.signal: r for r in _read(db, env=env)}
+    for signal in ("model_gateway", "integrations", "rendered_pages"):
+        assert readings[signal].state == H.UNKNOWN, (signal, readings[signal].state)
+        assert readings[signal].evidence["configured"], signal
+        assert "a label, not a capability" in readings[signal].why
+    _probe(db, "model.probe", True)
+    readings = {r.signal: r for r in _read(db, env=env)}
     assert readings["model_gateway"].state == H.HEALTHY
+    assert readings["model_gateway"].evidence["executor_gate"] == "model_provider"
+
+
+def test_a_set_but_unusable_key_reads_unknown_with_the_probe_reason():
+    """F-131: configured and failing is a closed gate, never HEALTHY and never a fault."""
+    from brambleloop.build2 import executor
+
+    db = _db()
+    env = {"ANTHROPIC_API_KEY": "sk-x"}
+    _probe(db, "model.probe", False, "Your credit balance is too low")
+    _probe(db, "etsy.probe", False, "Shared secret is required")
+    readings = {r.signal: r for r in _read(db, env=env)}
+    assert readings["model_gateway"].state == H.UNKNOWN
+    assert "credit balance is too low" in readings["model_gateway"].why
+    assert readings["integrations"].state == H.UNKNOWN
+    assert H.verdict(_read(db, env=env))["down"] == []
+    # The same answer the executor's gate gives, from the same row.
+    for signal, gate in (("model_gateway", "model_provider"), ("integrations", "etsy_api"),
+                         ("rendered_pages", "rendered_pages")):
+        assert (readings[signal].state == H.HEALTHY) == executor.GATE_BY_KEY[gate].open(db, env)
+    _probe(db, "etsy.probe", True)
+    readings = {r.signal: r for r in _read(db, env=env)}
+    assert readings["integrations"].state == H.HEALTHY == (
+        H.HEALTHY if executor.GATE_BY_KEY["etsy_api"].open(db, env) else None)
+
+
+def test_health_capability_signals_never_read_environment_presence_as_state():
+    """A key set to anything reads identically to no key while no probe exists."""
+    db = _db()
+    bare = {r.signal: r.state for r in _read(db, env={})}
+    keyed = {r.signal: r.state for r in _read(
+        db, env={"ANTHROPIC_API_KEY": "x", "ETSY_API_KEY": "x", "ETSY_SHOP_NAME": "x",
+                 "BRAMBLELOOP_BROWSER_URL": "x"})}
+    for signal in H.CAPABILITY_SIGNALS:
+        assert bare[signal] == keyed[signal] == H.UNKNOWN, signal
 
 
 def test_nothing_ever_certified_is_a_state_rather_than_a_fault():
