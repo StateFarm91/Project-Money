@@ -690,9 +690,18 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     # #153-#160, #220, #228: the standards this company holds itself to, read at the gate.
     standards = standards_gate(db, slug=slug, version=version)
     reasons.extend(standards["reasons"])
+    # C-67 / M10: the standards' verdicts are written to the release's one withholding
+    # record, kind by kind, and the record's other reasons -- the teardown QA's withhold
+    # (#163), which nothing above computes -- refuse here too.
+    from . import withholding
+
+    held = withholding.reconcile(db, slug, version, standards=standards)
+    for kind, entry in sorted(held["reasons"].items()):
+        if kind == withholding.TEARDOWN_QA:
+            reasons.append(f"release withheld (#163): {entry['reason']}")
     return {"slug": slug, "version": version, "blocks_release": bool(reasons),
             "reasons": reasons, "staleness": stale, "window": window,
-            "listing_set": set_verdict, "standards": standards}
+            "listing_set": set_verdict, "standards": standards, "withholding": held}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:

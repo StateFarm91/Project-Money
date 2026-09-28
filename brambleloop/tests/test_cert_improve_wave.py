@@ -621,6 +621,88 @@ def test_self_audits_bind_to_the_release_they_read_and_keywords_are_only_structu
                    for r in _publish_gate_reasons(db, "fixture-good"))
 
 
+def test_release_eligibility_is_one_record_and_clearing_one_reason_never_clears_another():
+    """C-67 / C-69 (Codex M10): the teardown QA withhold, the owner's veto, the competitive
+    standard and the binding teardown requirements live on one durable record that the
+    certification, draft, rebuild and publish paths all read; each kind clears alone."""
+    from types import SimpleNamespace
+
+    from brambleloop.core.models import AuditLog, CompetitiveStandard, PatternVersion
+    from brambleloop.intel import mission_runtime
+    from brambleloop.publish import withholding
+    from brambleloop.runtime import pipeline
+
+    db = _db()
+    _benchmark_and_product(db, "fixture-hold")
+    cir = SimpleNamespace(slug="fixture-hold", version="1.0.0")
+    ctx = _ctx(db, "gate.certify", agent="quality_director")
+
+    def _cert():
+        with db.session() as s:
+            return dict(s.scalar(select(PatternVersion)).certificate or {})
+
+    def _draft():
+        return _run(db, "listing.draft", agent="listing",
+                    inputs={"slug": "fixture-hold", "version": "1.0.0", "release": "a" * 64})
+
+    # The certification path's mark (the teardown QA, #163) and the owner's veto (#228).
+    pipeline._mark_withheld(ctx, cir, "teardown QA (#163): parity with every benchmark")
+    mission_runtime.record_veto(db, subject_ref="product:fixture-hold",
+                                scope="flagship_creative_quality", reason="generic")
+    reasons = _publish_gate_reasons(db, "fixture-hold")
+    assert any("release withheld (#163)" in r for r in reasons), reasons
+    assert any("owner veto (#228)" in r for r in reasons), reasons
+    cert = _cert()
+    assert set(cert["withholding"]) == {"teardown_qa", "owner_veto"}, cert["withholding"]
+    assert "teardown QA" in cert["withheld"] and "owner veto" in cert["withheld"]
+    drafted = _draft()
+    assert drafted["drafted"] is False
+    assert "owner veto" in drafted["withheld"] and "teardown QA" in drafted["withheld"]
+
+    # Lifting the veto clears its kind and nothing else: publish and draft still refuse on
+    # the QA withhold, and the record says exactly what remains.
+    mission_runtime.record_veto(db, subject_ref="product:fixture-hold",
+                                scope="flagship_creative_quality", owner_vetoed=False)
+    drafted = _draft()
+    assert drafted["drafted"] is False and "owner veto" not in drafted["withheld"]
+    assert "teardown QA" in drafted["withheld"]
+    reasons = _publish_gate_reasons(db, "fixture-hold")
+    assert not any("owner veto" in r for r in reasons)
+    assert any("release withheld (#163)" in r for r in reasons), reasons
+    cert = _cert()
+    assert set(cert["withholding"]) == {"teardown_qa"} and "owner_veto" in cert["withholding_cleared"]
+
+    # A competitive standard the listing is below (#220) is recorded under its own kind by
+    # the publish gates; it withholds publication and does not stop the content being built.
+    with db.session() as s:
+        s.add(CompetitiveStandard(key="gallery_images", value=5.0, higher_is_better=True,
+                                  history=[]))
+    reasons = _publish_gate_reasons(db, "fixture-hold")
+    assert any("competitive standard gallery_images" in r for r in reasons)
+    cert = _cert()
+    assert set(cert["withholding"]) == {"teardown_qa", "competitive_standard"}
+    assert "gallery_images" in cert["withholding"]["competitive_standard"]["reason"]
+    assert "competitive" not in cert["withheld"]
+
+    # Clearing the QA withhold (a later certification that passes it) clears only that kind:
+    # the draft path opens, the publish path still refuses on the competitive standard.
+    pipeline._mark_withheld(ctx, cir, None)
+    cert = _cert()
+    assert "withheld" not in cert and set(cert["withholding"]) == {"competitive_standard"}
+    drafted = _draft()
+    assert drafted["drafted"] is True, drafted
+    reasons = _publish_gate_reasons(db, "fixture-hold")
+    assert not any("#163" in r for r in reasons)
+    assert any("competitive standard gallery_images" in r for r in reasons)
+    with db.session() as s:
+        refused = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "listing.refused_withheld")))
+    assert len(refused) == 2 and all("teardown QA" in r.detail["why"] for r in refused)
+    # The record reports itself for any reader.
+    view = withholding.reasons(db, "fixture-hold", "1.0.0")
+    assert view["blocks_publish"] and not view["blocks_build"] and view["summary"] is None
+
+
 def test_owner_veto_and_competitive_standard_block_at_the_gates():
     from brambleloop.core.models import (AuditLog, CompetitiveStandard, ListingAsset)
     from brambleloop.intel import mission_runtime

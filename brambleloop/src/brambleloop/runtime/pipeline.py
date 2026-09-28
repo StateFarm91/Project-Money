@@ -616,10 +616,14 @@ def handle_certify(ctx: JobContext) -> dict:
                     "release_hash": cert.release_hash, "withheld": True,
                     "reasons": [teardown["unique_value"].get("reason", "")][:1]}
         # #228: an owner veto on this product withholds it at certification, before anything
-        # downstream is built for it. The owner lifts it by ruling again.
+        # downstream is built for it. The owner lifts it by ruling again. Recorded on the
+        # release's one withholding record (C-67 / M10) so the rebuild and draft paths refuse
+        # on it too, under its own kind, beside -- never instead of -- the teardown QA's.
         from ..intel.mission_runtime import active_veto
 
         veto = active_veto(ctx.db, cir.slug)
+        _mark_withheld(ctx, cir, (f"owner veto (#228): {veto['why']}" if veto["vetoed"]
+                                  else None), kind="owner_veto")
         if veto["vetoed"]:
             ctx.audit("gate.release_withheld", artifact=f"{cir.slug}@{cir.version}",
                       detail={"reason": f"owner veto (#228): {veto['why']}",
@@ -642,42 +646,26 @@ def handle_certify(ctx: JobContext) -> dict:
             "reasons": cert.blocking_reasons[:5]}
 
 
-def _mark_withheld(ctx: JobContext, cir: CIR, reason: str | None) -> None:
-    """Record the teardown withhold on the stored release itself (C-69, #163).
+def _mark_withheld(ctx: JobContext, cir: CIR, reason: str | None,
+                   kind: str = "teardown_qa") -> None:
+    """Record one withholding reason on the stored release itself (C-69, #163; C-67, M10).
 
     The release is persisted before the teardown QA runs (the QA reads it), so the withhold
     has to live on the row every later stage reads -- `chain.rebuild`, `listing.draft` --
-    rather than only in an audit row they never consult. A later certification that clears
-    the QA clears the mark.
+    rather than only in an audit row they never consult. The row carries one record keyed by
+    reason kind (`publish.withholding`): clearing this kind never clears another, and the
+    `withheld` summary the build stages read is derived from every build-blocking kind.
     """
-    from sqlalchemy import select
+    from ..publish import withholding
 
-    with ctx.db.session() as s:
-        product = s.scalar(select(Product).where(Product.slug == cir.slug))
-        pv = s.scalar(select(PatternVersion).where(
-            PatternVersion.product_id == product.id,
-            PatternVersion.version == cir.version)) if product is not None else None
-        if pv is None:
-            return
-        cert = dict(pv.certificate or {})
-        if reason:
-            cert["withheld"] = reason
-        elif "withheld" in cert:
-            cert.pop("withheld")
-        else:
-            return
-        pv.certificate = cert
+    withholding.record(ctx.db, cir.slug, cir.version, kind=kind, reason=reason)
 
 
 def _withheld_reason(db, slug: str, version: str) -> str | None:
-    from sqlalchemy import select
+    """Every build-blocking reason on the release's withholding record, re-read live."""
+    from ..publish import withholding
 
-    with db.session() as s:
-        product = s.scalar(select(Product).where(Product.slug == slug))
-        pv = s.scalar(select(PatternVersion).where(
-            PatternVersion.product_id == product.id,
-            PatternVersion.version == version)) if product is not None else None
-        return (pv.certificate or {}).get("withheld") if pv is not None else None
+    return withholding.current(db, slug, version, stage="build")["summary"]
 
 
 def _recheck_listing_certificates(ctx: JobContext, cir: CIR) -> list[dict]:
