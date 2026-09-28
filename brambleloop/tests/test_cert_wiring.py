@@ -35,13 +35,8 @@ for _k in list(os.environ):
         os.environ.pop(_k)
 
 
-def _no_network(*_a, **_k):
-    raise OSError("network refused by the certification harness")
-
-
-socket.socket.connect = _no_network  # type: ignore[assignment]
-socket.create_connection = _no_network  # type: ignore[assignment]
-socket.getaddrinfo = _no_network  # type: ignore[assignment]
+from network_guard import install as install_network_guard
+install_network_guard()
 
 from sqlalchemy import select  # noqa: E402
 
