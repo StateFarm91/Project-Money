@@ -560,7 +560,11 @@ def coverage_origin(db, *, event_id, pod: str, product_slug: str,
             return None
         if job_id is not None and ev.tournament_job_id != job_id:
             return None
-        recorded = ((ev.steps or {}).get("coverage") or {}).get("origin")
+        steps = ev.steps if isinstance(ev.steps, dict) else {}
+        coverage_step = steps.get("coverage")
+        if not isinstance(coverage_step, dict):
+            return None
+        recorded = coverage_step.get("origin")
         gap = s.get(CoverageGap, ev.gap_id) if ev.gap_id else None
         if gap is None or gap.pod != pod or gap.benchmark_key != ev.benchmark_key:
             return None
@@ -572,13 +576,21 @@ def coverage_origin(db, *, event_id, pod: str, product_slug: str,
         if gap.product_slug and gap.product_slug != product_slug:
             return None
         return {**expected, "candidate_key": candidate_key,
-                "product_slug": product_slug, "mission_arena": ev.arena}
+                "product_slug": product_slug, "mission_arena": ev.arena,
+                "tournament_job_id": ev.tournament_job_id}
+
+
+def brief_coverage_origin(brief) -> dict | None:
+    """Malformed persisted provenance is unknown, including during re-presentation."""
+    context = brief.get("source_context") if isinstance(brief, dict) else None
+    origin = context.get("coverage_origin") if isinstance(context, dict) else None
+    return origin if isinstance(origin, dict) else None
 
 
 def advance_gap(db, pod: str, to: str, *, reason: str, product_slug: str = "",
                 origin: dict | None = None, event_id=None, candidate_key: str = "") -> dict:
     """Advance only a validated origin, with identity and mutation in one transaction."""
-    from sqlalchemy import select, update
+    from sqlalchemy import select, update, exists, cast, String, JSON, literal
     from ..core.models import CoverageGap, MjsMissionEvent, utcnow
     from ..intel import coverage
 
@@ -595,12 +607,22 @@ def advance_gap(db, pod: str, to: str, *, reason: str, product_slug: str = "",
         return unknown
     order = list(coverage.STATES[:6])
     with db.session() as s:
+        ev = s.scalar(select(MjsMissionEvent).where(
+            MjsMissionEvent.id == origin["event_id"]).with_for_update())
         gap = s.scalar(select(CoverageGap).where(CoverageGap.id == origin["gap_id"])
                        .with_for_update())
-        ev = s.get(MjsMissionEvent, origin["event_id"])
+        producer_origin = {key: origin[key] for key in (
+            "gap_id", "benchmark_key", "coverage_arena", "pod", "event_id",
+            "event_fingerprint")}
         # Recheck identity inside the transaction; never overwrite another product's binding.
         if (gap is None or ev is None or ev.gap_id != gap.id
                 or ev.fingerprint != origin["event_fingerprint"]
+                or ev.pod != pod or ev.benchmark_key != origin["benchmark_key"]
+                or ev.arena != origin["mission_arena"]
+                or ev.tournament_job_id != origin["tournament_job_id"]
+                or not isinstance(ev.steps, dict)
+                or not isinstance(ev.steps.get("coverage"), dict)
+                or ev.steps["coverage"].get("origin") != producer_origin
                 or gap.pod != pod or gap.benchmark_key != origin["benchmark_key"]
                 or gap.arena != origin["coverage_arena"]
                 or (gap.product_slug and gap.product_slug != product_slug)):
@@ -617,7 +639,16 @@ def advance_gap(db, pod: str, to: str, *, reason: str, product_slug: str = "",
             CoverageGap.id == gap.id, CoverageGap.state == gap.state,
             CoverageGap.product_slug == gap.product_slug,
             CoverageGap.pod == pod, CoverageGap.benchmark_key == origin["benchmark_key"],
-            CoverageGap.arena == origin["coverage_arena"]
+            CoverageGap.arena == origin["coverage_arena"],
+            exists(select(MjsMissionEvent.id).where(
+                MjsMissionEvent.id == origin["event_id"],
+                MjsMissionEvent.gap_id == origin["gap_id"],
+                MjsMissionEvent.pod == pod,
+                MjsMissionEvent.benchmark_key == origin["benchmark_key"],
+                MjsMissionEvent.arena == origin["mission_arena"],
+                MjsMissionEvent.fingerprint == origin["event_fingerprint"],
+                MjsMissionEvent.tournament_job_id == origin["tournament_job_id"],
+                cast(MjsMissionEvent.steps, String) == cast(literal(ev.steps, type_=JSON), String)))
         ).values(state=state, product_slug=product_slug, reason=reason,
                  updated_at=utcnow()).execution_options(synchronize_session=False))
         if changed.rowcount != 1:
@@ -945,7 +976,7 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
             job = ctx.enqueue("crochet_engineer", "cir.draft", payload,
                               idempotency_key=f"draft:{slug}")
             advance_gap(ctx.db, concept.pod, "engineering", product_slug=slug,
-                        origin=((brief.get("source_context") or {}).get("coverage_origin")),
+                        origin=brief_coverage_origin(brief),
                         event_id=detail.get("mjs_event_id"),
                         candidate_key=detail.get("original_key", ""),
                         reason=f"{slug} cleared the pre-engineering gate on re-presentation")

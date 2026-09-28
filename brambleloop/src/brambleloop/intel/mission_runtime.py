@@ -1920,7 +1920,7 @@ def advance_pipeline(db, *, event_ids: list[int] | None = None,
     from sqlalchemy import select
 
     from ..core.models import Job, JobStatus, MjsMissionEvent
-    from ..creative.intake import advance_gap
+    from ..creative.intake import advance_gap, brief_coverage_origin
 
     today = today or datetime.now(timezone.utc).date()
     with db.session() as s:
@@ -1967,8 +1967,7 @@ def advance_pipeline(db, *, event_ids: list[int] | None = None,
             if to:
                 coverage_move = advance_gap(db, ev.pod, to, product_slug=winner["slug"],
                                             event_id=ev.id, candidate_key=winner.get("original_key", ""),
-                                            origin=((winner.get("brief") or {}).get(
-                                                "source_context") or {}).get("coverage_origin"),
+                                            origin=brief_coverage_origin(winner.get("brief")),
                                             reason=f"the MJs response {winner['slug']} "
                                                    f"reached {to} (#309)")
         with db.session() as s:
