@@ -2254,3 +2254,5 @@ def _benchmark_quality(db, slug: str) -> dict | None:
     from ..creative import blind_review
 
     return blind_review.current_review(db, slug=slug)
+
+from ..learn import runtime as learn_runtime  # noqa: E402,F401; Learn launch scanner

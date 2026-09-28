@@ -41,6 +41,8 @@ class BudgetExceeded(Exception):
 # The starting organisation. Job types are explicit: an agent can only ever run what is
 # listed here, so widening authority is a visible, reviewable change.
 DEFAULT_AGENTS: list[dict] = [
+    dict(name="learn", description="Learn source gaps and approved education; no publication/spend.",
+         allowed_job_types=["learn.scan"], authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
     dict(name="orchestrator", description="CEO/Orchestrator: sets priorities, schedules work",
          allowed_job_types=["scale.trajectory",  # C-64 / #26: nightly scenario analysis
                             "plan.cycle", "portfolio.review", "ops.heartbeat",
