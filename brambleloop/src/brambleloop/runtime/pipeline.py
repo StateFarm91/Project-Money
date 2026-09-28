@@ -1220,7 +1220,10 @@ def handle_store_publish(ctx: JobContext) -> dict:
     from .release import _released_on
 
     released_on = _released_on(ctx, slug, version)
-    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on)
+    from ..learn.service import pdf_help_links
+    lesson_links = pdf_help_links(ctx.db, cir.to_dict())
+    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on,
+                                 lesson_links=lesson_links)
             for t in TERMINOLOGIES}
     doc = docs["US"]
     # The file uploaded must be the file certified: compared per terminology against the
@@ -1345,6 +1348,13 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # hide it. That is the half-done case this handler already refuses to round off.
     extra_files: dict[str, bool] = {}
     extra_problems: list[str] = []
+    if outcome.listing_id:
+        for prop in payload.properties:
+            try:
+                client.set_listing_property(outcome.listing_id, prop)
+            except (TransientError, PermanentError) as e:
+                extra_problems.append(f"listing property {prop['property_id']} write failed: {e}")
+
     if outcome.listing_id and outcome.file_uploaded:
         for terminology in TERMINOLOGIES[1:]:
             try:
@@ -1513,7 +1523,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
         raise ShadowModeRefusal(client.refusal_for(Authority.READ) or "no credentials")
 
     try:
-        remote = client.get_listing(listing_id)
+        remote = etsy_ops.with_properties(client, listing_id, client.get_listing(listing_id))
         remote_files = client.get_listing_files(listing_id)
     except EtsyAuthNeedsOwner as e:
         raised = etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")

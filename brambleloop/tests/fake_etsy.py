@@ -382,6 +382,15 @@ class _Handler(BaseHTTPRequestHandler):
         params = dict(urllib.parse.parse_qsl(query))
         fake = self.fake
 
+        if len(parts) == 7 and parts[2] == "shops" and parts[4] == "listings" and parts[6] == "properties":
+            self._record("getListingProperties")
+            if not self._guard(("listings_r",)):
+                return
+            listing = fake.listings.get(parts[5])
+            if listing is None:
+                return self._send(404, {"error": "Listing not found"})
+            return self._send(200, {"results": listing.get("properties", [])})
+
         if path == "/v3/application/openapi-ping":
             self._record("ping")
             if not self._guard(()):
@@ -566,6 +575,27 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(201, dict(row))
 
         self._send(404, {"error": f"no such endpoint: {path}"})
+
+    def do_PUT(self):
+        parts = [p for p in self.path.partition("?")[0].strip("/").split("/") if p]
+        if len(parts) == 8 and parts[2] == "shops" and parts[4] == "listings" and parts[6] == "properties":
+            self._record("updateListingProperty")
+            if not self._guard(("listings_w",)):
+                return
+            fields = self._form()
+            if fields is None:
+                return
+            listing = self.fake.listings.get(parts[5])
+            if listing is None:
+                return self._send(404, {"error": "Listing not found"})
+            prop = {"property_id": int(parts[7]),
+                    "value_ids": [int(v) for v in fields.get("value_ids", "").split(",") if v],
+                    "values": [v for v in fields.get("values", "").split(",") if v],
+                    "scale_id": int(fields["scale_id"]) if fields.get("scale_id") else None}
+            if not getattr(self.fake, "ignore_property_writes", False):
+                listing["properties"] = [p for p in listing.get("properties", []) if p["property_id"] != prop["property_id"]] + [prop]
+            return self._send(200, prop)
+        return self._send(404, {"error": "unknown PUT endpoint"})
 
     def do_PATCH(self) -> None:   # noqa: N802
         path = self.path.partition("?")[0]
