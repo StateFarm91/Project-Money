@@ -685,6 +685,34 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # actually produced for every listing -- never a constant.
     out.extend(_launch_package_items(db, listings))
 
+    # F-329 (Sustainability Launch Gate): before launch, steady-state economics must be shown
+    # sustainable at opening prices. Reads finance.sustainability (the F-325 forecast, with
+    # its insufficient-data refusal, and F-324 break-even per product); a forecast that
+    # cannot be computed, or recurring AI/API cost that threatens contribution, blocks.
+    from ..finance import sustainability
+
+    econ = sustainability.verdict(db)
+    fc = econ["forecast"]
+    out.append(_build(
+        "sustainable_economics",
+        "estimated steady-state AI/API cost is sustainable against contribution at opening "
+        "prices, with no constant owner top-ups",
+        bool(econ["sustainable"]),
+        {"status": econ["status"], "why": econ["why"],
+         "problems": econ.get("problems") or [],
+         "missing": fc.get("missing") or [],
+         "low_case_needs_owner_top_up": econ.get("low_case_needs_owner_top_up"),
+         "scenarios": {k: {"ai_cost_monthly_cad": v["ai_cost_monthly_cad"],
+                           "contribution_monthly_cad": v["contribution_monthly_cad"],
+                           "net_monthly_cad": v["net_monthly_cad"]}
+                       for k, v in (fc.get("scenarios") or {}).items()},
+         "measured": fc.get("measured"),
+         "break_even": {slug: {"break_even_sales": r.get("break_even_sales"),
+                               "creation_cost_cad": r.get("creation_cost_cad"),
+                               "contribution_per_sale_cad": r.get("contribution_per_sale_cad")}
+                        for slug, r in list(sustainability.break_even(db)["products"]
+                                            .items())[:20]}}))
+
     out.append(Requirement(
         key="phase",
         description="the phase allows publishing",

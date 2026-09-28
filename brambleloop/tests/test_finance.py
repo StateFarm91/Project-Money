@@ -56,12 +56,102 @@ def _with_sales(db, *, orders: int, price: float, fees: float, refunds: float = 
 # ---- the books -------------------------------------------------------------
 
 
-def test_an_empty_business_reports_zeroes_rather_than_nothing():
-    pl = Books(_db()).profit_and_loss()
-    d = pl.to_dict()
+def _connect_order_source(db, *, read: bool = True) -> None:
+    """The order source's rows: a probe, a transactions_r grant and (optionally) a read.
+
+    Rows only -- the same rows `orders_ingest.gate` and `source_state` read. No Etsy.
+    """
+    from brambleloop.core.models import AuditLog, OAuthCredential
+
+    with db.session() as s:
+        s.add(AuditLog(actor="market_radar", action="etsy.probe", detail={"ok": True}))
+        s.add(OAuthCredential(provider="etsy", refresh_token_sealed="sealed",
+                              token_fingerprint="abcd1234",
+                              scopes="listings_r shops_r transactions_r"))
+        if read:
+            s.add(AuditLog(actor="cfo", action="commerce.orders_ingested",
+                           detail={"ran": True, "reading": "measured"}))
+
+
+def test_an_empty_business_with_a_connected_order_source_reports_measured_zeroes():
+    """Zero is a measurement only when the order source was connected and read."""
+    db = _db()
+    _connect_order_source(db)
+    d = Books(db).profit_and_loss().to_dict()
+    assert d["sales_reading"] == "measured"
     assert d["gross_sales_cad"] == 0.0
     assert d["orders"] == 0 and d["customers"] == 0
     assert d["all_figures_observed"] is True
+    assert set(d["sales_by_source"]["channels"]) >= {"etsy_organic", "etsy_ads",
+                                                     "offsite_ads", "owned_direct",
+                                                     "unattributed"}
+
+
+def test_sales_are_unmeasured_not_zero_while_the_order_source_is_closed():
+    """F-608: this test used to pin CA$0.00 as observed with no order source connected.
+
+    Etsy delivers a digital file without this system, so a sale can complete while the
+    books cannot see it. Missing data is UNKNOWN, never silently zero.
+    """
+    db = _db()
+    Registry(db).record_cost("market_radar", 0.12, kind="llm")
+    pl = Books(db).profit_and_loss()
+    d = pl.to_dict()
+    assert d["sales_reading"] == "UNMEASURED"
+    assert "transactions_r" in d["sales_why"]
+    for key in ("gross_sales_cad", "net_sales_cad", "platform_fees_cad", "orders",
+                "customers", "contribution_margin_cad", "net_profit_cad", "cash_cad",
+                "tax_reserve_cad"):
+        assert d[key] is None, key
+    assert d["operating_costs_cad"] == 0.12, "own spend is measured either way"
+    assert d["all_figures_observed"] is False
+    assert d["sales_by_source"] is None
+    assert "not CA$0.00" in d["note"]
+
+
+def test_a_connected_source_that_was_never_read_is_still_unmeasured():
+    db = _db()
+    _connect_order_source(db, read=False)
+    d = Books(db).profit_and_loss().to_dict()
+    assert d["sales_reading"] == "UNMEASURED"
+    assert "no completed receipt read" in d["sales_why"]
+
+
+def test_recorded_sales_with_the_source_closed_are_a_labelled_lower_bound():
+    db = _db()
+    _with_sales(db, orders=2, price=10.0, fees=1.0)
+    d = Books(db).profit_and_loss().to_dict()
+    assert d["sales_reading"] == "INCOMPLETE" and d["sales_is_lower_bound"] is True
+    assert d["gross_sales_cad"] == 20.0
+    assert d["all_figures_observed"] is False
+
+
+def test_modelled_fees_are_labelled_and_never_counted_as_observed():
+    """F-609: a pricing.fees() estimate is not a charged fee."""
+    db = _db()
+    _connect_order_source(db)
+    with db.session() as s:
+        s.add(LedgerEntry(category="sale", gross_cad=12.0, fees_cad=1.42,
+                          evidence_ref="etsy:1:10", fees_basis="modelled", basis="measured"))
+        s.add(LedgerEntry(category="sale", gross_cad=12.0, fees_cad=1.50,
+                          evidence_ref="etsy:2:20", fees_basis="measured", basis="measured"))
+    d = Books(db).profit_and_loss().to_dict()
+    assert d["platform_fees_basis"] == "mixed"
+    assert d["platform_fees_by_basis"] == {"measured": 1.5, "modelled": 1.42, "unknown": 0.0}
+    assert d["all_figures_observed"] is False
+
+
+def test_the_cfo_and_trajectory_say_unmeasured_rather_than_zero():
+    db = _db()
+    Registry(db).record_cost("market_radar", 0.12, kind="llm")
+    pl = Books(db).profit_and_loss()
+    challenges = {c.subject: c for c in cfo_challenge(pl)}
+    assert "UNMEASURED" in challenges["revenue"].finding
+    assert "CA$0.00" not in challenges["revenue"].finding.replace("not CA$0.00", "")
+    assert "UNMEASURED" in challenges["burn"].finding
+    t = trajectory(pl)
+    assert t["observed_orders"] is None and t["observed_revenue_cad"] is None
+    assert t["sales_reading"] == "UNMEASURED"
 
 
 def test_every_line_section_fifteen_names_is_present():

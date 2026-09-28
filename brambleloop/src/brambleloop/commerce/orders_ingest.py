@@ -23,6 +23,25 @@ the buyer received is recorded at sale time through `cohorts.record_order`; the 
 one `sale` ledger entry with the same evidence reference, which is what opens the `customers`
 data gate. The transaction's own currency and amount are preserved beside the CAD figure,
 with the rate, its date and whether it was measured (#269).
+
+**Money truth (Final Build cluster D).** Four things changed, each because the earlier
+version wrote a proxy that read as a fact:
+
+* The acquisition source is `unknown` (F-283, F-289). It used to be `etsy` on every order,
+  which every downstream reader took for organic search. A receipt does not say how the
+  buyer arrived; `finance.sources.attribute` moves an order out of `unknown` on evidence
+  only, and the first sale is kept as a record (`finance.sources.record_first_sale`).
+* The sale's fee is marked `modelled` (F-609). It is `commerce.pricing.fees()` output until
+  Etsy's payment-account ledger is read, and a modelled fee is never presented as charged.
+  The ledger row also carries its source, external id, currency, original amount,
+  classification and reconciliation state.
+* When the reader can read the payment-account ledger (the same `transactions_r` grant),
+  the fees Etsy actually charged replace the model, per order, and an Offsite Ads fee sets
+  `offsite_ad_attributed`, is deducted from contribution and attributes the order (F-558,
+  F-273; `finance.reconcile`). When it cannot, the fees stay modelled and labelled.
+* A credential failure that only the owner can fix (`EtsyAuthNeedsOwner`: a refused or
+  spent refresh token, a revoked grant, a missing scope) becomes one idempotent owner action
+  and one incident instead of a failed job retried on a cadence (F-541).
 """
 from __future__ import annotations
 
@@ -38,6 +57,16 @@ MAX_PAGES = 20
 # is not missed. Idempotent on the order reference, so the overlap costs nothing but a read.
 OVERLAP = timedelta(days=2)
 OWNER_ACTION_KEY = "reauthorise_transactions_r"
+# F-541: the owner action and incident an auth failure raises. One key for every failure
+# class, because every class ends in the same place -- the owner re-approving the app.
+AUTH_ACTION_KEY = "etsy.oauth.reauthorise"
+AUTH_INCIDENT_SIGNATURE = "etsy.oauth.needs_owner"
+LEDGER_OPERATION = "getShopPaymentAccountLedgerEntries"
+# How far back the payment-account ledger is read on a run with no earlier order: fees post
+# after the sale, so the window reaches past the receipt window.
+LEDGER_LOOKBACK = timedelta(days=45)
+# Receipt statuses whose money did not stay with the shop.
+NOT_KEPT_STATUSES = ("canceled", "cancelled", "fully refunded")
 
 # Injection point for the receipt reader. None in production: the reader is built from the
 # environment's Etsy credential, and only after the gate is open. Tests set this to a fake
@@ -78,6 +107,42 @@ def gate(db) -> dict:
             "operation": OPERATION}
 
 
+INGEST_AUDIT = "commerce.orders_ingested"
+
+
+def source_state(db) -> dict:
+    """Whether sales figures can be called measured, for the books (F-608).
+
+    Measured needs both halves: the gate open (the source is connected) *and* a completed
+    read recorded (`commerce.orders_ingested` with `ran: true`). A connected source that has
+    never been read has told us nothing yet, and zero orders from it would be a zero nobody
+    observed.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    state = gate(db)
+    last_read = None
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(AuditLog.action == INGEST_AUDIT)
+                             .order_by(AuditLog.id.desc()).limit(50)):
+            if (row.detail or {}).get("ran") is True:
+                last_read = row.at.isoformat() if row.at else None
+                break
+    measured = state["open"] and last_read is not None
+    if measured:
+        why = ""
+    elif not state["open"]:
+        why = ("the order source is not connected: " + "; ".join(state["missing"])
+               + ". Sales are UNMEASURED, which is different from zero sales")
+    else:
+        why = ("the order source is connected but no completed receipt read is recorded "
+               "yet, so there is no observation to report")
+    return {"open": state["open"], "missing": state["missing"], "last_read_at": last_read,
+            "measured": measured, "why": why, "owner_action": OWNER_ACTION_KEY}
+
+
 # ---------------------------------------------------------------------------
 # Reading
 
@@ -96,6 +161,34 @@ class EtsyReceiptReader:
             self.calls += 1
             got = self.client.get_shop_receipts(min_created=min_created, limit=PAGE,
                                                 offset=page * PAGE)
+            out.extend(got)
+            if len(got) < PAGE:
+                break
+        return out
+
+    def ledger_entries(self, *, min_created: datetime, max_created: datetime) -> list[dict]:
+        """Etsy's payment-account ledger over a window (F-558): what Etsy actually charged.
+
+        A thin read on the client's existing transport and scope check. `EtsyClient` has no
+        public method for this operation yet (integrations/etsy.py belongs to another
+        cluster), so the request goes through the client's own `_call`, which applies the
+        same credential, the same per-operation scope refusal and the same error taxonomy.
+        Etsy requires both bounds.
+        """
+        from ..integrations.etsy import Authority
+
+        creds = self.client._require(Authority.READ)
+        out: list[dict] = []
+        for page in range(MAX_PAGES):
+            self.calls += 1
+            body = self.client._call(
+                "GET", f"/shops/{creds.shop_id}/payment-account/ledger-entries",
+                operation=LEDGER_OPERATION, authority=Authority.READ,
+                query={"min_created": int(min_created.timestamp()),
+                       "max_created": int(max_created.timestamp()),
+                       "limit": PAGE, "offset": page * PAGE}).body
+            got = body.get("results") if isinstance(body, dict) else None
+            got = list(got) if isinstance(got, list) else []
             out.extend(got)
             if len(got) < PAGE:
                 break
@@ -138,7 +231,9 @@ def lines(receipt: dict) -> list[dict]:
     if rid is None or buyer in (None, ""):
         raise IngestRefused("a receipt needs its id and the buyer's Etsy user id")
     at = _when(receipt)
-    refunded = bool(receipt.get("refunds"))
+    status = str(receipt.get("status") or "").strip().lower()
+    # A cancelled or fully refunded receipt kept no money, whatever its refunds list says.
+    refunded = bool(receipt.get("refunds")) or status in NOT_KEPT_STATUSES
     out = []
     for t in receipt.get("transactions") or []:
         price = _money(t.get("price"))
@@ -151,7 +246,7 @@ def lines(receipt: dict) -> list[dict]:
             "customer_ref": f"etsy-user-{buyer}",
             "listing_id": str(t.get("listing_id") or ""),
             "amount": round(price[0] * qty, 4), "currency": price[1],
-            "at": at, "refunded": refunded,
+            "at": at, "refunded": refunded, "status": status,
         })
     return out
 
@@ -195,7 +290,7 @@ def _record_line(db, line: dict, listed: dict[str, dict]) -> dict:
 
     from ..commerce import cohorts
     from ..commerce.pricing import fees
-    from ..core.models import LedgerEntry
+    from ..core.models import LedgerEntry, Order
 
     ref = f"etsy:{line['receipt_id']}:{line['transaction_id']}"
     target = listed.get(line["listing_id"])
@@ -217,28 +312,42 @@ def _record_line(db, line: dict, listed: dict[str, dict]) -> dict:
     fee_total = round(f.total_fees, 2) if f else 0.0
     contribution = round(price - fee_total, 2) if not line["refunded"] else 0.0
 
+    # F-283: a receipt does not say how the buyer arrived. `unknown` until evidence says
+    # otherwise (finance.sources.attribute); "etsy" asserted a channel nobody knew.
     customer = cohorts.record_customer(
-        db, line["customer_ref"], at=line["at"], acquisition_source="etsy",
+        db, line["customer_ref"], at=line["at"], acquisition_source="unknown",
         first_product_slug=slug, first_category=category, first_season=season)
     order = cohorts.record_order(
         db, line["customer_ref"], ref, product_slug=slug, at=line["at"], version=version,
         category=category, price_cad=price, revenue_cad=0.0 if line["refunded"] else price,
-        contribution_cad=max(0.0, contribution), acquisition_source="etsy",
+        contribution_cad=max(0.0, contribution), acquisition_source="unknown",
         refunded=line["refunded"], currency=line["currency"],
         amount_original=line["amount"], fx_usd_per_cad=cad["usd_per_cad"],
         fx_taken_on=cad["taken_on"], fx_measured=cad["measured"], fees_cad=fee_total,
         offer=offer, source=SOURCE,
         detail={"listing_id": line["listing_id"], "receipt_id": line["receipt_id"],
-                "matched_listing": bool(target)})
+                "matched_listing": bool(target), "receipt_status": line.get("status", ""),
+                "fees_model": "commerce.pricing.fees (transaction + payment processing + "
+                              "amortised listing; offsite/regulatory/conversion unmodelled)"})
 
     ledger = False
     with db.session() as s:
+        if order.get("created"):
+            # F-609: the fee on a new order is the model's until the ledger replaces it.
+            # `offsite_ads_fee_cad` stays None (not read), never 0.0 (read, none charged).
+            row = s.scalar(select(Order).where(Order.external_ref == ref))
+            if row is not None and (row.fees_basis or "unknown") != "measured":
+                row.fees_basis = "modelled"
         if s.scalar(select(LedgerEntry).where(LedgerEntry.evidence_ref == ref)) is None:
             s.add(LedgerEntry(at=line["at"], category="sale",
                               description=f"Etsy receipt {line['receipt_id']} ({slug})",
                               gross_cad=price, fees_cad=fee_total,
                               refunds_cad=price if line["refunded"] else 0.0,
-                              evidence_ref=ref))
+                              evidence_ref=ref, source=SOURCE, external_id=ref,
+                              currency=line["currency"], amount_original=line["amount"],
+                              classification="sale", basis="measured",
+                              fees_basis="modelled",
+                              reconciliation_state="unreconciled"))
             ledger = True
     return {"ref": ref, "recorded": True, "order_created": bool(order.get("created")),
             "customer_created": bool(customer.get("created")), "ledger": ledger,
@@ -274,9 +383,19 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
         return {"ran": False, "reading": "UNMEASURED", "gate": state, "network_calls": 0,
                 "why": "no Etsy credential in this environment to build the receipt reader"}
 
+    from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
+
     last = _last_ingested(db)
     since = (last - OVERLAP) if last is not None else None
-    receipts = reader.receipts(since=since)
+    try:
+        receipts = reader.receipts(since=since)
+    except EtsyAuthNeedsOwner as exc:
+        raised = needs_owner(db, exc, operation=OPERATION, now=now)
+        return {"ran": False, "reading": "UNMEASURED", "gate": state,
+                "network_calls": getattr(reader, "calls", None), "auth_failure": raised,
+                "why": ("the Etsy credential needs the owner (" + raised["failure_class"]
+                        + "): " + str(exc)[:300] + ". Receipts were not read; no order is "
+                        "invented and nothing is retried until the owner re-authorises")}
     listed = _catalogue(db)
     written, refused = [], []
     from .cohorts import CohortRefused
@@ -295,6 +414,10 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
         except IngestRefused as exc:
             refused.append({"receipt_id": receipt.get("receipt_id"), "why": str(exc)[:200]})
     created = [w for w in written if w.get("order_created")]
+    fees = _reconcile_fees(db, reader, since=since, now=now)
+    from ..finance import sources
+
+    first = sources.record_first_sale(db)
     return {
         "ran": True, "reading": "measured", "gate": state,
         "network_calls": getattr(reader, "calls", None),
@@ -307,4 +430,126 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
         "unmatched_listings": sorted({w["ref"] for w in written
                                       if w.get("recorded") and not w.get("matched_listing")}),
         "not_recorded": [w for w in written if not w.get("recorded")] + refused,
+        "fees": fees,
+        "first_sale": ({k: first.get(k) for k in ("external_ref", "acquisition_source",
+                                                  "created")} if first else None),
     }
+
+
+# ---------------------------------------------------------------------------
+# Measured fees (F-558, F-609, F-273)
+
+
+def _reconcile_fees(db, reader, *, since: datetime | None, now: datetime) -> dict:
+    """Read Etsy's payment-account ledger and replace modelled fees with charged ones.
+
+    Only when the reader can read it. When it cannot -- a reader without the method, or a
+    read Etsy refuses -- the fees stay `modelled` and the run says so; the orders written
+    above are not undone because a fee could not be measured.
+    """
+    from ..finance import reconcile
+    from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
+
+    read = getattr(reader, "ledger_entries", None)
+    if read is None:
+        return {"read": False, "basis": "modelled",
+                "why": "this reader cannot read the payment-account ledger, so every fee "
+                       "on these orders is commerce.pricing.fees() output, labelled modelled"}
+    start = (since - LEDGER_LOOKBACK) if since is not None else (now - LEDGER_LOOKBACK)
+    try:
+        entries = read(min_created=start, max_created=now)
+    except EtsyAuthNeedsOwner as exc:
+        raised = needs_owner(db, exc, operation=LEDGER_OPERATION, now=now)
+        return {"read": False, "basis": "modelled", "auth_failure": raised,
+                "why": f"the payment-account ledger read needs the owner: {str(exc)[:200]}"}
+    except Exception as exc:  # noqa: BLE001 - a fee read failing leaves fees modelled
+        return {"read": False, "basis": "modelled",
+                "why": f"the payment-account ledger read failed ({type(exc).__name__}: "
+                       f"{str(exc)[:200]}); fees stay modelled and labelled"}
+    return {"read": True, **reconcile.apply(db, entries, source=SOURCE)}
+
+
+# ---------------------------------------------------------------------------
+# Credential failures only the owner can fix (F-541)
+
+
+def failure_class(exc: Exception) -> str:
+    """Which of the Master's OAuth failure classes an `EtsyAuthNeedsOwner` is."""
+    text = str(exc).lower()
+    if "cannot perform" in text or ("missing" in text and "scope" in text):
+        return "scope_drift"
+    if "invalid_grant" in text:
+        return "refresh_refused"
+    if "revoked" in text or " 401" in text or " 403" in text:
+        return "access_revoked"
+    if "refresh grant" in text:
+        return "refresh_refused"
+    if "seal" in text or "encryption" in text or "decrypt" in text:
+        return "sealing_key_changed"
+    if "no refresh token" in text or "no etsy token" in text:
+        return "no_credential"
+    return "needs_owner"
+
+
+def needs_owner(db, exc: Exception, *, operation: str, now: datetime | None = None) -> dict:
+    """One owner action and one incident for an Etsy credential only the owner can fix.
+
+    Idempotent on `AUTH_ACTION_KEY` and `AUTH_INCIDENT_SIGNATURE`: a six-hourly cadence
+    hitting the same revoked grant restates the open action and counts another report on
+    the open incident; it never adds a second row, and it never re-opens an action the
+    owner has closed (their "done" is theirs -- if the failure recurs after it, the incident
+    count says so).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident, OwnerAction
+
+    now = now or datetime.now(timezone.utc)
+    kind = failure_class(exc)
+    message = str(exc)[:600]
+    fields = {
+        "action": ("Re-authorise the Brambleloop Etsy app in a browser (start at "
+                   "/api/etsy/oauth/start) with the full scope set, including transactions_r. "
+                   f"Etsy refused {operation}: {kind}."),
+        "reason": ("Etsy grants and restores OAuth access only through the "
+                   "authorization-code flow, which needs the account holder at a consent "
+                   f"screen. No code path avoids it. Failure: {message}"),
+        "max_cost_cad": 0.0, "minutes": 6,
+        "consequence_of_delay": ("Orders, payments and fees cannot be read: sales stay "
+                                 "UNMEASURED and every order-reading decision waits."),
+        "blocks": "order ingest, fee reconciliation, first-sale record",
+    }
+    result = {"failure_class": kind, "operation": operation, "owner_action": None,
+              "incident": None}
+    with db.session() as s:
+        action = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == AUTH_ACTION_KEY))
+        if action is None:
+            s.add(OwnerAction(requirement_key=AUTH_ACTION_KEY, **fields))
+            result["owner_action"] = "queued"
+        elif action.done:
+            result["owner_action"] = "already_decided"
+        else:
+            for name, value in fields.items():
+                setattr(action, name, value)
+            result["owner_action"] = "restated"
+        incident = s.scalar(select(Incident).where(
+            Incident.signature == AUTH_INCIDENT_SIGNATURE,
+            Incident.resolved == False))  # noqa: E712
+        if incident is None:
+            s.add(Incident(signature=AUTH_INCIDENT_SIGNATURE, severity="P2",
+                           summary=f"Etsy credential needs the owner ({kind}) on {operation}",
+                           detail={"failure_class": kind, "operation": operation,
+                                   "first_at": now.isoformat(), "last_at": now.isoformat(),
+                                   "message": message, "owner_action": AUTH_ACTION_KEY}))
+            result["incident"] = "opened"
+        else:
+            incident.report_count = int(incident.report_count or 1) + 1
+            detail = dict(incident.detail or {})
+            classes = sorted((set(detail.get("classes") or [detail.get("failure_class")])
+                              | {kind}) - {None})
+            detail.update({"last_at": now.isoformat(), "message": message,
+                           "classes": classes})
+            incident.detail = detail
+            result["incident"] = "counted"
+    return result
