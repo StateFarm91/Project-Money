@@ -106,10 +106,10 @@ Baseline: 019ebf0/856186f full suite **5,242 passing, 0 failing, 285 suites** (l
   test_gates 40, test_eligibility 33, test_certification 12, test_physical 18, test_secret_scan 6,
   test_dependency_lock 7, test_final_closure_matrix 5 — all OK; test_vacuity 6 OK / **1 FAIL**
   (new loop in test_money_truth.py:344) → fixed in b4c52da (vacuity 7/7 after fix).
-- after E merge (787895a): test_customer_data_auth 6 OK, test_cert_dashboard 18 OK. A background
-  run of test_deploy, test_health, test_scale, test_executor, test_launch, test_finance,
-  test_cert_orders, test_vacuity, test_closure was in progress at handoff; its output was not
-  persisted — **re-run them**.
+- after E merge (787895a), completed: test_customer_data_auth 6, test_cert_dashboard 18,
+  test_deploy 32, test_health 39, test_scale 13, test_executor 44, test_launch 27, test_finance 21,
+  test_cert_orders 14, test_vacuity 7, test_closure 27 — **all OK, 0 FAIL** (tree = 787895a + b4c52da;
+  later commits are docs/matrix only).
 Worker-side results (on their own branches, not the integration branch) are in each
 `waves/fb1_<X>.json` `tests_run`. Worker-reported timeouts under load ~15: C — test_cert_wiring
 (drain hit 1200 s), test_shadow (killed at 1500 s); A — test_product_run (timed out 1500 s),
@@ -117,7 +117,7 @@ test_cert_commerce and test_cert_rebuild_chain never run.
 
 ## 7. Tests still required (in this order)
 
-1. On current HEAD: `SUITES="tests/test_deploy.py tests/test_health.py tests/test_scale.py tests/test_executor.py tests/test_cert_orders.py tests/test_closure.py tests/test_cert_wiring.py tests/test_shadow.py tests/test_cert_publish_gates.py tests/test_product_run.py" PY=$PY bash run_tests.sh` on a QUIET machine (no workers).
+1. On current HEAD: `SUITES="tests/test_cert_wiring.py tests/test_shadow.py tests/test_cert_publish_gates.py tests/test_product_run.py" PY=$PY bash run_tests.sh` on a QUIET machine (no workers).
 2. Then the full suite from a clean tree: `REQUIRE_CLEAN=1 PY=$PY bash run_tests.sh` (new F tooling writes `artifacts/suite_runs/*.json`; first real run of the restructured script — watch the header/footer and exit code).
 3. After merging A: test_product_run, test_cert_commerce, test_cert_rebuild_chain, test_search_truth, test_cert_parity_copy, test_cert_publish_gates first.
 4. After merging B and G: their own `tests_run` list, then full suite again.
