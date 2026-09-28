@@ -1,0 +1,16 @@
+PASS test_source_graph_queue_restart_and_idempotence
+PASS test_no_sources_watch_not_filler
+PASS test_invalid_count_and_licence_refused
+PASS test_unknown_visual_review_withholds_and_self_review_refused
+PASS test_revision_change_revokes_help_and_reopens_gap
+PASS test_direct_spec_tamper_cannot_retain_approval
+PASS test_support_sources_do_not_copy_customer_pii
+PASS test_untrusted_slug_cannot_create_external_help_link
+PASS test_real_worker_scanner_reads_production_pattern_state
+C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\runtime-build2\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+PASS test_public_route_refuses_draft_and_stale_revision
+PASS test_pdf_links_require_configured_origin_and_approved_revision
+PASS test_actual_pdf_render_threads_revision_bound_help_to_layout
+PASS test_authenticated_draft_review_serving_has_distinct_identities
+13 passing

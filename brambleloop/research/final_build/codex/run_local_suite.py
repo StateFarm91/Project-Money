@@ -73,7 +73,7 @@ def main():
     env['BRAMBLELOOP_FONT_PATH'] = str(Path(args.font).resolve())
     env['PYTHONIOENCODING'] = 'utf-8'
     code = ('import sys,runpy; sys.path[:0]=[sys.argv[1],sys.argv[2],sys.argv[3]]; '
-            'runpy.run_path(sys.argv[4],run_name="__main__")')
+            'suite=sys.argv[4]; sys.argv=[suite]; runpy.run_path(suite,run_name="__main__")')
     result = 1
     with tempfile.TemporaryDirectory(prefix='codex_final_suite_') as scratch:
         env.update(TEMP=scratch, TMP=scratch, TMPDIR=scratch)
