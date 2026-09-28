@@ -1,7 +1,7 @@
 {
  "cluster": "B",
  "branch": "claude/fb1-B",
- "head": "<filled at commit>",
+ "head": "see final commit on claude/fb1-B (report committed after 5ef5031)",
  "base": "be8d416",
  "requirements": [
   {
@@ -307,9 +307,9 @@
   },
   {
    "file": "tests/test_cert_commerce.py",
-   "passing": 11,
-   "failing": 2,
-   "note": "the 2 failures (reaches_upload, calibrated_release) were run BEFORE the harness fix: the new F-524 image gate blocks because the harness forces the release gates but no listing-set certificate exists in that chain. The harness now forces etsy_ops.certified_images (WIP commit); rerun was in progress at checkpoint and is UNVERIFIED"
+   "passing": "12 of 13 completed after harness fix",
+   "failing": 0,
+   "note": "rerun after the harness fix (5ef5031): both formerly failing tests now OK; the last test (deliverable QA, unaffected by this change) was still running at checkpoint"
   }
  ],
  "tests_changed": [
@@ -358,7 +358,6 @@
   "etsy.shop:incomplete is a P1 and will hold launch readiness (no_open_incidents) until the owner completes the shop's trust surfaces - intended, but visible",
   "store.activate spends the Etsy listing fee (US$0.20, recorded as CA$0.27 at 1.37) only with phase, owner env grant and a per-job launch_authorisation; the launch_authorisation is an opaque non-empty string, not verified against an owner record",
   "images depend on artifact bytes surviving (DurableArtifact recovery if kept); on ephemeral disk publish blocks with a reason rather than creating an image-less draft",
-  "listing census flags every pre-existing listing not created by this system as an unexpected P2 incident",
-  "test_cert_commerce past-shadow harness fix committed as WIP and not yet confirmed green; next_action: run tests/test_cert_commerce.py (~11 min)"
+  "listing census flags every pre-existing listing not created by this system as an unexpected P2 incident"
  ]
 }
