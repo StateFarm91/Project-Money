@@ -142,8 +142,20 @@ def test_the_finance_endpoint_reports_observed_figures_and_no_forecast():
 
 
 def test_the_support_endpoint_shows_that_nothing_was_sent():
-    with _client() as c:
-        body = c.get("/api/support").json()
+    # F-696 / F-689: the case text is customer content, so the operator credential is
+    # required to read it; without one the route refuses rather than serving it.
+    token = "d" * 40
+    old = os.environ.get("BRAMBLELOOP_OPS_TOKEN")
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = token
+    try:
+        with _client() as c:
+            assert c.get("/api/support").status_code == 401
+            body = c.get("/api/support", headers={"Authorization": f"Bearer {token}"}).json()
+    finally:
+        if old is None:
+            os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)
+        else:
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = old
     assert body["nothing_sent"] is True
     assert all(case["sent"] is False for case in body["cases"])
 

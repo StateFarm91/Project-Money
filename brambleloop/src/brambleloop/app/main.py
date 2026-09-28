@@ -592,8 +592,43 @@ def api_finance() -> dict:
     }
 
 
+# F-696 / F-689: routes that return customer, order or support *content* -- anything a buyer
+# wrote, or anything that identifies a buyer -- are operator reads, not dashboard reads.
+#
+# The dashboard's read-only views are unauthenticated on purpose (an absent owner opens a URL),
+# and that convenience is exactly how `/api/support` came to serve customer question text to
+# anyone who could reach the service. Aggregates (counts, rates, service levels) stay open;
+# the rows themselves do not. Every route listed here goes through `_operator_read_refusal`,
+# and `tests/test_customer_data_auth.py` enumerates every GET route the app registers against
+# seeded customer sentinels, so a new route that starts quoting a customer fails the suite
+# until it is listed here.
+CUSTOMER_DATA_ROUTES: frozenset[str] = frozenset({
+    "/api/support",
+})
+
+
+def _operator_read_refusal(authorization: str) -> JSONResponse | None:
+    """The operator-credential check for a read that carries customer content.
+
+    Same semantics as every write guard: absent token is closed (503), a wrong or missing
+    credential is 401, and the refusal never echoes what was presented or what was expected.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required: this route returns "
+                                      "customer content"}, status_code=401)
+    return None
+
+
 @app.get("/api/support")
-def api_support(limit: int = 50) -> dict:
+def api_support(limit: int = 50, authorization: str = Header(default="")):
+    """Support cases with their question and answer text. Operator credential required."""
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
     with db.session() as s:
         cases = list(s.scalars(select(SupportCase).order_by(SupportCase.id.desc())
                                .limit(min(limit, 500))))
