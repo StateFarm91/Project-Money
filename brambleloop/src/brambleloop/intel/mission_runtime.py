@@ -713,6 +713,21 @@ def _enqueue_breakthrough(db, enqueue: Callable, *, event_id: int, arena: str, p
             "diverged_from": inputs["diverged_from"], "briefs": len(inputs["briefs"])}
 
 
+def coverage_target(db, *, key: str, pod: str, event_id: int, fp: str):
+    """Resolve a unique producer origin; a department alone is not an origin."""
+    from sqlalchemy import select
+    from ..core.models import CoverageGap
+    with db.session() as s:
+        candidates = list(s.scalars(select(CoverageGap).where(
+            CoverageGap.benchmark_key == key, CoverageGap.pod == pod)))
+        gap = candidates[0] if len(candidates) == 1 else None
+        gap_id, gap_state = (gap.id, gap.state) if gap is not None else (None, None)
+        origin = ({"gap_id": gap.id, "benchmark_key": key,
+                   "coverage_arena": gap.arena, "pod": pod,
+                   "event_id": event_id, "event_fingerprint": fp} if gap else None)
+    return gap_id, gap_state, origin
+
+
 def process_listing(db, item: dict, *, director: pods.Director, enqueue: Callable,
                     today: date, ours: dict, objective: str | None = None) -> dict | None:
     """Carry one new or changed listing through the eight steps. None when a duplicate."""
@@ -870,10 +885,8 @@ def process_listing(db, item: dict, *, director: pods.Director, enqueue: Callabl
 
     # -- 6. coverage.advance (#314) ------------------------------------------------------
     will_tournament = (tournament["decision"] == mech.TOURNAMENT and ceiling["permitted"])
-    with db.session() as s:
-        gap = s.scalar(select(CoverageGap).where(CoverageGap.benchmark_key == key,
-                                                 CoverageGap.pod == pod))
-        gap_id, gap_state = (gap.id, gap.state) if gap is not None else (None, None)
+    gap_id, gap_state, origin = coverage_target(
+        db, key=key, pod=pod, event_id=event_id, fp=fp)
     moves = []
     if gap_id is None:
         cov = {"gap": None, "why": ("no coverage gap for this pod: this shop already sells "
@@ -898,6 +911,7 @@ def process_listing(db, item: dict, *, director: pods.Director, enqueue: Callabl
                        + ("the arena's demand is not demonstrated" if not proven else
                           may.get("why", "") if not may["may_enter"] else
                           ceiling.get("why", "")))[:400]}
+    cov["origin"] = origin
     steps["coverage"] = cov
 
     # -- 7. the response pipeline (#306, #307, #309) --------------------------------------
@@ -1952,6 +1966,9 @@ def advance_pipeline(db, *, event_ids: list[int] | None = None,
                   else "engineering" if "cir_engineering" in done else None)
             if to:
                 coverage_move = advance_gap(db, ev.pod, to, product_slug=winner["slug"],
+                                            event_id=ev.id, candidate_key=winner.get("original_key", ""),
+                                            origin=((winner.get("brief") or {}).get(
+                                                "source_context") or {}).get("coverage_origin"),
                                             reason=f"the MJs response {winner['slug']} "
                                                    f"reached {to} (#309)")
         with db.session() as s:
