@@ -135,6 +135,8 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
     from . import sources
 
     norm = normalise(entries)
+    from . import listing_costs
+    listing_fee_entries = listing_costs.ingest_actual(db, norm)
     fees = [e for e in norm if e["kind"] in FEE_KINDS]
     by_ref: dict[str, list[dict]] = {}
     for e in fees:
@@ -219,6 +221,7 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
     incident = reconciliation_incident(db, orphans) if orphans else None
     return {
         "entries": len(norm), "fee_entries": len(fees),
+        "listing_fee_entries_applied": listing_fee_entries,
         "unclassified": sorted({e["ledger_type"] for e in norm if e["kind"] == "unclassified"}),
         "orders_measured": len(applied_orders), "applied": applied_orders[:50],
         "offsite_attributed": [r for r, _ in attributions],

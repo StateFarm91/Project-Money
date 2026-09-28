@@ -180,6 +180,12 @@ def test_tax_is_reserved_and_never_counted_as_ours():
     assert pl.net_sales_cad == 125.0
     assert abs(pl.tax_reserve_cad - 125.0 * TAX_RESERVE_RATE) < 0.01
     assert pl.net_profit_cad == round(125.0 - 14.6 - 0.0 - pl.tax_reserve_cad, 4)
+    # Receipt-derived/modelled fees are not observed cash charges.
+    assert pl.cash_cad is None
+    assert pl.to_dict()["all_figures_observed"] is False
+    # Arithmetic stays independently pinned; a fully measured reading permits the proxy.
+    pl.fees_by_basis = {"measured": pl.platform_fees_cad}
+    pl.sales_reading = "measured"
     assert pl.cash_cad == pl.net_profit_cad
 
 

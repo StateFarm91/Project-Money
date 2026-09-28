@@ -1574,11 +1574,13 @@ def handle_store_activate(ctx: JobContext) -> dict:
         refusal = activation_authority.validate(
             ctx.db, authorisation, slug=slug, version=version,
             listing_id=listing_id, release=i.get("release", ""))
+    from ..finance import listing_costs
     fee_cad = round(LISTING_FEE_USD * 1.37, 2)
+    pending_fee = listing_costs.pending(ctx.db, listing_id, fee_cad)
     if refusal is None:
         agent = ctx.registry.get(ctx.job.agent)
         spent = ctx.registry.spend_today(ctx.job.agent)
-        if spent + fee_cad > agent.daily_cost_ceiling_cad:
+        if spent + pending_fee > agent.daily_cost_ceiling_cad:
             refusal = (f"the listing fee (about CA${fee_cad:.2f}) would take "
                        f"{ctx.job.agent} past its daily ceiling of "
                        f"CA${agent.daily_cost_ceiling_cad:.2f} (spent CA${spent:.2f})")
@@ -1602,6 +1604,9 @@ def handle_store_activate(ctx: JobContext) -> dict:
     if refusal:
         ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": refusal})
         return {"activated": False, "blocked": True, "reasons": [refusal]}
+    listing_costs.reserve(ctx.db, listing_id=listing_id, amount=fee_cad,
+                          agent=ctx.job.agent, ceiling=ctx.registry.get(ctx.job.agent).daily_cost_ceiling_cad,
+                          job_id=ctx.job.id)
     ctx.audit("store.activation_authority_used", artifact=artifact,
               detail={"approval_id": int(authorisation), "etsy_listing_id": listing_id})
     try:
@@ -1610,11 +1615,6 @@ def handle_store_activate(ctx: JobContext) -> dict:
     except EtsyAuthNeedsOwner as e:
         etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")
         raise
-    ctx.registry.record_cost(ctx.job.agent, fee_cad, kind="etsy_listing_fee",
-                             job_id=ctx.job.id,
-                             detail={"listing_id": listing_id, "usd": LISTING_FEE_USD,
-                                     "basis": "Etsy's listing fee, charged at publication; "
-                                              "converted at 1.37"})
     live = str(after.get("state") or "") == "active"
     with ctx.db.session() as s:
         row = s.scalar(select(Listing).where(Listing.product_slug == slug,
