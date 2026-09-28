@@ -102,4 +102,31 @@ class OriginTests(unittest.TestCase):
             outcome=mission_runtime.advance_pipeline(self.db,event_ids=[self.event])
         self.assertEqual(outcome['events'][0]['coverage']['gap'],self.b)
         self.assertEqual(self.states(),[('uncovered',''),('certified','product-b')])
+    def test_event_mutation_between_resolver_and_write_refuses(self):
+        from unittest.mock import patch
+        original=intake.coverage_origin
+        for field,value in [('steps',{'coverage':{'origin':{'gap_id':999}}}),
+                            ('pod','other'),('benchmark_key','other'),('arena','other'),
+                            ('tournament_job_id',999)]:
+            with self.db.session() as session:
+                before=copy.deepcopy(getattr(session.get(MjsMissionEvent,self.event),field))
+            def resolve_then_mutate(*args, **kwargs):
+                result=original(*args, **kwargs)
+                with self.db.session() as session:
+                    setattr(session.get(MjsMissionEvent,self.event),field,value)
+                return result
+            with patch.object(intake,'coverage_origin',side_effect=resolve_then_mutate):
+                self.assertEqual(self.advance()['verdict'],'UNKNOWN',field)
+            self.assertEqual(self.states(),[('uncovered',''),('uncovered','')])
+            with self.db.session() as session:
+                setattr(session.get(MjsMissionEvent,self.event),field,before)
+    def test_malformed_persisted_brief_origin_is_unknown(self):
+        for brief in (None,[],{'source_context':[]},{'source_context':'bad'},
+                      {'source_context':{'coverage_origin':[]}}):
+            self.assertIsNone(intake.brief_coverage_origin(brief))
+            result=intake.advance_gap(self.db,'blankets','engineering',reason='regate premise',
+                product_slug='product-b',event_id=self.event,candidate_key='candidate-b',
+                origin=intake.brief_coverage_origin(brief))
+            self.assertEqual(result['verdict'],'UNKNOWN')
+        self.assertEqual(self.states(),[('uncovered',''),('uncovered','')])
 if __name__=='__main__': unittest.main()

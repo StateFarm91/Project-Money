@@ -26,3 +26,9 @@ Controls include two same-pod gaps; intended gap alone advances. The integration
 Legacy events without producer snapshots remain UNKNOWN. Do not backfill origins by selecting a nearby gap. A tournament worker racing before process_listing persists its final event also remains UNKNOWN; no automatic mutation retry was added. Existing events with already-wrong product bindings require deliberate reconciliation, not overwrite. No full mission suite or heavy cert_wiring run here; coordinator should run affected suites on the integrated final source. No PostgreSQL or multi-process concurrency execution claimed. Snapshot identity verifies lineage and candidate department/job, not a new semantic judge proving the design answers the market gap.
 
 No paid APIs, external calls, deployment, production mutations, Visual changes, status promotion or threshold changes.
+
+## Follow-on: final event snapshot recheck
+
+The mutation transaction now locks/rechecks the event as well as the gap: pod, benchmark, mission arena, tournament job, event fingerprint, gap ID and complete producer origin. The conditional UPDATE also includes an EXISTS predicate for these event fields and the full serialized steps snapshot, covering mutation after the in-transaction read. JSON is cast to text for comparison because PostgreSQL JSON itself has no equality operator; a serialization mismatch conservatively refuses. PostgreSQL execution remains untested.
+
+Nine focused tests pass after this follow-on. Race injection changes each of steps, pod, benchmark, mission arena and tournament job after the initial resolver returns but before the second transaction; every case yields UNKNOWN and leaves both gaps unchanged. Regate and mission consumers use a defensive brief-origin reader; malformed source_context/origin returns UNKNOWN without a .get crash. No multiprocess guarantee inferred from these local SQLite controls.
