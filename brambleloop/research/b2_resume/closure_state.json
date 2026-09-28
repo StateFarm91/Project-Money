@@ -1,5 +1,5 @@
 {
- "head_basis": "after the independent audit of 15c5d1b (C-86 relabels applied)",
+ "head_basis": "856186f (final: full suite 5,242 passing / 0 failing)",
  "counts": {
   "OWNER-GATED": 58,
   "COMPLETE+PROVEN": 218,
@@ -354,5 +354,5 @@
   "production_window": 1,
   "ad_authority": 6
  },
- "note": "0 OPEN with the registry alone; with gates read live on a fresh DB (no credentials) closed_out is True and no gate reads open. Final full suite and the audit verdict are recorded in BUILD2_CERTIFICATION.md."
+ "verdict": "Build 2 executable obligations certified; remaining gates are owner/data/external, built halves proven."
 }

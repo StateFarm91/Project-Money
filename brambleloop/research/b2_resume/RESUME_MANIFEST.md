@@ -2,7 +2,17 @@
 
 **Updated 2026-09-27 ~17:10Z at an owner-requested pause.** Build 2 is NOT certified. Safe to resume.
 
-## 0a. State at 501d435 (2026-09-28 ~03:30Z) -- read this first
+## 0. FINAL STATE at 856186f (2026-09-28 ~09:45Z) -- read this first
+
+Build 2's executable obligations are certified at 856186f: full suite from clean state 5,242 passing /
+0 suites failing; independent 320-row audit applied (reports/independent_audit_15c5d1b.md; C-86/C-87);
+closure 218 COMPLETE+PROVEN / 0 OPEN / 58 owner / 37 data / 7 external with gates read live
+(closure_state.json). Every remaining gate is a real owner/data/external prerequisite whose built half is
+proven. Nothing is deployed, merged to production, published or spent. The integrated branch
+`claude/repository-setup-nc9x6o` is untouched at fcb982d: merging `claude/visual-investigation` into it and
+deploying is the owner's call. The section below (0a) is the mid-wave state kept for history.
+
+## 0a. State at 501d435 (2026-09-28 ~03:30Z) -- historical
 
 All six repair clusters plus the Codex-driven orders hardening are MERGED into `claude/visual-investigation`
 (platform bb32b3a, orders 9931ebf, growth 63fe5bd, design 3d12491, orders2 b9f7e3a, improve bb6f3a2,

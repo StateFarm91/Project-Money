@@ -1,6 +1,6 @@
 # BUILD_STATE
 
-> **2026-09-28 — BUILD 2 CERTIFICATION: repair wave complete, final verification in progress.** Two independent audits (9434c53: 55 invalid/96 weak; Codex: 75 findings) refuted the earlier closeout. Every finding was adjudicated and the confirmed ones repaired in six clusters plus four follow-on waves (ledger C-60..C-86, all FIXED except the honesty items closed by relabelling). A fresh independent 320-row audit of 15c5d1b found no phantom module or unreached handler; its 11 labelling findings are applied. Honest closure at a885680: **218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated · 7 external-blocked**, with every gate read live on a fresh database. The full suite from clean state on a885680 is the last step; see "2026-09-28 — Build 2 certification" below and `research/b2_resume/RESUME_MANIFEST.md`. Nothing deployed, published or spent; phase shadow.
+> **2026-09-28 — BUILD 2 CERTIFIED (executable obligations), remaining gates parked honestly.** Two independent audits (9434c53: 55 invalid/96 weak; Codex: 75 findings) refuted the earlier closeout. Every finding was adjudicated and the confirmed ones repaired in six clusters plus four follow-on waves (ledger C-60..C-87, all FIXED). A fresh independent 320-row audit of 15c5d1b found no phantom module or unreached handler; its 11 labelling findings are applied. Final head **856186f**: full suite from clean state **5,242 passing, 0 suites failing**; closure with every gate read live on a fresh database **218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated · 7 external-blocked**, `closed_out: true`. Production `/api/verify` 08:16Z: 12 checks, none failing. Nothing deployed, published or spent; phase shadow. Product-Only Visual V1 remains NOT LOCKED. Owner batch and details: "2026-09-28 — Build 2 certification" below and `research/b2_resume/RESUME_MANIFEST.md`.
 
 
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
@@ -423,7 +423,7 @@ external gate and never complete, the governor says plainly that no experiment-d
 Product-Only Visual V1 remains NOT LOCKED; the model-bearing render path remains external (0/16,
 0/7 draws).
 
-**Full suite from clean state on a885680:** PENDING — recorded below when it finishes.
+**Full suite from clean state on the final head 856186f:** `bash run_tests.sh` — **5,242 passing, 0 suites failing** (285 suites; log in `research/b2_resume/evidence/full_suite_856186f_5242_passing_0_failing.log`). The first run on f4565dd (5,237 passing, 5 suites failing) found five older tests asserting behaviour the repair wave deliberately changed; each was adapted to the documented new behaviour, none loosened (ledger C-87).
 
 **Remaining gates, all real, all typed (row ids in `research/b2_resume/closure_state.json`).**
 Owner (58): fund the vision/model provider account (`image_vision`: 15 rows incl. the whole
