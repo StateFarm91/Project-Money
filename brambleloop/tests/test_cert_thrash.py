@@ -73,13 +73,25 @@ def test_a_paid_loop_is_suspended_until_the_hypothesis_changes():
     assert out["progress"]["mjs.scan"]["progress_per_dollar"] == 0
     Scheduler(db).tick()
     assert not _enqueued(db, "mjs.scan"), "the next cadence window restarted the loop"
-    # a new build is a changed hypothesis: the suspension lifts and the cadence runs again
+    # C-85 (Codex P08): a new build is NOT by itself a changed hypothesis -- a deploy that
+    # touched a listing template says nothing about the radar loop -- so a new commit alone
+    # leaves the suspension standing.
+    from brambleloop.swarm import orchestrate
+
     os.environ["BRAMBLELOOP_COMMIT"] = "f" * 40
+    try:
+        Scheduler(db).tick()
+        assert not _enqueued(db, "mjs.scan"), "a new build alone lifted the suspension"
+    finally:
+        os.environ.pop("BRAMBLELOOP_COMMIT", None)
+    # A change to the code that runs the loop is: the suspension lifts and the cadence runs.
+    real = orchestrate.handler_digest
+    orchestrate.handler_digest = lambda jt: "changed-handler-source"
     try:
         Scheduler(db).tick()
         assert _enqueued(db, "mjs.scan")
     finally:
-        os.environ.pop("BRAMBLELOOP_COMMIT", None)
+        orchestrate.handler_digest = real
 
 
 def test_unchanged_free_polling_backs_off_and_progress_lifts_it():
@@ -135,9 +147,20 @@ def test_a_dead_call_the_breaker_tripped_is_not_redriven_under_the_same_build():
     result = JobQueue(db).requeue_dead(job_types=["etsy.probe"])
     assert not result["requeued"] and result["skipped"]
     assert all("changed hypothesis" in s["reason"] for s in result["skipped"])
+    # C-85: a new build alone is still the same hypothesis; a change to the handler's code is
+    # not.
+    from brambleloop.swarm import orchestrate
+
     os.environ["BRAMBLELOOP_COMMIT"] = "e" * 40
     try:
         result = JobQueue(db).requeue_dead(job_types=["etsy.probe"])
+        assert not result["requeued"], ("a new build alone re-drove the dead call", result)
+        real = orchestrate.handler_digest
+        orchestrate.handler_digest = lambda jt: "changed-handler-source"
+        try:
+            result = JobQueue(db).requeue_dead(job_types=["etsy.probe"])
+        finally:
+            orchestrate.handler_digest = real
         assert result["requeued"], result
     finally:
         os.environ.pop("BRAMBLELOOP_COMMIT", None)

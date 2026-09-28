@@ -312,7 +312,8 @@ def thrash_sweep(db, *, now: datetime | None = None,
             # the hypothesis changes -- which, for a deployed system, is a different build
             # (the root-cause fix) -- so the next cadence window cannot restart the loop.
             suspension = {"kind": SUSPENDED, "job_type": entry["job_type"],
-                          "code_commit": _commit(), "since": now.isoformat()}
+                          "code_commit": _commit(), "since": now.isoformat(),
+                          "handler_digest": handler_digest(entry["job_type"])}
             if row is None:
                 s.add(Incident(severity="P2", signature=signature, summary=summary,
                                detail={"job_type": entry["job_type"],
@@ -366,6 +367,44 @@ def _commit() -> str:
     from ..core.build import commit
 
     return commit()
+
+
+def handler_digest(job_type: str) -> str | None:
+    """A digest of the source of the module that handles `job_type` (C-85, Codex P08).
+
+    "A new build" lifted every suspension: any deploy -- a copy change in a listing template
+    -- released a loop tripped in the radar. A changed hypothesis for a tripped loop is a
+    change to the code that runs it, so the suspension records the handler module's source
+    digest and lifts only when THAT changes (or a person resolves the incident). None when
+    the handler cannot be located, in which case the build commit is the fallback."""
+    import hashlib
+    import inspect
+    import sys
+
+    try:
+        from ..runtime.worker import handlers
+
+        fn = handlers.get(job_type)
+        if fn is None:
+            return None
+        mod = sys.modules.get(getattr(fn, "__module__", "") or "")
+        path = inspect.getsourcefile(mod) if mod is not None else None
+        if not path:
+            return None
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()[:16]
+    except Exception:  # noqa: BLE001 - an unreadable handler is no evidence of a change
+        return None
+
+
+def _hypothesis_changed(suspension: dict) -> bool:
+    """Whether the code the suspended loop runs has changed since it was suspended."""
+    recorded = suspension.get("handler_digest")
+    if recorded:
+        current = handler_digest(suspension.get("job_type") or "")
+        return bool(current) and current != recorded
+    # A suspension written before digests were recorded: the build commit is all there is.
+    return bool(suspension.get("code_commit")) and suspension["code_commit"] != _commit()
 
 
 def _state_of(outputs) -> str:
@@ -483,8 +522,9 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
 def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
     """Job types the scheduler must not enqueue now, with the reason (#34).
 
-    A paid loop tripped by the breaker stays suspended until the running build differs from
-    the one it was suspended under (a changed hypothesis) or somebody resolves the incident;
+    A paid loop tripped by the breaker stays suspended until the code that runs it changes
+    (a changed hypothesis, C-85: any new build no longer counts) or somebody resolves the
+    incident;
     an unchanged poll is suspended until its backoff expires."""
     from sqlalchemy import select
 
@@ -502,11 +542,12 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
             if not jt:
                 continue
             if sus.get("kind") == SUSPENDED:
-                if sus.get("code_commit") and sus["code_commit"] != commit:
-                    continue                      # a new build is a changed hypothesis
+                if _hypothesis_changed(sus):
+                    continue          # the handler's own code changed: a changed hypothesis
                 out[jt] = {"kind": SUSPENDED, "incident": inc.signature,
                            "why": "a loop spending without progress; waits for a changed "
-                                  "hypothesis (a new build) or a resolved incident"}
+                                  "hypothesis (a change to the code that runs it) or a "
+                                  "resolved incident"}
             elif sus.get("kind") == BACKOFF:
                 until = datetime.fromisoformat(sus["suspend_until"])
                 if until > now:
@@ -535,11 +576,11 @@ def retry_allowed(db, job) -> dict:
                                "inputs": detail.get("inputs") or {}},
                               sort_keys=True, default=str) == call
             sus = detail.get("suspension") or {}
-            if same and sus.get("code_commit", _commit()) == _commit():
+            if same and not _hypothesis_changed(sus):
                 return {"allowed": False, "incident": inc.signature,
                         "why": ("this exact call tripped the thrash breaker under this build; "
-                                "a retry needs a changed hypothesis -- a root-cause fix "
-                                "deployed, or the incident resolved (#34)")}
+                                "a retry needs a changed hypothesis -- a change to the code "
+                                "that runs it, or the incident resolved (#34)")}
     return {"allowed": True}
 
 
