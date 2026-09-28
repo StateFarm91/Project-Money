@@ -1467,6 +1467,12 @@ class ConfigVersion(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     digest: Mapped[str] = mapped_column(String(64), default="", index=True)
     why_changed: Mapped[str] = mapped_column(Text, default="")
+    # C-82: two different facts that one column used to conflate. `tests_declared` is the
+    # coverage the registering code names (test files that exercise this configuration); it
+    # is a claim about what *could* be run. `tests_run` holds only observed run records --
+    # each with the run id and the digest of the source it ran against -- appended by
+    # `league.record_test_run` when a run actually happened. Registration never writes it.
+    tests_declared: Mapped[list] = mapped_column(JSON, default=list)
     tests_run: Mapped[list] = mapped_column(JSON, default=list)
     cost_per_call_cad: Mapped[float] = mapped_column(Float, default=0.0)
     affected_departments: Mapped[list] = mapped_column(JSON, default=list)

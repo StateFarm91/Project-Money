@@ -81,7 +81,7 @@ def register_routing_incumbents(db) -> dict:
             why_changed=(f"incumbent model routing recorded from gateway.routing.TASKS: "
                          f"{task.why}. It runs because the table says so, and the table was "
                          f"written before any challenger existed"),
-            tests_run=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
+            tests_declared=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
             affected_departments=TASK_DEPARTMENTS.get(key, DEFAULT_DEPARTMENTS),
             incumbent=True)
         (unchanged if out.get("unchanged") else registered).append(
@@ -151,7 +151,7 @@ def register_routing_challengers(db) -> dict:
                          f"incumbent on the incumbent's shared task set and a holdout before "
                          f"anything switches, and it switches only by a change to "
                          f"gateway.routing.TASKS the owner approves"),
-            tests_run=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
+            tests_declared=("tests/test_pods_routing.py",), cost_per_call_cad=cost,
             affected_departments=TASK_DEPARTMENTS.get(key, DEFAULT_DEPARTMENTS),
             incumbent=False)
         (unchanged if out.get("unchanged") else registered).append(
@@ -182,7 +182,7 @@ def register_image_incumbent(db) -> dict:
         db, kind=IMAGE_KIND, key=IMAGE_KEY, payload=_provider_payload(provider),
         why_changed=(f"incumbent image generator recorded from visual.provider_trial: "
                      f"{provider.what}. {provider.note}"),
-        tests_run=("tests/test_provider_trial.py",),
+        tests_declared=("tests/test_provider_trial.py",),
         cost_per_call_cad=round(provider.usd_per_image / routing.USD_PER_CAD, 6),
         affected_departments=("creative_assets",), incumbent=True)
     if out.get("unchanged"):
@@ -203,7 +203,7 @@ def _challenger_version(db, provider_key: str, *, trial_ref: str) -> int | None:
         why_changed=(f"challenger image generator put to a provider trial ({trial_ref}): "
                      f"{provider.what}. Registered so the trial's verdict is recorded "
                      f"against the configuration it judged; it is not the incumbent"),
-        tests_run=("tests/test_provider_trial.py",),
+        tests_declared=("tests/test_provider_trial.py",),
         cost_per_call_cad=round(provider.usd_per_image / routing.USD_PER_CAD, 6),
         affected_departments=("creative_assets",), incumbent=False)
     return out["id"]
@@ -328,7 +328,7 @@ def register_code_versions(db) -> dict:
         reason = (f"{why}; first recorded from the running code" if prior is None else
                   f"{why}; the running code moved from version {prior['version']}")
         out = league.register(db, kind=kind, key=key, payload=payload, why_changed=reason,
-                              tests_run=tests, cost_per_call_cad=cost,
+                              tests_declared=tests, cost_per_call_cad=cost,
                               affected_departments=departments, incumbent=True)
         (unchanged if out.get("unchanged") else registered).append(
             {"kind": kind, "key": key, "version": out["version"]})

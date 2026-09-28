@@ -319,16 +319,28 @@ def handle_radar_score(ctx: JobContext) -> dict:
         if gate is not None:
             payload["gate"] = {"decision": gate["decision"], "as_of": gate["as_of"]}
         # #97: Pattern Engineering prioritises what its lessons favour. A favoured lesson
-        # matching this concept raises the draft's stated value, which `priority_for` turns
-        # into an earlier claim inside the band.
+        # matching this concept is a *heuristic* reason to claim the draft earlier inside its
+        # band (`swarm.orchestrate.HEURISTIC_KEY`, bounded to one step) -- never a CAD value:
+        # a lesson match is not a sourced estimate of what the work is worth (C-66 / M05),
+        # and the currency fields stay for estimates that say where they came from. The
+        # benefit of the nudge is recorded as unmeasured until the draft's outcome is read.
         eng_lessons = [l for l in consume.matching(ctx.db, "pattern_engineering",
                                                    concept_text) if l["direction"] > 0]
         if eng_lessons:
-            payload["value_cad"] = float(payload.get("value_cad") or 0.0) + 150.0 * len(
-                eng_lessons)
+            from ..swarm.orchestrate import HEURISTIC_KEY, MAX_HEURISTIC_STEPS
+
+            payload[HEURISTIC_KEY] = {
+                "source": "pattern_engineering lessons (#97)",
+                "lessons": [l["id"] for l in eng_lessons],
+                "steps": min(MAX_HEURISTIC_STEPS, len(eng_lessons)),
+                "reason": (f"{len(eng_lessons)} favouring lesson(s) match this concept: "
+                           + "; ".join(", ".join(l["shared"][:3]) for l in eng_lessons))[:200],
+                "benefit": "unmeasured: a bounded heuristic nudge, not an expected value"}
             payload["lessons"] = [l["id"] for l in eng_lessons]
             consume.act(ctx.db, "pattern_engineering", eng_lessons,
-                        how=f"cir.draft of {seed.slug} prioritised by its lessons")
+                        how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
+                             f"step inside its band by a lesson heuristic; benefit unmeasured "
+                             f"until the draft's outcome is read"))
         ctx.enqueue("crochet_engineer", "cir.draft", payload,
                     idempotency_key=f"draft:{seed.slug}")
     return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
@@ -617,10 +629,14 @@ def handle_certify(ctx: JobContext) -> dict:
                     "release_hash": cert.release_hash, "withheld": True,
                     "reasons": [teardown["unique_value"].get("reason", "")][:1]}
         # #228: an owner veto on this product withholds it at certification, before anything
-        # downstream is built for it. The owner lifts it by ruling again.
+        # downstream is built for it. The owner lifts it by ruling again. Recorded on the
+        # release's one withholding record (C-67 / M10) so the rebuild and draft paths refuse
+        # on it too, under its own kind, beside -- never instead of -- the teardown QA's.
         from ..intel.mission_runtime import active_veto
 
         veto = active_veto(ctx.db, cir.slug)
+        _mark_withheld(ctx, cir, (f"owner veto (#228): {veto['why']}" if veto["vetoed"]
+                                  else None), kind="owner_veto")
         if veto["vetoed"]:
             ctx.audit("gate.release_withheld", artifact=f"{cir.slug}@{cir.version}",
                       detail={"reason": f"owner veto (#228): {veto['why']}",
@@ -643,42 +659,26 @@ def handle_certify(ctx: JobContext) -> dict:
             "reasons": cert.blocking_reasons[:5]}
 
 
-def _mark_withheld(ctx: JobContext, cir: CIR, reason: str | None) -> None:
-    """Record the teardown withhold on the stored release itself (C-69, #163).
+def _mark_withheld(ctx: JobContext, cir: CIR, reason: str | None,
+                   kind: str = "teardown_qa") -> None:
+    """Record one withholding reason on the stored release itself (C-69, #163; C-67, M10).
 
     The release is persisted before the teardown QA runs (the QA reads it), so the withhold
     has to live on the row every later stage reads -- `chain.rebuild`, `listing.draft` --
-    rather than only in an audit row they never consult. A later certification that clears
-    the QA clears the mark.
+    rather than only in an audit row they never consult. The row carries one record keyed by
+    reason kind (`publish.withholding`): clearing this kind never clears another, and the
+    `withheld` summary the build stages read is derived from every build-blocking kind.
     """
-    from sqlalchemy import select
+    from ..publish import withholding
 
-    with ctx.db.session() as s:
-        product = s.scalar(select(Product).where(Product.slug == cir.slug))
-        pv = s.scalar(select(PatternVersion).where(
-            PatternVersion.product_id == product.id,
-            PatternVersion.version == cir.version)) if product is not None else None
-        if pv is None:
-            return
-        cert = dict(pv.certificate or {})
-        if reason:
-            cert["withheld"] = reason
-        elif "withheld" in cert:
-            cert.pop("withheld")
-        else:
-            return
-        pv.certificate = cert
+    withholding.record(ctx.db, cir.slug, cir.version, kind=kind, reason=reason)
 
 
 def _withheld_reason(db, slug: str, version: str) -> str | None:
-    from sqlalchemy import select
+    """Every build-blocking reason on the release's withholding record, re-read live."""
+    from ..publish import withholding
 
-    with db.session() as s:
-        product = s.scalar(select(Product).where(Product.slug == slug))
-        pv = s.scalar(select(PatternVersion).where(
-            PatternVersion.product_id == product.id,
-            PatternVersion.version == version)) if product is not None else None
-        return (pv.certificate or {}).get("withheld") if pv is not None else None
+    return withholding.current(db, slug, version, stage="build")["summary"]
 
 
 def _recheck_listing_certificates(ctx: JobContext, cir: CIR) -> list[dict]:

@@ -154,6 +154,11 @@ def trial_self_audit(db, improvement_id: int) -> dict:
                     f"against the benchmark's {change.get('benchmark_score')}")}
 
 
+# Codex M06 / M09: what each executor genuinely does when a promotion is applied. Named
+# here so the state route and the executed record say the same thing.
+SELF_AUDIT_IMPLEMENTS = "standard"          # a floor at the release gate, not an artefact change
+LEAGUE_REPLAY_IMPLEMENTS = "job_priority_policy"   # the one configuration the replay produces runs for
+
 TRIALS: dict[str, Callable[..., dict]] = {
     "counterfactual_rollback": trial_counterfactual_rollback,
     "league_replay": trial_league_replay,
@@ -178,9 +183,22 @@ def _execute_self_audit(db, iid: int) -> dict:
         row = s.get(Improvement, iid)
         change = dict((row.evidence or {}).get("change") or {})
         floor = row.result_value
-    return {"executed": "standard floor",
-            **enforce.adopt_floor(db, int(change["finding"]), floor=float(floor),
-                                  improvement_id=iid)}
+    adopted = enforce.adopt_floor(db, int(change["finding"]), floor=float(floor),
+                                  improvement_id=iid)
+    # Codex M06: what this promotion implements is a *standard*, and the record says so.
+    # The floor is the level our own self-audits of the current release reached; adopting it
+    # commits the company to it at the release gate (`release_gates.for_publish` refuses a
+    # release that reads below it) and on support cases (the pattern_help obligations). It
+    # changes no pattern, listing, image or reply itself: the artefact change that raised a
+    # release to this level was made on that artefact's own surface, and a later release that
+    # falls below it is refused, not repaired, by this record.
+    return {"executed": "standard floor", **adopted,
+            "implements": SELF_AUDIT_IMPLEMENTS, "changes_artifact": False,
+            "enforced_by": ("release_gates.for_publish via teardown.enforce._judge (unmet "
+                            "below the floor); teardown.enforce.pattern_help_obligations on "
+                            "open support cases"),
+            "artifact_change": ("none by this promotion: the floor is enforced on every later "
+                                "release, never applied to one")}
 
 
 def _monitor_self_audit(db, iid: int) -> dict:
@@ -219,6 +237,15 @@ def _rollback_self_audit(db, iid: int, *, why: str) -> dict:
     return enforce.drop_floor(db, int(change["finding"]), why=why)
 
 
+def _verify_self_audit(db, iid: int) -> dict:
+    from ..core.models import Improvement
+    from ..teardown import enforce
+
+    with db.session() as s:
+        change = dict((s.get(Improvement, iid).evidence or {}).get("change") or {})
+    return enforce.floor_absent(db, int(change["finding"]))
+
+
 def _monitor_league_replay(db, iid: int) -> dict:
     from . import replay
 
@@ -231,12 +258,25 @@ def _rollback_league_replay(db, iid: int, *, why: str) -> dict:
     return replay.rollback(db, iid, why=why)
 
 
+def _verify_league_replay(db, iid: int) -> dict:
+    from . import replay
+
+    return replay.rollback_verified(db, iid)
+
+
 EXECUTORS: dict[str, Callable[..., dict]] = {
     "league_replay": _execute_league_replay, "self_audit": _execute_self_audit}
 MONITORS: dict[str, Callable[..., dict]] = {
     "league_replay": _monitor_league_replay, "self_audit": _monitor_self_audit}
+# Rollback executors are idempotent: run twice, the second run finds the previous version
+# already the incumbent (or the floor already gone) and changes nothing. That is what lets a
+# rollback interrupted at any point be resumed by the next pass (C-81).
 ROLLBACKS: dict[str, Callable[..., dict]] = {
     "league_replay": _rollback_league_replay, "self_audit": _rollback_self_audit}
+# What each rollback must be shown to have done before the row may say REVERTED: the active
+# job-priority configuration is the version it replaced; the adopted floor is gone.
+VERIFIERS: dict[str, Callable[..., dict]] = {
+    "league_replay": _verify_league_replay, "self_audit": _verify_self_audit}
 
 # Which trial answers which self-review proposal kind.
 TRIAL_FOR_KIND: dict[str, str] = {"declining_capability": "counterfactual_rollback"}
@@ -474,16 +514,22 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
             if regression is None:
                 regression = regression_test(directory=regression_dir)
             adversarial = adversarial_test(db, iid)
-            cells.record_test(db, iid, kind=tiers.REGRESSION_TEST,
-                              ref=(f"gates.regression.run@{now.isoformat()}:"
-                                   f"{regression['checked']} fixture(s)"),
+            regression_ref = (f"gates.regression.run@{now.isoformat()}:"
+                              f"{regression['checked']} fixture(s)")
+            adversarial_ref = f"{ACTION}.adversarial@{now.isoformat()}:improvement:{iid}"
+            cells.record_test(db, iid, kind=tiers.REGRESSION_TEST, ref=regression_ref,
                               passed=regression["passed"], recorded_by=RUNNER)
-            cells.record_test(db, iid, kind=tiers.ADVERSARIAL_TEST,
-                              ref=f"{ACTION}.adversarial@{now.isoformat()}:improvement:{iid}",
+            cells.record_test(db, iid, kind=tiers.ADVERSARIAL_TEST, ref=adversarial_ref,
                               passed=adversarial["passed"], recorded_by=RUNNER)
+            # C-82: these two runs actually happened, against a named configuration version
+            # when the proposal carries one. They are the only way `tests_run` is written.
+            observed = _record_config_test_runs(db, ev, runs=(
+                ("gates.regression.run", regression_ref, regression["passed"]),
+                (f"{ACTION}.adversarial", adversarial_ref, adversarial["passed"])))
             tested.append({"improvement": iid, "regression": regression["passed"],
                            "adversarial": adversarial["passed"],
-                           "why": [regression["why"], adversarial["why"]]})
+                           "why": [regression["why"], adversarial["why"]],
+                           "config_runs_recorded": observed})
             recorded = {tiers.REGRESSION_TEST: {"passed": regression["passed"]},
                         tiers.ADVERSARIAL_TEST: {"passed": adversarial["passed"]}}
 
@@ -530,6 +576,36 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
                      f"the owner, {len(waiting)} waiting for a trial that can evaluate them")}
 
 
+def _record_config_test_runs(db, evidence: dict, *, runs: tuple) -> int:
+    """Attach the runner's observed test runs to the configuration version under test.
+
+    Only when the proposal names one (`change.config_id`), and only against that version's
+    own digest -- `league.record_test_run` refuses anything else. Declared coverage stays in
+    `tests_declared`; this is the observed half (C-82).
+    """
+    from ..core.models import ConfigVersion
+    from . import league
+
+    config_id = int(((evidence.get("change") or {}).get("config_id")) or 0)
+    if not config_id:
+        return 0
+    with db.session() as s:
+        row = s.get(ConfigVersion, config_id)
+        digest = row.digest if row is not None else ""
+    if not digest:
+        return 0
+    recorded = 0
+    for test, run_id, passed in runs:
+        try:
+            out = league.record_test_run(db, config_id, test=test, run_id=run_id,
+                                         source_sha256=digest, passed=passed,
+                                         recorded_by=RUNNER)
+        except league.LeagueRefused:
+            continue
+        recorded += 1 if out.get("recorded") else 0
+    return recorded
+
+
 def execute_promoted(db) -> list[dict]:
     """Apply every promoted trial improvement not yet executed. Idempotent on the row."""
     from sqlalchemy import select
@@ -566,12 +642,21 @@ def monitor_trials(db, *, now: datetime | None = None) -> dict:
     from . import monitor as monitor_mod
 
     with db.session() as s:
-        rows = [(r.id, r.cell, (r.evidence or {}).get("sandbox_trial"))
+        rows = [(r.id, r.cell, (r.evidence or {}).get("sandbox_trial"),
+                 bool((r.evidence or {}).get(cells.ROLLBACK_PENDING)))
                 for r in s.scalars(select(Improvement).where(
                     Improvement.state == cells.PROMOTED))
                 if (r.evidence or {}).get("sandbox_trial") in MONITORS]
-    judged, reverted, waiting = [], [], []
-    for iid, cell, trial in rows:
+    judged, reverted, waiting, pending = [], [], [], []
+    for iid, cell, trial, has_pending in rows:
+        if has_pending:
+            # A rollback decided on an earlier pass and not yet verified complete -- the
+            # process died between deciding and executing, or between executing and
+            # verifying. It is resumed, never re-judged: the decision stands until the effect
+            # is shown (C-81).
+            done = _complete_rollback(db, iid, cell, trial)
+            (reverted if done["state"] == cells.REVERTED else pending).append(done)
+            continue
         seen = MONITORS[trial](db, iid)
         if not seen.get("judged"):
             waiting.append({"improvement": iid, "why": seen.get("why")})
@@ -580,14 +665,45 @@ def monitor_trials(db, *, now: datetime | None = None) -> dict:
             judged.append({"improvement": iid, "observed": seen.get("observed"),
                            "action": "held"})
             continue
-        outcome = cells.revert(db, iid, because=seen["why"], observed=seen.get("observed"))
-        undone = ROLLBACKS[trial](db, iid, why=seen["why"])
-        incident = monitor_mod._rollback_proposal(db, iid, cell, outcome)
-        reverted.append({"improvement": iid, "observed": seen.get("observed"),
-                         "rollback": {k: v for k, v in undone.items()
-                                      if isinstance(v, (str, int, float, bool, type(None)))},
-                         "incident": incident["incident"]})
-    return {"judged": judged, "reverted": reverted, "waiting": waiting}
+        # 1. Decide, durably, on the still-PROMOTED row; 2. open the incident so the pending
+        # rollback is visible even if nothing below runs; 3. execute, verify, and only then
+        # write REVERTED.
+        outcome = cells.mark_rollback_pending(db, iid, because=seen["why"],
+                                              observed=seen.get("observed"))
+        monitor_mod._rollback_proposal(db, iid, cell, outcome)
+        done = _complete_rollback(db, iid, cell, trial)
+        (reverted if done["state"] == cells.REVERTED else pending).append(done)
+    return {"judged": judged, "reverted": reverted, "waiting": waiting,
+            "rollback_pending": pending}
+
+
+def _complete_rollback(db, iid: int, cell: str, trial: str) -> dict:
+    """Run the idempotent rollback executor, verify its effect, then complete the revert.
+
+    Every step is durable before the next: the attempt is counted before the executor runs,
+    the executor's own writes commit as they happen, and REVERTED is written last -- with
+    the verifier's reading on the row -- so a crash at any point leaves a PROMOTED row with
+    `rollback_pending` that the next pass resumes. The incident opened when the rollback was
+    decided is resolved here, and nowhere earlier.
+    """
+    from . import monitor as monitor_mod
+
+    pending = cells.rollback_pending(db, iid) or {}
+    because = str(pending.get("because") or "monitor judged the promotion worse")
+    attempts = cells.note_rollback_attempt(db, iid, executor=trial)
+    undone = ROLLBACKS[trial](db, iid, why=because)
+    check = VERIFIERS[trial](db, iid)
+    flat = {k: v for k, v in undone.items() if isinstance(v, (str, int, float, bool, type(None)))}
+    if not check.get("verified"):
+        return {"improvement": iid, "state": cells.PROMOTED, "action": "rollback_pending",
+                "attempts": attempts, "rollback": flat, "verification": check,
+                "observed": pending.get("observed"),
+                "why": f"rollback executed and not verified: {check.get('why')}"}
+    cells.revert(db, iid, because=because, observed=pending.get("observed"), verified=check)
+    incident = monitor_mod._rollback_resolved(db, iid, check)
+    return {"improvement": iid, "state": cells.REVERTED, "action": "reverted",
+            "attempts": attempts, "observed": pending.get("observed"), "rollback": flat,
+            "verification": check, "incident": incident["incident"]}
 
 
 def _promote_or_route(db, iid: int, *, now: datetime) -> dict:
@@ -667,4 +783,21 @@ def state() -> dict:
         "pre_authorised_tiers": list(upgrades.PRE_AUTHORISED),
         "never": ["invents a sandbox result", "records an owner approval",
                   "approves a change it did not sandbox"],
+        # Codex M06 / M09: the honest extent of what a promotion executes. Nothing here
+        # changes an artefact, routes a model or tool, or grants a permission.
+        "executes": {
+            "self_audit": (f"{SELF_AUDIT_IMPLEMENTS}: a floor on the requirement (#164) "
+                           f"enforced at the release gate and on support cases; no artefact "
+                           f"is changed by the promotion"),
+            "league_replay": (f"{LEAGUE_REPLAY_IMPLEMENTS}: the registry incumbent the "
+                              f"runtime's priority_for reads; the only configuration this "
+                              f"engine replays"),
+        },
+        "does_not_execute": [
+            "model, prompt or tool challengers (compared by improve.league on runs recorded "
+            "elsewhere; promoted only through league._authorise on that evidence)",
+            "architecture changes or specialist additions (owner cards from improve.weekly; "
+            "never an automatic permission grant)",
+            "artefact changes implied by an adopted standard",
+        ],
     }

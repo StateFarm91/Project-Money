@@ -592,13 +592,21 @@ def monitor(db, improvement_id: int, observed: float) -> dict:
     return outcome
 
 
-def revert(db, improvement_id: int, *, because: str, observed: float | None = None) -> dict:
-    """Revert a promoted trial improvement whose trial, re-run on fresh data, reads worse.
+# The durable record of a rollback that has been decided and not yet shown to have taken
+# effect (C-81). It lives on the PROMOTED row -- the state the next scan selects -- so a
+# process killed between deciding and executing resumes the rollback rather than losing it.
+ROLLBACK_PENDING = "rollback_pending"
 
-    `monitor` judges a promotion against a capability reading; a trial-metric promotion is
-    judged by re-running its own trial on data that did not exist when it won, and that
-    verdict lands here. Same effect: REVERTED, the rollback reference named, and never
-    silently -- the caller opens the rollback incident.
+
+def mark_rollback_pending(db, improvement_id: int, *, because: str,
+                          observed: float | None = None) -> dict:
+    """Record that a promoted trial improvement must be rolled back, before anything is undone.
+
+    The row stays PROMOTED: REVERTED is the *completion* of a rollback, written by `revert`
+    only once the executor has run and the active configuration or floor has been verified
+    restored. Writing REVERTED first and executing second (the original order) meant a crash
+    between the two left a reverted row nobody would scan again and a regression still live.
+    Idempotent: a rollback already pending keeps its first decision and its attempt count.
     """
     from ..core.models import Improvement
 
@@ -608,14 +616,92 @@ def revert(db, improvement_id: int, *, because: str, observed: float | None = No
             raise ImprovementRefused(f"no improvement {improvement_id}")
         if row.state != PROMOTED:
             return {"improvement": improvement_id, "state": row.state, "action": "none"}
+        evidence = dict(row.evidence or {})
+        pending = dict(evidence.get(ROLLBACK_PENDING) or {})
+        if not pending:
+            pending = {"because": because[:400], "observed": observed,
+                       "decided_at": datetime.now(timezone.utc).isoformat(), "attempts": 0,
+                       "rollback_ref": row.rollback_ref}
+            row.evidence = {**evidence, ROLLBACK_PENDING: pending}
+        return {"improvement": improvement_id, "state": PROMOTED, "action": "rollback_pending",
+                "rollback_ref": row.rollback_ref, "observed": pending.get("observed"),
+                "expected": row.result_value, "baseline": row.baseline_value,
+                "below_baseline": True, "because": pending["because"],
+                "attempts": pending.get("attempts", 0)}
+
+
+def note_rollback_attempt(db, improvement_id: int, *, executor: str) -> int:
+    """Count a rollback attempt durably *before* the executor runs, so a crash mid-way is
+    visible as an attempt that never verified rather than as nothing having happened."""
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        evidence = dict(row.evidence or {})
+        pending = dict(evidence.get(ROLLBACK_PENDING) or {})
+        if not pending:
+            raise ImprovementRefused(
+                f"improvement {improvement_id} has no pending rollback to attempt; decide it "
+                f"with `mark_rollback_pending` first")
+        pending["attempts"] = int(pending.get("attempts", 0)) + 1
+        pending["last_attempt"] = {"executor": executor,
+                                   "at": datetime.now(timezone.utc).isoformat()}
+        row.evidence = {**evidence, ROLLBACK_PENDING: pending}
+        return pending["attempts"]
+
+
+def rollback_pending(db, improvement_id: int) -> dict | None:
+    from ..core.models import Improvement
+
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None or row.state != PROMOTED:
+            return None
+        pending = (row.evidence or {}).get(ROLLBACK_PENDING)
+        return dict(pending) if pending else None
+
+
+def revert(db, improvement_id: int, *, because: str, observed: float | None = None,
+           verified: dict | None = None) -> dict:
+    """Complete the rollback of a promoted trial improvement: REVERTED, with the proof.
+
+    `monitor` judges a promotion against a capability reading; a trial-metric promotion is
+    judged by re-running its own trial on data that did not exist when it won. Either way
+    REVERTED is written here only *after* the rollback executor has run and its effect has
+    been verified (`verified`: what was checked and what it read) -- the active configuration
+    is the version it replaced, the floor is gone. A revert asked for without that proof is
+    refused: a row that says "reverted" while the regression is still running is the failure
+    C-81 named, and it is worse than an honest "rollback pending".
+    """
+    from ..core.models import Improvement
+
+    if not verified or not verified.get("verified"):
+        raise ImprovementRefused(
+            f"improvement {improvement_id} cannot be marked reverted without verified rollback "
+            f"evidence. Decide it with `mark_rollback_pending`, run the executor, verify the "
+            f"active configuration or floor, and pass that check as `verified`")
+    with db.session() as s:
+        row = s.get(Improvement, improvement_id)
+        if row is None:
+            raise ImprovementRefused(f"no improvement {improvement_id}")
+        if row.state != PROMOTED:
+            return {"improvement": improvement_id, "state": row.state, "action": "none"}
+        evidence = dict(row.evidence or {})
+        pending = dict(evidence.pop(ROLLBACK_PENDING, None) or {})
         row.state = REVERTED
         row.reverted_at = datetime.now(timezone.utc)
-        row.evidence = {**(row.evidence or {}), "reverted_because": because[:400],
-                        "rollback_ref": row.rollback_ref}
+        row.evidence = {**evidence, "reverted_because": because[:400],
+                        "rollback_ref": row.rollback_ref,
+                        "rollback": {"decided_at": pending.get("decided_at"),
+                                     "attempts": pending.get("attempts"),
+                                     "verified": dict(verified),
+                                     "completed_at": row.reverted_at.isoformat()}}
         return {"improvement": improvement_id, "state": REVERTED, "action": "reverted",
                 "rollback_ref": row.rollback_ref, "observed": observed,
                 "expected": row.result_value, "baseline": row.baseline_value,
-                "below_baseline": True}
+                "below_baseline": True, "verified": dict(verified)}
 
 
 def retrospective(db, *, days: int = 7) -> dict:

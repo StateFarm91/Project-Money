@@ -121,6 +121,7 @@ def record_audit(db, benchmark_ref: str, spec_key: str, answers: dict, *,
     inferred = inferred_for(db, benchmark_ref)
     audit = audits.observe(spec_key, benchmark_ref, answers, inferred=inferred)
     recorded = audits.record(db, audit, confidence=confidence, raw_notes=raw_notes)
+    _bind_if_ours(db, benchmark_ref, recorded["findings_recorded"])
     promotions = [promote_finding(db, fid) for fid in recorded["findings_recorded"]]
     delight = delight_for(db, benchmark_ref)
     _set_state_after_audit(db, benchmark_ref)
@@ -138,6 +139,7 @@ def record_finding(db, benchmark_ref: str, dimension: str, score: int, mechanism
     f = scorecard.finding(benchmark_ref, dimension, int(score), mechanism, improvement,
                           confidence=confidence, raw_notes=raw_notes)
     finding_id = scorecard.record(db, f)
+    _bind_if_ours(db, benchmark_ref, [finding_id])
     promotion = promote_finding(db, finding_id)
     delight = delight_for(db, benchmark_ref)
     _audit(db, ACTION_FINDING, {"benchmark": benchmark_ref, "finding": finding_id,
@@ -145,6 +147,16 @@ def record_finding(db, benchmark_ref: str, dimension: str, score: int, mechanism
                                 "delight": delight}, artifact=benchmark_ref)
     return {"finding": finding_id, "promotion": promotion, "delight": delight,
             "scorecard": scorecard.scorecard(db, benchmark_ref)}
+
+
+def _bind_if_ours(db, benchmark_ref: str, finding_ids: list[int]) -> None:
+    """A self-audit is a reading of one release: stamp it with the release it audited (M07),
+    so a later release does not inherit a score nobody gave it."""
+    if not benchmark_ref.startswith(SELF_PREFIX) or not finding_ids:
+        return
+    from . import enforce
+
+    enforce.bind_self_audit(db, list(finding_ids), benchmark_ref[len(SELF_PREFIX):])
 
 
 def _set_state_after_audit(db, benchmark_ref: str) -> None:

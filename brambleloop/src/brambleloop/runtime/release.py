@@ -3168,6 +3168,7 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
 
     from ..core.models import Listing, PatternVersion, Product
     from ..gates.certificate import DOC_VERSION
+    from ..publish import withholding
     from .pipeline import _engineered_cir
 
     # A request that names products (growth.steer's fast lane, #291: `slugs`) is scoped to
@@ -3214,10 +3215,12 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
         slug = products.get(pv.product_id)
         if not slug:
             continue
-        if (pv.certificate or {}).get("withheld"):
-            # #163: the teardown QA withheld this release; the rebuild must not draft the
-            # listing the withhold refused.
-            reasons[slug] = "withheld: " + str((pv.certificate or {})["withheld"])[:120]
+        # #163 / #228 (C-67, M10): the release's one withholding record, every build-blocking
+        # reason on it, with the owner's ruling re-read; the rebuild must not draft the
+        # listing any of them refused.
+        withheld = withholding.current(ctx.db, slug, pv.version, stage="chain.rebuild")["summary"]
+        if withheld:
+            reasons[slug] = "withheld: " + str(withheld)[:120]
             withheld_releases.append(f"{slug}@{pv.version}")
             continue
         wanted = f"c{CHAIN_VERSION}:{pv.release_hash or 'none'}"
@@ -3375,7 +3378,6 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         version = pv.version if pv is not None else ""
         release = pv.release_hash or "" if pv is not None else ""
         cir_json = dict(pv.cir_json) if pv is not None else None
-        withheld = (pv.certificate or {}).get("withheld") if pv is not None else None
         current = provenance.current_from_db(s)
         verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
                     for v in provenance.check(s, current=current)}
@@ -3389,9 +3391,14 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         ctx.audit("chain.rebuild_refused", artifact=slug,
                   detail={"why": "no stored release for this product", "artefacts": keys})
         return {"targeted": True, "slug": slug, "refused": "no stored release"}
+    # #163 / #228 (C-67, M10): every build-blocking reason on the release's one withholding
+    # record, the owner's ruling re-read, not a field one stage happened to write.
+    from ..publish import withholding
+
+    withheld = withholding.current(ctx.db, slug, version, stage="chain.rebuild")["summary"]
     if withheld:
         ctx.audit("chain.rebuild_refused", artifact=f"{slug}@{version}",
-                  detail={"why": f"release withheld (#163): {str(withheld)[:200]}",
+                  detail={"why": f"release withheld (#163/#228): {str(withheld)[:200]}",
                           "artefacts": keys, "reason": reason})
         return {"targeted": True, "slug": slug, "version": version, "withheld": True,
                 "rebuilt": []}
@@ -4905,6 +4912,7 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
     trials = runner.monitor_trials(ctx.db)
     ctx.audit("improve.monitor_trials", detail={
         "judged": trials["judged"], "reverted": trials["reverted"],
+        "rollback_pending": trials["rollback_pending"],
         "waiting": len(trials["waiting"])})
     return {"ran": True, "promoted": out["promoted"], "judged": out["judged"],
             "held": len(out["held"]),
@@ -4915,6 +4923,9 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             "trial_monitoring": {"judged": len(trials["judged"]),
                                  "reverted": trials["reverted"],
                                  "waiting": len(trials["waiting"])},
+            # C-81: a rollback decided and not yet verified complete stays on the PROMOTED
+            # row and is resumed next pass; it is never reported as reverted.
+            "rollback_pending": [r["improvement"] for r in trials["rollback_pending"]],
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 

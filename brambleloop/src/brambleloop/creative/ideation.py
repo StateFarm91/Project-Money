@@ -727,8 +727,15 @@ def select(ideation_plan: dict, *, candidates: list, survivors: list,
         if verdict["passes"]:
             tasteful.append(c)
         else:
+            # Codex M08: the taste judge is a deterministic SCREENING heuristic (common
+            # pairing, novelty margin, stated feeling/function). It filters; it is not an
+            # independent quality judgement, and nothing downstream may read it as one.
             taste_rejected.append({"key": c.concept.key, "rejected_on": verdict["rejected_on"],
-                                   "reason": verdict.get("reason")})
+                                   "reason": verdict.get("reason"),
+                                   "basis": "screening_heuristic",
+                                   "limits": "field pairing counts, novelty margin and the "
+                                             "presence of a feeling or function; not an "
+                                             "independent judgement of quality"})
     quota = quotas(tasteful)
     admitted = quota["admitted"]
     lanes = ideation_plan["role"]["lanes"]
