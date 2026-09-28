@@ -39,7 +39,7 @@ from .policy import (
 # added, repeats collapsed), every certificate issued before that describes a document that no
 # longer exists. Bumping this makes certification re-run for products already certified, which
 # is the only way the stored certificate keeps matching the PDF a buyer would download.
-DOC_VERSION = "2"
+DOC_VERSION = "3"
 
 
 @dataclass
