@@ -873,12 +873,11 @@ class EtsyClient:
         return out
 
     def get_taxonomy_properties(self,
-                                properties: list[dict] = field(default_factory=list)
-    taxonomy_id: int = TAXONOMY_PATTERNS) -> list[dict[str, Any]]:
+                                taxonomy_id: int = TAXONOMY_PATTERNS) -> list[dict[str, Any]]:
         """The listing properties this taxonomy node defines, and which of them are required.
 
-        If any is `is_required`, **every create against that node is refused** with a property
-        id in the message, and nothing in this client can set a listing property. That would
+        Required properties must be selected by the search certificate and sent separately
+        through set_listing_property before the draft can pass read-back. That would
         be a launch blocker discovered by a 400 on the first real product; asking Etsy first
         costs one read.
         """
