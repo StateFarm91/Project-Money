@@ -1,5 +1,5 @@
 {
-  "evaluated_head": "47a93307688c6b8d82308cf78b7048be7b6a28d5",
+  "evaluated_head": "5d543ba173ea7facc6c359b40075bd0f7b553089",
   "certified": false,
   "production_actions": [],
   "paid_spend": 0,
@@ -140,12 +140,13 @@
     },
     {
       "id": "PDF-CLOUDLINE-READABILITY",
-      "state": "Cloudline floor repaired; catalogue and body defects OPEN",
+      "state": "local chart/layout repairs independently exercised",
       "finding": "Current Cloudline chart3.2mm cell/~4pt below unchanged9pt minimum",
       "owner": "master_proof",
-      "evidence": "root4/4; commerce13/14 in726s; fullpage materials overlap and URL overflow",
+      "evidence": "root3layout+4tile and fullcommerce14/14 PASS at5d543ba; receipt162101464942; inspected materials/URL pages",
       "certified": false,
-      "repair_commit": "54df8bc"
+      "repair_commit": "54df8bc+5d543ba",
+      "remaining_limit": "No customer usability/physical proof; sparsepage6/countsuffix split documented"
     },
     {
       "id": "ORIGIN-WRONG-GAP",
@@ -161,7 +162,7 @@
       "id": "COMMERCE-FIXTURE-PREREQUISITES",
       "state": "scoped fixture isolation verified",
       "finding": "Five old publish/hash checks lack now-required chosen taxonomy; no default restoration permitted",
-      "evidence": "Real taxonomy UNKNOWN refusal plus isolated hash transport cases pass; fullsuite13/14 PDF blocker remains",
+      "evidence": "Real taxonomy UNKNOWN refusal plus isolated hash transport cases pass; fullcommerce14/14 at5d543ba",
       "certified": false,
       "remaining_limit": "Synthetic transport profile/images do not prove publication eligibility"
     },
