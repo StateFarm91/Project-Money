@@ -222,7 +222,7 @@ CATALOGUE: dict[str, Design] = {
     "pressed-flower-motifs": Design(
         slug="pressed-flower-motifs", title="Pressed Flower Motif Library (12)",
         motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2,
-        note="A motif sampler: each repeat worked separately as a standalone appliquÃƒÆ’Ã‚Â©."),
+        note="A motif sampler: each repeat worked separately as a standalone appliqué."),
     "cottage-wall-hanging": Design(
         slug="cottage-wall-hanging", title="Cottage Botanical Wall Hanging",
         motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6),
