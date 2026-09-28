@@ -2,6 +2,36 @@
 
 **Updated 2026-09-27 ~17:10Z at an owner-requested pause.** Build 2 is NOT certified. Safe to resume.
 
+## 0a. State at 501d435 (2026-09-28 ~03:30Z) -- read this first
+
+All six repair clusters plus the Codex-driven orders hardening are MERGED into `claude/visual-investigation`
+(platform bb32b3a, orders 9931ebf, growth 63fe5bd, design 3d12491, orders2 b9f7e3a, improve bb6f3a2,
+intel 7b5750c) and validated cluster by cluster (logs under `evidence/validation_*_merge.log`). The Codex
+review pack is on the branch under `research/codex_b2_integration_pack/`; its findings were adjudicated at
+each merge (ledger C-74..C-83). Registry updated from every cluster report (`reports/*.json`).
+
+Closure at 7b5750c (`closure_state.json`): **222 COMPLETE+PROVEN · 9 OPEN · 47 owner-gated · 35 data-gated · 7 external-blocked.**
+The 9 OPEN are all assigned: #5 #38 #44 #54 #61 #81 -> wave `platform2` (branch claude/b2r-platform2,
+worktree scratchpad/wt_platform2, C-80's 19 defects; 8+ commits at the pause); #4 #194 #308 -> wave `residue`
+(claude/b2r-residue). Wave `improve2` (claude/b2r-improve2) fixes C-81/C-82 and Codex M02-M10; 5+ commits.
+All three were running at the last checkpoint; their branches/worktrees hold committed work and
+`patches/<wave>.mbox` snapshots. If the agents are gone: merge what is committed, run the wave's tests,
+finish the remainder yourself.
+
+Remaining sequence: merge platform2 -> improve2 -> residue (each: review diff, run its tests + the standard
+set, fix, commit, push) -> apply their reports to requirements.json (apply_reports.py in scratchpad; recreate
+from reports/*.json if lost) -> mark C-80/C-81/C-82 FIXED with commit+test -> full suite from clean state on
+the final head (`bash run_tests.sh`, ~20 min) -> fresh independent 320-row reachability/proof audit on the
+final SHA -> runtime traces (Claude-independence 4/4 already; rerun) -> reconcile BUILD_STATE, DECISION_LOG,
+ledger, closure -> final verdict. Do NOT deploy/merge to production/publish/spend.
+
+Owner items surfaced by the waves (batch in BUILD_STATE when finalising): reauthorise the Etsy app with
+`transactions_r` (CA$0, ~3 min; until then no order can be read); the `acceptance_ruling` on browser/vision
+wording (#189 #221 #222 #320); the standing gates (image_vision credit, benchmark purchases, owned surfaces,
+ad authority, tester roster, insights CSV). Production verify 02:27Z: all 12 checks passing.
+
+---
+
 ## 0. Delta since the 12d5c5e handoff (read this first)
 
 Pushed checkpoints on `claude/visual-investigation`, in order: 12d5c5e (handoff) → 0d42f2f →
