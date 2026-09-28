@@ -18,3 +18,5 @@ Read-only closure performance followup in CLOSURE_PERFORMANCE_REVIEW.json. AST c
 Approved freshness repair now implemented in maturity._tested_modules; TEST_CACHE_FRESHNESS.json details4/4tests, unchanged Windows resolver failure,0.056s warm content read overhead. No index optimization and no full report PASS. Root review next.
 
 Resolver-only portability correction completed: canonical slash outputs, ambiguity unchanged. New2/2 plus unchanged existing table assertion PASS. RESOLVER_PORTABILITY.json. No full-report test or additional optimization.
+
+Request snapshot implemented per approved scope: report/matrix wrappers exact capture+final revalidation, ContextVar reset.11 focused checks pass; real12-row subset28 modulelookups now2 content captures. REQUEST_SNAPSHOT_RESULT.json. No overall performance or other cache claim. Root review pending.

@@ -31,3 +31,6 @@ Preserve cache_clear/cache_info compatibility. No resolver index optimization au
 
 ## Resolver portability (after7ab2a6f)
 Approved _module_of return-path normalization only plus focused tests. Path.as_posix preserves selection/ambiguity logic; no full report run or proofthreshold change. Direct absolute helper inputs retain original resolution behavior with slash spelling.
+
+## Request import snapshots (after e8cf29a)
+Approved private ContextVar immutable import snapshot; decorate maturity.report and closure.matrix only. Exact root/path/byte capture at entry and revalidation before return; mutation/unreadable abort, finally resets nested context. No status or other graph-cache semantics changes.
