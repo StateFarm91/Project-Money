@@ -260,14 +260,15 @@ class _Doc:
         self.c.drawString(MARGIN + 42 * mm, self.y, value)
         self.y -= 5.2 * mm
 
-    def image(self, img, running_head: str | None = None) -> None:
+    def image(self, img, running_head: str | None = None, *, max_height=None) -> None:
         from reportlab.lib.utils import ImageReader
 
         usable_w = PAGE_W - 2 * MARGIN
         scale = min(1.0, usable_w / img.width)
         w, h = img.width * scale, img.height * scale
-        if h > PAGE_H - 2 * MARGIN:
-            scale *= (PAGE_H - 2 * MARGIN) / h
+        height_limit = PAGE_H - 2 * MARGIN if max_height is None else max_height
+        if h > height_limit:
+            scale *= height_limit / h
             w, h = img.width * scale, img.height * scale
         self.need(h + 4 * mm, running_head)
         self.c.drawImage(ImageReader(img), MARGIN, self.y - h, width=w, height=h,
@@ -1130,7 +1131,22 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.heading("Chart")
     doc.para(art["caption"], size=9, color=MUTED)
     doc.space(2 * mm)
-    doc.image(art["chart"], running_head=head)
+    if art.get("tiles"):
+        doc.heading("Tile placement index", size=12)
+        for start in dict.fromkeys(t["row_start"] for t in art["tiles"]):
+            band = [(n, t) for n, t in enumerate(art["tiles"], 1) if t["row_start"] == start]
+            doc.para(f"Rows {start}-{band[0][1]['row_end']}: " + "; ".join(
+                f"tile {n}, columns {t['column_start']}-{t['column_end']}" for n, t in band), size=9)
+        for number, tile in enumerate(art["tiles"], 1):
+            doc.new_page(head)
+            doc.heading("Chart continued")
+            doc.para(f"Tile {number} of {len(art['tiles'])}: rows {tile['row_start']}-{tile['row_end']}, "
+                     f"columns {tile['column_start']}-{tile['column_end']} (left to right).", size=9)
+            doc.image(tile["chart"], running_head=head, max_height=CHART_TILE_HEIGHT)
+        doc.new_page(head)
+        doc.heading("Chart key")
+    else:
+        doc.image(art["chart"], running_head=head)
     doc.image(art["legend"], running_head=head)
     # What is wrong with the chart, measured on the chart as it lands on the page. Carried onto
     # the document's problems so the release chain sees it, like every other finding here.
@@ -1721,6 +1737,9 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
                    "right.")
 
     if cell_mm < CHART_MIN_CELL_MM:
+        return _tiled_chart_art(cir, twin, grid, colour_grid)
+
+    if cell_mm < CHART_MIN_CELL_MM:
         # Reported with the measurement in it, because "the chart is small" is an opinion and
         # "each cell is 2.1 mm on the printed page, carrying a 4pt glyph" is a fact somebody can
         # act on. Nothing measured this before: the chart's type is pixels inside an image, so
@@ -1743,6 +1762,53 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
         "cues": chart_mod.flat_cue_letters(cir, charted_colors, charted_cell),
         "problems": problems,
     }
+
+
+# Reserve the measured area for heading, explanatory caption and tile range.
+CHART_TILE_HEIGHT = PAGE_H - 2 * MARGIN - 55 * mm
+
+
+def _tiled_chart_art(cir, twin, grid, colors):
+    """Partition the full authoritative fabric; no omitted borders or inferred repeats."""
+    full_rows, full_cols = len(grid), max(map(len, grid))
+    spec = ChartSpec(cell_px=32, margin_px=64)
+    cols, rows = min(24, full_cols), min(28, full_rows)
+    def scale_for(image):
+        return min(1.0, (PAGE_W - 2 * MARGIN) / image.width, CHART_TILE_HEIGHT / image.height)
+    while True:
+        sample = ( [r[:cols] for r in grid[:rows]], [r[:cols] for r in colors[:rows]] )
+        chart = render_chart(cir, twin, spec, grids=sample, caption="Chart tile",
+                             show_columns=True)
+        scale = scale_for(chart)
+        if (spec.cell_px * scale / mm >= CHART_MIN_CELL_MM
+                and min(chart_mod.flat_type_px(spec.cell_px).values()) * scale >= MIN_BODY_PT):
+            break
+        if rows >= cols and rows > 1: rows -= 1
+        elif cols > 1: cols -= 1
+        else: raise ValueError("chart tile cannot satisfy existing readability floor")
+    tiles = []
+    for row in range(0, full_rows, rows):
+        for col in range(0, full_cols, cols):
+            grids = ([r[col:col+cols] for r in grid[row:row+rows]],
+                     [r[col:col+cols] for r in colors[row:row+rows]])
+            image = render_chart(cir, twin, spec, grids=grids, caption="Chart tile",
+                                 row_offset=row, column_offset=col, show_columns=True)
+            scale = scale_for(image)
+            tiles.append({"row_start": row+1, "row_end": min(row+rows, full_rows),
+                          "column_start": col+1, "column_end": min(col+cols, full_cols),
+                          "grids": grids, "chart": image,
+                          "cell_mm": spec.cell_px*scale/mm,
+                          "minimum_type_pt": min(chart_mod.flat_type_px(spec.cell_px).values())*scale})
+    problems = []
+    if any(t["cell_mm"] < CHART_MIN_CELL_MM or t["minimum_type_pt"] < MIN_BODY_PT for t in tiles):
+        problems.append("PDF_CHART_CELL_BELOW_BRAND_MINIMUM: tiled chart below existing minimum")
+    return {"chart": tiles[0]["chart"], "tiles": tiles, "legend": render_legend(cir, twin),
+            "caption": f"Full chart: {full_cols} columns by {full_rows} rows, split into {len(tiles)} tiles. "
+                       "Columns are numbered left to right. Complete each entire row across its tiles: "
+                       "odd rows right to left; even rows left to right. Then advance one row. "
+                       "Do not work a tile as a separate piece. Every border and stitch is included once.",
+            "cell_mm": min(t["cell_mm"] for t in tiles),
+            "cues": chart_mod.flat_cue_letters(cir, colors, spec.cell_px), "problems": problems}
 
 
 def _times(n: int) -> str:

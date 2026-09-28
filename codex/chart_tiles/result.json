@@ -1,0 +1,190 @@
+{
+  "fingerprint": "ae84a8e8ec5a",
+  "rows": 70,
+  "columns": 99,
+  "cells": 6930,
+  "tiles": 20,
+  "exact_coverage": true,
+  "duplicates": 0,
+  "minimum_cell_mm": 7.495833333333333,
+  "minimum_type_pt": 9.29601377952756,
+  "cell_floor_mm": 6.902173913043478,
+  "ranges": [
+    {
+      "row_start": 1,
+      "row_end": 20,
+      "column_start": 1,
+      "column_end": 20
+    },
+    {
+      "row_start": 1,
+      "row_end": 20,
+      "column_start": 21,
+      "column_end": 40
+    },
+    {
+      "row_start": 1,
+      "row_end": 20,
+      "column_start": 41,
+      "column_end": 60
+    },
+    {
+      "row_start": 1,
+      "row_end": 20,
+      "column_start": 61,
+      "column_end": 80
+    },
+    {
+      "row_start": 1,
+      "row_end": 20,
+      "column_start": 81,
+      "column_end": 99
+    },
+    {
+      "row_start": 21,
+      "row_end": 40,
+      "column_start": 1,
+      "column_end": 20
+    },
+    {
+      "row_start": 21,
+      "row_end": 40,
+      "column_start": 21,
+      "column_end": 40
+    },
+    {
+      "row_start": 21,
+      "row_end": 40,
+      "column_start": 41,
+      "column_end": 60
+    },
+    {
+      "row_start": 21,
+      "row_end": 40,
+      "column_start": 61,
+      "column_end": 80
+    },
+    {
+      "row_start": 21,
+      "row_end": 40,
+      "column_start": 81,
+      "column_end": 99
+    },
+    {
+      "row_start": 41,
+      "row_end": 60,
+      "column_start": 1,
+      "column_end": 20
+    },
+    {
+      "row_start": 41,
+      "row_end": 60,
+      "column_start": 21,
+      "column_end": 40
+    },
+    {
+      "row_start": 41,
+      "row_end": 60,
+      "column_start": 41,
+      "column_end": 60
+    },
+    {
+      "row_start": 41,
+      "row_end": 60,
+      "column_start": 61,
+      "column_end": 80
+    },
+    {
+      "row_start": 41,
+      "row_end": 60,
+      "column_start": 81,
+      "column_end": 99
+    },
+    {
+      "row_start": 61,
+      "row_end": 70,
+      "column_start": 1,
+      "column_end": 20
+    },
+    {
+      "row_start": 61,
+      "row_end": 70,
+      "column_start": 21,
+      "column_end": 40
+    },
+    {
+      "row_start": 61,
+      "row_end": 70,
+      "column_start": 41,
+      "column_end": 60
+    },
+    {
+      "row_start": 61,
+      "row_end": 70,
+      "column_start": 61,
+      "column_end": 80
+    },
+    {
+      "row_start": 61,
+      "row_end": 70,
+      "column_start": 81,
+      "column_end": 99
+    }
+  ],
+  "documents": {
+    "US": {
+      "pages": 30,
+      "problems": [],
+      "chart_pages": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "sha256": "75830454b88817f11d87adb6cc0992a26093aae13de414a3d47a4d6545b7970f"
+    },
+    "UK": {
+      "pages": 30,
+      "problems": [],
+      "chart_pages": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "sha256": "286f7de4df824cedaab95cca0a23f69da574e2ba3d84cb248a43c4564fbaad7e"
+    }
+  }
+}
