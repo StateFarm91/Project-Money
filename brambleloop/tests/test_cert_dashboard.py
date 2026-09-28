@@ -259,7 +259,12 @@ def test_dashboard_cards_equal_sql():
     html = r.text
     assert int(_card(html, "Queue pending")) == one("select count(*) from jobs where status='PENDING'")
     assert int(_card(html, "Running")) == one("select count(*) from jobs where status='RUNNING'")
-    assert int(_card(html, "Dead letters")) == one("select count(*) from jobs where status='DEAD'")
+    # F-185: the headline splits expected refusals from defects; the unsplit total is the
+    # misleading number the requirement names, so it is no longer the card's value.
+    refusals = one("select count(*) from jobs where status='DEAD' "
+                   "and last_error like 'capability not enabled%'")
+    dead = one("select count(*) from jobs where status='DEAD'")
+    assert _card(html, "Dead letters") == f"{refusals} expected / {dead - refusals} defects"
     assert int(_card(html, "Certified releases")) == one(
         "select count(*) from pattern_versions where certified=1")
     assert int(_card(html, "Open incidents")) == one("select count(*) from incidents where resolved=0")
@@ -280,6 +285,175 @@ def test_dashboard_never_claims_no_spend_limits():
     assert "No spend limits configured" not in html
     con = c.get("/api/console").json()
     assert con["spend"]["month"], "the console's spend block carries no live control"
+
+
+# ---- Final Build cluster E: one owner surface, dashboard truth -----------------------------
+
+_CC_BLOCKS = ("Waiting on the owner", "External capability unavailable", "Build 2 coverage",
+              "Health", "Learning changes", "CA$5,000/month model", "Creative standard")
+
+
+def test_refusal_only_dead_letters_render_zero_defects():
+    """F-185 / F-205: expected refusals never produce a defect-like headline."""
+    from brambleloop.app import dashboard_truth
+
+    split = dashboard_truth.dead_letter_split(
+        {"dead_letters": 134, "dead_letter_refusals": 134, "dead_letter_defects": 0})
+    assert split["text"] == "134 expected / 0 defects"
+    html = seeded().get("/").text
+    assert not re.search(r"<span>Dead letters</span><b>\d+</b>", html), \
+        "the unsplit dead-letter total is the headline again"
+
+
+def test_the_headline_leads_with_commercial_truth_and_demotes_volume():
+    """F-206 / F-187: launch-cleared, survivors, benchmark and money come before volume."""
+    html = seeded().get("/").text
+    first_truth = html.index("<span>Launch-cleared / certified</span>")
+    for label in ("Creative-gate survivors", "Benchmark status", "Commercial evidence"):
+        assert f"<span>{label}</span>" in html, label
+        assert html.index(f"<span>{label}</span>") < html.index("<h2>Volume and operations</h2>")
+    for vanity in ("Listing images", "Content pieces", "Certified releases",
+                   "Listings drafted", "Queue pending"):
+        assert html.index(f"<span>{vanity}</span>") > html.index(
+            "<h2>Volume and operations</h2>") > first_truth, vanity
+    # Zero survivors is the principal commercial blocker, so it is flagged, not buried.
+    survivors = _card(html, "Creative-gate survivors")
+    if survivors.startswith("0 /"):
+        assert re.search(r'card alarm"><span>Creative-gate survivors</span>', html)
+
+
+def test_a_certified_product_that_fails_launch_criteria_is_not_launch_cleared():
+    """F-186: certified is not launch-ready; unassessed is not passed."""
+    from brambleloop.app import dashboard_truth
+
+    seeded()
+    inv = dashboard_truth.launch_inventory(main.db, survivors=["seed-product-0"])
+    assert inv["certified"] == one(
+        "select count(distinct product_id) from pattern_versions where certified=1")
+    assert inv["launch_cleared"] == 0
+    row = {r["slug"]: r for r in inv["products"]}["seed-product-0"]
+    assert "usable_listing_asset" in row["failing"]
+    assert "gauge_standard" in row["failing"]      # unassessed blocks clearance
+    assert "creative_gate_survivor" not in row["failing"]
+    html = seeded().get("/").text
+    assert _card(html, "Launch-cleared / certified") == f"0 / {inv['certified']}"
+
+
+def test_every_headline_kpi_carries_its_evidence_envelope():
+    """F-665: source, as-of, transformation, confidence and reconciliation on each KPI."""
+    body = seeded().get("/api/headline").json()
+    assert len(body["kpis"]) >= 6
+    for k in body["kpis"]:
+        ev = k["evidence"]
+        for field in ("source", "as_of", "transform", "confidence", "reconciliation"):
+            assert ev.get(field), (k["key"], field)
+        assert k["why"], k["key"]
+
+
+def test_the_ca5k_card_reads_unmeasured_rather_than_zero():
+    """F-189: insufficient commercial evidence is displayed as UNMEASURED, not 0.00."""
+    html = seeded().get("/").text
+    m = re.search(r"<td>probability of CA\$5,000/month</td><td>([^<]*)</td>", html)
+    assert m, "the CA$5K row did not render"
+    assert m.group(1) == "UNMEASURED / insufficient commercial evidence", m.group(1)
+
+
+def test_every_block_renders_an_as_of_time():
+    """F-203: no block can present a snapshot without saying when it was read."""
+    html = seeded().get("/").text
+    for title in _CC_BLOCKS:
+        assert re.search(rf'<h2>{re.escape(title)}</h2><div class="asof">as of \d{{4}}-', html), \
+            title
+
+
+def test_the_header_names_the_commit_and_the_last_clean_verification():
+    """F-202: deployed commit, container start and last clean production verification."""
+    from brambleloop.core.models import AuditLog
+
+    html = seeded().get("/").text
+    assert "commit <b>" in html and "container started" in html
+    assert "last clean /api/verify: <b>" in html
+    with main.db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=main.VERIFY_AUDIT_ACTION,
+                       detail={"ok": True, "failing": []}))
+    html = seeded().get("/").text
+    assert "last clean /api/verify: <b>never recorded</b>" not in html
+
+
+def test_one_owner_surface_and_no_card_unblocks_nothing():
+    """F-179 / F-181 / F-196: one queue, owner kinds only, external gates listed apart."""
+    from brambleloop.build2 import closure, executor
+
+    seeded()
+    html = seeded().get("/").text
+    assert "<h2>Owner action required</h2>" not in html, "the legacy second surface is back"
+    assert html.count("<h2>Waiting on the owner</h2>") == 1
+    inbox = executor.approval_inbox(main.db, env=dict(os.environ))
+    for card in inbox["cards"]:
+        assert card["unblocks_count"] > 0, card
+        if card["gate"]:
+            assert closure.kind_of(card["gate"]) == closure.OWNER_GATED, card["gate"]
+    gates = {c["gate"] for c in inbox["cards"]}
+    assert "rendered_pages" not in gates and "customers" not in gates
+    assert "model_bearing_render" not in gates
+    external = {e["gate"] for e in inbox["external_capability_unavailable"]}
+    assert "rendered_pages" in external
+    assert all(e["label"] == "external capability unavailable"
+               for e in inbox["external_capability_unavailable"])
+    api = seeded().get("/api/owner-actions").json()
+    assert [a["gate"] for a in api["actions"]] == [c["gate"] for c in inbox["cards"]]
+
+
+def test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplicating():
+    """F-663: owner actions 19/20 were one decision shown twice."""
+    from brambleloop.build2 import executor
+
+    seeded()
+    with main.db.session() as s:
+        row = OwnerAction(requirement_key="model_credits",
+                          action="Top up model credits MERGE-SENTINEL", max_cost_cad=20.0,
+                          minutes=5)
+        s.add(row)
+        s.flush()
+        rid = row.id
+    inbox = executor.approval_inbox(main.db, env=dict(os.environ))
+    model_cards = [c for c in inbox["cards"] if c["gate"] == "model_provider"]
+    assert len(model_cards) == 1
+    assert rid in model_cards[0]["merged_owner_action_ids"]
+    html = seeded().get("/").text
+    assert html.count("MERGE-SENTINEL") == 1
+    with main.db.session() as s:
+        s.get(OwnerAction, rid).done = True
+
+
+def test_a_satisfied_gate_and_its_open_shop_action_never_both_render():
+    """F-205 / F-182: a satisfied shop with an active 'open shop' action is a contradiction."""
+    from brambleloop.build2 import executor
+    from brambleloop.core.models import AuditLog
+
+    seeded()
+    old = os.environ.get("ETSY_SHOP_NAME")
+    os.environ["ETSY_SHOP_NAME"] = "SeedShop"
+    try:
+        with main.db.session() as s:
+            s.add(AuditLog(actor="orchestrator", action="etsy.probe", detail={"ok": True}))
+            s.add(OwnerAction(requirement_key="etsy_shop",
+                              action="Open the Etsy shop OPEN-SHOP-SENTINEL"))
+        assert executor.GATE_BY_KEY["etsy_shop"].open(main.db, dict(os.environ))
+        html = seeded().get("/").text
+        assert "OPEN-SHOP-SENTINEL" not in html
+        api = seeded().get("/api/owner-actions").json()
+        assert "OPEN-SHOP-SENTINEL" not in json.dumps(api["actions"])
+        assert any(w["gate"] == "etsy_shop" for w in api["withheld_satisfied"])
+        verify = seeded().get("/api/verify").json()
+        chk = {c["check"]: c for c in verify["checks"]}["no_satisfied_owner_action_presented"]
+        assert chk["ok"] is True, chk
+        assert chk["evidence"]["withheld_because_satisfied"]
+    finally:
+        if old is None:
+            os.environ.pop("ETSY_SHOP_NAME", None)
+        else:
+            os.environ["ETSY_SHOP_NAME"] = old
 
 
 if __name__ == "__main__":
