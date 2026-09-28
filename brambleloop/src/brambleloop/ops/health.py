@@ -505,6 +505,9 @@ TEMP_PREFIXES: tuple[str, ...] = (
     "reference-pack-", "generated-", "motif-chart-", "brambleloop-run-",
     "model-frame-", "cycle-proof-", "portrait-repair-", "provider-trial-",
     "teardown-proof-", "reader-selftest-",
+    # C-80: the #81 rung render's work directory and the moat's blind hero-frame check; both
+    # are scoped to the call and removed with it, so one left behind is a died call.
+    "owned-rung-", "moat-hero-",
     # The hand-run physically based renderer. Its directory is a TemporaryDirectory and is
     # removed with the render, so a leftover one means the render died -- which is exactly
     # the case the disk signal exists to show. A prefix used in `src/` and absent here is

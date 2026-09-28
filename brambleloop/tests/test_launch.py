@@ -381,12 +381,33 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
     Registry(db).seed_defaults()
     _stock(db)
 
+    # C-80 (#54): while any launch-package item is still ours to build, the requests that open
+    # live Etsy (the fee approval among them) are withheld from the queue. `_stock` builds no
+    # package (no support knowledge, FAQ or launch calendar), so the adoption mechanics under
+    # test here are exercised with the package gate stood down for the test's duration; the
+    # gate itself is proved in tests/test_cert_rebuild_chain.py on a chain that built one.
+    from brambleloop.launch import readiness as readiness_mod
+
+    package_keys = readiness_mod.LAUNCH_PACKAGE_KEYS
+    readiness_mod.LAUNCH_PACKAGE_KEYS = frozenset()
+
     def run_readiness(key: str) -> None:
         JobQueue(db).enqueue("orchestrator", "launch.readiness", {}, idempotency_key=key)
         worker = Worker(db, "adopt-worker")
         for _ in range(200):
             if not worker.run_once():
                 break
+
+    try:
+        _adoption_round_trip(db, run_readiness, stale_fee)
+    finally:
+        readiness_mod.LAUNCH_PACKAGE_KEYS = package_keys
+
+
+def _adoption_round_trip(db, run_readiness, stale_fee) -> None:
+    from sqlalchemy import select
+
+    from brambleloop.core.models import OwnerAction
 
     run_readiness("adopt-1")
     with db.session() as s:
