@@ -14,12 +14,19 @@ from pathlib import Path
 STAGES = ("producer", "durable_state", "consumer", "decision", "effect", "result")
 
 
-def validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
+def _validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
     errors = []
     def need(ok, reason):
         if not ok:
             errors.append(reason)
-    need(bool(re.fullmatch(r"[0-9a-f]{40}", head)), "invalid effective head")
+    def mapping(value, label):
+        if not isinstance(value, dict):
+            errors.append(f"invalid object:{label}")
+            return {}
+        return value
+    row = mapping(row, "row")
+    packet = mapping(packet, "packet")
+    need(bool(re.fullmatch(r"[0-9a-f]{40}", head if isinstance(head, str) else "")), "invalid effective head")
     need(packet.get("uid") == row.get("uid") and bool(row.get("uid")), "qualified requirement mismatch")
     need(packet.get("head") == head, "stale source head")
     need(packet.get("evidence_class") == "runtime", "static or fixture evidence cannot prove runtime")
@@ -60,24 +67,28 @@ def validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
             if previous:
                 need(item.get("input") == previous, f"broken evidence edge:{stage}")
             previous = item.get("identity")
-    live = packet.get("live_root", {})
+    stages = {stage: mapping(stages.get(stage), stage) for stage in STAGES}
+    live = mapping(packet.get("live_root"), "live_root")
     receipt(live, "live_root")
     need(live.get("kind") in {"scheduler", "worker", "api", "event"}, "not a runtime root")
     need(live.get("producer") == stages.get("producer", {}).get("identity"), "root does not reach producer")
     receipt(packet.get("production_producer"), "production_producer")
     receipt(packet.get("failure_test"), "failure_test")
     receipt(packet.get("suite"), "suite")
-    suite = packet.get("suite", {})
-    need(suite.get("passed", 0) > 0 and suite.get("failed") == 0 and suite.get("clean") is True,
+    suite = mapping(packet.get("suite"), "suite")
+    need(type(suite.get("passed")) is int and suite["passed"] > 0
+         and type(suite.get("failed")) is int and suite["failed"] == 0 and suite.get("clean") is True,
          "non-green or dirty suite")
     # Applicable protected behavior is specified by the audited row, not opted out by packet.
-    if row.get("protected_effect"):
-        execution = packet.get("execution_gate", {})
+    applicability = row.get("protected_action_applicability")
+    need(applicability in ("protected", "unprotected"), "protected-action applicability unknown")
+    if applicability != "unprotected":
+        execution = mapping(packet.get("execution_gate"), "execution_gate")
         receipt(execution, "execution_gate")
         need(execution.get("phase") == "execution", "planning-only authority")
         need(execution.get("effect") == stages.get("effect", {}).get("identity"), "gate not bound to effect")
         need(execution.get("outcome") in {"allowed", "refused"}, "unknown execution authority")
-    review = packet.get("independent_review", {})
+    review = mapping(packet.get("independent_review"), "independent_review")
     receipt(review, "independent_review")
     need(bool(packet.get("implementer")) and bool(review.get("reviewer"))
          and review.get("reviewer") != packet.get("implementer"), "worker self-review")
@@ -87,6 +98,16 @@ def validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
             "verdict": "BLOCKED" if errors else "REVIEWABLE", "errors": errors,
             "certified": False,
             "limitation": "Artifact integrity and packet consistency only; independent source authenticity and semantic audit still required."}
+
+
+def validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
+    try:
+        return _validate(row, packet, head=head, root=root)
+    except (TypeError, ValueError, AttributeError, KeyError) as exc:
+        return {"uid": row.get("uid") if isinstance(row, dict) else None,
+                "head": head, "verdict": "BLOCKED", "certified": False,
+                "errors": ["malformed packet field: " + type(exc).__name__],
+                "limitation": "Invalid schema is not evidence; no certification awarded."}
 
 
 def audit(rows, packets, *, head, root):

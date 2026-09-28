@@ -20,3 +20,5 @@ Actual entry: CLI main -> matrix/packet read -> audit -> validate -> durable JSO
 ## Reproduce / continuation
 Run bundled Python brambleloop/tests/test_final_proof.py. Run final_proof.py --matrix codex/master_review/matrix_slice.json --packets codex/master_review/packets.json --head c0a8f3950eaa09d89631faaafec60de7fd989f1b --artifacts . --output codex/master_review/validation.json (expected exit1). Supply independently acquired current-head packets before reassessment. Never rewrite rows merely to clear validation. Integrator should adversarially review schema trust boundaries and add real source adapters before operational reliance.
 No statuses, thresholds, existing gates, Visual work, production, or external APIs changed. Spend $0.
+
+Independent review follow-up: 10 tests pass after malformed nested-field fail-closed handling. An independently audited row must explicitly declare protected_action_applicability=protected/unprotected; absence is UNKNOWN and blocks. Existing actual matrix lacks this new applicability attestation, so no legacy row opts out by default. Integrator supplies adjudicated metadata in audit input, never by trusting packet claims.

@@ -18,7 +18,7 @@ class ProofTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / "raw.json").write_text('{"synthetic":true}')
         self.head = "a" * 40
-        self.row = {"uid": "F-514@v0.15", "protected_effect": "release"}
+        self.row = {"uid": "F-514@v0.15", "protected_effect": "release", "protected_action_applicability": "protected"}
         def receipt(**extra):
             return dict(artifact="raw", head=self.head, run_id="run-1", observed=True, **extra)
         chain = {}
@@ -72,6 +72,25 @@ class ProofTests(unittest.TestCase):
             with self.subTest(section=section, key=key):
                 packet = copy.deepcopy(self.packet); packet[section][key] = value
                 self.assertEqual(self.check_packet(packet)["verdict"], "BLOCKED")
+
+    def test_malformed_receipts_fail_closed(self):
+        for section in ("live_root", "suite", "independent_review", "execution_gate", "chain"):
+            for value in (None, [], "bad"):
+                with self.subTest(section=section, value=value):
+                    packet = copy.deepcopy(self.packet); packet[section] = value
+                    self.assertEqual(self.check_packet(packet)["verdict"], "BLOCKED")
+        for value in (None, [], "3", True):
+            packet = copy.deepcopy(self.packet); packet["suite"]["passed"] = value
+            self.assertEqual(self.check_packet(packet)["verdict"], "BLOCKED")
+        for stage in STAGES:
+            packet = copy.deepcopy(self.packet); packet["chain"][stage] = []
+            self.assertEqual(self.check_packet(packet)["verdict"], "BLOCKED")
+
+    def test_absent_audited_applicability_is_unknown(self):
+        del self.row["protected_action_applicability"]
+        result = self.check_packet(self.packet)
+        self.assertIn("protected-action applicability unknown", result["errors"])
+        self.assertEqual(result["verdict"], "BLOCKED")
 
     def test_changed_artifact_blocks(self):
         (self.root / "raw.json").write_text("changed")
