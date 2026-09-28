@@ -301,6 +301,7 @@ class Worker:
 # cadence twice in the same window is refused by the job's idempotency key, so a restart loop
 # cannot flood the queue.
 CADENCES: list[tuple[str, str, str, int]] = [
+    ("learn_gap_scan", "learn", "learn.scan", 3600),
     # (name, agent, job_type, period_seconds)
     ("infra_heartbeat", "orchestrator", "ops.heartbeat", 15 * 60),
     ("queue_check", "orchestrator", "ops.queue_check", 60 * 60),

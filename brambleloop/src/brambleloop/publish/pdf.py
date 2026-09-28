@@ -616,7 +616,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       twin: TwinModel | None = None,
                       designer: str = "Brambleloop Studio",
                       released_on: date | None = None,
-                      childrens: tuple[str, str] | None = None) -> PatternDocument:
+                      childrens: tuple[str, str] | None = None,
+                      lesson_links: list[dict] | None = None) -> PatternDocument:
     """Render the full pattern document.
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
@@ -1245,6 +1246,26 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"PDF_CHILDRENS_STATEMENT_UNRENDERABLE: {statement_key} is required for a "
                 f"{childrens[0]} product stated for {childrens[1]} and this document cannot "
                 f"state it: {why}")
+
+    # Approved contextual links supplied by assets.build, bound to lesson revisions.
+    # Missing public origin or approved coverage emits nothing, never a dead promise.
+    if lesson_links:
+        from urllib.parse import urlsplit
+        doc.heading("Technique help")
+        for lesson_link in lesson_links:
+            target = lesson_link["url"]
+            parsed = urlsplit(target)
+            revision = lesson_link["revision"]
+            if (parsed.scheme != "https" or parsed.username or parsed.password
+                    or parsed.query != "revision=" + revision
+                    or not parsed.path.startswith("/learn/") or parsed.fragment):
+                raise ValueError("unsafe or unversioned lesson link")
+            label = ", ".join(lesson_link["topics"])
+            doc.para(label, size=10)
+            doc.need(6 * mm)
+            doc.c.linkURL(target, (MARGIN, doc.y, PAGE_W - MARGIN, doc.y + 5 * mm),
+                          relative=0, thickness=0)
+            doc.para(target, size=8)
 
     # -- licence -----------------------------------------------------------
     doc.new_page(head)
