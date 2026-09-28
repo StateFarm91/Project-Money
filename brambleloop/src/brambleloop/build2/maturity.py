@@ -47,7 +47,8 @@ from __future__ import annotations
 import ast
 import re
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
+from functools import lru_cache, wraps
+from contextvars import ContextVar
 from pathlib import Path
 
 from . import requirements as reg
@@ -210,13 +211,41 @@ def _tested_modules() -> frozenset[str]:
     test coverage, it is measuring how people happen to write imports -- and it fails in
     the direction that invents work.
     """
-    # Content, not timestamps: replacing a test in place must remove obsolete evidence.
-    # Capture current bytes before consulting the cache; read failures propagate instead
-    # of reusing a previous success. Include paths/root so fixture switches invalidate.
+    active = _test_import_snapshot.get()
+    if active is not None:
+        return active
+    return _tested_modules_from_sources(*_capture_test_sources())
+
+
+def _capture_test_sources() -> tuple:
+    # Exact bytes, never mtime/size alone. Read failures cannot reuse previous evidence.
     root = str(_TESTS.resolve())
     sources = tuple((path.name, path.read_bytes())
                     for path in sorted(_TESTS.glob("test_*.py"))) if _TESTS.is_dir() else ()
-    return _tested_modules_from_sources(root, sources)
+    return root, sources
+
+
+_test_import_snapshot = ContextVar("brambleloop_test_import_snapshot", default=None)
+
+
+def _with_test_import_snapshot(function):
+    """Use one immutable import set, then refuse a result if its source has changed."""
+    @wraps(function)
+    def checked(*args, **kwargs):
+        captured = _capture_test_sources()
+        token = _test_import_snapshot.set(_tested_modules_from_sources(*captured))
+        try:
+            result = function(*args, **kwargs)
+            try:
+                current = _capture_test_sources()
+            except Exception as exc:
+                raise RuntimeError("test source evidence unreadable during revalidation") from exc
+            if current != captured:
+                raise RuntimeError("test source evidence changed during report")
+            return result
+        finally:
+            _test_import_snapshot.reset(token)
+    return checked
 
 
 @lru_cache(maxsize=1)
@@ -436,6 +465,7 @@ def _signals(db) -> dict:
     }
 
 
+@_with_test_import_snapshot
 def report(db, *, env: dict[str, str] | None = None) -> dict:
     """The ladder across every requirement the registry calls covered.
 

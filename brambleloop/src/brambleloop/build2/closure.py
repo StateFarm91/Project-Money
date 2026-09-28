@@ -227,6 +227,7 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
     return row
 
 
+@maturity._with_test_import_snapshot
 def matrix(db=None, *, env=None) -> dict:
     """The whole registry classified; `open` is the closeout remainder."""
     unknown = sorted({g for g in (executor.gate_for(r.id) for r in reg.load()) if g}
