@@ -1,0 +1,22 @@
+# Master review and J evidence-contract candidate
+
+Base: c0a8f3950eaa09d89631faaafec60de7fd989f1b. All 4,394 Master text lines read; supplied PDF SHA256 verified as 526ed69c8cf9b50e8b5ed736301607b0d314f7e80126ebd5a2178e9689471a99. Parser executed without rewriting registry. Accounting: 866 records, 859 IDs; F-631..650 absent; F-514..520 each occur in v0.15 and v0.16 and must retain qualified UIDs. No requirements invented or collapsed.
+
+## Launch protection
+F-831..840 explicitly supersede weaker completion interpretations globally. Static reachability can disprove a chain but cannot prove execution. Existing build2/closure.py proof_of accepts existing/tested/reached machinery; research/final_build/aggregate.py caps maturity from static reachability/test existence and filename patterns. Neither validates the entire observed chain. Do not treat their historical green counts as this stricter proof.
+F-789..798 supersede only conflicting private benchmark restrictions, not publishable originality obligations. F-851..860 supersede generative redraw defaults; independent Product Truth, realism and canonical identity remain. F-400/630/698/717/879 preserve finite launch scope. Learn section84 requires architecture, graph, gaps, links/provenance/QA, not hundreds of lessons.
+Owner's current explicit launch instruction allows appropriate schematic imagery without requiring photorealism inherently. This governs scope over conflicting blanket wording F-221/760 and D-FB-4 interpretations. Such imagery must be labelled honestly; no synthetic/schematic asset gains a false photographic PASS. No Visual gates were changed here.
+
+## Implemented bounded change
+New build2/final_proof.py CLI consumes actual Final matrix schema plus evidence packets and writes a separate report. Checks qualified UID, exact effective source SHA, hash-bound artifacts confined to artifact root, run-bound linked producer/state/consumer/decision/effect/result, real-root category, production-producer observation, failure test, non-vacuous clean green suite, execution-time gate binding and independent review identity/result. Missing chain, fixture/static/proxy input, stale head, stale run, broken links, tampered bytes, planning-only authority and self-review refuse candidate validity. Reopened rows are not parked or modified by this tool.
+Verdicts BLOCKED / REVIEWABLE only; certified always false. Hashes and labels cannot authenticate the source or prove assertions true. Independent review of raw evidence and final effective source remains mandatory. No automatic capability producer instrumentation is added. This is evidence submission validation, not a replacement certification engine or completion of every listed requirement.
+
+## Executed evidence
+8 unittest cases with adversarial subcases passed, including CLI invocation and source-matrix preservation. Synthetic complete contract is REVIEWABLE, never certified. CLI run against 12 actual scoped matrix rows with an explicitly empty packet set produced 12 BLOCKED results (expected exit1), saved validation.json. This means no conforming packets were supplied, not proof the underlying capabilities are absent. No full suite or production execution claimed.
+
+## Runtime trace / remaining work
+Actual entry: CLI main -> matrix/packet read -> audit -> validate -> durable JSON report. Consumer: independent integrator reads validation.json; protected effect: no source state mutation or certification promotion. Production source producer and raw receipt adapters remain to be integrated after real evidence is collected. No existing scheduler claims this tool runs automatically. F-835 action enforcement is only checked as submitted evidence, not implemented here. F-838 closed-gate adjudication and F-843 complete-matrix maturity reconciliation remain integrator work.
+
+## Reproduce / continuation
+Run bundled Python brambleloop/tests/test_final_proof.py. Run final_proof.py --matrix codex/master_review/matrix_slice.json --packets codex/master_review/packets.json --head c0a8f3950eaa09d89631faaafec60de7fd989f1b --artifacts . --output codex/master_review/validation.json (expected exit1). Supply independently acquired current-head packets before reassessment. Never rewrite rows merely to clear validation. Integrator should adversarially review schema trust boundaries and add real source adapters before operational reliance.
+No statuses, thresholds, existing gates, Visual work, production, or external APIs changed. Spend $0.
