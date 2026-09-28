@@ -1,0 +1,2443 @@
+[
+ {
+  "uid": "F-551",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Dashboard is a composition of other surfaces with no API; its launch-critical parts (orders, messages, policy notices) are mapped under F-556/F-558/F-568.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No harvester of Shop Manager Dashboard tasks/Shop Advisor warnings/renewals/reminders into durable tasks; Etsy OpenAPI has no dashboard resource.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 1 'dashboard' UNSUPPORTED (OAS-ABSENCE 'dashboard' 0)",
+   "src/brambleloop/intel/etsy_surfaces.py::surfaces (dashboard verdict UNSUPPORTED)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "external",
+   "key": "no_dashboard_api",
+   "detail": "Etsy publishes no dashboard endpoint; only an owner paste-in/browser route exists"
+  },
+  "defect": null,
+  "next_action": "Build an owner-recorded dashboard-task intake (POST route writing OwnerAction/Incident rows with basis=owner_recorded, deadline and closure-evidence fields), modelled on intel/insights.record; keep it labelled owner-reported.",
+  "confidence": "HIGH",
+  "searched": "grep dashboard/Shop Advisor/renewal across src; etsy_surfaces registry; OwnerAction writers (launch.readiness, ads.adjust)"
+ },
+ {
+  "uid": "F-552",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Quick-signal KPIs are post-launch analytics; no traffic exists before first listing.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No persisted dashboard views/visits/orders/revenue snapshot with date range/channel context.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md rows 1 and 6 (dashboard/stats UNSUPPORTED)"
+  ],
+  "build2_rows": [
+   "#263 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "no traffic until a listing is live; dashboard numbers have no API"
+  },
+  "defect": null,
+  "next_action": "After first live listing, add an owner-recorded KPI snapshot table (basis=owner_recorded, date range, channel) kept separate from measured Stats; expose it beside scale/leading.py indicators.",
+  "confidence": "HIGH",
+  "searched": "grep views/visits snapshot in src/brambleloop/scale/leading.py, intel/, app/main.py routes"
+ },
+ {
+  "uid": "F-553",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Safe publication requires knowing the remote state of every listing (drafts, active, deactivated/suppressed) against intended state.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Only local Listing rows (slug, version, state, price, release_hash, etsy_listing_id) are integrated; no remote census of draft/active/inactive/sold-out/expired listings, renewal state, fees, taxonomy, properties or attached digital files is collected at runtime.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::listing_census_drift",
+  "durable_state": "listings",
+  "consumer": null,
+  "protected_effect": "detects listings that vanished, were deactivated or were created outside the system",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_a_listing_that_has_vanished_raises_an_alarm_and_refuses_to_say_why",
+   "tests/test_etsy_surfaces.py::test_a_listing_deactivated_behind_our_back_is_drift_too",
+   "tests/test_etsy_surfaces.py::test_holding_no_record_of_our_own_listings_is_not_a_clean_census"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "src/brambleloop/integrations/etsy.py::EtsyClient.get_shop_listings exists (listings_r granted) but no cadence calls it",
+   "src/brambleloop/core/models.py::Listing has no renewal/fee/taxonomy/file columns"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "listings_r is granted; census is software work (live listings gate only affects whether there is anything to census)"
+  },
+  "defect": "listing_census_drift is a tested pure function never fed a real getListingsByShop reading (etsy_surfaces unreached).",
+  "next_action": "Add a daily cadence handler (e.g. etsy.listing_census in runtime/release.py) that calls EtsyClient.get_shop_listings for each state, stores a snapshot row, runs etsy_surfaces.listing_census_drift against Listing rows and opens an Incident on drift; extend Listing with remote_state/last_seen/expires_at/taxonomy_id.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-554",
+  "launch_class": "MATURE",
+  "launch_class_reason": "No bulk edit path exists; a three-listing launch catalogue needs none.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No bulk edit/renewal operation, preview, affected-count proof, invariant check or rollback plan exists.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "grep 'bulk' in src finds no listing bulk operation; EtsyClient only has per-listing update_listing/delete_listing"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "When a bulk path is first needed, build a guard in integrations/etsy.py that takes a preview diff, asserts affected count, refuses Product Truth/safety/legal fields and records a rollback snapshot; until then no bulk path may be added without it.",
+  "confidence": "HIGH",
+  "searched": "grep bulk/batch update in src/brambleloop/integrations, runtime, commerce"
+ },
+ {
+  "uid": "F-555",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Renewal economics matter only once listings are live and aging (4-month cycle).",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No renewal decision logic; only the listing fee is amortised in pricing/target fee models (scale/target.py::fees_on listings_renewed).",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/scale/target.py::fees_on (renewal fee arithmetic only)",
+   "src/brambleloop/commerce/fee_schedule.py (4-month listing life)",
+   "src/brambleloop/integrations/etsy.py form field should_auto_renew passed through, no policy"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "needs live listings with performance history"
+  },
+  "defect": null,
+  "next_action": "Add commerce/renewal.py deciding renew/let-expire per listing from ListingOutcome evidence and renewal fee, and set should_auto_renew from it in the listing payload; test that approaching expiry alone never triggers renewal.",
+  "confidence": "HIGH",
+  "searched": "grep renew/expir across commerce, integrations, scale"
+ },
+ {
+  "uid": "F-556",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Timely buyer response is core customer support/remedy for the first sale.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No Etsy message source (no messaging API), so first-message clocks of real buyer threads are not tracked; Etsy customer-service standard vs internal target not modelled; no pre-breach alert; response time is measured to draft_ready in shadow.",
+  "producer": "src/brambleloop/support/service.py::record_response",
+  "durable_state": "support_cases (detail.response_minutes)",
+  "consumer": "src/brambleloop/support/service.py::service_level",
+  "protected_effect": "separate canonical (5 min) and escalated (24 h) targets with a 90% floor",
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_support_reply_times_the_case_and_refuses_a_gating_draft"
+  ],
+  "evidence": [
+   "src/brambleloop/runtime/release.py::handle_support_reply -> _check_and_time_reply",
+   "src/brambleloop/support/service.py TARGETS/SERVICE_FLOOR",
+   "research/ETSY_SURFACE_REGISTRY.md row 3 messages OWNER_ONLY (no API) and owner action 14 (notification inbox)"
+  ],
+  "build2_rows": [
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "no_messages_api",
+   "detail": "Etsy exposes no conversation API; the owner must confirm message notifications reach a read inbox (registry owner action 14)"
+  },
+  "defect": "SupportCase rows have no ingestion path from Etsy messages; SLA timing starts at case creation and ends at draft_ready, which is not a buyer-facing response.",
+  "next_action": "Add an owner-facing case-intake route (POST /api/support/case with received_at from the Etsy message) and a support.sla cadence that flags cases approaching Etsy's and the internal target before breach; record the owner action for notification routing in OwnerAction.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-557",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Correct routing/escalation of buyer messages without unsupported auto-claims is customer protection.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Routes are download/crochet_help/materials/troubleshooter/happiness/version/review_intelligence/escalate; no distinct pre-sale, refund, safety, policy or abuse/spam classes, and no routing to non-support departments except via incidents/lessons. Real messages have no source.",
+  "producer": "src/brambleloop/support/department.py::triage",
+  "durable_state": "support_cases",
+  "consumer": "src/brambleloop/runtime/release.py::handle_support_triage",
+  "protected_effect": "legal/privacy/chargeback escalate; nothing sent in shadow; repeated row questions become defects",
+  "tests": [
+   "tests/test_departments.py::test_every_message_reaches_the_right_desk",
+   "tests/test_departments.py::test_legal_and_privacy_always_escalate",
+   "tests/test_departments.py::test_nothing_is_ever_sent_in_shadow_mode",
+   "tests/test_departments.py::test_repeated_questions_about_one_row_surface_as_a_candidate_defect"
+  ],
+  "evidence": [
+   "runtime/worker.py CADENCES support_triage hourly",
+   "fcb982d has support.triage handler but no support_triage cadence -> not DEPLOYED as integrated"
+  ],
+  "build2_rows": [
+   "#41 DATA-GATED",
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "no_messages_api",
+   "detail": "no Etsy message API; triage runs over stored cases only"
+  },
+  "defect": null,
+  "next_action": "Extend support/department.py _ROUTES with pre_sale, refund, safety, policy and abuse_spam classes (refund/safety/policy escalate), route pre-sale to listing and safety/policy to incidents; add tests per class in tests/test_departments.py.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-558",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Order truth (payment, version delivered, refund state, accounting evidence) is required to serve and remedy the first buyer.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Ingest records order, version and a sale ledger line; payment (getPayments/ledger entries), digital delivery state, buyer issue linkage, cancellation/case state and actual Etsy fees are not reconciled.",
+  "producer": "src/brambleloop/commerce/orders_ingest.py::ingest",
+  "durable_state": "orders, customers, order_versions, ledger",
+  "consumer": "src/brambleloop/commerce/order_readings.py::read",
+  "protected_effect": "no order invented; UNMEASURED with reason while gated; idempotent per receipt:transaction",
+  "tests": [
+   "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
+   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+  ],
+  "evidence": [
+   "src/brambleloop/runtime/orders.py::handle_orders_ingest (6-hourly cadence orders_ingest)",
+   "commerce/orders_ingest.py not in production fcb982d",
+   "transactions_r not granted (BUILD_STATE, ETSY_SURFACE_REGISTRY Finding 1)"
+  ],
+  "build2_rows": [
+   "#11 OWNER-GATED",
+   "#12 OWNER-GATED",
+   "#42 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "owner must re-authorise the Etsy app with transactions_r (6 minutes)"
+  },
+  "defect": "Ledger fees on each sale line are pricing.fees() model output (known incomplete: offsite/regulatory/currency unmodelled) stored as if charged; refund is a boolean only.",
+  "next_action": "Add Payment/ledger-entry reads (getShopPaymentByReceiptId) to EtsyReceiptReader and store actual fees, refund/cancel status and payment id on the order; mark modelled fees basis=modelled until replaced.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-559",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "The customer must receive the exact, current PDF; a stale or mismatched file is a direct customer harm.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No read-back of files attached to a live listing (getAllListingFiles not in EtsyClient), no hash/version/language check against the released artefact, no post-purchase availability check.",
+  "producer": "src/brambleloop/integrations/etsy.py::EtsyClient.attach_file",
+  "durable_state": "listings.release_hash, order_versions",
+  "consumer": null,
+  "protected_effect": "version-at-sale recorded; first-customer gate refuses UNVERIFIABLE remote state",
+  "tests": [
+   "tests/test_first_customer_gate.py::test_the_download_is_a_first_customer_failure_while_the_store_is_ephemeral",
+   "tests/test_first_customer_gate.py::test_etsy_remote_state_is_unverifiable_rather_than_passing_on_a_local_fake"
+  ],
+  "evidence": [
+   "src/brambleloop/gates/first_customer.py reached=False (tests only)",
+   "src/brambleloop/integrations/etsy_verify.py compares listing fields, not files",
+   "research/ETSY_SURFACE_REGISTRY.md row 31 digital_files ACT; file size limits UNKNOWN"
+  ],
+  "build2_rows": [
+   "#42 COMPLETE+PROVEN",
+   "#159 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_exercise",
+   "detail": "remote proof needs the owner-authorised controlled round trip / live listing"
+  },
+  "defect": "gates/first_customer.py (download area) is not reached from any runtime root.",
+  "next_action": "Add EtsyClient.get_listing_files (getAllListingFiles/getListingFile) and a verify_files() in integrations/etsy_verify.py comparing name/size/sha256 to the certified release artefact; call it after attach_file and from a daily cadence over Listing rows with etsy_listing_id; wire gates/first_customer into launch.readiness.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-560",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Search Visibility is a class C post-launch surface in the registry.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No Listings/Shop/Customer-Service three-area model with independent status and timestamps; only an API-index rank proxy (intel/serp.py) exists.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 5 search_visibility ANALYZE (no Etsy SEO data in API)",
+   "src/brambleloop/intel/serp.py (proxy rank, labelled as proxy)"
+  ],
+  "build2_rows": [
+   "#15 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "no_search_visibility_api",
+   "detail": "Etsy exposes no Search Visibility data; owner-recorded readings would be required"
+  },
+  "defect": null,
+  "next_action": "Add an owner-recorded search-visibility finding table with area in {listings, shop, customer_service}, status, first-seen/last-checked timestamps, and a per-area status function; route POST /api/search-visibility/finding.",
+  "confidence": "HIGH",
+  "searched": "grep 'search visibility' across src; intel/serp.py; intel/etsy_surfaces.py"
+ },
+ {
+  "uid": "F-561",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Depends on F-560 findings which exist only post-launch.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No finding aging, re-check or refresh-window alert.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 5"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "needs findings on live listings"
+  },
+  "defect": null,
+  "next_action": "After F-560's finding table exists, add an aging check to ops.health or a daily cadence that opens an Incident when a fixed finding is still open past its refresh window.",
+  "confidence": "HIGH",
+  "searched": "grep aging/refresh window with search visibility"
+ },
+ {
+  "uid": "F-562",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Traffic-source analytics require traffic.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No per-source traffic model; Stats has no API and no owner Stats traffic-source ingest exists (the Stats CSV ingest is per search term only).",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 6 stats UNSUPPORTED",
+   "src/brambleloop/commerce/attribution.py::parse_stats_csv (term/impressions/visits/orders/revenue only)"
+  ],
+  "build2_rows": [
+   "#263 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "no traffic; owner export needed once it exists"
+  },
+  "defect": null,
+  "next_action": "Extend commerce/attribution.parse_stats_csv (or add a sibling) to accept Etsy's traffic-source export with Etsy's source names preserved verbatim, stored as owner-exported readings.",
+  "confidence": "HIGH",
+  "searched": "grep traffic source/direct/social in commerce, scale/leading.py"
+ },
+ {
+  "uid": "F-563",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Search-term optimisation is post-launch growth.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Mapping of terms to intended query families and to Marketplace Insights demand evidence is not done; only term -> contribution/support/repeat join and SEO tag swap.",
+  "producer": "src/brambleloop/commerce/attribution.py::join_stats",
+  "durable_state": "operating_readings (attribution.stats)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": "vanity terms lose tag slots to earning terms",
+  "tests": [
+   "tests/test_benchmarks.py::test_a_stats_export_is_read_strictly_and_ranked_on_what_terms_earned",
+   "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database"
+  ],
+  "evidence": [
+   "src/brambleloop/app/main.py::api_attribution_stats (POST /api/attribution/stats, ops-token)"
+  ],
+  "build2_rows": [
+   "#237 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "stats_export",
+   "detail": "owner must export the Etsy Stats search-term CSV once traffic exists"
+  },
+  "defect": null,
+  "next_action": "Join each term in join_stats to the query family used in commerce/seo.py and to InsightsSnapshot rows (intel/insights.snapshots) and report the mapping in the stored reading.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-564",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Listing-level performance diagnosis is post-launch optimisation.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No listing views/favorites/orders time series is collected (no Stats API; num_favorers counter not read); classification logic exists but receives no real inputs.",
+  "producer": "src/brambleloop/commerce/portfolio.py (classification)",
+  "durable_state": "listing_outcomes",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_portfolio_review",
+  "protected_effect": "high-impression/low-click vs high-click/low-conversion treated as different problems",
+  "tests": [
+   "tests/test_departments.py::test_high_impressions_and_low_clicks_is_a_listing_problem",
+   "tests/test_departments.py::test_high_clicks_and_low_conversion_is_an_offer_problem",
+   "tests/test_departments.py::test_a_catalogue_nobody_has_seen_is_not_underperforming"
+  ],
+  "evidence": [
+   "portfolio.review weekly cadence"
+  ],
+  "build2_rows": [
+   "#263 OWNER-GATED",
+   "#23 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "needs a published listing and its stats"
+  },
+  "defect": null,
+  "next_action": "Once live, read Listing.num_favorers via getListing on a cadence and accept owner Stats listing exports into ListingOutcome with timeframe; add a low-view/high-conversion class test.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-565",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Opportunity research drives catalogue growth, not first-sale safety.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No single derived score combining Insights searches/competition/trend with Product Truth feasibility, policy eligibility, margin and catalogue fit; raw owner-recorded Insights are stored separately and consumed by radar provenance/seasonal daily.",
+  "producer": "src/brambleloop/intel/insights.py::record",
+  "durable_state": "insights_snapshots",
+  "consumer": "src/brambleloop/radar/provenance.py",
+  "protected_effect": "Etsy figures kept basis=owner_recorded_shop_manager, never merged into own measurements",
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/app/main.py POST /api/insights/snapshot",
+   "src/brambleloop/intel/insights_budget.py",
+   "research/ETSY_SURFACE_REGISTRY.md row 7 marketplace_insights UNSUPPORTED"
+  ],
+  "build2_rows": [
+   "#1 OWNER-GATED",
+   "#37 OWNER-GATED",
+   "#236 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "owner-recorded Marketplace Insights readings must exist"
+  },
+  "defect": null,
+  "next_action": "Add radar/opportunity.py insights_opportunity(term) combining InsightsSnapshot raw values with feasibility (CIR buildability), gates/platform_policy eligibility and pricing margin, storing raw and derived separately; add a named test.",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-566",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Etsy service stats are parked on real customers (registry class D).",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No ingest of Etsy customer-service daily progress/monthly overview; only internal support timing exists.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 8 customer_service_stats UNSUPPORTED",
+   "src/brambleloop/support/service.py (internal only)"
+  ],
+  "build2_rows": [
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "Etsy shows service stats only once there are orders/messages; no API"
+  },
+  "defect": null,
+  "next_action": "Add owner-recorded Etsy service-stats readings (response rate, case rate, review rating, period) with basis label, compared against support/service.service_level.",
+  "confidence": "HIGH",
+  "searched": "grep response rate/case rate in src"
+ },
+ {
+  "uid": "F-567",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Star Seller is a post-launch reputation target.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No Star Seller tracking or separation from minimum standards.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "grep 'star seller' in src: 0 hits"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "requires Etsy service stats"
+  },
+  "defect": null,
+  "next_action": "With F-566 readings, add a star_seller status that reports minimum-standard and Star Seller thresholds separately and refuses 'approaching Star Seller' without the three required metrics.",
+  "confidence": "HIGH",
+  "searched": "grep star_seller/star seller across src and research"
+ },
+ {
+  "uid": "F-568",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "A policy takedown or violation must be handled before it becomes a suspension (marketplace compliance).",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No Policy Violations source (no API); the only machine signal (listing census drift) is not wired; no violation-specific incident type with source text, deadline, remediation owner and closure proof; owner check action not in OwnerAction.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::listing_census_drift",
+  "durable_state": "incidents (generic)",
+  "consumer": null,
+  "protected_effect": "drift alarm hands the case to a person and refuses to state a reason",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_a_listing_that_has_vanished_raises_an_alarm_and_refuses_to_say_why",
+   "tests/test_incident_lifecycle.py::test_reconcile_resolves_only_what_stopped_and_says_why"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "research/ETSY_SURFACE_REGISTRY.md row 9 policy_violations OWNER_ONLY; owner action 11",
+   "src/brambleloop/gates/incidents.py"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "policy_violations_check",
+   "detail": "Etsy exposes no violations API; owner must read the page and record it"
+  },
+  "defect": "The census alarm that is the only automated violation signal is a tested library with no runtime caller.",
+  "next_action": "Wire the listing census cadence (see F-553) to open a 'policy_violation_suspected:<listing>' Incident with halts_publication, deadline and required closure evidence; add POST /api/policy-violation for owner-recorded notices (source text, listing, deadline).",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-569",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Ads are disabled until owner ad authority (F-875).",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Clicks/visits/orders/revenue/spend per advertised listing cannot be read (no Ads API; ad spend not a ledger kind); campaigns are planned, never run.",
+  "producer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
+  "durable_state": "operating_readings (ads plan), spend_limits",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+  "protected_effect": "no campaign without owner SpendLimit; trust/organic-first/allowable-CAC gates before paid traffic",
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_ads_are_refused_without_the_owner_gate_and_planned_never_spent_with_it",
+   "tests/test_paid_media_economics.py::test_no_organic_period_means_no_paid_scaling",
+   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+  ],
+  "evidence": [
+   "ads_review daily cadence",
+   "research/ETSY_SURFACE_REGISTRY.md row 10 etsy_ads UNSUPPORTED (Finding 2: no code-enforceable ceiling)"
+  ],
+  "build2_rows": [
+   "#242 OWNER-GATED",
+   "#243 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "ad_authority",
+   "detail": "a SpendLimit row for 'ads' with a positive unpaused daily cap"
+  },
+  "defect": null,
+  "next_action": "Add an owner-recorded Etsy Ads reading intake (daily budget, clicks, spend, orders per listing) so ads_plan computes incremental economics once authority exists.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-570",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Offsite Ads economics are post-first-sale; the pricing floor already carries the worst-case offsite fee.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No source for Offsite Ads attribution (absent from the API); 365-day threshold tracked from order sums; contribution recompute on attributed orders depends on an attribution flag nothing sets.",
+  "producer": "src/brambleloop/commerce/paid_media.py::offsite_ads_forecast",
+  "durable_state": "orders.offsite_ad_attributed",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+  "protected_effect": "UNMEASURED with no orders; terms read from the policy reading",
+  "tests": [
+   "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
+   "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 11 offsite_ads UNSUPPORTED; owner action 10",
+   "src/brambleloop/commerce/pricing.py::worst_case_fees"
+  ],
+  "build2_rows": [
+   "#244 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "orders need transactions_r; attribution needs owner-read fee lines"
+  },
+  "defect": "commerce/orders_ingest._record_line never sets offsite_ad_attributed (defaults False), so once orders exist the offsite share would read as a measured 0% rather than UNKNOWN.",
+  "next_action": "Make Order.offsite_ad_attributed tri-state (None=unknown) in cohorts.record_order and orders_ingest, and set it only from Payment/ledger fee lines or an owner record; offsite_ads_forecast must report UNKNOWN while any order is None.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-571",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Promotions are a post-launch growth lever.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No audience, listing-eligibility or inventory targeting; sales cannot be created by API; observation of live sale state (getListingsByListingIds discount block) not collected.",
+  "producer": "src/brambleloop/commerce/promotion.py::incrementality",
+  "durable_state": "experiments",
+  "consumer": "src/brambleloop/runtime/growth_ops.py (growth.journey)",
+  "protected_effect": "a promotion must end on a date (<=45 days); incrementality refused without a full-price control",
+  "tests": [
+   "tests/test_promotion.py::test_a_promotion_must_end_and_the_end_must_be_a_date",
+   "tests/test_promotion.py::test_incrementality_is_refused_without_a_full_price_control",
+   "tests/test_promotion.py::test_a_live_promotion_can_be_ended_rather_than_forgotten"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/pricing.py::check_no_fake_discount",
+   "research/ETSY_SURFACE_REGISTRY.md row 12 sales_and_discounts OBSERVE"
+  ],
+  "build2_rows": [
+   "#19 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "no promotion has run; incrementality needs orders"
+  },
+  "defect": null,
+  "next_action": "Add a daily read of the /listings/batch discount block for own listings to detect sales not authorised here and expired promotions still assumed active.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-572",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Social distribution is growth, not first-sale safety.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No posting destination exists; queue is plans (pins/video/clusters) without destination/link/date/traffic tracking of actual posts; Etsy social composer is not used.",
+  "producer": "src/brambleloop/runtime/growth_ops.py::plan_pins",
+  "durable_state": "operating_readings (growth.distribution)",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_growth_distribution",
+  "protected_effect": "nothing published or sent; CASL gate on owned channels",
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 13 social_media UNSUPPORTED",
+   "src/brambleloop/growth/owned.py"
+  ],
+  "build2_rows": [
+   "#246 OWNER-GATED",
+   "#248 OWNER-GATED",
+   "#251 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "a site/Pinterest account the company can publish to"
+  },
+  "defect": null,
+  "next_action": "Add a DistributionPost record (destination, asset, link, posted_at, visits) written when a planned pin is published, joined to traffic readings.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-573",
+  "launch_class": "MATURE",
+  "launch_class_reason": "External-link fee savings matter only once traffic is driven externally.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No enrolment state, no trackable link generation, no eligible order/refund tracking; ads.adjust calls share_and_save with zero orders and no official rate, so it reports UNMEASURED.",
+  "producer": "src/brambleloop/commerce/paid_media.py::share_and_save",
+  "durable_state": "operating_readings (ads plan)",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+  "protected_effect": "comparison refused without an official fee-benefit rate",
+  "tests": [
+   "tests/test_paid_media_economics.py::test_share_and_save_refuses_without_an_official_rate_and_measures_with_one"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 14 share_and_save UNSUPPORTED (SECONDARY)"
+  ],
+  "build2_rows": [
+   "#245 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "share_and_save_enrolment",
+   "detail": "owner must confirm enrolment and Etsy's official rate in a browser"
+  },
+  "defect": null,
+  "next_action": "Record owner-confirmed enrolment and official rate as a policy reading, and count orders via link from owner-recorded Share & Save reports.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-574",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Channel attribution is growth analytics.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No listing/product-family channel comparison across organic/Ads/Offsite/social/Share&Save and no single-credit rule; ingest hardcodes acquisition_source='etsy' and never sets search_term or offsite flag.",
+  "producer": "src/brambleloop/scale/evidence.py::cac",
+  "durable_state": "orders (acquisition_source, search_term, offsite_ad_attributed)",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
+  "protected_effect": "CAC split new vs blended",
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/orders_ingest.py::_record_line acquisition_source='etsy'"
+  ],
+  "build2_rows": [
+   "#266 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "no orders to attribute"
+  },
+  "defect": "Channel fields default to organic-looking values (acquisition_source='etsy', offsite False) that would read as measured attribution.",
+  "next_action": "Add a channel field with values {organic_search, etsy_ads, offsite_ads, social, share_and_save, unknown} defaulting to unknown, enforce one channel per order, and report per product family in scale/evidence.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-575",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Settlement reconciliation begins after money moves.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No Payment Account ledger-entry reader, no reconciliation to orders/fees/refunds/payouts, no finance incident for unexplained movement.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "getShopPaymentAccountLedgerEntries/getPayments absent from integrations/etsy.py (only cited in etsy_surfaces/policy_knowledge/etsy_oauth)",
+   "research/ETSY_SURFACE_REGISTRY.md row 15 payment_account OBSERVE, needs transactions_r"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "ledger-entry reads require transactions_r"
+  },
+  "defect": null,
+  "next_action": "Add EtsyClient.get_ledger_entries(min_created,max_created) and finance/reconcile.py matching entries to Order/LedgerEntry by reference_id, opening an Incident 'finance.unexplained:<entry_id>' for unmatched movements; run from finance.reconcile.",
+  "confidence": "HIGH",
+  "searched": "grep ledger-entries/getPayments/payment-account across src"
+ },
+ {
+  "uid": "F-576",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Monthly statements exist only after a month of sales.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No statement archive or extraction.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 16 monthly_statements UNSUPPORTED; owner action 13"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "monthly_statement",
+   "detail": "Etsy statement is a browser download only"
+  },
+  "defect": null,
+  "next_action": "Add POST /api/finance/statement storing the uploaded original in DurableArtifact (hash) and owner-entered totals, reconciled against the ledger reconstruction.",
+  "confidence": "HIGH",
+  "searched": "grep statement across src/brambleloop/finance, app/main.py"
+ },
+ {
+  "uid": "F-577",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Bank/payout settings are owner-reserved authority; payment onboarding is a first-sale blocker.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Drift monitoring of payment onboarding (getShop is_etsy_payments_onboarded via assess_shop) is not run at runtime; no code path can change payout details (none exists), which is structural rather than asserted.",
+  "producer": "src/brambleloop/launch/readiness.py::assess",
+  "durable_state": "owner_actions (payout)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "protected_effect": "payout is an owner request; software never receives bank details",
+  "tests": [
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for",
+   "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True (assess_shop)",
+   "research/ETSY_SURFACE_REGISTRY.md row 17 payment_settings OWNER_ONLY; owner action 2"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "payout",
+   "detail": "owner completes Etsy Payments onboarding in a browser"
+  },
+  "defect": "assess_shop's payments-onboarded check is tested but never fed a getShop reading.",
+  "next_action": "Add a daily etsy.shop_snapshot cadence calling EtsyClient.get_shop (API key only), storing the response, running etsy_surfaces.assess_shop and closing the payout OwnerAction on is_etsy_payments_onboarded=true / opening an incident if it flips false.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-578",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Legal and tax information is a first-sale blocker (registry class A) and software must not invent a tax position.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Tax facts (CRA small-supplier CA$30,000, marketplace facilitator) are static dated claims; no export/filing availability tracking and no recorded owner decision state.",
+  "producer": "src/brambleloop/commerce/shop_package.py::CLAIMS",
+  "durable_state": "owner_actions",
+  "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "protected_effect": "no code path takes a tax position; decision is an owner action",
+  "tests": [
+   "tests/test_shop_package.py::test_the_tax_position_is_a_threshold_somebody_watches_not_a_guess",
+   "tests/test_shop_package.py::test_the_research_says_how_old_it_is"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 18 legal_and_tax OWNER_ONLY; owner action 4",
+   "src/brambleloop/launch/readiness.py payout owner request mentions GST/HST"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "legal_and_tax",
+   "detail": "owner completes identity verification and decides GST/HST position"
+  },
+  "defect": null,
+  "next_action": "Persist the owner's dated tax-position decision (POST /api/owner/decision key legal_and_tax) and surface it in shop_package so the claim reads decided rather than open.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-579",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Accounting integration choice is post-revenue.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No evaluation of QuickBooks Online/Xero or others.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "grep quickbooks/xero across src and research: 0 hits"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Write a decision record in DECISION_LOG with a scored comparison (ledger fit, duplication risk, cost, reconciliation quality) once F-575/F-576 exist; no connection until then.",
+  "confidence": "HIGH",
+  "searched": "grep quickbooks|xero in src, research, DECISION_LOG.md"
+ },
+ {
+  "uid": "F-580",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Single first-party app; third-party app use is decided against in the registry.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Own app's scopes/grant are tracked; installed third-party apps are invisible (no API) and the owner confirmation action lives only in etsy_surfaces.owner_queue, not in OwnerAction; no last-use/cost/revocation inventory.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::scope_gaps",
+  "durable_state": "oauth_credentials (granted scopes)",
+  "consumer": null,
+  "protected_effect": "widening the grant closes only the named gaps",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_no_surface_claims_a_scope_etsy_does_not_publish",
+   "tests/test_etsy_surfaces.py::test_widening_the_grant_closes_the_gaps_and_nothing_else"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "research/ETSY_SURFACE_REGISTRY.md row 19 apps NOT_APPLICABLE; owner action 5"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "apps_confirmation",
+   "detail": "owner confirms Apps page is empty"
+  },
+  "defect": null,
+  "next_action": "Sync etsy_surfaces.owner_queue() actions (apps, shared_access, subscription, policy_violations, webhooks, developer_portal) into OwnerAction from launch.readiness, and store a dated app inventory row for the first-party app (scopes, purpose, revocation path).",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-581",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Tool evaluation is optimisation, not launch.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No third-party Etsy app evaluation framework.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "registry row 19 decides against third-party apps; no evaluation code"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a vendor-evaluation record template (capability overlap, data quality, cost, permissions, vendor risk, build-vs-buy) in DECISION_LOG when a specific tool is proposed.",
+  "confidence": "HIGH",
+  "searched": "grep eRank/EverBee/vendor evaluation in src"
+ },
+ {
+  "uid": "F-582",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Tool subscriptions are consequential spend and already owner-gated.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No capability-gap/ROI evaluation rule; only the general owner-approval spend policy prevents autonomous subscription.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/finance/spend_policy.py (consequential spend is owner-gated)",
+   "grep eRank/EverBee: 0 hits"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a spend_policy check refusing any 'software' scope SpendLimit without a linked decision record naming capability gap and expected ROI; test it.",
+  "confidence": "MEDIUM",
+  "searched": "grep erank|everbee|software subscription in src/brambleloop/finance"
+ },
+ {
+  "uid": "F-583",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Registry class B (launch week), not a first-sale blocker.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No Shared Access API; inventory is an owner confirmation defined only in etsy_surfaces.owner_queue, not persisted in OwnerAction.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::owner_queue",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_every_owner_action_is_actionable_and_closes_on_evidence"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "research/ETSY_SURFACE_REGISTRY.md row 24 shared_access OWNER_ONLY; owner action 6"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "shared_access_confirmation",
+   "detail": "owner reads Settings > Shared access"
+  },
+  "defect": "owner_queue() is never written to the OwnerAction table.",
+  "next_action": "Sync the shared_access owner action into OwnerAction via launch.readiness and require a dated statement to close it; re-open after any account recovery event.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-584",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Continuous storefront optimisation is post-launch; initial completeness is under F-594.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No continuous evaluation of logo/banner/layout/theme for trust/mobile/conversion; storefront copy and briefs are built and checked; banner/icon/About upload is owner-only.",
+  "producer": "src/brambleloop/brand/storefront.py::build_storefront",
+  "durable_state": null,
+  "consumer": "src/brambleloop/brand/takeover.py (seasonal takeovers)",
+  "protected_effect": "About checked on substance; missing policy sections caught",
+  "tests": [
+   "tests/test_shop_package.py::test_the_about_is_checked_on_substance_rather_than_length",
+   "tests/test_shop_package.py::test_a_missing_policy_section_is_caught_by_the_storefront_check"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md rows 21-22 your_shop ACT / info_and_appearance OWNER_ONLY"
+  ],
+  "build2_rows": [
+   "#131 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "info_and_appearance",
+   "detail": "banner, icon and About are uploaded by the owner"
+  },
+  "defect": null,
+  "next_action": "Once live, record getShop appearance fields in the shop snapshot (F-577) and add a check_storefront pass comparing observed vs intended with mobile-readability rules.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-585",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Options such as vacation mode or wrong currency silently stop every sale (registry class A).",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Options are classified and checked by assess_shop, but no runtime reads getShop, so current values and drift are never observed.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::assess_shop",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "vacation/currency/policy fields checked; absent fields read NO_EVIDENCE not PASS",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked",
+   "tests/test_etsy_surfaces.py::test_an_empty_shop_body_is_no_evidence_on_every_check_and_never_green",
+   "tests/test_etsy_surfaces.py::test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "research/ETSY_SURFACE_REGISTRY.md row 23 options OBSERVE",
+   "src/brambleloop/integrations/etsy.py::EtsyClient.get_shop exists"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "getShop needs only the API key, which production holds"
+  },
+  "defect": "assess_shop is a tested collector with no runtime caller (etsy_surfaces unreached).",
+  "next_action": "Add the etsy.shop_snapshot daily cadence (runtime/release.py) that calls get_shop, persists the body, runs assess_shop and opens a P1 Incident on vacation mode or currency drift; add it to launch.readiness.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-586",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Digital listings do not use shipping profiles (OAS), so no first-sale consequence.",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (delivery_settings NOT_APPLICABLE)",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "physical-only controls explicitly marked N/A with evidence, never silently ignored",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 25 delivery_settings NOT_APPLICABLE with OAS evidence (13 shipping-profile ops)",
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-587",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Contradictory refund/licence/policy text across Etsy, listing, PDF and support is a customer-protection and compliance failure.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "The Etsy-side policy text (six owner-pasted strings) is never read back and compared to shop_package.policies(); assess_shop checks only non-blank fields and is unwired.",
+  "producer": "src/brambleloop/commerce/terms.py::consistency",
+  "durable_state": "incidents (terms-divergence:<slug>)",
+  "consumer": "src/brambleloop/runtime/release.py::_support_knowledge",
+  "protected_effect": "a PDF/listing/FAQ terms divergence halts publication",
+  "tests": [
+   "tests/test_shop_package.py::test_the_three_surfaces_agree_on_all_five_axes",
+   "tests/test_shop_package.py::test_a_surface_written_by_hand_is_caught",
+   "tests/test_cert_rebuild_chain.py::test_a_divergent_listing_is_refused_and_halts_publication"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 26 policy_settings OWNER_ONLY; owner action 3"
+  ],
+  "build2_rows": [
+   "#40 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "policy_settings",
+   "detail": "owner pastes the six prepared policies"
+  },
+  "defect": null,
+  "next_action": "In the shop snapshot cadence, compare getShop policy_* strings to commerce.shop_package.policies() and route any mismatch to a terms-divergence Incident that halts publication.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-588",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "An inaccurate production-partner disclosure is a marketplace-compliance risk at first publication.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Partners surface is recorded NOT_APPLICABLE with reasoning; whether Etsy treats a generative model used for imagery as a production partner is UNKNOWN; no re-audit trigger on fulfilment change.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (production_partners)",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "empty partner list may never be read as a pass",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_a_surface_with_no_collector_says_so_rather_than_saying_fine"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 27 production_partners NOT_APPLICABLE + UNKNOWN on AI imagery",
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
+   "src/brambleloop/gates/platform_policy.py handles AI disclosure"
+  ],
+  "build2_rows": [
+   "#35 EXTERNAL-BLOCKED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_ai_partner_guidance",
+   "detail": "owner reads Etsy's guidance on help.etsy.com (403 to automation)"
+  },
+  "defect": null,
+  "next_action": "Record the owner's reading of Etsy's production-partner guidance as a policy snapshot (POST /api/policy/snapshot) and make the partners verdict read from it; add a check that a new fulfilment/imagery provider re-opens the review.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-589",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Binding policy freshness is enforced; Handbook/education changes are advisory.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No retrieval of Help/Seller Handbook pages (403 to automation); change detection works only on recorded readings; Handbook sources are not explicitly in POLICY_SOURCES.",
+  "producer": "src/brambleloop/gates/platform_policy.py::record_page_reading",
+  "durable_state": "policy_snapshots, incidents (policy_stale:, policy_changed:)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_policy_watch",
+  "protected_effect": "stale/unread policy opens a blocking incident; material change needs review before use",
+  "tests": [
+   "tests/test_platform_policy.py::test_never_checked_is_not_the_same_as_unchanged",
+   "tests/test_platform_policy.py::test_a_stale_reading_blocks_only_the_workflows_its_policy_governs",
+   "tests/test_platform_policy.py::test_a_material_change_is_a_digest_difference_rather_than_a_judgement"
+  ],
+  "evidence": [
+   "policy_watch daily cadence (present in fcb982d, but policy_knowledge seeding is post-fcb982d)",
+   "POST /api/policy/snapshot"
+  ],
+  "build2_rows": [
+   "#39 EXTERNAL-BLOCKED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "rendered_pages",
+   "detail": "help.etsy.com returns 403 to automated clients; needs a browser worker or owner-recorded readings"
+  },
+  "defect": null,
+  "next_action": "Add Etsy Seller Handbook/Help sources to platform_policy.POLICY_SOURCES as advisory (non-blocking) with review tasks via unreviewed_changes, never overwriting Product Truth.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-590",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Only etsy.com is used; no second channel before first customer.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No runtime inventory; the receipt_type channel signal is not read by orders_ingest.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (sales_channels)",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 29 sales_channels NOT_APPLICABLE",
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "receipt_type is on receipts"
+  },
+  "defect": null,
+  "next_action": "Store ShopReceipt.receipt_type on each Order in orders_ingest and alert if any non-Etsy.com channel appears.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-591",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Pattern/owned-site channels are not in use; a decision record suffices.",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (sales_channels decision)",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "Pattern treated as a separate paid channel requiring its own decision",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md row 29 WHY N/A (Pattern is a separate subscription)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-592",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "OAuth credential integrity guards shop writes (authority controls, runtime durability).",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "No continuous verification cadence (health does not read OAuth state), no callback-config or suspicious-authorisation monitor; connected apps/shared access are owner-only.",
+  "producer": "src/brambleloop/core/oauth_store.py (rotation / sealed refresh token)",
+  "durable_state": "oauth_credentials",
+  "consumer": "src/brambleloop/app/main.py::/api/etsy/oauth/status",
+  "protected_effect": "tokens sealed, never echoed; rotation race refused",
+  "tests": [
+   "tests/test_etsy_oauth_callback.py::test_a_rotation_replaces_the_stored_token_and_counts_itself",
+   "tests/test_etsy_oauth_callback.py::test_a_rotation_that_lost_a_race_is_refused_rather_than_overwriting_a_live_token",
+   "tests/test_continuity.py::test_token_health_never_reveals_the_token"
+  ],
+  "evidence": [
+   "research/OAUTH_SECURITY_AUDIT.md",
+   "/api/etsy/oauth/status present in fcb982d; real grant recorded 2026-09-25 (BUILD_STATE)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add an OAuth health reading to ops/health.read (token age, rotations, granted scopes vs expected, last refresh outcome) and open an Incident on unexpected scope/key-fingerprint change.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-593",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Owner-reserved Etsy actions must be exact and visible for a safe first sale.",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "The 15 Etsy owner actions in etsy_surfaces.owner_queue (apps, shared access, subscription, ads-off, policy violations, messages inbox, webhooks, quota) are not written to OwnerAction; only readiness/access/funding/ads owner requests are.",
+  "producer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "durable_state": "owner_actions",
+  "consumer": "src/brambleloop/app/main.py::api_owner_actions",
+  "protected_effect": "owner actions carry action, reason, max cost, minutes, consequence; satisfied actions close themselves",
+  "tests": [
+   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format",
+   "tests/test_launch.py::test_an_owner_action_whose_requirement_is_satisfied_closes_itself",
+   "tests/test_etsy_surfaces.py::test_every_owner_action_is_actionable_and_closes_on_evidence"
+  ],
+  "evidence": [
+   "launch_readiness cadence and /api/owner-actions present in fcb982d",
+   "src/brambleloop/build2/executor.py::approval_inbox",
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True (owner_queue)"
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN",
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": "etsy_surfaces.owner_queue() (15 actions incl. reauthorise_transactions_r) has no runtime writer into OwnerAction.",
+  "next_action": "In handle_launch_readiness, adopt etsy_surfaces.owner_queue() entries into OwnerAction by key (reuse the existing requirement_key adoption logic) with their closing evidence.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-594",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "This is the first-sale gate itself.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Remote Etsy write/read/delete proof is never recorded (etsy_integration hard-coded not ready; etsy_exercise prepared, never run); exact customer file verification on Etsy missing; search readiness not an item; gates/first_customer not wired.",
+  "producer": "src/brambleloop/launch/readiness.py::assess",
+  "durable_state": "owner_actions, audit_log (launch.readiness)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "protected_effect": "launch never ready in shadow; off-device proof, rollback rehearsal, disclosures, support knowledge, FAQ, pricing plan block",
+  "tests": [
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
+   "tests/test_launch.py::test_etsy_is_reported_as_written_but_never_called",
+   "tests/test_cert_growth_ops.py::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate",
+   "tests/test_first_customer_gate.py::test_the_gate_never_authorises_publication_however_green_it_gets"
+  ],
+  "evidence": [
+   "readiness._launch_package_items is post-fcb982d",
+   "src/brambleloop/integrations/etsy_exercise.py (prepared, not run: BUILD_STATE 'Nothing has been exercised against Etsy')",
+   "gates/first_customer.py reached=False"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED",
+   "#195 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_exercise",
+   "detail": "owner authorises the one controlled round trip; also transactions_r and production_window"
+  },
+  "defect": "readiness 'etsy_integration' is hard-coded ready=False / ever_called=False instead of reading exercise breadcrumbs, so it cannot turn green after a real round trip.",
+  "next_action": "Make the etsy_integration item read etsy_exercise audit breadcrumbs (create/verify/delete matched pair); add items for exact file verification (F-559) and search readiness (taxonomy 66 confirmed, tags, SEO score); call gates/first_customer from launch.readiness.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-595",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Protocol starts after the first sale; protective support/refund parts are mapped under F-556-F-558.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No explicit first-ten cohort with per-sale inspection record (search source, conversion path, questions, download friction) or a listing edit freeze; order readings run after each ingest and thrash detection exists.",
+  "producer": "src/brambleloop/commerce/order_readings.py::read",
+  "durable_state": "operating_readings",
+  "consumer": "src/brambleloop/runtime/orders.py::handle_order_readings",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/first_hundred.py",
+   "ops.thrash hourly cadence (#34)"
+  ],
+  "build2_rows": [
+   "#11 OWNER-GATED",
+   "#34 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "no orders can be read"
+  },
+  "defect": null,
+  "next_action": "Add commerce/first_ten.py: on each of the first ten ingested orders write a per-sale review record (source, term, support cases, refund) and hold non-emergency listing edits via listing_tests.may_test while the cohort is open.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-596",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Post-launch quality program over the first hundred sales.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No aggregate first-100 program gating catalogue breadth; pieces exist (trust sprint readiness, support confusion as defect, P1 outranks commercial signals, scale readiness gate).",
+  "producer": "src/brambleloop/commerce/first_hundred.py::readiness_from_evidence",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
+  "protected_effect": "confusion/defect signals outrank growth",
+  "tests": [
+   "tests/test_first_hundred.py::test_read_from_evidence_every_priority_has_a_verdict_and_names_its_blocker",
+   "tests/test_departments.py::test_an_open_p1_outranks_every_commercial_signal",
+   "tests/test_departments.py::test_high_sales_with_high_support_is_a_quality_emergency"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#11 OWNER-GATED",
+   "#259 COMPLETE+PROVEN",
+   "#272 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs real orders"
+  },
+  "defect": null,
+  "next_action": "Make catalogue-expansion jobs (creative.tournament / cir.draft enqueue) consult scale/readiness.gate plus first_hundred state and hold breadth while confusion/defect rate exceeds a threshold.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-597",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Experiment attribution discipline is post-launch optimisation.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Per-test design discipline exists but there is no shop-wide cap on simultaneous storefront/listing experiments and no emergency-fix tag that bypasses it.",
+  "producer": "src/brambleloop/commerce/listing_tests.py::check_design",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "one primary variable, pre-period and exposure required",
+  "tests": [
+   "tests/test_listing_tests.py::test_a_listing_nobody_saw_did_not_fail",
+   "tests/test_listing_tests.py::test_a_multi_variable_test_belongs_to_the_bundle_and_blocks_nothing_later"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#16 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "experiments need live listings"
+  },
+  "defect": null,
+  "next_action": "Add a change budget (max concurrent open listing tests per shop) enforced in listing_tests.may_test, with an emergency flag for policy/safety fixes recorded separately; test both.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-598",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Cross-surface contradictions need live Etsy surfaces to compare.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No weekly comparison across Dashboard/Listings/Search Visibility/Stats/Marketing/Finances/Apps/Settings.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "Only internal consistency tests exist (tests/test_cert_dashboard.py numbers equal SQL); no Etsy-surface audit"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "needs live surface readings"
+  },
+  "defect": null,
+  "next_action": "After the shop snapshot and listing census exist, add a weekly etsy.consistency cadence comparing getShop listing_active_count vs census vs Listing rows, policy strings vs shop_package, scopes vs expected, opening incidents on contradiction.",
+  "confidence": "HIGH",
+  "searched": "grep contradiction/cross-surface in src"
+ },
+ {
+  "uid": "F-599",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Surface drift detection is continuous maintenance.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "API-document drift is detectable via absence probes but not scheduled; Shop Manager UI navigation drift has no observer; no review-task creation.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::verify_absence",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "a new Ads API appearing or a capability withdrawn is reported",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_an_ads_api_appearing_is_reported_rather_than_aged_into_a_lie",
+   "tests/test_etsy_surfaces.py::test_a_capability_being_withdrawn_is_reported_too",
+   "tests/test_etsy_surfaces.py::test_the_document_the_registry_was_read_from_is_identified_by_hash"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a quarterly cadence that fetches Etsy's public OpenAPI document, compares document_fingerprint and verify_absence to the recorded registry, and opens an owner review task on change.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-600",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Contract prose; enforceable part is surface coverage plus preserved gates, both already governed elsewhere.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "The surface registry is not reached at runtime and most surfaces lack collectors; continuous observe->learn loop exists only for internal cadences.",
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::coverage",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": "every surface classified with evidence; gates for owner authority/spend preserved",
+  "tests": [
+   "tests/test_etsy_surfaces.py::test_the_registry_passes_its_own_invariants",
+   "tests/test_etsy_surfaces.py::test_the_work_plan_uses_all_four_classes_and_keeps_a_for_real_blockers"
+  ],
+  "evidence": [
+   "research/ETSY_SURFACE_REGISTRY.md",
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Expose etsy_surfaces.coverage()/work_plan() via an API route and the dashboard so surface coverage is visible at runtime; build collectors per F-553/F-585.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-601",
+  "launch_class": "MATURE",
+  "launch_class_reason": "F-698: mature department capability is not a first-sale blocker.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Twelve improvement cells and ~20 agents exist but Executive, Etsy/Marketplace, Compliance/Policy, Analytics/Intelligence and Reliability are not cells with mandate/backlog/KPI; no per-department KPI record set as named.",
+  "producer": "src/brambleloop/improve/cells.py::CELLS",
+  "durable_state": "capability_history, improvements, agents",
+  "consumer": "src/brambleloop/runtime/release.py (improve.sandbox / improve.retrospective)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_wiring.py::test_retrospective_reaches_cells_and_reports_the_new_sections",
+   "tests/test_swarm_runtime.py::test_every_agent_has_a_quality_metric_and_a_retirement_condition"
+  ],
+  "evidence": [
+   "src/brambleloop/agents/registry.py"
+  ],
+  "build2_rows": [
+   "#90 COMPLETE+PROVEN",
+   "#91 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add department records mapping the twelve named departments to agents and cells (new cells for executive, marketplace, compliance, analytics, reliability) each with mandate, KPI source and backlog.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-602",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Executive coordination is organisational maturity.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No merge/deploy queue or file-authority ownership; goals/critical path not modelled; lane refill and owner decisions exist.",
+  "producer": "src/brambleloop/swarm/orchestrate.py",
+  "durable_state": "swarm_allocations",
+  "consumer": "src/brambleloop/runtime/release.py::handle_swarm_backlog",
+  "protected_effect": "idle lanes take highest-value standing work",
+  "tests": [
+   "tests/test_swarm_runtime.py::test_an_idle_queue_takes_the_highest_value_standing_items_once",
+   "tests/test_swarm_runtime.py::test_the_allocation_is_recorded_per_lane_and_bounded_by_the_ceiling"
+  ],
+  "evidence": [
+   "orchestrator agent (agents/registry.py)"
+  ],
+  "build2_rows": [
+   "#186 COMPLETE+PROVEN",
+   "#175 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add an executive plan record (goals, critical path, owner decisions) read by swarm.allocate; out of scope for launch.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-603",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Throughput property; durability is covered by F-628.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/capacity.py",
+  "durable_state": "jobs, swarm_allocations",
+  "consumer": "src/brambleloop/app/runner.py (worker pool)",
+  "protected_effect": "function/lane shares hold a job only when another starved function has runnable work",
+  "tests": [
+   "tests/test_cert_lanes_capacity.py::test_parallelism_advice_scales_the_worker_target_and_lane_limit_up_and_down",
+   "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
+   "tests/test_chaos.py::test_concurrent_workers_on_a_file_database_run_every_job_exactly_once"
+  ],
+  "evidence": [
+   "swarm/capacity.py not in fcb982d"
+  ],
+  "build2_rows": [
+   "#175 COMPLETE+PROVEN",
+   "#187 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-604",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Self-improvement loop is post-launch capability.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/cells.py::propose",
+  "durable_state": "improvements, config_versions",
+  "consumer": "src/brambleloop/runtime/release.py (improve.sandbox, improve.monitor)",
+  "protected_effect": "independent approval; gates cannot be weakened; automatic rollback",
+  "tests": [
+   "tests/test_cert_learning.py::test_promote_requires_an_independent_approval",
+   "tests/test_cert_learning.py::test_product_truth_change_cannot_promote_without_owner_approval",
+   "tests/test_cert_improve_autonomy.py::test_sandbox_takes_a_declining_proposal_through_trial_tests_approval_and_promotion"
+  ],
+  "evidence": [
+   "src/brambleloop/improve/governance.py"
+  ],
+  "build2_rows": [
+   "#92 COMPLETE+PROVEN",
+   "#93 COMPLETE+PROVEN",
+   "#102 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-605",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Learning memory compounds post-launch.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Lessons carry confidence/evidence/superseded_by and improvements record rejection/reversion, but there is no unified withdrawn-claims register across experiments and research.",
+  "producer": "src/brambleloop/improve/bus.py",
+  "durable_state": "lessons, improvements, learning_observations, registered_experiments",
+  "consumer": "src/brambleloop/improve/consume.py::matching",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_improve_wave.py::test_market_radar_and_listings_act_on_their_lessons",
+   "tests/test_cert_ideation.py::test_the_tournament_reads_lessons_and_sends_them_to_the_model"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#97 COMPLETE+PROVEN",
+   "#101 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a withdrawn-claim status to Lesson (withdrawn_at, reason) and make consume.matching exclude withdrawn lessons; test it.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-606",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Growth constraint routing is post-launch.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Constraint set covers traffic/conversion/price/defects; trust, support, refunds, margin, policy, uptime and capacity are not all candidate constraints in one ranking.",
+  "producer": "src/brambleloop/scale/runrate.py (constraint)",
+  "durable_state": "operating_readings (scale.trajectory, weekly solve)",
+  "consumer": "src/brambleloop/runtime/growth_ops.py (growth.steer)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_growth.py::test_the_constraint_solver_ranks_by_gain_per_week_not_by_gap",
+   "tests/test_allocation.py::test_a_traffic_constraint_moves_work_to_distribution"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#264 COMPLETE+PROVEN",
+   "#28 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "constraints are UNMEASURED without orders/traffic"
+  },
+  "defect": null,
+  "next_action": "Extend the constraint candidates with support load, refund rate, policy incidents and uptime (ops/health verdict) and test that an open P1 policy incident becomes the dominant constraint.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-607",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Department organisation is mature capability (F-698); finance truth items are mapped under F-608/F-609.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No Accountant/Controller role distinct from the CFO challenger; no reconciliation of external statements, cash flow or controls ownership.",
+  "producer": "src/brambleloop/runtime/pipeline.py::handle_finance_reconcile",
+  "durable_state": "audit_log (finance.reconciled)",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_finance_challenge",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_finance.py::test_the_cfo_speaks_up_when_everything_is_nominally_fine"
+  ],
+  "evidence": [
+   "cfo agent cadences: finance_reconcile, finance_governor, commerce_readings, orders_ingest, spend_escalation"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN",
+   "#49 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add an accountant role (agents/registry.py) owning finance/reconcile.py (F-575) and monthly close (F-610), independent of the CFO challenger.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-608",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Truthful owner visibility of money: missing data must read UNKNOWN, not zero, from the first sale.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No independent reconciliation of Etsy vs internal orders vs Payment Account/statements; no reconciliation incident type.",
+  "producer": "src/brambleloop/finance/books.py::Books.profit_and_loss",
+  "durable_state": "ledger",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_finance.py::test_an_empty_business_reports_zeroes_rather_than_nothing",
+   "tests/test_finance.py::test_cost_per_customer_is_none_not_zero_when_there_are_no_customers"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/orders_ingest.py::ingest returns UNMEASURED when gated, but Books does not consult it"
+  ],
+  "build2_rows": [
+   "#11 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "order/payment reads need transactions_r"
+  },
+  "defect": "Books.profit_and_loss / /api/finance report gross_sales 0.00 and orders 0 while the order source is not connected (transactions_r not granted) - missing data reads as zero, and test_an_empty_business_reports_zeroes_rather_than_nothing pins that.",
+  "next_action": "Make Books.profit_and_loss consult orders_ingest.gate(db) and return sales fields as UNMEASURED (with reason) when the order source is closed; add finance/reconcile.py producing reconciliation incidents (F-575).",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-609",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Economics integrity requires every money row to be sourced and reconcilable from the first sale.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "LedgerEntry lacks source, currency, original amount, classification beyond category and reconciliation state; AI spend is in cost_entries (separate); payouts/owner funding/adjustments/subscriptions have no writers.",
+  "producer": "src/brambleloop/commerce/orders_ingest.py::_record_line",
+  "durable_state": "ledger, cost_entries, orders (currency, fx)",
+  "consumer": "src/brambleloop/finance/books.py::Books.profit_and_loss",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+   "tests/test_finance.py::test_operating_cost_is_read_from_real_agent_spend"
+  ],
+  "evidence": [
+   "src/brambleloop/core/models.py::LedgerEntry (at, category, description, gross/fees/refunds/expense, evidence_ref)"
+  ],
+  "build2_rows": [
+   "#269 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "sales rows need orders"
+  },
+  "defect": "Sale ledger fees_cad are modelled pricing.fees() values (unmodelled offsite/regulatory/currency fees omitted) stored without a basis flag, so they read as charged fees.",
+  "next_action": "Add ledger columns source, external_id, currency, amount_original, classification and reconciliation_state (additive migration), set basis=modelled for fee estimates, and write owner-funding/subscription rows from recorded owner inputs.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-610",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Monthly close happens after a month of trading.",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "A rolling 30-day P&L runs daily; no monthly close, statement import, variance investigation, evidence lock, YTD P&L, cash-flow or reconciliation report.",
+  "producer": "src/brambleloop/finance/books.py::Books.profit_and_loss",
+  "durable_state": "audit_log (finance.reconciled)",
+  "consumer": "src/brambleloop/app/main.py::api_finance",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_finance.py::test_every_line_section_fifteen_names_is_present",
+   "tests/test_finance.py::test_refunds_reduce_net_sales"
+  ],
+  "evidence": [
+   "finance.reconcile handler and daily cadence present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "nothing to close yet"
+  },
+  "defect": null,
+  "next_action": "Add finance.close_month cadence (1st of month UTC) producing a locked monthly record with P&L, YTD, cash movement and open reconciliation items.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-611",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Profit intelligence by channel/campaign is optimisation.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Contribution exists per order and per visitor, not by channel, product family, listing or campaign with AI/API cost and support burden.",
+  "producer": "src/brambleloop/scale/runrate.py::per_visitor_from_db",
+  "durable_state": "orders.contribution_cad, operating_readings",
+  "consumer": "src/brambleloop/runtime/release.py::handle_pricing_position",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_orders.py::test_pricing_decides_on_net_contribution_with_currency_normalised"
+  ],
+  "evidence": [
+   "src/brambleloop/finance/unit_cost.py"
+  ],
+  "build2_rows": [
+   "#24 COMPLETE+PROVEN",
+   "#31 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs orders"
+  },
+  "defect": null,
+  "next_action": "Add a contribution report grouped by product family/listing/channel that subtracts attributed model cost (governor spend_by product) and support cases.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-612",
+  "launch_class": "MATURE",
+  "launch_class_reason": "GST/HST threshold (CA$30,000) is far from first sale; the decision itself is owner-reserved (F-578).",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Tax reserve (13%) is in the P&L; no marketplace-remitted tax tracking from receipts and no threshold-progress alert toward CA$30,000.",
+  "producer": "src/brambleloop/finance/books.py::ProfitAndLoss.tax_reserve_cad",
+  "durable_state": null,
+  "consumer": "src/brambleloop/app/main.py::api_finance",
+  "protected_effect": "tax reserved, never counted as revenue",
+  "tests": [
+   "tests/test_finance.py::test_tax_is_reserved_and_never_counted_as_ours",
+   "tests/test_shop_package.py::test_the_tax_position_is_a_threshold_somebody_watches_not_a_guess"
+  ],
+  "evidence": [
+   "commerce/shop_package.py CLAIMS (CRA source)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "threshold progress needs sales"
+  },
+  "defect": null,
+  "next_action": "Add trailing-4-quarter taxable-supply progress vs CA$30,000 to finance.reconcile with an owner card at 70%; store receipt tax amounts from orders_ingest separately.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-613",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Marketing department is post-launch growth.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Channels exist as plans (ads, offsite, share&save, pins, video, clusters) but no live traffic channel operates.",
+  "producer": "src/brambleloop/runtime/growth_ops.py",
+  "durable_state": "operating_readings",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_growth_distribution",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_every_new_job_type_is_handled_scheduled_granted_and_banded"
+  ],
+  "evidence": [
+   "growth, ads, experiment_steward agents"
+  ],
+  "build2_rows": [
+   "#242 OWNER-GATED",
+   "#246 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "owned_surfaces",
+   "detail": "owned channels and ad authority"
+  },
+  "defect": null,
+  "next_action": "none beyond F-569/F-572 for launch; later add seasonal campaign records.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-614",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Ad credit tracking matters only once ads are authorised.",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No Etsy Plus credit wallet (ad credit, listing credits, expiry) separated from cash.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "grep 'Etsy Plus' only in intel/insights_budget.py (as an upgrade cost) and etsy_surfaces subscription row",
+   "research/ETSY_SURFACE_REGISTRY.md row 28 subscription OWNER_ONLY; owner action 7 'confirm no paid subscription is active'"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_plus_status",
+   "detail": "owner confirms the current Etsy Plus subscription and monthly credit"
+  },
+  "defect": "The surface registry's subscription owner action assumes no paid subscription, while v0.18 states the shop shows Etsy Plus credit (about CA$7.10) - the registry is stale against the owner's statement.",
+  "next_action": "Add a credit wallet (finance/credits.py + table: kind ads_credit/listing_credit, amount, currency, cycle_start, expires_at) seeded from owner-recorded Etsy Plus entitlement, excluded from cash; update the subscription registry entry.",
+  "confidence": "HIGH",
+  "searched": "grep etsy plus/credit/wallet across src/brambleloop/finance, commerce"
+ },
+ {
+  "uid": "F-615",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Applies only once an approved ads experiment exists (ad authority).",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No credit-first spend ordering.",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "no credit wallet exists (see F-614)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "ad_authority",
+   "detail": "needs approved ads experiment"
+  },
+  "defect": null,
+  "next_action": "After F-614, make ads.campaign draw expiring credit before cash where recorded billing permits, with a test that credit expiry never creates a campaign on its own.",
+  "confidence": "HIGH",
+  "searched": "grep credit in commerce/paid_media.py, runtime/growth_ops.py"
+ },
+ {
+  "uid": "F-616",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Ads disabled until owner authority (F-875).",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Per-campaign record lacks free credit, clicks, CPC, visits, ROAS, hypothesis and stop condition as stored fields; no data source for ad performance.",
+  "producer": "src/brambleloop/runtime/growth_ops.py::handle_ads_campaign",
+  "durable_state": "spend_limits (ads), operating_readings",
+  "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
+  "protected_effect": "campaign refused without owner SpendLimit; caps checked in code; nothing spent",
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_ads_are_refused_without_the_owner_gate_and_planned_never_spent_with_it",
+   "tests/test_paid_media_economics.py::test_no_path_enqueues_or_authorises_ad_spend",
+   "tests/test_finance.py::test_advertising_with_no_attributable_orders_is_a_block"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#243 OWNER-GATED",
+   "#294 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "ad_authority",
+   "detail": "owner-approved ads budget"
+  },
+  "defect": null,
+  "next_action": "Add a Campaign record with the named fields, filled from owner-recorded Ads readings (F-569).",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-617",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Customer support and remedy are launch-critical; upstream routing of confusion protects early reviews.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No message/review/refund data source; review themes and refunds depend on customers; routing upstream exists via incidents, confusion-as-listing-defect and lessons.",
+  "producer": "src/brambleloop/support/department.py::CustomerExperience",
+  "durable_state": "support_cases, incidents, lessons",
+  "consumer": "src/brambleloop/runtime/release.py::handle_support_triage",
+  "protected_effect": "repeated questions become defects that can halt publication; support cannot patch patterns",
+  "tests": [
+   "tests/test_departments.py::test_repeated_questions_about_one_row_surface_as_a_candidate_defect",
+   "tests/test_departments.py::test_support_still_cannot_change_a_pattern",
+   "tests/test_departments.py::test_routine_questions_do_not_wake_the_owner"
+  ],
+  "evidence": [
+   "support.triage hourly cadence",
+   "commerce/buyer_trust confusion counting (#41)"
+  ],
+  "build2_rows": [
+   "#41 DATA-GATED",
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "no_messages_api",
+   "detail": "buyer messages have no API; owner relays"
+  },
+  "defect": null,
+  "next_action": "Provide the owner case-intake route (F-556) so real buyer messages enter support_cases; route review themes via commerce/reviews into the same incident path.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-618",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Analytics governance is post-launch maturity.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No canonical metric-definition registry; contribution/revenue are computed in several modules (books, pricing, order contribution, runrate) without a shared definition.",
+  "producer": "src/brambleloop/scale/leading.py",
+  "durable_state": "registered_experiments, operating_readings",
+  "consumer": "src/brambleloop/app/main.py::/api/leading",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_governor.py::test_a_baseline_makes_a_spike_sayable",
+   "tests/test_trajectory.py::test_an_unmeasured_model_states_no_probability_at_all"
+  ],
+  "evidence": [
+   "finance/governor.anomaly",
+   "scale/calibration.py"
+  ],
+  "build2_rows": [
+   "#263 OWNER-GATED",
+   "#262 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add analytics/metrics.py with one definition per KPI (revenue, contribution, conversion, CAC, ROAS, refund rate) and make books/runrate/evidence import them; test equality across callers.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-619",
+  "launch_class": "MATURE",
+  "launch_class_reason": "The full Command Center app is executive polish; launch-level owner visibility exists in the ops dashboard and owner-action queue (F-593/F-623).",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "No Today/Month/Finance/Products/Listings/Marketing/Customers/Experiments/Departments/Agent Activity/Owner Actions/System Health navigation; current dashboard is a single ops page plus JSON endpoints.",
+  "producer": "src/brambleloop/app/main.py::dashboard",
+  "durable_state": "(reads jobs, owner_actions, incidents, agents, audit_log)",
+  "consumer": "src/brambleloop/app/main.py::api_console",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
+   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql"
+  ],
+  "evidence": [
+   "dashboard '/' and /api/console present in fcb982d"
+  ],
+  "build2_rows": [
+   "#183 COMPLETE+PROVEN",
+   "#318 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Build a tabbed owner web page (app/main.py routes /command/*) over existing endpoints, each tab reading its store, no new source of truth.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-620",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Finance view is executive reporting; underlying truth defects are tracked under F-608/F-609.",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Missing free ad credit, cash ad spend split, payout/cash position, unreconciled items and monthly-close status; MTD/YTD not separate (rolling 30 days).",
+  "producer": "src/brambleloop/app/main.py::api_finance",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_finance.py::test_the_target_arithmetic_is_labelled_as_arithmetic"
+  ],
+  "evidence": [
+   "/api/finance present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": "Shows sales 0.00 while the order source is disconnected (see F-608).",
+  "next_action": "Add MTD/YTD windows, credit vs cash spend, unreconciled count and close status to api_finance once F-610/F-614 exist; mark sales UNMEASURED when gated.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-621",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Department view is maturity.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No per-department objective/blockers/completed work/KPI trend view; agents with ceilings, swarm allocations and league exist as separate endpoints.",
+  "producer": "src/brambleloop/app/main.py::api_swarm_runtime",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_swarm_runtime.py::test_the_runtime_routes_report_what_the_handlers_decided"
+  ],
+  "evidence": [
+   "/api/console agents, /api/league, /api/improve"
+  ],
+  "build2_rows": [
+   "#95 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add /api/departments assembling per cell: active jobs, queue, spend (governor spend_by department), capability trend and blockers, green only with a measurement.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-622",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Marketing/customer view is post-launch.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No combined view of organic vs paid traffic, CPC/CTR/ROAS, campaigns, review themes and refunds; separate endpoints (/api/growth, /api/support, /api/cohorts, /api/promotion) exist.",
+  "producer": "src/brambleloop/app/main.py::api_growth",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "no traffic or customers"
+  },
+  "defect": null,
+  "next_action": "Add a combined marketing/customers owner view reading the ads plan, distribution reading, support cases and order readings.",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-623",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "One prioritised owner-action queue with exact steps is required before the first sale; drilldown supports truthful owner visibility.",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Drilldown from each KPI to source/timestamp/transformation/reconciliation state is not uniform; owner actions are split between OwnerAction rows and executor approval cards and are not ranked in one list; Etsy owner queue not synced.",
+  "producer": "src/brambleloop/build2/executor.py::approval_inbox",
+  "durable_state": "owner_actions",
+  "consumer": "src/brambleloop/app/main.py::dashboard ('Waiting on the owner')",
+  "protected_effect": "cards carry action, minutes, cost, consequence of waiting; free-and-quick first",
+  "tests": [
+   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format",
+   "tests/test_launch.py::test_every_owner_request_has_a_stable_identity_distinct_from_its_wording"
+  ],
+  "evidence": [
+   "approval_inbox and /api/owner-actions present in fcb982d",
+   "/api/provenance, /api/audit"
+  ],
+  "build2_rows": [
+   "#196 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Merge OwnerAction rows and approval_inbox cards into one ranked /api/owner-queue (urgency, cost, minutes) and add source/as_of/basis fields to each /api/finance and /api/console figure.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-624",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Executive cadence is organisational maturity.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No daily executive brief (daily plan.cycle only re-runs the radar), monthly review is 30-day not post-close, no quarterly Etsy/company capability audit; weekly retrospective exists.",
+  "producer": "src/brambleloop/improve/cells.py::retrospective",
+  "durable_state": "audit_log, operating_readings",
+  "consumer": "src/brambleloop/runtime/release.py (improve.retrospective weekly), runtime/pipeline.py::handle_plan_strategy",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_wiring.py::test_retrospective_reaches_cells_and_reports_the_new_sections"
+  ],
+  "evidence": [
+   "CADENCES daily_review, improvement_retrospective, strategy_review, seasonal_engine"
+  ],
+  "build2_rows": [
+   "#100 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add exec.daily_brief (decisions + owner queue + incidents + spend) and a quarterly capability audit cadence (etsy_surfaces coverage + closure) writing decision records.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-625",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Forecasting is post-launch planning.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "No explicit base/upside/downside 90-day revenue/profit scenarios; trajectory refuses probability without observations; weekly calibration against actuals exists.",
+  "producer": "src/brambleloop/scale/trajectory.py",
+  "durable_state": "operating_readings (scale.trajectory)",
+  "consumer": "src/brambleloop/runtime/orders.py (scale.trajectory nightly)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_trajectory.py::test_an_unmeasured_model_states_no_probability_at_all",
+   "tests/test_finance.py::test_a_forecast_never_claims_more_than_the_data_supports"
+  ],
+  "evidence": [
+   "scale/target.py::matrix, scale/calibration.py"
+  ],
+  "build2_rows": [
+   "#26 COMPLETE+PROVEN",
+   "#262 COMPLETE+PROVEN",
+   "#273 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs actuals"
+  },
+  "defect": null,
+  "next_action": "Add a 90-day three-scenario output to scale/trajectory.run built from the scenario matrix, stored weekly and scored by calibration.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-626",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Scaling happens after launch.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Catalogue-volume scaling is not gated by the readiness conditions; paid scaling and allocation tilts are.",
+  "producer": "src/brambleloop/scale/readiness.py::gate",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
+  "protected_effect": "scale tilt refused unless six conditions hold",
+  "tests": [
+   "tests/test_cert_growth_seasonal.py::test_readiness_passes_only_when_all_six_conditions_hold",
+   "tests/test_cert_growth_seasonal.py::test_scale_tilt_is_refused_when_no_product_is_ready"
+  ],
+  "evidence": [
+   "ops.capacity weekly"
+  ],
+  "build2_rows": [
+   "#272 DATA-GATED",
+   "#28 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "conditions need orders"
+  },
+  "defect": null,
+  "next_action": "Apply readiness.gate to catalogue-expansion enqueues (see F-596).",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-627",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Agent upgrades are continuous improvement.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Agents are measured on quality/cost/reliability of job outcomes, not verified business outcomes (none exist yet).",
+  "producer": "src/brambleloop/improve/league.py",
+  "durable_state": "config_versions",
+  "consumer": "src/brambleloop/runtime/release.py (improve.league daily)",
+  "protected_effect": "versioned, tested, reversible promotions",
+  "tests": [
+   "tests/test_league.py::test_a_promotion_passes_the_same_boundary_as_any_other_self_improvement",
+   "tests/test_league.py::test_a_version_records_why_it_exists_not_only_that_it_does"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#95 COMPLETE+PROVEN",
+   "#96 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "business outcomes need orders"
+  },
+  "defect": null,
+  "next_action": "Add business-outcome axes (contribution, refund, support load per agent-touched product) to league scoring once orders exist.",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-628",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Runtime durability and recovery without the owner's PC is launch-critical.",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Survival of provider loss (off-site archive) and a full unattended production window proof are not yet shown.",
+  "producer": "src/brambleloop/core/continuity.py",
+  "durable_state": "jobs, continuity_archives",
+  "consumer": "src/brambleloop/app/runner.py (embedded worker + scheduler)",
+  "protected_effect": "durable leased queue; retained archive restores",
+  "tests": [
+   "tests/test_acceptance_gates.py::test_gate_a_worker_restart_does_not_lose_durable_jobs",
+   "tests/test_continuity.py::test_a_retained_archive_restores_a_working_database"
+  ],
+  "evidence": [
+   "BUILD_STATE: Railway production runs 24/7; /api/verify ok; continuity archive 1 held 5,299 rows and survived container replacement (2026-09-19)"
+  ],
+  "build2_rows": [
+   "#181 COMPLETE+PROVEN",
+   "#184 COMPLETE+PROVEN",
+   "#51 OWNER-GATED",
+   "#195 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "offsite_storage",
+   "detail": "object storage outside the provider; also production_window authorisation for #195"
+  },
+  "defect": null,
+  "next_action": "Owner: provide an off-provider bucket credential (offsite_storage) and authorise the production window; then read autonomy.off_device_proof from production rows.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-629",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Spend ceilings enforced in code are a non-negotiable authority control.",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Department allocation mechanism exists but is empty (no department caps set) and is post-fcb982d; promotional/cloud credits are not tracked separately from cash.",
+  "producer": "src/brambleloop/finance/reservations.py",
+  "durable_state": "spend_reservations, spend_limits, cost_entries",
+  "consumer": "src/brambleloop/finance/spend_policy.py::may_spend",
+  "protected_effect": "company ceiling dominates; concurrent reservations bound overshoot",
+  "tests": [
+   "tests/test_spend_governance.py::test_a_batch_checks_each_call_against_what_the_batch_has_already_spent",
+   "tests/test_cert_improve_autonomy.py::test_governor_cadence_pauses_a_spiking_agent_through_the_reservation_table",
+   "tests/test_cert_cost.py::test_empty_provider_and_department_tables_report_no_cap"
+  ],
+  "evidence": [
+   "finance/reservations.py present in fcb982d; DEPARTMENT_ALLOCATION absent there",
+   "BUILD_STATE: production model call checked against CA$25 ceiling (2026-09-19)"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a credits ledger (see F-614) excluded from cash exposure, and seed DEPARTMENT_ALLOCATION shares once the owner names them (owner decision, not a blocker).",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-630",
+  "launch_class": "MATURE",
+  "launch_class_reason": "Contract prose; enforceable part is the continuous-improvement cadences, which are post-launch.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Nothing enforces the prohibition on endless pre-launch expansion (no rule that pre-launch work must serve an open launch-readiness item).",
+  "producer": "src/brambleloop/improve/nightly.py",
+  "durable_state": "improvements",
+  "consumer": "src/brambleloop/runtime/worker.py (nightly_improvement, weekly_evolution)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_improve_autonomy.py::test_sandbox_takes_a_declining_proposal_through_trial_tests_approval_and_promotion"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#90 COMPLETE+PROVEN",
+   "#193 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": ""
+  },
+  "defect": null,
+  "next_action": "Add a pre-launch scope check in swarm.backlog/build.tick that deprioritises work not linked to an open launch.readiness item while phase is shadow.",
+  "confidence": "LOW",
+  "searched": null
+ }
+]
