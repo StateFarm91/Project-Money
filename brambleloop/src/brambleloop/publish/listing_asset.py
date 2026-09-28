@@ -78,7 +78,10 @@ def usable(record: dict | None) -> bool:
     """Whether a record from either path clears every floor its path applies."""
     if not record or not record.get("made"):
         return False
-    return bool(record.get("usable_as_listing_asset"))
+    from ..visual.product_authority import structural_floor
+    frames = record.get("frames") or [record]
+    return bool(record.get("usable_as_listing_asset")) and all(
+        structural_floor(frame)["status"] == "PASS" for frame in frames)
 
 
 def frames_for(db, *, slug: str) -> list[dict]:

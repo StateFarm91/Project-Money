@@ -16,8 +16,8 @@ Where each answer comes from, and none of it is new opinion:
   IDENTITY              `identity.drift_check` against the frozen pack -- face and
                         whole-person morphology, which are themselves two floors that
                         never average into one another.
-  PRODUCT TRUTH         the motif judge, comparing the fabric against the deterministically
-                        rendered chart rather than against a sentence about it.
+  PRODUCT TRUTH         independent construction evidence; motif labels and preservation
+                        alone cannot certify the product being depicted.
   HERO                  whether the frame communicates a finished object at a glance,
                         read off the blind description rather than asserted by the brief.
   MOBILE GRID           legibility at Etsy's search-thumbnail scale, which is where the
@@ -139,20 +139,16 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
             results[IDENTITY] = _verdict(
                 None, f"identity unverified on at least one frame: {verdicts}")
 
-    # 2. PRODUCT TRUTH -- every frame showing the object, against the chart.
-    showing = [f for f in frames if f.get("motif") is not None]
-    if not showing:
-        results[PRODUCT_TRUTH] = _verdict(None, "no frame was compared against the chart")
+    # F-752/F-760/F-856: motif labels cannot satisfy structural product truth.
+    # Evaluate every exported frame; omitted motif metadata is not an exemption.
+    from .product_authority import structural_floor
+    structures = [structural_floor(frame) for frame in frames]
+    if any(v["status"] == "FAIL" for v in structures):
+        results[PRODUCT_TRUTH] = _verdict(False, "structural product truth failed on an exported frame")
+    elif structures and all(v["status"] == "PASS" for v in structures):
+        results[PRODUCT_TRUTH] = _verdict(True, "all exported frames independently structurally verified")
     else:
-        motifs = [str((f.get("motif") or {}).get("verdict") or "") for f in showing]
-        if any(m == "mismatch" for m in motifs):
-            results[PRODUCT_TRUTH] = _verdict(
-                False, "the fabric is not the pattern's fabric on at least one frame")
-        elif all(m == "match" for m in motifs):
-            results[PRODUCT_TRUTH] = _verdict(True, f"{len(showing)} frame(s) match")
-        else:
-            results[PRODUCT_TRUTH] = _verdict(
-                None, f"the fabric could not be read on at least one frame: {motifs}")
+        results[PRODUCT_TRUTH] = _verdict(None, "whole-product construction/stitch/gauge evidence UNKNOWN; motif match or preserved schematic is insufficient")
 
     # 3. HERO -- read off the blind description, not asserted.
     hero = next((f for f in frames if (f.get("role") or "hero") == "hero"), None)

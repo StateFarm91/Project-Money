@@ -236,6 +236,10 @@ def make(db, cir, twin, *, shot: str = "fit", occasion: str = "", env: dict | No
     render itself is stored in the artifact store before this returns, so the directory has
     nothing left to hold by then.
     """
+    from ..visual.product_authority import redraw_refusal
+    return redraw_refusal(cir.slug)
+
+    # Historical Visual V1 implementation retained for evidence, unreachable in production.
     from ..core import workspace
 
     if not work_dir:
@@ -641,10 +645,11 @@ def _passing_frame(db, cir, *, shot: str) -> dict | None:
     frame failed the motif, which is the whole point. `unverifiable` is not a pass here
     either, so a frame is only kept on verdicts that were actually made.
     """
+    from ..visual.product_authority import structural_floor
     answers = dict((name, floors) for name, _, floors in SHOTS).get(shot, ())
     wanted = set(answers) | set(SHARED_FLOORS)
     for frame in _filed_frames(db, slug=cir.slug, version=cir.version):
-        if frame.get("shot") != shot:
+        if structural_floor(frame)["status"] != "PASS" or frame.get("shot") != shot:
             continue
         floors = frame.get("floors") or {}
         # Any failed floor disqualifies the frame, including one it is not the authority
@@ -724,8 +729,10 @@ def last_asset(db, *, slug: str = "") -> dict | None:
 
 def usable_asset(db, *, slug: str = "", version: str = "") -> dict | None:
     """A frame that actually cleared every floor. The only kind a listing may use."""
+    from ..visual.product_authority import structural_floor
+
     for frame in _frames(db, slug=slug):
-        if frame.get("usable_as_listing_asset") and (not version
+        if structural_floor(frame)["status"] == "PASS" and frame.get("usable_as_listing_asset") and (not version
                                                      or frame.get("version") == version):
             return frame
     return None
