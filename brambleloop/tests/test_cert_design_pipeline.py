@@ -587,10 +587,13 @@ def test_mjs_response_is_walked_from_listing_to_engineering_309():
 
 def test_christmas_cardigan_path_runs_to_the_gate_that_stops_it_308():
     """#308: the MJs cropped-cardigan listing becomes a Christmas garments tournament with
-    Christmas cardigans in the field; the funnel's proposition stage applies #111's family
-    test, which no fitted cardigan construction passes (no quick companion), so no cardigan
-    is carried to prototype and none is engineered. The pipeline records exactly that stop.
-    This is a real owner-rule conflict, reported rather than bypassed."""
+    Christmas cardigans in the field. The proposition stage applies #111's family test, which
+    no fitted-garment construction passes (no quick companion) -- and, by #111's own rule, a
+    concept that fails it is carried as a single product rather than refused. So a cardigan
+    reaches prototype, is authored as a graded design and compiled, wins, passes intake once
+    judged, and `cir.draft` -> `cir.compile` -> `gate.certify` run for it through the worker.
+    The pipeline then stops at the gate that has genuinely not passed -- Brambleloop-owned
+    listing imagery, parked on model_bearing_render -- never earlier, and says why."""
     db = _db()
     _mjs_mission(db)
     with db.session() as s:
@@ -624,13 +627,52 @@ def test_christmas_cardigan_path_runs_to_the_gate_that_stops_it_308():
     t = _rows(db, "creative.tournament")[-1][2]
     rounds = {r["stage"]: r for r in t["rounds"]}
     assert rounds["research"]["survived"] >= 35, rounds["research"]
-    assert rounds["proposition"]["causes"].get("no_family"), rounds["proposition"]
-    assert "prototype" not in t["stages_run"]
-    assert not _jobs(db, "cir.draft")
+    # #111 applied, not weakened: every cardigan fails the family test and is recorded as a
+    # single product; none is killed for it, and no bundle is asserted for any of them.
+    assert not rounds["proposition"]["causes"].get("no_family"), rounds["proposition"]
+    singles = t["proposition"]["single_products"]
+    assert len(singles) >= 35 and set(singles.values()) <= {"single_product",
+                                                             "no_entry_price"}, singles
+    assert t["proposition"]["family_seeds"] == []
+    assert all(not d["bundle_possible"] or len(d["viable_roles"]) >= 2
+               for d in t["proposition"]["detail"].values())
+    # ...so the cardigans reach the compiler: prototype ran and engineered graded designs.
+    assert "prototype" in t["stages_run"], t["stages_run"]
+    assert rounds["prototype"]["survived"] >= 1, rounds["prototype"]
+    assert any(d.get("graded_sizes") for d in t["prototype"]["detail"].values())
+    assert result["winner"] and result["winner"]["form"] == "fitted_garment", result["winner"]
+
+    row = _rows(db, intake.INTAKE_ACTION)[-1][2]
+    assert row["mjs_event_id"] == event_id and row["carried_as"] == "single_product"
+    assert row["funnel"]["carried"] is True
+    slug = row["concept"]["key"]
+    assert "cardigan" in slug, slug
+    # The winner waits on the vision judgement (image_vision); judged, the sentinel's regate
+    # re-presents it and engineering is queued -- the same door #309's stocking goes through.
+    _judge(db, slug)
+    _handler(db, "mjs.seasonal_sentinel", {"as_of": "2026-09-27"}, agent="market_radar")
+    drafts = _drain(db, "cir.draft")
+    mine = [d for d in drafts if d["inputs"].get("slug") == slug]
+    assert mine and mine[0]["outputs"].get("drafted") is True, drafts
+    assert mine[0]["outputs"]["form"] == "fitted_garment"
+    compiled = _drain(db, "cir.compile")
+    ours = [c for c in compiled if c["inputs"]["cir"]["slug"] == slug]
+    assert ours and ours[0]["outputs"]["compiled"] is True, ours
+    certified = _drain(db, "gate.certify")
+    assert [c for c in certified if c["inputs"]["cir"]["slug"] == slug], certified
+    _handler(db, "mjs.seasonal_sentinel", {"as_of": "2026-09-27"}, agent="market_radar")
     with db.session() as s:
         pipe = s.get(MjsMissionEvent, event_id).pipeline
-    assert pipe["stopped"]["stage"] == "seasonal_tournament", pipe
-    assert "no winner" in pipe["stopped"]["evidence"]
+    assert pipe["winner"] == slug
+    assert pipe["completed"][:9] == ["observation", "pod_routing", "market_decomposition",
+                                     "demand_and_season_fit", "seasonal_tournament",
+                                     "make_time_estimate", "launch_dates",
+                                     "cir_engineering", "certification"], pipe["completed"]
+    # Honest stop: the cardigan is engineered and certified; what has not happened is
+    # Brambleloop-owned listing imagery, which waits on model_bearing_render (external).
+    assert pipe["stopped"]["stage"] == "premium_assets", pipe["stopped"]
+    assert "no Brambleloop-owned listing asset" in pipe["stopped"]["evidence"]
+    assert not _jobs(db, "collection.assemble"), "a single product must not seed a bundle"
 
 
 # ---- #293 / #283 at launch: buyer language and skill-aware windows ------------------------
