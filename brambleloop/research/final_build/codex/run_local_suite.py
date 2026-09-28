@@ -41,6 +41,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('suite')
     p.add_argument('--deps', required=True)
+    p.add_argument('--extra-deps', action='append', default=[],
+                   help='Additional existing local dependency directories; recorded, not installed')
     p.add_argument('--font', required=True)
     p.add_argument('--timeout', type=int, default=1500)
     args = p.parse_args()
@@ -62,6 +64,8 @@ def main():
     record = dict(run_id=run_id, sha=sha, suite=args.suite,
                   started=started.isoformat(), tree_before=git('status', '--porcelain'),
                   source_before=source_fingerprint(root),
+                  dependency_roots=[str(Path(d).resolve()) for d in [args.deps, *args.extra_deps]],
+                  dependency_lock_verified=False,
                   status='running', interpreter=sys.executable,
                   font_sha256=hashlib.sha256(Path(args.font).read_bytes()).hexdigest(),
                   release_eligible=False)
@@ -72,14 +76,15 @@ def main():
         'NUMBER_OF_PROCESSORS'}}
     env['BRAMBLELOOP_FONT_PATH'] = str(Path(args.font).resolve())
     env['PYTHONIOENCODING'] = 'utf-8'
-    code = ('import sys,runpy; sys.path[:0]=[sys.argv[1],sys.argv[2],sys.argv[3]]; '
+    code = ('import sys,runpy,json; sys.path[:0]=json.loads(sys.argv[1])+[sys.argv[2],sys.argv[3]]; '
             'suite=sys.argv[4]; sys.argv=[suite]; runpy.run_path(suite,run_name="__main__")')
     result = 1
     with tempfile.TemporaryDirectory(prefix='codex_final_suite_') as scratch:
         env.update(TEMP=scratch, TMP=scratch, TMPDIR=scratch)
         try:
             with log.open('wb') as stream:
-                run = subprocess.run([sys.executable, '-u', '-c', code, args.deps,
+                run = subprocess.run([sys.executable, '-u', '-c', code,
+                                      json.dumps(record['dependency_roots']),
                                       str(root / 'src'), str(root / 'tests'), str(suite)],
                                      cwd=root, env=env, stdout=stream, stderr=subprocess.STDOUT,
                                      timeout=args.timeout)

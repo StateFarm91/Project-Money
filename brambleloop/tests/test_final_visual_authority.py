@@ -105,6 +105,14 @@ def test_star_proxy_keeps_historical_thresholds_and_refuses_unknown_envelope():
     assert diagnose(good,family='star',star_px_expected=float('nan'),pair_px_expected=43,flat_region=True)['status']=='UNKNOWN'
 
 
+def test_missing_optional_diagnostic_dependency_is_unknown():
+    from unittest.mock import patch
+    from brambleloop.visual import stitch_identity
+    with patch.object(stitch_identity, 'gaussian_filter', None):
+        result = stitch_identity.diagnose(None, family='star', flat_region=True)
+    assert result['status'] == 'UNKNOWN' and result['certifies_product'] is False
+
+
 def test_malformed_evidence_is_unknown_not_pass_or_crash():
     for frame in (None, {'motif':'match'}, {'protected_product':'PASS'}, {'protected_product':{'source_sha256':'x'},'image':'fake'}):
         assert structural_floor(frame)['status'] in ('UNKNOWN','FAIL')

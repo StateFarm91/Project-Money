@@ -36,7 +36,12 @@ from __future__ import annotations
 import json, os, sys
 import numpy as np
 from PIL import Image, ImageDraw
-from scipy.ndimage import gaussian_filter, sobel, zoom
+try:
+    from scipy.ndimage import gaussian_filter, sobel, zoom
+except ImportError:
+    # The main-line refusal gate does not require this optional research diagnostic.
+    # Its absence must be UNKNOWN, never a substitute score or a general product PASS.
+    gaussian_filter = sobel = zoom = None
 HERE = os.path.dirname(os.path.abspath(__file__)); OUT = os.path.join(HERE, "out")
 
 BARS = {"row_pair_scale": 0.35, "star_pitch_scale": 0.35, "pitch_over_pair": (0.39, 0.72), "lattice_peak": 0.10, "column_offset": 0.30, "blob_isotropy": 0.55, "diagonal_fraction": 0.30, "return_row_contrast": 1.25}
@@ -323,6 +328,10 @@ def diagnose(gray, *, family, star_px_expected=None, pair_px_expected=None, flat
     The numerical bars are the historical Bench2 bars, unchanged. Their tolerance is
     not a new general-purpose structural acceptance threshold.
     """
+    if gaussian_filter is None:
+        return {"status": "UNKNOWN", "basis": "bounded_star_texture_proxy",
+                "why": "optional SciPy diagnostic dependency unavailable",
+                "certifies_product": False}
     if family != "star" or not flat_region:
         return {"status": "UNKNOWN", "basis": "bounded_star_texture_proxy",
                 "why": "unsupported stitch family or unqualified flat operating region"}
