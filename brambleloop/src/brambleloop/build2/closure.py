@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from . import executor, maturity, requirements as reg
+from . import executor, maturity, reachability, requirements as reg
 
 COMPLETE_PROVEN = "COMPLETE+PROVEN"
 OWNER_GATED = "OWNER-GATED"
@@ -227,6 +227,7 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
     return row
 
 
+@reachability._graph_boundary
 @maturity._with_test_import_snapshot
 def matrix(db=None, *, env=None) -> dict:
     """The whole registry classified; `open` is the closeout remainder."""

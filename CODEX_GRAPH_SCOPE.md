@@ -8,3 +8,5 @@ Then exact package source+ROOTS key, boundary revalidation, isolated ContextVar 
 no AST algorithm, thresholds or status changes. Avoid reparse of unchanged sources.
 Tests removal/same-metadata edit/root changes/readfailure/unchanged output/concurrency.
 No live providers, paid calls, production actions, or certification claims.
+
+Approved dependency: closure.py import reachability + outer graph-boundary decorator on matrix, beside existing test-import wrapper. No other closure changes. One package snapshot for aggregate; final graph validation occurs after inner test-source validation.
