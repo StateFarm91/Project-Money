@@ -1,0 +1,2603 @@
+[
+ {
+  "uid": "F-001",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "No separate ranking/conversion-readiness stage; only query-match (covers/score_coverage) plus a competition 'reachable' flag exist, and they are blended into one search_share number",
+  "producer": "src/brambleloop/commerce/search.py::score_coverage",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": "listing.seo audits search_share/gaps; no decision blocks on it",
+  "tests": [
+   "tests/test_commerce.py::test_coverage_is_scored_against_what_we_can_reach",
+   "tests/test_commerce.py::test_head_terms_are_marked_unreachable_for_a_shop_with_no_history"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/search.py covers()/score_coverage (match only)",
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN",
+   "#240 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add commerce/search.py two-stage model: match_eligibility(listing, query)->field and a separate ranking_readiness profile (see F-003); persist both per listing in listing.seo and stop reporting one blended search_share",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-002",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Per-query supplying field ('where') is computed but dropped by CoverageReport.to_dict and never persisted; category/attributes are not matchable fields; query families are fixed templates, not maintained target families",
+  "producer": "src/brambleloop/commerce/search.py::score_coverage",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked (share+gaps only)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_coverage_is_scored_against_what_we_can_reach"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/search.py _TEMPLATES/build_query_set, covers() returns tag_exact|title_phrase|title_words|description",
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN",
+   "#240 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "CoverageReport.to_dict omits `where`, so the query->field matrix is not durable or visible",
+  "next_action": "Persist a query coverage matrix per listing (query family, phrase, supplying field incl. category/attribute) from handle_listing_seo into a table or the listing.seo audit detail and expose it on /api/catalogue",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-003",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No per-listing profile tracking listing quality, click readiness, conversion readiness, shop quality and service quality independently",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "Pieces exist separately: commerce/thumbnail.py evaluate_thumbnail score (click proxy), publish/eligibility COMMERCIAL_QA, commerce/trust.py accelerator rungs (shop), support/service.py service_level (service) -- never combined per listing"
+  ],
+  "build2_rows": [
+   "#17 COMPLETE+PROVEN",
+   "#18 DATA-GATED",
+   "#62 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Build commerce/ranking_readiness.py::profile(db, slug) composing the five dimensions from existing readings (each measured|UNMEASURED, never averaged), call it from launch.plan/launch.readiness and expose per listing",
+  "confidence": "MEDIUM",
+  "searched": "grep readiness profile|click readiness|conversion readiness|rank readiness across src/brambleloop: no hits"
+ },
+ {
+  "uid": "F-004",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No search certification exists; search_share/seo_score is computed from title/tags/description only; category is a fixed constant and attributes never reach Etsy",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/runtime/release.py handle_listing_seo blocks only on check_listing_limits/check_attributes/policy",
+   "src/brambleloop/publish/release_gates.py claims_of excludes tags/attributes/category"
+  ],
+  "build2_rows": [
+   "#58 COMPLETE+PROVEN",
+   "#70 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "Listing.seo_score (search_share) is a title/tags/description-only number surfaced on /api/catalogue and used as the launch search baseline -- exactly the title/tag-only certification F-004 forbids",
+  "next_action": "Add publish/search_cert.py::certify(listing) requiring category (F-005), attributes (F-007/F-008), description (F-026) and hero (F-027) checks to pass; issue it in handle_listing_seo and require it in store.publish _release_gates",
+  "confidence": "MEDIUM",
+  "searched": "grep search certification/search_cert: none; release_gates/listing_set certify assets not search"
+ },
+ {
+  "uid": "F-005",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "Every listing is sent with one hard-coded taxonomy_id (TAXONOMY_PATTERNS=66, 'craft_supplies_and_tools.patterns'); no per-product deepest-category selection; id never read back from Etsy",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/integrations/etsy.py:79 TAXONOMY_PATTERNS = 66; ListingPayload.taxonomy_id default",
+   "research/ETSY_TRANSPORT.md:227 taxonomy 66 'unexercised'"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "verifying the node against getSellerTaxonomyNodes needs the Etsy credential run (etsy_probe step 6); choosing the deepest node is software"
+  },
+  "defect": "Single shallow constant taxonomy for all products (blanket, basket, ornament...) -- refuses the deepest truthful category by construction",
+  "next_action": "Add commerce/category.py mapping each product category to the deepest crochet-pattern taxonomy node from a stored getSellerTaxonomyNodes snapshot, set ListingPayload.taxonomy_id per product, and refuse a node that is a parent of a valid deeper one",
+  "confidence": "HIGH",
+  "searched": "grep taxonomy across src: only integrations/etsy.py constant, etsy_probe verification, listing_schema clauses"
+ },
+ {
+  "uid": "F-006",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No modelling of parent-category coverage inherited from a subcategory",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "With F-005's taxonomy snapshot, record the ancestor chain of the chosen node and let coverage scoring (F-002/F-014) count parent-category phrases as covered",
+  "confidence": "HIGH",
+  "searched": "grep inherit|parent.categor|ancestor in commerce/ publish/ integrations/: none"
+ },
+ {
+  "uid": "F-007",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Attributes are an internal dict checked against a fixed list; Etsy's category-specific properties (getPropertiesByTaxonomyId) are never used to decide completeness and nothing sets a listing property on Etsy (no updateListingProperty)",
+  "producer": "src/brambleloop/commerce/search.py::listing_attributes",
+  "durable_state": "job inputs 'attributes' only (not on Listing row, not in ListingPayload)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo (check_attributes blocks drafting)",
+  "protected_effect": "internal draft blocked on missing digital/file_type/craft/pattern_type/skill/primary_color",
+  "tests": [
+   "tests/test_commerce.py::test_attributes_come_from_pattern_data",
+   "tests/test_commerce.py::test_missing_attributes_are_reported"
+  ],
+  "evidence": [
+   "src/brambleloop/integrations/etsy.py ListingPayload has no properties; etsy_probe.py:318 'implement updateListingProperty' outstanding",
+   "src/brambleloop/publish/listing_schema.py taxonomy_required_properties clause",
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "reading required properties for the chosen node needs the credentialed Etsy run; the mapping and write code are buildable now"
+  },
+  "defect": "Attributes computed and 'checked' but never transmitted to Etsy -- internal completeness is a proxy with no marketplace effect",
+  "next_action": "Implement integrations/etsy.py::update_listing_property and a properties mapper from listing_attributes to the node's getPropertiesByTaxonomyId schema; make completeness = every relevant property of the chosen node set or explicitly N/A",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-008",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No truth gate on attributes (occasion=season copied for any seasonal product; colour from twin); tag templates add 'easy {category} pattern' and 'handmade gift' regardless of product difficulty/nature",
+  "producer": "src/brambleloop/commerce/search.py::listing_attributes",
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/commerce/search.py _TEMPLATES core 'easy {category} pattern' and gift family are unconditional; runtime check: choose_tags(build_query_set('basket',['market'],None,['texture'])) -> includes 'easy basket pattern', 'handmade gift'",
+   "gates/policy.py has no 'easy' claim check"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "Tag selection is difficulty-blind: 'easy <category> pattern' can be tagged on an intermediate pattern and 'handmade gift' on a digital pattern with no truth check",
+  "next_action": "Add commerce/search.py::attribute_truth(attrs, cir, twin) and a tag truth filter (difficulty-gated 'easy', no finished-item phrasing) called in handle_listing_seo as blocking findings",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-009",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No audit of which Etsy filters a listing enters or loses",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "filter-bearing properties come from getPropertiesByTaxonomyId"
+  },
+  "defect": null,
+  "next_action": "Build commerce/filter_audit.py over the chosen node's properties: entered vs lost filters per listing, surfaced in the listing.seo audit and /api/catalogue",
+  "confidence": "HIGH",
+  "searched": "grep filter surface|filters in commerce/search/publish: none"
+ },
+ {
+  "uid": "F-010",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Taxonomy node/properties are read only on demand by the Etsy exercise probe (never run successfully per research/ETSY_TRANSPORT.md); no periodic schema re-check or diff",
+  "producer": "src/brambleloop/integrations/etsy_probe.py::run_exercise (step 6 get_taxonomy_node/get_taxonomy_properties)",
+  "durable_state": null,
+  "consumer": "app/main.py::api_etsy_exercise (POST, on demand)",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_etsy_transport.py (asserts getPropertiesByTaxonomyId is called)"
+  ],
+  "evidence": [
+   "src/brambleloop/integrations/etsy.py get_taxonomy_node/get_taxonomy_properties",
+   "research/ETSY_TRANSPORT.md:227"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "reads need the credentialed Etsy client"
+  },
+  "defect": null,
+  "next_action": "Add a weekly handler (runtime/worker cadence) storing a taxonomy/properties snapshot digest and opening a blocking incident on change that re-queues listing.seo for affected listings",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-011",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "choose_tags fills up to 13 but nothing requires 13; check_listing_limits only rejects >13; no documented-limitation exception",
+  "producer": "src/brambleloop/commerce/search.py::choose_tags",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_tags_fit_the_platform_and_are_still_phrases (asserts <=13 only)"
+  ],
+  "evidence": [
+   "runtime check: choose_tags on template queries gives 10 tags (mosaic_blanket) and 9 (basket)",
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#240 COMPLETE+PROVEN",
+   "#293 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "Template query set yields fewer than 13 acceptable tags and the shortfall is not detected",
+  "next_action": "Add LISTING_TAG_SLOTS_UNUSED to commerce/seo.py::check_listing_limits (blocking unless a recorded limitation), widen query families so 13 truthful tags exist, and test len(tags)==13 on catalogue seeds",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-012",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search.py::choose_tags (_acceptable_tag/_fit_tag require >=2 words)",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_tags_fit_the_platform_and_are_still_phrases"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#240 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-013",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Diversity is lexical (per-word budget of 3 and containment); semantic duplicates (synonyms, reorderings like 'christmas mosaic'/'mosaic blanket'/'forest mosaic') are not detected as the same intent",
+  "producer": "src/brambleloop/commerce/search.py::choose_tags",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_the_tag_set_is_not_one_concept_restated",
+   "tests/test_cert_parity_copy.py::test_diversify_moves_slots_off_shared_phrases_when_alternatives_exist"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#240 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add intent-level dedup in choose_tags using commerce/intent facets (one tag per facet value unless evidence) with a test on synonym/reordered pairs",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-014",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No comparison of tags against category/attribute phrases",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "After F-005/F-007 exist, filter tags equal to the chosen category path or set attribute values in choose_tags and record the freed slots",
+  "confidence": "HIGH",
+  "searched": "grep category/attribute dedup in commerce/search.py choose_tags: none"
+ },
+ {
+  "uid": "F-015",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Long-tail mix is driven by template demand/competition constants that are not evidence; observed buyer phrases (listing_language) join only post-fcb982d",
+  "producer": "src/brambleloop/commerce/search.py::build_query_set + commerce/intent.py::listing_language",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_head_terms_are_marked_unreachable_for_a_shop_with_no_history",
+   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "listing_language wired in release.py:616 after fcb982d (INTEGRATED only)"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN",
+   "#2 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "Template demand/competition numbers (e.g. 0.95/0.88) present as evidence without any",
+  "next_action": "Replace template constants with observed share/SERP density (as listing_language does) or label them assumed and exclude them from the evidence-supported half of the portfolio",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-016",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; regional phrase optimisation is post-launch search polish",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No regional phrase capture or spelling-variant handling",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a regional phrase table (e.g. UK/US yarn-weight terms) sourced from observed BenchmarkListing titles to commerce/intent and let choose_tags spend at most one slot per non-normalised variant",
+  "confidence": "MEDIUM",
+  "searched": "grep regional|colour/color variant in commerce/: none"
+ },
+ {
+  "uid": "F-017",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; templates cannot emit deliberate misspellings, so no first-sale risk",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No explicit prohibition/check against misspelled SEO phrases (templates are fixed English, so none are produced today)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a dictionary/spell check over tags/title in commerce/seo.py::check_listing_limits so observed-phrase ingestion (listing_language) can never introduce a typo tag",
+  "confidence": "MEDIUM",
+  "searched": "grep misspell|typo in commerce/: none"
+ },
+ {
+  "uid": "F-018",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; single-language shop, no translation path exists",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No language discipline gate; compliant by absence (all copy English, no listing translation code)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "BUILD_STATE.md section 31: translation needs terminology review before sale"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Record shop language as a constant and refuse any listing translation unless a translation-quality review row exists (commerce/seo.py)",
+  "confidence": "MEDIUM",
+  "searched": "grep translation in listing path: none (culture/translate is unrelated)"
+ },
+ {
+  "uid": "F-019",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; slot-efficiency polish",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No singular/plural root detection across tags",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a stemmer-based check in commerce/search.py::_acceptable_tag rejecting a phrase whose stemmed form equals an already-chosen tag",
+  "confidence": "HIGH",
+  "searched": "grep plural|singular|stem in commerce/: none"
+ },
+ {
+  "uid": "F-020",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Observed phrases carry provenance (observed title share, SERP density) but template queries carry hard-coded demand/competition with no provenance or freshness; no freshness timestamp on either",
+  "producer": "src/brambleloop/commerce/intent.py::listing_language",
+  "durable_state": "audit listing.seo_drafted detail.buyer_language",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": "observed phrases take tag slots first",
+  "tests": [
+   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list",
+   "tests/test_intent.py::test_arena_language_is_observed_by_construction"
+  ],
+  "evidence": [
+   "src/brambleloop/commerce/search.py _TEMPLATES constants",
+   "listing_language not in fcb982d"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN",
+   "#38 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "Template phrases enter tag selection with fabricated-looking demand numbers and no provenance",
+  "next_action": "Give search.Query a provenance field (observed:<source,date>|assumed) and a max age; have handle_listing_seo refuse or label assumed phrases and record provenance per chosen tag",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-021",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Title must contain 'pattern' and no unsupportable claim, but buyer-readability is not checked; generated titles repeat words ('Nordic ... Nordic Mosaic Blanket') which commerce/portfolio.stuffing would flag, non-blocking",
+  "producer": "src/brambleloop/commerce/seo.py::build_title / check_listing_limits",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": "listing draft blocked on LISTING_AMBIGUOUS_PRODUCT/unsupportable claim",
+  "tests": [
+   "tests/test_commerce.py::test_a_title_never_stutters_its_own_category"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "runtime check: build_title('Nordic Forest Throw',...) = 22 words with 'Nordic' twice"
+  ],
+  "build2_rows": [
+   "#41 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "Own titles would be judged 'stuffed' by commerce/portfolio.stuffing (repeated_in_title) but the result is only audited",
+  "next_action": "Make portfolio.stuffing(title) blocking in handle_listing_seo and fix build_title to drop repeated motif/category words",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-022",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Item name + 'Crochet Pattern PDF' lead, but the strongest differentiator is not chosen or placed early",
+  "producer": "src/brambleloop/commerce/seo.py::build_title",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_a_title_never_stutters_its_own_category"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Pass the product's primary differentiator (from creative brief/intent facets) into build_title as the second segment and test its position within the first 60 characters",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-023",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No word-count readability target; titles run ~20+ words",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "runtime check: build_title output 22 words"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a soft readability finding (>15 words) to commerce/seo.py::check_listing_limits recorded in listing.seo audit, and trim build_title's tail segments first",
+  "confidence": "HIGH",
+  "searched": "grep word count in commerce/seo.py: only 140-char limit"
+ },
+ {
+  "uid": "F-024",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "_UNSUPPORTABLE blocks a fixed list of superlatives (best, luxury, guaranteed...) rather than relocating subjective words; other subjective words (cozy, beautiful, cute) are not detected",
+  "producer": "src/brambleloop/commerce/seo.py::check_listing_limits (_UNSUPPORTABLE)",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": "listing blocked on LISTING_UNSUPPORTABLE_CLAIM",
+  "tests": [],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a subjective-word list to commerce/seo.py that moves such words from title to description and a test for it",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-025",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Opening is a fixed sentence '<product> \u2014 a crochet pattern, not a finished item...'; no selection of the listing's important phrases for the first sentences",
+  "producer": "src/brambleloop/commerce/seo.py::build_description",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#41 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Have build_description take the top 2-3 chosen query phrases and compose a natural first sentence, with a test that it differs from the title and contains them",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-026",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No keyword-dump check on descriptions (only DESCRIPTION_MIN length); descriptions are generated from facts so low present risk",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/commerce/seo.py DESCRIPTION_MIN only; commerce/portfolio.stuffing covers title/tags only"
+  ],
+  "build2_rows": [
+   "#261 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a description keyword-density/sentence-structure check to check_listing_limits, blocking listing.seo",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-027",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Grid-scale contrast/coverage/text checks and hero rules run, but 'clearly shows what is sold' needs a vision judgement that is refused while image_vision is closed",
+  "producer": "src/brambleloop/commerce/thumbnail.py::evaluate_thumbnail + publish/listing_assets.py::check_frame_plan",
+  "durable_state": "listing_assets (approved flags) + audit assets.listing_images_*",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
+  "protected_effect": "hero problems block asset approval",
+  "tests": [
+   "tests/test_commerce.py::test_coverage_is_the_subjects_footprint_not_its_dark_pixels",
+   "tests/test_layout_qa.py (LISTING_HERO_IS_AN_INFOGRAPHIC)",
+   "tests/test_cert_hero_title_safe.py"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "Product-Only Visual V1 NOT LOCKED (BUILD_STATE head); Visual V2 is R&D only on 035ff0c"
+  ],
+  "build2_rows": [
+   "#62 COMPLETE+PROVEN",
+   "#66 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "semantic 'what is sold' judgement needs a working vision model"
+  },
+  "defect": null,
+  "next_action": "When image_vision opens, add a vision 'identify the product' check to the hero in handle_assets_build; meanwhile keep deterministic checks",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-028",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Infographic heroes and cluttered text bands are refused; no measured-evidence exception path",
+  "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan (LISTING_HERO_IS_AN_INFOGRAPHIC, layout_qa)",
+  "durable_state": "listing_assets",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
+  "protected_effect": "blocks hero approval",
+  "tests": [
+   "tests/test_layout_qa.py (LISTING_HERO_IS_AN_INFOGRAPHIC)"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#62 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add an exception record (experiment id with measured CTR) that may waive the rule, else none",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-029",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/listing_assets.py (CANVAS=2000; LISTING_FRAME_LOW_RES <1000px, LISTING_FRAME_NOT_SQUARE)",
+  "durable_state": "listing_assets",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
+  "protected_effect": "low-res frame blocks listing images",
+  "tests": [
+   "tests/test_brand.py (MISSING_FRAME / frame plan)"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#62 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch (optionally raise LOW_RES floor to 2000 to match canvas)",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-030",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Required roles are hero/whats_included/size/materials; angles, texture detail, lifestyle/use and category-specific proof are not required per category",
+  "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
+  "durable_state": "listing_assets",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "protected_effect": "missing frame blocks",
+  "tests": [
+   "tests/test_brand.py (MISSING_FRAME)",
+   "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#65 COMPLETE+PROVEN",
+   "#80 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a per-category frame-job requirement table (e.g. garment: fit/scale; blanket: texture detail) to check_frame_plan",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-031",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Downscaled 230px grid check runs in assets.build; the four mobile contexts (mobile.qa/first_three) are wired only post-fcb982d; 'ambiguous' creative needs vision",
+  "producer": "src/brambleloop/commerce/thumbnail.py::evaluate_thumbnail + publish/mobile.py::qa",
+  "durable_state": "listing_assets + stored context renders",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish (release_gates.mobile_contexts)",
+  "protected_effect": "blocks hero / publish",
+  "tests": [
+   "tests/test_commerce.py::test_coverage_is_the_subjects_footprint_not_its_dark_pixels",
+   "tests/test_mobile.py::test_three_frames_all_doing_one_job_is_one_frame_shown_three_times",
+   "tests/test_cert_publish_gates.py::test_the_qa_stage_stores_the_context_renders_and_publish_only_verifies_them"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#66 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "ambiguity judgement needs vision"
+  },
+  "defect": null,
+  "next_action": "Once image_vision opens, add a grid-scale identification check; otherwise none",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-032",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Registry and ranking exist; no impressions/CTR data can exist (no live listing)",
+  "producer": "src/brambleloop/growth/experiments.py::register_at_launch + commerce/thumbnail.py::rank_by_evidence",
+  "durable_state": "experiments table (write-once)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_launch_plan",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_growth_seasonal.py::test_launch_pack_records_hero_variants_title_tags_and_confounders",
+   "tests/test_commerce.py::test_ranking_heroes_without_impressions_is_refused"
+  ],
+  "evidence": [
+   "register_at_launch absent from fcb982d"
+  ],
+  "build2_rows": [
+   "#16 OWNER-GATED",
+   "#241 OWNER-GATED",
+   "#14 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "live_listings",
+   "detail": "then impressions via insights_access/Etsy Stats export"
+  },
+  "defect": null,
+  "next_action": "none until live listings produce impressions; then ingest Stats per experiment",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-033",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Discipline and memory exist; no favourite/purchase data",
+  "producer": "src/brambleloop/commerce/listing_tests.py + growth/experiments.py",
+  "durable_state": "listing test memory table",
+  "consumer": "app/main.py::api_listing_tests",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_listing_tests.py",
+   "tests/test_experiment_persistence.py"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#16 OWNER-GATED",
+   "#238 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs orders/favourites"
+  },
+  "defect": null,
+  "next_action": "none until traffic/orders exist",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-034",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No scheduling of evidence capture in the new-listing boost window",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#241 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "live_listings",
+   "detail": "needs a live listing"
+  },
+  "defect": null,
+  "next_action": "Add to growth/experiments.register_at_launch a dated capture schedule (days 0-14) enqueuing Stats-read reminders",
+  "confidence": "MEDIUM",
+  "searched": "grep new-listing boost/learning window for own listings: none"
+ },
+ {
+  "uid": "F-035",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Loops exist for tags (vanity-term swap from Stats CSV) and creative style learning; price/product decisions not fed",
+  "producer": "src/brambleloop/runtime/release.py::_drop_vanity_tags + creative style_learning",
+  "durable_state": "attribution.stats reading",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": "vanity tags replaced",
+  "tests": [
+   "tests/test_benchmarks.py::test_a_stats_export_is_read_strictly_and_ranked_on_what_terms_earned",
+   "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#82 DATA-GATED",
+   "#237 OWNER-GATED",
+   "#46 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "owner Etsy Stats export"
+  },
+  "defect": null,
+  "next_action": "none until data exists",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-036",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Per-search-term join exists; not grouped by query family",
+  "producer": "src/brambleloop/commerce/attribution.py::join_stats",
+  "durable_state": "attribution.stats OperatingReading",
+  "consumer": "app/main.py::api_attribution_stats",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_benchmarks.py::test_a_stats_export_is_read_strictly_and_ranked_on_what_terms_earned"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#237 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "owner Etsy Stats export"
+  },
+  "defect": null,
+  "next_action": "Group join_stats output by the query families of F-002",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-037",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No ingestion of Etsy Search Visibility recommendations; surface registry marks it ANALYZE with no collector",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/intel/etsy_surfaces.py search_visibility surface (collector=None; module unreached)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "external",
+   "key": "rendered_pages",
+   "detail": "Shop Manager pages 403 to automated readers; owner-recorded intake is buildable"
+  },
+  "defect": null,
+  "next_action": "Build an owner-recorded Search Visibility intake (POST route, like /api/policy/snapshot) storing date, listing, reason, resolution",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-038",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No precedence rule between first-party Etsy recommendations and internal SEO rules",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "After F-037, make handle_listing_seo apply open first-party recommendations before internal heuristics and record overrides",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-039",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Policy snapshot/versioning and blocking incident exist for six policy sources, but Etsy's search guidance (Seller Handbook 'how search works') is not a watched source and a change does not re-audit listings' search output",
+  "producer": "src/brambleloop/gates/platform_policy.py::record_snapshot/unreviewed_changes",
+  "durable_state": "policy_snapshots + incidents",
+  "consumer": "policy.watch handler; gate.certify policy_stamp",
+  "protected_effect": "blocking incident until review",
+  "tests": [
+   "tests/test_platform_policy.py::test_a_material_change_is_a_digest_difference_rather_than_a_judgement",
+   "tests/test_cert_intel_wave2.py::test_a_material_policy_change_opens_a_blocking_incident_until_reviewed"
+  ],
+  "evidence": [
+   "src/brambleloop/gates/platform_policy.py POLICY_SOURCES (no search source)"
+  ],
+  "build2_rows": [
+   "#39 EXTERNAL-BLOCKED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "rendered_pages",
+   "detail": "Etsy pages 403; a person records via POST /api/policy/snapshot"
+  },
+  "defect": null,
+  "next_action": "Add a 'search_guidance' POLICY_SOURCES entry governing ('listing','search') and on its change enqueue listing.seo re-runs for all listings",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-040",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Checks draft storefront text (about, policies, sections, icon/banner briefs) not the actual Etsy shop icon/About state",
+  "producer": "src/brambleloop/brand/storefront.py::check_storefront + commerce/trust.py::accelerator",
+  "durable_state": null,
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "protected_effect": "launch readiness blocked on store problems",
+  "tests": [
+   "tests/test_brand.py::test_an_incomplete_storefront_is_caught",
+   "tests/test_shop_package.py::test_a_missing_policy_section_is_caught_by_the_storefront_check",
+   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+  ],
+  "evidence": [
+   "intel/etsy_surfaces.py assess_shop (live shop fields) is unreached"
+  ],
+  "build2_rows": [
+   "#17 COMPLETE+PROVEN",
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_shop",
+   "detail": "verifying the live icon/About needs the shop and getShop read"
+  },
+  "defect": null,
+  "next_action": "Wire etsy_surfaces.assess_shop into launch.readiness via a getShop read so live icon/About/policies must pass, not only drafts",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-041",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Frame plan and four promotion gates run; 'strong' image quality is only deterministic (vision closed)",
+  "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set",
+  "durable_state": "listing_assets, listing-set certificate",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "protected_effect": "store.publish_blocked",
+  "tests": [
+   "tests/test_cert_publish_gates.py::test_shadow_publish_runs_every_gate_library_on_the_real_listing_set",
+   "tests/test_listing_set.py::test_a_gate_that_never_ran_cannot_be_certified_around"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#58 COMPLETE+PROVEN",
+   "#80 COMPLETE+PROVEN",
+   "#41 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "strength judgement"
+  },
+  "defect": null,
+  "next_action": "none beyond F-027 vision step",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-042",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Response timing covers internal SupportCase drafts; Etsy inbox messages cannot be read (no API); Etsy-counted case rate is not tracked; review rating only from Order.detail",
+  "producer": "src/brambleloop/support/service.py::service_level + commerce/reviews.py::distribution",
+  "durable_state": "support_cases.detail timings; commerce readings",
+  "consumer": "app/main.py::api_trust; commerce.readings",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_trust.py::test_no_timed_case_is_no_service_level_rather_than_a_bad_one",
+   "tests/test_cert_growth_ops.py::test_support_reply_times_the_case_and_refuses_a_gating_draft"
+  ],
+  "evidence": [
+   "src/brambleloop/intel/etsy_surfaces.py messages OWNER_ONLY, customer_service_stats UNSUPPORTED"
+  ],
+  "build2_rows": [
+   "#18 DATA-GATED",
+   "#41 DATA-GATED",
+   "#257 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "rendered_pages",
+   "detail": "Etsy exposes no messages/case/CS-stats API; owner-recorded readings are buildable"
+  },
+  "defect": null,
+  "next_action": "Build an owner-recorded Customer Service Stats intake (response rate, case count, review average) plus getShop review_average read, feeding a monitor reading",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-043",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No alert before the 48h first-message standard; service_level measures after the fact and Etsy messages are not ingested",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/gates/policy_knowledge.py:89 records the 48h standard as text only"
+  ],
+  "build2_rows": [
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "external",
+   "key": "rendered_pages",
+   "detail": "no Etsy messages API; alerting on recorded/forwarded messages is software"
+  },
+  "defect": null,
+  "next_action": "Add a support.response_watch cadence alerting (owner action + incident) on any recorded buyer message/SupportCase unanswered at 24h and 36h, plus an owner-recorded message intake",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-044",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Theme routing exists; no reviews exist",
+  "producer": "src/brambleloop/commerce/reviews.py::route",
+  "durable_state": "commerce readings",
+  "consumer": "runtime/commerce_readings.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_reviews.py::test_a_misunderstanding_is_usually_a_missing_disclosure"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#257 DATA-GATED",
+   "#261 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs reviews"
+  },
+  "defect": null,
+  "next_action": "none until reviews exist",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-045",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No Etsy case ingestion or case-triggered root-cause incident",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/commerce/buyer_trust.py case window UNKNOWN"
+  ],
+  "build2_rows": [
+   "#41 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs orders/cases"
+  },
+  "defect": null,
+  "next_action": "Add an owner-recorded Etsy case intake that opens a root-cause incident with required corrective action",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-046",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; Ads disabled until owner authority (F-875)",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No explicit guard; nothing currently models ads/Etsy Plus as an organic ranking input (organic-first gate keeps organic separate)",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/commerce/paid_media.py organic_first_gate",
+   "src/brambleloop/intel/insights_budget.py treats Etsy Plus as spend only"
+  ],
+  "build2_rows": [
+   "#242 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a test asserting ranking-readiness/forecast inputs exclude ad spend and Etsy Plus",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-047",
+  "launch_class": "MATURE",
+  "launch_class_reason": "priority None; framing rule for trust modelling",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "Star Seller not modelled anywhere",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#17 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "If Star Seller is ever tracked, add it to commerce/trust.py as a conversion/trust rung, never a ranking input",
+  "confidence": "HIGH",
+  "searched": "grep star seller: none"
+ },
+ {
+  "uid": "F-048",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Publish gates cover assets, parity, disclosures, mobile, certificate; relevance/structured data (category, Etsy attributes) and a search certification are not gates",
+  "producer": "src/brambleloop/runtime/pipeline.py::_release_gates + runtime/release.py::handle_listing_seo",
+  "durable_state": "audit store.release_gates; listing-set certificate",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "protected_effect": "store.publish refuses (also shadow)",
+  "tests": [
+   "tests/test_cert_publish_gates.py::test_shadow_publish_runs_every_gate_library_on_the_real_listing_set"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#58 COMPLETE+PROVEN",
+   "#70 COMPLETE+PROVEN",
+   "#54 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Require the F-004 search certification in _release_gates",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-049",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Listing-set certificate invalidates on geometry/title/description/policy change, but tags, attributes and category are not in the claims fingerprint and there is no search certification to invalidate",
+  "producer": "src/brambleloop/publish/listing_set.py::still_valid",
+  "durable_state": "listing-set certificate",
+  "consumer": "gate.certify recheck; store.publish",
+  "protected_effect": "invalidates frame approval",
+  "tests": [
+   "tests/test_listing_set.py::test_a_claims_change_affects_the_whole_set_rather_than_the_number_frames",
+   "tests/test_listing_set.py::test_a_geometry_change_invalidates_without_anybody_revoking_it"
+  ],
+  "evidence": [
+   "src/brambleloop/publish/release_gates.py::claims_of (title, description, frames only)"
+  ],
+  "build2_rows": [
+   "#70 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add tags, attributes and taxonomy_id to release_gates.claims_of",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-050",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Competing pairs counted and tag slots diversified; no 'strategic reason' exemption record",
+  "producer": "src/brambleloop/commerce/portfolio.py::diversification + runtime/release.py::_diversify_tags",
+  "durable_state": "audit listing.query_portfolio",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": "tags re-chosen off shared phrases",
+  "tests": [
+   "tests/test_portfolio.py::test_a_catalogue_all_reaching_for_one_term_is_concentrated_and_cannibalising",
+   "tests/test_cert_parity_copy.py::test_listing_seo_applies_the_query_portfolio_to_its_tags"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#240 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 adequate for maturity stage",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-051",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Concentration/stuffing counted; no expansion planner",
+  "producer": "src/brambleloop/commerce/portfolio.py::diversification",
+  "durable_state": "audit listing.query_portfolio",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_portfolio.py::test_a_spread_catalogue_is_neither_concentrated_nor_cannibalising"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#240 COMPLETE+PROVEN",
+   "#119 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Feed thin-coverage facets into radar/creative ideation as opportunities",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-052",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "occasion attribute is copied from the seed season without an 'actually for that occasion' check, and it never reaches Etsy; gift suitability tags are unconditional templates",
+  "producer": "src/brambleloop/commerce/search.py::listing_attributes",
+  "durable_state": "job inputs attributes",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_attributes_come_from_pattern_data"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN",
+   "#122 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Set occasion only when the CIR/seed declares the product is for that occasion (explicit field), map to Etsy's occasion property values, and keep gift language in tags",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-053",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Recipient/use facet exists; gift tags ('handmade gift') are template-driven, not evidence-driven",
+  "producer": "src/brambleloop/commerce/intent.py::listing_language",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#113 COMPLETE+PROVEN",
+   "#293 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Only emit recipient/gift tags backed by an observed phrase",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-054",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Only a 'recipient_or_use' facet; shopper problem not modelled or tested",
+  "producer": "src/brambleloop/commerce/intent.py",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a 'problem solved' facet to commerce/intent and a listing experiment arm for it",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-055",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Aesthetic facet exists in map_product but the live listing_language fallback facets omit aesthetic unless the intake brief mapped it",
+  "producer": "src/brambleloop/commerce/intent.py::listing_language",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_intent.py::test_arena_language_is_observed_by_construction"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Include an evidence-backed aesthetic facet in the fallback path",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-056",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Size count in title and finished size in description; no size/shape query family",
+  "producer": "src/brambleloop/commerce/seo.py::build_title (N Sizes)",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a size/shape query family from twin dimensions",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-057",
+  "launch_class": "MATURE",
+  "launch_class_reason": "master_priority P1-after-real-traffic: needs real Etsy traffic, post-launch optimisation",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search.py::build_query_set (technique families gated on use)",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_commerce.py::test_a_technique_the_pattern_does_not_use_is_never_tagged"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-058",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Pieces on separate routes (/api/catalogue search_share, /api/leading CTR/conversion UNMEASURED, /api/experiments, /api/portfolio, /api/serp); no single search evidence dashboard; no visibility warnings or rank readiness",
+  "producer": "app/main.py::api_catalogue / api_leading / api_experiments",
+  "durable_state": "listings, OperatingReading",
+  "consumer": "owner dashboard",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database"
+  ],
+  "evidence": [
+   "src/brambleloop/scale/leading.py"
+  ],
+  "build2_rows": [
+   "#239 OWNER-GATED",
+   "#263 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add /api/search/evidence composing per-listing match coverage (F-002), readiness (F-003), first-party warnings (F-037), CTR/conversion and experiments, each measured|UNMEASURED",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-059",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "seo_score is labelled internal_score and leading indicators refuse success without orders; no explicit switch that makes real Etsy evidence override internal SEO scoring beyond the vanity-tag swap",
+  "producer": "src/brambleloop/swarm/orchestrate.py FUNCTION_EVIDENCE + scale/leading.py",
+  "durable_state": null,
+  "consumer": "src/brambleloop/runtime/release.py::_drop_vanity_tags",
+  "protected_effect": "vanity tags replaced by earning terms",
+  "tests": [
+   "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#263 OWNER-GATED",
+   "#237 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "insights_access",
+   "detail": "real Etsy Stats needed"
+  },
+  "defect": null,
+  "next_action": "Label search_share on /api/catalogue as internal_score and retire it from readiness once Stats exist",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-060",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "may_scale_ads gates on shop rungs; no search-specific scaling gate (query coverage, competitive thumbnail, unresolved first-party warnings)",
+  "producer": "src/brambleloop/commerce/trust.py::may_scale_ads",
+  "durable_state": null,
+  "consumer": "ads.adjust; launch.readiness",
+  "protected_effect": "blocks ad scaling",
+  "tests": [
+   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#17 COMPLETE+PROVEN",
+   "#272 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add search rungs (F-002 coverage, F-031 thumbnail, F-037 warnings) to may_scale_ads / scale readiness",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-061",
+  "launch_class": "MATURE",
+  "launch_class_reason": "benchmark program informs standards; F-698 mature capability, not first-sale blocker",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Selection spans MJs departments by facet coverage; not explicitly constrained to classes Brambleloop intends to sell",
+  "producer": "src/brambleloop/intel/purchase_selection.py::select",
+  "durable_state": "BenchmarkListing (438 real MJs listings)",
+  "consumer": "app/main.py::api_benchmark_selection; teardown/intake.py::plan",
+  "protected_effect": "owner purchase list",
+  "tests": [
+   "tests/test_purchase_selection.py::test_popularity_is_not_the_objective",
+   "tests/test_purchase_selection.py::test_every_pick_names_the_unknown_it_answers"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:228 /api/benchmark-selection?target=13 = CA$268 over 438 observed listings (B-501/B-507)"
+  ],
+  "build2_rows": [
+   "#166 COMPLETE+PROVEN",
+   "#317 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "owner buys the selected patterns (approved to CA$300)"
+  },
+  "defect": null,
+  "next_action": "Pass Brambleloop's intended product classes (catalogue pods) as `departments` to select()",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-062",
+  "launch_class": "MATURE",
+  "launch_class_reason": "benchmark coverage is research depth",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Department facet covers the nine construction types via pods (garments, blankets, hats, stockings, ornaments, bags, amigurumi, kitchen_bath, collections); no explicit coverage-matrix report vs the nine named types; purchases not made",
+  "producer": "src/brambleloop/intel/purchase_selection.py::select",
+  "durable_state": "BenchmarkListing",
+  "consumer": "app/main.py::api_benchmark_selection",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_purchase_selection.py::test_uncovered_facets_are_reported_rather_than_left_implied"
+  ],
+  "evidence": [
+   "src/brambleloop/intel/pods.py PODS"
+  ],
+  "build2_rows": [
+   "#317 OWNER-GATED",
+   "#166 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "owner buys the selected patterns (approved to CA$300)"
+  },
+  "defect": null,
+  "next_action": "Add the nine named construction types as a coverage matrix in select() output",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-063",
+  "launch_class": "MATURE",
+  "launch_class_reason": "benchmark records",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/intake.py::receive + teardown/library.py::scan/register",
+  "durable_state": "benchmark_products (ref, seller, listing_ref, purchased_on, paid_cad, on_sale, category, why_selected, listing_promises, files name/role/size/sha256)",
+  "consumer": "app/main.py POST /api/teardown/intake",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_intake.py::test_intake_fills_the_manifest_from_the_catalogue",
+   "tests/test_teardown.py::test_the_manifest_is_generated_and_says_what_the_files_are_not_for"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#150 COMPLETE+PROVEN",
+   "#170 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "owner buys the selected patterns (approved to CA$300)"
+  },
+  "defect": null,
+  "next_action": "none \u2014 waits on purchases",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-064",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "originality/IP protection (non-negotiable: never copy competitor instructions)",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/library.py::retrieve / check_derived",
+  "durable_state": "quarantined library outside repo",
+  "consumer": "teardown/lab.py analyst paths; improve/governance PROTECTED_GATES benchmark_quarantine",
+  "protected_effect": "generation roles refused by PermissionError",
+  "tests": [
+   "tests/test_teardown.py::test_pattern_generation_cannot_read_the_benchmark_library",
+   "tests/test_teardown.py::test_an_observation_that_is_really_the_competitors_pattern_is_refused",
+   "tests/test_intake.py::test_the_manifest_holds_no_competitor_text"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#149 COMPLETE+PROVEN",
+   "#167 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-065",
+  "launch_class": "MATURE",
+  "launch_class_reason": "benchmark research",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Judges only what filenames settle (charts, photos, video, file count, formats); page depth, sizing, gauge, support, update/version reported unverifiable",
+  "producer": "src/brambleloop/teardown/intake.py::deliverable_audit + teardown/scorecard.py::promise_audit",
+  "durable_state": "benchmark_products.listing_promises + audit",
+  "consumer": "POST /api/teardown/intake",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_intake.py::test_a_promised_chart_that_did_not_arrive_is_a_gap",
+   "tests/test_teardown.py::test_the_promise_audit_judges_only_what_filenames_can_settle"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#151 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "owner buys the selected patterns (approved to CA$300)"
+  },
+  "defect": null,
+  "next_action": "After purchase, record the remaining dimensions through teardown audits (#152-#160)",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-066",
+  "launch_class": "MATURE",
+  "launch_class_reason": "standard-building",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/scorecard.py::composite_standard",
+  "durable_state": "teardown_findings",
+  "consumer": "app/main.py::api_teardown; teardown/lab.py",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_teardown.py::test_the_composite_refuses_to_be_one_sellers_product_with_extra_steps"
+  ],
+  "evidence": [
+   "writer routes added post-fcb982d"
+  ],
+  "build2_rows": [
+   "#162 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "owner buys the selected patterns (approved to CA$300)"
+  },
+  "defect": null,
+  "next_action": "none \u2014 waits on purchases",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-067",
+  "launch_class": "MATURE",
+  "launch_class_reason": "quality benchmark gate; F-698 not first-sale blocker (note: launch readiness currently blocks on an unrun challenge)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Seven critical dimensions map approximately (no explicit completeness/usability/confidence dimension); unrunnable without purchases",
+  "producer": "src/brambleloop/teardown/pipeline.py::challenge / readiness_requirement",
+  "durable_state": "teardown_findings",
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "protected_effect": "release blocked when unrun/inferior",
+  "tests": [
+   "tests/test_cert_benchmark_challenge.py::test_materially_inferior_on_a_critical_dimension_blocks",
+   "tests/test_cert_benchmark_challenge.py::test_our_product_never_audited_blocks_rather_than_passing_by_omission"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#168 OWNER-GATED",
+   "#218 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "owner buys the selected patterns (approved to CA$300)"
+  },
+  "defect": null,
+  "next_action": "Map clarity/completeness/usability/presentation/value/support/confidence explicitly onto scorecard DIMENSIONS",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-068",
+  "launch_class": "MATURE",
+  "launch_class_reason": "comparison validity",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Only category match enforced; product form, complexity and customer promise comparability not checked; best-by-dimension may mix benchmarks",
+  "producer": "src/brambleloop/teardown/pipeline.py::challenge",
+  "durable_state": null,
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_benchmark_challenge.py::test_a_benchmark_in_another_category_is_not_a_match"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#168 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "benchmark_purchases",
+   "detail": "owner buys the selected patterns (approved to CA$300)"
+  },
+  "defect": null,
+  "next_action": "Add form/complexity/promise comparability to challenge(); return verdict 'invalid' (not pass) when incomparable",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-069",
+  "launch_class": "MATURE",
+  "launch_class_reason": "benchmark refresh",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/benchmark_refresh.py::assess",
+  "durable_state": "OperatingReading + OwnerAction",
+  "consumer": "intel.benchmark_refresh weekly cadence",
+  "protected_effect": "bounded owner purchase asks",
+  "tests": [
+   "tests/test_cert_intel_wave.py::test_benchmark_refresh_baselines_then_recommends_a_new_category_and_bounds_the_asks",
+   "tests/test_cert_intel_wave.py::test_benchmark_refresh_drops_duplicate_information"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#165 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-070",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "authority/spend controls (spend ceiling enforced in code)",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Cost ceiling (CA$300) and per-pick unknown enforced; post-purchase information value per benchmark not tracked",
+  "producer": "src/brambleloop/intel/purchase_selection.py::select (budget_cad)",
+  "durable_state": "benchmark_products.paid_cad",
+  "consumer": "app/main.py::api_benchmark_selection",
+  "protected_effect": "selection stops at budget",
+  "tests": [
+   "tests/test_purchase_selection.py::test_an_approved_budget_is_a_ceiling_in_code_and_the_swap_is_recorded",
+   "tests/test_intake.py::test_the_approved_set_size_and_budget_are_in_code"
+  ],
+  "evidence": [
+   "DECISION_LOG B-501/B-507/B-512/B-528"
+  ],
+  "build2_rows": [
+   "#166 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add information value per purchased benchmark (findings/improvements attributed) to the manifest",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-071",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "launch-gate definition: no launch requirement may need owner labour",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Owner crochet ask withdrawn and gate reworded, but products/launch0.py:1240 still names 'an owner action to crochet samples' as the blocker owner for a sub-category",
+  "producer": "src/brambleloop/build2/executor.py Gate physical_proof; launch/readiness.py",
+  "durable_state": null,
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "protected_effect": "owner queue never asks owner to crochet",
+  "tests": [
+   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample"
+  ],
+  "evidence": [
+   "DECISION_LOG B-532"
+  ],
+  "build2_rows": [
+   "#64 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "Residual owner-crochet wording in products/launch0.py:1240 owner_of_the_blocker",
+  "next_action": "Change launch0.py owner_of_the_blocker to 'independent tester (tester_roster)' and add a test scanning owner-facing strings for owner-crochet asks",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-072",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful proof claims",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "proof_states distinguish deterministic, reverse-compilation, physical tester, customer project, repeat purchase; benchmark teardown, model/visual review, independent human review and partial swatch vs full make are not distinct classes",
+  "producer": "src/brambleloop/gates/certificate.py::certify (proof_states) + gates/policy.py::check_proof_claims",
+  "durable_state": "pattern_versions.certificate",
+  "consumer": "listing.seo check_listing; gate.certify",
+  "protected_effect": "claims beyond held proof refused",
+  "tests": [
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#8 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Extend proof_states to the six named evidence classes and make check_claim refuse cross-class substitution",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-073",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "correct patterns: minimum evidence by risk",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Risk class A/B/C is set manually per CIR/seed; only C requires physical proof; no matrix deriving minimum evidence from features (fitted, grading, closed 3-D, novel assembly, high yardage, new primitive)",
+  "producer": "src/brambleloop/gates/certificate.py::certify (physical_required = risk_class=='C')",
+  "durable_state": "products.risk_class",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "Class C refused",
+  "tests": [
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test",
+   "tests/test_fastlane.py::test_a_risk_class_the_compiler_cannot_fully_verify_is_refused"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add gates/risk_matrix.py deriving the minimum evidence class from CIR features and refusing a declared risk_class below it",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-074",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "claims correctness for new primitives",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No notion of a new/uncalibrated stitch or construction primitive restricted from unrestricted use",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/quality/physical.py calibration keyed yarn:stitch only"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Record per-primitive calibration status (cir/stitches) and have certify refuse claims depending on an uncalibrated primitive beyond the stated tolerance",
+  "confidence": "MEDIUM",
+  "searched": "grep primitive in cir/ gates/ quality/: none relevant"
+ },
+ {
+  "uid": "F-075",
+  "launch_class": "MATURE",
+  "launch_class_reason": "yardage already carries \u00b120% tolerance; calibration improves accuracy post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Sample report records grams, dimensions, hours, hook, notes, deviations; measured gauge not recorded; commissioning is not triggered by yardage-confidence need (testers.plan forecasts only Class B/C demand)",
+  "producer": "src/brambleloop/quality/physical.py::assess/record + quality/testers.py::plan",
+  "durable_state": "physical_tests",
+  "consumer": "physical.record handler; gate.lanes",
+  "protected_effect": "calibration factor applied to yardage",
+  "tests": [
+   "tests/test_physical.py::test_a_recorded_sample_calibrates_the_published_figures",
+   "tests/test_cert_preengineering.py::test_gate_lanes_assigns_a_qualified_tester_and_never_outside_a_specialty"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#43 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "needs a recruited independent tester"
+  },
+  "defect": null,
+  "next_action": "Add measured gauge to SampleReport and a yardage-confidence demand source to testers.plan",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-076",
+  "launch_class": "MATURE",
+  "launch_class_reason": "needed once a tester exists; opening catalogue is Class A/B",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Missing: start/end pattern version, skill level, yarn substitution, measured gauge, completion status, confusion points, corrections; no delivery of the customer-facing PDF (vs CIR) to the tester",
+  "producer": "src/brambleloop/quality/physical.py::SampleReport",
+  "durable_state": "physical_tests.measured",
+  "consumer": "app/main.py POST /api/physical-test -> physical.record",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_physical.py::test_tester_notes_are_surfaced_without_blocking"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#43 OWNER-GATED",
+   "#9 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "needs a recruited independent tester"
+  },
+  "defect": null,
+  "next_action": "Extend SampleReport/PhysicalTest with the protocol fields and a tester packet built from the released customer PDF",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-077",
+  "launch_class": "MATURE",
+  "launch_class_reason": "evidence integrity for tests that happen post-launch",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "passed is computed from measurements, not self-declared; but PhysicalTest rows are mutable, no external-evidence attachment is required and tester_ref is not checked against system identities",
+  "producer": "src/brambleloop/quality/physical.py::record",
+  "durable_state": "physical_tests",
+  "consumer": "physical.record",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_physical.py::test_a_tester_who_deviated_calibrates_nothing"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#9 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "needs a recruited independent tester"
+  },
+  "defect": null,
+  "next_action": "Make PhysicalTest source observations write-once (append-only interpretations) and require an evidence ref (photo/hash) for passed",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-078",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "physical evidence must bind to certified version",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "PhysicalTest stores version but certify never receives physical_test_passed; no binding or invalidation on material change",
+  "producer": null,
+  "durable_state": "physical_tests.version (unused for binding)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "src/brambleloop/runtime/pipeline.py::handle_certify calls certify() without physical_test_passed"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "gate.certify never passes physical_test_passed, so evidence is bound to no version (and Class C can never be unblocked)",
+  "next_action": "In handle_certify compute physical_test_passed from a passed PhysicalTest for this slug@version (or declared compatible variant) and invalidate it when the release hash changes",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-079",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful proof: benchmark cannot stand in for physical proof",
+  "maturity": "DEPLOYED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/library.py::retrieve + quality/physical.py (calibration only from PhysicalTest)",
+  "durable_state": "physical_tests",
+  "consumer": "gate.certify calibration_from_db",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_teardown.py::test_pattern_generation_cannot_read_the_benchmark_library"
+  ],
+  "evidence": [
+   "Structural: benchmark data has no path into proof_states or calibration"
+  ],
+  "build2_rows": [
+   "#149 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add an explicit test that no benchmark row can set proof_states physical_tester_example",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-080",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "defines launch evidence standard",
+  "maturity": "EXERCISED",
+  "coverage": "PARTIAL",
+  "missing_part": "Class A/B certify on deterministic evidence without a full make; no defined confidence threshold combining calibrated primitives",
+  "producer": "src/brambleloop/gates/certificate.py::certify",
+  "durable_state": "pattern_versions",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production holds 15 certified patterns with no physical test"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Define the confidence threshold in gates/confidence.py tied to F-073's matrix",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-081",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "customer-protective: high-risk products blocked from sale",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Class C refused at certify and never promoted; risk class not derived from features; evidence can never unblock (see F-078 defect)",
+  "producer": "src/brambleloop/gates/certificate.py::certify + runtime/pipeline.py (promote only A/B)",
+  "durable_state": "pattern_versions.certificate",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "protected_effect": "Class C certificate refused",
+  "tests": [
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test",
+   "tests/test_garments.py (PHYSICAL_TEST_REQUIRED)"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "needs a recruited independent tester"
+  },
+  "defect": "physical_test_passed is never supplied by gate.certify, so the gate is fail-closed forever",
+  "next_action": "Fix F-078 wiring; derive C from CIR features (F-073)",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-082",
+  "launch_class": "MATURE",
+  "launch_class_reason": "calibration improves post-launch accuracy",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Library keys yarn:stitch only; no gauge ranges, construction methods, make-time distributions or explicit applicability bounds",
+  "producer": "src/brambleloop/quality/physical.py::calibration_for/calibration_from_db",
+  "durable_state": "physical_tests",
+  "consumer": "gate.certify / listing.seo twin calibration",
+  "protected_effect": "yardage factor",
+  "tests": [
+   "tests/test_physical.py::test_a_factor_is_not_applied_to_a_yarn_it_was_not_measured_on"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "needs a recruited independent tester"
+  },
+  "defect": null,
+  "next_action": "Add a calibration table with applicability bounds (yarn family, gauge range, primitive, construction) reused by twin",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-083",
+  "launch_class": "MATURE",
+  "launch_class_reason": "seasonal runway precision",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Uncertainty band narrows with sample count, but observed tester hours are not used to build distributions by class/skill; single assumed maker hours",
+  "producer": "src/brambleloop/seasonal/uncertainty.py::interval + seasonal/leadtime.py",
+  "durable_state": "physical_tests (count only)",
+  "consumer": "app/main.py::api_seasonal_feasibility; seasonal leadtime",
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#283 COMPLETE+PROVEN",
+   "#112 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "needs a recruited independent tester"
+  },
+  "defect": null,
+  "next_action": "Fit make-time distributions from PhysicalTest.measured hours by pod/skill and use percentile bounds in effective_make_days",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-084",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful yardage representation",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/twin.py (YARDAGE_TOLERANCE 0.20) + runtime/release.py::handle_listing_seo yardage_lines",
+  "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
+  "consumer": "listing description and PDF materials",
+  "protected_effect": "customers see a range, labelled uncalibrated",
+  "tests": [
+   "tests/test_physical.py::test_the_factor_reaches_the_yardage_the_customer_reads",
+   "tests/test_physical.py::test_with_no_sample_the_estimate_stays_uncalibrated"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "src/brambleloop/gates/confidence.py UNCALIBRATED_CEILING"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-085",
+  "launch_class": "MATURE",
+  "launch_class_reason": "owner-light tester operations post-launch",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Forecast/capacity/assignment and result intake exist; recruitment outreach, compensation, file delivery and deadline chasing are not automated",
+  "producer": "src/brambleloop/quality/testers.py::plan + growth creators roster",
+  "durable_state": "creator_profiles, physical_tests",
+  "consumer": "gate.lanes handler",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_preengineering.py::test_gate_lanes_assigns_a_qualified_tester_and_never_outside_a_specialty"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#43 OWNER-GATED",
+   "#9 OWNER-GATED",
+   "#250 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "tester_roster",
+   "detail": "needs a recruited independent tester"
+  },
+  "defect": null,
+  "next_action": "Add a tester job lifecycle (invited/accepted/delivered/due/closed) with spend approval per assignment",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-086",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "launch gate truth",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Gate reworded and ask withdrawn, but the risk-based evidence requirement (F-073) has not replaced the Class-C-only rule and owner-crochet wording remains in products/launch0.py",
+  "producer": "src/brambleloop/build2/executor.py physical_proof; launch/readiness.py",
+  "durable_state": null,
+  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample"
+  ],
+  "evidence": [
+   "DECISION_LOG B-532"
+  ],
+  "build2_rows": [
+   "#64 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": "products/launch0.py:1240 owner action to crochet samples",
+  "next_action": "Replace launch0 wording and wire F-073 risk matrix into readiness",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-087",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "opening catalogue composition",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/pipeline.py (promote only risk_class A/B)",
+  "durable_state": "products.risk_class",
+  "consumer": "radar.score -> cir.draft",
+  "protected_effect": "Class C not engineered",
+  "tests": [
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test"
+  ],
+  "evidence": [
+   "fcb982d pipeline.py contains risk_class in ('A','B')",
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-088",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "customer remedy: serious defect must block affected version",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Repeated support reports open a publication-halting incident per product; not per version/descendants; confidence not updated from tickets/refunds/reviews/photos",
+  "producer": "src/brambleloop/gates/incidents.py::DefectTracker.report + support/department.py",
+  "durable_state": "incidents",
+  "consumer": "support.triage cadence; publication_halted",
+  "protected_effect": "halts publication",
+  "tests": [
+   "tests/test_acceptance_gates.py::test_gate_e_a_p1_incident_halts_the_publication_workflow"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#41 DATA-GATED",
+   "#257 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "customers",
+   "detail": "needs real tickets/refunds"
+  },
+  "defect": null,
+  "next_action": "Scope incidents to slug@version plus rebuild_graph descendants and feed confirmed defects into gates/confidence",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-089",
+  "launch_class": "MATURE",
+  "launch_class_reason": "physical tests are post-launch",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "Only sample counts (/api/seasonal/feasibility) and quality.tester_plan audit exist; no per-product dashboard of tester, version, stage, due date, findings, deltas, launch-blocked",
+  "producer": null,
+  "durable_state": "physical_tests",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [
+   "#43 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add /api/physical-truth listing each B/C product with tester assignment, version, stage, due, yardage/gauge deltas and blocked flag",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-090",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "evidence integrity",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Autonomous improvement cannot weaken protected gates (quality/gates packages); nothing prevents a CIR author downgrading risk_class without evidence",
+  "producer": "src/brambleloop/improve/governance.py::check (PROTECTED_GATES)",
+  "durable_state": null,
+  "consumer": "improve pipeline",
+  "protected_effect": "refuses weakening proposals",
+  "tests": [],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Refuse a risk_class change on an existing product unless a recorded evidence ref justifies it (cir/model or gates/certificate)",
+  "confidence": "MEDIUM",
+  "searched": null
+ }
+]
