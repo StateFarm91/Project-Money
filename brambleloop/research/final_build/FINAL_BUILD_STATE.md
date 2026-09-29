@@ -62,3 +62,4 @@ B, G (branches pushed; WIP snapshots in waves/wip/). Unstarted: C2, H, I, J.
   `FINAL_BUILD_RESUME_MANIFEST.md`. Note for the next session: `ops/HEARTBEAT_PROMPT.md` still
   points the heartbeat at the production branch; decide whether heartbeats should operate on the
   Final Build branch instead (owner/integrator decision, not changed here).
+- 2026-09-29T00:15Z heartbeat: production `/api/verify` read-only — 12 checks, 0 failing [], ok=True. Handoff mode: no work started, nothing pushed to the production branch.
