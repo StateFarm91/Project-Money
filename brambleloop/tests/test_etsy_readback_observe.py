@@ -183,6 +183,12 @@ def _publish(db, fake, p, *, docs=None, certified=None, client=None):
     if not opsauth.configured():
         os.environ["BRAMBLELOOP_OPS_TOKEN"] = PUBLISH_FIXTURE_TOKEN
     orig = _gates_pass()
+    # F-299: the runtime phase is the environment AND the owner's recorded transition; the
+    # fixture records the path to the context's phase and sets the environment to agree.
+    from phase_fixture import record_phase_path
+    prior_phase = os.environ.get("BRAMBLELOOP_PHASE")
+    os.environ["BRAMBLELOOP_PHASE"] = ctx.phase.value
+    record_phase_path(db, os.environ["BRAMBLELOOP_OPS_TOKEN"], ctx.phase.value)
     try:
         grant = _grant_publication(db, p["slug"], p["version"], "r" * 64)
         used = client or _client(fake, owner=True)
@@ -194,6 +200,10 @@ def _publish(db, fake, p, *, docs=None, certified=None, client=None):
             listing_images=images)
     finally:
         _restore(orig)
+        if prior_phase is None:
+            os.environ.pop("BRAMBLELOOP_PHASE", None)
+        else:
+            os.environ["BRAMBLELOOP_PHASE"] = prior_phase
         if prior is None:
             os.environ.pop("BRAMBLELOOP_PUBLISH_AUTHORISED", None)
         else:

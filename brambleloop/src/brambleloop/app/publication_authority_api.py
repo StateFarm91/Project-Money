@@ -27,7 +27,11 @@ def make_router(db):
         call(opsauth.check, authorization)
         content = call(authority.snapshot, db, body.get("slug"), body.get("version"),
                        body.get("release"))
-        return {"content": content, "digest": authority.digest(content)}
+        # F-704: the evidence the owner approves on is inside `content`, so `digest` binds
+        # it; `display` is the same evidence one line per section, PASS only when it is.
+        return {"content": content, "digest": authority.digest(content),
+                "display": authority.display(content["evidence"]),
+                "evidence_summary": content["evidence"]["summary"]}
 
     @router.post("/approve")
     def approve(body: dict, authorization: str = Header(default="")):
