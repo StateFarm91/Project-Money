@@ -266,8 +266,16 @@ def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
     db = _db()
     _stock(db)
     readiness = assess(db, phase="shadow")
-    assert [r.key for r in readiness.buildable] == ["listing_photography"], \
+    # F-238 / F-239: the opening grid and the storefront preview are company-side work too,
+    # and in this fixture they are honestly unfinished: no stocked product is launch-cleared
+    # (`app.dashboard_truth.launch_inventory` -- no creative-gate survivor, and the gauge
+    # criterion is unassessed there), so the first screen is empty and has no tiles. They are
+    # named exactly, with the reason, rather than folded into "only imagery is left".
+    assert [r.key for r in readiness.buildable] == [
+        "listing_photography", "opening_grid", "storefront_preview"], \
         [r.key for r in readiness.buildable]
+    grid = next(r for r in readiness.requirements if r.key == "opening_grid")
+    assert grid.evidence["problems"][0].startswith("OPENING_GRID_EMPTY"), grid.evidence
     photo = next(r for r in readiness.requirements if r.key == "listing_photography")
     stocked = _catalogue_slugs(MIN_LISTINGS_TO_OPEN)
     in_scope = [s for s in stocked if listing_asset._in_launch_scope(s)]
@@ -276,7 +284,8 @@ def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
     assert photo.evidence["listable"] == len(in_scope)
     assert sorted(photo.evidence["with_no_asset_at_all"]) == sorted(
         s for s in stocked if s not in in_scope)[:5]
-    remaining = {r.blocked_by for r in readiness.outstanding if r.key != "listing_photography"}
+    remaining = {r.blocked_by for r in readiness.outstanding
+                 if r.key not in ("listing_photography", "opening_grid", "storefront_preview")}
     # F-071: a sample waits on an independent tester -- a person, and not the owner.
     assert remaining <= {BLOCKED_OWNER, BLOCKED_INTEGRATION, BLOCKED_TESTER}, remaining
 

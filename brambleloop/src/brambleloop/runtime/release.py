@@ -1594,6 +1594,23 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         ctx.audit("listing.mobile_qa", artifact=f"{slug}@{i['version']}",
                   detail={"error": f"{type(e).__name__}: {str(e)[:300]}"})
 
+    # F-003: ranking readiness, read after the QA above so the click dimension sees this
+    # release's listing-set reading. Five independent dimensions, each MEASURED or UNMEASURED,
+    # recorded with the plan and never blended into one score.
+    from ..commerce import ranking_readiness
+
+    try:
+        ranking = ranking_readiness.profile(ctx.db, slug, i["version"])
+        ranking_summary = ranking_readiness.summary(ranking)
+        ctx.audit("launch.ranking_readiness", artifact=f"{slug}@{i['version']}",
+                  detail={"dimensions": ranking_summary,
+                          "unmeasured": ranking["unmeasured"], "failing": ranking["failing"],
+                          "search_certificate": ranking["search_certificate"]["verdict"]})
+    except Exception as e:  # noqa: BLE001 - an unread profile is unmeasured, and says so
+        ranking_summary = {d: "UNMEASURED" for d in ranking_readiness.DIMENSIONS}
+        ctx.audit("launch.ranking_readiness", artifact=f"{slug}@{i['version']}",
+                  detail={"error": f"{type(e).__name__}: {str(e)[:300]}"})
+
     # #241: every launch ships with its pre-registered experiment pack (hero variants, title
     # and tag strategy, confounder log), registered here at launch, write-once. The
     # growth.experiments cadence remains the backstop for anything launched before this.
@@ -1645,6 +1662,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
                                           i.get("release", ""), i.get("rebuild", "")))
     out = plan.to_dict()
     out["window_decision"] = decision
+    out["ranking_readiness"] = ranking_summary
     return out
 
 

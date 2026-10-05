@@ -108,6 +108,7 @@ class Database:
         from . import models  # noqa: F401  (import registers the mappings)
         from ..learn import models as learn_models  # noqa: F401; additive Learn tables
         from ..publish import draft_intent  # noqa: F401; additive remote-create intent
+        from ..commerce import search_visibility  # noqa: F401; F-248 owner readings
         from .migrate import apply as apply_migrations
 
         Base.metadata.create_all(self.engine)
