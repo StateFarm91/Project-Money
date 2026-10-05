@@ -1,4 +1,7 @@
 """Hermetic adversarial checks for the launch Learn contract."""
+import sys
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'src'),str(ROOT),str(ROOT/'tests')]
 import copy
 import tempfile
 from pathlib import Path
@@ -266,5 +269,5 @@ if __name__ == "__main__":
     tests = [v for k,v in list(globals().items()) if k.startswith("test_")]
     for test in tests:
         test()
-        print("PASS", test.__name__)
+        print("OK  ", test.__name__)
     print(len(tests), "passing")

@@ -63,6 +63,6 @@ if __name__=='__main__':
     failures=0
     for name,test in list(globals().items()):
         if name.startswith('test_'):
-            try:test();print('PASS',name)
+            try:test();print('OK  ',name)
             except Exception as exc:failures+=1;print('FAIL',name,type(exc).__name__,str(exc))
     print(f'{3-failures}/3 passing');sys.exit(bool(failures))

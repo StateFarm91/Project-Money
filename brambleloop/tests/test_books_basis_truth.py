@@ -40,5 +40,5 @@ def test_cfo_never_says_the_cost_is_known_when_it_is_modelled():
 
 if __name__ == '__main__':
     tests = [v for k, v in list(globals().items()) if k.startswith('test_')]
-    for t in tests: t(); print('PASS', t.__name__)
+    for t in tests: t(); print('OK  ', t.__name__)
     print(len(tests), 'passed')

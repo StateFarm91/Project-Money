@@ -167,5 +167,5 @@ def test_top_level_package_import_resolves_inside_snapshot():
 
 if __name__=='__main__':
     tests=[v for k,v in list(globals().items()) if k.startswith('test_')]
-    for test in tests:test();print('PASS',test.__name__)
+    for test in tests:test();print('OK  ',test.__name__)
     print(len(tests),'passed')

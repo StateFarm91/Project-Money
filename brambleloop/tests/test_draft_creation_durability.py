@@ -159,6 +159,6 @@ if __name__=='__main__':
         raise AssertionError('child failed to exit')
     failures=0;tests=[(n,f) for n,f in list(globals().items()) if n.startswith('test_') and callable(f)]
     for name,test in tests:
-        try:test();print('PASS',name)
+        try:test();print('OK  ',name)
         except Exception as exc:failures+=1;print('FAIL',name,type(exc).__name__,str(exc))
     print(f'{len(tests)-failures}/{len(tests)} passing');sys.exit(bool(failures))

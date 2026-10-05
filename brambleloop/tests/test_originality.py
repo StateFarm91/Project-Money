@@ -75,6 +75,7 @@ def test_every_catalogue_cir_carries_complete_design_provenance():
 
 def test_the_backfill_changes_no_design_only_the_record():
     """Stripping the provenance leaves exactly the design that existed before the backfill."""
+    assert len(_catalogue()) >= 12
     for cir in _catalogue()[:12]:
         d = cir.to_dict()
         assert "provenance" in d
@@ -88,7 +89,7 @@ def test_the_catalogue_builders_import_nothing_from_benchmarks_or_research():
     """What makes `benchmarks_consulted=()` true rather than asserted."""
     for name in ("builder", "nordic_forest", "texture", "vessels", "garments", "motifs"):
         tree = ast.parse((ROOT / "src/brambleloop/products" / f"{name}.py").read_text())
-        for node in ast.walk(tree):
+        for node in ast.walk(tree):  # vacuity-ok: ast.walk always yields at least the module node
             if isinstance(node, ast.ImportFrom):
                 mod = node.module or ""
                 assert "benchmarks" not in mod and "research" not in mod, (name, mod)
@@ -238,6 +239,7 @@ def test_a_benchmark_or_seller_image_is_refused_as_a_generation_reference():
             _png(tmp / "research" / "bench2" / "out" / "ref.png"),  # a benchmark reconstruction
         ]
         provider = I.BY_KEY["gpt-image-2"]
+        assert refused, 'no refused references were built'
         for ref in refused:
             try:
                 I._request_for(provider, "K", "a cardigan", [ref], "1024x1024")
@@ -473,6 +475,7 @@ def test_a_light_derivative_of_benchmark_2_is_escalated_for_redesign():
 
 
 def test_no_catalogue_product_escalates_against_either_benchmark():
+    assert _catalogue(), 'empty catalogue checks nothing'
     for cir in _catalogue():
         review = O.similarity_review(cir)
         assert not review["escalate"], (cir.slug, review["escalated"])

@@ -20,6 +20,7 @@ class GaugeTests(unittest.TestCase):
         return [vessels.build_basket(s.key) for s in vessels.BASKET_SIZES] + [vessels.build_hexagon_coaster()]
 
     def test_complete_construction_compile_reverse_certificate(self):
+        assert len(self.products()) == 4  # three basket sizes + the coaster
         for c in self.products():
             with self.subTest(slug=c.slug):
                 r=compile_cir(c);self.assertTrue(r.ok)

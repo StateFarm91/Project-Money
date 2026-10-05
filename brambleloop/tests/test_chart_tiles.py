@@ -44,6 +44,7 @@ class ChartTiles(unittest.TestCase):
             d.text=text;return d
         with patch.object(charts.ImageDraw,"Draw",side_effect=draw):
             charts.render_legend(self.cir,self.twin)
+        assert bounds, 'the legend drew no text, so nothing was checked'
         for (x0,y0,x1,y1),(w,h) in bounds:
             self.assertGreaterEqual(x0,0);self.assertGreaterEqual(y0,0)
             self.assertLessEqual(x1,w);self.assertLessEqual(y1,h)

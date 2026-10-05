@@ -14,4 +14,4 @@ def test_scheduled_handler_and_negative_controls():
     fixture._with_package(probe)
 
 if __name__=='__main__':
-    test_scheduled_handler_and_negative_controls();print('PASS scheduled handler and4 negative controls')
+    test_scheduled_handler_and_negative_controls();print('OK   scheduled handler and4 negative controls')

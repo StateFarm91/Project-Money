@@ -54,6 +54,7 @@ class ProofTests(unittest.TestCase):
         mutations = [
             ("head", "b" * 40), ("uid", "F-514@v0.16"), ("evidence_class", "fixture"),
             ("evidence_class", "static"), ("direct", False), ("run_id", "other")]
+        assert len(mutations) == 6
         for key, value in mutations:
             with self.subTest(key=key, value=value):
                 packet = copy.deepcopy(self.packet); packet[key] = value

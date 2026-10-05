@@ -34,6 +34,7 @@ def test_both_runtime_pdf_render_sites_pass_same_learn_resolver():
             assignments = {n.targets[0].id: n.value for n in ast.walk(fn)
                            if isinstance(n, ast.Assign) and len(n.targets) == 1
                            and isinstance(n.targets[0], ast.Name)}
+            assert calls, 'no PDF render call site found'
             for call in calls:
                 binding = next((k.value for k in call.keywords if k.arg == "lesson_links"), None)
                 assert isinstance(binding, ast.Name), f"{file}:{fn.name} omits Learn links"
@@ -106,7 +107,7 @@ if __name__ == "__main__":
     tests=[(n,f) for n,f in list(globals().items()) if n.startswith("test_") and callable(f)]
     for name,test in tests:
         try:
-            test(); print("PASS",name)
+            test(); print("OK  ",name)
         except Exception as exc:
             failures+=1; print("FAIL",name,type(exc).__name__,str(exc))
     print(f"{len(tests)-failures}/{len(tests)} passing")

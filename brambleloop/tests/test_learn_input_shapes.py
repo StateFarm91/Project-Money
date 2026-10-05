@@ -1,4 +1,7 @@
 """Malformed editor input must refuse without mutating an approved lesson."""
+import sys
+from pathlib import Path
+ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'src'),str(ROOT),str(ROOT/'tests')]
 import copy
 import unittest
 from types import SimpleNamespace
@@ -24,13 +27,14 @@ class MalformedInputTests(unittest.TestCase):
             return copy.deepcopy((row.revision,row.spec,row.reviews,row.state))
     def test_null_and_malformed_shapes_raise_valueerror_preserve_review(self):
         before=self.snapshot()
-        values=[None,[], 'text']
+        shapes=[None,[], 'text']
         for field in ('assumptions','assets','steps'):
             for value in (None,7,'text',[None],['text']):
-                item=spec();item[field]=value;values.append(item)
+                item=spec();item[field]=value;shapes.append(item)
         for field in ('assets','steps'):
-            item=spec();item[field]=[{'instruction':['not prose']}];values.append(item)
-        for value in values:
+            item=spec();item[field]=[{'instruction':['not prose']}];shapes.append(item)
+        assert len(shapes) == 20  # 3 literals + 3 fields x 5 shapes + 2 nested
+        for value in shapes:
             with self.assertRaises(ValueError): service.save_lesson(self.db,'single-crochet',value)
             self.assertEqual(self.snapshot(),before)
         self.assertEqual(service.approved_lesson(self.db,'single-crochet')['revision'],self.revision)

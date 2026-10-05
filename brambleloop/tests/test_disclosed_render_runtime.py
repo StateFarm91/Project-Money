@@ -155,7 +155,7 @@ if __name__ == "__main__":
         started = time.time()
         try:
             test()
-            print("PASS", name, f"{time.time() - started:.1f}s")
+            print("OK  ", name, f"{time.time() - started:.1f}s")
         except Exception as exc:  # noqa: BLE001
             failures += 1
             import traceback

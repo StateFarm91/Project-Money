@@ -61,5 +61,5 @@ def test_missing_property_blocks_activation_and_census_detects_drift():
 
 if __name__=='__main__':
     funcs=[v for k,v in list(globals().items()) if k.startswith('test_')]
-    for fn in funcs:fn();print('PASS',fn.__name__)
+    for fn in funcs:fn();print('OK  ',fn.__name__)
     print(len(funcs),'passed')
