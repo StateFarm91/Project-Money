@@ -14,7 +14,16 @@ from pathlib import Path
 STAGES = ("producer", "durable_state", "consumer", "decision", "effect", "result")
 
 
-def _validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
+def _module_of(ref):
+    """`src/brambleloop/x/y.py::f` -> `x/y.py` (module_reachability.json keys)."""
+    m = re.search(r"(?:src/brambleloop/)?([\w/]+\.py)", ref or "")
+    if not m:
+        return None
+    p = m.group(1)
+    return p[len("src/brambleloop/"):] if p.startswith("src/brambleloop/") else p
+
+
+def _validate(row: dict, packet: dict, *, head: str, root: Path, reach=None) -> dict:
     errors = []
     def need(ok, reason):
         if not ok:
@@ -68,6 +77,18 @@ def _validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
                 need(item.get("input") == previous, f"broken evidence edge:{stage}")
             previous = item.get("identity")
     stages = {stage: mapping(stages.get(stage), stage) for stage in STAGES}
+    # s92: the consumer the audited row names is the one the evidence must run through, and it
+    # must still be reached from a live root. Disabling (unwiring) that consumer reopens the
+    # proof even when an old packet still carries a receipt for it.
+    declared = row.get("consumer")
+    if declared:
+        need(stages["consumer"].get("identity") == declared,
+             "consumer receipt does not bind the row's consumer")
+        if reach is not None:
+            mod = _module_of(declared)
+            info = reach.get(mod) if mod else None
+            need(isinstance(info, dict) and info.get("reached") is True,
+                 f"consumer {mod} not reached from a live root")
     live = mapping(packet.get("live_root"), "live_root")
     receipt(live, "live_root")
     need(live.get("kind") in {"scheduler", "worker", "api", "event"}, "not a runtime root")
@@ -100,9 +121,9 @@ def _validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
             "limitation": "Artifact integrity and packet consistency only; independent source authenticity and semantic audit still required."}
 
 
-def validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
+def validate(row: dict, packet: dict, *, head: str, root: Path, reach=None) -> dict:
     try:
-        return _validate(row, packet, head=head, root=root)
+        return _validate(row, packet, head=head, root=root, reach=reach)
     except (TypeError, ValueError, AttributeError, KeyError) as exc:
         return {"uid": row.get("uid") if isinstance(row, dict) else None,
                 "head": head, "verdict": "BLOCKED", "certified": False,
@@ -110,7 +131,7 @@ def validate(row: dict, packet: dict, *, head: str, root: Path) -> dict:
                 "limitation": "Invalid schema is not evidence; no certification awarded."}
 
 
-def audit(rows, packets, *, head, root):
+def audit(rows, packets, *, head, root, reach=None):
     if not rows:
         raise ValueError("empty matrix cannot establish proof")
     uids = [r["uid"] for r in rows]
@@ -123,21 +144,27 @@ def audit(rows, packets, *, head, root):
             raise ValueError("duplicate or unknown packet uid")
         by_uid[uid] = packet
     return {"head": head, "certified": False, "rows": [
-        validate(row, by_uid.get(row["uid"], {}), head=head, root=root) for row in rows]}
+        validate(row, by_uid.get(row["uid"], {}), head=head, root=root, reach=reach)
+        for row in rows]}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("matrix", "packets", "head", "artifacts", "output"):
         parser.add_argument("--" + name, required=True)
+    parser.add_argument("--reachability", default=None,
+                        help="module_reachability.json; when given, each row's consumer must "
+                             "be reached from a live root")
     args = parser.parse_args()
     matrix_path, packets_path, output = map(Path, (args.matrix, args.packets, args.output))
     if output.resolve() in {matrix_path.resolve(), packets_path.resolve()}:
         parser.error("report must not overwrite source matrix or packets")
     matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
     rows = matrix if isinstance(matrix, list) else matrix["matrix"]
+    reach = (json.loads(Path(args.reachability).read_text(encoding="utf-8"))["modules"]
+             if args.reachability else None)
     report = audit(rows, json.loads(packets_path.read_text(encoding="utf-8")),
-                   head=args.head, root=Path(args.artifacts))
+                   head=args.head, root=Path(args.artifacts), reach=reach)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return int(any(r["verdict"] == "BLOCKED" for r in report["rows"]))

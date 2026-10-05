@@ -126,6 +126,57 @@ class ProofTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             audit([self.row], [self.packet, self.packet], head=self.head, root=self.root)
 
+    def _with_consumer(self):
+        """The row names its runtime consumer and the packet's chain runs through it."""
+        consumer = "src/brambleloop/runtime/worker.py::Worker.run_once"
+        self.row["consumer"] = consumer
+        packet = copy.deepcopy(self.packet)
+        packet["chain"]["consumer"]["identity"] = consumer
+        packet["chain"]["decision"]["input"] = consumer
+        reach = {"runtime/worker.py": {"reached": True}}
+        return packet, reach
+
+    def test_disabling_the_consumer_reopens_the_proof(self):
+        """s92: a REVIEWABLE packet stops being REVIEWABLE once its consumer is unwired."""
+        packet, reach = self._with_consumer()
+        ok = validate(self.row, packet, head=self.head, root=self.root, reach=reach)
+        self.assertEqual((ok["verdict"], ok["errors"]), ("REVIEWABLE", []))
+        # The consumer is disabled: no live root reaches it any more. Same packet, same bytes.
+        reach["runtime/worker.py"]["reached"] = False
+        reopened = validate(self.row, packet, head=self.head, root=self.root, reach=reach)
+        self.assertEqual(reopened["verdict"], "BLOCKED")
+        self.assertIn("consumer runtime/worker.py not reached from a live root",
+                      reopened["errors"])
+        # Dropped from the reachability map entirely: still reopened, never assumed reached.
+        gone = validate(self.row, packet, head=self.head, root=self.root, reach={})
+        self.assertEqual(gone["verdict"], "BLOCKED")
+
+    def test_a_receipt_for_some_other_consumer_does_not_prove_the_rows(self):
+        packet, reach = self._with_consumer()
+        packet["chain"]["consumer"]["identity"] = "src/brambleloop/runtime/other.py::f"
+        packet["chain"]["decision"]["input"] = "src/brambleloop/runtime/other.py::f"
+        result = validate(self.row, packet, head=self.head, root=self.root, reach=reach)
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("consumer receipt does not bind the row's consumer", result["errors"])
+
+    def test_cli_reachability_reopens_a_disabled_consumer(self):
+        packet, _ = self._with_consumer()
+        matrix, packets = self.root / "m.json", self.root / "p.json"
+        reach_path, output = self.root / "reach.json", self.root / "r.json"
+        matrix.write_text(json.dumps({"matrix": [self.row]}))
+        packets.write_text(json.dumps([packet]))
+        script = Path(__file__).resolve().parents[1] / "src/brambleloop/build2/final_proof.py"
+        verdicts = []
+        for reached in (True, False):
+            reach_path.write_text(json.dumps(
+                {"modules": {"runtime/worker.py": {"reached": reached}}}))
+            subprocess.run([sys.executable, str(script), "--matrix", str(matrix),
+                            "--packets", str(packets), "--head", self.head, "--artifacts",
+                            str(self.root), "--output", str(output), "--reachability",
+                            str(reach_path)], capture_output=True)
+            verdicts.append(json.loads(output.read_text())["rows"][0]["verdict"])
+        self.assertEqual(verdicts, ["REVIEWABLE", "BLOCKED"])
+
 
 if __name__ == "__main__":
     unittest.main()
