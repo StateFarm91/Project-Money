@@ -107,7 +107,12 @@ def test_the_comparison_is_against_the_chart_rather_than_a_sentence():
         "stops resolving")
     assert out["verdict"] == mf.MATCH
     assert out["blocks_customer_facing_asset"] is False
-    assert out["expected"]["chart_rows"] == 88
+    # Every row the certified CIR works, read off the CIR rather than typed in. This was the
+    # literal 88 -- the pre-Launch-0-redesign blanket. The yarn-supported redesign (d164acb)
+    # re-cut it to 70 rows (64 motif rows plus borders) and the literal kept describing a
+    # design nobody sells; the chart was right and the test was stale.
+    assert out["expected"]["chart_rows"] == len(compile_cir(cir).rows) == len(
+        cir.components[0].rows)
 
 
 def test_the_vocabulary_is_closed():

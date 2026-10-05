@@ -42,6 +42,9 @@ class ListingSetRefused(ValueError):
     """A certificate for a set whose gates did not all run, or whose inputs are unrecorded."""
 
 
+DISCLOSED_RENDER = "disclosed_render"
+
+
 def fingerprint(payload: dict) -> str:
     """A stable hash of whatever the certificate was issued against."""
     return hashlib.sha256(
@@ -61,8 +64,26 @@ class CertifiedFrame:
     medium: str
     honesty_label: str = ""
     measurement_sources: tuple[str, ...] = ()
+    # D-FB-7: a disclosed deterministic render is certified as what it is, and its alt text --
+    # which carries the disclosure -- is part of what was approved, so it travels with the
+    # bytes to the upload rather than being re-derived there.
+    kind: str = ""
+    alt_text: str = ""
 
     def __post_init__(self) -> None:
+        if self.kind == DISCLOSED_RENDER:
+            from .disclosed_listing import ALT_TEXT_MAX, DISCLOSURE, _phrase_in
+
+            if not _phrase_in(self.alt_text):
+                raise ListingSetRefused(
+                    f"{self.asset_id}: a disclosed render is certified only with the "
+                    f"disclosure in its alt text")
+            if len(self.alt_text) > ALT_TEXT_MAX:
+                raise ListingSetRefused(f"{self.asset_id}: alt text longer than Etsy allows")
+            if self.honesty_label != DISCLOSURE:
+                raise ListingSetRefused(
+                    f"{self.asset_id}: a disclosed render carries the disclosure wording as "
+                    f"its honesty label")
         if self.position < 1:
             raise ListingSetRefused(f"{self.asset_id}: frame positions start at 1")
         if len(self.sha256) < 16:
@@ -78,7 +99,8 @@ class CertifiedFrame:
         return {"position": self.position, "asset_id": self.asset_id,
                 "sha256": self.sha256, "job": self.job, "purpose": self.purpose,
                 "medium": self.medium, "honesty_label": self.honesty_label,
-                "measurement_sources": list(self.measurement_sources)}
+                "measurement_sources": list(self.measurement_sources)} | (
+                    {"kind": self.kind, "alt_text": self.alt_text} if self.kind else {})
 
 
 @dataclass(frozen=True)
@@ -156,6 +178,115 @@ def certify(*, slug: str, version: str, frames: list[CertifiedFrame],
         policy_version=policy_version,
         platform_policy=dict(platform_policy or {}),
         disclosures=tuple(disclosures))
+
+
+# ---- D-FB-7: the disclosed-render listing set -----------------------------------------------
+
+_DISCLOSED_PURPOSE = {"hero": eligibility.CONVERSION_CREATIVE,
+                      "scale": eligibility.CUSTOMER_INFORMATION,
+                      "detail": eligibility.ENGINEERING_EVIDENCE}
+
+
+def _ok(block) -> bool | None:
+    return bool(block["ok"]) if isinstance(block, dict) and "ok" in block else None
+
+
+def _outcome(*readings: bool | None) -> str:
+    if any(r is False for r in readings):
+        return eligibility.FAILED
+    if any(r is None for r in readings) or not readings:
+        return eligibility.NOT_RUN
+    return eligibility.PASSED
+
+
+def disclosed_gate_results(rec: dict, *, exported: bool, dimensions_ok: bool | None) -> dict:
+    """The four promotion gates, read off the disclosed set's own evidence.
+
+    DATA_TRUTH         structural truth PASS on every frame, Asset Truth, and the listing's
+                       dimensions consistent with the certified geometry
+    LAYOUT_QA          layout QA over the ordered set and 340 px legibility of every frame
+    COMMERCIAL_QA      the frame set (#65), the rendered mobile contexts (#66), the hero
+                       thumbnail
+    POLICY_PROVENANCE  `disclosed_listing.export_images` passed: the bytes are the frames on
+                       record and the disclosure is in the pixels, the alt text and the copy
+    """
+    qa = rec.get("qa") or {}
+    frames = rec.get("frames") or []
+    truth = [((f.get("structural_truth") or {}).get("status") == "PASS") for f in frames]
+    legible = [_ok(((qa.get("frames") or {}).get(f.get("view")) or {}).get("legibility_340"))
+               for f in frames]
+    return {
+        eligibility.DATA_TRUTH: _outcome(*(truth or [None]), _ok(qa.get("asset_truth")),
+                                         dimensions_ok),
+        eligibility.LAYOUT_QA: _outcome(_ok(qa.get("layout_qa")), *(legible or [None])),
+        eligibility.COMMERCIAL_QA: _outcome(_ok(qa.get("frame_set")), _ok(qa.get("mobile")),
+                                            _ok(qa.get("hero_thumbnail"))),
+        eligibility.POLICY_PROVENANCE: _outcome(bool(exported)),
+    }
+
+
+def disclosed_frames(rec: dict, images: list[tuple[str, bytes, str]], *,
+                     slug: str) -> list[CertifiedFrame]:
+    """One CertifiedFrame per disclosed frame, bound to the exact bytes the exporter released.
+
+    `images` is `disclosed_listing.export_images`' output -- the only proof that each frame's
+    disclosure is in its pixels, alt text and the copy and that its structural truth is PASS
+    on these bytes. A frame the exporter did not release cannot be certified.
+    """
+    from ..gates.asset_truth import AssetClass
+    from .disclosed_listing import DISCLOSURE
+
+    ordered = sorted(rec.get("frames") or [], key=lambda f: int(f.get("position") or 0))
+    if len(images) != len(ordered):
+        raise ListingSetRefused(f"{slug}: the exporter released {len(images)} of "
+                                f"{len(ordered)} disclosed frames")
+    out = []
+    for f, (_name, data, alt) in zip(ordered, images):
+        sha = hashlib.sha256(data).hexdigest()
+        if sha != (f.get("image") or {}).get("sha256"):
+            raise ListingSetRefused(f"{slug}: frame {f.get('position')} bytes are not the "
+                                    f"frame on record")
+        if alt != f.get("alt_text"):
+            raise ListingSetRefused(f"{slug}: frame {f.get('position')} alt text differs "
+                                    f"from the one filed with it")
+        manifest = f.get("disclosed_render") or {}
+        job = manifest.get("job") or ""
+        purpose = _DISCLOSED_PURPOSE.get(f.get("view") or "", "")
+        dims = manifest.get("finished_dimensions_cm") or {}
+        out.append(CertifiedFrame(
+            position=int(f["position"]), asset_id=f"{slug}-disclosed-{f.get('view')}",
+            sha256=sha, job=job, purpose=purpose,
+            medium=AssetClass.DIGITAL_TWIN_RENDER.value, honesty_label=DISCLOSURE,
+            measurement_sources=(("finished.width", "finished.length")
+                                 if dims.get("width") and dims.get("height") else ()),
+            kind=DISCLOSED_RENDER, alt_text=alt))
+    return out
+
+
+def certify_disclosed(*, slug: str, version: str, rec: dict,
+                      images: list[tuple[str, bytes, str]], geometry: dict, claims: dict,
+                      policy_version: str, platform_policy: dict | None = None,
+                      dimensions_ok: bool | None) -> ListingCertificate:
+    """Certify a disclosed-render listing set through the same `certify` every set goes through.
+
+    Nothing is relaxed: the four gates must each have run and passed, the frames are bound by
+    hash, and the certificate records the disclosure. The extra precondition is the
+    exporter's: no frame enters a certificate unless `export_images` released it.
+    """
+    if rec.get("kind") != DISCLOSED_RENDER or rec.get("version") != version \
+            or rec.get("slug") != slug:
+        raise ListingSetRefused(f"{slug}@{version}: the record is not this release's disclosed set")
+    if not rec.get("usable_as_listing_asset"):
+        raise ListingSetRefused(f"{slug}: the disclosed set is launch-blocked: "
+                                f"{(rec.get('launch_blocked') or [])[:3]}")
+    frames = disclosed_frames(rec, images, slug=slug)
+    from .disclosed_listing import DISCLOSURE
+
+    return certify(slug=slug, version=version, frames=frames,
+                   gate_results=disclosed_gate_results(rec, exported=True,
+                                                       dimensions_ok=dimensions_ok),
+                   geometry=geometry, claims=claims, policy_version=policy_version,
+                   platform_policy=platform_policy, disclosures=(DISCLOSURE,))
 
 
 VALID = "valid"

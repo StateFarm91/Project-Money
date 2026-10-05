@@ -425,6 +425,20 @@ def certified_frames(db, slug: str, version: str, *, release: str = "") -> dict:
         return {"frames": frames, "record_id": rec.id, "problems": problems}
 
 
+class CertifiedImage(tuple):
+    """A certified listing image: `(filename, bytes)` that also carries its certified alt text.
+
+    Still a 2-tuple, so every reader that unpacks `name, data` is unchanged; the alt text a
+    disclosed render was certified with (D-FB-7: the disclosure lives in it) rides on the
+    entry to `EtsyClient.publish`, which sends it with the upload.
+    """
+
+    def __new__(cls, name: str, data: bytes, alt_text: str = ""):
+        entry = super().__new__(cls, (name, data))
+        entry.alt_text = alt_text
+        return entry
+
+
 def certified_images(db, slug: str, version: str, *, release: str = "",
                      store_root=None) -> dict:
     """The certified listing image bytes, ordered by the listing-set certificate (F-524).
@@ -433,6 +447,13 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
     recorded -- `ArtifactStore.get` re-hashes what it reads, so a file that changed on disk
     is refused rather than uploaded. A missing frame is a problem for the whole set: a
     listing whose second image silently fell out is not the listing that was certified.
+
+    D-FB-7: a disclosed render is served only when the certificate certified it as one
+    (`kind` and its alt text recorded), and only after `disclosed_listing.export_check`
+    passes again on the exact bytes against the listing copy on file -- the disclosure in
+    the pixels, the alt text and the copy, and structural truth PASS. A disclosed render's
+    bytes under a certificate that did not certify them as one are refused. This is the one
+    upload path; there is no other exporter.
     """
     from ..core.artifacts import ArtifactMissing, ArtifactStore
 
@@ -444,15 +465,25 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
     from ..publish import disclosed_listing
 
     disclosed = disclosed_listing.disclosed_shas(db)
+    on_file: dict[str, dict] = {}
+    if any(f.get("kind") == "disclosed_render" for f in cert["frames"]):
+        rec = disclosed_listing.last_asset(db, slug=slug) or {}
+        on_file = {(f.get("image") or {}).get("sha256"): f for f in rec.get("frames") or []}
+    copy_text = None
+    cir = None
     for frame in cert["frames"]:
         sha = str(frame.get("sha256") or "")
         position = int(frame.get("position") or 0)
-        if sha in disclosed:
-            # D-FB-7: a disclosed render leaves only through `disclosed_listing.export_images`,
-            # which carries its alt text and checks the disclosure in the pixels, the alt
-            # text and the copy. This path sends bytes with no alt text, so it refuses one.
-            problems.append(f"frame {position} ({sha[:12]}) is a disclosed render and must be "
-                            f"exported with its disclosure (disclosed_listing.export_images)")
+        is_disclosed = frame.get("kind") == "disclosed_render"
+        if sha in disclosed and not is_disclosed:
+            problems.append(f"frame {position} ({sha[:12]}) is a disclosed render the "
+                            f"certificate did not certify as one, so it has no certified "
+                            f"disclosure alt text and is not uploaded")
+            continue
+        if is_disclosed and (sha not in on_file or not frame.get("alt_text")):
+            problems.append(f"frame {position} ({sha[:12]}) is certified as a disclosed render "
+                            f"but is not a frame of the disclosed set on file, or carries no "
+                            f"alt text")
             continue
         try:
             data = store.get(sha, db=db)
@@ -463,11 +494,30 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
         if suffix is None:
             problems.append(f"frame {position} ({sha[:12]}) is not a PNG, JPEG or GIF")
             continue
+        alt = ""
+        if is_disclosed:
+            if copy_text is None:
+                from ..visual.render_verification import authoritative_cir
+
+                copy_text = disclosed_listing.listing_copy(db, slug=slug, version=version) or ""
+                cir = authoritative_cir(slug, version)
+            if frame["alt_text"] != on_file[sha].get("alt_text"):
+                problems.append(f"frame {position} ({sha[:12]}): certified alt text differs "
+                                f"from the alt text filed with the render")
+                continue
+            verdict = disclosed_listing.export_check(on_file[sha], image_bytes=data,
+                                                     description=copy_text, cir=cir)
+            if not verdict["ok"]:
+                problems.append(f"frame {position} ({sha[:12]}) disclosed render refused at "
+                                f"export: {verdict['problems']}"[:400])
+                continue
+            alt = frame["alt_text"]
         name = f"{slug}-frame-{position}.{suffix}"
-        images.append((name, data))
+        images.append(CertifiedImage(name, data, alt))
         order.append({"position": position, "sha256": sha, "filename": name,
                       "bytes": len(data), "job": frame.get("job"),
-                      "honesty_label": frame.get("honesty_label", "")})
+                      "honesty_label": frame.get("honesty_label", "")}
+                     | ({"kind": "disclosed_render", "alt_text": alt} if is_disclosed else {}))
     return {"images": images if not problems else [], "order": order,
             "record_id": cert["record_id"], "problems": problems}
 

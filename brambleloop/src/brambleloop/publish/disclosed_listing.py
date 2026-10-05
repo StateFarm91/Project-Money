@@ -416,10 +416,14 @@ def disclosed_shas(db) -> set[str]:
 
 
 def export_images(db, *, slug: str, description: str, store=None) -> list[tuple[str, bytes, str]]:
-    """The only exporter for disclosed frames: (filename, bytes, alt_text), or a refusal.
+    """The disclosed set's export check: (filename, bytes, alt_text), or a refusal.
 
     Refuses the whole set when any frame lacks the disclosure in its pixels, its alt text or
-    the listing copy, or when structural truth is not PASS on the exact bytes."""
+    the listing copy, or when structural truth is not PASS on the exact bytes. Its release is
+    the precondition for the listing-set certificate (`listing_set.certify_disclosed`, via
+    `release_gates.disclosed_listing_set`); uploading is not done from here. The one upload
+    path is `runtime.etsy_ops.certified_images`, which serves the certified frames with their
+    certified alt text and runs `export_check` again on the bytes it sends."""
     from ..core.artifacts import ArtifactStore
     from ..visual.render_verification import authoritative_cir
 
@@ -439,3 +443,69 @@ def export_images(db, *, slug: str, description: str, store=None) -> list[tuple[
     if problems:
         raise DisclosureMissing("; ".join(problems))
     return out
+
+
+# --------------------------------------------------------------------------- presentation
+
+def presentation_qa(rec: dict, frame: dict, *, description: str | None = None) -> dict:
+    """The listing-image QA a disclosed frame was put through, as the D-FB-9 checks read it.
+
+    Every value is a reading already made by `listing_qa`/`build` (or, for the copy, a check of
+    the listing description actually on file): True, False, or None when nobody made it. Parity
+    reads these; it never re-derives an opinion of the picture.
+    """
+    qa = rec.get("qa") or {}
+
+    def ok(block):
+        return bool(block["ok"]) if isinstance(block, dict) and "ok" in block else None
+
+    leg = ((qa.get("frames") or {}).get(frame.get("view")) or {}).get("legibility_340")
+    disclosed = frame.get("disclosure") or {}
+    in_image = disclosed.get("in_image")
+    alt = frame.get("alt_text")
+    return {
+        "layout_qa": ok(qa.get("layout_qa")),
+        "mobile_contexts": ok(qa.get("mobile")),
+        "hero_thumbnail": ok(qa.get("hero_thumbnail")),
+        "legibility_340": ok(leg),
+        "disclosure_in_image": in_image if isinstance(in_image, bool) else None,
+        "disclosure_in_alt_text": (None if not isinstance(alt, str) else
+                                   _phrase_in(alt) and len(alt) <= ALT_TEXT_MAX),
+        "disclosure_in_copy": None if description is None else _phrase_in(description),
+    }
+
+
+def listing_copy(db, *, slug: str, version: str) -> str | None:
+    """The listing description on file for this release, or None when none is drafted."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        return None if row is None else (row.description or "")
+
+
+def frames_with_presentation(db, rec: dict) -> list[dict]:
+    """The set's frames, each carrying its `presentation_qa` against the copy on file.
+
+    Copies, never the filed record: the audit row stays what `build` wrote."""
+    description = listing_copy(db, slug=rec.get("slug", ""), version=rec.get("version", ""))
+    return [dict(f, presentation_qa=presentation_qa(rec, f, description=description))
+            for f in rec.get("frames") or []]
+
+
+def usable_set(db, *, slug: str, version: str) -> dict | None:
+    """The disclosed set for this exact release, when it is customer-ready: `build` found
+    every gate passing AND structural truth is PASS again now on every frame's bound bytes.
+    A self-declared `usable_as_listing_asset` is never enough on its own."""
+    from ..visual.product_authority import structural_floor
+
+    rec = last_asset(db, slug=slug)
+    if rec is None or rec.get("version") != version or not rec.get("usable_as_listing_asset"):
+        return None
+    frames = rec.get("frames") or []
+    if not frames or any(structural_floor(f)["status"] != "PASS" for f in frames):
+        return None
+    return rec

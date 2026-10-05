@@ -156,122 +156,109 @@ def test_the_frame_is_conditioned_on_the_frozen_pack_rather_than_described():
     A prompt that lists dark hair and light eyes produces a woman who matches the
     adjectives and is not her. The reference image goes to the provider as a reference,
     and the record names what it conditioned on.
-    """
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        gen, record = _make(db, Path(tmp))
 
-    assert record["made"] is True
-    assert len(gen.calls) == 1
-    # Two references, not one: the face frame and the pack's own body frame. A generator
-    # handed only a portrait has been asked for a body it was never shown.
-    assert gen.calls[0]["refs"][0] == brief.approved_portrait(), gen.calls[0]["refs"]
-    assert gen.calls[0]["refs"][1] == record["conditioned_on"]["body_reference_image"]
-    assert record["conditioned_on"]["reference_image"] == brief.approved_portrait()
-    assert record["conditioned_on"]["body_reference_frame"] == "torso_fit_reference"
-    assert record["conditioned_on"]["pack_version"] == 1
-    # And her features are not smuggled into the prompt as adjectives instead.
-    prompt = gen.calls[0]["prompt"]
-    assert "reference image" in prompt
-    for described in ("facial_geometry as described", "bust_proportions as described"):
-        assert described not in prompt
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_nothing_is_rendered_before_there_is_somebody_to_check_against():
     """With no frozen identity a model frame is a stranger with a caption, so it is
-    refused rather than rendered -- and refused without spending."""
-    db = _db(frozen=False)
-    with tempfile.TemporaryDirectory() as tmp:
-        gen, record = _make(db, Path(tmp))
-    assert record["made"] is False
-    assert record["waiting_on"] == "canonical_model"
-    assert gen.calls == [], "money was spent before there was anything to verify against"
+    refused rather than rendered -- and refused without spending.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    _assert_frame_refused(_db(frozen=False))
+    _assert_frame_refused(_db(frozen=True))
 
 
 def test_the_result_is_verified_by_something_that_did_not_render_it():
     """Conditioning is a request, not a result. The generator is never asked whether it
-    complied: a vision model describes the frame and `drift_check` decides."""
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(db, Path(tmp))
-    assert record["identity"]["face"]["verdict"] == "pass"
-    assert record["identity"]["morphology"]["verdict"] == "pass"
-    assert "never saw the prompt" in record["identity"]["checked_by"]
-    assert record["usable_as_listing_asset"] is True
+    complied: a vision model describes the frame and `drift_check` decides.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_a_drifted_face_and_a_drifted_body_each_block_on_their_own():
     """Two independent floors. Either one fails the frame and neither can cover for the
-    other -- the failure the owner named is a familiar face over a different body."""
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        _, face = _make(db, Path(tmp), observer=_observer(face=identity.DRIFT))
-    assert face["floors"]["face_identity"] == "fail"
-    assert face["usable_as_listing_asset"] is False
+    other -- the failure the owner named is a familiar face over a different body.
 
-    with tempfile.TemporaryDirectory() as tmp:
-        _, body = _make(db, Path(tmp),
-                        observer=_observer(bust=identity.DRIFT, torso=identity.DRIFT))
-    assert body["floors"]["face_identity"] == "pass"
-    assert body["floors"]["whole_person_morphology"] == "fail"
-    assert body["usable_as_listing_asset"] is False, \
-        "a matching face carried a drifted body onto a listing"
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'observer': _observer(face=identity.DRIFT)}, {'observer': _observer(bust=identity.DRIFT, torso=identity.DRIFT)},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_an_unreadable_chest_is_unverifiable_and_never_a_pass():
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(db, Path(tmp),
-                          observer=_observer(bust=identity.UNMEASURABLE,
-                                             torso=identity.UNMEASURABLE))
-    assert record["floors"]["whole_person_morphology"] != "pass"
-    assert record["usable_as_listing_asset"] is False
+    """F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'observer': _observer(bust=identity.UNMEASURABLE, torso=identity.UNMEASURABLE)},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_a_beautiful_photograph_of_the_wrong_crochet_fails():
-    """Product truth is its own floor and beauty cannot buy it. The checkerboard case."""
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(db, Path(tmp), motif_judger=_motif(
-            repeating_unit_shape="solid square", repeats_across=8))
-    assert record["floors"]["face_identity"] == "pass"
-    assert record["floors"]["photographic_realism"] == "pass"
-    assert record["floors"]["product_truth"] == "fail"
-    assert record["usable_as_listing_asset"] is False
+    """Product truth is its own floor and beauty cannot buy it. The checkerboard case.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'motif_judger': _motif(repeating_unit_shape='solid square', repeats_across=8)},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_a_frame_that_reads_as_generated_fails_even_when_everything_else_holds():
-    """The owner's natural-photography standard, as a floor rather than a preference."""
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(db, Path(tmp), realism_judger=_realism(hands_are_right=False))
-    assert record["floors"]["product_truth"] == "pass"
-    assert record["floors"]["photographic_realism"] == "fail"
-    assert record["usable_as_listing_asset"] is False
-    assert "hands_are_right" in record["photographic_realism"]["failed"]
+    """The owner's natural-photography standard, as a floor rather than a preference.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'realism_judger': _realism(hands_are_right=False)},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_an_unjudged_realism_check_is_not_a_pass():
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(db, Path(tmp),
-                          realism_judger=lambda ref, db=None: {"judged": True,
-                                                               "checks": {}, "notes": ""})
-    assert record["photographic_realism"]["verdict"] == "unjudged"
-    assert record["floors"]["photographic_realism"] == "unverifiable"
-    assert record["usable_as_listing_asset"] is False
+    """F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'realism_judger': lambda ref, db=None: {'judged': True, 'checks': {}, 'notes': ''}},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_the_product_stays_the_hero_in_what_is_asked_for():
-    """#202: she is present to show fit, scale and use, and the crochet is the subject."""
-    db = _db()
-    with tempfile.TemporaryDirectory() as tmp:
-        gen, _ = _make(db, Path(tmp))
-    prompt = gen.calls[0]["prompt"]
-    assert brief.PRODUCT_IS_THE_HERO in prompt
-    assert "fit, scale and use" in prompt
-    # And the photography standard is asked for, not only checked afterwards.
-    assert photoreal.DIRECTION in prompt
+    """#202: she is present to show fit, scale and use, and the crochet is the subject.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_the_model_is_the_exception_and_an_unclassified_form_is_shot_as_an_object():
@@ -317,6 +304,94 @@ def test_the_model_is_the_exception_and_an_unclassified_form_is_shot_as_an_objec
 
 
 
+
+class _Judge:
+    """Wraps an observer / inspector / judge and records whether it was ever reached."""
+
+    def __init__(self, inner):
+        self.inner, self.calls = inner, 0
+
+    def __call__(self, *a, **k):
+        self.calls += 1
+        return self.inner(*a, **k)
+
+
+_JUDGES = ("observer", "inspector", "motif_judger", "realism_judger", "styling_judger")
+
+
+def _spied(kw: dict) -> dict:
+    defaults = {"observer": _observer(), "inspector": _inspector(), "motif_judger": _motif(),
+                "realism_judger": _realism(), "styling_judger": _styling()}
+    return {k: _Judge(kw.get(k, defaults[k])) for k in _JUDGES}
+
+
+def _assert_refusal(record: dict) -> None:
+    assert record["made"] is False, record
+    assert record["usable_as_listing_asset"] is False
+    assert record["waiting_on"] == "qualified_protected_product_renderer", record
+    assert "F-852" in record["why"]
+    assert "floors" not in record and "identity" not in record and "image" not in record
+
+
+def _assert_frame_refused(db, **kw):
+    """`make` refuses the redraw before the generator or any judge is reached (F-852)."""
+    import dataclasses
+
+    cir, twin = _subject()
+    cir = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
+    judges = _spied(kw)
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Generator(Path(tmp))
+        record = mp.make(db, cir, twin, generator=gen, **judges)
+    _assert_refusal(record)
+    assert gen.calls == [], "the generator was reached: money spent on a refused redraw"
+    assert all(j.calls == 0 for j in judges.values()), "a judge was asked about nothing"
+    return gen, record
+
+
+def _assert_sequence_refused(db, **kw):
+    """`sequence` stops at the first refused frame: no sequence exists, nothing is billed."""
+    import dataclasses
+
+    cir, twin = _subject()
+    cir = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
+    judges = _spied(kw)
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Generator(Path(tmp))
+        record = mp.sequence(db, cir, twin, generator=gen, **judges)
+    assert record["made"] is False and record["usable_as_listing_asset"] is False, record
+    assert record["waiting_on"] == "qualified_protected_product_renderer"
+    assert "F-852" in record["why"]
+    assert gen.calls == [] and all(j.calls == 0 for j in judges.values())
+    return gen, record
+
+
+def _v1_sequence(*, fit_passes, usable: bool = False, failed_floor: str = "photographic_realism"):
+    """A sequence in the shape the pre-F-852 handler filed, for the reader-side tests.
+
+    `fit_passes`: True -- the fit frame cleared every floor; False -- it failed
+    `failed_floor`; None -- one of its checks was never made.
+    """
+    def floors(ok):
+        out = {f: "pass" for f in mp.FLOORS}
+        if ok is False:
+            out[failed_floor] = "fail"
+        elif ok is None:
+            out["photographic_realism"] = "unverifiable"
+        return out
+
+    fit = {"made": True, "shot": "fit", "slug": "winter-cardigan", "generated": True,
+           "floors": floors(fit_passes), "image_ref": "fit.png", "spent_cad": 0.04,
+           "usable_as_listing_asset": fit_passes is True}
+    detail = {"made": True, "shot": "detail", "slug": "winter-cardigan", "generated": True,
+              "floors": floors(False if not usable else True), "image_ref": "detail.png",
+              "spent_cad": 0.04, "usable_as_listing_asset": usable}
+    return {"made": True, "slug": "winter-cardigan", "version": _subject()[0].version,
+            "method_version": mp.METHOD_VERSION, "carries_model": True, "generated": True,
+            "frames": [fit, detail], "floors": floors(True if usable else False),
+            "image_ref": "fit.png", "usable_as_listing_asset": usable, "spent_cad": 0.08}
+
+
 def _file(db, record):
     """Put a record on the audit log the way the handler does.
 
@@ -340,31 +415,39 @@ def test_a_release_with_an_unusable_frame_does_not_have_a_frame():
     used reported as finished, and the next deploy agreed with it. A row standing in for
     the capability the row was supposed to evidence is the defect this whole system exists
     to catch, and it had got into the guard rather than the gate.
-    """
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        _, record = _make(db, Path(tmp), realism_judger=_realism(skin_looks_real=False))
-        assert record["usable_as_listing_asset"] is False
-        _file(db, record)
 
-        move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
-        assert move["render"] is True
-        assert move["reason"] == "no_usable_frame_yet"
-        assert move["attempts"] == 1
-        assert mp.usable_asset(db, slug=record["slug"]) is None
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    db = _db()
+    record = _v1_sequence(fit_passes=False)
+    _file(db, record)
+    move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
+    assert move["render"] is True
+    assert move["reason"] == "no_usable_frame_yet"
+    assert move["attempts"] == 1
+    assert mp.usable_asset(db, slug=record["slug"]) is None
+    _assert_frame_refused(db)
 
 
 def test_a_release_with_a_usable_frame_is_not_rendered_again():
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        _, record = _make(db, Path(tmp))
-        assert record["usable_as_listing_asset"] is True
-        _file(db, record)
-
-        move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
-        assert move["render"] is False
-        assert move["reason"] == "usable_frame_on_file"
-        assert mp.usable_asset(db, slug=record["slug"])["image_ref"] == record["image_ref"]
+    """F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    db = _db()
+    record = _v1_sequence(fit_passes=True, usable=True)
+    _file(db, record)
+    # F-856: a generated sequence's own `usable_as_listing_asset` is not a cleared floor --
+    # structural truth cannot PASS for a generated frame -- so it is not a usable frame...
+    assert mp.usable_asset(db, slug=record["slug"]) is None
+    move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
+    assert move["reason"] != "usable_frame_on_file", move
+    # ...and rendering again is refused anyway, so nothing is spent either way.
+    _assert_frame_refused(db)
 
 
 def test_retrying_is_bounded_and_says_the_method_is_what_needs_changing():
@@ -374,23 +457,22 @@ def test_retrying_is_bounded_and_says_the_method_is_what_needs_changing():
     is a systematic failure and stops earlier for a better reason, which the block tests
     cover; this is the bad-luck case the per-release bound exists for, and giving it the
     systematic pattern would have tested the wrong gate.
-    """
-    breakers = (
-        {"realism_judger": _realism(skin_looks_real=False)},
-        {"styling_judger": _styling(light_is_soft_and_directional=False)},
-        {"motif_judger": _motif(repeating_unit_shape="solid square", repeats_across=8)},
-    )
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        for breaker in breakers[:mp.ATTEMPTS]:
-            _, record = _make(db, Path(tmp), **breaker)
-            _file(db, record)
 
-        move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
-        assert move["render"] is False
-        assert move["reason"] == "attempts_exhausted"
-        assert move["attempts"] == mp.ATTEMPTS
-        assert "the method" in move["why"] and "METHOD_VERSION" in move["why"]
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    db = _db()
+    floors = ("photographic_realism", "styling", "product_truth")
+    for failed in floors[:mp.ATTEMPTS]:
+        record = _v1_sequence(fit_passes=False, failed_floor=failed)
+        _file(db, record)
+    move = mp.what_to_do_next(db, slug=record["slug"], version=record["version"])
+    assert move["render"] is False
+    assert move["reason"] == "attempts_exhausted"
+    assert move["attempts"] == mp.ATTEMPTS
+    assert "the method" in move["why"] and "METHOD_VERSION" in move["why"]
 
 
 def test_a_corrected_method_is_not_locked_out_by_the_old_ones_attempts():
@@ -398,21 +480,23 @@ def test_a_corrected_method_is_not_locked_out_by_the_old_ones_attempts():
 
     A new METHOD_VERSION is a different question, and answering it with the previous
     method's exhausted budget is how a fix never gets to run.
-    """
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        for _ in range(mp.ATTEMPTS):
-            _, record = _make(db, Path(tmp),
-                              realism_judger=_realism(skin_looks_real=False))
-            _file(db, record)
-        stale = dict(record, method_version="v0-an-earlier-method")
-        assert mp.what_to_do_next(
-            db, slug=record["slug"], version=record["version"])["render"] is False
 
-        fresh = _db()
-        _file(fresh, stale)
-        move = mp.what_to_do_next(fresh, slug=stale["slug"], version=stale["version"])
-        assert move["render"] is True and move["attempts"] == 0
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    db = _db()
+    floors = ("photographic_realism", "styling", "product_truth")
+    for failed in floors[:mp.ATTEMPTS]:
+        record = _v1_sequence(fit_passes=False, failed_floor=failed)
+        _file(db, record)
+    assert mp.what_to_do_next(db, slug=record["slug"], version=record["version"])["render"] is False
+    stale = dict(record, method_version="v0-an-earlier-method")
+    fresh = _db()
+    _file(fresh, stale)
+    move = mp.what_to_do_next(fresh, slug=stale["slug"], version=stale["version"])
+    assert move["render"] is True and move["attempts"] == 0
 
 
 def test_each_shot_asks_for_what_its_floor_has_to_read():
@@ -441,27 +525,24 @@ def test_styling_is_a_floor_of_its_own_and_the_right_woman_does_not_excuse_it():
     is gelled and the dress has a print that fights the crochet. Before the character
     bible, nothing in the release path could tell -- the frame was exactly the right woman,
     so exactly the right woman shipped.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(_db(), Path(tmp), styling_judger=_styling(
-            makeup_is_daytime_natural=False, nothing_competes_with_the_product=False))
-    assert record["floors"]["face_identity"] == "pass"
-    assert record["floors"]["styling"] == "fail"
-    assert record["usable_as_listing_asset"] is False
-    assert sorted(record["styling"]["outside"]) == ["makeup", "wardrobe"]
+    for kw in ({'styling_judger': _styling(makeup_is_daytime_natural=False, nothing_competes_with_the_product=False)},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_unjudged_styling_is_not_a_pass_either():
-    def half_read(image_ref, db=None, axes=None):
-        asked = tuple(axes or tuple(bible.AXES))
-        keys = [k for k in bible.QUESTIONS if bible.AXIS_OF[k] in asked]
-        return {"judged": True, "notes": "", "axes": list(asked),
-                "answers": {k: True for k in keys[:2]}}
-
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(_db(), Path(tmp), styling_judger=half_read)
-    assert record["floors"]["styling"] == "unverifiable"
-    assert record["usable_as_listing_asset"] is False
+    """F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'styling_judger': _styling()},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_the_frame_is_asked_for_the_styling_it_will_be_checked_on():
@@ -480,25 +561,14 @@ def test_the_body_is_compared_against_a_body_rather_than_against_a_portrait():
     was then compared, whole, against a head-and-shoulders crop -- so bust, torso, waist
     and hips came back `unmeasurable` however well the frame was shot. That is a floor
     nothing can clear, which is the same defect as one nothing can fail.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
-    asked: list[str] = []
-
-    def look(db, reference_ref, candidate_ref):
-        asked.append(reference_ref)
-        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
-        # A portrait genuinely cannot answer for the body, so the fixture does not let it.
-        if reference_ref == brief.approved_portrait():
-            for d in identity.MORPHOLOGY_DIMENSIONS:
-                out[d] = identity.UNMEASURABLE
-        return out
-
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _make(_db(), Path(tmp), observer=look)
-
-    assert len(asked) == 2 and asked[0] == brief.approved_portrait()
-    assert asked[1] != asked[0], "the body was asked of the portrait again"
-    assert record["floors"]["face_identity"] == "pass"
-    assert record["floors"]["whole_person_morphology"] == "pass"
+    for kw in ({},):
+        _assert_frame_refused(_db(), **kw)
 
 
 def test_without_a_body_reference_the_morphology_floor_is_unverifiable_not_passed():
@@ -508,16 +578,17 @@ def test_without_a_body_reference_the_morphology_floor_is_unverifiable_not_passe
     the wrong body while reporting a pass, which is worse than reporting that nobody could
     check -- the owner's rule is that the superseded pack is never eligible for automatic
     selection, and a silent fallback is exactly automatic selection.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
     from brambleloop.visual import freeze
 
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db(body_reference=False)
-        _, record = _make(db, Path(tmp))
-
-    assert record["conditioned_on"]["body_reference_image"] == ""
-    assert record["floors"]["whole_person_morphology"] == "unverifiable"
-    assert record["usable_as_listing_asset"] is False
+    db = _db(body_reference=False)
+    _assert_frame_refused(db)
+    # Still never a fallback to the superseded pre-revision body frames.
     paths = freeze.reference_paths(db)
     assert paths["body"] == ""
     assert brief.approved_reference("torso_fit_reference") not in paths.values()
@@ -545,17 +616,14 @@ def test_the_sequence_is_two_frames_and_each_floor_is_taken_from_the_one_that_ca
     motif judge read its fabric as unmeasurable, saying exactly what it needed: a closer
     frame. Pulling in far enough to count stitches loses the hips. The two floors are
     questions about two photographs, so the sequence has two.
-    """
-    with tempfile.TemporaryDirectory() as tmp:
-        gen, record = _sequence(_db(), Path(tmp))
 
-    assert record["shots"] == ["fit", "detail"]
-    assert len(gen.calls) == 2
-    assert gen.calls[0]["prompt"] != gen.calls[1]["prompt"]
-    assert record["floor_sources"]["whole_person_morphology"] == "fit"
-    assert record["floor_sources"]["product_truth"] == "detail"
-    assert record["floor_sources"]["photographic_realism"] == "every frame"
-    assert record["usable_as_listing_asset"] is True
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({},):
+        _assert_sequence_refused(_db(), **kw)
 
 
 def test_a_detail_frame_that_cannot_see_the_hips_does_not_sink_the_body_floor():
@@ -564,54 +632,38 @@ def test_a_detail_frame_that_cannot_see_the_hips_does_not_sink_the_body_floor():
     Letting any frame's `unmeasurable` drag a floor down makes the body floor unclearable
     again by a different route -- a close crop of a sleeve was never going to answer for
     stature, and treating that as a finding about the woman is the defect inverted.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
-    def look(db, reference_ref, candidate_ref):
-        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
-        # The second frame rendered is the detail one, and it shows almost no body.
-        if candidate_ref.endswith("frame-1.png"):
-            for d in identity.MORPHOLOGY_DIMENSIONS:
-                out[d] = identity.UNMEASURABLE
-        return out
-
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _sequence(_db(), Path(tmp), observer=look)
-
-    assert record["floors"]["whole_person_morphology"] == "pass"
-    assert record["usable_as_listing_asset"] is True
+    for kw in ({'observer': _observer()},):
+        _assert_sequence_refused(_db(), **kw)
 
 
 def test_a_face_that_drifted_in_the_detail_frame_still_blocks():
-    """Being the wrong authority is not a licence. That frame ships too."""
-    def look(db, reference_ref, candidate_ref):
-        out = {d: identity.MATCH for d in identity.DRIFT_DIMENSIONS}
-        if candidate_ref.endswith("frame-1.png"):
-            out["face"] = out["eyes"] = out["hair"] = identity.DRIFT
-        return out
+    """Being the wrong authority is not a licence. That frame ships too.
 
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _sequence(_db(), Path(tmp), observer=look)
-
-    assert record["floors"]["face_identity"] == "fail"
-    assert record["usable_as_listing_asset"] is False
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'observer': _observer(face=identity.DRIFT)},):
+        _assert_sequence_refused(_db(), **kw)
 
 
 def test_a_shared_floor_takes_the_worst_answer_any_frame_gave():
-    """Either frame is a customer-facing asset on its own, so both have to be sound."""
-    seen: list[str] = []
+    """Either frame is a customer-facing asset on its own, so both have to be sound.
 
-    def realism(image_ref, db=None):
-        seen.append(image_ref)
-        checks = {k: True for k in photoreal.CHECKS}
-        if image_ref.endswith("frame-1.png"):
-            checks["skin_looks_real"] = False
-        return {"judged": True, "checks": checks, "notes": ""}
-
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _sequence(_db(), Path(tmp), realism_judger=realism)
-
-    assert len(seen) == 2, "a shared floor was only asked of one frame"
-    assert record["floors"]["photographic_realism"] == "fail"
-    assert record["usable_as_listing_asset"] is False
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({'realism_judger': _realism(skin_looks_real=False)},):
+        _assert_sequence_refused(_db(), **kw)
 
 
 def test_a_sequence_missing_a_frame_is_not_a_sequence():
@@ -660,24 +712,14 @@ def test_a_close_crop_is_never_asked_whether_the_outfit_is_right():
     anywhere blocks everywhere" that became a false block on the whole sequence, so a
     frame's limitation arrived as a finding about the styling. It is the same defect as
     comparing a body against a portrait, one gate along.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
-    asked: list[tuple] = []
-
-    def judge(image_ref, db=None, axes=None):
-        asked.append(tuple(axes or ()))
-        answers = {k: True for k in bible.QUESTIONS
-                   if bible.AXIS_OF[k] in (axes or tuple(bible.AXES))}
-        return {"judged": True, "answers": answers, "axes": list(axes or []), "notes": ""}
-
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _sequence(_db(), Path(tmp), styling_judger=judge)
-
-    assert len(asked) == 2
-    assert "wardrobe" in asked[0], "the fit frame shows the outfit and must be asked"
-    assert "wardrobe" not in asked[1], "a hat crop was asked about the outfit again"
-    assert record["floors"]["styling"] == "pass"
-    detail = next(f for f in record["frames"] if f["shot"] == "detail")
-    assert detail["styling"]["axes"]["wardrobe"]["verdict"] == "not_asked"
+    for kw in ({'styling_judger': _styling()},):
+        _assert_sequence_refused(_db(), **kw)
 
 
 def test_a_styling_breach_a_close_crop_can_see_still_blocks():
@@ -685,19 +727,14 @@ def test_a_styling_breach_a_close_crop_can_see_still_blocks():
 
     Makeup, expression and lighting are all visible in a crop that includes her face, so
     a breach in any of them blocks the sequence exactly as before.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
-    def judge(image_ref, db=None, axes=None):
-        asked = tuple(axes or tuple(bible.AXES))
-        answers = {k: True for k in bible.QUESTIONS if bible.AXIS_OF[k] in asked}
-        if image_ref.endswith("frame-1.png"):
-            answers["makeup_is_daytime_natural"] = False
-        return {"judged": True, "answers": answers, "axes": list(asked), "notes": ""}
-
-    with tempfile.TemporaryDirectory() as tmp:
-        _, record = _sequence(_db(), Path(tmp), styling_judger=judge)
-
-    assert record["floors"]["styling"] == "fail"
-    assert record["usable_as_listing_asset"] is False
+    for kw in ({'styling_judger': _styling(makeup_is_daytime_natural=False)},):
+        _assert_sequence_refused(_db(), **kw)
 
 
 def test_every_frame_in_the_sequence_sees_the_chart():
@@ -708,14 +745,14 @@ def test_every_frame_in_the_sequence_sees_the_chart():
     fabric is read too and its `mismatch` blocks the sequence, and -- worse -- one frame
     conditioned on the chart and one not produced two different fabrics in a single
     listing. Not being a floor's authority is not the same as not being judged by it.
-    """
-    with tempfile.TemporaryDirectory() as tmp:
-        gen, record = _sequence(_db(), Path(tmp))
 
-    assert len(gen.calls) == 2
-    charts = [c["refs"][-1] for c in gen.calls]
-    assert all(c.endswith("chart-ref.png") for c in charts), charts
-    assert charts[0] == charts[1], "the two frames were shown different charts"
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    for kw in ({},):
+        _assert_sequence_refused(_db(), **kw)
 
 
 def test_a_frame_that_cleared_its_floors_is_kept_rather_than_rolled_again():
@@ -727,31 +764,21 @@ def test_a_frame_that_cleared_its_floors_is_kept_rather_than_rolled_again():
     passed product truth; no single draw passed everything. Keeping what passed turns
     "all six floors in one attempt" into "each frame passes in some attempt" -- the same
     standard, a fraction of the cost.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
-    def detail_only_fails(image_ref, db=None):
-        """Realism fails on the second frame rendered -- the detail shot -- and not the fit."""
-        checks = {k: True for k in photoreal.CHECKS}
-        if image_ref.endswith("frame-1.png"):
-            checks["skin_looks_real"] = False
-        return {"judged": True, "checks": checks, "notes": ""}
-
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        gen, first = _sequence(db, Path(tmp), realism_judger=detail_only_fails)
-        assert first["floors"]["photographic_realism"] == "fail"
-        fit = next(f for f in first["frames"] if f["shot"] == "fit")
-        assert all(v == "pass" for v in fit["floors"].values()), fit["floors"]
-        _file(db, first)
-
-        rendered_before = len(gen.calls)
-        gen2, second = _sequence(db, Path(tmp))
-
-    # The fit frame was kept; only the detail frame was rendered again.
-    assert second["reused_frames"] == ["fit"], second["reused_frames"]
-    assert len(gen2.calls) == 1, "the whole sequence was re-rendered"
-    assert second["floors"]["photographic_realism"] == "pass"
-    assert second["usable_as_listing_asset"] is True
-    assert rendered_before == 2
+    db = _db()
+    # A pre-F-852 sequence on file whose fit frame cleared every floor it was judged on.
+    _file(db, _v1_sequence(fit_passes=True))
+    gen, second = _assert_sequence_refused(db)
+    # A generated frame is never kept, however its floors read: `_passing_frame` requires
+    # structural truth PASS, which no generated frame can have (F-856). So the sequence
+    # reaches a fresh redraw, which is refused -- nothing is made and nothing is listable.
+    assert not any(f.get("reused") for f in second["frames"]), second["frames"]
+    assert mp.usable_asset(db, slug="winter-cardigan") is None
 
 
 def test_a_frame_with_any_failed_floor_is_never_kept():
@@ -760,59 +787,46 @@ def test_a_frame_with_any_failed_floor_is_never_kept():
     A fit frame whose fabric read as a mismatch is a bad photograph, and keeping it would
     carry that `fail` into every later sequence under the "a failure anywhere blocks"
     rule -- poisoning the release permanently with a verdict nothing could clear.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        _, first = _sequence(db, Path(tmp), motif_judger=_motif(
-            repeating_unit_shape="solid square", repeats_across=8))
-        for frame in first["frames"]:
-            assert frame["floors"]["product_truth"] == "fail"
-        _file(db, first)
-
-        gen2, second = _sequence(db, Path(tmp))
-
-    assert second["reused_frames"] == []
-    assert len(gen2.calls) == 2
+    db = _db()
+    _file(db, _v1_sequence(fit_passes=False))
+    _, second = _assert_sequence_refused(db)
+    assert not any(f.get("reused") for f in second["frames"]), second["frames"]
 
 
 def test_a_frame_is_kept_only_on_verdicts_that_were_actually_made():
-    """`unverifiable` is not a pass here either, or reuse would launder an unmade check."""
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
+    """`unverifiable` is not a pass here either, or reuse would launder an unmade check.
 
-        def half_read(image_ref, db=None):
-            return {"judged": False, "error": "provider refused", "checks": {}}
-
-        _, first = _sequence(db, Path(tmp), realism_judger=half_read)
-        assert first["floors"]["photographic_realism"] == "unverifiable"
-        _file(db, first)
-
-        gen2, second = _sequence(db, Path(tmp))
-
-    assert second["reused_frames"] == [], "a frame with an unmade check was kept"
-    assert len(gen2.calls) == 2
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    db = _db()
+    _file(db, _v1_sequence(fit_passes=None))
+    _, second = _assert_sequence_refused(db)
+    assert not any(f.get("reused") for f in second["frames"]), "an unmade check was kept"
 
 
 def test_a_kept_frame_does_not_bill_twice():
     """Cost per usable gallery is the number this exists to move; counting a kept frame's
-    original spend again would flatter it."""
-    def detail_only_fails(image_ref, db=None):
-        checks = {k: True for k in photoreal.CHECKS}
-        if image_ref.endswith("frame-1.png"):
-            checks["skin_looks_real"] = False
-        return {"judged": True, "checks": checks, "notes": ""}
+    original spend again would flatter it.
 
-    with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        _, first = _sequence(db, Path(tmp), realism_judger=detail_only_fails)
-        _file(db, first)
-        assert first["spent_cad"] == 0.08, "two frames rendered, two billed"
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
+    """
+    db = _db()
+    _file(db, _v1_sequence(fit_passes=True))
+    _, second = _assert_sequence_refused(db)
+    assert "spent_cad" not in second, "a refused sequence bills nothing"
 
-        _, second = _sequence(db, Path(tmp))
-
-    assert second["reused_frames"] == ["fit"]
-    # Only the newly rendered frame is billed to this pass.
-    assert second["spent_cad"] == 0.04
 
 def test_reuse_reads_the_shape_the_real_filing_path_writes():
     """The guard for the defect that made frame reuse green and dead on arrival.
@@ -821,36 +835,29 @@ def test_reuse_reads_the_shape_the_real_filing_path_writes():
     with the test helper. This one files through `listing_asset.make(record=True)` -- the
     real path, the one the handler and the seasonal cycle both go through -- so if the
     written shape and the read shape ever diverge again, this fails instead of passing.
+
+    F-852 rewrite: this pinned the Visual V1 generative model frame. Generative product
+    redraw is refused before any generator, observer or judge is reached, so the
+    stronger property asserted is that the scenario below is refused, spends nothing
+    and is judged by nobody.
     """
     import dataclasses
 
     from brambleloop.publish import listing_asset
 
-    def detail_only_fails(image_ref, db=None):
-        checks = {k: True for k in photoreal.CHECKS}
-        if image_ref.endswith("frame-1.png"):
-            checks["skin_looks_real"] = False
-        return {"judged": True, "checks": checks, "notes": ""}
-
+    db = _db()
+    cir, twin = _subject()
+    cir = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
+    assert listing_asset.needs_the_model(cir), "this test needs the model-bearing path"
     with tempfile.TemporaryDirectory() as tmp:
-        db = _db()
-        cir, twin = _subject()
-        cir = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
-        assert listing_asset.needs_the_model(cir), "this test needs the model-bearing path"
-
         gen = _Generator(Path(tmp))
         first = listing_asset.make(db, cir, twin, generator=gen, observer=_observer(),
                                    inspector=_inspector(), motif_judger=_motif(),
-                                   realism_judger=detail_only_fails,
-                                   styling_judger=_styling())
-        assert first["made"] and first["floors"]["photographic_realism"] == "fail"
-
-        gen2, second = _sequence(db, Path(tmp))
-
-    assert second["reused_frames"] == ["fit"], (
-        "the frame the real filing path wrote could not be found by the reader")
-    assert len(gen2.calls) == 1
-    assert second["usable_as_listing_asset"] is True
+                                   realism_judger=_realism(), styling_judger=_styling())
+    assert first["made"] is False and gen.calls == []
+    assert "F-852" in first["why"]
+    # The real filing path files nothing for a refusal, so there is nothing to reuse.
+    assert mp.sequences(db, slug="winter-cardigan") == []
 
 
 def _filed(db, **detail):

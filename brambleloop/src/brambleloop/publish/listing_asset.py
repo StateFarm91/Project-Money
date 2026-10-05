@@ -121,5 +121,11 @@ def frames_for(db, *, slug: str) -> list[dict]:
     record = last(db, slug=slug)
     if not record or not record.get("made"):
         return []
+    if record.get("kind") == "disclosed_render":
+        # D-FB-9: each disclosed frame carries the listing-image QA and the copy disclosure
+        # check, which parity's LIFESTYLE_QUALITY reads for a verified render.
+        from . import disclosed_listing
+
+        return disclosed_listing.frames_with_presentation(db, record)
     frames = record.get("frames")
     return list(frames) if frames else [record]

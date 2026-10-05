@@ -66,6 +66,15 @@ def _catalogue_slugs(n: int) -> list[str]:
 
 
 VERSION = "1.0.0"
+
+
+def _version(slug: str) -> str:
+    """The stocked release is the product's real certified version, so the disclosed set,
+    the listing and the pattern version all name the same release."""
+    from brambleloop.products.builder import for_slug
+
+    cir = for_slug(slug)
+    return cir.version if cir is not None else VERSION
 from brambleloop.gates.certificate import GAUGE_STANDARD as _GAUGE_STANDARD  # noqa: E402
 # Listing copy that makes every owed disclosure (#41) where the buyer reads it: the digital
 # nature in the title, the rest on the first screen.
@@ -95,20 +104,13 @@ def _stock(db, listings: int = MIN_LISTINGS_TO_OPEN, frames: int = MIN_APPROVED_
 
     slugs = _catalogue_slugs(listings)
     store = ArtifactStore()
-    if photographs:
-        for slug in slugs:
-            cir = for_slug(slug)
-            Registry(db).audit("publishing", _op.ACTION, detail={
-                "made": True, "method_version": _op.METHOD_VERSION, "slug": slug,
-                "version": cir.version, "usable_as_listing_asset": True,
-                "verdict": "clear"})
 
     with db.session() as s:
         for i, slug in enumerate(slugs):
             product = Product(slug=slug, title=f"Product {i}", status="certified")
             s.add(product)
             s.flush()
-            s.add(PatternVersion(product_id=product.id, version=VERSION,
+            s.add(PatternVersion(product_id=product.id, version=_version(slug),
                                  cir_json={}, release_hash="0" * 64, certified=True,
                                  # F-119: a company that has done its half has
                                  # re-certified under the current gauge standard; a
@@ -116,22 +118,65 @@ def _stock(db, listings: int = MIN_LISTINGS_TO_OPEN, frames: int = MIN_APPROVED_
                                  certificate={"granted": True,
                                               "gauge_standard": _GAUGE_STANDARD,
                                               "stages_run": ["compile", "twin", "reverse"]}))
-            s.add(Listing(product_slug=slug, version=VERSION,
+            s.add(Listing(product_slug=slug, version=_version(slug),
                           title=_TITLE.format(title=f"Product {i}"),
                           description=_DESCRIPTION, price_cad=9.5, state="draft"))
             for position in range(frames):
                 # real bytes under their real hash, so a restore has something to re-serve
                 stored = store.put(f"{slug}-frame-{position}",
                                    f"frame {position} of {slug}".encode(), "image/png")
-                s.add(ListingAsset(product_slug=slug, version=VERSION, position=position,
+                s.add(ListingAsset(product_slug=slug, version=_version(slug), position=position,
                                    asset_class="INFOGRAPHIC", role="frame",
                                    sha256=stored.sha256, approved=True))
             for n in range(content_each):
                 s.add(ContentPiece(product_slug=slug, channel="article",
                                    title=f"piece {n}", body="body"))
+    if photographs:
+        # F-852 / D-FB-7: the imagery a company can actually have done is a verified
+        # disclosed render set, for each product a qualified renderer can draw truthfully.
+        # This used to file self-declared `usable_as_listing_asset: True` photography rows,
+        # which no longer count: usability is structural truth PASS on bound bytes.
+        for slug in slugs:
+            _disclosed_set(db, slug)
     if package:
         _package(db, slugs)
         _economics(db, slugs)
+
+
+_DISCLOSED: dict = {}
+
+
+def _disclosed_set(db, slug: str, *, disclosing_copy: bool = True) -> dict | None:
+    """File the real disclosed render set for `slug`, when it is in Launch-0 scope.
+
+    Built once per run (the producer and verifier are deterministic and the bytes stay in
+    this run's artifact store) and filed into each database. The listing for the set's own
+    version carries the copy disclosure unless told otherwise. Out-of-scope products get
+    nothing: there is no truthful image path for them, and the fixture does not pretend.
+    """
+    from brambleloop.publish import disclosed_listing, listing_asset
+    from brambleloop.visual.render_verification import authoritative_cir
+
+    if not listing_asset._in_launch_scope(slug):
+        return None
+    if slug not in _DISCLOSED:
+        rec = disclosed_listing.build(authoritative_cir(slug))
+        assert rec["usable_as_listing_asset"], rec["launch_blocked"]
+        _DISCLOSED[slug] = rec
+    rec = _DISCLOSED[slug]
+    disclosed_listing.record(db, rec)
+    copy_text = _DESCRIPTION + ("\n\n" + disclosed_listing.COPY_DISCLOSURE
+                                if disclosing_copy else "")
+    with db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == rec["version"]))
+        if row is None:
+            s.add(Listing(product_slug=slug, version=rec["version"],
+                          title=_TITLE.format(title=slug), description=copy_text,
+                          price_cad=9.5, state="draft"))
+        else:
+            row.description = copy_text
+    return rec
 
 
 def _economics(db, slugs: list[str]) -> None:
@@ -170,21 +215,21 @@ def _package(db, slugs: list[str]) -> None:
             pdf = store.put(f"{slug}-pdf", f"customer pdf of {slug}".encode(),
                             "application/pdf")
             s.add(Job(agent="publisher", job_type="assets.build", status=JobStatus.DONE,
-                      inputs={"slug": slug, "version": VERSION},
-                      outputs={"slug": slug, "version": VERSION, "pdf_sha256": pdf.sha256}))
+                      inputs={"slug": slug, "version": _version(slug)},
+                      outputs={"slug": slug, "version": _version(slug), "pdf_sha256": pdf.sha256}))
             # the version-keyed support pack, fresh against what the system holds now
             s.add(ArtefactProvenance(
-                artefact_class="support_knowledge", artefact_key=f"{slug}@{VERSION}#support",
+                artefact_class="support_knowledge", artefact_key=f"{slug}@{_version(slug)}#support",
                 product_slug=slug, created_by="publisher", validation_status="passed",
                 inputs={ref: current[ref] for ref in
                         (f"cir:{slug}", f"release:{slug}", "chain:release")}))
             for action, artifact in (("pricing.positioned", slug), ("launch.planned", slug),
-                                     ("listing.query_portfolio", f"{slug}@{VERSION}")):
+                                     ("listing.query_portfolio", f"{slug}@{_version(slug)}")):
                 s.add(AuditLog(actor="orchestrator", action=action, artifact=artifact,
                                detail={"fixture": "stocked warehouse"}))
     # the rehearsal is the real one, run over the fixture's rows and bytes
     for slug in slugs:
-        rollback.rehearse(db, slug=slug, version=VERSION, store=store)
+        rollback.rehearse(db, slug=slug, version=_version(slug), store=store)
 
 
 def test_an_empty_company_is_blocked_on_itself_not_on_the_owner():
@@ -206,13 +251,67 @@ def test_every_unmet_requirement_names_who_it_waits_on():
 
 
 def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
+    """F-852 / D-FB-7 rewrite. The fixture used to file self-declared "usable" photography
+    rows for eight products, a half no company can do any more: generative redraw is
+    refused and usability needs structural truth PASS on bound bytes. A company that has
+    done everything it *can* has a verified disclosed set for every product a qualified
+    renderer draws (Launch-0), and nothing else is pretended.
+
+    So the property is asserted exactly: the one company-side item is listing imagery for
+    the products with no truthful image path, named; the Launch-0 product with its verified
+    set is counted listable; everything else waits on a person or an account.
+    """
+    from brambleloop.publish import listing_asset
+
     db = _db()
     _stock(db)
     readiness = assess(db, phase="shadow")
-    assert not readiness.buildable, [r.key for r in readiness.buildable]
-    remaining = {r.blocked_by for r in readiness.outstanding}
+    assert [r.key for r in readiness.buildable] == ["listing_photography"], \
+        [r.key for r in readiness.buildable]
+    photo = next(r for r in readiness.requirements if r.key == "listing_photography")
+    stocked = _catalogue_slugs(MIN_LISTINGS_TO_OPEN)
+    in_scope = [s for s in stocked if listing_asset._in_launch_scope(s)]
+    assert in_scope, "the stocked catalogue carries no Launch-0 product"
+    assert photo.evidence["with_disclosed_render"] == sorted(in_scope), photo.evidence
+    assert photo.evidence["listable"] == len(in_scope)
+    assert sorted(photo.evidence["with_no_asset_at_all"]) == sorted(
+        s for s in stocked if s not in in_scope)[:5]
+    remaining = {r.blocked_by for r in readiness.outstanding if r.key != "listing_photography"}
     # F-071: a sample waits on an independent tester -- a person, and not the owner.
     assert remaining <= {BLOCKED_OWNER, BLOCKED_INTEGRATION, BLOCKED_TESTER}, remaining
+
+
+def test_a_verified_disclosed_set_takes_listing_imagery_off_the_company_side():
+    """D-FB-7: with the Launch-0 product's disclosed set verified, QA-clean and disclosed in
+    the image, the alt text and the copy, listing imagery is no longer company work. What
+    still blocks the listing's parity is reported truthfully against who can clear it:
+    HERO waits on a vision description (`image_vision`, closed in shadow), COMPETITIVE on a
+    blind review over observed benchmark galleries -- integration/data gated, never folded
+    into company work and never assumed passed."""
+    from brambleloop.publish import listing_asset
+
+    db = _db()
+    slug = next(s for s in _catalogue_slugs(MIN_LISTINGS_TO_OPEN)
+                if listing_asset._in_launch_scope(s))
+    rec = _disclosed_set(db, slug)
+    _certified(db, slug, {"granted": True, "gauge_standard": _GAUGE_STANDARD})
+    readiness = assess(db, phase="shadow")
+    photo = next(r for r in readiness.requirements if r.key == "listing_photography")
+    assert photo.evidence["with_disclosed_render"] == [slug], photo.evidence
+    assert photo.blocked_by == BLOCKED_INTEGRATION, (photo.blocked_by, photo.evidence)
+    assert photo.evidence["parity_company_work"] == {}, photo.evidence
+    waiting = photo.evidence["parity_waiting_on_gates"][slug]
+    assert set(waiting) == {"hero", "competitive_blind_review"}, waiting
+    assert "image_vision" in waiting["hero"]
+    assert "listing_photography" not in {r.key for r in readiness.buildable}
+
+    # The copy without its disclosure is company work again, and says which dimension.
+    _disclosed_set(db, slug, disclosing_copy=False)
+    again = next(r for r in assess(db, phase="shadow").requirements
+                 if r.key == "listing_photography")
+    assert again.blocked_by == BLOCKED_BUILD
+    assert any(x.startswith("lifestyle_quality") for x in
+               again.evidence["parity_company_work"][slug]), again.evidence
 
 
 def test_a_thin_catalogue_is_ours_to_fix():
@@ -319,7 +418,20 @@ def test_the_report_states_the_owner_actions_in_the_required_format():
     for field in ("*Why:*", "*Maximum cost:*", "*Minutes required:*",
                   "*Consequence of waiting:*", "*Blocks:*"):
         assert field in text, field
-    assert "Nothing. Every remaining requirement needs a person or an account." in text
+    # F-852 / D-FB-7: the stocked company still owes truthful imagery for the products no
+    # qualified renderer draws, so the report lists it as the company's own work rather than
+    # saying nothing is left (see the test above).
+    assert "truthful customer-ready listing imagery" in text
+    assert "Nothing. Every remaining requirement needs a person or an account." not in text
+
+    # With only person- and account-gated requirements left, the report says so in words.
+    from brambleloop.launch.readiness import ETSY_ACCOUNT, Readiness, Requirement
+
+    people_only = Readiness(requirements=[Requirement(
+        key="etsy_shop", description="an Etsy shop exists", ready=False,
+        blocked_by=BLOCKED_OWNER, owner_request=ETSY_ACCOUNT)])
+    assert "Nothing. Every remaining requirement needs a person or an account." in \
+        render(people_only)
 
 
 
