@@ -82,3 +82,44 @@ B, G (branches pushed; WIP snapshots in waves/wip/). Unstarted: C2, H, I, J.
 - 2026-10-04T16:15Z heartbeat: production `/api/verify` read-only — 12 checks, 0 failing [], ok=True. Handoff mode: no work started, nothing pushed to the production branch.
 - 2026-10-05T00:15Z heartbeat: production `/api/verify` read-only — 12 checks, 0 failing [], ok=True. Handoff mode: no work started, nothing pushed to the production branch.
 - 2026-10-05T08:15Z heartbeat: production `/api/verify` read-only — 12 checks, 0 failing [], ok=True. Handoff mode: no work started, nothing pushed to the production branch.
+
+## RESUME 2026-10-05 — Codex reconciliation + FB-2/FB-3 waves (integrator: claude/visual-investigation)
+Head at time of writing: c02b154 (pushed). Production unchanged at fcb982d; nothing pushed to
+claude/repository-setup-nc9x6o.
+
+Integrated since 85fdca0 (all pushed):
+- 219dfde Postgres migration evidence (`POSTGRES_MIGRATION_EVIDENCE.md`: fcb982d schema+data → head,
+  51/51 tables preserved, additive only; real-DB rehearsal remains a deploy gate).
+- 0f3f5d1 Codex FB verification follow-ups (cost basis in unit_economics/CFO, burn note, certify db).
+  Reports: `codex_reconciliation/codex_fb_verification.json` (15 items) and
+  `codex_reconciliation/build2_assist_reconciliation.json` (76 entries: 39 still-applicable,
+  24 fixed, 10 re-audit, 3 superseded). **C-78 was false**: Orders hardening 3081402 was never
+  merged although Build-2 certification claimed it; now ported by fb2-O.
+- fb2-R1 9c0e7db: Etsy fixtures satisfy the pre-create check legitimately.
+- fb2-I a8a8e16: D01, I01, I04, I05, I07, I10 + fixtures.
+- fb2-Q 089bf6c: G02 protected claim tiers, G05, G08, P04, P09 admission lock, P11 stale version refusal.
+- fb2-O 3b540fa: Orders/refund truth (Codex adversarial receipts 11/11), O06, O07, O08, P15.
+- fb2-H2 3dd0a23: disclosed deterministic renders for Launch-0 (D-FB-7); independent verifier;
+  structural_floor PASS only on verifier-PASS bound bytes. Report `waves/fb2_H2.json`.
+- fb2-R2 eaec0f5: pre-send refusal no longer parks a version; G-R2 fallback provenance; image
+  hash lookup fail-closed.
+- c02b154: 17 suites made visible to the harness (PASS→OK), path bootstraps, vacuity guards.
+
+Full suite on 38da162: 5,365 passing, 47 suites failing (16 harness-invisible only). Rerun of the
+failing set on f373dd8 → 28 genuinely red, grouped into FB-3 workers (branches claude/fb3-*,
+base e0ac882): **G** gauge-consistent generators/catalogue (cert_design, garment_design,
+lanes_capacity, preengineering, acceptance_gates, persistence, product_run, shadow,
+design_pipeline); **S** spend controls (spend_governance, spend_policy, funding); **V** visual/parity
+under D-FB-7 (LIFESTYLE_QUALITY for disclosed renders, disclosed frames in listing-set
+certificate, owned_photography/parity/model_photography/motif_fidelity/launch); **D** customer
+documents (deliverable_qa, products_adversarial coaster size, provenance_write_path,
+pdf_layout_bounds); **P** publish gates + bands + durable owner publication grant (swarm_runtime,
+cert_publish_gates, listing_parity_gate, double revalidation audit after R2).
+On reset: `git ls-remote origin 'claude/fb3-*'`; integrate pushed branches; re-dispatch only
+missing ones from their pushed heads.
+
+Open, not yet assigned: test_cert_claude_independence flaky (different test fails per run —
+find cause); gateway/images.generate(db=None) skips benchmark byte check; vacuity scanner strips
+loop roots named values/items/keys (false negatives); C-78 certification row must be corrected
+in the Build-2 certification record; heartbeat prompt targets production branch (owner decision).
+Launch-0 listings remain blocked on HERO (vision gate, owner) and COMPETITIVE (blind review, data).
