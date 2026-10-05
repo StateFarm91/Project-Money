@@ -168,6 +168,7 @@ def release(db, concepts: list, *, benchmark_key: str = "") -> dict:
         price = observed_price(db, concept.pod, benchmark_key=benchmark_key)
         certificate = certify(
             cir,
+            db=db,
             assets=[hero_for(cir, twin)],
             listing=listing_for(concept, cir, price["price_cad"]),
             calibration=calibration_from_db(db, cir),

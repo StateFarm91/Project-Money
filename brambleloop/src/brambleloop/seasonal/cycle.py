@@ -202,7 +202,7 @@ def run(db, *, today: date | None = None, gateway=None,
     certified = add("certify", "the full release chain, run rather than asserted")
     from ..gates.certificate import certify
 
-    certificate = certify(cir)
+    certificate = certify(cir, db=db)
     certified.state = RAN if certificate.granted else FAILED
     certified.evidence = {"granted": certificate.granted,
                           "stages_run": list(certificate.stages_run),

@@ -285,8 +285,13 @@ class Books:
         pl = self.profit_and_loss(since=since)
         opex = pl.operating_costs_cad
         customers = None if pl.sales_unmeasured else pl.customers
+        by_basis = {k: round(v, 4) for k, v in pl.operating_costs_by_basis.items() if v}
+        cost_basis = ("measured" if set(by_basis) <= {"measured"}
+                      else "unknown" if "unknown" in by_basis else "modelled")
         return {
             "operating_cost_cad": round(opex, 4),
+            "operating_cost_basis": cost_basis,
+            "operating_cost_by_basis": by_basis,
             "validated_patterns": products_validated,
             "listings_drafted": listings_drafted,
             "cost_per_validated_pattern_cad": (round(opex / products_validated, 4)
@@ -349,7 +354,11 @@ def cfo_challenge(pl: ProfitAndLoss, *, limits: list[SpendLimit] | None = None,
         out.append(Challenge(
             "concern", "burn",
             f"CA${pl.operating_costs_cad:.2f} of operating cost against UNMEASURED revenue. "
-            f"The cost is known; whether anything was earned against it is not.",
+            + ("The cost is measured; whether anything was earned against it is not."
+               if not pl.unobserved_operating_rows else
+               f"{pl.unobserved_operating_rows} cost row(s) are modelled or of unknown basis, "
+               "so even the cost is not fully observed; whether anything was earned against it "
+               "is not known either."),
             "keep cost-per-validated-pattern in every finance report"))
     elif pl.operating_costs_cad > 0 and pl.gross_sales_cad == 0:
         out.append(Challenge(

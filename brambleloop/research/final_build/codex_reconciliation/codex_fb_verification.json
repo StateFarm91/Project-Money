@@ -1,0 +1,206 @@
+[
+ {
+  "item": "1. B-OWNER-AUTH: store.activate accepted any non-empty launch_authorisation (f134a9a/910925c)",
+  "verdict": "VERIFIED",
+  "evidence": "Runtime path store.activate (pipeline.handle_store_activate) now resolves inputs.owner_activation_approval_id against a durable HMAC-sealed AuditLog grant (ops/activation_authority.validate) three times: after read-back/budget, at the effect boundary, and again after listing_costs.reserve. Grant binds action, slug, version, release, listing_id, CIR, certified payload (incl. taxonomy/properties), frames and files; 24h expiry; revocation row; seal keyed to BRAMBLELOOP_OPS_TOKEN (rotation invalidates). Independent worker reproduction (real Worker + FakeEtsy, LIMITED_PRODUCTION, PUBLISH_AUTHORISED=1, gates forced pass) shows magic string, forged AuditLog row with wrong-key seal, expired (+25h), revoked, and content-mismatched (CIR edited after approval) grants all refused with listing left 'draft'; positive control with a valid grant activates. Caveats: (a) EtsyClient.activate itself still accepts any non-empty string (integrations/etsy.py:1059); protection lives only in the single handler caller (only other caller etsy_probe passes empty). (b) Codex's own worker-level test test_activation_authority::test_actual_snapshot_and_worker_reject_magic_authority FAILS at HEAD because its fixture (test_etsy_readback_observe._published) is refused by f2ee028's pre-create revalidation (PDF_HASH_DRIFT / owner authority absent) - it passes only with the fixture's draft creation isolated. (c) Principal is the shared ops token, not an individual human.",
+  "reproduction_output": "magic_string [\"JobStatus.DONE\", false, \"draft\", [\"recorded valid Launch-0 owner activation approval required\"], \"\"]\nforged_row [\"JobStatus.DONE\", false, \"draft\", [\"owner activation approval invalid or credential rotated\"], \"\"]\nexpired [\"JobStatus.DONE\", false, \"draft\", [\"owner activation approval expired or future-dated\"], \"\"]\nrevoked [\"JobStatus.DONE\", false, \"draft\", [\"owner activation approval revoked\"], \"\"]\ncontent_mismatch [\"JobStatus.DONE\", false, \"draft\", [\"owner activation approval does not match current action/content\"], \"\"]\nvalid_positive_control [\"JobStatus.DONE\", true, \"active\", null, \"\"]",
+  "file_refs": [
+   "brambleloop/src/brambleloop/ops/activation_authority.py:89-113",
+   "brambleloop/src/brambleloop/runtime/pipeline.py:1671-1728",
+   "brambleloop/src/brambleloop/integrations/etsy.py:1059",
+   "brambleloop/tests/test_activation_authority.py:44",
+   "scratchpad/repro/b_auth.py"
+  ],
+  "next_action": "Optionally make EtsyClient.activate require a validated approval object rather than a string; fix the readback fixture so the worker-level authority test runs green without isolation."
+ },
+ {
+  "item": "2. G-R1 / G-CORPUS: certify ignored durable benchmark fingerprints (2684cf6)",
+  "verdict": "VERIFIED",
+  "evidence": "Reran the G review's exact synthetic reproduction at HEAD: record_fingerprint(db,'synthetic-review-source',text=pattern) -> dispose/reopen -> similarity_review escalates on wording; certify(cir,db=reopened) granted=false SIMILARITY_ESCALATED; pipeline.handle_certify (which now passes db=ctx.db, pipeline.py:590) returns granted=false, audits gate.blocked, persists no PatternVersion. Late-fingerprint case: handle_certify on empty corpus grants and persists certified=true; release_gates.originality_gate CHECKED/not blocking; record_fingerprint AFTER certification -> originality_gate REFUSED and for_publish blocks_release=true with SIMILARITY_ESCALATED. originality_gate is consumed by for_publish -> _release_gates, which store.publish, _revalidate_publish_effect and store.activate all call; test_originality_runtime 7/7 (incl. handler refuses with zero client calls beyond refusal()). Residual: certify(cir) with no db still grants with only a WARNING ORIGINALITY_DURABLE_EVIDENCE_UNCHECKED for unconsulted designs; callers creative/certification.py:169 and seasonal/cycle.py:205 still call without db (pre-engineering/cycle proof, not release persistence). Similarity remains a heuristic proxy.",
+  "reproduction_output": "A_stored_fp=1; A_similarity_review escalate=true dims=['wording']; A_certify_no_db granted=true (WARNING only); A_certify_db granted=false [SIMILARITY_ESCALATED]; A_handle_certify granted=false audit gate.blocked, pattern_version_persisted=false; B_handle_certify_granted=true persisted certified=true; B_gate_before blocks=false CHECKED; B_gate_after (fingerprint added after cert) blocks=true REFUSED SIMILARITY_ESCALATED; B_for_publish blocks_release=true originality_blocks=true",
+  "file_refs": [
+   "brambleloop/src/brambleloop/gates/certificate.py:246",
+   "brambleloop/src/brambleloop/gates/originality.py:753-790",
+   "brambleloop/src/brambleloop/runtime/pipeline.py:590",
+   "brambleloop/src/brambleloop/publish/release_gates.py:817-850",
+   "brambleloop/src/brambleloop/creative/certification.py:169",
+   "brambleloop/src/brambleloop/seasonal/cycle.py:205",
+   "scratchpad/repro/g_r1.py"
+  ],
+  "next_action": "None blocking. Consider passing db in creative/certification.py so tournament kills reflect the corpus."
+ },
+ {
+  "item": "3a. G-R2: concept_to_cir raw-geometry CIR lacks provenance -> PROVENANCE_MISSING",
+  "verdict": "PARTIAL",
+  "evidence": "concept_to_cir now calls prototype.source_provenance(c.slug, {...,'provenance': c.source_provenance}, c.source_brief, ...), but source_provenance returns None whenever the provenance string is empty ('raw geometry is not an approved design source', prototype.py:249), and the only runtime producer, handle_cir_draft's fallback (pipeline.py:489-497), builds Concept without source_provenance/source_brief. Reproduction: raw Concept -> concept_to_cir -> provenance None -> certify(db) errors [PROVENANCE_MISSING]. Fail-closed (no false PASS) but the G review's requested repair (stamp derived from actual approved concept inputs on the fallback path) was not done; any radar slug without an engineered/builder CIR still can never certify. Codex documents this as intentional.",
+  "reproduction_output": "G_R2_raw_provenance=null; G_R2_raw_certify=['PROVENANCE_MISSING'] (see g_r3.out)",
+  "file_refs": [
+   "brambleloop/src/brambleloop/runtime/pipeline.py:76-121",
+   "brambleloop/src/brambleloop/runtime/pipeline.py:489-497",
+   "brambleloop/src/brambleloop/creative/prototype.py:240-249"
+  ],
+  "next_action": "Decide (owner/Claude) whether the raw fallback is a product source at all; if yes, pass seed lineage/brief from the radar payload into Concept.source_provenance/source_brief; if no, remove/quarantine the fallback so it stops producing uncertifiable drafts."
+ },
+ {
+  "item": "3b. G-R3: brief-only benchmark lineage dropped (a4ad5ad/2b5ca01)",
+  "verdict": "VERIFIED",
+  "evidence": "Real intake -> persisted payload -> pipeline._draft_creative(brief=...) -> prototype.author(brief) -> handle_cir_compile -> queued gate.certify CIR carries benchmarks_consulted ['brief-only-source','original-source']. certify(db) without ledger -> DESIGN_LEDGER_MISSING; after recording a material ledger -> only ORIGINALITY_EVIDENCE_UNKNOWN remains (no wording fingerprint for those refs: still refused); after deleting the ledger rows -> DESIGN_LEDGER_MISSING again (ledger re-read at decision). Empty concept lineage + brief benchmarks -> provenance None -> PROVENANCE_MISSING (fail-closed). Caveat: Codex's tests/test_author_provenance.py::test_actual_intake_preserves_benchmark_lineage_and_brief FAILS at HEAD (line 75): ORIGIN repair (7fd49e8) injects source_context.coverage_origin=None, colliding with G2's exact-equality assertion; the remaining lineage assertions in that test therefore never execute in CI (verified separately here).",
+  "reproduction_output": "{\n \"payload_brief_benchmarks\": [\n  \"brief-only-source\",\n  \"original-source\"\n ],\n \"payload_source_context\": {\n  \"opaque\": \"unchanged\",\n  \"coverage_origin\": null\n },\n \"drafted\": true,\n \"queued_kind\": \"gate.certify\",\n \"cir_consulted\": [\n  \"brief-only-source\",\n  \"original-source\"\n ],\n \"certify_no_ledger\": [\n  false,\n  [\n   \"DESIGN_LEDGER_MISSING\",\n   \"ORIGINALITY_EVIDENCE_UNKNOWN\"\n  ]\n ],\n \"certify_with_ledger\": [\n  false,\n  [\n   \"ORIGINALITY_EVIDENCE_UNKNOWN\"\n  ]\n ],\n \"certify_after_ledger_removed\": [\n  false,\n  [\n   \"DESIGN_LEDGER_MISSING\",\n   \"ORIGINALITY_EVIDENCE_UNKNOWN\"\n  ]\n ],\n \"G_R2_raw_provenance\": null,\n \"G_R2_raw_certify\": [\n  \"PROVENANCE_MISSING\"\n ],\n \"empty_lineage_brief_only\": {\n  \"provenance\": null,\n  \"certify\": [\n   \"PROVENANCE_MISSING\"\n  ]\n }\n}",
+  "file_refs": [
+   "brambleloop/src/brambleloop/creative/prototype.py:240-279",
+   "brambleloop/src/brambleloop/runtime/pipeline.py:500-532",
+   "brambleloop/src/brambleloop/gates/originality.py:753-760",
+   "brambleloop/tests/test_author_provenance.py:75",
+   "brambleloop/src/brambleloop/creative/intake.py:550-590",
+   "scratchpad/repro/g_r3.py"
+  ],
+  "next_action": "Reconcile test_author_provenance.py:75 with the origin slice (assert opaque key preserved and coverage_origin explicitly None/withheld) so the test is green."
+ },
+ {
+  "item": "4. AB: chosen taxonomy/properties sent, read back, bound to approval; no TAXONOMY_PATTERNS=66 fallback on runtime path",
+  "verdict": "VERIFIED",
+  "evidence": "etsy_ops.certified_payload (the single builder used by store.publish pipeline.py:1210, pre-create revalidation :1372, store.activate :1641, approval snapshot activation_authority.py:55 and census etsy_ops.py:771) refuses unless category.publish_inputs status==CHOSEN with taxonomy_id and certified PASS, then overwrites payload.taxonomy_id and canonical properties. Properties written via set_listing_property (pipeline.py:1453-1457), read back via with_properties/getListingProperties, compared in read_back, census drift and activation_readiness; approval digest changes when properties change. Repro (fixture draft creation isolated, payload-equality part of revalidation kept): AB 4/4 pass; createDraftListing carried taxonomy 2114; remote taxonomy 2114; missing profile raises 'taxonomy UNKNOWN; default fallback prohibited'. grep: TAXONOMY_PATTERNS=66 survives only as ListingPayload dataclass default (integrations/etsy.py:318, always overwritten on runtime path), taxonomy read helpers' default args (etsy.py:817/876), the etsy_probe transport test (etsy_probe.py:312,931 - test drafts only) and test_cert_commerce synthetic Spy (taxonomy_id 66 as declared transport premise). No production taxonomy snapshot exists yet, so real publishes currently refuse UNKNOWN (correct). Caveat: tests/test_etsy_property_contract.py exits 1 at HEAD (fixture refused by f2ee028 'current owner publication authority absent').",
+  "reproduction_output": "PASS test_chosen_category_and_properties_reach_write_readback_and_approval\nPASS test_ignored_property_write_cannot_become_verified\nPASS test_missing_search_profile_refuses_instead_of_default66\nPASS test_missing_property_blocks_activation_and_census_detects_drift\ntaxonomy ids passed to create boundary: [2114, 2114, 2114]\npublished True remote taxonomy 2114\ncreate request sample [{'operation': 'createDraftListing', 'method': 'POST', 'path': '/v3/application/shops/12345/listings', 'content_type': 'application/x-www-form-urlencoded'}, {'operation': 'uploadListingFile', 'method': 'POST', 'path': '/v3/application/shops/12345/listings/700000001/files', 'content_type': 'multipart/form-data'}]",
+  "file_refs": [
+   "brambleloop/src/brambleloop/runtime/etsy_ops.py:317-375",
+   "brambleloop/src/brambleloop/runtime/pipeline.py:1453-1457",
+   "brambleloop/src/brambleloop/integrations/etsy.py:318",
+   "brambleloop/src/brambleloop/integrations/etsy_probe.py:312",
+   "brambleloop/tests/test_etsy_property_contract.py",
+   "scratchpad/repro/ab.py"
+  ],
+  "next_action": "Remove the 66 dataclass default (make taxonomy_id required) as defence-in-depth; repair the fixture so test_etsy_property_contract is green unaided."
+ },
+ {
+  "item": "5. C2: Launch-0 gauge redesign + strict gauge refusal (b056306/6747ddd/d164acb, fb1_C_strict.patch)",
+  "verdict": "VERIFIED",
+  "evidence": "Strict refusal active: certificate.certify extends gauge_findings (ERROR GAUGE_OUTSIDE_DECLARED_YARN_BAND) and primitive errors, stamps GAUGE_STANDARD; pdf.py 'Swatch before you buy' replaced; test_gates strict tests present (content of fb1_C_strict.patch present; git apply -R fails only on context drift). Old-vs-new build of every Launch-0 CIR (c0a8f39 extracted via git archive vs HEAD): yarn weights UNCHANGED (worsted cotton baskets, worsted acrylic Cloudline, dk cotton coasters) - gauges re-derived via creative.prototype.gauge_for (worsted 12.5/13.8, dk 14.5/16.0) and counts recomputed (Cloudline foundation 126->99, rows 88->70; basket rows 32/51/70->22/35/48; coaster rows 10->7). No yarn relabelling (D-FB-6 respected). All 5 Launch-0 CIRs compile and certify (old ones only certified because the gauge check was advisory). Dimensions: baskets 15.3x8.7 / 19.9x15.9 / 24.4x23.2 vs labels 15x9 / 20x16 / 25x23 (large basket 0.6 cm under label); Cloudline 78.8x97.2 -> 79.2x97.1 (label updated; adds 3 SC cream border rows each end - a visible design change); coaster 9.6 -> 9.2 cm across (label edited down; round granularity ~1.25 cm at DK band makes 9.6 unreachable). Reserve harvest-table-runner (not in LAUNCH0_SLUGS) and legacy catalogue now refuse. Hooks changed (basket 4.0->5.0, coaster 3.5->5.0); basket stiffness at band gauge physically unverified. Gauge stated in a non-sc stitch still only WARNs (certificate.py:435, pre-existing, affects garments not Launch-0). test_launch0_gauge 5/5; test_products 16/16, test_geometry 44/44, test_texture 25/25, test_gates 44/44, test_certification 12/12 at HEAD.",
+  "reproduction_output": "=== /tmp/claude-0/-home-user-Project-Money/0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/old/brambleloop/src\n{\"nursery-nesting-baskets/basket_small\": {\"in_launch0\": true,\"label\": \"15 cm across, 9 cm tall\",\"version\": \"1.0.0\",\"gauge\": [18,20,4.0],\"yarn\": [[\"worsted\",\"worsted cotton\"]],\"twin_cm\": [14.9,9.0],\"compiled\": true,\"gauge_findings\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 32},\n\"nursery-nesting-baskets/basket_medium\": {\"in_launch0\": true,\"label\": \"20 cm across, 16 cm tall\",\"version\": \"1.0.0\",\"gauge\": [18,20,4.0],\"yarn\": [[\"worsted\",\"worsted cotton\"]],\"twin_cm\": [20.2,16.0],\"compiled\": true,\"gauge_findings\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 51},\n\"nursery-nesting-baskets/basket_large\": {\"in_launch0\": true,\"label\": \"25 cm across, 23 cm tall\",\"version\": \"1.0.0\",\"gauge\": [18,20,4.0],\"yarn\": [[\"worsted\",\"worsted cotton\"]],\"twin_cm\": [25.5,23.0],\"compiled\": true,\"gauge_findings\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 70},\n\"cloudline-baby-blanket/cloudline_blanket\": {\"in_launch0\": true,\"label\": \"78.8 x 97.2 cm\",\"version\": \"1.0.0\",\"gauge\": [16,18,5.0],\"yarn\": [[\"worsted\",\"worsted acrylic\"]],\"twin_cm\": [78.8,97.2],\"compiled\": true,\"gauge_findings\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"granted\": true,\"errors\": [],\"found\": 126,\"rows\": 88},\n\"hexagon-coaster-set/hexagon_coasters\": {\"in_launch0\": true,\"label\": \"4 pieces, 9.6 cm across\",\"version\": \"1.0.0\",\"gauge\": [20,22,3.5],\"yarn\": [[\"dk\",\"dk cotton\"]],\"twin_cm\": [9.6,9.6],\"compiled\": true,\"gauge_findings\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 10},\n\"harvest-table-runner/harvest_runner\": {\"in_launch0\": false,\"label\": \"30 x 124 cm\",\"version\": \"1.0.0\",\"gauge\": [16,18,5.0],\"yarn\": [[\"worsted\",\"worsted acrylic\"]],\"twin_cm\": [30.0,123.9],\"compiled\": true,\"gauge_findings\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"granted\": true,\"errors\": [],\"found\": 48,\"rows\": 112}}\n=== /home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/src\n{\"nursery-nesting-baskets/basket_small\": {\"in_launch0\": true,\"label\": \"15 cm across, 9 cm tall\",\"version\": \"1.1.0\",\"gauge\": [12.5,13.8,5.0],\"yarn\": [[\"worsted\",\"worsted cotton\"]],\"twin_cm\": [15.3,8.7],\"compiled\": true,\"gauge_findings\": [],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 22},\n\"nursery-nesting-baskets/basket_medium\": {\"in_launch0\": true,\"label\": \"20 cm across, 16 cm tall\",\"version\": \"1.1.0\",\"gauge\": [12.5,13.8,5.0],\"yarn\": [[\"worsted\",\"worsted cotton\"]],\"twin_cm\": [19.9,15.9],\"compiled\": true,\"gauge_findings\": [],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 35},\n\"nursery-nesting-baskets/basket_large\": {\"in_launch0\": true,\"label\": \"25 cm across, 23 cm tall\",\"version\": \"1.1.0\",\"gauge\": [12.5,13.8,5.0],\"yarn\": [[\"worsted\",\"worsted cotton\"]],\"twin_cm\": [24.4,23.2],\"compiled\": true,\"gauge_findings\": [],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 48},\n\"cloudline-baby-blanket/cloudline_blanket\": {\"in_launch0\": true,\"label\": \"79.2 x 97.1 cm\",\"version\": \"1.1.0\",\"gauge\": [12.5,13.8,5.0],\"yarn\": [[\"worsted\",\"worsted acrylic\"]],\"twin_cm\": [79.2,97.1],\"compiled\": true,\"gauge_findings\": [],\"granted\": true,\"errors\": [],\"found\": 99,\"rows\": 70},\n\"hexagon-coaster-set/hexagon_coasters\": {\"in_launch0\": true,\"label\": \"4 pieces, 9.2 cm across\",\"version\": \"1.1.0\",\"gauge\": [14.5,16.0,5.0],\"yarn\": [[\"dk\",\"dk cotton\"]],\"twin_cm\": [9.2,9.2],\"compiled\": true,\"gauge_findings\": [],\"granted\": true,\"errors\": [],\"found\": 0,\"rows\": 7},\n\"harvest-table-runner/harvest_runner\": {\"in_launch0\": false,\"label\": \"30 x 124 cm\",\"version\": \"1.0.0\",\"gauge\": [16,18,5.0],\"yarn\": [[\"worsted\",\"worsted acrylic\"]],\"twin_cm\": [30.0,123.9],\"compiled\": true,\"gauge_findings\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"granted\": false,\"errors\": [\"GAUGE_OUTSIDE_DECLARED_YARN_BAND\"],\"found\": 48,\"rows\": 112}}",
+  "file_refs": [
+   "brambleloop/src/brambleloop/gates/certificate.py:286-305,409-452",
+   "brambleloop/src/brambleloop/products/vessels.py:27-31",
+   "brambleloop/src/brambleloop/products/builder.py:77-97",
+   "brambleloop/src/brambleloop/products/launch0.py:357-431",
+   "brambleloop/research/final_build/waves/fb1_C_strict.patch",
+   "scratchpad/repro/c2.py"
+  ],
+  "next_action": "Owner-facing note: coaster is now 9.2 cm and Cloudline gained a border; large basket is 24.4 cm vs '25 cm' label - consider label '24 cm' or tolerance statement. Physical calibration still required for the basket's structure claim."
+ },
+ {
+  "item": "6. DRAFT-CRASH / draft durability (081c47e, f2ee028)",
+  "verdict": "VERIFIED",
+  "evidence": "draft_intent.claim commits a unique slug@version DraftIntent (PK) BEFORE client.publish (pipeline.py:1420); EtsyClient.publish runs before_create (pre-create revalidation of authority/phase/gates/release/payload/PDF hashes/image bytes) then create_draft, then on_created checkpoints remote ID + Listing.etsy_listing_id atomically before any upload; any exception -> uncertain() -> RECONCILE_REQUIRED + P1 halting incident. Independent repro: claim, dispose engine (simulated death), new connection -> second claim refused for same and for changed release (ReconciliationRequired) with a halting P1 incident; intent stays CREATING. test_draft_creation_durability 6/6 at HEAD (incl. child-process os._exit, concurrent SQLite connections). No external exactly-once claim; PostgreSQL unexercised. See separate item 12 for the availability side-effect.",
+  "reproduction_output": "{\n \"same\": \"refused: DRAFT_CREATE_RECONCILIATION: existing intent; never blindly create again\",\n \"new_release\": \"refused: DRAFT_CREATE_RECONCILIATION: existing intent; never blindly create again\",\n \"incidents\": [\n  [\n   \"draft-create:405a89b\",\n   \"P1\",\n   true\n  ]\n ],\n \"intent_state\": \"CREATING\",\n \"other_version_claim\": \"allowed\",\n \"uncertain_state\": \"RECONCILE_REQUIRED\"\n}",
+  "file_refs": [
+   "brambleloop/src/brambleloop/publish/draft_intent.py:56-97",
+   "brambleloop/src/brambleloop/runtime/pipeline.py:1413-1436",
+   "brambleloop/src/brambleloop/integrations/etsy.py:1088-1116",
+   "scratchpad/repro/draft.py"
+  ],
+  "next_action": "Exercise on PostgreSQL before production; add an owner-authorised reconciliation path (see item 12)."
+ },
+ {
+  "item": "7. H: product-redraw refusal at image export (e6b6d47/443b783)",
+  "verdict": "VERIFIED",
+  "evidence": "owned_photography.make and model_photography.make return product_authority.redraw_refusal before any provider call (repro with gateway.images.generate patched to raise: 0 provider calls). handle_model_photography / handle_owned_photography (release.py:4472/6930) reach only these entry points. listing_asset.usable, owned/model usable_asset and _passing_frame require structural_floor PASS; parity.assess PRODUCT_TRUTH uses structural_floor and is unjudged/FAIL otherwise; store.publish/_revalidate_publish_effect/store.activate all require parity blocks_release False. structural_floor has NO code path returning PASS (only FAIL/UNKNOWN), so legacy usable flags are inert and no generative product redraw can reach a listing. Other images.generate callers (visual/tournament, reference_pack, portrait_repair, provider_trial, image_bench) produce model/identity/trial images, not listing product frames. Consequence: H-CONSTRUCTION remains an OPEN launch blocker - every listing, including deterministic twin renders, is blocked on PRODUCT_TRUTH UNKNOWN until a qualified construction producer exists. test_final_visual_authority 10/10.",
+  "reproduction_output": "{\n \"owned_make\": {\n  \"made\": false,\n  \"generated\": false,\n  \"slug\": \"cloudline-baby-blanket\",\n  \"usable_as_listing_asset\": false,\n  \"waiting_on\": \"qualified_protected_product_renderer\",\n  \"structural_truth\": {\n   \"status\": \"UNKNOWN\"\n  },\n  \"why\": \"F-852: generative product redraw is prohibited; authoritative construction must be rendered and protected before presentation\"\n },\n \"model_make\": {\n  \"made\": false,\n  \"generated\": false,\n  \"slug\": \"cloudline-baby-blanket\",\n  \"usable_as_listing_asset\": false,\n  \"waiting_on\": \"qualified_protected_product_renderer\",\n  \"structural_truth\": {\n   \"status\": \"UNKNOWN\"\n  },\n  \"why\": \"F-852: generative product redraw is prohibited; authoritative construction must be rendered and protected before presentation\"\n },\n \"provider_calls\": 0,\n \"legacy_usable_flag_now\": false,\n \"structural_floor_legacy\": \"UNKNOWN\",\n \"structural_floor_can_return_PASS\": false\n}",
+  "file_refs": [
+   "brambleloop/src/brambleloop/visual/product_authority.py:9-46",
+   "brambleloop/src/brambleloop/publish/owned_photography.py:250",
+   "brambleloop/src/brambleloop/publish/model_photography.py:239",
+   "brambleloop/src/brambleloop/visual/parity.py:144-151",
+   "brambleloop/src/brambleloop/publish/listing_asset.py:77-84",
+   "scratchpad/repro/h.py"
+  ],
+  "next_action": "Launch blocker stays open: needs a qualified protected whole-product renderer (Visual V2 frozen); legacy parity/owned-photography tests that assumed V1 redraw remain to be adjudicated."
+ },
+ {
+  "item": "8. FIN-COST-BASIS / FIN-PERIOD: modelled fees never reported as measured cost or cash (d12b342, 0cd7c9e)",
+  "verdict": "PARTIAL",
+  "evidence": "Core fixed: listing_costs.reserve writes an immutable 'modelled' etsy_listing_fee exposure; ingest_actual writes measured LedgerEntry + event-dated budget-mirror CostEntry (excluded from Books only by exact ledger identity); Books.cash_cad returns None unless all_observed; to_dict carries operating_costs_by_basis, unobserved_operating_rows/fee_rows, profit_basis, cash_reading UNKNOWN. The FINANCE_INDEPENDENT_REVIEW counterexamples (old period erased by later fee; today's actual fee escaping the daily ceiling; +1/-1 unknown fees masquerading as observed) are encoded and PASS at HEAD (test_operating_cost_basis 8/8 with the readback fixture's draft creation isolated; test_cost_consumer_basis 3/3). Residual labelling gaps: Books.unit_economics returns 'operating_cost_cad' with no basis (books.py:289) and is served by /api/finance and the finance.reconciled audit; cfo_challenge states 'The cost is known' over operating_costs_cad that includes modelled listing exposure (books.py:352); /api/finance docstring 'Every figure observed' (app/main.py:578). Legacy pre-mirror ledger backfill unresolved (Codex-acknowledged). test_operating_cost_basis exits 1 unaided at HEAD (fixture refused by f2ee028).",
+  "reproduction_output": "PASS test_operating_cost_basis test_budget_ceiling_unchanged_and_unobserved_offsets_cannot_fake_observation\nPASS test_operating_cost_basis test_concurrent_sqlite_reservation_same_listing_has_one_row\nPASS test_operating_cost_basis test_inactive_activation_retains_only_modelled_exposure\nPASS test_operating_cost_basis test_later_renewal_cannot_rewrite_old_period_or_escape_today_budget\nPASS test_operating_cost_basis test_reservation_retries_restart_and_reconciliation_do_not_doublecount\nPASS test_operating_cost_basis test_revoke_or_mutate_during_reservation_refuses_external_effect\nPASS test_operating_cost_basis test_unknown_fee_offsets_remain_unobserved\nPASS test_operating_cost_basis test_unknown_legacy_and_assumed_provider_costs_cannot_be_cash\nPASS test_activation_authority test_actual_snapshot_and_worker_reject_magic_authority\nPASS test_activation_authority test_authority_lifecycle_and_adversarial_mutations",
+  "file_refs": [
+   "brambleloop/src/brambleloop/finance/listing_costs.py",
+   "brambleloop/src/brambleloop/finance/books.py:136-147,223-256,289,352",
+   "brambleloop/src/brambleloop/app/main.py:578",
+   "brambleloop/tests/test_operating_cost_basis.py:131-163",
+   "scratchpad/repro/fin.py"
+  ],
+  "next_action": "Label unit_economics operating cost with its basis summary and change the CFO 'cost is known' sentence to name modelled/unknown shares."
+ },
+ {
+  "item": "9. Learn skeleton (I): routes authenticated; customer-data leak check",
+  "verdict": "VERIFIED",
+  "evidence": "New routes: PUT /api/learn/lessons/{slug}, GET /api/learn/queue (ops editor token), GET /api/learn/lessons/{slug} and POST .../review (distinct reviewer token+identity, must differ from editor token), GET /learn/{slug} public read of an approved exact revision only (lesson content, no customer data), and /api/owner/activation/{preview,approve,{id}/revoke} (ops token). Repro: with no token configured every protected route 503; with token configured, unauthenticated or wrong token 401/403, reviewer routes 503 without distinct reviewer config even when the editor token is supplied; public /learn/a 404 without an approved lesson. No unauthenticated write route added. tests/test_customer_data_auth.py 6/6 at HEAD (including 'no other GET route returns customer fields without the credential'). learn.scan cadence hourly (worker.py:304) on agent 'learn' with CA$0 ceiling.",
+  "reproduction_output": "{\n \"no_token\": {\n  \"GET /api/learn/queue\": 503,\n  \"PUT /api/learn/lessons/a\": 503,\n  \"PUT wrong token\": 503,\n  \"GET /api/learn/lessons/a\": 503,\n  \"POST review\": 503,\n  \"POST review with editor token\": 503,\n  \"GET /learn/a public\": 404,\n  \"POST activation preview\": 503,\n  \"POST activation approve\": 503,\n  \"POST activation revoke\": 503\n },\n \"token_configured\": {\n  \"GET /api/learn/queue\": 401,\n  \"PUT /api/learn/lessons/a\": 401,\n  \"PUT wrong token\": 401,\n  \"GET /api/learn/lessons/a\": 503,\n  \"POST review\": 503,\n  \"POST review with editor token\": 503,\n  \"GET /learn/a public\": 404,\n  \"POST activation preview\": 403,\n  \"POST activation approve\": 403,\n  \"POST activation revoke\": 403\n }\n} | test_customer_data_auth: 6/6 passed in 72s",
+  "file_refs": [
+   "brambleloop/src/brambleloop/learn/api.py",
+   "brambleloop/src/brambleloop/app/activation_authority_api.py",
+   "brambleloop/src/brambleloop/app/main.py:46-51",
+   "brambleloop/tests/test_customer_data_auth.py",
+   "scratchpad/repro/routes.py"
+  ],
+  "next_action": "None for auth. Curriculum/public lesson content remains absent (Codex-acknowledged)."
+ },
+ {
+  "item": "10. Codex ledger entries in 'active worker' or 'OPEN' state - current truth",
+  "verdict": "PARTIAL",
+  "evidence": "DEFECT_LEDGER.json (evaluated_head f964758) is stale for two entries: G-AUTHOR-LINEAGE 'active worker' with no repair_commit - actually integrated (2b5ca01/a4ad5ad) and runtime-verified here (item 3b), but its test is red at HEAD; DRAFT-CRASH 'active worker' - actually integrated (081c47e/0975303/f2ee028), 6/6 tests pass (item 6). H-CONSTRUCTION 'OPEN launch blocker' - TRUE: structural_floor can never return PASS, so no listing can publish. DEPS-LOCK 'OPEN verification blocker' - still OPEN/UNKNOWN: this verification ran on the repo venv (Python 3.11), not a locked full-suite run; no locked full-suite proof seen. FIN-COST-BASIS notes 'dashboard path pending' - partially (item 8).",
+  "reproduction_output": "ledger states: G-AUTHOR-LINEAGE=active worker, DRAFT-CRASH=active worker, H-CONSTRUCTION=OPEN launch blocker, DEPS-LOCK=OPEN verification blocker; see items 3b/6/7 for runtime results",
+  "file_refs": [
+   "brambleloop/research/final_build/codex/DEFECT_LEDGER.json"
+  ],
+  "next_action": "Update ledger: G-AUTHOR-LINEAGE and DRAFT-CRASH -> integrated (with red-test caveats); keep H-CONSTRUCTION and DEPS-LOCK open."
+ },
+ {
+  "item": "11. SCAN: Codex-added focused tests are red at HEAD (ec2b250 == HEAD for src/tests)",
+  "verdict": "REGRESSION",
+  "evidence": "f2ee028 (pre-create revalidation inside EtsyClient.publish) was committed after the B/AB/FIN tests were last green, and the shared fixture tests/test_etsy_readback_observe._publish never satisfies it (no assets.built PDF hash record, no BRAMBLELOOP_PUBLISH_AUTHORISED during publish). At HEAD: test_etsy_readback_observe 16 FAIL (all publish/activation/census tests: PUBLISH_EXECUTION_REFUSED: current owner publication authority absent / PDF_HASH_DRIFT / gate UNKNOWN); test_activation_authority exit 1 (1/2); test_etsy_property_contract exit 1; test_operating_cost_basis exit 1 (2 pass then crash); test_author_provenance 1 FAIL (coverage_origin None vs G2 equality). With only the fixture's draft creation isolated, all B/AB/FIN tests pass (items 1,4,8). Direction is fail-closed (product gate stricter), but the activation, read-back, census and property-contract evidence is not exercised by the suite as committed, and run_tests.sh will report these suites failing.",
+  "reproduction_output": "test_etsy_readback_observe: FAIL test_publish_sends_the_certified_image_bytes... PermanentError('PUBLISH_EXECUTION_REFUSED: current owner publication authority absent') ... FAIL test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back PermanentError('PUBLISH_EXECUTION_REFUSED: PDF_HASH_DRIFT: no assets.built hash is on record ...') [16 FAIL]; test_activation_authority EXIT 1; test_etsy_property_contract EXIT 1; test_operating_cost_basis EXIT 1; test_author_provenance FAILED (failures=1) AssertionError: {'opaque': 'unchanged', 'coverage_origin': None} != {'opaque': 'unchanged'}",
+  "file_refs": [
+   "brambleloop/tests/test_etsy_readback_observe.py:130-146",
+   "brambleloop/src/brambleloop/runtime/pipeline.py:1340-1392",
+   "brambleloop/tests/test_author_provenance.py:75"
+  ],
+  "next_action": "Repair the readback fixture to record assets.built hashes and set publish authority/phase so the real pre-create revalidation passes (do not stub it); fix test_author_provenance:75; rerun."
+ },
+ {
+  "item": "12. SCAN: draft-intent parks a product version permanently on a provable pre-request refusal",
+  "verdict": "REGRESSION",
+  "evidence": "claim() is committed before before_create revalidation; when revalidation raises (before create_draft is ever called, so the remote outcome is known: nothing was sent) the BaseException handler calls uncertain() -> RECONCILE_REQUIRED + P1 halting incident, and any retry is refused with DRAFT_CREATE_RECONCILIATION. There is no reconciliation/reset API (Codex-acknowledged 'Even pre-request errors can conservatively park an attempt'). Reproduction: publish with owner authority absent -> 0 createDraftListing requests, intent RECONCILE_REQUIRED, halting incident open; condition cleared and retry -> ReconciliationRequired, still 0 creates. A transient gate/authority flip at the boundary therefore bricks slug@version until DB surgery or a version bump. Fail-closed (no duplicate risk) but an availability regression versus c0a8f39.",
+  "reproduction_output": "{\n \"first\": \"PermanentError('PUBLISH_EXECUTION_REFUSED: current owner publication authority absent')\",\n \"remote_creates_after_first\": 0,\n \"intent\": [\n  [\n   \"RECONCILE_REQUIRED\",\n   null\n  ]\n ],\n \"halting_incidents\": [\n  [\n   \"draft-create:cf3bf5a0a\",\n   true\n  ]\n ],\n \"retry\": \"ReconciliationRequired('DRAFT_CREATE_RECONCILIATION: existing intent; never blindly create again')\",\n \"remote_creates_total\": 0\n}",
+  "file_refs": [
+   "brambleloop/src/brambleloop/runtime/pipeline.py:1420-1436",
+   "brambleloop/src/brambleloop/publish/draft_intent.py:56-97",
+   "brambleloop/src/brambleloop/integrations/etsy.py:1109-1111"
+  ],
+  "next_action": "Distinguish 'refused before request' (mark intent ABANDONED_PRE_REQUEST and release the key) from 'unknown after request'; or run revalidation before claim and again inside before_create with a pre-request-safe abort; add an owner-authorised reconcile path."
+ },
+ {
+  "item": "13. SCAN: production-affecting configuration in the Codex diff",
+  "verdict": "UNKNOWN",
+  "evidence": "New cadences start on deploy: etsy_credential_health daily (live getMe; refreshes and persists a rotated Etsy token, runs in any phase incl. SHADOW when a credential is stored) worker.py:617; etsy_shop_snapshot and etsy_listing_census daily live reads worker.py:618-619; etsy_taxonomy daily (behind etsy_api gate) worker.py:363; learn_gap_scan hourly worker.py:304. DOC_VERSION 2->3 (certificate.py:42) forces re-certification/rebuild of every product on deploy. Strict gauge makes every non-Launch-0 catalogue product non-certifiable; H makes every listing PRODUCT_TRUTH UNKNOWN (no publication possible). New tables only (create_all; no column changes to existing tables). Several of these originate from Claude's fb1-B branch (449ce60, not in c0a8f39) carried through the Codex integration. None are threshold weakenings, but they change live behaviour and must be deliberate at deploy.",
+  "reproduction_output": "static: git diff c0a8f39 ec2b250 -- brambleloop/src/brambleloop/runtime/worker.py gates/certificate.py",
+  "file_refs": [
+   "brambleloop/src/brambleloop/runtime/worker.py:304,363,617-619",
+   "brambleloop/src/brambleloop/gates/certificate.py:42",
+   "brambleloop/src/brambleloop/runtime/etsy_ops.py:563-600",
+   "brambleloop/src/brambleloop/core/db.py:109-110"
+  ],
+  "next_action": "Owner/integrator to confirm the live Etsy read cadences and token-rotation job are intended before deploy."
+ },
+ {
+  "item": "14. SCAN: weakened thresholds, deleted/skipped tests, network calls, secrets, UNKNOWN->pass fallbacks",
+  "verdict": "VERIFIED",
+  "evidence": "No removed/relaxed numeric thresholds in src diff (only new constants; SMALL_DIMENSION_PCT, WORDING_MATERIAL etc. are new). No test files deleted; no skip/xfail added. Modified-test assertion changes reviewed: test_money_truth expects 'unknown' not 'measured' (stricter, matches basis fix); test_etsy pins order through _publish_guarded (equivalent); test_cert_parity_copy derives version instead of hard-coded 1.0.0; test_cert_commerce isolates transport with a declared synthetic taxonomy 66 Spy and image Spy (test-only); test_dashboard_spend patches build2.closure.matrix to UNKNOWN (speed; hides closure performance). No new outbound network code (only urllib.parse); no secrets/literal tokens in src. Fail-open fallbacks found: gateway/images.py:755 benchmark byte-hash lookup failure -> hashes=None (path checks still run; renamed benchmark image copies then undetected); runtime/etsy_ops.py:827 census property read failure falls back to census row (drift may be misreported, not a publish gate). Pre-existing: certificate.py:435 non-sc gauge -> WARNING. teardown/licence.conservative applies a private-research reading when terms are unrecorded (labelled 'unstated', never permits publishing uses).",
+  "reproduction_output": "grep of git diff -U0 c0a8f39 ec2b250 -- brambleloop/src (saved scratchpad/codex_src.diff): no '-' threshold lines except seo.py 'if sizes > 1' (title builder refactor) and spend_report drift filter adding 'actual_cad is not None' with a new purposes_recorded view",
+  "file_refs": [
+   "brambleloop/src/brambleloop/gateway/images.py:748-758",
+   "brambleloop/src/brambleloop/runtime/etsy_ops.py:822-831",
+   "brambleloop/tests/test_dashboard_spend.py",
+   "brambleloop/tests/test_cert_commerce.py",
+   "brambleloop/src/brambleloop/gates/certificate.py:435"
+  ],
+  "next_action": "Make the images.py hash-lookup failure refuse when reference_urls are present and db is available."
+ }
+]

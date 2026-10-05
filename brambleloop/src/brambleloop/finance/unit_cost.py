@@ -154,9 +154,14 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
             round(float(contribution) / total_cost, 3) if total_cost else None),
         "contribution_cad": round(float(contribution), 2),
         "burning": bool(total_cost > 0 and float(contribution) <= 0),
-        "note": (f"CA${total_cost:.2f} recorded operating exposure in {days} days; "
-                 f"CA${float(contribution):.2f} lifetime ledger contribution. Ratios use "
-                 "recorded amounts and are not proof of observed charges or cash."),
+        "note": ((f"CA${total_cost:.2f} recorded operating exposure in {days} days; "
+                  f"CA${float(contribution):.2f} lifetime ledger contribution. Ratios use "
+                  "recorded amounts and are not proof of observed charges or cash."
+                  + (" A six-figure store that burns more than it earns is failure (#31), and "
+                     "the comfortable version of that failure is every number rising while "
+                     "nobody divides." if total_cost > 0 and float(contribution) <= 0 else ""))
+                 if total_cost else
+                 "no operating cost recorded in this window, so neither ratio is defined"),
     }
 
 

@@ -575,7 +575,7 @@ def api_catalogue() -> dict:
 
 @app.get("/api/finance")
 def api_finance() -> dict:
-    """The books, the CFO's view and where CA$100K stands. Every figure observed."""
+    """The books, the CFO's view and where CA$100K stands. Each figure carries its basis (measured / modelled / unknown); nothing unobserved is presented as observed."""
     from ..finance.books import Books, cfo_challenge, trajectory
     from ..finance.spend_policy import INFRA_CEILING_CAD, INFRA_MONTHLY_CAD
 
