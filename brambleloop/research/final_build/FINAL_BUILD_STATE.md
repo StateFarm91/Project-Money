@@ -124,3 +124,20 @@ loop roots named values/items/keys (false negatives); C-78 certification row mus
 in the Build-2 certification record; heartbeat prompt targets production branch (owner decision).
 Launch-0 listings remain blocked on HERO (vision gate, owner) and COMPETITIVE (blind review, data).
 - 2026-10-05T16:15Z heartbeat: production `/api/verify` read-only — 12 checks, 0 failing, ok=True. Final Build work continues on claude/visual-investigation; nothing pushed to the production branch.
+
+## Progress 2026-10-05 ~19:00Z
+Integrated & pushed after c02b154: 9a5a5a7 (independence test stall-based wait), a387d4a (image
+byte check without db), fb3-V fa5ff94 (D-FB-9 disclosed-render presentation standard; one
+certified upload path; V1 tests assert F-852 refusal), fb3-S 03673d2 (spend tests were
+calendar-bound; new regression: modelled/unknown/unbilled spend counts against ceilings), fb3-D
+582c1d2 (PDF lesson URL at brand minimum; stale pins re-derived), c5b387f (Launch-0 size labels
+gated; large basket 25 -> 24 cm), fb3-P 5e00905 (bands for 5 job types; durable owner
+publication grant D-FB-10; revalidation audit stages). Focused suites of every merged branch green.
+Outstanding: fb3-G (gauge-consistent generators/catalogue) — then full lock-matched suite,
+re-aggregate closure matrix, BUILD_STATE, RC freeze decision.
+
+OWNER ACTION (batched, not yet requested — only needed at the live-publish gate): per release,
+set BRAMBLELOOP_OPS_TOKEN (>=24 chars) and BRAMBLELOOP_PUBLISH_AUTHORISED=1 in the host env,
+POST /api/owner/publication/preview then /approve (expected_digest from preview). Cost CA$0,
+~5 min/release, grant valid 24 h. Without it every store.publish refuses before any Etsy request.
+Owner decision recorded: catalogue_depth needs 8 listable products; Launch-0 has 5 slugs.

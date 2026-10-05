@@ -1393,3 +1393,17 @@ gate closed — owner) and COMPETITIVE needs a blind review over observed benchm
 Open for owner decision (recorded, not changed): launch readiness `catalogue_depth` requires 8
 listable products (MIN_LISTINGS_TO_OPEN) while Launch-0 has 5 renderable slugs across 3 products;
 the threshold was not lowered.
+
+## D-FB-10 (2026-10-05) — Owner publication authority is a durable, sealed, scoped grant
+
+Before FB3-P the pre-create publish check read owner authority only from the environment flag
+`BRAMBLELOOP_PUBLISH_AUTHORISED=1`: no record of who granted it, for what, or until when. Now
+(`ops/publication_authority.py`, integrated 5e00905) a store.publish needs an owner grant that is
+HMAC-sealed under `BRAMBLELOOP_OPS_TOKEN`, bound to slug@version, the certified release hash, a
+CIR digest and the exact listing fields to be sent, expires after 24 h, is revocable, and is
+audited (approval and revocation under `owner:ops-token`). Both revalidations (pre-claim and
+before-create) must resolve the same valid grant; each audit row carries its stage, grant id and
+content digest. The environment flag survives only as a global kill-switch that can deny, never
+grant. Owner endpoints `/api/owner/publication/{preview,approve,{id}/revoke}` never contact Etsy.
+Activation keeps its own separate grant (`activation_authority`). This mirrors the protected-action
+rule: a consequential external effect needs current, specific, recorded owner authority.
