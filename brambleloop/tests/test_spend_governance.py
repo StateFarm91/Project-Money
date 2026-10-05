@@ -199,11 +199,18 @@ def test_a_batch_checks_each_call_against_what_the_batch_has_already_spent():
     write one row per run rather than one per call: `intel.vision` judged about twenty-one
     images behind a single ledger row on 2026-09-24. So every call after the first was
     checked against the month as it stood before the loop began, and a guard whose whole
-    purpose is to refuse before the call was refusing only the first call of each batch."""
+    purpose is to refuse before the call was refusing only the first call of each batch.
+
+    Read at the wall clock because the CA$99 row is written through `spend_report.record`,
+    which stamps `utcnow()`. Reading it at the frozen `NOW` (September) went red on
+    2026-10-01 with no code change: the gate correctly summed September and the row was in
+    October. The ceiling was never escaping -- the fixture was asking about the wrong month.
+    """
     from brambleloop.gateway import anthropic as gw
 
     db = _db()
     spend_report.record(db, agent="market_radar", amount_cad=99.0, purpose="p")
+    NOW = _real_now()  # noqa: N806 - same clock as the row above
 
     first = gw.check_budget(db, model="claude-haiku-4-5", input_tokens=200_000,
                             max_tokens=100, now=NOW)
@@ -221,6 +228,70 @@ def test_a_batch_checks_each_call_against_what_the_batch_has_already_spent():
         raised = True
         assert "not yet billed" in str(exc), str(exc)
     assert raised, "a batch's own unbilled spend did not count against the ceiling"
+
+
+def test_modelled_unknown_and_unbilled_spend_all_count_against_the_ceiling():
+    """FB-3 regression guard. The FIN cost-basis work (d12b342 and related) taught the
+    reports to say whether an amount was measured, modelled or unknown, and `basis_summary`
+    reports `actual_cad=None` for anything not wholly measured. That is correct for a report
+    and would be a hole in a ceiling: an amount nobody has observed is still money that may
+    have left. So the gate, the per-agent daily view and the health signal must all count
+    modelled and unknown rows at their recorded amount, and a batch's unbilled spend on top.
+    UNKNOWN is never zero."""
+    from sqlalchemy import select
+
+    from brambleloop.finance import listing_costs
+    from brambleloop.gateway import anthropic as gw
+
+    db = _db()
+    Registry(db).seed_defaults()
+    with db.session() as s:
+        s.add(CostEntry(agent="validator", amount_cad=40.0, kind="llm", at=NOW,
+                        detail={"basis": "modelled"}))
+        s.add(CostEntry(agent="validator", amount_cad=30.0, kind="llm", at=NOW,
+                        detail={"basis": "unknown"}))
+        s.add(CostEntry(agent="validator", amount_cad=20.0, kind="llm", at=NOW,
+                        detail={"price_basis": "assumed"}))
+        s.add(CostEntry(agent="validator", amount_cad=5.0, kind="llm", at=NOW))  # no basis
+    with db.session() as s:
+        bases = sorted(listing_costs.cost_basis(r) for r in s.scalars(
+            select(CostEntry)))
+    assert "measured" not in bases, "the fixture must hold no observed charge at all"
+
+    # The gate counts every one of them at its recorded amount.
+    assert gw.spent_this_month_cad(db, now=NOW) == 95.0
+    out = gw.check_budget(db, model="claude-haiku-4-5", input_tokens=1000, max_tokens=100,
+                          now=NOW)
+    assert out["spent_cad"] == 95.0 and out["committed_cad"] >= 95.0
+
+    # Unbilled spend on top of unmeasured spend crosses the ceiling, and is refused.
+    raised = False
+    try:
+        gw.check_budget(db, model="claude-haiku-4-5", input_tokens=1000, max_tokens=100,
+                        now=NOW, uncommitted_cad=5.0)
+    except gw.BudgetExceeded:
+        raised = True
+    assert raised, "modelled/unknown spend plus a batch's unbilled spend escaped the ceiling"
+
+    # A negative "unbilled" figure cannot manufacture headroom.
+    db2 = _db()
+    with db2.session() as s:
+        s.add(CostEntry(agent="a", amount_cad=99.9, kind="llm", at=NOW,
+                        detail={"basis": "unknown"}))
+    raised = False
+    try:
+        gw.check_budget(db2, model="claude-haiku-4-5", input_tokens=200_000,
+                        max_tokens=100, now=NOW, uncommitted_cad=-50.0)
+    except gw.BudgetExceeded:
+        raised = True
+    assert raised, "a negative uncommitted figure bought headroom under the ceiling"
+
+    # The daily per-agent view and the health signal see unmeasured spend too.
+    over = {r["agent"]: r for r in spend_report.per_agent_today(db, now=NOW)["over"]}
+    assert over["validator"]["spent_today_cad"] == 95.0
+    reading = _signal(db, "spend")
+    assert reading.evidence["model_spend_this_month_cad"] == 95.0
+    assert reading.state == H.DEGRADED
 
 
 def test_a_caller_that_bills_every_call_is_unaffected():
@@ -298,10 +369,13 @@ def test_no_configured_scope_is_not_evidence_that_the_ceilings_are_on():
 
 def test_the_spend_signal_reports_the_ceiling_that_is_actually_live():
     """The monthly model ceiling is the control that refuses before every call, and the
-    signal that claimed to watch "the ceilings" had never read it."""
+    signal that claimed to watch "the ceilings" had never read it.
+
+    Read at the wall clock: the row is stamped by `record`, and the frozen September `NOW`
+    stopped seeing it on 2026-10-01 (the month rolled, the code did not change)."""
     db = _db()
     spend_report.record(db, agent="a", amount_cad=12.0, purpose="p")
-    reading = _signal(db, "spend")
+    reading = _signal(db, "spend", now=_real_now())
     assert reading.evidence["model_spend_this_month_cad"] == 12.0
     assert reading.evidence["model_ceiling_cad"] == 100.0
     assert reading.evidence["share_of_model_ceiling"] == 0.12
