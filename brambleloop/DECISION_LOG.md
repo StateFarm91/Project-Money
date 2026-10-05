@@ -1346,3 +1346,23 @@ A deliberately tight gauge (e.g. a dense basket) is allowed only with calibrated
 evidence for that yarn/hook (F-116 second clause). The strict refusal
 (`research/final_build/waves/fb1_C_strict.patch`) lands in the same change as the Launch-0
 re-engineering, never before it.
+
+**D-FB-7. Owner Visual ruling (2026-10-05): truthful customer-ready imagery is launch-critical;
+photorealistic Visual V2 is not.** Recorded from the owner's resume instruction. A product may launch
+with disclosed deterministic/rendered imagery only if its actual customer-facing listing set passes
+every applicable gate: Product Truth, stitch/fabric identity, dimensions/features/construction
+consistency, listing-image QA, mobile/thumbnail-safe presentation, disclosure, marketplace/publishing
+and customer-truth. Disclosure alone never makes inaccurate imagery acceptable. No Product Truth or
+Visual threshold is weakened. A product for which no available image path produces a truthful
+customer-ready listing set stays launch-blocked. B+C (deterministic product authority + protected
+photoreal presentation) remains the preferred Visual V2 architecture; V2 R&D stays isolated on
+`codex/visual-v2-rnd` @ 035ff0c. Supersedes the "launch does not wait on V2" phrasing of D-FB-4 by
+making its condition explicit.
+
+**D-FB-8. Codex Final Build work is integrated by evidence, not by authorship (2026-10-05).** Codex
+continued from Claude handoff c0a8f39 on `codex/final-build-integration-01` (ec2b250, 110 commits,
+all FB-1 clusters plus repairs). It merged cleanly as 07a8c3b. Its local evidence (Windows, Python
+3.12) is not release evidence; its claims are verified against code by an independent worker and a
+lock-matched Linux full suite before any closure-matrix row moves. Codex is a worker, not the
+certifier; where Codex and Claude solved the same thing, the current correct implementation is kept
+and the other recorded as superseded.
