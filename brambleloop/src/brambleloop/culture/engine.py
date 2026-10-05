@@ -211,6 +211,116 @@ _QUOTED = re.compile(r"[\"\u201c\u201d]([^\"\u201c\u201d]{3,120})[\"\u201c\u201d
 _QUALIFIER = re.compile(r"\(([^)]*)\)")
 
 
+# CB2-I10: an unquoted, unqualified catchphrase still has to be caught. Three deterministic
+# layers, narrowest first, so precision stays high:
+#
+# 1. Well-known catchphrases and slogans, matched as whole phrases in any domain. These are
+#    specific enough that a hit is almost never a coincidence.
+# 2. Snowclone templates -- the phrase shape *is* the protected expression ("Keep calm and
+#    X on"). Distinctive templates apply in any domain; broad ones (a bare "I am the X")
+#    only in meme / internet-moment titles.
+# 3. Clause-shaped meme titles: in the meme / internet-moment domains a title of three or
+#    more words that reads as an utterance (a pronoun, a copula or auxiliary, or a leading
+#    imperative) is a catchphrase until shown otherwise. Ordinary noun-phrase titles
+#    ("Distracted boyfriend") are left to the WORK_TITLE declaration they already get.
+WELL_KNOWN_CATCHPHRASES: tuple[str, ...] = (
+    "keep calm and carry on", "winter is coming", "may the force be with you",
+    "i'll be back", "to infinity and beyond", "you shall not pass", "one does not simply",
+    "just do it", "i'm lovin it", "here's johnny", "that's what she said", "live laugh love",
+    "hakuna matata", "bazinga", "how you doin", "say hello to my little friend",
+    "i am the danger", "i am groot", "this is fine", "it's over 9000", "do you even lift",
+    "not today satan", "you had one job", "and i oop", "ok boomer", "yabba dabba doo",
+    "d'oh", "cowabunga", "show me the money", "houston we have a problem",
+    "you can't handle the truth", "i see dead people", "why so serious",
+    "there's no place like home", "e.t. phone home", "elementary my dear watson",
+    "you're gonna need a bigger boat", "we were on a break", "how rude",
+    "allons-y", "make it so", "live long and prosper", "beam me up scotty",
+    "after all this time always", "mischief managed", "i solemnly swear",
+    "never gonna give you up", "shake it off", "let it go", "hasta la vista baby",
+    "go ahead make my day", "i'm the king of the world", "nobody puts baby in a corner",
+    "the first rule of fight club", "the dude abides", "this is sparta", "wakanda forever",
+    "i volunteer as tribute", "may the odds be ever in your favor", "you know nothing jon snow",
+    "a lannister always pays his debts", "hold the door", "i drink and i know things",
+    "it's a trap", "do or do not", "these aren't the droids", "that escalated quickly",
+    "i have spoken", "this is the way", "we're gonna need a bigger boat", "got milk",
+    "because you're worth it", "think different", "finger lickin good",
+    "the happiest place on earth", "taste the rainbow", "have a break have a kit kat",
+    "red bull gives you wings", "what happens in vegas stays in vegas",
+)
+
+_NORM = re.compile(r"[^a-z0-9' ]+")
+
+
+def _phrase_norm(text: str) -> str:
+    """Lower-case, straight apostrophes, punctuation to spaces, single-spaced."""
+    t = (text or "").replace("_", " ").replace("\u2019", "'").replace("\u2018", "'").lower()
+    t = re.sub(r"(?<=\w)\.(?=\w)", "", t)          # e.t. -> et
+    return " ".join(_NORM.sub(" ", t).split())
+
+
+_KNOWN_NORM: tuple[tuple[str, str], ...] = tuple(
+    (p, _phrase_norm(p)) for p in WELL_KNOWN_CATCHPHRASES)
+
+# (pattern over the normalised title, applies in every domain?)
+_SNOWCLONES: tuple[tuple[re.Pattern, bool], ...] = (
+    (re.compile(r"\bkeep calm and (?:\w+ ){0,3}\w+\b"), True),
+    (re.compile(r"\bone does not simply \w+"), True),
+    (re.compile(r"\b(?:\w+ ){1,3}is coming\b"), False),
+    (re.compile(r"^i am the \w+"), False),
+    (re.compile(r"^i'?m the \w+"), False),
+    (re.compile(r"\b(?:\w+ ){0,2}(?:all|is) the things\b"), False),
+    (re.compile(r"^(?:\w+ ){0,2}(?:ain't|aint) nobody got time\b"), True),
+    (re.compile(r"^come at me\b"), False),
+    (re.compile(r"\bshut up and take my \w+"), True),
+    (re.compile(r"\bi can has \w+"), True),
+    (re.compile(r"\bwhat if i told you\b"), True),
+)
+
+_CLAUSE_PRONOUNS = frozenset({
+    "i", "i'm", "im", "i'll", "i've", "i'd", "me", "my", "you", "you're", "youre", "your",
+    "we", "we're", "our", "us", "it's", "that's", "there's", "here's", "let's"})
+_CLAUSE_VERBS = frozenset({
+    "am", "is", "are", "was", "were", "be", "will", "won't", "can", "can't", "cannot",
+    "don't", "dont", "doesn't", "do", "does", "did", "didn't", "shall", "gonna", "got",
+    "have", "has", "ain't", "aint", "isn't", "wasn't"})
+_IMPERATIVE_STARTS = frozenset({
+    "keep", "just", "don't", "dont", "never", "let", "say", "show", "go", "get", "stay",
+    "make", "be", "do", "hold", "shut", "take", "live", "eat", "stop", "try", "trust",
+    "treat", "put", "bring", "give"})
+
+
+def _clause_shaped(norm: str) -> bool:
+    words = norm.split()
+    if not 3 <= len(words) <= 12:
+        return False
+    return (bool(set(words) & _CLAUSE_PRONOUNS) or bool(set(words) & _CLAUSE_VERBS)
+            or words[0] in _IMPERATIVE_STARTS)
+
+
+def catchphrase_hits(topic: str, domain: str) -> list[tuple[str, str]]:
+    """(matched phrase, why) for each catchphrase layer the topic trips (CB2-I10)."""
+    label = _QUALIFIER.sub(" ", (topic or "").replace("_", " "))
+    norm = _phrase_norm(label)
+    if not norm:
+        return []
+    padded = f" {norm} "
+    hits: list[tuple[str, str]] = []
+    for _raw, known in _KNOWN_NORM:
+        if known and f" {known} " in padded:
+            hits.append((known, "well-known catchphrase"))
+    meme = domain in ("meme", "internet_moment")
+    for pattern, everywhere in _SNOWCLONES:
+        if not (everywhere or meme):
+            continue
+        m = pattern.search(norm)
+        if m:
+            hits.append((m.group(0).strip(), "catchphrase template"))
+    if not hits and meme and _clause_shaped(norm):
+        hits.append((norm, "clause-shaped meme title"))
+    seen: set[str] = set()
+    return [(t, why) for t, why in hits if not (t in seen or seen.add(t))]
+
+
 def quote_tokens(topic: str, domain: str) -> list[rights.ProtectedToken]:
     """Dialogue, lyric and slogan/catchphrase tokens a topic carries (#139).
 
@@ -235,6 +345,13 @@ def quote_tokens(topic: str, domain: str) -> list[rights.ProtectedToken]:
             and label.rstrip().endswith(("!", "?")) and len(label.split()) >= 2:
         out.append(rights.ProtectedToken(text=label.rstrip("!? "), asset_class=rights.SLOGAN,
                                          source="declared at filing: exclaimed meme title"))
+    # CB2-I10: unquoted catchphrases, by known phrase, template or utterance shape.
+    have = {_phrase_norm(t.text) for t in out}
+    for phrase, why in catchphrase_hits(topic, domain):
+        if phrase not in have:
+            have.add(phrase)
+            out.append(rights.ProtectedToken(text=phrase, asset_class=rights.SLOGAN,
+                                             source=f"declared at filing: {why}"))
     return out
 
 

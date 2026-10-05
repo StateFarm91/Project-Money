@@ -14,6 +14,8 @@ customer.
 """
 from __future__ import annotations
 
+import hashlib
+
 import os
 import sys
 import tempfile
@@ -175,11 +177,26 @@ def _jobs(db, job_type: str) -> list[Job]:
 
 def _judge(db, slug: str, *, reads=True, craft=4.3) -> None:
     """A vision judge's recorded verdict on a concept board -- a fixture standing in for the
-    model_provider/image_vision judge that does not exist in shadow."""
+    model_provider/image_vision judge that does not exist in shadow.
+
+    CB2-D01: a judgement is of one board's bytes, so the fixture judges the board on file
+    for the design by its digest (the board is the latest one filed, or none: a judgement
+    with no board digest is UNKNOWN and would not count)."""
+    board_sha = intake.board_digest_for(db, slug)
+    if not board_sha:
+        from brambleloop.publish import owned_photography
+
+        board_sha = hashlib.sha256(f"fixture board for {slug}".encode()).hexdigest()
+        with db.session() as s:
+            s.add(AuditLog(actor="publishing", action=owned_photography.ACTION, detail={
+                "made": True, "slug": slug,
+                "method_version": owned_photography.METHOD_VERSION,
+                "image_ref": f"/fixture/boards/{slug}.png", "image": {"sha256": board_sha}}))
     with db.session() as s:
         s.add(AuditLog(actor="creative_director", action=intake.JUDGED_ACTION, artifact=slug,
                        detail={"thumbnail_reads_small": reads, "craft_impression": craft,
-                               "judge": "fixture vision judge"}))
+                               "judge": "fixture vision judge",
+                               "board_sha256": board_sha}))
 
 
 def _tournament(db, **kw) -> tuple[dict, dict]:
@@ -808,10 +825,13 @@ def test_a_held_winner_is_judged_the_day_its_board_and_a_vision_model_exist_88_2
     assert out["regated"]["vision_usable"] is False
 
     board = "https://example.invalid/fixture-board.png"
+    # CB2-D01: the board's bytes are identified by the digest the artefact store recorded
+    # when the render was kept, which is what the judgement is bound to.
+    board_sha = hashlib.sha256(b"fixture board bytes").hexdigest()
     with db.session() as s:
         s.add(AuditLog(actor="publishing", action=owned_photography.ACTION, detail={
             "made": True, "slug": slug, "method_version": owned_photography.METHOD_VERSION,
-            "image_ref": board}))
+            "image_ref": board, "image": {"sha256": board_sha}}))
     out, _ = _handler(db, "mjs.seasonal_sentinel", {}, agent="market_radar")
     held = [h for h in out["regated"]["held"] if h["slug"] == slug]
     assert held and held[0]["waiting_on"] == ["vision_model (no vision probe has succeeded)"]
@@ -843,6 +863,7 @@ def test_a_held_winner_is_judged_the_day_its_board_and_a_vision_model_exist_88_2
     assert calls == [[board]], calls
     judged = _rows(db, intake.JUDGED_ACTION)
     assert judged and judged[-1][1] == slug and judged[-1][2]["judge"] == judge_model
+    assert judged[-1][2]["board_sha256"] == board_sha
     assert {"slug": slug, "decision": "engineering"} in out["regated"]["presented"], out
     assert not [h for h in out["regated"]["held"] if h["slug"] == slug]
     drafts = _jobs(db, "cir.draft")

@@ -252,6 +252,14 @@ def judgement_for(db, key: str) -> dict | None:
                        .order_by(desc(AuditLog.id)).limit(1))
         detail = dict(row.detail or {}) if row is not None else {}
         row_id = row.id if row is not None else None
+    # CB2-D01: a judgement is about one board's bytes. It counts only while the board on
+    # file is the board that was judged, by content digest; a re-rendered board, a board
+    # whose bytes cannot be identified, or a row that never recorded which bytes it saw is
+    # UNKNOWN -- never the old verdict carried onto a picture nobody looked at.
+    judged_sha = str(detail.get("board_sha256") or "").strip().lower()
+    current_sha = board_digest_for(db, key)
+    if detail and (not judged_sha or not current_sha or judged_sha != current_sha):
+        detail = {}
     if detail and str(detail.get("judge") or "").strip():
         if isinstance(detail.get("thumbnail_reads_small"), bool) \
                 and "thumbnail_reads_small" not in out:
@@ -846,6 +854,44 @@ def board_for(db, slug: str) -> str:
     return ""
 
 
+def _sha256_hex(value) -> str:
+    text = str(value or "").strip().lower()
+    return text if len(text) == 64 and all(c in "0123456789abcdef" for c in text) else ""
+
+
+def board_digest_for(db, slug: str) -> str:
+    """The SHA-256 of the concept board's bytes on file for this design, or "" (CB2-D01).
+
+    Taken from the digest the artefact store recorded when the render was kept, or from the
+    bytes themselves when the reference is a readable local file. A board known only by a
+    URL or a path that no longer exists has no identifiable content, and returns "" -- so
+    no judgement can be bound to it, which is the fail-closed answer.
+    """
+    import hashlib
+    from pathlib import Path
+
+    from ..publish import listing_asset
+
+    for frame in listing_asset.frames_for(db, slug=slug):
+        ref = str(frame.get("image_ref") or "").strip()
+        image = frame.get("image")
+        if not ref and isinstance(image, str):
+            ref = image.strip()
+        if not ref:
+            continue
+        stored = _sha256_hex(image.get("sha256")) if isinstance(image, dict) else ""
+        if stored:
+            return stored
+        try:
+            path = Path(ref)
+            if path.is_file():
+                return hashlib.sha256(path.read_bytes()).hexdigest()
+        except (OSError, ValueError):
+            pass
+        return ""
+    return ""
+
+
 def parse_judgement(text: str) -> dict:
     """The judge's answer as the two fields `Concept` reserves for a model with eyes."""
     import json
@@ -876,6 +922,13 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     from ..finance import spend_report
     from ..gateway import anthropic as gw
 
+    # CB2-D01: fix which bytes are being judged before spending on the judge. A board with
+    # no identifiable content cannot carry a judgement, so it is not sent to one.
+    board_sha = board_digest_for(ctx.db, slug)
+    if not board_sha:
+        return {"judged": False,
+                "why": "the board on file has no content digest; a judgement could not be "
+                       "bound to the bytes it saw"}
     provider = provider or gw.provider_for(JUDGE_TASK)
     held = None
     try:
@@ -908,6 +961,7 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
         return {"judged": False, "why": str(exc)[:200], "cost_cad": cost}
     ctx.audit(JUDGED_ACTION, artifact=slug,
               detail={**verdict, "judge": provider.model, "board": board[-120:],
+                      "board_sha256": board_sha,
                       "cost_cad": cost, "source": "creative.regate"})
     return {"judged": True, **verdict, "judge": provider.model, "cost_cad": cost}
 

@@ -39,10 +39,36 @@ class UpgradeRefused(ValueError):
     pass
 
 
+HELD_NO_BYTES = "held_no_bytes"
+HELD_NO_RIGHTS = "held_no_rights"
+
+
+def bytes_on_file(db, sha: str) -> bool:
+    """Whether the photograph's bytes are in the artefact store and hash to `sha` (CB2-I04).
+
+    A hash is a claim about bytes; only the bytes prove there is a photograph. `get` re-hashes
+    what it reads (and recovers durable copies), so a missing or corrupt file is False.
+    """
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+
+    try:
+        data = ArtifactStore().get(sha, db=db)
+    except (ArtifactMissing, OSError, ValueError):
+        return False
+    import hashlib
+
+    return bool(data) and hashlib.sha256(data).hexdigest() == sha
+
+
 def intake(db, *, slug: str, version: str = "", source: str, sha256: str,
            rights_basis: str = "", taken_by: str = "", physical_test_id: int | None = None,
            note: str = "") -> dict:
-    """Record one physical photograph. Idempotent on its hash."""
+    """Record one physical photograph. Idempotent on its hash.
+
+    CB2-I04: a SHA-256 and a rights label are not a photograph. The bytes must be in the
+    artefact store and hash to the stated digest, or the photo is recorded as
+    `held_no_bytes` with `may_use` False and no upgrade can be queued from it.
+    """
     from sqlalchemy import select
 
     from ..core.models import PhysicalPhoto
@@ -54,21 +80,31 @@ def intake(db, *, slug: str, version: str = "", source: str, sha256: str,
         raise UpgradeRefused(f"{source!r} is not a photo source: {SOURCES}")
     if rights_basis and rights_basis not in RIGHTS_BASES:
         raise UpgradeRefused(f"{rights_basis!r} is not a rights basis: {sorted(RIGHTS_BASES)}")
+    present = bytes_on_file(db, sha)
     with db.session() as s:
         row = s.scalar(select(PhysicalPhoto).where(PhysicalPhoto.sha256 == sha))
         if row is None:
             row = PhysicalPhoto(product_slug=slug, version=version, source=source, sha256=sha,
                                 rights_basis=rights_basis, taken_by=taken_by[:120],
                                 physical_test_id=physical_test_id,
-                                state="received" if rights_basis else "held_no_rights",
+                                state=(HELD_NO_BYTES if not present else
+                                       "received" if rights_basis else HELD_NO_RIGHTS),
                                 detail={"note": note[:500]})
             s.add(row)
             s.flush()
             new = True
         else:
             new = False
-        return {"photo_id": row.id, "new": new, "state": row.state,
-                "may_use": bool(row.rights_basis)}
+            if row.state == HELD_NO_BYTES and present:
+                # The bytes arrived after the hash: the photograph now exists.
+                row.state = "received" if row.rights_basis else HELD_NO_RIGHTS
+        out = {"photo_id": row.id, "new": new, "state": row.state,
+               "bytes_present": present,
+               "may_use": bool(row.rights_basis) and present}
+        if not present:
+            out["why"] = ("no bytes in the artefact store hash to this SHA-256; a digest "
+                          "and a rights label are not a photograph")
+        return out
 
 
 def _ratio(num, den) -> float | None:
@@ -101,6 +137,10 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None) -> dict:
                     "why": "no rights basis is recorded, so the photograph is held unused"}
         if photo.state == "upgrade_queued":
             return {"photo_id": photo_id, "upgraded": False, "why": "already upgraded"}
+        if not bytes_on_file(db, photo.sha256):
+            return {"photo_id": photo_id, "upgraded": False,
+                    "why": "the photograph's bytes are not in the artefact store under its "
+                           "SHA-256, so there is nothing to put in the listing"}
         slug = photo.product_slug
         version = photo.version or s.scalar(
             select(ListingAsset.version).where(ListingAsset.product_slug == slug)
@@ -125,9 +165,12 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None) -> dict:
             ListingOutcome.period_end <= today.isoformat())))
         baseline = _outcome_metrics(before)
         photo.state = "upgrade_queued"
-        photo.detail = {**(photo.detail or {}), "upgraded_on": today.isoformat(),
-                        "frame_position": position, "replaceable": replaceable,
-                        "baseline": baseline}
+        # CB2-I05: planning is not publication. The impact clock (`live_since`) starts only
+        # when `measure_impact` first sees this frame approved; until then there is no
+        # "after" to measure, and `upgraded_on` is deliberately not set here.
+        photo.detail = {**(photo.detail or {}), "planned_on": today.isoformat(),
+                        "frame_position": position, "frame_version": version,
+                        "replaceable": replaceable, "baseline": baseline}
         flag_modified(photo, "detail")
     return {"photo_id": photo_id, "upgraded": True, "slug": slug, "version": version,
             "frame_position": position, "replaceable": replaceable, "baseline": baseline}
@@ -136,8 +179,9 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None) -> dict:
 def measure_impact(db, *, today: date | None = None) -> dict:
     """CTR and conversion after each upgrade against its baseline; UNMEASURED without data."""
     from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
 
-    from ..core.models import ListingOutcome, OperatingReading, PhysicalPhoto
+    from ..core.models import ListingAsset, ListingOutcome, OperatingReading, PhysicalPhoto
 
     today = today or datetime.now(timezone.utc).date()
     readings = []
@@ -145,11 +189,36 @@ def measure_impact(db, *, today: date | None = None) -> dict:
         photos = list(s.scalars(select(PhysicalPhoto).where(
             PhysicalPhoto.state == "upgrade_queued")))
         for p in photos:
-            since = (p.detail or {}).get("upgraded_on", "")
+            detail = dict(p.detail or {})
+            # CB2-I05: the clock runs only while the photograph's own frame is approved.
+            frame = s.scalar(select(ListingAsset).where(
+                ListingAsset.product_slug == p.product_slug,
+                ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO",
+                ListingAsset.sha256 == p.sha256,
+                *([ListingAsset.position == detail["frame_position"]]
+                  if detail.get("frame_position") is not None else []))
+                .order_by(ListingAsset.id.desc()).limit(1))
+            if frame is None or not frame.approved:
+                readings.append({"photo_id": p.id, "slug": p.product_slug,
+                                 "impact": "UNMEASURED",
+                                 "why": ("the physical-photo frame is not approved yet "
+                                         "(asset truth and listing-set re-certification), "
+                                         "so the upgrade is not live and the impact clock "
+                                         "has not started")})
+                continue
+            since = detail.get("live_since", "")
+            if not since:
+                since = today.isoformat()
+                before = list(s.scalars(select(ListingOutcome).where(
+                    ListingOutcome.product_slug == p.product_slug,
+                    ListingOutcome.period_end <= since)))
+                detail.update(live_since=since, baseline=_outcome_metrics(before))
+                p.detail = detail
+                flag_modified(p, "detail")
             after = list(s.scalars(select(ListingOutcome).where(
                 ListingOutcome.product_slug == p.product_slug,
                 ListingOutcome.period_start >= since)))
-            base = (p.detail or {}).get("baseline") or {}
+            base = detail.get("baseline") or {}
             now = _outcome_metrics(after)
             if not after or base.get("ctr") is None or now["ctr"] is None:
                 readings.append({"photo_id": p.id, "slug": p.product_slug,

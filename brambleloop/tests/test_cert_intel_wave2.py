@@ -109,7 +109,11 @@ def test_a_physical_photo_with_rights_upgrades_the_listing_and_measures_impact()
     with db.session() as s:
         s.add(ListingAsset(product_slug="cable-throw", version="1.0.0", position=1,
                            asset_class="AI_LIFESTYLE_CONCEPT", role="hero", approved=True))
-    sha = hashlib.sha256(b"a real photograph").hexdigest()
+    from brambleloop.core.artifacts import ArtifactStore
+
+    # CB2-I04: the photograph's bytes are in the artefact store, not just its digest.
+    sha = ArtifactStore().put("physical/real.jpg", b"a real photograph", "image/jpeg").sha256
+    assert sha == hashlib.sha256(b"a real photograph").hexdigest()
     out = _run(db, "quality_director", "physical.photo",
                {"slug": "cable-throw", "version": "1.0.0", "source": "tester",
                 "sha256": sha, "rights_basis": "tester_agreement", "taken_by": "tester-1"})
@@ -127,7 +131,15 @@ def test_a_physical_photo_with_rights_upgrades_the_listing_and_measures_impact()
         s.add(ListingOutcome(product_slug="cable-throw", period_start="2026-09-01",
                              period_end="2026-09-14", visits=100, first_frame_views=1000,
                              first_frame_engagements=20, orders=2, source="fixture"))
+    # CB2-I05: the frame is approved (asset truth and re-certification passed) before the
+    # impact clock may start; the clock starts on the first run that sees it approved.
+    with db.session() as s:
+        s.scalar(select(ListingAsset).where(
+            ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO")).approved = True
+    _run(db, "quality_director", "physical.upgrade_impact", {"as_of": "2026-09-30"})
+    with db.session() as s:
         photo = s.get(PhysicalPhoto, out["photo_id"])
+        assert photo.detail["live_since"] == "2026-09-30"
         photo.detail = {**photo.detail, "baseline": {"ctr": 0.02, "conversion": 0.02}}
         s.add(ListingOutcome(product_slug="cable-throw", period_start="2026-10-01",
                              period_end="2026-10-14", visits=100, first_frame_views=1000,
