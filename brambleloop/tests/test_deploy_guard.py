@@ -21,6 +21,12 @@ sys.path.insert(0, str(REPO_ROOT / "ops"))
 
 import deploy_guard as G  # noqa: E402
 
+# Hermetic git: throwaway repositories must not inherit the machine's global git config (a
+# global commit-signing requirement or helper would make every fixture commit fail).
+os.environ["GIT_CONFIG_GLOBAL"] = os.devnull
+os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
+
+
 
 def _git(repo: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c",

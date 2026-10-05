@@ -80,10 +80,21 @@ def _run(db, agent: str, job_type: str, inputs: dict, *, phase=Phase.SHADOW) -> 
         for other in s.scalars(select(Job).where(Job.job_type == job_type,
                                                  Job.status == JobStatus.PENDING)):
             other.status = JobStatus.CANCELLED
+    if phase is not Phase.SHADOW:
+        # F-299: past shadow, the runtime needs the owner's recorded transition path, not
+        # the env alone; record it through the same sealed owner-only path the route uses.
+        from unittest.mock import patch as _patch
+
+        from phase_fixture import record_phase_path
+        with _patch.dict(os.environ, {"BRAMBLELOOP_OPS_TOKEN": OWNER_TOKEN}):
+            record_phase_path(db, OWNER_TOKEN, phase.value)
     job = JobQueue(db).enqueue(agent, job_type, inputs, priority=0,
                                idempotency_key=f"{job_type}:{time.time_ns()}")
-    Worker(db, f"w-{job_type}", phase=phase, job_types=[job_type],
-           lease_seconds=900).run_once()
+    # The effective phase is the env AND the recorded transition (F-299): both must agree.
+    from unittest.mock import patch as _patch2
+    with _patch2.dict(os.environ, {"BRAMBLELOOP_PHASE": phase.value}):
+        Worker(db, f"w-{job_type}", phase=phase, job_types=[job_type],
+               lease_seconds=900).run_once()
     with db.session() as s:
         row = s.get(Job, job.id)
         s.expunge(row)

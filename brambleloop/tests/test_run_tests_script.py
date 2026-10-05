@@ -17,6 +17,12 @@ import tempfile
 import time
 from pathlib import Path
 
+# Hermetic git: throwaway repositories must not inherit the machine's global git config (a
+# global commit-signing requirement or helper would make every fixture commit fail).
+os.environ["GIT_CONFIG_GLOBAL"] = os.devnull
+os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
+
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "run_tests.sh"
 PY = sys.executable

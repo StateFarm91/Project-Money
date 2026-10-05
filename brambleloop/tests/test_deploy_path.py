@@ -21,6 +21,12 @@ sys.path.insert(0, str(OPS))
 import deploy_guard as G  # noqa: E402
 import deployed_sha as D  # noqa: E402
 
+# Hermetic git: throwaway repositories must not inherit the machine's global git config (a
+# global commit-signing requirement or helper would make every fixture commit fail).
+os.environ["GIT_CONFIG_GLOBAL"] = os.devnull
+os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
+
+
 SHA_A = "a" * 40
 SHA_B = "b" * 40
 

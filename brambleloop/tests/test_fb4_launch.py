@@ -202,6 +202,7 @@ def test_a_change_in_any_bound_evidence_element_voids_the_grant():
         readers = {"certification": "_certification", "parity": "_parity",
                    "disclosure": "_disclosure", "search": "_search",
                    "economics": "_economics", "rollback": "_rollback"}
+        assert len(readers) == 6
         for section, fn in readers.items():
             changed = {"state": "PASS", "why": f"changed {section}"}
             with patch.object(pa, fn, return_value=changed):
