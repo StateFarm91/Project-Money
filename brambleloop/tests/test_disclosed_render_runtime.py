@@ -120,6 +120,32 @@ def test_the_certified_image_path_refuses_a_disclosed_frame():
     assert got["images"] == [] and any("disclosed render" in p for p in got["problems"])
 
 
+def test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope():
+    """The product-first path: generative redraw is refused (F-852), so a Launch-0 product
+    gets its disclosed render set, filed where `last` finds it; a product outside Launch-0
+    has no authoritative CIR to verify against and is offered nothing."""
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.products import launch0
+    from brambleloop.products.builder import for_slug
+    from brambleloop.publish import disclosed_listing, listing_asset
+
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/make.sqlite")
+    db.create_all()
+    cir = launch0.cir_for("hexagon_coasters")
+    out = listing_asset.make(db, cir, build_twin(cir, compile_cir(cir)))
+    assert out["kind"] == "disclosed_render" and out["made"] and out["usable_as_listing_asset"]
+    last = listing_asset.last(db, slug=cir.slug)
+    assert last["kind"] == "disclosed_render" and listing_asset.usable(last)
+    with db.session() as s:
+        assert s.scalars(select(AuditLog).where(
+            AuditLog.action == disclosed_listing.ACTION)).first() is not None
+
+    other = for_slug("winter-village-graphghan")
+    refused = listing_asset.make(db, other, build_twin(other, compile_cir(other)))
+    assert not refused.get("made") and refused.get("kind") != "disclosed_render"
+
+
 if __name__ == "__main__":
     import time
 
