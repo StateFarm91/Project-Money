@@ -118,6 +118,79 @@ def _load_cir(ctx: JobContext, slug: str, version: str) -> CIR:
         return CIR.from_dict(pv.cir_json)
 
 
+def _content_hash_of(cir: CIR) -> str:
+    """The content hash `gates.certificate.certify` names for this CIR (US text, F-078)."""
+    from ..cir.writer import write_pattern
+    from ..gates.certificate import _release_hash
+
+    return _release_hash(cir, write_pattern(cir, compile_cir(cir), "US"))
+
+
+def _load_examined_cir(ctx: JobContext, slug: str, version: str, *,
+                       content_hash: str | None = None) -> tuple[CIR, str, bool]:
+    """The CIR the chain examined for slug@version, certified or not, and its content hash.
+
+    Candidates are the stored release (any certification state) and every CIR `gate.certify`
+    was handed for slug@version. The content is the one the caller names (`content_hash`,
+    what the tester was handed) or, absent that, the content the chain most recently
+    examined for this release -- read from the append-only `gate.certified`/`gate.blocked`
+    audit, falling back to the stored release's hash. A slug/version the chain never
+    examined, or a named hash none of its content has, is refused: a sample of unknown text
+    binds to nothing and is not recorded as if it did.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog, Job
+    from .pipeline import CERTIFY_ACTIONS
+
+    candidates: list[CIR] = []
+    certified, stored_hash = False, ""
+    with ctx.db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id,
+                                                    PatternVersion.version == version))
+              if product is not None else None)
+        if pv is not None and pv.cir_json:
+            candidates.append(CIR.from_dict(pv.cir_json))
+            certified, stored_hash = bool(pv.certified), pv.release_hash or ""
+        for job in s.scalars(select(Job).where(Job.job_type == "gate.certify")
+                             .order_by(desc(Job.id))):
+            raw = (job.inputs or {}).get("cir")
+            if (isinstance(raw, dict) and raw.get("slug") == slug
+                    and raw.get("version") == version):
+                try:
+                    candidates.append(CIR.from_dict(raw))
+                except Exception:  # noqa: BLE001 - an unparseable input is no candidate
+                    continue
+        examined = None
+        if not content_hash:
+            for row in s.scalars(select(AuditLog).where(
+                    AuditLog.artifact == f"{slug}@{version}",
+                    AuditLog.action.in_(CERTIFY_ACTIONS)).order_by(desc(AuditLog.id))):
+                examined = (row.detail or {}).get("content_hash")
+                if examined:
+                    break
+    if not candidates:
+        raise ValueError(f"no release {slug}@{version} has been examined by the chain; a "
+                         f"sample cannot be recorded against a pattern that does not exist")
+    target = content_hash or examined or stored_hash
+    if not target:
+        raise ValueError(f"{slug}@{version} has no examined content hash; which text the "
+                         f"tester worked is unknown, so the sample is not recorded")
+    seen: set[str] = set()
+    for cir in candidates:
+        key = json.dumps(cir.to_dict(), sort_keys=True, default=str)
+        if key in seen:      # the same CIR handed to gate.certify again hashes the same
+            continue
+        seen.add(key)
+        h = _content_hash_of(cir)
+        if h == target:
+            return cir, h, certified and h == stored_hash
+    raise ValueError(f"{slug}@{version}: content {target[:12]} is not content the chain "
+                     f"examined for this release; the sample is refused rather than bound "
+                     f"to a text nobody can produce")
+
+
 def _released_on(ctx: JobContext, slug: str, version: str):
     """The date this release was created, so the PDF does not read the wall clock.
 
@@ -917,6 +990,11 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                                      ("verdict", "failed", "pending")},
               "classification": classification.to_dict() if classification else None})
     _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""))
+    # F-004: the hero is the one search dimension the draft cannot judge. Now that the copy
+    # the listing-set certificate checks (the disclosure, the dimensions) is on file, the
+    # certified image set is judged and the completed certificate written back with its
+    # evidence -- the stored verdict reaches PASS on the merits or stays PENDING/REFUSED.
+    hero_reading = _judge_search_hero(ctx, slug, version)
 
     # #41 / C-47: the disclosure check reads the stored Listing row, so it runs here, after
     # the row exists -- run before it (as listing.draft did) it could only ever say
@@ -954,7 +1032,37 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                                           + (":evergreen" if evergreen else "")))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
-            "disclosures": disclosure, "query_portfolio": portfolio_reading}
+            "disclosures": disclosure, "query_portfolio": portfolio_reading,
+            "search_hero": hero_reading}
+
+
+def _judge_search_hero(ctx: JobContext, slug: str, version: str) -> dict:
+    """Judge frame 1 on the certified listing set and complete the search certificate.
+
+    The listing set is certified (or its valid certificate re-checked) under the same
+    issuance conditions `release_gates.for_publish` uses -- not while the release is stale
+    and not outside its launch window -- and `search.judge_hero` writes the completed
+    certificate back: PASS only when every dimension passed on the merits. A failure to judge
+    is recorded and leaves the stored verdict short of PASS; it never passes.
+    """
+    from ..commerce import search as search_mod
+    from ..publish import release_gates as rg
+
+    try:
+        stale = rg.staleness(ctx.db, slug=slug)
+        window = rg.window_decision(ctx.db, slug=slug, version=version)
+        set_verdict = rg.listing_set(ctx.db, slug=slug, version=version,
+                                     issue=not stale["blocks"]
+                                     and window["may_launch_seasonally"])
+        reading = search_mod.judge_hero(ctx.db, slug=slug, version=version,
+                                        set_verdict=set_verdict)
+    except Exception as exc:  # noqa: BLE001 - unjudged stays short of PASS
+        reading = {"judged": False, "verdict": None,
+                   "why": f"hero not judged: {type(exc).__name__}: {str(exc)[:200]}"}
+    ctx.audit(search_mod.HERO_JUDGED_ACTION, artifact=f"{slug}@{version}",
+              detail=json.loads(json.dumps(reading, default=str)))
+    return {k: reading.get(k) for k in ("judged", "verdict", "why", "reasons")
+            if k in reading}
 
 
 # Query families whose phrases name the product rather than the file format, which is what
@@ -2317,7 +2425,13 @@ def handle_physical_record(ctx: JobContext) -> dict:
 
     i = ctx.job.inputs
     slug, version = i["slug"], i.get("version", "1.0.0")
-    cir = _load_cir(ctx, slug, version)
+    # A sample is most needed by a release that is blocked only on physical evidence (Class
+    # C, a gauge outside its yarn's band, an uncalibrated stitch), so the CIR is the one the
+    # chain examined for slug@version whatever its certification state -- and the content
+    # hash the tester worked against is recorded with the sample, the same hash
+    # `gate.certify` binds evidence to (F-078).
+    cir, content_hash, certified = _load_examined_cir(ctx, slug, version,
+                                                      content_hash=i.get("content_hash"))
     result = compile_cir(cir)
     twin = build_twin(cir, result)   # uncalibrated on purpose: this is what we predicted
 
@@ -2335,9 +2449,10 @@ def handle_physical_record(ctx: JobContext) -> dict:
         instructions_followed=bool(i.get("instructions_followed", True)))
 
     assessment = assess(report, twin, cir)
-    row_id = record(ctx.db, assessment)
+    row_id = record(ctx.db, assessment, content_hash=content_hash)
     ctx.audit("physical.recorded", artifact=f"{slug}@{version}",
-              detail={"row": row_id, **assessment.to_dict()})
+              detail={"row": row_id, "content_hash": content_hash,
+                      "release_certified": certified, **assessment.to_dict()})
 
     if assessment.size_agrees is False:
         tracker = IncidentTracker(ctx.db)
@@ -2356,7 +2471,9 @@ def handle_physical_record(ctx: JobContext) -> dict:
     # the rebuild happens once per calibration rather than once per rebuild cadence.
     factor = calibration_from_db(ctx.db, cir)
     rebuilt: list[str] = []
-    if assessment.usable_for_calibration and factor != 1.0:
+    # An uncertified release has no customer assets to rebuild; its next certification
+    # renders from the calibrated figures.
+    if certified and assessment.usable_for_calibration and factor != 1.0:
         job = ctx.enqueue("publishing", "assets.build",
                           {"slug": slug, "version": version,
                            "release": i.get("release", "")},
@@ -2373,6 +2490,7 @@ def handle_physical_record(ctx: JobContext) -> dict:
                                           "physical_test_id": row_id}))
 
     return {"slug": slug, "version": version, "physical_test_id": row_id,
+            "content_hash": content_hash, "release_certified": certified,
             "factor": assessment.factor, "calibration_now": factor,
             "size_agrees": assessment.size_agrees,
             "usable": assessment.usable_for_calibration,

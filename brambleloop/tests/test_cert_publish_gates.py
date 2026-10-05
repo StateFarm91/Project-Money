@@ -98,32 +98,27 @@ from contextlib import contextmanager  # noqa: E402
 
 @contextmanager
 def _chosen_category(db, slug: str, version: str):
-    """The Etsy taxonomy node, as a live `listing.seo` would have chosen it.
+    """The payload premise -- a CHOSEN Etsy node and a certified search profile -- stubbed.
 
-    The payload builder refuses an UNKNOWN taxonomy before any of the release-chain gates are
-    reached (no default node is ever sent), and choosing one needs a live Etsy taxonomy read
-    this environment cannot make. These tests are about the gates *after* the payload, so the
-    profile is recorded CHOSEN/PASS for the duration of the publish attempt and restored after;
-    the release gates themselves still read the stored rows unaltered otherwise.
+    The payload builder refuses an UNKNOWN taxonomy or an uncertified search profile before
+    any of the release-chain gates are reached. The flagship cannot supply either on the
+    merits here: choosing a node needs a live Etsy taxonomy read, and its listing set does
+    not certify (mobile QA), so the hero -- and with it the search certificate -- never
+    reaches PASS. These tests are about the gates *after* the payload, so for the duration
+    of the attempt `category.publish_inputs` answers with a synthetic premise. No stored row
+    is altered: the release gates (search_gate included) read the persisted profile as it
+    is. The real path to a PASS, with no premise stubbed, is tests/test_search_hero_publish.
     """
-    from brambleloop.core.models import ListingSearchProfile
+    from brambleloop.commerce import category
 
-    with db.session() as s:
-        row = s.scalar(select(ListingSearchProfile).where(
-            ListingSearchProfile.product_slug == slug, ListingSearchProfile.version == version))
-        saved = (row.category_status, row.taxonomy_id, row.verdict, row.properties)
-        row.category_status, row.taxonomy_id, row.verdict = "CHOSEN", 2114, "PASS"
-        row.properties = []
-        s.commit()
+    original = category.publish_inputs
+    category.publish_inputs = lambda *a, **k: {
+        "status": category.CHOSEN, "taxonomy_id": 2114, "properties": [],
+        "certified": "PASS", "fixture": "synthetic payload premise, not search proof"}
     try:
         yield
     finally:
-        with db.session() as s:
-            row = s.scalar(select(ListingSearchProfile).where(
-                ListingSearchProfile.product_slug == slug,
-                ListingSearchProfile.version == version))
-            row.category_status, row.taxonomy_id, row.verdict, row.properties = saved
-            s.commit()
+        category.publish_inputs = original
 
 
 class _StubClient:

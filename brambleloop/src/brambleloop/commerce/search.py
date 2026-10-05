@@ -623,3 +623,197 @@ def search_certificate(*, category: dict, properties: dict, attribute_problems: 
     return {"verdict": verdict, "checks": checks, "failed": failed, "pending": pending,
             "reasons": [f"{k}: {checks[k]['why']}" for k in failed],
             "basis": "category + attributes + copy + tags + description + hero (F-004)"}
+
+
+# ---- the hero, judged on the certified listing set, written back (F-004) ----------------
+
+HERO_JUDGED_ACTION = "listing.search_hero_judged"
+
+
+def _recount(checks: dict) -> dict:
+    """Verdict, failed and pending from a full set of checks, as `search_certificate` counts.
+
+    A check whose `ok` is anything but True or False (missing, None, malformed) is pending:
+    unjudged evidence is never a pass.
+    """
+    failed = [k for k, v in checks.items() if isinstance(v, dict) and v.get("ok") is False]
+    pending = [k for k, v in checks.items()
+               if not isinstance(v, dict) or v.get("ok") not in (True, False)]
+    verdict = REFUSED if failed else ("PENDING" if pending else PASS)
+    return {"verdict": verdict, "failed": failed, "pending": pending,
+            "reasons": [f"{k}: {checks[k].get('why', '')}" for k in failed]}
+
+
+def _certified_set(db, slug: str, version: str, record_id) -> dict | None:
+    """The valid listing-set certificate record `record_id`, reduced to what binds the hero."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingSetCertificateRecord, PatternVersion, Product
+
+    if record_id is None:
+        return None
+    with db.session() as s:
+        rec = s.get(ListingSetCertificateRecord, int(record_id))
+        if (rec is None or rec.state != "valid" or rec.product_slug != slug
+                or rec.version != version):
+            return None
+        frames = sorted((rec.certificate or {}).get("frames") or [],
+                        key=lambda f: int(f.get("position") or 0))
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id,
+                                                    PatternVersion.version == version))
+              if product is not None else None)
+        return {"record_id": rec.id, "release_hash": rec.release_hash or "",
+                "pattern_release_hash": (pv.release_hash or "") if pv is not None else None,
+                "pattern_certified": bool(pv is not None and pv.certified),
+                "frame_1": next((f for f in frames if int(f.get("position") or 0) == 1),
+                                None)}
+
+
+def judge_hero(db, *, slug: str, version: str, set_verdict: dict | None,
+               gate: dict | None = None) -> dict:
+    """Complete the stored search certificate with the hero, judged on the certified set.
+
+    `listing.seo` writes the certificate before any listing image set is certified, so its
+    hero check is PENDING and the stored verdict cannot be PASS. Once a listing-set
+    certificate is valid for this release -- the disclosed render set for Launch-0, or the
+    gated frames -- frame 1 is judged by the same four gates `release_gates.search_gate`
+    reads at publish, and the result is written back to the profile together with the
+    evidence it used: the certificate record, frame 1's hash and the release it was issued
+    for. PASS is written only when every check passes *and* the publish-time search gate
+    passes on the listing as it stands (fingerprint current, category CHOSEN); PENDING is
+    never promoted. No valid certificate leaves the hero pending, never passed.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import ListingSearchProfile
+    from ..publish.release_gates import search_gate
+
+    with db.session() as s:
+        row = s.scalar(select(ListingSearchProfile).where(
+            ListingSearchProfile.product_slug == slug,
+            ListingSearchProfile.version == version))
+        if row is None:
+            return {"judged": False, "verdict": None,
+                    "why": "listing.seo has recorded no search profile"}
+        stored = dict(row.certificate) if isinstance(row.certificate, dict) else {}
+    set_verdict = set_verdict or {}
+    cert = set_verdict.get("certificate") or {}
+    bound = (_certified_set(db, slug, version, cert.get("record_id"))
+             if cert.get("valid") is True else None)
+    frames = set_verdict.get("frames") or []
+    hero_frame = next((f for f in frames if f.get("position") == 1), None)
+    evidence = None
+    if hero_frame is None:
+        hero = {"ok": None, "why": "pending: no frame 1 has been judged by the listing-set "
+                                   "gates for this release"}
+    elif not hero_frame.get("may_export"):
+        hero = {"ok": False, "why": ("frame 1 is not export-ready: "
+                                     f"{hero_frame.get('why') or 'a gate did not pass'}")[:300]}
+    elif bound is None or bound["frame_1"] is None:
+        hero = {"ok": None, "why": ("pending: no valid listing-set certificate covers this "
+                                    "release, so frame 1 is not judged on a certified set"
+                                    + (f" ({cert.get('why')})" if cert.get("why") else ""))[:300]}
+    elif not bound["pattern_certified"] or (bound["release_hash"]
+                                            != bound["pattern_release_hash"]):
+        hero = {"ok": False, "why": "the listing-set certificate was issued for "
+                                    f"release {bound['release_hash'][:12]!r}, not the "
+                                    "certified release on file"}
+    else:
+        evidence = {"listing_set_record_id": bound["record_id"],
+                    "release_hash": bound["release_hash"],
+                    "frame_1_sha256": bound["frame_1"].get("sha256"),
+                    "frame_1_asset_id": bound["frame_1"].get("asset_id"),
+                    "frame_1_kind": bound["frame_1"].get("kind", "")}
+        hero = {"ok": True, "why": "frame 1 passed all four gates on certified listing set "
+                                   f"{bound['record_id']}", "evidence": evidence}
+    gate = gate if gate is not None else search_gate(db, slug=slug, version=version,
+                                                     set_verdict=set_verdict)
+    checks = dict(stored.get("checks")) if isinstance(stored.get("checks"), dict) else {}
+    for key in ("category", "attributes", "copy", "tags", "description"):
+        if not isinstance(checks.get(key), dict):
+            checks[key] = {"ok": None, "why": "required search check missing or malformed"}
+    checks["hero"] = hero
+    counted = _recount(checks)
+    verdict = counted["verdict"]
+    gate_reasons = list(gate.get("reasons") or [])
+    if verdict == PASS and not (gate.get("ok") is True and evidence is not None):
+        # Every stored check passes but the listing as it stands does not (edited copy,
+        # UNKNOWN category): the certificate does not describe it, so it is refused.
+        verdict = REFUSED
+    completed = {**stored, "checks": checks, "verdict": verdict,
+                 "failed": counted["failed"], "pending": counted["pending"],
+                 "reasons": counted["reasons"] + ([r for r in gate_reasons]
+                                                  if verdict == REFUSED else []),
+                 "hero_evidence": evidence,
+                 "hero_judged_at": datetime.now(timezone.utc).isoformat(),
+                 "basis": stored.get("basis") or
+                 "category + attributes + copy + tags + description + hero (F-004)"}
+    import json as _json
+
+    with db.session() as s:
+        row = s.scalar(select(ListingSearchProfile).where(
+            ListingSearchProfile.product_slug == slug,
+            ListingSearchProfile.version == version))
+        completed["bound_fingerprint"] = row.fingerprint
+        row.verdict = verdict
+        row.certificate = _json.loads(_json.dumps(completed, default=str))
+        row.updated_at = datetime.now(timezone.utc)
+    return {"judged": hero.get("ok") is not None, "verdict": verdict,
+            "hero": hero, "evidence": evidence, "gate_ok": gate.get("ok") is True,
+            "reasons": completed["reasons"][:6]}
+
+
+def stored_pass_problems(db, *, slug: str, version: str, row=None) -> list[str]:
+    """Why a stored PASS no longer describes this listing; empty when it still does.
+
+    A PASS is bound to the listing-set certificate it judged the hero on and to the listing
+    copy it certified. Either changing -- the set superseded or invalidated, the release
+    re-certified, the title/description/tags/taxonomy/properties edited -- leaves the stored
+    verdict describing something else, and it is not a PASS for what would be sent.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing, ListingSearchProfile
+    from ..publish.release_gates import search_fingerprint
+
+    with db.session() as s:
+        if row is None:
+            row = s.scalar(select(ListingSearchProfile).where(
+                ListingSearchProfile.product_slug == slug,
+                ListingSearchProfile.version == version))
+        if row is None:
+            return ["no search profile"]
+        if row.verdict != PASS:
+            return [f"stored search verdict is {row.verdict}, not PASS"]
+        cert = row.certificate if isinstance(row.certificate, dict) else {}
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == version))
+        listing_now = (None if listing is None else search_fingerprint(
+            title=listing.title, description=listing.description, tags=listing.tags,
+            taxonomy_id=row.taxonomy_id, properties=row.properties))
+        fingerprint = row.fingerprint
+    problems: list[str] = []
+    checks = cert.get("checks") if isinstance(cert.get("checks"), dict) else {}
+    if _recount(checks)["verdict"] != PASS or set(checks) < {
+            "category", "attributes", "copy", "tags", "description", "hero"}:
+        problems.append("stored PASS is not backed by a full set of passing checks")
+    if listing_now is None or listing_now != fingerprint \
+            or cert.get("bound_fingerprint") != fingerprint:
+        problems.append("the listing changed after search certification (F-294)")
+    evidence = cert.get("hero_evidence") if isinstance(cert.get("hero_evidence"), dict) else None
+    if evidence is None:
+        problems.append("the hero was never judged on a certified listing set")
+    else:
+        bound = _certified_set(db, slug, version, evidence.get("listing_set_record_id"))
+        if bound is None:
+            problems.append("the listing-set certificate the hero was judged on is no longer "
+                            "valid")
+        elif ((bound["frame_1"] or {}).get("sha256") != evidence.get("frame_1_sha256")
+              or bound["release_hash"] != evidence.get("release_hash")
+              or bound["release_hash"] != bound["pattern_release_hash"]
+              or not bound["pattern_certified"]):
+            problems.append("the hero evidence no longer matches the certified set and release")
+    return problems
