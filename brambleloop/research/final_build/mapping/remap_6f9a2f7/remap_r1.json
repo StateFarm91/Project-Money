@@ -1,0 +1,937 @@
+[
+ {
+  "uid": "F-003",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch; listing/marketplace readiness truth",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No per-listing profile tracking listing quality, click readiness, conversion readiness, shop quality and service quality as independent dimensions",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "no module defines a ranking/click/conversion/shop/service readiness profile on 6f9a2f7; nearest pieces are separate: search certificate (commerce/search.py), growth/portfolio.py CTR/conversion benchmarks (post-traffic), support/service.py::service_level"
+  ],
+  "build2_rows": [
+   "#17 COMPLETE+PROVEN",
+   "#18 DATA-GATED",
+   "#62 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Build commerce/ranking_readiness.py::profile(db, slug, version) composing five independent dimensions (listing quality <- ListingSearchProfile certificate; click readiness <- listing-set frame-1 verdict; conversion readiness <- disclosure/price/first-customer gate; shop quality <- shop_package/readiness; service quality <- support.service.service_level), each MEASURED|UNMEASURED and never averaged; call it from handle_launch_plan and expose on /api/catalogue; add tests/test_ranking_readiness.py",
+  "confidence": "HIGH",
+  "searched": "grep -i ranking.?readiness|click.?readiness|conversion.?readiness|shop.?quality|service.?quality over src/ and tests/: no hits"
+ },
+ {
+  "uid": "F-004",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; truthful listing representation and safe publication",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search.py::search_certificate; src/brambleloop/publish/release_gates.py::search_gate",
+  "durable_state": "listing_search_profiles (certificate, verdict, fingerprint); audit listing.seo_drafted/blocked",
+  "consumer": "src/brambleloop/publish/release_gates.py::for_publish -> runtime/pipeline.py::_release_gates (store.publish refuses)",
+  "protected_effect": "store.publish refuses unless category CHOSEN, properties complete, attributes/tags true, copy gate, description and hero all pass and the listing still matches the certified fingerprint",
+  "tests": [
+   "tests/test_search_truth.py::test_the_search_certificate_refuses_an_unknown_category_and_pends_on_the_hero",
+   "tests/test_search_truth.py::test_publish_refuses_when_search_is_not_certified",
+   "tests/test_search_truth.py::test_a_tag_edit_after_certification_makes_the_search_gate_refuse",
+   "tests/test_search_truth.py::test_listing_seo_drafts_thirteen_tags_and_records_an_unknown_category_without_a_snapshot"
+  ],
+  "evidence": [
+   "runtime/release.py::handle_listing_seo lines ~850-920 builds and persists the certificate",
+   "publish/release_gates.py:197 search_gate, :986 for_publish",
+   "module_reachability: commerce/search.py reached via listing.seo; publish/release_gates.py reached via launch.plan; not in fcb982d (search_certificate absent there)",
+   "/api/catalogue still shows Listing.seo_score as 'search_share' with no basis label (planning proxy), not the certificate verdict"
+  ],
+  "build2_rows": [
+   "#58 COMPLETE+PROVEN",
+   "#70 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": "runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refuses unless the drafted ListingSearchProfile.verdict == 'PASS', but the only writer (runtime/release.py::_persist_search_profile via handle_listing_seo) calls search.search_certificate with hero=None, so the stored verdict is at best 'PENDING' -- store.publish and the owner publication preview can never build a payload at runtime (fail-closed dead end). tests/test_cert_publish_gates.py forces row.verdict='PASS' in a fixture, which hides it.",
+  "next_action": "Fix the dead end: either have certified_payload accept a drafted verdict of PENDING-on-hero-only when release_gates.search_gate returned PASS in the same publish decision, or have store.publish write the completed search_gate verdict (PASS) back to ListingSearchProfile before calling certified_payload; add a test that drives listing.seo -> store.publish without forcing row.verdict. Also show the certificate verdict next to search_share on /api/catalogue.",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-005",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; marketplace compliance/truthful categorisation",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/category.py::choose (+ refuse_broad); src/brambleloop/integrations/etsy_taxonomy.py::refresh",
+  "durable_state": "etsy_taxonomy_snapshots; listing_search_profiles.taxonomy_id/taxonomy_path/category_status",
+  "consumer": "src/brambleloop/runtime/etsy_ops.py::certified_payload (payload.taxonomy_id from category.publish_inputs; UNKNOWN refuses, no 66 fallback); release_gates.search_gate",
+  "protected_effect": "no listing is sent with a default/shallow taxonomy; UNKNOWN category refuses publication",
+  "tests": [
+   "tests/test_search_truth.py::test_no_snapshot_is_unknown_and_never_taxonomy_66",
+   "tests/test_search_truth.py::test_the_deepest_crochet_pattern_node_is_chosen_per_product",
+   "tests/test_search_truth.py::test_a_parent_of_a_valid_deeper_node_is_refused",
+   "tests/test_search_truth.py::test_with_a_snapshot_listing_seo_chooses_the_node_and_writes_the_property_payload",
+   "tests/test_search_truth.py::test_the_refresh_is_an_honest_noop_while_the_etsy_api_gate_is_closed"
+  ],
+  "evidence": [
+   "cadence etsy_taxonomy -> listing.taxonomy_refresh (module_reachability: integrations/etsy_taxonomy.py reached)",
+   "commerce/category.py not in fcb982d",
+   "real Etsy tree never read: tests use a recorded-shape fixture with illustrative ids; CATEGORY_NODE_TERMS unverified against live tree",
+   "integrations/etsy.py still defines TAXONOMY_PATTERNS=66 as the ListingPayload default but certified_payload overwrites it"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "the taxonomy snapshot (getSellerTaxonomyNodes/getPropertiesByTaxonomyId) is read only once the Etsy API credential gate opens; until then every category is UNKNOWN and publication refuses"
+  },
+  "defect": "runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refuses unless the drafted ListingSearchProfile.verdict == 'PASS', but the only writer (runtime/release.py::_persist_search_profile via handle_listing_seo) calls search.search_certificate with hero=None, so the stored verdict is at best 'PENDING' -- store.publish and the owner publication preview can never build a payload at runtime (fail-closed dead end). tests/test_cert_publish_gates.py forces row.verdict='PASS' in a fixture, which hides it.",
+  "next_action": "Software: fix the certified_payload PASS dead end (see defect). Then, when etsy_api opens, let the etsy_taxonomy cadence store a real snapshot and verify CATEGORY_NODE_TERMS choose the expected node for each Launch-0 category (basket, blanket, coaster).",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-006",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; search truth",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/category.py::path_phrases; src/brambleloop/commerce/search.py::score_coverage(category_path=...)",
+  "durable_state": "listing_search_profiles.taxonomy_path, coverage_matrix",
+  "consumer": "runtime/release.py::handle_listing_seo (coverage matrix; tag exclusion list)",
+  "protected_effect": "queries satisfied by the chosen node's ancestor path count as covered by field 'category' and are not re-spent as tags",
+  "tests": [
+   "tests/test_search_truth.py::test_parent_category_phrases_count_as_covered_by_the_category_field"
+  ],
+  "evidence": [
+   "fb1_A report F-006 DONE; verified in code",
+   "only meaningful once a real taxonomy snapshot exists (UNKNOWN has empty path)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "effective only once a real taxonomy snapshot is stored"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch (becomes effective when the etsy_api gate opens and a snapshot is stored)",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-008",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; truthful listing representation",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search.py::attribute_truth, tags_truth/tag_truth",
+  "durable_state": "audit listing.seo_blocked; listing_search_profiles.certificate (attributes/tags checks)",
+  "consumer": "runtime/release.py::handle_listing_seo (blocking list) and search certificate -> release_gates.search_gate",
+  "protected_effect": "untrue skill level, foreign colours, occasion without a seasonal premise, recipient/material on a PDF, difficulty-blind 'easy' and finished-item tags stop the draft",
+  "tests": [
+   "tests/test_search_truth.py::test_attribute_truth_rejects_irrelevant_occasion_foreign_colour_and_wrong_skill",
+   "tests/test_search_truth.py::test_easy_is_never_tagged_on_an_intermediate_pattern_nor_finished_item_phrasing",
+   "tests/test_search_truth.py::test_every_catalogue_seed_gets_thirteen_truthful_tags"
+  ],
+  "evidence": [
+   "fb1_A report F-008 DONE; verified handle_listing_seo appends tag_problems + attribute_problems to blocking"
+  ],
+  "build2_rows": [
+   "#293 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-009",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; search truth/owner visibility",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "The audit is stored (profile row + listing.seo audit detail, readable via /api/audit?action=listing.seo_drafted) but no catalogue/console view presents entered vs lost filters per listing",
+  "producer": "src/brambleloop/commerce/category.py::filter_audit (via properties_for/for_product)",
+  "durable_state": "listing_search_profiles.filters; audit listing.seo_drafted detail.filters",
+  "consumer": "runtime/release.py::handle_listing_seo; app/main.py::api_audit (generic)",
+  "protected_effect": "shows which Etsy filters a listing enters and which are lost to missing data",
+  "tests": [
+   "tests/test_search_truth.py::test_the_filter_audit_shows_the_filters_entered_and_lost"
+  ],
+  "evidence": [
+   "fb1_A F-009 DONE with remaining 'surfacing on /api/catalogue is cluster E' -- not done: app/main.py api_catalogue has no filters field"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "etsy_api",
+   "detail": "filter-bearing properties come from the real node schema, read only once the Etsy API gate opens"
+  },
+  "defect": null,
+  "next_action": "Add per-listing filters {entered, lost_to_missing_data} from ListingSearchProfile.filters to app/main.py::api_catalogue (buildable now) with a route test",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-014",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; search truth",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search.py::choose_tags(exclude=...), structured_duplicates",
+  "durable_state": "listing_search_profiles.certificate (tags check)",
+  "consumer": "runtime/release.py::handle_listing_seo",
+  "protected_effect": "no tag slot spent repeating the category path or a set attribute value; a duplicate fails the certificate's tags check",
+  "tests": [
+   "tests/test_search_truth.py::test_tags_never_repeat_a_phrase_the_structured_fields_supply"
+  ],
+  "evidence": [
+   "handle_listing_seo: tags = choose_tags(queries, must_include=must, exclude=structured)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-023",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; listing copy quality",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/seo.py::build_title (TITLE_WORD_TARGET=15), check_search_copy",
+  "durable_state": "audit listing.seo_drafted detail.search_copy_soft",
+  "consumer": "runtime/release.py::handle_listing_seo",
+  "protected_effect": ">15-word titles are a recorded soft finding (not a block); build_title drops tail segments first",
+  "tests": [
+   "tests/test_search_truth.py::test_a_long_title_is_a_soft_readability_finding_not_a_block",
+   "tests/test_search_truth.py::test_a_stuffed_title_is_refused_and_build_title_never_repeats_a_word"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-024",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; truthful listing copy",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/seo.py::relocate_subjective (used by build_title); check_search_copy LISTING_SUBJECTIVE_IN_TITLE",
+  "durable_state": "audit listing.seo_blocked",
+  "consumer": "runtime/release.py::handle_listing_seo",
+  "protected_effect": "subjective words are removed from the title (they remain in the description, which opens with the product name); a subjective word in a title blocks the draft",
+  "tests": [
+   "tests/test_search_truth.py::test_subjective_words_move_out_of_the_title"
+  ],
+  "evidence": [
+   "_SUBJECTIVE is a fixed 15-word list (cute, beautiful, adorable, ...); words outside it are not detected"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-025",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; listing copy quality",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/seo.py::build_description(key_phrases=...), opening_sentence",
+  "durable_state": "listings.description",
+  "consumer": "runtime/release.py::handle_listing_seo (_opening_phrases)",
+  "protected_effect": "the opening carries up to three product-naming chosen phrases without copying the title",
+  "tests": [
+   "tests/test_search_truth.py::test_the_description_opens_with_key_phrases_without_copying_the_title"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#41 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-026",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; truthful/human listing copy",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/seo.py::keyword_dump (via check_search_copy)",
+  "durable_state": "audit listing.seo_blocked; listing_search_profiles.certificate (description check)",
+  "consumer": "runtime/release.py::handle_listing_seo (blocking) and search certificate",
+  "protected_effect": "phrase repeated >3x, a line listing >=4 target phrases, or hashtags block the draft",
+  "tests": [
+   "tests/test_search_truth.py::test_a_keyword_dump_description_is_refused"
+  ],
+  "evidence": [],
+  "build2_rows": [
+   "#261 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-043",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "P0-before-launch; customer support/remedy and marketplace standard",
+  "maturity": "MISSING",
+  "coverage": "FULL",
+  "missing_part": "No alert before Etsy's 48-hour first-response standard: support/department.py::triage_cases sets resolve_before (refund/case window, days) and enqueues draft replies, but nothing measures age-since-first-message or alerts at 24h/36h; Etsy messages are not ingested",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "gates/policy_knowledge.py records the 48h standard as text only",
+   "support/department.py triage_cases: no first-response clock or owner alert"
+  ],
+  "build2_rows": [
+   "#18 DATA-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "the alert over recorded SupportCase rows is buildable now; real Etsy conversation ingestion is external (no Etsy messages API; rendered_pages/owner forwarding)"
+  },
+  "defect": null,
+  "next_action": "Add support.response_watch to handle_support_triage: for each unanswered SupportCase compute hours since case.at and raise an owner action + Incident at 24h and 36h (before 48h), audited; add an owner-recorded message intake route; test with a 30h-old case",
+  "confidence": "HIGH",
+  "searched": "grep 48h|first.?response|response_watch|unanswered in src/brambleloop; support/department.py, support/service.py, runtime/release.py::handle_support_triage"
+ },
+ {
+  "uid": "F-074",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth: size/yardage claims depend on calibrated primitives",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "The only way to record a sample (runtime/release.py::handle_physical_record) calls _load_cir, which refuses an uncertified release, so a pattern refused UNCALIBRATED_PRIMITIVE can never have the sample that would calibrate it recorded through the runtime",
+  "producer": "src/brambleloop/gates/certificate.py::primitive_findings; src/brambleloop/cir/stitches.py::calibration_status; runtime/pipeline.py::calibrated_primitives",
+  "durable_state": "pattern_versions.certificate.primitives; physical_tests",
+  "consumer": "runtime/pipeline.py::handle_certify -> certify (ERROR UNCALIBRATED_PRIMITIVE refuses grant); launch/readiness.py::unknowns",
+  "protected_effect": "a pattern using a stitch no passed sample has measured is not certified for unrestricted use",
+  "tests": [
+   "tests/test_gates.py::test_a_pattern_using_an_uncalibrated_primitive_is_restricted_until_evidence",
+   "tests/test_gates.py::test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalibrated"
+  ],
+  "evidence": [
+   "fb1_C strict patch now applied: certify line ~295 extends primitive_errors",
+   "Launch-0 variants (5) certify with no uncalibrated primitive (checked by running certify on each)",
+   "not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software intake fix is buildable; actual calibration then needs a physical sample (physical_proof, owner/tester)"
+  },
+  "defect": "Intake dead end: physical.record requires a certified release, but certification of a new-primitive pattern requires a recorded sample (same root as F-078)",
+  "next_action": "Let handle_physical_record accept a release whose only blocking findings are PHYSICAL_TEST_REQUIRED / UNCALIBRATED_PRIMITIVE / GAUGE_OUTSIDE_DECLARED_YARN_BAND (load the CIR from the last gate.blocked audit or PatternVersion.cir_json) and stamp measured['content_hash']; then enqueue gate.certify; test end-to-end through the queue",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-078",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth / provenance: evidence bound to exact pattern content",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "Binding and invalidation work at certify; a material change blocks with the evidence reported 'invalidated' but nothing requests a re-test (no owner/tester action or job), and physical.record neither stamps content_hash nor accepts a release blocked only on physical evidence",
+  "producer": "src/brambleloop/gates/certificate.py::bind_physical_evidence; runtime/pipeline.py::physical_evidence_rows/_content_certified_at",
+  "durable_state": "physical_tests; pattern_versions.certificate.physical_evidence; audit gate.certified/gate.blocked (content_hash)",
+  "consumer": "runtime/pipeline.py::handle_certify -> certify -> PatternVersion.certificate",
+  "protected_effect": "physical evidence counts only for the exact slug@version+content hash or a declared compatible variant at its current hash",
+  "tests": [
+   "tests/test_gates.py::test_physical_evidence_binds_only_to_the_exact_content_it_was_worked_against",
+   "tests/test_gates.py::test_a_declared_compatible_variant_binds_only_at_its_own_current_content",
+   "tests/test_physical.py::test_a_class_c_release_unblocks_through_the_queue_on_a_sample_of_its_own_content",
+   "tests/test_physical.py::test_a_sample_recorded_before_the_release_was_ever_examined_binds_to_nothing"
+  ],
+  "evidence": [
+   "tests insert PhysicalTest rows directly (_passed_sample), bypassing physical.record",
+   "quality/physical.py::record is the only producer of PhysicalTest rows; not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": "physical.record (runtime/release.py::handle_physical_record) uses _load_cir which refuses uncertified releases, so a Class C / out-of-band-gauge release cannot receive the sample that would unblock it via the runtime",
+  "next_action": "Fix handle_physical_record intake (stamp content_hash, accept physical-evidence-only blocked releases); on an 'invalidated' binding open an owner action 're-test <slug>@<version>' via the owner queue; test both",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-090",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth: no unjustified reduction of testing",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::risk_downgrade_findings; runtime/pipeline.py::_prior_risk_class",
+  "durable_state": "products.risk_class; pattern_versions.cir_json; certificate findings",
+  "consumer": "runtime/pipeline.py::handle_certify (RISK_CLASS_DOWNGRADE_UNJUSTIFIED is an ERROR)",
+  "protected_effect": "a lower risk class than the product has held is refused unless a passed physical test of this content is bound",
+  "tests": [
+   "tests/test_gates.py::test_a_risk_class_downgrade_without_evidence_is_refused",
+   "tests/test_physical.py::test_a_risk_class_downgrade_is_refused_at_the_runtime_certify"
+  ],
+  "evidence": [
+   "improve/governance.py PROTECTED_GATES also stops autonomous weakening of gates"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-100",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "authority/spend control: new provider spend needs owner approval",
+  "maturity": "IMPLEMENTED",
+  "coverage": "PARTIAL",
+  "missing_part": "No diversification approval record/card carrying measured resilience value; connecting a provider is gated only implicitly (unregistered providers refused, keys supplied by the owner, ceilings enforced)",
+  "producer": "src/brambleloop/finance/spend_policy.py::may_spend; src/brambleloop/gateway/images.py::generate (unknown provider refusal)",
+  "durable_state": null,
+  "consumer": "src/brambleloop/gateway/anthropic.py::check_budget_cad",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_cost.py::test_unknown_image_providers_are_refused_before_any_request",
+   "tests/test_cert_cost.py::test_an_entry_in_either_table_is_enforced"
+  ],
+  "evidence": [
+   "tests assert ceilings and unknown-provider refusal, not an owner diversification approval",
+   "scale/dependency.py measures provider concentration (reached via /api/dependency) but nothing links it to an approval"
+  ],
+  "build2_rows": [
+   "#188 COMPLETE+PROVEN",
+   "#223 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "model_provider",
+   "detail": "funding a second provider is an owner decision; the approval card itself is buildable now"
+  },
+  "defect": null,
+  "next_action": "Add a launch/access.py AccessRequest 'second model provider' whose card carries scale/dependency.py's measured provider concentration and outage impact plus max cost, and refuse provider registration in gateway routing without an approved row; test it",
+  "confidence": "LOW",
+  "searched": null
+ },
+ {
+  "uid": "F-111",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth: legacy pre-calibration products must not publish",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/eligibility.py::product_publication, legacy_status; products/launch0.py::launch_scope_slugs",
+  "durable_state": "pattern_versions.certificate.gauge_standard",
+  "consumer": "publish/release_gates.py::for_publish -> runtime/pipeline.py::_release_gates (store.publish)",
+  "protected_effect": "a slug outside Launch-0 is refused LEGACY_PRE_CALIBRATION unless re-certified under GAUGE_STANDARD cyc-sc-band/1",
+  "tests": [
+   "tests/test_eligibility.py::test_a_legacy_catalogue_slug_is_refused_publication_until_recertified",
+   "tests/test_launch0.py::test_launch_scope_holds_every_variant_slug_and_only_launch0"
+  ],
+  "evidence": [
+   "gauge_findings now wired into certify (strict patch applied; fb3-G derived catalogue gauges from the yarn band), so re-certification under the stamp is a real re-examination",
+   "not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-112",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Product Truth: implausible gauge must be refused, not warned",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::gauge_findings",
+  "durable_state": "pattern_versions.certificate (findings, gauge_standard)",
+  "consumer": "runtime/pipeline.py::handle_certify -> certify (GAUGE_OUTSIDE_DECLARED_YARN_BAND / GAUGE_WITHOUT_YARN_EVIDENCE are ERRORs)",
+  "protected_effect": "a gauge the declared yarn cannot hold is refused unless a bound physical test of this content evidences it; the PDF note is only a statement on an evidenced release",
+  "tests": [
+   "tests/test_gates.py::test_a_worsted_16_sts_pattern_fails_certification_rather_than_printing_a_swatch_note",
+   "tests/test_gates.py::test_an_out_of_band_gauge_is_released_only_on_a_sample_of_this_content",
+   "tests/test_gates.py::test_a_gauge_typed_against_no_yarn_is_refused_and_a_benchmark_is_not_judged",
+   "tests/test_gates.py::test_the_runtime_author_derives_its_gauge_from_the_declared_yarn"
+  ],
+  "evidence": [
+   "certificate.py:292 findings.extend(gauge_findings(...))",
+   "publish/pdf.py:1053 note rewritten as statement, not compensation",
+   "DECISION_LOG mentions F-112"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-119",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility of launch readiness",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/readiness.py::_launch_scope_counts",
+  "durable_state": "pattern_versions.certificate.gauge_standard",
+  "consumer": "launch/readiness.py::assess (dashboard, launch assessment)",
+  "protected_effect": "legacy certifications count zero toward catalogue_depth and are reported separately under legacy_counted_zero",
+  "tests": [
+   "tests/test_launch.py::test_a_legacy_certification_counts_zero_toward_launch_until_recertified"
+  ],
+  "evidence": [
+   "module_reachability: publish/eligibility.legacy_status reached via dashboard -> assess -> _launch_scope_counts"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-120",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "launch assortment policy enforced on publication scope",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/products/launch0.py::launch_scope_slugs",
+  "durable_state": null,
+  "consumer": "publish/eligibility.py::legacy_status (store.publish) and launch/readiness.py::_launch_scope_counts",
+  "protected_effect": "only Launch-0 (or re-certified) products are publishable and count toward readiness",
+  "tests": [
+   "tests/test_launch0.py::test_launch_scope_holds_every_variant_slug_and_only_launch0",
+   "tests/test_launch.py::test_a_legacy_certification_counts_zero_toward_launch_until_recertified",
+   "tests/test_launch0.py::test_everything_listed_for_launch_passes_every_gate"
+  ],
+  "evidence": [
+   "FINAL_BUILD_STATE: owner decision recorded that catalogue_depth needs 8 listable products while Launch-0 has 5 slugs/variants -- readiness will report catalogue_depth unmet"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-123",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: tests must prove claims",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Detector is a syntactic heuristic; 109 pre-existing vacuous-risk loops remain in a shrink-only BASELINE; open note in FINAL_BUILD_STATE about loop roots named values/items/keys",
+  "producer": "tests/test_vacuity.py::findings_in",
+  "durable_state": null,
+  "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
+  "protected_effect": "a new loop asserting over an unchecked iterable fails the suite",
+  "tests": [
+   "tests/test_vacuity.py::test_no_new_vacuous_risk_loop_anywhere_in_the_suite",
+   "tests/test_vacuity.py::test_the_baseline_only_shrinks",
+   "tests/test_vacuity.py::test_a_loop_asserting_over_an_unchecked_iterable_is_flagged",
+   "tests/test_vacuity.py::test_a_non_emptiness_assertion_or_a_literal_clears_the_loop"
+  ],
+  "evidence": [
+   "release process gate, not a runtime root -> TESTED is the ceiling under the brief's definition",
+   "RUN_6f9a2f7_full_suite.json: suite green including test_vacuity"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Fix the 109 BASELINE loops (add non-emptiness asserts) and shrink BASELINE to empty; resolve the values/items/keys root-stripping note in _root_names/_VIEWS with a regression case",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-125",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: production/test disagreement is a defect",
+  "maturity": "MISSING",
+  "coverage": "PARTIAL",
+  "missing_part": "No mechanism treats a production-vs-test/module disagreement as a defect (no incident/defect opened); build2/maturity.py::ladder can say a reached module never ran, but only for Build-2 rows and it only reports",
+  "producer": null,
+  "durable_state": null,
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [],
+  "evidence": [
+   "build2/maturity.py::ladder (API /api/build2/maturity) measures exercised/evidenced rungs; no Incident/DefectReport written",
+   "tests/test_maturity.py::test_a_module_a_job_does_reach_can_be_told_it_never_ran asserts measurement only",
+   "C-78 (Orders hardening claimed but never merged) was found by manual Codex reconciliation, not by a mechanism"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add build2/maturity.disagreements(db) comparing closure-state COMPLETE claims (and Final Master matrix INTEGRATED+ rows) with ladder 'never ran'/'not reached' results and open one gates.incidents Incident per disagreement until reconciled; run it from the build/ops cadence; test it",
+  "confidence": "MEDIUM",
+  "searched": "grep disagree|disagreement in src/brambleloop (only domain uses); build2/maturity.py; ops/provider_accounts.py"
+ },
+ {
+  "uid": "F-154",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "security/owner visibility: controls must not be reported working when they are not",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "Applied to specific controls only (operator credential usable vs configured; offsite backup usable only after a real round trip); no inventory of all security controls (commit signing, sealed OAuth store, Etsy token encryption, publication grant HMAC) with functional probes",
+  "producer": "src/brambleloop/core/opsauth.py::token_health; src/brambleloop/core/offsite.py::state",
+  "durable_state": null,
+  "consumer": "app/main.py continuity status route ('credential': token_health()) and api_offsite",
+  "protected_effect": "a configured-but-too-short ops token and a configured-but-never-round-tripped offsite target are reported unusable",
+  "tests": [
+   "tests/test_continuity.py::test_a_wrong_or_short_credential_is_refused",
+   "tests/test_offsite.py::test_the_state_reports_the_last_real_round_trip_not_the_variables"
+  ],
+  "evidence": [
+   "fcb982d app/main.py:700 'credential': opsauth.token_health() and api_offsite -> offsite.state present in production"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add ops/security_controls.py listing each control with a functional probe (usable/unavailable + why), surfaced on the dashboard/console; test that a configured-but-failing probe reads 'unavailable'",
+  "confidence": "MEDIUM",
+  "searched": null
+ },
+ {
+  "uid": "F-158",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "release/supply-chain integrity before deploy",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Change record is printed at regeneration and lives in git history of requirements.lock, not in a release-evidence file; the Docker image has never been built from the lock (Railway build not run)",
+  "producer": "scripts/lock_requirements.py -> requirements.lock",
+  "durable_state": "brambleloop/requirements.lock",
+  "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock",
+  "protected_effect": "the deployed image installs exactly pinned, hash-verified distributions",
+  "tests": [
+   "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
+   "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
+   "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+   "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions"
+  ],
+  "evidence": [
+   "requirements.lock absent from fcb982d",
+   "build/release path, not a runtime root"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Write the lock change record (lock_requirements.py --diff against the deployed SHA) into the release evidence for the RC; build the Docker image from the RC once (local or Railway preview) and record success",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-159",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "release safety: no credential leaks",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Runtime logs outside the repo (Railway/production logs) are not scanned; binaries >20MB or NUL-bearing and compressed PDF streams are skipped",
+  "producer": "tests/test_secret_scan.py",
+  "durable_state": null,
+  "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
+  "protected_effect": "a credential-shaped string in tracked/untracked/generated/evidence files fails the release suite",
+  "tests": [
+   "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
+   "tests/test_secret_scan.py::test_each_credential_family_is_detected_by_its_pattern",
+   "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks",
+   "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value"
+  ],
+  "evidence": [
+   "RUN_6f9a2f7_full_suite.json green"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add a pre-release scan of exported production logs (owner-provided or Railway log export) and decoded PDF text streams of generated artefacts",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-160",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "security: exposed credentials must be rotated before launch",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Register is library + CLI only; not wired into any owner queue/dashboard (module_reachability: ops/credential_register.py not reached); the exposed ANTHROPIC_API_KEY is still rotation-required",
+  "producer": "src/brambleloop/ops/credential_register.py::REGISTER/owner_requests",
+  "durable_state": "code-held register (no values)",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_credential_register.py::test_the_chat_exposed_anthropic_key_is_seeded_as_rotation_required",
+   "tests/test_credential_register.py::test_every_unrotated_credential_is_an_owner_card_in_the_directive_format",
+   "tests/test_credential_register.py::test_a_rotation_with_evidence_retires_the_card_and_age_alone_never_does",
+   "tests/test_credential_register.py::test_the_register_refuses_an_entry_carrying_something_shaped_like_a_value"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "owner",
+   "key": "credential_rotation",
+   "detail": "rotating the Anthropic key is an owner action; wiring the card is buildable now"
+  },
+  "defect": "Unwired: owner_requests() is never called by a runtime root, so the rotation card never reaches the owner",
+  "next_action": "Buildable now: append credential_register.owner_requests() to the launch readiness owner queue (launch/readiness.assess or runtime/release.py launch assessment) and show it on the dashboard; test it is present. Owner: rotate ANTHROPIC_API_KEY and record rotated_at + evidence",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-169",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract: clean-tree full suite on the deploy tree",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_guard is run by hand -- a push to the production branch triggers a Railway build without it -- and HEAD (acb6c9f) has moved past 6f9a2f7 by docs-only commits, so the RC SHA is not yet frozen",
+  "producer": "run_tests.sh (REQUIRE_CLEAN, release_eligible run record)",
+  "durable_state": "artifacts/suite_runs/*.json; research/final_build/RUN_6f9a2f7_full_suite.json",
+  "consumer": "ops/deploy_guard.py::check (exact candidate SHA)",
+  "protected_effect": "only a full, clean, unmoved-HEAD, zero-failing run on the exact candidate SHA allows deploy",
+  "tests": [
+   "tests/test_run_tests_script.py::test_a_dirty_tree_is_recorded_as_dirty_and_refused_under_require_clean",
+   "tests/test_run_tests_script.py::test_only_a_full_clean_green_run_on_an_unmoved_head_can_be_release_eligible",
+   "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
+   "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused"
+  ],
+  "evidence": [
+   "RUN_6f9a2f7_full_suite.json: release_eligible true, dirty_paths 0, git_sha == git_sha_at_end, 5,653 passing",
+   "release procedure, not a runtime root; not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Freeze the RC (6f9a2f7 or re-run REQUIRE_CLEAN=1 ./run_tests.sh on the final HEAD) and run ops/deploy_guard.py check --candidate <RC> --deployed fcb982d, committing the verdict; document/enforce that Railway deploys only that SHA",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-170",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: suite totals/SHA from the runner",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "run_tests.sh (header/footer from git and clock; JSON run record)",
+  "durable_state": "artifacts/suite_runs/*.log|json",
+  "consumer": "ops/deploy_guard.py (re-reads the log header and TOTAL line)",
+  "protected_effect": "SHA, tree state, UTC times and totals are written by the runner, never hand-carried",
+  "tests": [
+   "tests/test_run_tests_script.py::test_the_log_opens_and_closes_with_sha_tree_state_utc_times_and_totals",
+   "tests/test_run_tests_script.py::test_a_json_run_record_and_a_full_log_copy_are_written_where_the_log_says",
+   "tests/test_deploy_guard.py::test_a_record_whose_log_contradicts_it_or_is_gone_is_refused"
+  ],
+  "evidence": [
+   "RUN_6f9a2f7_full_suite.json carries git_sha, git_sha_at_end, dirty_paths, started/finished UTC from the runner"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-175",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "truthful owner visibility: launch report names unknowns",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/readiness.py::unknowns",
+  "durable_state": null,
+  "consumer": "launch/readiness.py::assess/to_dict/render (dashboard; launch assessment)",
+  "protected_effect": "the launch report lists physical-calibration, uncalibrated-primitive, Etsy-surface, Launch-0 price/make-time, proxy-measurement and provider unknowns",
+  "tests": [
+   "tests/test_launch.py::test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today"
+  ],
+  "evidence": [
+   "module_reachability: cir/stitches.py and products/launch0.py reached via dashboard -> assess -> unknowns; not in fcb982d"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-177",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: Final Master reconciled to Build-2 first",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Registry, matrix and aggregation exist and are pinned; rows touched by FB-1/FB-2/FB-3 are being re-mapped against 6f9a2f7 now (this remap), so the matrix does not yet reflect current code",
+  "producer": "research/final_build/parse_master.py; research/final_build/aggregate.py",
+  "durable_state": "research/final_build/master_registry.json; closure_matrix.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse",
+   "tests/test_final_master_registry.py::test_every_declared_id_is_accounted_for_as_present_or_absent",
+   "tests/test_final_closure_matrix.py::test_every_registry_record_is_mapped_exactly_once_without_problems",
+   "tests/test_final_closure_matrix.py::test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason"
+  ],
+  "evidence": [
+   "closure_matrix.json 866 rows; aggregate.py wave overlay keeps worker DONE separate from maturity (F-867)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Merge the remap outputs, extend aggregate.py to read remap files (it globs mapping/s[0-9].json only), re-aggregate and commit",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-178",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "certification contract: completion standard",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "aggregate.py caps claims by evidence (EXERCISED needs a committed production artefact, INTEGRATED needs a reached producer) but no completion verdict is computed (applicable row complete iff at target maturity for its launch_class or gate genuinely open)",
+  "producer": "research/final_build/aggregate.py::cap",
+  "durable_state": "research/final_build/closure_matrix.json",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_closure_matrix.py::test_exercised_rows_cite_a_committed_production_artefact",
+   "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
+   "tests/test_final_closure_matrix.py::test_no_row_claims_commercial_evidence_that_does_not_exist"
+  ],
+  "evidence": [],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "software work remains or none; nothing external blocks it"
+  },
+  "defect": null,
+  "next_action": "Add aggregate.completion(row): LAUNCH-CRITICAL complete iff maturity>=INTEGRATED (DEPLOYED/EXERCISED where production-verified is claimed, with a stored readback artefact) or gate.kind!=none with a verified gate key; summarise OPEN count and pin OPEN==0 for release in tests/test_final_closure_matrix.py",
+  "confidence": "MEDIUM",
+  "searched": null
+ }
+]

@@ -164,7 +164,7 @@ def main():
         "defects": sum(1 for r in matrix if r.get("defect")),
         "wave_reported": dict(Counter(w["status"] for r in matrix for w in r.get("wave", []))),
     }
-    out = {"basis": {"engineering": "019ebf0 (+ Final Build registry commits)",
+    out = {"basis": {"engineering": "6f9a2f7 (Final Build; launch-critical rows below INTEGRATED re-mapped on 6f9a2f7, others mapped on 019ebf0)",
                      "production": "fcb982d", "registry": "master_registry.json"},
            "levels": LEVELS, "summary": summary, "matrix": matrix}
     (HERE / "closure_matrix.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")

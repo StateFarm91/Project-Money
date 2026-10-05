@@ -106,19 +106,20 @@
  {
   "uid": "F-236",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "launch_class_reason": "P0 addendum: storefront quality / marketplace compliance (shop surface copy)",
   "maturity": "IMPLEMENTED",
   "coverage": "PARTIAL",
-  "missing_part": "A shop title/tagline ('Crochet patterns checked row by row before they are sold') exists in shop_package.shop_text, but no check measures buyer-language/category clarity or keyword stuffing of shop title/description, and it is not consumed by any gate.",
+  "missing_part": "shop title/tagline is a constant in shop_package.shop_text and About/announcements in brand/storefront; no check measures buyer-language/category clarity or keyword stuffing of the shop tagline/description, and storefront.check_storefront does not inspect them for SEO",
   "producer": "src/brambleloop/commerce/shop_package.py::shop_text",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/commerce/shop_package.py (package problems check only verifies field presence)",
   "protected_effect": null,
   "tests": [
-   "tests/test_shop_package.py::test_the_api_can_write_five_fields_and_a_person_types_the_rest"
+   "tests/test_shop_package.py::test_the_api_can_write_five_fields_and_a_person_types_the_rest (field presence only, not SEO quality)"
   ],
   "evidence": [
-   "shop_text is a constant; the test asserts field presence, not SEO quality"
+   "brand/ and shop_package unchanged since 019ebf0 (git diff --stat empty)",
+   "storefront.py:191-235 check_storefront has no SEO/stuffing check"
   ],
   "build2_rows": [],
   "gate": {
@@ -127,9 +128,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add a shop-surface SEO check (category words from commerce/intent vocabulary present, commerce/portfolio.stuffing applied to tagline/announcement) and call it from storefront.check_storefront; test a stuffed tagline fails.",
-  "confidence": "MEDIUM",
-  "searched": null
+  "next_action": "Add brand/storefront.check_shop_seo(store, shop_text): require at least one category word (crochet + pattern) from commerce/intent vocabulary in title/About, apply commerce/portfolio.stuffing to title/announcement, cap repeated keywords; call it from check_storefront so launch.readiness consumes it; test a stuffed tagline and a category-silent tagline fail.",
+  "confidence": "HIGH",
+  "searched": "grep shop_text/tagline/stuffing in brand/, commerce/shop_package.py, commerce/seo.py"
  },
  {
   "uid": "F-237",
@@ -162,10 +163,10 @@
  {
   "uid": "F-238",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "launch_class_reason": "P0 addendum: opening-grid merchandising is the storefront a first buyer sees",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "Only grid coherence (palette share, hero-treatment consistency) exists, and it is called only by tests. Nothing orders the opening grid (strongest first, seasonal visible, price/value ladder apparent, no filler).",
+  "missing_part": "only palette/hero-treatment coherence exists (library, unreached); nothing orders the opening grid (strongest first, seasonal visible, price ladder, no legacy filler)",
   "producer": "src/brambleloop/brand/bible.py::check_grid_coherence",
   "durable_state": null,
   "consumer": null,
@@ -176,8 +177,8 @@
    "tests/test_brand.py::test_mixed_hero_treatments_are_flagged"
   ],
   "evidence": [
-   "grep: check_grid_coherence has no caller in src/ outside bible.py",
-   "no featured/ordering function in brand/ or commerce/"
+   "grep: check_grid_coherence has no caller in src/ (only a docstring mention)",
+   "brand/ unchanged since 019ebf0"
   ],
   "build2_rows": [],
   "gate": {
@@ -186,24 +187,26 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": "library-only: check_grid_coherence is unreached from any runtime root",
-  "next_action": "Build brand/storefront.opening_grid(db): order certified/listed products by measured-or-prior strength, seasonal window (seasonal/calendar), price ladder (commerce/ladder) and exclude filler; run check_grid_coherence on it inside launch.readiness; tests for ordering and filler refusal.",
+  "next_action": "Build brand/storefront.opening_grid(db): order launch-cleared products (dashboard_truth.launch_inventory) by measured-or-prior strength, put the active takeover season first (takeover.active), interleave price tiers (commerce/ladder), exclude legacy_status-uncleared products; run check_grid_coherence on it and add an 'opening_grid' Requirement to launch/readiness.assess; tests for ordering and filler refusal.",
   "confidence": "HIGH",
-  "searched": "brand/, commerce/ for opening_grid/featured/display_order; only bible.check_grid_coherence found"
+  "searched": null
  },
  {
   "uid": "F-239",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "launch_class_reason": "P0 addendum: mobile storefront QA before launch",
   "maturity": "MISSING",
   "coverage": "PARTIAL",
-  "missing_part": "No mobile QA of the storefront (icon, banner crop, announcement, sections, first grid). Mobile QA exists only for listing galleries (publish/mobile.py).",
+  "missing_part": "no mobile QA of the shop surfaces (icon, banner crop, announcement opening, sections, first grid); only listing thumbnails have mobile contexts (publish/mobile.py, H2 340px legibility)",
   "producer": null,
   "durable_state": null,
   "consumer": null,
   "protected_effect": null,
   "tests": [],
   "evidence": [
-   "publish/mobile.py covers listing-gallery contexts only (thumbnail, phone gallery, first three, full gallery)"
+   "research/final_build/waves/fb2_H2.json F-239 PARTIAL: listing thumbnails only; shop surfaces out of scope",
+   "brand/storefront.py has briefs (banner/icon) but no render or mobile check",
+   "publish/mobile.py covers listing gallery contexts (Build 2 #66)"
   ],
   "build2_rows": [
    "#66 COMPLETE+PROVEN (listing-level only)"
@@ -214,36 +217,35 @@
    "detail": "inspecting the live storefront as a buyer sees it needs a browser worker; a pre-launch simulated render can be built now"
   },
   "defect": null,
-  "next_action": "Build a storefront mobile preview renderer (icon at 40/70px, banner 1600x400 centre-crop at phone width, announcement truncation, first 4-6 grid tiles) reusing publish/mobile render contexts; gate launch.readiness on it; tests for banner crop safe-margin and icon legibility.",
+  "next_action": "Build brand/storefront_preview.py rendering icon at 40/70px, banner 1600x400 centre-crop at 360px phone width with safe-margin check, announcement first-line truncation, section list and first 4-6 grid tiles from opening_grid (F-238) reusing publish/mobile contexts; add a 'storefront_mobile_preview' Requirement to launch/readiness; tests for banner safe-margin and icon legibility.",
   "confidence": "HIGH",
-  "searched": "publish/mobile.py, brand/storefront.py, launch/readiness.py"
+  "searched": "grep banner/mobile/storefront_preview/shop_preview across src/brambleloop"
  },
  {
   "uid": "F-240",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); legal/payout/tax identity truth",
+  "launch_class_reason": "P0 addendum: seller identity truthfulness / marketplace compliance",
   "maturity": "MISSING",
   "coverage": "FULL",
-  "missing_part": "Nothing models public shop identity vs legal/payout/tax identity or checks that they are truthful/permitted; payout/tax are owner-entered (readiness ETSY_PAYOUT).",
+  "missing_part": "nothing models public shop identity vs legal/payout/tax identity, nor checks that differences are Etsy-permitted",
   "producer": null,
   "durable_state": null,
   "consumer": null,
   "protected_effect": null,
   "tests": [],
   "evidence": [
-   "launch/readiness.py ETSY_ACCOUNT/ETSY_PAYOUT owner requests only",
-   "grep 'legal name|public identity|seller identity' in src: no hits"
+   "no identity/legal_name record in brand/storefront.py or commerce/shop_package.py; shop_package records tax claims (GST/HST) only"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
    "key": "etsy_shop",
-   "detail": "legal/payout/tax identity is entered by the account holder (KYC); the software record of the approved public identity can be built now"
+   "detail": "legal/payout/tax identity is entered by the account holder at Etsy KYC; the software record of the approved public identity and the permitted-difference rule can be built now"
   },
   "defect": null,
-  "next_action": "Add a shop identity record (public shop name/owner display vs legal/tax presentation, with the Etsy rule each relies on as a policy_knowledge reading) and a check in storefront.check_storefront; owner confirms legal identity at KYC.",
+  "next_action": "Add commerce/shop_package.SellerIdentity (public shop name/display owner vs legal/tax presentation, each difference tied to a policy_knowledge reading of Etsy's rule) and a check in storefront.check_storefront that refuses an un-sourced difference; owner confirms legal identity at KYC.",
   "confidence": "MEDIUM",
-  "searched": "src/ for legal_name, public identity, seller identity, business name"
+  "searched": "grep identity/legal_name/payout in brand/, commerce/shop_package.py, launch/"
  },
  {
   "uid": "F-241",
@@ -484,17 +486,18 @@
  {
   "uid": "F-248",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "launch_class_reason": "P0 addendum: Etsy Search Visibility intake",
   "maturity": "MISSING",
   "coverage": "FULL",
-  "missing_part": "No intake for Etsy Search Visibility recommendations (date, listing, category, remediation, lifecycle). intel/etsy_surfaces records the surface as having no API (CLASS_C) and nothing records owner-read recommendations.",
+  "missing_part": "no intake for owner-read Etsy Search Visibility recommendations (date, listing, scope/category, remediation, lifecycle); intel/etsy_surfaces records the surface as non-API only",
   "producer": null,
   "durable_state": null,
   "consumer": null,
   "protected_effect": null,
   "tests": [],
   "evidence": [
-   "src/brambleloop/intel/etsy_surfaces.py:634 search_visibility surface: no API, collector None"
+   "intel/etsy_surfaces.py:633-643 search_visibility surface descriptor only",
+   "no wave report claims F-248"
   ],
   "build2_rows": [],
   "gate": {
@@ -503,9 +506,9 @@
    "detail": "recommendations exist only for a live shop/listings; the owner-read intake route and lifecycle can be built now"
   },
   "defect": null,
-  "next_action": "Build an authenticated POST /api/search-visibility intake (owner-read recommendation rows: date, listing, scope, category, remediation, state) with a lifecycle where code changes cannot resolve an item -- only a later recorded reading that no longer lists it; tests for the resolution rule.",
+  "next_action": "Build an opsauth-guarded POST /api/search-visibility (rows: observed_at, listing_id, scope shop|listing|service, category, remediation, state OPEN/REMEDIATED_PENDING/CLEARED) in a new table, where only a later recorded reading that no longer lists the item may set CLEARED (code changes may only set REMEDIATED_PENDING); tests for the resolution rule.",
   "confidence": "HIGH",
-  "searched": "src/ and tests/ for search_visibility / Search Visibility; only intel/etsy_surfaces registry text"
+  "searched": "grep -i 'search.visibility' src/brambleloop"
  },
  {
   "uid": "F-249",
@@ -542,17 +545,21 @@
  {
   "uid": "F-250",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
-  "maturity": "MISSING",
-  "coverage": "PARTIAL",
-  "missing_part": "No renewal path exists at all (so no renewal-spam today), but there is no guard/policy object preventing a renewal-for-boost strategy if one is added.",
-  "producer": null,
+  "launch_class_reason": "P0 addendum: search-visibility non-gaming",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/release_gates.py::renewal_decision",
   "durable_state": null,
   "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "protected_effect": "a renewal for recency is refused; only expiry or a material product change permits renewal",
+  "tests": [
+   "tests/test_search_truth.py::test_a_recency_only_renewal_is_refused"
+  ],
   "evidence": [
-   "grep 'renew' in commerce/publish/finance: only fee-schedule renewal period constants"
+   "research/final_build/waves/fb1_A.json F-250",
+   "no listing-renewal path exists in src (nothing calls renewal_decision), so there is no runtime consumer to integrate with",
+   "release_gates.py not in fcb982d"
   ],
   "build2_rows": [],
   "gate": {
@@ -561,24 +568,29 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add a listing-renewal rule in publish/release_gates (renewal only on expiry or material product change, never on a schedule for recency) and a test that a recency-only renewal is refused.",
-  "confidence": "MEDIUM",
-  "searched": "commerce/, publish/, finance/ for renew"
+  "next_action": "Add a structural test that any Etsy client renew/renewal call site routes through release_gates.renewal_decision (grep-style guard over src/), so a future renewal path cannot bypass it; otherwise none \u2014 no renewal path exists to integrate.",
+  "confidence": "HIGH",
+  "searched": null
  },
  {
   "uid": "F-251",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "No shop-language rule check on titles/tags and no translation policy; listing_schema/etsy payload carry no language field.",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "launch_class_reason": "P0 addendum: search language integrity in listing copy",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "language rule is alphabet-based (non-ASCII regex): ASCII foreign-language words (e.g. Spanish/French without accents) pass; translation_record is free text with no check that a translation is deliberate rather than impression bait",
+  "producer": "src/brambleloop/commerce/seo.py::check_search_copy (LISTING_LANGUAGE)",
+  "durable_state": "listing_search_profiles (via runtime/release.py::_persist_search_profile)",
+  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo (blocking findings stop the draft)",
+  "protected_effect": "a title/tag outside the shop language blocks the listing draft unless a translation record exists",
+  "tests": [
+   "tests/test_search_truth.py::test_a_non_english_tag_is_refused_without_a_translation_record"
+  ],
   "evidence": [
-   "grep -i language in publish/listing_schema.py and integrations/etsy.py: none"
+   "research/final_build/waves/fb1_A.json F-251",
+   "release.py:851-857 copy_gate blocking",
+   "listing.seo handler enqueued by handle_pricing_position (module_reachability)",
+   "fcb982d seo.py has no check_search_copy: behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
   ],
   "build2_rows": [],
   "gate": {
@@ -587,9 +599,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add a shop-language check in commerce/seo.check_listing_limits (all title/tag words in the shop language vocabulary; non-English tags refused unless a deliberate translation record exists); test it.",
+  "next_action": "Add an English-vocabulary check (word list from commerce/intent + a small English dictionary) so ASCII non-English tokens also block, and require translation_record to name a market and a demand reading (refuse when the target language has no recorded demand); tests.",
   "confidence": "MEDIUM",
-  "searched": "publish/listing_schema.py, integrations/etsy.py, commerce/*.py for language/translat"
+  "searched": null
  },
  {
   "uid": "F-252",
@@ -1451,18 +1463,23 @@
  {
   "uid": "F-279",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
-  "maturity": "IMPLEMENTED",
+  "launch_class_reason": "P0 addendum: launch/seasonal storefront-to-listing continuity",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Takeovers change banner, featured collection and copy from the same collection calendar as the seasonal listings, but no check verifies that featured products/banner story match the search/ad landing listings.",
-  "producer": "src/brambleloop/brand/takeover.py::plan",
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
+  "missing_part": "banner/featured collection are generated from the same season members as the seasonal listings (seasonal/daily -> takeover), but no check verifies featured products/banner occasion equal the search/ad landing listings' story",
+  "producer": "src/brambleloop/seasonal/daily.py (takeover changes from season members) -> brand/takeover.py::plan/execute",
+  "durable_state": "operating_readings kind takeover state",
+  "consumer": "src/brambleloop/brand/storefront.py::build_storefront -> launch/readiness.py::assess",
+  "protected_effect": "the drafted storefront's banner/featured collection/About copy follow the active seasonal takeover built from the same certified season members",
   "tests": [
+   "tests/test_cert_takeover.py::test_the_engine_applies_due_surfaces_and_reverts_them_after_the_occasion",
+   "tests/test_cert_takeover.py::test_every_applied_surface_is_rendered_on_the_storefront_the_launch_check_reads",
    "tests/test_takeover.py::test_the_dates_come_from_the_collection_calendar_not_from_taste"
   ],
-  "evidence": [],
+  "evidence": [
+   "seasonal/daily.py:430-460 changes built from members of the season",
+   "seasonal.engine cadence (module_reachability seasonal/daily.py reached, not in fcb982d)"
+  ],
   "build2_rows": [
    "#131 COMPLETE+PROVEN"
   ],
@@ -1472,35 +1489,35 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add a continuity check in launch.readiness: featured collection and banner occasion must equal the occasion of the listings in the ads plan/seasonal launch set; test a mismatch fails.",
+  "next_action": "Add a continuity Requirement in launch/readiness.assess: the active takeover's occasion and featured members must equal the occasion/slugs of the listings in the seasonal launch set and any ads plan; test a mismatch blocks.",
   "confidence": "MEDIUM",
   "searched": null
  },
  {
   "uid": "F-280",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "launch_class_reason": "P0 addendum: launch-week Search Visibility watch",
   "maturity": "MISSING",
   "coverage": "FULL",
-  "missing_part": "No launch-week Search Visibility inspection cadence (no Search Visibility intake exists, see F-248).",
+  "missing_part": "no launch-week Search Visibility inspection cadence (no intake exists, see F-248)",
   "producer": null,
   "durable_state": null,
   "consumer": null,
   "protected_effect": null,
   "tests": [],
   "evidence": [
-   "worker.py cadences: no search-visibility job"
+   "no search_visibility cadence in runtime/worker.py; no intake (F-248)"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "data",
    "key": "live_listings",
-   "detail": "needs a live shop; cadence/owner card can be built now"
+   "detail": "needs a live shop; the cadence/owner card can be built now"
   },
   "defect": null,
-  "next_action": "After F-248, add a launch-week cadence that raises an owner card to read Search Visibility daily for 7 days after the phase change and records the reading; test the cadence schedule.",
+  "next_action": "After F-248, add a cadence in runtime/worker.py that, for 7 days after the phase leaves shadow, raises a daily owner card to read Shop Manager > Marketing > Search Visibility and records the reading via the F-248 intake; test the schedule window and card dedupe.",
   "confidence": "HIGH",
-  "searched": "runtime/worker.py cadence table"
+  "searched": "grep search_visibility in runtime/worker.py and src/brambleloop"
  },
  {
   "uid": "F-281",
@@ -1561,19 +1578,23 @@
  {
   "uid": "F-283",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); order/customer truth",
-  "maturity": "IMPLEMENTED",
+  "launch_class_reason": "P0 addendum: order/customer truth (first-sale attribution)",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Order has acquisition_source and offsite_ad_attributed, but ingest writes 'etsy' for every order, so the first sale's source (organic, Etsy Ads, Offsite Ads, direct, unknown) is never recorded honestly; no first-sale record exists.",
-  "producer": "src/brambleloop/commerce/orders_ingest.py::ingest",
-  "durable_state": "Order.acquisition_source",
-  "consumer": null,
-  "protected_effect": null,
+  "missing_part": "no owner/Stats-export route to attribute organic, Etsy Ads or owned/direct (sources.attribute is only called by finance/reconcile for offsite_ads fee evidence); first sales will stay 'unknown' unless evidence arrives that way",
+  "producer": "src/brambleloop/commerce/orders_ingest.py::ingest -> finance/sources.py::record_first_sale, attribute",
+  "durable_state": "orders.acquisition_source, orders.detail.attribution, operating_readings commerce.first_sale",
+  "consumer": "finance/sources.py::table; growth/loops/order_readings via SOURCE_TO_LOOP (unknown has no loop)",
+  "protected_effect": "ingest writes acquisition_source 'unknown'; a known source needs evidence; the first sale is recorded once with source, evidence and 'possibility, not scale'",
   "tests": [
-   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+   "tests/test_money_truth.py::test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged",
+   "tests/test_money_truth.py::test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
+   "tests/test_money_truth.py::test_an_acquisition_source_without_evidence_is_refused"
   ],
   "evidence": [
-   "orders_ingest.py:221-226 acquisition_source='etsy'"
+   "research/final_build/waves/fb1_D.json F-283 DONE",
+   "codex_reconciliation CB2-O06: unknown-as-organic half fixed; loop downward correction remains",
+   "commerce.orders_ingest cadence; orders_ingest.py not in fcb982d"
   ],
   "build2_rows": [
    "#11 OWNER-GATED",
@@ -1582,10 +1603,10 @@
   "gate": {
    "kind": "owner",
    "key": "transactions_r",
-   "detail": "orders are read only after the owner adds transactions_r"
+   "detail": "real orders are read only after the owner grants the transactions_r scope; the attribution route is buildable now"
   },
-  "defect": "blanket 'etsy' label is a proxy that asserts a source the system does not know",
-  "next_action": "Write acquisition_source='unknown' at ingest, add a first-sale record (first Order with source + evidence + 'possibility not scale' note) and an owner/Stats attribution update path; tests.",
+  "defect": null,
+  "next_action": "Add an opsauth-guarded POST /api/orders/{ref}/attribution calling finance.sources.attribute(evidence required), listed in main.CUSTOMER_DATA_ROUTES; test that it refuses without evidence and refreshes the first-sale record.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1864,17 +1885,17 @@
  {
   "uid": "F-293",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "launch_class_reason": "P0 addendum: final Etsy launch acceptance (storefront visual inspection)",
   "maturity": "MISSING",
   "coverage": "FULL",
-  "missing_part": "No desktop/mobile visual inspection of the complete BrambleloopStudio storefront (the shop exists and is empty); only text-level storefront checks exist.",
+  "missing_part": "no desktop/mobile visual inspection of the complete storefront; only text-level storefront checks",
   "producer": null,
   "durable_state": null,
   "consumer": null,
   "protected_effect": null,
   "tests": [],
   "evidence": [
-   "brand/storefront.py text checks only; research/SHOP_READINESS.md"
+   "no storefront render/preview in src (see F-239)"
   ],
   "build2_rows": [],
   "gate": {
@@ -1883,9 +1904,9 @@
    "detail": "the live storefront as a buyer sees it needs a browser worker; a pre-launch rendered preview can be built now"
   },
   "defect": null,
-  "next_action": "Build the storefront preview renderer (F-239) at desktop and mobile widths and a readiness requirement comparing it to the approved identity/seasonal plan; after phase change, an owner card to screenshot the live shop.",
+  "next_action": "Build the storefront preview renderer (F-239) at desktop and mobile widths and a launch/readiness Requirement comparing it to the approved identity, opening grid (F-238) and active seasonal takeover; after phase change raise an owner card to screenshot the live shop and record it.",
   "confidence": "HIGH",
-  "searched": "brand/, launch/, publish/mobile.py"
+  "searched": "grep storefront render/preview/screenshot in src/brambleloop"
  },
  {
   "uid": "F-294",
@@ -2140,21 +2161,23 @@
  {
   "uid": "F-332",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
+  "launch_class_reason": "P0 addendum (source-stated): durable job observation; operator tooling, not customer runtime",
   "maturity": "TESTED",
   "coverage": "FULL",
   "missing_part": null,
-  "producer": "ops/board.py (repo root, outside brambleloop/)::alive / lineage",
+  "producer": "ops/board.py (repo root)::alive / lineage",
   "durable_state": null,
-  "consumer": "ops/board.py (repo root, outside brambleloop/)::read (liveness only consulted with self-lineage excluded)",
-  "protected_effect": "a waiter cannot count itself or its parent shell as the workload",
+  "consumer": "ops/board.py::read; ops/waiter.py (registry re-read); ops/HEARTBEAT_PROMPT.md forbids ad-hoc pgrep loops",
+  "protected_effect": "a liveness probe never counts the observer's own process lineage",
   "tests": [
-   "tests/test_board.py (checks 'a liveness probe does not count the observer's own process', 'the caller's whole lineage is excluded, not merely its own pid')",
-   "tests/test_board_restart.py (check 'after a restart a new process sharing the marker does NOT make the old job RUNNING')"
+   "tests/test_board.py (check 'a liveness probe does not count the observer's own process')",
+   "tests/test_board.py (check 'the caller's whole lineage is excluded, not merely its own pid')",
+   "tests/test_board_restart.py (restart marker check)",
+   "tests/test_waiter.py::test_the_waiter_never_spawns_a_process"
   ],
   "evidence": [
-   "ops/board.py docstring: 2026-09-24 ~100-minute pgrep self-match incident",
-   "operator tooling; not reached from a runtime root; present in fcb982d tree"
+   "ops/HEARTBEAT_PROMPT.md:41-42 now instructs ops/waiter.py, never pgrep loops (F-332, F-334)",
+   "operator CLI, not a product runtime root: INTEGRATED/DEPLOYED do not apply in the product sense"
   ],
   "build2_rows": [],
   "gate": {
@@ -2163,7 +2186,7 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (operator tool; add a lint in ops/HEARTBEAT_PROMPT.md forbidding bare pgrep waits).",
+  "next_action": "none \u2014 at target maturity for launch (operator tooling; EXERCISED would need a recorded real heartbeat wait).",
   "confidence": "HIGH",
   "searched": null
  },
@@ -2201,17 +2224,21 @@
  {
   "uid": "F-334",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
-  "maturity": "MISSING",
+  "launch_class_reason": "P0 addendum (source-stated): waiter deduplication; operator tooling",
+  "maturity": "TESTED",
   "coverage": "FULL",
-  "missing_part": "No waiter/monitor object exists to deduplicate; the board is a pure read with no waiter registry, and nothing detects or terminates duplicate waiters.",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "missing_part": null,
+  "producer": "ops/waiter.py (repo root)::Waiter.wait / _acquire (O_EXCL lease per job)",
+  "durable_state": "brambleloop/artifacts/ops_waiters/leases (git-ignored)",
+  "consumer": "operator/integrator loops via CLI `python3 ops/waiter.py wait <job>` (HEARTBEAT_PROMPT step 4)",
+  "protected_effect": "a second wait attaches to the live waiter instead of polling; a dead waiter's lease is detected and taken over",
+  "tests": [
+   "tests/test_waiter.py::test_a_second_wait_for_the_same_job_attaches_instead_of_starting_a_second_waiter",
+   "tests/test_waiter.py::test_a_duplicate_lease_left_by_a_dead_waiter_is_detected_and_taken_over"
+  ],
   "evidence": [
-   "ops/board.py/registry.py: 'No schedule, no queue, no supervision'"
+   "research/final_build/waves/fb1_F.json F-334 DONE",
+   "no artifacts/ops_waiters state dir exists in the worktree or main checkout: no recorded real use"
   ],
   "build2_rows": [],
   "gate": {
@@ -2220,9 +2247,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add ops/waiter.py: a lock-file-per-job waiter (O_EXCL like ops/lock.py) so a second wait attaches/reads the registry verdict; detect stale/duplicate waiter records; tests including duplicate requests.",
+  "next_action": "none \u2014 at target maturity for launch (operator tooling; use it in the next heartbeat to reach EXERCISED).",
   "confidence": "HIGH",
-  "searched": "ops/, brambleloop/src for waiter/monitor dedup"
+  "searched": null
  },
  {
   "uid": "F-335",
@@ -2290,17 +2317,22 @@
  {
   "uid": "F-337",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "No rolling normal duration per operation class and no 3x-envelope investigation trigger; queue leases have a fixed expiry and health reads queue age, not per-class duration.",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "launch_class_reason": "P0 addendum (source-stated): expected-duration watchdog",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "covers operator lanes only (ops/waiter durations.jsonl); the product runtime jobs table has no rolling per-job_type duration or 3x-median investigation flag in ops/health",
+  "producer": "ops/waiter.py (repo root)::Waiter.watchdog / record_duration / normal",
+  "durable_state": "brambleloop/artifacts/ops_waiters/durations.jsonl",
+  "consumer": "ops/waiter.py::Waiter.wait (re-reads registry with process probe when fired)",
+  "protected_effect": "a lane running >3x its rolling median (>=5 samples) triggers an authoritative-state check before waiting on",
+  "tests": [
+   "tests/test_waiter.py::test_the_watchdog_needs_history_then_fires_at_three_times_the_rolling_median",
+   "tests/test_waiter.py::test_when_the_watchdog_fires_the_waiter_verifies_authoritative_state_before_waiting_on",
+   "tests/test_waiter.py::test_a_completion_records_its_duration_once_per_run_from_the_jobs_own_stamps"
+  ],
   "evidence": [
-   "grep rolling/expected duration/3x in queue/, ops/, runtime/worker.py, ops/: none"
+   "research/final_build/waves/fb1_F.json F-337 PARTIAL",
+   "grep median/rolling in src/brambleloop/ops/health.py, queue/, runtime/worker.py: none"
   ],
   "build2_rows": [],
   "gate": {
@@ -2309,9 +2341,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Record duration per job_type from jobs.started/finished, compute rolling median, and have ops.health flag running jobs > 3x median (with enough history) as 'verify authoritative state'; same for registry lanes; tests.",
+  "next_action": "Add ops/health.job_duration_envelope(db): rolling median of (finished-started) per job_type from the jobs table (>=5 samples), flag RUNNING jobs older than 3x median as 'verify authoritative state' signals in the health_sweep cadence; test.",
   "confidence": "HIGH",
-  "searched": "queue/durable.py, ops/health.py, runtime/worker.py, ops/board.py"
+  "searched": null
  },
  {
   "uid": "F-338",
@@ -2379,17 +2411,21 @@
  {
   "uid": "F-340",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
-  "maturity": "MISSING",
+  "launch_class_reason": "P0 addendum (source-stated): waiter resource bound; operator tooling",
+  "maturity": "TESTED",
   "coverage": "FULL",
-  "missing_part": "No bounded wait/monitor primitive (wall time, process count, resources) and no escalation on bound breach; UNREPORTED_AFTER_S surfaces idle finished lanes but does not bound waiters.",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "missing_part": null,
+  "producer": "ops/waiter.py (repo root)::Waiter.wait (max wall time, observer cap, no subprocess)",
+  "durable_state": "brambleloop/artifacts/ops_waiters/leases",
+  "consumer": "operator CLI",
+  "protected_effect": "every wait has a wall-time bound and a live-waiter cap; on breach it stops and returns the registry diagnosis; the waiter never spawns processes",
+  "tests": [
+   "tests/test_waiter.py::test_the_wall_time_bound_stops_observing_and_returns_the_registry_diagnosis",
+   "tests/test_waiter.py::test_at_the_observer_cap_no_new_waiter_is_started",
+   "tests/test_waiter.py::test_the_waiter_never_spawns_a_process"
+  ],
   "evidence": [
-   "ops/board.py UNREPORTED_AFTER_S=120 is a reporting threshold, not a waiter bound"
+   "research/final_build/waves/fb1_F.json F-340 DONE (memory/CPU not measured; single sleeping process by construction)"
   ],
   "build2_rows": [],
   "gate": {
@@ -2398,9 +2434,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Build ops/waiter.py with max wall time, single-process enforcement and a breach path that stops waiting and prints the registry diagnosis; tests.",
+  "next_action": "none \u2014 at target maturity for launch (operator tooling).",
   "confidence": "HIGH",
-  "searched": "ops/, brambleloop/src/brambleloop/ops"
+  "searched": null
  },
  {
   "uid": "F-341",
@@ -2434,18 +2470,21 @@
  {
   "uid": "F-342",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
+  "launch_class_reason": "P0 addendum (source-stated): observer/work separation",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "The board uses the job's own marker and excludes the observer lineage, and registry records the job marker never the watcher's command line; runtime job metadata has no observer/work role field (there are no runtime observers).",
-  "producer": "ops/board.py (repo root, outside brambleloop/)::alive; ops/registry.py (repo root)::Registry.enrol (marker)",
-  "durable_state": "ops/JOBS.json",
-  "consumer": "ops/board.py (repo root, outside brambleloop/)::read",
-  "protected_effect": null,
+  "missing_part": "registry records carry the job's own marker and waiter leases live in a separate directory, but there is no explicit role (work|observer) field and registry.enrol does not refuse an observer command/marker being enrolled as a job",
+  "producer": "ops/board.py (repo root)::alive; ops/registry.py::Registry.enrol (marker); ops/waiter.py leases",
+  "durable_state": null,
+  "consumer": "ops/board.py::read",
+  "protected_effect": "a workload query excludes the observer's lineage, so the observer cannot satisfy it",
   "tests": [
-   "tests/test_board.py (check 'a genuinely running job is still counted alongside the observer')"
+   "tests/test_board.py (check 'a genuinely running job is still counted alongside the observer')",
+   "tests/test_board.py (check 'a job with no sentinel whose only match is the observer reads STALLED, not RUNNING')"
   ],
-  "evidence": [],
+  "evidence": [
+   "grep role/observer in ops/registry.py: none"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -2453,8 +2492,8 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Record a role (work|observer) on registry records and refuse enrolling an observer as a job; test.",
-  "confidence": "MEDIUM",
+  "next_action": "Add role ('work'|'observer') to registry records, have ops/waiter leases record role='observer', and make Registry.enrol refuse a marker matching observer signatures (waiter.py, pgrep, 'until ... sleep'); test.",
+  "confidence": "HIGH",
   "searched": null
  },
  {
@@ -2491,17 +2530,22 @@
  {
   "uid": "F-344",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "Avoidable wall-clock delay from orchestration/observer defects is not recorded anywhere as a reliability metric; COMPLETE_UNREPORTED carries an age but nothing accumulates it.",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "launch_class_reason": "P0 addendum (s38 durable job observation): truthful owner visibility of reliability, runtime durability of the build process.",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "Only one class of waste is accounted: (ack time - job's stamped finish) when a lane is acknowledged through `ops/waiter.py ack`. `ops/registry.py ack` -- the command HEARTBEAT_PROMPT step 3 tells the operator to run at lease acquisition -- does not account idle time. Other orchestration/observer delays (hung waits, redundant reruns, observer stalls) are not recorded. Reliability incidents live only as an `incident` flag in time_waste.jsonl / exit code of `waiter.py waste`; they are not surfaced in the lease print, board or owner dashboard. No real (non-test) time_waste.jsonl exists (only pytest tmp dirs).",
+  "producer": "ops/waiter.py (repo root)::Waiter.ack / Waiter.account_idle",
+  "durable_state": "brambleloop/artifacts/ops_waiters/time_waste.jsonl",
+  "consumer": "ops/waiter.py (repo root)::Waiter.waste_report (CLI `waste`)",
+  "protected_effect": "idle wall-clock separated from spend; >15 min single gap or >60 min/day flagged RELIABILITY INCIDENT",
+  "tests": [
+   "tests/test_waiter.py::test_acknowledging_a_lane_accounts_its_idle_wall_clock_and_flags_a_reliability_incident",
+   "tests/test_waiter.py::test_a_quick_acknowledgement_is_recorded_but_is_not_an_incident"
+  ],
   "evidence": [
-   "ops/board.py age_s on COMPLETE_UNREPORTED rows is displayed only"
+   "research/final_build/waves/fb1_F.json F-344 PARTIAL",
+   "ops/HEARTBEAT_PROMPT.md step 3 (registry.py ack) and step 4 (waiter.py wait/ack)",
+   "find / -name time_waste.jsonl -> only /tmp/waiter-* test dirs"
   ],
   "build2_rows": [],
   "gate": {
@@ -2510,27 +2554,31 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "When a lane is acknowledged, record (ack time - job finish time) as idle wall-clock in the registry and roll it up; raise a reliability incident above a threshold; tests.",
+  "next_action": "Make `ops/registry.py ack` call Waiter.account_idle (or route the heartbeat's ack through `waiter.py ack`), print `waiter.py waste` reliability incidents in the lease/board output (ops/lock.py::_show_unread_lanes), and add a test that a registry ack of a 20-minute-stale lane is accounted and shown.",
   "confidence": "HIGH",
-  "searched": "ops/, brambleloop/src/brambleloop/ops"
+  "searched": null
  },
  {
   "uid": "F-345",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "A suite log enrolled in the registry yields its RESULT line (TOTAL PASSING n ; suites failing m) durably across restarts, but no record persists start/end time, commit SHA, pass/fail/skip counts, duration and log location automatically; 'latest validated suite' is not a query.",
-  "producer": "ops/registry.py (repo root)::Registry.enrol / acknowledge",
-  "durable_state": "ops/JOBS.json",
-  "consumer": "ops/registry.py (repo root)::survey",
-  "protected_effect": "the result of an enrolled suite survives restarts without inspecting processes",
+  "launch_class_reason": "P0 addendum s38; deploy_guard and release eligibility depend on a durable suite record.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "brambleloop/run_tests.sh::write_record",
+  "durable_state": "brambleloop/artifacts/suite_runs/<run_id>.json + .log",
+  "consumer": "ops/deploy_guard.py (repo root)::latest_suite / check",
+  "protected_effect": "latest validated suite queryable (`deploy_guard.py latest-suite --eligible`) without inspecting processes; record has start/end UTC, SHA at start and end, totals, pass/fail/skip, duration, log path",
   "tests": [
-   "tests/test_board_restart.py (check 'and it still quotes the job's own RESULT line')",
-   "tests/test_board.py (check 'and it quotes the RESULT, not merely the fact of completion')"
+   "tests/test_run_tests_script.py::test_a_json_run_record_and_a_full_log_copy_are_written_where_the_log_says",
+   "tests/test_run_tests_script.py::test_an_interrupted_run_is_recorded_as_interrupted_and_releases_its_lock",
+   "tests/test_run_tests_script.py::test_only_a_full_clean_green_run_on_an_unmoved_head_can_be_release_eligible",
+   "tests/test_deploy_guard.py::test_latest_suite_is_a_file_query_and_the_cli_exit_code_is_the_verdict"
   ],
   "evidence": [
-   "run_tests.sh prints TOTAL PASSING only; research/b2_resume/evidence/full_suite_856186f_5242_passing_0_failing.log (manual naming convention)"
+   "Live root for this harness requirement is the release harness (run_tests.sh / ops CLI at repo root), not the production runtime; INTEGRATED here means the harness itself executes it on every run. Not DEPLOYED: fcb982d's run_tests.sh has none of this.",
+   "Real run records: artifacts/suite_runs/20261005T184145Z-16320.json (6f9a2f7, full, passed, 5,653 passing, release_eligible true; committed copy research/final_build/RUN_6f9a2f7_full_suite.json) plus 4 earlier records (interrupted/failed/filtered) -- the writer has demonstrably run for real.",
+   "FAIL/SKIP counts are column-zero markers; suite exit codes remain authoritative (labelled in record)."
   ],
   "build2_rows": [],
   "gate": {
@@ -2539,24 +2587,29 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Make run_tests.sh write a JSON run record (run id, start/end UTC, git SHA, totals, failing suites, duration, log path) to a durable location and add `registry.py latest-suite`; tests.",
+  "next_action": "none \u2014 at target maturity for launch (harness requirement; cannot be DEPLOYED in the production sense until the Build is deployed with this run_tests.sh).",
   "confidence": "HIGH",
   "searched": null
  },
  {
   "uid": "F-346",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
-  "maturity": "MISSING",
+  "launch_class_reason": "P0 addendum s38.",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "run_tests.sh has no lock; two full suites for the same commit can run concurrently and a second request does not attach to the first.",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "missing_part": null,
+  "producer": "brambleloop/run_tests.sh (noclobber lock block, lines ~149-190)",
+  "durable_state": "brambleloop/artifacts/suite_runs/locks/<sha256(SHA|scope|interpreter|host)>.lock",
+  "consumer": "any second run_tests.sh invocation (prints running record, exit 75)",
+  "protected_effect": "one full suite per commit/scope/interpreter/host; ALLOW_PARALLEL=1 is the deliberate override; stale lock (dead pid / reused pid) taken over and announced",
+  "tests": [
+   "tests/test_run_tests_script.py::test_a_second_identical_run_reports_the_running_one_and_exits_without_running",
+   "tests/test_run_tests_script.py::test_a_stale_lock_from_a_dead_process_is_taken_over_and_said"
+  ],
   "evidence": [
-   "run_tests.sh: no lock/flock; ops/lock.py is the heartbeat lease, not a suite lock"
+   "Live root for this harness requirement is the release harness (run_tests.sh / ops CLI at repo root), not the production runtime; INTEGRATED here means the harness itself executes it on every run. Not DEPLOYED: fcb982d's run_tests.sh has none of this.",
+   "research/final_build/waves/fb1_F.json F-346 DONE",
+   "real run record names its lock: artifacts/suite_runs/locks/478c9e7e960a931f.lock"
   ],
   "build2_rows": [],
   "gate": {
@@ -2565,24 +2618,30 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add an O_EXCL lock keyed by git SHA+environment in run_tests.sh (override flag for deliberate parallel runs); a second invocation prints the running record and exits; test.",
+  "next_action": "none \u2014 at target maturity for launch",
   "confidence": "HIGH",
-  "searched": "run_tests.sh, ops/lock.py"
+  "searched": null
  },
  {
   "uid": "F-347",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress) (operator practice rule)",
-  "maturity": "MISSING",
+  "launch_class_reason": "P0 addendum s38.",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "No codified rule or tooling for targeted-first validation after an observer/hang diagnosis (run_tests.sh has no targeted mode tied to diagnosis; heartbeat prompt does not state it).",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "missing_part": null,
+  "producer": "brambleloop/run_tests.sh (SUITES filter, THEN_FULL chaining)",
+  "durable_state": "artifacts/suite_runs/<run_id>.json (scope: filtered|full)",
+  "consumer": "operator loop: ops/HEARTBEAT_PROMPT.md step 4 'Targeted before full (F-347)'",
+  "protected_effect": "smallest affected suites first; full run only chained when targeted suites pass; unknown suite name runs nothing (exit 2)",
+  "tests": [
+   "tests/test_run_tests_script.py::test_a_filtered_run_executes_only_the_named_suites_and_an_unknown_name_runs_nothing",
+   "tests/test_run_tests_script.py::test_then_full_does_not_start_the_full_run_when_the_targeted_suites_fail",
+   "tests/test_run_tests_script.py::test_then_full_chains_into_the_unfiltered_run_when_the_targeted_suites_pass"
+  ],
   "evidence": [
-   "ops/HEARTBEAT_PROMPT.md testing instructions run full suites"
+   "Live root for this harness requirement is the release harness (run_tests.sh / ops CLI at repo root), not the production runtime; INTEGRATED here means the harness itself executes it on every run. Not DEPLOYED: fcb982d's run_tests.sh has none of this.",
+   "ops/HEARTBEAT_PROMPT.md lines 38-40 (commit 267b183)",
+   "real targeted run: artifacts/suite_runs/20261005T153245Z-20835.json scope=filtered on f373dd8 (rerun of the failing set) before the full runs"
   ],
   "build2_rows": [],
   "gate": {
@@ -2591,27 +2650,33 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add the targeted-first rule to ops/HEARTBEAT_PROMPT.md and a run_tests.sh SUITES filter argument (run named suites only) so the smallest affected test runs first.",
-  "confidence": "MEDIUM",
-  "searched": "ops/HEARTBEAT_PROMPT.md, run_tests.sh"
+  "next_action": "none \u2014 at target maturity for launch",
+  "confidence": "HIGH",
+  "searched": null
  },
  {
   "uid": "F-348",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
+  "launch_class_reason": "P0 addendum s38; the requirement is the regression tests themselves.",
   "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "Tests prove observers cannot match themselves, completed jobs read complete, stale observers/new processes after restart cannot resurrect RUNNING, and rising matches are not progress; 'duplicate waiters do not multiply' is untested because no waiter mechanism exists.",
-  "producer": "ops/board.py (repo root, outside brambleloop/); ops/registry.py (repo root)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "ops/board.py, ops/registry.py, ops/waiter.py (repo root)",
   "durable_state": null,
   "consumer": null,
-  "protected_effect": null,
+  "protected_effect": "observer self-match excluded; duplicate waiters attach (one lease) and observer cap refuses new waiters; completed jobs read COMPLETE/COMPLETE_UNREPORTED; restart/stale observers cannot resurrect RUNNING; spinning/rising matches not progress",
   "tests": [
-   "tests/test_board.py",
-   "tests/test_board_restart.py",
+   "tests/test_board.py (checks 'a liveness probe does not count the observer's own process', 'a job that has just finished reads COMPLETE', 'a job with no sentinel whose only match is the observer reads STALLED, not RUNNING')",
+   "tests/test_board_restart.py (checks 'the lane the restart killed is INTERRUPTED', 'EVIDENCE_LOST is emphatically not COMPLETE')",
+   "tests/test_waiter.py::test_a_second_wait_for_the_same_job_attaches_instead_of_starting_a_second_waiter",
+   "tests/test_waiter.py::test_at_the_observer_cap_no_new_waiter_is_started",
+   "tests/test_waiter.py::test_a_duplicate_lease_left_by_a_dead_waiter_is_detected_and_taken_over",
    "tests/test_health.py::test_the_sweep_refuses_to_call_a_spinning_loop_healthy"
   ],
-  "evidence": [],
+  "evidence": [
+   "All named suites ran in the release-eligible full run on 6f9a2f7 (run_tests.sh globs tests/test_*.py).",
+   "Previous gap ('duplicate waiters do not multiply' untested) is closed by tests/test_waiter.py (FB-1 F)."
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -2619,25 +2684,31 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "After ops/waiter.py (F-334/F-340), add tests that duplicate wait requests attach to one waiter and the waiter count never reads as progress.",
+  "next_action": "none \u2014 at target maturity for launch (requirement is automated tests; they assert the behaviour and run in every release-eligible suite)",
   "confidence": "HIGH",
   "searched": null
  },
  {
   "uid": "F-349",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress) (operator practice rule)",
+  "launch_class_reason": "P0 addendum s38.",
   "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "The board reports finished lanes as refillable so work is not held by monitoring; the runtime worker runs cadences independently of tests. No rule/tool enforces that independent zero-cost work proceeds while a suite runs.",
-  "producer": "ops/board.py (repo root, outside brambleloop/)::board (refillable lanes)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "ops/HEARTBEAT_PROMPT.md step 4 rule; ops/waiter.py (bounded, never spawns, MAX_WAITERS/MAX_WALL_S); ops/board.py refillable lanes; run_tests.sh concurrency lock",
   "durable_state": null,
-  "consumer": "ops/lock.py::_show_unread_lanes",
-  "protected_effect": null,
+  "consumer": "ops/lock.py::_show_unread_lanes (lease print)",
+  "protected_effect": "full suite runs in background; waiting is bounded and attachable; finished lanes reported refillable; shared state protected by suite lock and lease",
   "tests": [
-   "tests/test_board.py (check 'a finished lane is reported refillable without anyone having to notice')"
+   "tests/test_board.py (check 'a finished lane is reported refillable without anyone having to notice')",
+   "tests/test_waiter.py::test_the_wall_time_bound_stops_observing_and_returns_the_registry_diagnosis",
+   "tests/test_waiter.py::test_the_waiter_never_spawns_a_process",
+   "tests/test_run_tests_script.py::test_a_second_identical_run_reports_the_running_one_and_exits_without_running"
   ],
-  "evidence": [],
+  "evidence": [
+   "ops/HEARTBEAT_PROMPT.md lines 40-42: 'Never block business progress on a suite (F-349): run the full suite in the background and wait on it with python3 ops/waiter.py wait/ack' (commit 267b183) \u2014 previous next_action done.",
+   "It is a rule plus bounding tools; nothing can mechanically force an agent to pick up independent work."
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -2645,27 +2716,28 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "State the rule in ops/HEARTBEAT_PROMPT.md (never block on a suite; run it in background with registry enrolment) \u2014 no further code needed.",
+  "next_action": "none \u2014 at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
  {
   "uid": "F-350",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
-  "maturity": "IMPLEMENTED",
+  "launch_class_reason": "P0 addendum s38; trust/reliability incidents.",
+  "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "The known observer incidents are recorded with root cause and regression tests (ops/board.py and ops/registry.py docstrings, tests/test_board*.py), but there is no incident record type/process that logs observer defects as reliability incidents and blocks closure until a prevention test and fix exist.",
-  "producer": null,
-  "durable_state": null,
+  "missing_part": "Only 'material delay' is detected and flagged (waiter idle accounting -> RELIABILITY INCIDENT flag in time_waste.jsonl). There is no incident record type for observer defects (false progress, hidden completion, duplicated work) with required root_cause, prevention_test and fix_commit, and nothing refuses closure without them. Historical observer incidents are documented only in ops/board.py / registry.py docstrings and tests.",
+  "producer": "ops/waiter.py (repo root)::Waiter.waste_report",
+  "durable_state": "artifacts/ops_waiters/time_waste.jsonl",
   "consumer": null,
-  "protected_effect": null,
+  "protected_effect": "material ack delay flagged as reliability incident (exit 1)",
   "tests": [
+   "tests/test_waiter.py::test_acknowledging_a_lane_accounts_its_idle_wall_clock_and_flags_a_reliability_incident",
    "tests/test_board.py",
    "tests/test_board_restart.py"
   ],
   "evidence": [
-   "ops/board.py docstring (2026-09-24 incidents); ops/registry.py docstring (2026-09-25 restart)"
+   "grep -rn reliability ops brambleloop/src: only waiter.py waste report; no root_cause/prevention_test fields in incident code (only creative/audit.py, unrelated)"
   ],
   "build2_rows": [],
   "gate": {
@@ -2674,8 +2746,8 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Record observer defects as runtime Incident rows (signature 'reliability:observer:*') via ops/incident_lifecycle with required fields root_cause, prevention_test, fix_commit before resolve; test that closure without them is refused.",
+  "next_action": "Add an ops reliability-incident ledger (e.g. ops/incidents.jsonl via ops/registry.py `incident open/close`) with required fields signature, kind (false_progress|hidden_completion|duplicate_work|launch_delay), root_cause, prevention_test (must name an existing tests/ function), fix_commit (must exist in git); refuse close without them; have waiter.py waste open one automatically; tests for refusal and auto-open.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": "ops/*.py, brambleloop/src for reliability/root_cause/prevention_test"
  }
 ]

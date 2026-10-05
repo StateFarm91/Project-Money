@@ -100,28 +100,33 @@
  {
   "uid": "F-182",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "MISSING",
-  "coverage": "PARTIAL",
-  "missing_part": "no post-deploy verification compares active owner actions with live gate evidence; /api/verify has 12 checks, none about owner actions",
-  "producer": null,
-  "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::api_verify",
-  "protected_effect": null,
-  "tests": [],
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/main.py::api_verify (check no_satisfied_owner_action_presented)",
+  "durable_state": "audit_logs (verify.completed rows)",
+  "consumer": "GET /api/verify (post-deploy verification) via build2/executor.py::approval_inbox + GATE_BY_KEY[gate].open",
+  "protected_effect": "post-deploy verification fails (503) when a presented owner card's gate is already open or an external gate is presented as an owner card",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_a_satisfied_gate_and_its_open_shop_action_never_both_render"
+  ],
   "evidence": [
-   "app/main.py:4164 api_verify checks listed: phase, publish, ads, revenue, ceilings, durable db, worker, scheduler, dead letters -- no owner-action check"
+   "research/final_build/waves/fb1_E.json F-182 DONE",
+   "main.py:4394-4415 re-evaluates each presented card's gate independently of the inbox",
+   "git show fcb982d main.py has no no_satisfied_owner_action_presented: behaviour added after fcb982d (not in production tree), so at most INTEGRATED",
+   "test covers the green path (satisfied etsy_shop row withheld, check ok, withheld evidence present); no test forces a presented-but-satisfied card to prove the check fails"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add check('no_satisfied_owner_action_presented', ...) to api_verify: for every open OwnerAction/approval card, re-evaluate its gate via executor.GATE_BY_KEY[key].open(db, env) and fail when an open gate still has an active action; test in tests/test_cert_dashboard.py",
+  "next_action": "Add a test that monkeypatches approval_inbox to present a card whose gate is open and asserts /api/verify returns 503 with presented_but_satisfied populated; then deploy (DEPLOYED needs the Railway deploy, owner-approved release).",
   "confidence": "HIGH",
-  "searched": "api_verify checks; grep 'owner' in verify; ops/health.py; runtime/release.py closers"
+  "searched": null
  },
  {
   "uid": "F-183",
@@ -218,111 +223,123 @@
  {
   "uid": "F-186",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "no launch-standard clearance status per product; 'Certified releases' card counts PatternVersion.certified only",
-  "producer": null,
-  "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
-  "protected_effect": null,
-  "tests": [],
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "gauge_standard criterion is hard-coded None (UNASSESSED) in dashboard_truth.launch_inventory, so launch-cleared is 0 by construction; the certificate now records gauge_standard (gates/certificate.py) and publish/eligibility.legacy_status checks it, but the dashboard does not read it; no canonical launch_cleared() in launch/readiness.py",
+  "producer": "src/brambleloop/app/dashboard_truth.py::launch_inventory",
+  "durable_state": "pattern_versions, listing_assets (read)",
+  "consumer": "src/brambleloop/app/main.py::dashboard headline; GET /api/headline",
+  "protected_effect": "certified-but-not-launch-standard products never read as launch-ready inventory ('Launch-cleared / certified 0 / N')",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_a_certified_product_that_fails_launch_criteria_is_not_launch_cleared"
+  ],
   "evidence": [
-   "main.py:4961 Certified releases = certified_versions",
-   "owned_photography.coverage / /api/asset-coverage counts usable assets but is not on the dashboard headline"
+   "research/final_build/waves/fb1_E.json F-186 PARTIAL",
+   "dashboard_truth.py:83-87 gauge_standard: None",
+   "publish/eligibility.py::legacy_status uses cert.gauge_standard == GAUGE_STANDARD",
+   "module_reachability: app/dashboard_truth.py reached via GET /, in_production_fcb982d False"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "top-level 'Certified releases' reads as launch-ready inventory while no product has a usable listing asset",
-  "next_action": "Add a launch_cleared(product) function (certified AND usable listing asset AND current creative gate survivor AND gauge standard) in launch/readiness.py, show 'launch-cleared N / certified M' in the dashboard grid, test with a certified-but-failing product",
-  "confidence": "MEDIUM",
-  "searched": "grep launch_cleared/legacy cohort in src; creative/audit.py; launch/readiness.py; owned_photography.coverage"
+  "defect": "proxy-by-construction: the gauge criterion is never assessed, so clearance cannot become true even for a product that meets it",
+  "next_action": "Replace the gauge_standard None in dashboard_truth.launch_inventory with publish/eligibility.legacy_status(slug, stored certificate)['cleared'] (or a launch/readiness.launch_cleared that wraps it), and add a test where a Launch-0/recertified product with asset+survivor reads launch-cleared while a legacy uncertified one does not.",
+  "confidence": "HIGH",
+  "searched": null
  },
  {
   "uid": "F-187",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "creative-gate survivors are shown in the 6th command-centre block, below Build2 coverage, visual pipeline, MJs mission, seasonal and CA$5K blocks and far from launch readiness",
-  "producer": "src/brambleloop/creative/audit.py::audit_catalogue",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/dashboard_truth.py::creative_survivors (creative/audit.py::audit_catalogue)",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
-  "protected_effect": null,
-  "tests": [],
+  "consumer": "src/brambleloop/app/main.py::dashboard headline (top grid, alarm when 0, dominant failure named)",
+  "protected_effect": "0 creative survivors is flagged as the principal commercial blocker in the headline above volume/infrastructure blocks",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_the_headline_leads_with_commercial_truth_and_demotes_volume"
+  ],
   "evidence": [
-   "main.py:4887 _creative block order",
-   "fcb982d main.py:4250 same block"
+   "research/final_build/waves/fb1_E.json F-187 DONE",
+   "dashboard_truth.headline kpi creative_survivors alarm=count==0",
+   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
   ],
   "build2_rows": [
    "#318 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "principal commercial blocker (0 survivors) is buried below infrastructure metrics",
-  "next_action": "Move a 'creative survivors / launch-cleared' line into the top grid next to launch readiness and highlight when survivors==0",
-  "confidence": "MEDIUM",
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch (DEPLOYED follows the next owner-approved deploy).",
+  "confidence": "HIGH",
   "searched": null
  },
  {
   "uid": "F-188",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "DEPLOYED",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "MISSING",
   "coverage": "PARTIAL",
-  "missing_part": "audit_catalogue reports products_audited/survivors with no cohort or generator-version label; legacy 11 and tournament outputs are not separated",
+  "missing_part": "neither audit_catalogue nor the dashboard Creative standard block / headline states which cohort or generator version is measured; legacy catalogue (products/builder.CATALOGUE) and tournament outputs are not separated",
   "producer": "src/brambleloop/creative/audit.py::audit_catalogue",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "consumer": "src/brambleloop/app/main.py::dashboard._creative; app/dashboard_truth.py::creative_survivors",
   "protected_effect": null,
   "tests": [],
   "evidence": [
-   "audit_catalogue return keys: products_audited, survivors, autopsy, ... no cohort"
+   "creative/audit.py:102-155 returns products_audited/survivors with no cohort/version key; Field opportunity string 'existing generated catalogue' is not exposed",
+   "main.py:5016-5027 _creative renders no cohort label",
+   "no wave report claims F-188"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": null,
-  "next_action": "Add a cohort key (legacy_catalogue vs tournament generator version) to audit_catalogue output, render per-cohort rows in _creative, test that legacy failures are not attributed to the current generator",
-  "confidence": "MEDIUM",
-  "searched": null
+  "defect": "the creative metric measures only the legacy builder CATALOGUE yet is presented unlabeled as 'the current creative gate'",
+  "next_action": "Add cohort={'name':'legacy_builder_catalogue','generator':CHAIN_VERSION/builder version,'n':11} to audit_catalogue, a separate tournament-cohort reading from AuditLog creative.tournament/expedition rows, render both labelled rows in _creative and the headline why-text; test that legacy failures are not attributed to the tournament cohort.",
+  "confidence": "HIGH",
+  "searched": "grep cohort/generator_version/legacy/tournament in creative/audit.py, app/main.py, app/dashboard_truth.py; fb1_E.json"
  },
  {
   "uid": "F-189",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility: a zero is a quantitative claim",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "dashboard renders probability as f\"{p:.2f}\" (0.00) and confidence._statement says 'Effectively zero, and correctly so' when evidence is insufficient",
-  "producer": "src/brambleloop/scale/confidence.py::probability",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "the dashboard shows UNMEASURED, but other runtime consumers still read the raw modelled 'probability' bound as a number: growth/weekly.py:171 (weekly growth reading), runtime/release.py:5803, finance/reinvestment.py:100",
+  "producer": "src/brambleloop/scale/confidence.py::probability (state/reported_probability/display)",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard (_scale)",
-  "protected_effect": null,
+  "consumer": "src/brambleloop/app/main.py::dashboard _scale block; GET /api/scale",
+  "protected_effect": "the CA$5K card displays 'UNMEASURED / insufficient commercial evidence' instead of 0.00",
   "tests": [
-   "tests/test_scale.py::test_a_sophisticated_system_that_has_sold_nothing_reports_effectively_zero"
+   "tests/test_scale.py::test_a_sophisticated_system_that_has_sold_nothing_reports_unmeasured",
+   "tests/test_scale.py::test_the_gate_opening_is_what_finally_allows_a_high_number",
+   "tests/test_cert_dashboard.py::test_the_ca5k_card_reads_unmeasured_rather_than_zero"
   ],
   "evidence": [
-   "main.py _scale block",
-   "confidence.py:462 _statement"
+   "research/final_build/waves/fb1_E.json F-189 DONE with remaining consumers",
+   "confidence.py:412-461",
+   "fcb982d main.py lacks the UNMEASURED display: behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "the behaviour is the opposite of the requirement, and test_a_sophisticated_system_that_has_sold_nothing_reports_effectively_zero encodes the zero claim",
-  "next_action": "In scale/confidence.probability return state 'UNMEASURED' (probability None) when the evidence gate is unmet with zero commercial evidence; render 'UNMEASURED / insufficient commercial evidence' in _scale; rewrite the test_scale zero test accordingly",
+  "defect": "growth/weekly and release.py weekly reading still record the modelled bound under 'confidence' as a bare number",
+  "next_action": "Switch growth/weekly.py:171, runtime/release.py:5803 and finance/reinvestment.py:100 to reported_probability/state (None/UNMEASURED while the gate is unmet); add a test that the weekly growth reading carries UNMEASURED with zero commercial evidence.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -501,18 +518,21 @@
  {
   "uid": "F-196",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "build2.closure classifies rendered_pages as EXTERNAL_BLOCKED, but executor.approval_inbox still renders it as an owner card ('grant a browser worker ...') with no external-capability label",
-  "producer": "src/brambleloop/build2/closure.py::EXTERNAL_GATES",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/closure.py::EXTERNAL_GATES via build2/executor.py::approval_inbox (external_capability_unavailable)",
   "durable_state": null,
-  "consumer": "src/brambleloop/build2/executor.py::approval_inbox",
-  "protected_effect": null,
-  "tests": [],
+  "consumer": "src/brambleloop/app/main.py::dashboard._external block; GET /api/owner-actions; api_verify external_presented_as_owner_request",
+  "protected_effect": "rendered_pages / model_bearing_render are listed as 'external capability unavailable' and never as owner cards",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing"
+  ],
   "evidence": [
-   "closure.py:45 EXTERNAL_GATES rendered_pages",
-   "executor.py approval_inbox has no closure-kind filter"
+   "research/final_build/waves/fb1_E.json F-196 DONE",
+   "api_verify also fails if an external gate is presented as an owner card",
+   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
   ],
   "build2_rows": [
    "#189 OWNER-GATED",
@@ -521,11 +541,11 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "owner inbox presents an external-capability gate as an owner action",
-  "next_action": "In approval_inbox, classify each gate via build2.closure kind and move external gates to a separate 'external capability unavailable' list; test that rendered_pages never appears as an owner card",
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -673,56 +693,64 @@
  {
   "uid": "F-202",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "DEPLOYED",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "dashboard header shows APP_VERSION and render time only; commit SHA and worker start time are in /api/console and /api/status build identity; no last-successful-production-verification timestamp anywhere",
-  "producer": "src/brambleloop/core/build.py::identity",
-  "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
-  "protected_effect": null,
-  "tests": [],
+  "missing_part": "deployment time is the container start time (worker_started_at, labelled 'container started'), not a platform deploy timestamp",
+  "producer": "src/brambleloop/app/main.py::api_verify (VERIFY_AUDIT_ACTION) + core/build.py::identity",
+  "durable_state": "audit_logs action verify.completed",
+  "consumer": "src/brambleloop/app/main.py::dashboard header",
+  "protected_effect": "header shows commit_short/branch, container start and last clean /api/verify so a pushed fix and an older rendered dashboard cannot be confused",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_the_header_names_the_commit_and_the_last_clean_verification"
+  ],
   "evidence": [
-   "main.py:4955 header",
-   "api_console deployment {version, started_at}"
+   "research/final_build/waves/fb1_E.json F-202 PARTIAL",
+   "main.py:5082-5098",
+   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
   ],
   "build2_rows": [
    "#183 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Render build_identity() commit, deploy time and the latest successful api_verify result (persist verify outcomes as an audit row) in the dashboard header",
+  "next_action": "Optionally record a deploy timestamp at boot from RAILWAY_DEPLOYMENT_ID/created-at env (or build-time stamp baked into core/build.identity) and render it beside 'container started'; test. Low priority \u2014 container start is an honest labelled proxy.",
   "confidence": "HIGH",
   "searched": null
  },
  {
   "uid": "F-203",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "IMPLEMENTED",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "only a few rows carry as-of times (last successful scan, runner last tick); most cards/tables have no observation time",
-  "producer": null,
+  "missing_part": "as-of is render/query time, not the latest source-row/observation time; non-block tables (jobs, products, incidents, audit) carry no as-of",
+  "producer": "src/brambleloop/app/main.py::dashboard._block (asof div); dashboard_truth.evidence as_of",
   "durable_state": null,
   "consumer": "src/brambleloop/app/main.py::dashboard",
-  "protected_effect": null,
-  "tests": [],
+  "protected_effect": "every command-centre block and headline KPI states when it was read",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_every_block_renders_an_as_of_time",
+   "tests/test_cert_dashboard.py::test_every_headline_kpi_carries_its_evidence_envelope"
+  ],
   "evidence": [
-   "main.py dashboard blocks"
+   "research/final_build/waves/fb1_E.json F-203 PARTIAL",
+   "main.py:4818-4826",
+   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": null,
-  "next_action": "Add an as-of timestamp to each _block (source query time or latest row time) and a test that every block renders one",
-  "confidence": "MEDIUM",
+  "defect": "query-time as-of on blocks that summarise older snapshots (e.g. benchmark observations, last scan) can still present mixed snapshots as current",
+  "next_action": "For snapshot-backed blocks (benchmark, scan, learning, seasonal, spend) pass the max source-row timestamp into _block and render 'observed <t>' alongside 'read <t>'; add as-of to the jobs/products/incidents/audit tables; extend test_every_block_renders_an_as_of_time to assert an observed time where the source has one.",
+  "confidence": "HIGH",
   "searched": null
  },
  {
@@ -758,57 +786,64 @@
  {
   "uid": "F-205",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "only the 'model ceiling present + no spend limits' contradiction is tested; no assertion for expected refusals vs defect-like headline, nor satisfied gate + active owner action",
-  "producer": "tests/test_cert_dashboard.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "tests/test_cert_dashboard.py (contradiction tests over the assembled dashboard)",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
-  "protected_effect": null,
+  "consumer": "release-eligible suite (run_tests.sh); guards app/main.py::dashboard GET /",
+  "protected_effect": "the suite rejects: model ceiling + 'No spend limits configured'; refusal-only dead letters rendering as defects; satisfied etsy_shop + active 'open shop' action; external/data gates as owner cards; duplicate cards",
   "tests": [
    "tests/test_cert_dashboard.py::test_dashboard_never_claims_no_spend_limits",
-   "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql"
+   "tests/test_cert_dashboard.py::test_refusal_only_dead_letters_render_zero_defects",
+   "tests/test_cert_dashboard.py::test_a_satisfied_gate_and_its_open_shop_action_never_both_render",
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing",
+   "tests/test_cert_dashboard.py::test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplicating"
   ],
   "evidence": [
-   "fix behind the one tested contradiction is post-fcb982d"
+   "research/final_build/waves/fb1_E.json F-205 DONE",
+   "full suite passed on 6f9a2f7"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add test_cert_dashboard tests: seeded refusal-only dead letters must render '0 defects'; an open etsy_shop gate plus open OwnerAction 'open shop' must not both render",
-  "confidence": "HIGH",
+  "next_action": "none \u2014 at target maturity for launch (requirement is an acceptance test; it runs in the release-eligible suite against the live GET / route).",
+  "confidence": "MEDIUM",
   "searched": null
  },
  {
   "uid": "F-206",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful owner visibility (launch-critical list)",
-  "maturity": "MISSING",
+  "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "top grid leads with queue, dead letters, certified releases, listing images, content pieces; no launch-cleared products, creative survivors or benchmark status at top level",
-  "producer": null,
+  "missing_part": null,
+  "producer": "src/brambleloop/app/dashboard_truth.py::headline",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
-  "protected_effect": null,
-  "tests": [],
+  "consumer": "src/brambleloop/app/main.py::dashboard; GET /api/headline",
+  "protected_effect": "headline leads with launch-cleared/certified, creative survivors, benchmark status and evidenced sales; volume counts moved under 'Volume and operations \u2014 not business readiness'",
+  "tests": [
+   "tests/test_cert_dashboard.py::test_the_headline_leads_with_commercial_truth_and_demotes_volume"
+  ],
   "evidence": [
-   "main.py:4957-4970 grid"
+   "research/final_build/waves/fb1_E.json F-206 DONE",
+   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "vanity counts (listing images, content pieces, certified releases) are the headline",
-  "next_action": "Replace the headline grid with launch-cleared products, creative survivors, benchmark status and real commercial evidence; demote volume counts",
+  "defect": null,
+  "next_action": "none \u2014 at target maturity for launch (launch-cleared accuracy depends on F-186 gauge wiring).",
   "confidence": "HIGH",
-  "searched": "dashboard() grid"
+  "searched": null
  },
  {
   "uid": "F-207",
@@ -1999,32 +2034,34 @@
  {
   "uid": "F-313",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
+  "launch_class_reason": "P0 addendum: provider cost truth \u2014 quality-first routing",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "routing is a static task->tier table; no measured equivalence evidence drives a cheaper route; spend_policy.may_downgrade_for_cost is never called at runtime",
-  "producer": "src/brambleloop/finance/spend_policy.py::may_downgrade_for_cost",
+  "missing_part": "routing is a static task->tier table; no per-task quality-floor evidence per model drives or authorises a cheaper route; spend_policy.may_downgrade_for_cost has no runtime caller",
+  "producer": "src/brambleloop/finance/spend_policy.py::may_downgrade_for_cost; gateway/routing.py::TASKS",
   "durable_state": null,
   "consumer": null,
-  "protected_effect": null,
+  "protected_effect": "a downgrade argued from cost is refused; decisive judgements are pinned to the deep tier",
   "tests": [
    "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name",
-   "tests/test_spend_policy.py::test_the_judgements_that_decide_what_ships_are_on_the_deep_tier"
+   "tests/test_spend_policy.py::test_the_judgements_that_decide_what_ships_are_on_the_deep_tier",
+   "tests/test_spend_policy.py::test_a_cheap_tier_task_survives_being_asked_why"
   ],
   "evidence": [
-   "grep: may_downgrade_for_cost has no caller outside finance/spend_policy.py and tests"
+   "grep: may_downgrade_for_cost defined only (spend_policy.py:398), no caller",
+   "gateway/routing and spend_policy unchanged since 019ebf0 apart from gateway/images.py"
   ],
   "build2_rows": [
    "#96 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "may_downgrade_for_cost is a library only tests call; routing changes are not guarded by it",
-  "next_action": "Record per-task quality-floor results per model (improve registry) and gate any routing.TASKS tier change through may_downgrade_for_cost with evidence; test",
-  "confidence": "MEDIUM",
+  "defect": "may_downgrade_for_cost is a library only tests call; routing changes are not guarded by evidence",
+  "next_action": "Add gateway/routing.route_evidence: per (task, model) quality-floor results recorded from evals (improve/ or gateway eval rows), and a routing override path that only moves a task to a cheaper tier when recorded equivalence on that task's floors exists, reversible by a recorded regression; test that a cost-only override is refused and an evidenced one is accepted.",
+  "confidence": "HIGH",
   "searched": null
  },
  {
@@ -2234,26 +2271,32 @@
  {
   "uid": "F-321",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "no per-live-listing recurring cost attribution (observation, revalidation, refresh, support)",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
+  "launch_class_reason": "P0 addendum: provider cost truth \u2014 per-listing maintenance cost",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it ''), so maintenance cost can never be attributed to a listing in production; reads UNMEASURED while nothing is live",
+  "producer": "src/brambleloop/finance/sustainability.py::listing_maintenance_cost",
+  "durable_state": "cost_entries (product_slug, purpose)",
+  "consumer": "finance/sustainability.py::forecast -> verdict -> launch/readiness.py::assess (sustainable_economics)",
   "protected_effect": null,
-  "tests": [],
-  "evidence": [],
+  "tests": [
+   "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost"
+  ],
+  "evidence": [
+   "research/final_build/waves/fb1_D.json F-321 PARTIAL",
+   "grep 'product_slug=' over gateway/, visual/, culture/: no spend_report.record call sets it",
+   "launch.readiness daily cadence (runtime/worker.py:408); sustainability.py not in fcb982d"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "data",
    "key": "live_listings",
-   "detail": "no live listing exists (shadow mode); the attribution code can be built now"
+   "detail": "no live listing exists (shadow mode); slug tagging of maintenance spend is buildable now"
   },
-  "defect": null,
-  "next_action": "Tag maintenance-purpose cost rows with listing_id (see F-304) and add finance.unit_cost.listing_maintenance_cost(db)",
-  "confidence": "MEDIUM",
-  "searched": "grep maintenance/per-listing cost in finance, governor, unit_cost"
+  "defect": "attribution input is never produced at runtime: tests feed product-tagged CostEntry fixtures that no production writer creates",
+  "next_action": "Thread product_slug from job payloads into every spend_report.record call (gateway/anthropic.py, gateway/images.py, visual/*.py, culture/classify.py) for observation, revalidation, seasonal refresh and support jobs; add a test that a slug-bearing job's model call writes a slug-tagged CostEntry.",
+  "confidence": "HIGH",
+  "searched": null
  },
  {
   "uid": "F-322",
@@ -2316,54 +2359,63 @@
  {
   "uid": "F-324",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "no per-product break-even sales estimate against one-time creation cost",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "launch_class_reason": "P0 addendum: pricing/economics integrity (break-even)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "creation cost is never measurable in production because no spend writer tags product_slug; a priced product with 0 tagged creation cost reports break_even_sales 0 and recovered=True",
+  "producer": "src/brambleloop/finance/sustainability.py::break_even",
+  "durable_state": "cost_entries, listings, orders (read)",
+  "consumer": "src/brambleloop/launch/readiness.py::assess (sustainable_economics evidence.break_even)",
+  "protected_effect": "per-product sales required to recover one-time creation spend, separate from recurring maintenance",
+  "tests": [
+   "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost"
+  ],
   "evidence": [
-   "commerce/pricing_intel breakeven_attach_rate is about bundles, not creation cost"
+   "research/final_build/waves/fb1_D.json F-324 DONE",
+   "sustainability.py:163-215: n = ceil(creation/per_sale) if creation > 0 else 0",
+   "launch.readiness daily cadence; not in fcb982d"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": null,
-  "next_action": "Add finance.unit_cost.break_even_sales(db, slug) = product_creation_cost / net contribution per sale (F-320, finance.currency.contribution) and surface per product",
-  "confidence": "MEDIUM",
-  "searched": "grep break.even in src (governor MIN_RETURN_PER_DOLLAR, pricing_intel bundles only)"
+  "defect": "zero (untagged) creation cost is reported as break_even_sales 0 / recovered True \u2014 a quantitative claim from missing data",
+  "next_action": "In break_even, return break_even_sales None with 'creation cost UNMEASURED (no product-tagged spend)' when creation == 0, and fix the slug tagging gap (see F-321); test the untagged case.",
+  "confidence": "HIGH",
+  "searched": null
  },
  {
   "uid": "F-325",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "MISSING",
-  "coverage": "FULL",
-  "missing_part": "no steady-state AI/API cost forecast with low/base/high cases; spend_report's projected month-end is explicitly arithmetic, not a forecast",
-  "producer": null,
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
-  "tests": [],
+  "launch_class_reason": "P0 addendum: pricing/economics integrity (steady-state forecast)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "observation cadence is not a named forecast input (folded into platform spend); scenario assumptions are constants; in production the forecast can never compute because creation cost needs product-tagged spend no writer produces",
+  "producer": "src/brambleloop/finance/sustainability.py::forecast",
+  "durable_state": "cost_entries, listings, orders (read)",
+  "consumer": "finance/sustainability.py::verdict -> launch/readiness.py::assess",
+  "protected_effect": "low/base/high named-assumption forecast, refusing with INSUFFICIENT_DATA and showing only the measured platform floor",
+  "tests": [
+   "tests/test_money_truth.py::test_the_forecast_refuses_on_thin_data_and_shows_only_a_floor",
+   "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost"
+  ],
   "evidence": [
-   "spend_policy test_the_projection_says_it_is_arithmetic_rather_than_a_forecast"
+   "research/final_build/waves/fb1_D.json F-325 DONE",
+   "sustainability.py:218-311",
+   "not in fcb982d"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Build finance/sustainability.py forecast(catalogue_size, sales, support, cadences) from measured per-purpose unit costs with low/base/high and an 'insufficient data' refusal",
-  "confidence": "MEDIUM",
-  "searched": "grep forecast/scenario/sustainab in src"
+  "next_action": "Add an observation_cadence term (calls/day x measured cost per observation purpose) to SCENARIOS, and fix product_slug tagging (F-321) so the forecast can leave INSUFFICIENT_DATA on real data; test.",
+  "confidence": "HIGH",
+  "searched": null
  },
  {
   "uid": "F-326",
@@ -2460,28 +2512,34 @@
  {
   "uid": "F-329",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "MISSING",
+  "launch_class_reason": "P0 addendum: sustainability launch gate",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "launch.readiness has no sustainability requirement; nothing blocks launch on recurring AI/API cost vs contribution",
-  "producer": null,
-  "durable_state": null,
-  "consumer": "src/brambleloop/launch/readiness.py::assess",
-  "protected_effect": null,
-  "tests": [],
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/sustainability.py::verdict",
+  "durable_state": "cost_entries (read)",
+  "consumer": "src/brambleloop/launch/readiness.py::assess (Requirement sustainable_economics, blocked_by build)",
+  "protected_effect": "launch is blocked unless the base case nets positive with AI/API <= 50% of contribution; low-case owner top-up flagged",
+  "tests": [
+   "tests/test_money_truth.py::test_launch_readiness_carries_the_sustainable_economics_requirement",
+   "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost",
+   "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people"
+  ],
   "evidence": [
-   "readiness keys: etsy_shop, payout, listing_fees, physical_calibration, model_credits, benchmark_challenge, brand_clearance, artifact_storage, phase, etsy_integration, brand_moat"
+   "research/final_build/waves/fb1_D.json F-329 DONE",
+   "readiness.py:795-822",
+   "launch.readiness daily cadence and dashboard; not in fcb982d"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": null,
-  "next_action": "Add a 'sustainable_economics' Requirement to launch/readiness.assess reading the F-325 forecast vs opening-price contribution; blocked_by build until computed",
+  "defect": "fail-closed but currently un-passable: because no runtime spend writer tags product_slug, the forecast stays INSUFFICIENT_DATA ('no AI/API spend is tagged to a product') and this gate blocks launch indefinitely",
+  "next_action": "Fix product_slug tagging in spend writers (F-321) so the gate can be passed on real data; add a test that a product pipeline run produces slug-tagged creation cost and the forecast leaves INSUFFICIENT_DATA.",
   "confidence": "HIGH",
-  "searched": "launch/readiness.py requirement keys"
+  "searched": null
  },
  {
   "uid": "F-330",

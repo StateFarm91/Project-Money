@@ -407,7 +407,7 @@
   "defect": null,
   "next_action": "Build src/brambleloop/app/timeline.py summarising AuditLog/Job/Incident rows into causal events (grouped by product/job chain, with department and plain-language outcome) and a /api/timeline + Studio view; test that a pipeline run renders as one causal entry.",
   "confidence": "HIGH",
-  "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch — unrelated)"
+  "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch \u2014 unrelated)"
  },
  {
   "uid": "F-663",
@@ -793,26 +793,28 @@
  },
  {
   "uid": "F-675",
-  "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "Product Truth in imagery depends on a structurally faithful deterministic render under B+C",
-  "maturity": "TESTED",
+  "launch_class": "MATURE",
+  "launch_class_reason": "D-FB-7: launch needs truthful imagery, not a 3D stage; Launch-0 uses disclosed deterministic 2D renders. The 3D/drape stage belongs to the B+C Visual V2 architecture (R&D, codex/visual-v2-rnd).",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Deterministic structure modules (crochet_topology, drape, yarn, yarn_construction, fabric, pbr_scene) are tested but unreached; no full-product structurally faithful 3D is produced by the runtime; V2 R&D P06/P07 yarn coupons rejected/blocked.",
-  "producer": "src/brambleloop/visual/crochet_topology.py",
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": null,
+  "missing_part": "Structural truth (silhouette, dimensions, construction, per-row stitch counts, shaping, colour placement, raised-stitch placement) is produced and independently verified for Launch-0 by a deterministic 2D disclosed render on the live assets.build path. It is not 3D and models no macro drape; the 3D modules (visual/crochet_topology.py, visual/drape.py) remain tested but unreached; multi-component products are refused by the renderer.",
+  "producer": "src/brambleloop/visual/disclosed_render.py::render (runtime/release.py assets.build -> _disclosed_render_set)",
+  "durable_state": "artifact store (sha256-bound frames)",
+  "consumer": "src/brambleloop/visual/render_verification.py -> visual/product_authority.py::structural_floor -> visual/parity.py::assess",
+  "protected_effect": "a frame that changes counts, colours, dimensions, shaping or product fails",
   "tests": [
-   "tests/test_crochet_topology.py (check-based script: 'stitch count matches the CIR')",
-   "tests/test_drape.py (check-based script: 'every stitch is still linked to the loop it was worked into')",
-   "tests/test_yarn.py::test_every_vertex_traces_back_to_a_counted_stitch",
-   "tests/test_fabric_relief.py (check-based script)",
-   "tests/test_topology_adversarial.py (check-based script)"
+   "tests/test_disclosed_render.py::test_every_launch0_frame_verifies_against_its_cir",
+   "tests/test_disclosed_render.py::test_a_missing_stitch_fails",
+   "tests/test_disclosed_render.py::test_wrong_scale_or_dimensions_fail",
+   "tests/test_disclosed_render.py::test_a_swapped_product_fails",
+   "tests/test_disclosed_render.py::test_unsupported_constructions_are_refused_not_guessed",
+   "tests/test_crochet_topology.py",
+   "tests/test_drape.py"
   ],
   "evidence": [
-   "research/final_build/module_reachability.json reached=False for these modules",
-   "research/VISUAL_MILESTONE_D.md, research/VISUAL_WAVE5.md",
-   "R&D only: 035ff0c research/visual_v2 coupon/pullthrough RESULTS"
+   "waves/fb2_H2.json F-675 PARTIAL ('not 3D; no macro drape')",
+   "DECISION_LOG D-FB-7",
+   "module_reachability: visual/crochet_topology.py, visual/drape.py reached=False; visual/disclosed_render.py reached, not in fcb982d"
   ],
   "build2_rows": [
    "#103 COMPLETE+PROVEN",
@@ -821,10 +823,10 @@
   "gate": {
    "kind": "none",
    "key": "none",
-   "detail": "no gate on the remaining software work"
+   "detail": "3D work is R&D on codex/visual-v2-rnd; not launch-blocking per D-FB-7"
   },
   "defect": null,
-  "next_action": "Choose the B+C product-region representation (semantic grid render per V2 R&D) and wire it into a runtime asset job with silhouette/dimension/stitch-structure checks against the twin; test mutation detection.",
+  "next_action": "Post-launch: when V2 resumes, wire the deterministic 3D product-region representation (crochet_topology + drape) into an asset job checked against the twin; until then extend disclosed_render to multi-component CIRs if a garment enters the launch set.",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2149,7 +2151,7 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch",
+  "next_action": "none \u2014 at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2376,7 +2378,7 @@
    "detail": "needs live listings and orders"
   },
   "defect": null,
-  "next_action": "none — waits on data; verify readers on first real orders.",
+  "next_action": "none \u2014 waits on data; verify readers on first real orders.",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2492,7 +2494,7 @@
    "detail": "compounding needs real outcomes"
   },
   "defect": null,
-  "next_action": "none — waits on data.",
+  "next_action": "none \u2014 waits on data.",
   "confidence": "LOW",
   "searched": null
  },
@@ -2725,7 +2727,7 @@
    "detail": "no provider has rendered a model-bearing frame that clears all six floors (0/16, 0/7 certified); gate opens on a recorded passing assets.model_photography frame"
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch (gate); on-model approval waits on a passing frame.",
+  "next_action": "none \u2014 at target maturity for launch (gate); on-model approval waits on a passing frame.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -2918,20 +2920,22 @@
  },
  {
   "uid": "F-742",
-  "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "truthful representation: exact certified product on exact model",
-  "maturity": "MISSING",
+  "launch_class": "MATURE",
+  "launch_class_reason": "D-FB-7: on-model photography is not required for launch; the protective half (no regenerated garment around the model) is enforced fail-closed.",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "The required chain (Product Truth -> certified product reference -> photoreal product -> canonical model wearing that product) is not implemented. assets.model_photography conditions on the canonical model references and describes the garment from the CIR in text, i.e. regenerates a garment around the model; only the downstream product floor (vision judgement) checks it.",
-  "producer": null,
+  "missing_part": "The forbidden pattern is now refused: publish/model_photography.make returns redraw_refusal (made False, structural_truth UNKNOWN) before any provider call, and usable frames require structural_floor PASS. The required positive chain (certified product reference -> photoreal product -> canonical model wearing that exact product -> independent validation) does not exist on the main line.",
+  "producer": "src/brambleloop/visual/product_authority.py::redraw_refusal (called first in publish/model_photography.py::make)",
   "durable_state": null,
-  "consumer": "src/brambleloop/publish/model_photography.py::make",
-  "protected_effect": null,
+  "consumer": "runtime/release.py::handle_model_photography -> publish/listing_asset.make -> model_photography.make",
+  "protected_effect": "no loosely similar garment can be generated around the canonical model",
   "tests": [
-   "tests/test_model_photography.py::test_the_frame_is_conditioned_on_the_frozen_pack_rather_than_described"
+   "tests/test_final_visual_authority.py::test_product_redraw_entry_points_refuse_before_any_provider_or_chart",
+   "tests/test_final_visual_authority.py::test_legacy_usable_flag_cannot_export_or_reuse_unqualified_frame"
   ],
   "evidence": [
-   "src/brambleloop/publish/model_photography.py::prompt_for(cir, twin, pack)"
+   "commit e6b6d47 (Codex, integrated via 07a8c3b)",
+   "assets.model_photography cadence reached (module_reachability)"
   ],
   "build2_rows": [
    "#72 EXTERNAL-BLOCKED",
@@ -2940,12 +2944,12 @@
   "gate": {
    "kind": "external",
    "key": "model_bearing_render",
-   "detail": "no provider has rendered a model-bearing frame that clears all six floors (0/16, 0/7 certified); gate opens on a recorded passing assets.model_photography frame"
+   "detail": "no provider/protected-compositing path yet renders the certified product on the model; V2 R&D"
   },
-  "defect": "current on-model path regenerates the garment from a text description (the pattern F-742 forbids)",
-  "next_action": "After product-only lock (F-858), pass the certified product image as a conditioning reference to the on-model render and add a product-region comparison against it; test that a frame not conditioned on the certified product is refused.",
+  "defect": null,
+  "next_action": "Post-launch (V2): implement protected compositing that conditions on the certified product render and verifies the product region pixel-for-pixel (product_authority protected region) before an on-model frame can be usable; test a frame not derived from the certified product is refused.",
   "confidence": "MEDIUM",
-  "searched": "searched model_photography/owned_photography for a certified product reference passed to the on-model render: none"
+  "searched": null
  },
  {
   "uid": "F-743",

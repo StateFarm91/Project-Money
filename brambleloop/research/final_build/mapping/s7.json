@@ -57,32 +57,31 @@
  {
   "uid": "F-553",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "Safe publication requires knowing the remote state of every listing (drafts, active, deactivated/suppressed) against intended state.",
-  "maturity": "TESTED",
+  "launch_class_reason": "Listing estate truth for safe publication.",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Only local Listing rows (slug, version, state, price, release_hash, etsy_listing_id) are integrated; no remote census of draft/active/inactive/sold-out/expired listings, renewal state, fees, taxonomy, properties or attached digital files is collected at runtime.",
-  "producer": "src/brambleloop/intel/etsy_surfaces.py::listing_census_drift",
-  "durable_state": "listings",
-  "consumer": null,
-  "protected_effect": "detects listings that vanished, were deactivated or were created outside the system",
+  "missing_part": "Census stores id, state (active/draft/inactive/sold_out/expired), taxonomy, price, quantity, ending_timestamp, should_auto_renew, ours/slug per listing in an operating_readings row. Not collected: fees (listing/renewal), properties, attached digital files and assets per listing; Listing rows carry no remote_state/last_seen/expires_at columns (kept only in the reading).",
+  "producer": "src/brambleloop/runtime/etsy_ops.py::handle_listing_census",
+  "durable_state": "operating_readings (listing census)",
+  "consumer": "incidents (policy_violation_suspected / listing_drift); intel/etsy_surfaces.py::listing_census_drift",
+  "protected_effect": "inventory of the whole estate each day, with vanished/unknown listings raised",
   "tests": [
-   "tests/test_etsy_surfaces.py::test_a_listing_that_has_vanished_raises_an_alarm_and_refuses_to_say_why",
-   "tests/test_etsy_surfaces.py::test_a_listing_deactivated_behind_our_back_is_drift_too",
+   "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
+   "tests/test_etsy_readback_observe.py::test_a_listing_nobody_here_created_is_reported",
    "tests/test_etsy_surfaces.py::test_holding_no_record_of_our_own_listings_is_not_a_clean_census"
   ],
   "evidence": [
-   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
-   "src/brambleloop/integrations/etsy.py::EtsyClient.get_shop_listings exists (listings_r granted) but no cadence calls it",
-   "src/brambleloop/core/models.py::Listing has no renewal/fee/taxonomy/file columns"
+   "waves/fb1_B.json F-553 PARTIAL",
+   "cadence etsy_listing_census in runtime/worker.py"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "listings_r is granted; census is software work (live listings gate only affects whether there is anything to census)"
+   "key": "none",
+   "detail": "listings_r granted; fees need transactions_r (owner) only for the fee part"
   },
-  "defect": "listing_census_drift is a tested pure function never fed a real getListingsByShop reading (etsy_surfaces unreached).",
-  "next_action": "Add a daily cadence handler (e.g. etsy.listing_census in runtime/release.py) that calls EtsyClient.get_shop_listings for each state, stores a snapshot row, runs etsy_surfaces.listing_census_drift against Listing rows and opens an Incident on drift; extend Listing with remote_state/last_seen/expires_at/taxonomy_id.",
+  "defect": null,
+  "next_action": "Extend the census per listing with getListingProperties, getAllListingFiles and image list; add fee lookup from the payment-account ledger once transactions_r is granted; optionally add Listing.remote_state/last_seen/expires_at via core/migrate.py and a test that an expiring listing is flagged before ending_timestamp.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -245,34 +244,37 @@
  {
   "uid": "F-559",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "The customer must receive the exact, current PDF; a stale or mismatched file is a direct customer harm.",
-  "maturity": "TESTED",
+  "launch_class_reason": "Customer receives the exact certified file; P0 digital delivery truth.",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "No read-back of files attached to a live listing (getAllListingFiles not in EtsyClient), no hash/version/language check against the released artefact, no post-purchase availability check.",
-  "producer": "src/brambleloop/integrations/etsy.py::EtsyClient.attach_file",
-  "durable_state": "listings.release_hash, order_versions",
-  "consumer": null,
-  "protected_effect": "version-at-sale recorded; first-customer gate refuses UNVERIFIABLE remote state",
+  "missing_part": "After publish and at activation the listing's files are read back (getAllListingFiles) and compared by name + exact size; sent bytes must hash to the certified release (Etsy exposes no hash, stated). Not built: periodic re-read of files on live listings (census does not), language-variant check, post-purchase download availability check.",
+  "producer": "src/brambleloop/integrations/etsy_verify.py::verify_files (via runtime/etsy_ops.py::read_back)",
+  "durable_state": "audit/readback detail on publish; incidents on mismatch",
+  "consumer": "runtime/pipeline.py::_publish_and_read_back, handle_store_activate",
+  "protected_effect": "stale/extra/duplicate/mis-sized files fail read-back and halt the product",
   "tests": [
-   "tests/test_first_customer_gate.py::test_the_download_is_a_first_customer_failure_while_the_store_is_ephemeral",
-   "tests/test_first_customer_gate.py::test_etsy_remote_state_is_unverifiable_rather_than_passing_on_a_local_fake"
+   "tests/test_etsy_readback_observe.py::test_file_read_back_matches_name_and_exact_size_and_says_etsy_exposes_no_hash",
+   "tests/test_etsy_readback_observe.py::test_a_stale_file_beside_the_certified_one_fails_file_read_back",
+   "tests/test_etsy_readback_observe.py::test_a_same_named_file_of_another_size_or_uncertified_bytes_fails",
+   "tests/test_etsy_readback_observe.py::test_an_unread_file_list_is_unverified_rather_than_clean",
+   "tests/test_etsy_readback_observe.py::test_uploaded_bytes_that_are_not_the_certified_release_fail_file_read_back"
   ],
   "evidence": [
-   "src/brambleloop/gates/first_customer.py reached=False (tests only)",
-   "src/brambleloop/integrations/etsy_verify.py compares listing fields, not files",
-   "research/ETSY_SURFACE_REGISTRY.md row 31 digital_files ACT; file size limits UNKNOWN"
+   "waves/fb1_B.json F-559 PARTIAL",
+   "gates/first_customer.py now reached via store.publish -> _release_gates (module_reachability)",
+   "etsy_verify.py exists in fcb982d but verify_files is new -> not DEPLOYED"
   ],
   "build2_rows": [
    "#42 COMPLETE+PROVEN",
    "#159 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "etsy_exercise",
-   "detail": "remote proof needs the owner-authorised controlled round trip / live listing"
+   "kind": "none",
+   "key": "none",
+   "detail": "daily re-read and language check are software; a real post-purchase download check needs a real order (data) / owner test purchase"
   },
-  "defect": "gates/first_customer.py (download area) is not reached from any runtime root.",
-  "next_action": "Add EtsyClient.get_listing_files (getAllListingFiles/getListingFile) and a verify_files() in integrations/etsy_verify.py comparing name/size/sha256 to the certified release artefact; call it after attach_file and from a daily cadence over Listing rows with etsy_listing_id; wire gates/first_customer into launch.readiness.",
+  "defect": null,
+  "next_action": "Call etsy_ops.read_back's file verification from handle_listing_census for every live listing; add a language field to the release artefact manifest and compare filenames per language; for post-purchase availability, record the owner's controlled test purchase (owner action) as evidence.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -514,31 +516,29 @@
  {
   "uid": "F-568",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "A policy takedown or violation must be handled before it becomes a suspension (marketplace compliance).",
-  "maturity": "TESTED",
+  "launch_class_reason": "Marketplace compliance.",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "No Policy Violations source (no API); the only machine signal (listing census drift) is not wired; no violation-specific incident type with source text, deadline, remediation owner and closure proof; owner check action not in OwnerAction.",
-  "producer": "src/brambleloop/intel/etsy_surfaces.py::listing_census_drift",
-  "durable_state": "incidents (generic)",
-  "consumer": null,
-  "protected_effect": "drift alarm hands the case to a person and refuses to state a reason",
+  "missing_part": "A created listing that vanished or changed state opens a halting P1 'policy_violation_suspected:<id>' with source_text, deadline (+2d), remediation_owner and closure_evidence, and reopens the owner's policy_violations_check. Missing: an owner route to record an actual Policy Violations item (source text, affected listing/action, deadline) since Etsy has no API; severity is flat P1 (not ranked); no legal-escalation path.",
+  "producer": "src/brambleloop/runtime/etsy_ops.py::handle_listing_census",
+  "durable_state": "incidents policy_violation_suspected:<id>; owner_actions",
+  "consumer": "incidents (halts_publication); owner queue",
+  "protected_effect": "suspected takedowns halt publication until a person reads Policy Violations",
   "tests": [
-   "tests/test_etsy_surfaces.py::test_a_listing_that_has_vanished_raises_an_alarm_and_refuses_to_say_why",
-   "tests/test_incident_lifecycle.py::test_reconcile_resolves_only_what_stopped_and_says_why"
+   "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
+   "tests/test_etsy_readback_observe.py::test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves"
   ],
   "evidence": [
-   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
-   "research/ETSY_SURFACE_REGISTRY.md row 9 policy_violations OWNER_ONLY; owner action 11",
-   "src/brambleloop/gates/incidents.py"
+   "grep policy.violation app/main.py: no route"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "owner",
+   "kind": "none",
    "key": "policy_violations_check",
-   "detail": "Etsy exposes no violations API; owner must read the page and record it"
+   "detail": "building the owner-record route is software; the reading of Etsy's Policy Violations page itself is owner-only"
   },
-  "defect": "The census alarm that is the only automated violation signal is a tested library with no runtime caller.",
-  "next_action": "Wire the listing census cadence (see F-553) to open a 'policy_violation_suspected:<listing>' Incident with halts_publication, deadline and required closure evidence; add POST /api/policy-violation for owner-recorded notices (source text, listing, deadline).",
+  "defect": null,
+  "next_action": "Add POST /api/policy-violation (ops-token) creating an Incident 'policy_violation:<id>' with source_text, listing_id, action, deadline, severity (ranked by Etsy action: removal/suspension > warning) and required closure_evidence; legal escalation flag; test that closure without evidence is refused.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1023,32 +1023,32 @@
  {
   "uid": "F-585",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "Options such as vacation mode or wrong currency silently stop every sale (registry class A).",
-  "maturity": "TESTED",
+  "launch_class_reason": "Vacation mode / currency drift silently stops every sale.",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Options are classified and checked by assess_shop, but no runtime reads getShop, so current values and drift are never observed.",
-  "producer": "src/brambleloop/intel/etsy_surfaces.py::assess_shop",
-  "durable_state": null,
-  "consumer": null,
-  "protected_effect": "vacation/currency/policy fields checked; absent fields read NO_EVIDENCE not PASS",
+  "missing_part": "Daily getShop snapshot is stored and judged (vacation, CAD currency, payments onboarded, policies, digital listing) with halting incidents and owner-action closure on evidence. Options not exposed by getShop (browser-only Settings > Options controls) have no registry of current value / owner authority / desired state and no drift detection; readiness has no shop-snapshot freshness item.",
+  "producer": "src/brambleloop/runtime/etsy_ops.py::handle_shop_snapshot (intel/etsy_surfaces.py::assess_shop)",
+  "durable_state": "operating_readings (shop snapshot); incidents etsy.shop:*",
+  "consumer": "incidents (halts_publication); owner_actions",
+  "protected_effect": "vacation/currency/payments drift halts publication",
   "tests": [
-   "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked",
-   "tests/test_etsy_surfaces.py::test_an_empty_shop_body_is_no_evidence_on_every_check_and_never_green",
+   "tests/test_etsy_readback_observe.py::test_vacation_mode_and_a_foreign_currency_open_halting_incidents",
+   "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
+   "tests/test_etsy_readback_observe.py::test_no_credentials_means_no_reading_not_an_empty_shop",
    "tests/test_etsy_surfaces.py::test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green"
   ],
   "evidence": [
-   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
-   "research/ETSY_SURFACE_REGISTRY.md row 23 options OBSERVE",
-   "src/brambleloop/integrations/etsy.py::EtsyClient.get_shop exists"
+   "runtime/worker.py cadence etsy_shop_snapshot 24h",
+   "not in fcb982d -> not DEPLOYED"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "getShop needs only the API key, which production holds"
+   "key": "none",
+   "detail": "browser-only option values need an owner attestation, but the registry/route is software"
   },
-  "defect": "assess_shop is a tested collector with no runtime caller (etsy_surfaces unreached).",
-  "next_action": "Add the etsy.shop_snapshot daily cadence (runtime/release.py) that calls get_shop, persists the body, runs assess_shop and opens a P1 Incident on vacation mode or currency drift; add it to launch.readiness.",
+  "defect": null,
+  "next_action": "Add an Options registry (intel/etsy_surfaces.py) listing every Settings > Options control with desired value, consequence and authority, an owner attestation route storing observed values with date, staleness-based re-audit owner action, and a readiness item requiring a fresh shop snapshot.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1116,21 +1116,21 @@
  {
   "uid": "F-588",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "An inaccurate production-partner disclosure is a marketplace-compliance risk at first publication.",
+  "launch_class_reason": "Marketplace disclosure compliance (largely not applicable to a self-made digital pattern shop).",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "Partners surface is recorded NOT_APPLICABLE with reasoning; whether Etsy treats a generative model used for imagery as a production partner is UNKNOWN; no re-audit trigger on fulfilment change.",
+  "missing_part": "Partners surface is classified NOT_APPLICABLE with reasoning and an UNKNOWN about whether a generative model counts as a partner, but that UNKNOWN is not in coverage()['unknowns'] so readiness never shows it; no re-audit trigger when a fulfilment/imagery provider changes; no guard that production_partner_ids is never sent (it is an accepted listing field).",
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces (production_partners)",
   "durable_state": null,
   "consumer": null,
-  "protected_effect": "empty partner list may never be read as a pass",
+  "protected_effect": null,
   "tests": [
+   "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once",
    "tests/test_etsy_surfaces.py::test_a_surface_with_no_collector_says_so_rather_than_saying_fine"
   ],
   "evidence": [
-   "research/ETSY_SURFACE_REGISTRY.md row 27 production_partners NOT_APPLICABLE + UNKNOWN on AI imagery",
-   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True",
-   "src/brambleloop/gates/platform_policy.py handles AI disclosure"
+   "coverage()['unknowns'] has no production_partners key (checked live)",
+   "Under D-FB-7 Launch-0 imagery is deterministic disclosed renders (no generative provider), which narrows the open AI-partner question to future V2 work."
   ],
   "build2_rows": [
    "#35 EXTERNAL-BLOCKED"
@@ -1138,10 +1138,10 @@
   "gate": {
    "kind": "owner",
    "key": "etsy_ai_partner_guidance",
-   "detail": "owner reads Etsy's guidance on help.etsy.com (403 to automation)"
+   "detail": "owner reads Etsy's production-partner guidance (help.etsy.com is 403 to automation)"
   },
   "defect": null,
-  "next_action": "Record the owner's reading of Etsy's production-partner guidance as a policy snapshot (POST /api/policy/snapshot) and make the partners verdict read from it; add a check that a new fulfilment/imagery provider re-opens the review.",
+  "next_action": "Surface Evidence(UNKNOWN) entries in coverage()['unknowns'] so the partners question reaches readiness; add a test that a new image/fulfilment provider registered in the gateway re-opens the partners review; record the owner's reading as a policy snapshot when available.",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1741,31 +1741,35 @@
  {
   "uid": "F-608",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "Truthful owner visibility of money: missing data must read UNKNOWN, not zero, from the first sale.",
-  "maturity": "TESTED",
+  "launch_class_reason": "Pricing/economics integrity: missing data must never read as zero.",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "No independent reconciliation of Etsy vs internal orders vs Payment Account/statements; no reconciliation incident type.",
-  "producer": "src/brambleloop/finance/books.py::Books.profit_and_loss",
-  "durable_state": "ledger",
-  "consumer": null,
-  "protected_effect": null,
+  "missing_part": "Books report sales UNMEASURED (None + why) unless the order source is open and was read; Etsy fee entries without a matching internal order open an idempotent reconciliation incident. Missing: reconciliation against Payment Account payouts / monthly statements and future accounting integrations; reverse check (internal order with no ledger entry after N days); no independent 'Accountant' role output beyond these.",
+  "producer": "src/brambleloop/finance/books.py::Books.profit_and_loss; src/brambleloop/finance/reconcile.py::reconciliation_incident; src/brambleloop/commerce/orders_ingest.py::source_state",
+  "durable_state": "ledger/orders tables; incidents finance.reconciliation.etsy_vs_orders",
+  "consumer": "app/main.py::api_finance; runtime/pipeline.py plan.strategy / finance.* handlers",
+  "protected_effect": "no CA$0.00 / 'no orders' claims while the order source is closed",
   "tests": [
-   "tests/test_finance.py::test_an_empty_business_reports_zeroes_rather_than_nothing",
-   "tests/test_finance.py::test_cost_per_customer_is_none_not_zero_when_there_are_no_customers"
+   "tests/test_finance.py::test_sales_are_unmeasured_not_zero_while_the_order_source_is_closed",
+   "tests/test_money_truth.py::test_the_books_measure_sales_only_after_a_connected_source_was_read",
+   "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+   "tests/test_deploy.py::test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast"
   ],
   "evidence": [
-   "src/brambleloop/commerce/orders_ingest.py::ingest returns UNMEASURED when gated, but Books does not consult it"
+   "waves/fb1_D.json F-608; FB-2 O (3b540fa) orders/refund truth",
+   "finance/reconcile.py not in fcb982d -> not DEPLOYED",
+   "previous defect (zero-as-truth pinned by test_an_empty_business_reports_zeroes_rather_than_nothing) resolved: that test no longer exists; replaced by unmeasured tests"
   ],
   "build2_rows": [
    "#11 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
+   "kind": "none",
    "key": "transactions_r",
-   "detail": "order/payment reads need transactions_r"
+   "detail": "reverse check and payout reconciliation are buildable now; real data needs owner reauthorisation with transactions_r"
   },
-  "defect": "Books.profit_and_loss / /api/finance report gross_sales 0.00 and orders 0 while the order source is not connected (transactions_r not granted) - missing data reads as zero, and test_an_empty_business_reports_zeroes_rather_than_nothing pins that.",
-  "next_action": "Make Books.profit_and_loss consult orders_ingest.gate(db) and return sales fields as UNMEASURED (with reason) when the order source is closed; add finance/reconcile.py producing reconciliation incidents (F-575).",
+  "defect": null,
+  "next_action": "Add finance/reconcile.py checks: internal order without a ledger fee/sale entry after 3 days -> incident; payouts (getPaymentAccountLedgerEntries) vs recorded sales-minus-fees per period -> incident on disagreement, UNKNOWN when unread; tests for each disagreement and for unread = UNKNOWN.",
   "confidence": "HIGH",
   "searched": null
  },
