@@ -127,21 +127,70 @@ def _docs():
     return {"US": _Doc(b"%PDF-1.7 US pattern " * 40), "UK": _Doc(b"%PDF-1.7 UK pattern " * 41)}
 
 
+def _record_assets_built(db, p, docs, *, release: str = "r" * 64) -> dict:
+    """Record the `assets.built` evidence the pre-create check reads, in the producer's shape.
+
+    `runtime.release.handle_assets_build` stores each terminology's PDF in the artifact store
+    and audits `assets.built` from its `assets.build` job, with `pdfs` keyed by terminology
+    and carrying each stored file's sha256; `pipeline._certified_pdf_hashes` reads that row
+    back and binds it to the release through the job's inputs. This writes the same row from
+    the same kind of job for the exact bytes about to be uploaded, so the real
+    `check_pdf_hashes` inside `_revalidate_publish_effect` runs and passes on the merits.
+    """
+    store = ArtifactStore(os.environ["BRAMBLELOOP_ARTIFACT_DIR"])
+    pdfs = {t: store.put(f"{p['slug']}/{p['version']}/pattern-{t.lower()}.pdf", d.pdf_bytes,
+                         "application/pdf")
+            for t, d in sorted(docs.items())}
+    ctx = _ctx(db, "assets.build", {"slug": p["slug"], "version": p["version"],
+                                    "release": release}, agent="publishing")
+    ctx.audit("assets.built", artifact=f"{p['slug']}@{p['version']}", detail={
+        "pdf": pdfs["US"].to_dict(),
+        "pdfs": {t: stored.to_dict() for t, stored in sorted(pdfs.items())}})
+    hashes = pipeline._certified_pdf_hashes(db, p["slug"], p["version"], release)
+    assert hashes == {t: hashlib.sha256(d.pdf_bytes).hexdigest() for t, d in docs.items()}, \
+        hashes
+    return hashes
+
+
 def _publish(db, fake, p, *, docs=None, certified=None, client=None):
+    """Publish as the pipeline does once the owner has granted publication authority.
+
+    The owner grant is read from the environment at execution time by both the client and
+    `_revalidate_publish_effect`, so it is set for the duration of the publish and restored
+    afterwards: activation tests then decide authority for themselves at activation time.
+    The creative-parity and release gates are held passing here, exactly as `_gates_pass`
+    does for activation, because this fixture is a synthetic release with no parity or
+    release evidence; the authority, PDF-hash, payload, image and release-binding checks of
+    the pre-create revalidation all run for real.
+    """
     docs = docs or _docs()
     certified = certified or {t: hashlib.sha256(d.pdf_bytes).hexdigest()
                               for t, d in docs.items()}
+    _record_assets_built(db, p, docs)
     ctx = _ctx(db, "store.publish", {"slug": p["slug"], "version": p["version"]})
     images = etsy_ops.certified_images(db, p["slug"], p["version"], release="r" * 64)
     assert not images["problems"], images["problems"]
     payload = etsy_ops.certified_payload(db, p["slug"], p["version"])
     stored = types.SimpleNamespace(sha256=certified["US"])
-    out = pipeline._publish_guarded(
-        ctx, client or _client(fake, owner=True), slug=p["slug"], version=p["version"],
-        release="r" * 64, payload=payload, docs=docs, hash_check={"certified": certified},
-        stored=stored, stored_by_terminology={t: types.SimpleNamespace(sha256=h)
-                                              for t, h in certified.items()},
-        listing_images=images)
+    before = len(_audits(db, "store.execution_revalidated"))
+    prior = os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED")
+    os.environ["BRAMBLELOOP_PUBLISH_AUTHORISED"] = "1"
+    orig = _gates_pass()
+    try:
+        out = pipeline._publish_guarded(
+            ctx, client or _client(fake, owner=True), slug=p["slug"], version=p["version"],
+            release="r" * 64, payload=payload, docs=docs, hash_check={"certified": certified},
+            stored=stored, stored_by_terminology={t: types.SimpleNamespace(sha256=h)
+                                                  for t, h in certified.items()},
+            listing_images=images)
+    finally:
+        _restore(orig)
+        if prior is None:
+            os.environ.pop("BRAMBLELOOP_PUBLISH_AUTHORISED", None)
+        else:
+            os.environ["BRAMBLELOOP_PUBLISH_AUTHORISED"] = prior
+    # The pre-create revalidation really ran and passed before the draft was created.
+    assert len(_audits(db, "store.execution_revalidated")) == before + 1
     return out, ctx
 
 
@@ -638,6 +687,7 @@ def test_a_complete_shop_is_stored_and_closes_the_owner_actions_it_evidences():
     assert job.outputs["green"] is True, job.outputs
     stored = etsy_ops.latest_reading(db, etsy_ops.SHOP_READING)
     assert stored["shop"]["currency_code"] == "CAD" and stored["observed_at"]
+    assert etsy_ops.CLOSES_ON_SHOP_CHECKS, "no owner action closes on the shop checks"
     for key in etsy_ops.CLOSES_ON_SHOP_CHECKS:
         assert _owner(db, f"{etsy_ops.SURFACE_PREFIX}{key}")[0].done, key
     assert not _owner(db, f"{etsy_ops.SURFACE_PREFIX}legal_and_tax_setup")[0].done
