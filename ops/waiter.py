@@ -7,6 +7,7 @@ Usage:
            5 wall-time bound breached, 6 observer bound reached, 2 unenrolled
   python3 ops/waiter.py ack <job>          acknowledge in the registry AND account the idle time
   python3 ops/waiter.py waste [--days N]   time lost to orchestration, and whether it is an incident
+                                           (each incident opens an ops/incidents.py ledger entry)
   python3 ops/waiter.py normal <class>     the rolling normal duration of an operation class
 
 WHY THIS EXISTS. `board.py` and `registry.py` made a job's verdict computable from its own
@@ -59,6 +60,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import board as B                                                      # noqa: E402
+import incidents as I                                                  # noqa: E402
 import registry as R                                                   # noqa: E402
 
 STATE_DIR = Path(os.environ.get("WAITER_DIR") or
@@ -106,9 +108,13 @@ def proc_start(pid: int) -> str | None:
 class Waiter:
     def __init__(self, registry: R.Registry | None = None, state_dir: Path | str = STATE_DIR, *,
                  clock=time.time, sleep=time.sleep, table=None, max_waiters: int = MAX_WAITERS,
-                 pid: int | None = None):
+                 pid: int | None = None, ledger: "I.Ledger | None" = None):
         self.registry = registry or R.Registry()
         self.dir = Path(state_dir)
+        # F-350: material delay opens a reliability-incident ledger entry. A waiter on a
+        # private state dir (tests, a scratch run) keeps its ledger beside that state.
+        self.ledger = ledger or I.Ledger(I.LEDGER if self.dir == Path(STATE_DIR)
+                                         else self.dir / "RELIABILITY_INCIDENTS.jsonl")
         self.clock, self.sleep, self.table = clock, sleep, table
         self.max_waiters = max_waiters
         self.pid = pid or os.getpid()
@@ -220,7 +226,20 @@ class Waiter:
                "cause": cause, "at_utc": _utc(self.clock()),
                "incident": idle_s > IDLE_INCIDENT_S}
         self._append("time_waste.jsonl", rec)
+        if rec["incident"]:
+            rec["ledger"] = self._ledger_open(
+                f"material_delay:{job}:{rec['at_utc']}",
+                f"{job} stood finished and unacknowledged for {rec['idle_s'] / 60:.0f} min "
+                f"(threshold {IDLE_INCIDENT_S / 60:.0f}): {cause}"[:400],
+                {"job": job, "idle_s": rec["idle_s"], "op_class": op_class})
         return rec
+
+    def _ledger_open(self, signature: str, summary: str, evidence: dict) -> dict:
+        try:
+            return self.ledger.open("material_delay", signature, summary, evidence=evidence,
+                                    source="ops/waiter.py")
+        except Exception as exc:  # noqa: BLE001 - accounting must not stop an ack
+            return {"opened": False, "error": f"{type(exc).__name__}: {exc}"[:200]}
 
     def waste_report(self, days: int = 7) -> dict:
         since = self.clock() - days * 86400
@@ -232,6 +251,12 @@ class Waiter:
         incidents = [r for r in rows if r.get("incident")] + [
             {"day": d, "idle_s": round(s, 1), "cause": "daily idle total above threshold"}
             for d, s in sorted(by_day.items()) if s > DAILY_INCIDENT_S]
+        for d, total in sorted(by_day.items()):
+            if total > DAILY_INCIDENT_S:
+                self._ledger_open(f"material_delay:day:{d}",
+                                  f"{total / 60:.0f} min of idle wall-clock on {d} (daily "
+                                  f"threshold {DAILY_INCIDENT_S / 60:.0f})",
+                                  {"day": d, "idle_s": round(total, 1)})
         return {"days": days, "idle_s_total": round(sum(r["idle_s"] for r in rows), 1),
                 "idle_s_by_day": {d: round(s, 1) for d, s in sorted(by_day.items())},
                 "events": len(rows), "reliability_incidents": incidents,

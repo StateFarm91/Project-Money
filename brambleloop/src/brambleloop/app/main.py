@@ -650,6 +650,46 @@ def api_support(limit: int = 50, authorization: str = Header(default="")):
         }
 
 
+@app.post("/api/support/messages")
+async def api_support_messages(request: Request,
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """The owner records a buyer message, or that a reply was sent (F-043).
+
+    Etsy has no messages API, so a buyer message reaches this system only when the owner
+    records what they read in Etsy Messages. The first-response watch (`support.triage`)
+    times the case from `received_at`, alerts at 24h/36h and closes when the reply is
+    recorded here as sent. Operator credential required: it writes customer content.
+
+    Body: {event: "buyer_message", customer_ref, message, received_at? (ISO 8601),
+    product_slug?} or {event: "reply_sent", case_id, sent_at? (ISO 8601)}.
+    """
+    refused = _operator_read_refusal(authorization)
+    if refused is not None:
+        return refused
+    from ..support import response_watch
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    event = (body or {}).get("event")
+    try:
+        if event == "buyer_message":
+            out = response_watch.record_buyer_message(
+                db, customer_ref=str(body.get("customer_ref") or ""),
+                message=str(body.get("message") or ""),
+                received_at=body.get("received_at"), product_slug=body.get("product_slug"))
+        elif event == "reply_sent":
+            out = response_watch.record_reply_sent(db, int(body.get("case_id")),
+                                                   sent_at=body.get("sent_at"))
+        else:
+            return JSONResponse({"error": "event must be buyer_message or reply_sent"},
+                                status_code=400)
+    except (response_watch.MessageRefused, TypeError, ValueError) as e:
+        return JSONResponse({"error": str(e)[:300]}, status_code=400)
+    return JSONResponse({"recorded": True, "event": event, **out})
+
+
 @app.post("/api/plan-cycle")
 def api_plan_cycle(as_of: str | None = None) -> dict:
     """Enqueue a planning cycle now instead of waiting for the daily cadence.

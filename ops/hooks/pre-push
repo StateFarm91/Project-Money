@@ -1,0 +1,16 @@
+#!/bin/sh
+# F-461: a push to the production branch is a production deploy (Railway builds it), so it
+# passes through ops/deploy_guard.py. Pushes to any other branch are not deploys and pass.
+# Installed by ops/install_hooks.sh (core.hooksPath=ops/hooks). Never deploys anything itself.
+top=$(git rev-parse --show-toplevel) || exit 1
+lines=$(cat)
+case "$lines" in
+  *refs/heads/claude/repository-setup-nc9x6o*)
+    if [ -z "${BRAMBLELOOP_DEPLOYED_SHA:-}" ]; then
+      # Ask production which commit it runs; unknown stays unknown and the guard refuses.
+      BRAMBLELOOP_DEPLOYED_SHA=$(python3 "$top/ops/deployed_sha.py") || BRAMBLELOOP_DEPLOYED_SHA=""
+      export BRAMBLELOOP_DEPLOYED_SHA
+    fi ;;
+esac
+printf '%s\n' "$lines" | python3 "$top/ops/deploy_guard.py" pre-push --repo "$top" \
+    --records "$top/brambleloop/artifacts/suite_runs" "$@"

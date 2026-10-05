@@ -406,6 +406,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # was ours yesterday can be the owner's today, and the owner queue should say so without
     # anyone asking.
     ("launch_readiness", "orchestrator", "launch.readiness", 24 * 60 * 60),
+    # F-125: a completion claim the measurement contradicts (COMPLETE but never ran,
+    # INTEGRATED but not reached) is an incident, checked daily rather than by hand.
+    ("maturity_disagreements", "orchestrator", "ops.maturity_disagreements", 24 * 60 * 60),
     # Six-hourly. The model gate reads a recorded successful call rather than a configured
     # key, because the key this company has authenticates against an account with no credit.
     # This is what makes the gate open by itself the moment that changes, and it is cheap:

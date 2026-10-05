@@ -1928,6 +1928,15 @@ def handle_support_triage(ctx: JobContext) -> dict:
                                             "needing_reply", "sent")}
     out["confusion"] = triaged["confusion"]
     out["case_window"] = triaged["case_window"]
+    # F-043: the first-response clock. Every recorded buyer message with no reply recorded
+    # as sent raises an owner action + incident at 24h and escalates at 36h, before Etsy's
+    # 48h standard; a recorded reply closes both. Audited either way.
+    from ..support import response_watch
+
+    out["response_watch"] = response_watch.watch(ctx.db)
+    ctx.audit("support.response_watch", detail={
+        k: out["response_watch"][k] for k in ("watching", "raised", "escalated", "breached",
+                                               "closed", "thresholds_hours")})
     # #155 / #158: Pattern Help consumes the teardown traps -- an open case about one is
     # routed to the pattern_help specialist with the obligation on it.
     from ..teardown import enforce as teardown_enforce
@@ -3311,6 +3320,12 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     from ..launch.readiness import LAUNCH_PACKAGE_KEYS, OPENS_LIVE_ETSY_KEYS
 
     requests = list(readiness.owner_requests()) + access.owner_requests()
+    # F-160: an exposed credential is an owner card in the one queue until `rotated_at` is
+    # set in `ops.credential_register` -- then the card stops being generated and the
+    # closer below retires it. Security, not a launch requirement: `ready` is unchanged.
+    from ..ops import credential_register
+
+    requests += credential_register.owner_requests()
 
     # #54 (C-80 defect 10): "before asking the owner to open/connect live Etsy operations,
     # require ..." -- so while any item of that package is still ours to build, the requests
@@ -3394,8 +3409,18 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
             wanted = {r.key for r in requests}
             from ..improve.upgrades import OWNER_CARD_PREFIXES
 
+            # F-541: a closer may not close an action whose condition still holds. An open
+            # incident that names an owner action (`detail.owner_action`) is that condition,
+            # read now -- e.g. the Etsy re-authorisation an orders run raised -- so its row
+            # stays open whichever subsystem raised it. It closes when the incident's own
+            # detector resolves it on evidence.
+            held_by_incident = _owner_actions_held_open_by_incidents(s)
             for key, row in open_actions.items():
                 if key in wanted or key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
+                    continue
+                if key in held_by_incident:
+                    continue
+                if key.startswith(NOT_THE_READINESS_PREFIXES_TO_CLOSE):
                     continue
                 if key in withheld:
                     # withheld is not done: the request is not being made yet, and marking
@@ -3417,7 +3442,13 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
 
     # F-593 / F-547: the Etsy owner-only queue from `intel.etsy_surfaces`, adopted into the
     # one owner queue by key. Idempotent; closed only on evidence (see runtime.etsy_ops).
-    etsy_queue = etsy_ops.seed_owner_queue(ctx.db)
+    # F-874: the KYC/tax and payout-settings steps are first-sale blockers, not launch-day
+    # chores. They are queued only at the step before first sale (a listing exists on Etsy),
+    # never on every daily run of a shadow shop; software never performs them either way.
+    first_sale_step = _first_sale_step_reached(ctx.db)
+    etsy_queue = etsy_ops.seed_owner_queue(
+        ctx.db, defer=frozenset() if first_sale_step["reached"] else DEFERRED_UNTIL_FIRST_SALE)
+    etsy_queue["first_sale_step"] = first_sale_step
 
     ctx.audit("launch.assessed", detail={
         "ready": ready,
@@ -7267,6 +7298,59 @@ NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE: frozenset[str] = frozenset({
     "image_benchmark_budget",
     "model_provider_balance",
 })
+
+
+# Prefixes of owner-queue keys other subsystems raise and close on their own evidence. Kept
+# beside the key list above for the same reason: a closer may only close what it opens.
+#   support.first_response:  the 24h/36h buyer first-response watch (F-043), closed when the
+#                            reply is recorded as sent;
+#   etsy.oauth.              the legacy orders re-authorisation key (F-541), adopted into
+#                            `etsy.auth:reauthorise` by the next orders run, never swept.
+NOT_THE_READINESS_PREFIXES_TO_CLOSE: tuple[str, ...] = (
+    "support.first_response:",
+    "etsy.oauth.",
+)
+
+#: Etsy owner-queue items (`intel.etsy_surfaces` keys) that are deferred until the step
+#: before first sale (F-874): identity/tax and payment settings.
+DEFERRED_UNTIL_FIRST_SALE: frozenset[str] = frozenset({
+    "legal_and_tax_setup",
+    "payment_settings_setup",
+})
+
+
+def _owner_actions_held_open_by_incidents(session) -> set[str]:
+    """Owner-action keys an open incident names as its remedy: their condition still holds."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    held: set[str] = set()
+    for inc in session.scalars(select(Incident).where(
+            Incident.resolved == False)):  # noqa: E712
+        key = (inc.detail or {}).get("owner_action")
+        if isinstance(key, str) and key:
+            held.add(key)
+    return held
+
+
+def _first_sale_step_reached(db) -> dict:
+    """Whether the shop is at the step before first sale, from observed rows only (F-874).
+
+    Reached when a listing exists on Etsy (an `etsy_listing_id` was recorded by the publish
+    path) or a listing is active: the next thing that can happen is a buyer. Before that,
+    asking the owner for identity verification and a tax position is asking early for a
+    legal step nothing yet needs.
+    """
+    from sqlalchemy import func, or_, select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        on_etsy = int(s.scalar(select(func.count()).select_from(Listing).where(or_(
+            Listing.etsy_listing_id != "", Listing.state == "active"))) or 0)
+    return {"reached": on_etsy > 0, "listings_on_etsy": on_etsy,
+            "deferred_until_then": sorted(DEFERRED_UNTIL_FIRST_SALE) if not on_etsy else []}
 
 
 def _reconcile_canonical_model_action(db) -> None:
