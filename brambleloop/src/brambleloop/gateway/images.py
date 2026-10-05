@@ -752,8 +752,16 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             from ..gates.originality import benchmark_file_hashes
 
             hashes = benchmark_file_hashes(db)
-        except Exception:  # noqa: BLE001 - the path tests still run; the hash test is extra
-            hashes = None
+        except Exception as exc:  # noqa: BLE001 - an unreadable manifest is UNKNOWN, refused
+            # Fail closed (FB2-R2 #3). Carrying on with `hashes = None` skipped the byte test,
+            # so a renamed copy of a purchased benchmark image would have passed the path and
+            # name tests and conditioned a render. Unknown is not "no match": refused before
+            # any budget is reserved or request sent.
+            raise ImagesRefused(
+                f"benchmark purchase-manifest hashes could not be read ({type(exc).__name__}: "
+                f"{str(exc)[:200]}), so a renamed copy of a benchmark image among "
+                f"{len(reference_urls)} reference(s) cannot be ruled out; originality of the "
+                f"references is UNKNOWN and the render is refused (F-785)") from exc
     url, headers, payload = _request_for(provider, key, prompt, reference_urls, size,
                                          extra_fields, benchmark_hashes=hashes)
     # Reserved before the request leaves. A refusal here has cost nothing; the same refusal

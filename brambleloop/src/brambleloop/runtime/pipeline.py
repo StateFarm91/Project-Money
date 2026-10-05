@@ -73,7 +73,13 @@ class Concept:
     source_provenance: str | None = None
 
 
-def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
+# The producer chain `concept_to_cir` names when its caller does not say more.
+CONCEPT_TO_CIR_PRIMITIVES: tuple[str, ...] = (
+    "runtime.pipeline.concept_to_cir", "creative.prototype.gauge_for")
+
+
+def concept_to_cir(c: Concept, version: str = "1.0.0",
+                   primitives: tuple[str, ...] = CONCEPT_TO_CIR_PRIMITIVES) -> CIR:
     """Build a machine-verifiable CIR from a concept.
 
     Only produces geometry the compiler can check: a flat two-colour panel worked over a
@@ -117,7 +123,7 @@ def concept_to_cir(c: Concept, version: str = "1.0.0") -> CIR:
         designer_notes=f"{c.category} concept, unit repeat {unit} sts",
         provenance=source_provenance(c.slug,
             {**c.__dict__, "provenance": c.source_provenance}, c.source_brief,
-            ("runtime.pipeline.concept_to_cir", "creative.prototype.gauge_for")),
+            tuple(primitives)),
     )
 
 
@@ -494,11 +500,67 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         opportunity_score=i.get("score", i.get("opportunity_score", 0.0)),
         season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
-    cir = concept_to_cir(concept)
-    ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}")
+    lineage = _fallback_lineage(seed, dict(i), concept)
+    from ..creative.prototype import PrototypeRefused
+
+    try:
+        if lineage["known"]:
+            concept.source_provenance = lineage["source"]
+            concept.source_brief = lineage["brief"]
+            cir = concept_to_cir(concept, primitives=lineage["primitives"])
+        else:
+            cir = concept_to_cir(concept)
+    except PrototypeRefused as exc:
+        # Malformed benchmark identities are unknown lineage, never stringified into a record.
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": str(exc)[:400], "gate": "provenance"})
+        return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
+    ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
+              detail={"source": "concept_to_cir fallback",
+                      "provenance": ("recorded" if cir.provenance is not None
+                                     else "UNKNOWN: " + lineage["why"]),
+                      "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)
+                                               if cir.provenance is not None else None)})
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "rows": len(cir.components[0].rows)}
+
+
+def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
+    """The real lineage of a `concept_to_cir` fallback draft (G-R2), or why it is unknown.
+
+    Recorded only from what actually produced the design: the radar pool seed the slot came
+    from (code, not a job input), the deterministic `concept_geometry` table -- verified by
+    recomputing it against the queued geometry -- the yarn's gauge derivation, and whatever
+    brief/benchmark lineage the queued inputs carry. Nothing is asserted that did not happen:
+    a payload with no radar seed, or geometry the table did not produce, is unknown lineage
+    and gets no provenance, so the originality gate refuses it (PROVENANCE_MISSING) rather
+    than passing a generic label.
+    """
+    if seed is None:
+        return {"known": False,
+                "why": "no radar seed: raw caller-supplied geometry is not an approved source"}
+    expected = concept_geometry(seed)
+    queued = {"stitch_repeat": [list(x) for x in inputs.get("stitch_repeat") or []],
+              "width_stitches": inputs.get("width_stitches"), "rows": inputs.get("rows"),
+              "colors": dict(inputs.get("colors") or {})}
+    if queued != expected or inputs.get("category") != seed.category:
+        return {"known": False,
+                "why": (f"queued geometry for {seed.slug} is not what concept_geometry "
+                        f"produces for category {seed.category!r}; its source is unknown")}
+    if inputs.get("brief") is not None and not isinstance(inputs.get("brief"), dict):
+        return {"known": False, "why": "queued brief is not an object; lineage unknown"}
+    from ..creative import preengineering
+
+    _, brief, _ = preengineering.concept_from(inputs)
+    declared = str(inputs.get("provenance") or "").strip()
+    # A declared benchmark lineage is carried (source_provenance appends it to the consulted
+    # set); otherwise the design's source is the radar pool seed itself.
+    source = declared if declared.startswith("benchmark:") else f"radar.pool:{seed.slug}"
+    return {"known": True, "source": source, "brief": brief or None, "why": "",
+            "primitives": ("runtime.pipeline.concept_to_cir",
+                           f"runtime.pipeline.concept_geometry:{seed.category}",
+                           f"creative.prototype.gauge_for:{concept.yarn_weight}")}
 
 
 def _draft_creative(ctx: JobContext, slug: str) -> dict:
@@ -1415,27 +1477,58 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # The uploaded name comes from the same place as the stored one. It was spelled out here,
     # so the file in the buyer's downloads folder and the file in the artifact store could have
     # been named by two different rules.
+    from ..integrations.etsy import EtsyClient
     from ..publish import draft_intent
     content_digest = _publish_content_digest(release, payload, docs, listing_images)
+    # FB2-R2 #1: the pre-create evidence (owner publication authority, runtime phase, the
+    # `assets.built` PDF hashes, parity, gates, payload and images) is checked *before* the
+    # durable intent is claimed. A refusal here provably precedes any createDraftListing
+    # request, so it must not park the version behind RECONCILE_REQUIRED and a halting
+    # incident: nothing was sent, and the retry after the condition clears creates once.
+    # The same check still runs inside the client immediately before the create request
+    # (`before_create`); a refusal *there* happens after the claim and stays conservative.
+    # An intent that already exists is reported first: its unknown outcome outranks today's
+    # evidence.
+    draft_intent.refuse_if_existing(ctx.db, slug, version)
+    _revalidate_publish_effect(ctx, slug=slug, version=version, release=release,
+                               payload=payload, docs=docs, listing_images=listing_images,
+                               reserved_digest=content_digest)
     intent_key, intent_token = draft_intent.claim(
         ctx.db,slug=slug,version=version,release=release,content_digest=content_digest)
+    # Whether the create request could have left. Only the stock `EtsyClient.publish` is
+    # known to call `before_create` strictly before `create_draft`; for any other publish
+    # implementation the request is presumed possibly sent (fail closed).
+    known_order = type(client).publish is EtsyClient.publish
+    hook = {"entered": not known_order}
+
+    def before_create():
+        hook["entered"] = True
+        _revalidate_publish_effect(
+            ctx, slug=slug, version=version, release=release,
+            payload=payload, docs=docs, listing_images=listing_images,
+            reserved_digest=content_digest)
+
     try:
         outcome = client.publish(payload=payload,
                                  filename=f"{slug}-{pattern_filename('US')}",
                                  data=doc.pdf_bytes, images=listing_images["images"],
-                                 before_create=lambda: _revalidate_publish_effect(
-                                     ctx, slug=slug, version=version, release=release,
-                                     payload=payload, docs=docs, listing_images=listing_images,
-                                     reserved_digest=content_digest),
+                                 before_create=before_create,
                                  on_created=lambda remote_id: draft_intent.checkpoint(
                                      ctx.db,intent_key,intent_token,remote_id))
     except BaseException:
         # Hard process death cannot run this block; the committed CREATING intent still
         # blocks the next attempt. Ordinary failures additionally open a visible incident.
-        draft_intent.uncertain(ctx.db,intent_key,intent_token)
+        if hook["entered"]:
+            draft_intent.uncertain(ctx.db,intent_key,intent_token)
+        else:
+            draft_intent.release_unsent(ctx.db,intent_key,intent_token)
         raise
     if not outcome.listing_id:
-        draft_intent.uncertain(ctx.db,intent_key,intent_token)
+        if hook["entered"]:
+            draft_intent.uncertain(ctx.db,intent_key,intent_token)
+        else:
+            # The client refused before reaching the create hook: no request was sent.
+            draft_intent.release_unsent(ctx.db,intent_key,intent_token)
 
 
     # The second file, attached after the first.
