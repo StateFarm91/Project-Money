@@ -554,7 +554,9 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
     catalogue-wide count is the difference between "the photography job ran" and "the
     catalogue can be listed".
     """
-    usable, unusable, missing = [], [], []
+    from . import disclosed_listing
+
+    usable, unusable, missing, disclosed = [], [], [], []
     # Why each failure failed, not just that it did. Without this the next decision --
     # render the rest, or fix the method first -- cannot be made without spending to find
     # out, and tonight's whole lesson is that a method which fails every time it is asked
@@ -564,6 +566,12 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
         version = versions.get(slug, "")
         if usable_asset(db, slug=slug, version=version):
             usable.append(slug)
+        elif disclosed_listing.usable_set(db, slug=slug, version=version):
+            # D-FB-7: a disclosed deterministic render set that verifies against the CIR on
+            # its bound bytes and passed every listing-image QA gate is customer-ready
+            # imagery. Counted here so the launch gate and the coverage endpoint agree.
+            usable.append(slug)
+            disclosed.append(slug)
         elif (tried := assets_for(db, slug=slug, version=version)):
             unusable.append(slug)
             latest = tried[0]
@@ -596,11 +604,18 @@ def coverage(db, *, slugs: list[str], versions: dict[str, str]) -> dict:
                 found["third_party_marks"] = list(truth.get("third_party_marks") or ())
                 found["unmade"] = list(truth.get("unmade") or ())
             diagnosis[slug] = found
+        elif ((rendered := disclosed_listing.last_asset(db, slug=slug))
+              and rendered.get("version") == version):
+            unusable.append(slug)
+            diagnosis[slug] = {"kind": "disclosed_render", "detail": "recorded",
+                               "why": "; ".join(rendered.get("launch_blocked") or [])[:300]
+                               or "structural truth is not PASS on the bound bytes now"}
         else:
             missing.append(slug)
     return {
         "certified": len(slugs),
         "with_usable_asset": sorted(usable),
+        "with_disclosed_render": sorted(disclosed),
         "with_only_unusable_assets": sorted(unusable),
         "with_no_asset_at_all": sorted(missing),
         "why_each_unusable_one_failed": diagnosis,

@@ -1131,10 +1131,11 @@ class EtsyClient:
         problems = [] if uploaded else [f"listing {listing_id} exists with no file attached"]
         images_uploaded = 0
         for rank, entry in enumerate(images or [], start=1):
-            # (name, bytes) or (name, bytes, alt_text): a disclosed render (D-FB-7) carries
-            # its disclosure in its alt text, so the alt text travels with the bytes.
+            # (name, bytes), (name, bytes, alt_text), or a certified 2-tuple carrying
+            # `.alt_text` (runtime.etsy_ops.CertifiedImage): a disclosed render (D-FB-7)
+            # carries its disclosure in its alt text, so the alt text travels with the bytes.
             image_name, image_bytes = entry[0], entry[1]
-            image_alt = entry[2] if len(entry) > 2 else ""
+            image_alt = entry[2] if len(entry) > 2 else str(getattr(entry, "alt_text", "") or "")
             try:
                 self.upload_image(listing_id, filename=image_name, data=image_bytes,
                                   rank=rank, alt_text=image_alt)

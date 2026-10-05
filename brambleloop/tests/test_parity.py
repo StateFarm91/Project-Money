@@ -7,10 +7,14 @@ of these tests are about the gate being unable to produce a verdict it has not e
 """
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+os.environ.setdefault("BRAMBLELOOP_ARTIFACT_DIR",
+                      os.path.join(tempfile.mkdtemp(prefix="parity_"), "artifacts"))
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
@@ -42,21 +46,65 @@ def _benchmarked() -> dict:
     return {"materially_inferior": False, "why": "compared against 12 observed listings"}
 
 
+_VERIFIED: dict = {}
+
+
+def _verified_set() -> list[dict]:
+    """A real disclosed render set (D-FB-7) whose PRODUCT_TRUTH the verifier can PASS, with
+    its listing-image QA attached as `listing_asset.frames_for` attaches it, copy disclosing,
+    and the hero carrying a finished-object description -- the evidence a vision gate would
+    write, supplied here because that gate is closed in tests."""
+    import copy
+
+    from brambleloop.products import launch0
+    from brambleloop.publish import disclosed_listing
+
+    if "rec" not in _VERIFIED:
+        rec = disclosed_listing.build(launch0.cir_for("hexagon_coasters"))
+        assert rec["usable_as_listing_asset"], rec["launch_blocked"]
+        _VERIFIED["rec"] = rec
+    rec = _VERIFIED["rec"]
+    frames = [dict(f, presentation_qa=disclosed_listing.presentation_qa(
+        rec, f, description="A coaster pattern.\n\n" + disclosed_listing.COPY_DISCLOSURE))
+        for f in rec["frames"]]
+    frames = copy.deepcopy(frames)
+    frames[0]["inspection"] = {"described": True,
+                               "semantic": {"finished_or_in_progress_agrees": True}}
+    return frames
+
+
 def test_all_eight_are_judged_and_a_partial_set_cannot_produce_a_verdict():
-    """The property the requirement actually asks for, asserted over the module."""
+    """The property the requirement actually asks for, asserted over the module.
+
+    Rewritten for F-752/F-856 (the fixture pinned the pre-authority rule): a set whose only
+    product evidence is a motif label cannot have PRODUCT_TRUTH judged, so it reaches seven
+    of eight and no verdict -- stronger than the old pass. All eight are reached, and the
+    verdict earned, only on a set the structural verifier can actually PASS.
+    """
     out = parity.assess(_clean_set(), benchmark_quality=_benchmarked())
     assert set(out["dimensions"]) == set(parity.DIMENSIONS)
     assert len(parity.DIMENSIONS) == 8
-    assert out["of"] == 8 and out["judged"] == 8
-    assert out["verdict"] == parity.PASS
+    assert out["of"] == 8 and out["judged"] == 7
+    assert out["unjudged"] == [parity.PRODUCT_TRUTH], out["unjudged"]
+    assert out["verdict"] == parity.UNJUDGED
+    assert out["blocks_release"] is True
+
+    out = parity.assess(_verified_set(), benchmark_quality=_benchmarked())
+    assert out["of"] == 8 and out["judged"] == 8, out["dimensions"]
+    assert out["verdict"] == parity.PASS, out["dimensions"]
     assert out["blocks_release"] is False
 
 
 def test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it():
-    """No score, no majority. Seven passes and one failure is a blocked release."""
+    """No score, no majority. Seven passes and one failure is a blocked release.
+
+    Rewritten for F-752/F-856: on the motif-only fixture PRODUCT_TRUTH is unjudged, so each
+    failure is asserted to block with the remaining dimensions still reporting their own
+    answers; on a verified disclosed set every one of the eight is judged and any single
+    failure still blocks.
+    """
     for role_kw in (
         {"identity": {"verdict": "fail"}},
-        {"motif": {"verdict": "mismatch"}},
         {"photographic_realism": {"verdict": "blocked"}},
         {"readable_at_grid": False},
         {"inspection": {"described": True,
@@ -69,7 +117,42 @@ def test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it():
         assert out["blocks_release"] is True
         assert len(out["failed"]) >= 1
         # The other dimensions still report their own answer rather than being collapsed.
-        assert out["judged"] == 8
+        assert out["judged"] == 8 - len(out["unjudged"])
+        assert out["unjudged"] == [parity.PRODUCT_TRUTH]
+    # A motif mismatch is no longer a product-truth reading at all (F-752).
+    mismatch = [_frame("hero", motif={"verdict": "mismatch"}),
+                _frame("detail", carries_model=False), _frame("chart", carries_model=False)]
+    assert parity.assess(mismatch, benchmark_quality=_benchmarked())["verdict"] != parity.PASS
+
+    def broken(mutate):
+        frames = _verified_set()
+        mutate(frames)
+        return frames
+
+    def unbind(frames):
+        frames[0]["image"]["sha256"] = frames[2]["image"]["sha256"]
+
+    def unreadable(frames):
+        frames[1]["readable_at_grid"] = False
+
+    def unfinished(frames):
+        frames[0]["inspection"]["semantic"]["finished_or_in_progress_agrees"] = False
+
+    def presentation(frames):
+        frames[2]["presentation_qa"]["layout_qa"] = False
+
+    for mutate, dimension in ((unbind, parity.PRODUCT_TRUTH),
+                              (unreadable, parity.MOBILE_GRID),
+                              (unfinished, parity.HERO),
+                              (presentation, parity.LIFESTYLE_QUALITY)):
+        out = parity.assess(broken(mutate), benchmark_quality=_benchmarked())
+        assert out["verdict"] == parity.FAIL, (mutate.__name__, out["dimensions"])
+        assert dimension in out["failed"], (mutate.__name__, out["failed"])
+        assert out["judged"] == 8 - len(out["unjudged"])
+        assert out["blocks_release"] is True
+    inferior = parity.assess(_verified_set(), benchmark_quality={
+        "materially_inferior": True, "why": "thinner gallery than every observed listing"})
+    assert inferior["failed"] == [parity.COMPETITIVE] and inferior["judged"] == 8
 
 
 def test_unjudged_blocks_exactly_as_a_failure_does_and_is_reported_apart_from_one():

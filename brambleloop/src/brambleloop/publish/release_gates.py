@@ -422,6 +422,19 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
     frames = _frames(db, slug, version)
     listing = _listing(db, slug, version)
     reasons: list[str] = []
+    # D-FB-7: when the listing's imagery is the disclosed render set (what parity judges via
+    # `listing_asset.frames_for`), that set is what is certified and uploaded -- one listing
+    # set, one certificate, one upload path.
+    from . import listing_asset
+
+    current_asset = listing_asset.last(db, slug=slug)
+    if (current_asset and current_asset.get("kind") == ls.DISCLOSED_RENDER
+            and current_asset.get("version") == version):
+        return disclosed_listing_set(db, slug=slug, version=version, cir=cir, twin=twin,
+                                     listing=listing, rec=current_asset, frames=frames,
+                                     release_hash=release_hash, issue=issue,
+                                     store_root=store_root)
+
     if not frames:
         return {"slug": slug, "version": version, "blocks_release": True,
                 "reasons": ["no listing frames are on file for this release: all four gates "
@@ -584,6 +597,121 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
     }
 
 
+def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, rec: dict,
+                          frames, release_hash: str | None, issue: bool,
+                          store_root=None) -> dict:
+    """The disclosed-render set through the listing-set certificate (#70, D-FB-7).
+
+    Preconditions are `disclosed_listing.export_images`' refusals -- the disclosure in the
+    pixels, every alt text and the listing copy, and structural truth PASS on the exact bytes
+    -- and the set's own QA readings map onto the four promotion gates. The listing copy's
+    dimensions are audited against the certified geometry exactly as for any other set.
+    """
+    from ..gates.platform_policy import policy_stamp
+    from ..gates.policy import POLICY_VERSION
+    from . import disclosed_listing
+
+    reasons: list[str] = []
+    if listing is None:
+        reasons.append("no listing copy is drafted, so the copy disclosure cannot be shown")
+    dim = dimension_audit(db, slug=slug, version=version, twin=twin, frames=[],
+                          listing=listing)
+    if not dim["ok"]:
+        reasons.append("dimensions (#60): " + "; ".join(
+            f"{p['kind']} at {p.get('where')}" for p in dim["problems"])[:400])
+    if not rec.get("usable_as_listing_asset"):
+        reasons.append("disclosed set QA: " + "; ".join(rec.get("launch_blocked") or [])[:400])
+    images: list = []
+    try:
+        images = disclosed_listing.export_images(
+            db, slug=slug, description=getattr(listing, "description", "") or "",
+            store=store_root)
+    except disclosed_listing.DisclosureMissing as e:
+        reasons.append(f"disclosed export (D-FB-7): {str(e)[:400]}")
+    gate_results = ls.disclosed_gate_results(rec, exported=bool(images) and not any(
+        r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"])
+
+    geometry = geometry_of(twin, cir)
+    claims = claims_of(listing, frames, _search_profile(db, slug, version))
+    rechecked = recheck(db, slug=slug, version=version, geometry=geometry, claims=claims,
+                        policy_version=POLICY_VERSION)
+    cert: dict
+    try:
+        certificate = ls.certify_disclosed(
+            slug=slug, version=version, rec=rec, images=images, geometry=geometry,
+            claims=claims, policy_version=POLICY_VERSION, platform_policy=policy_stamp(db),
+            dimensions_ok=dim["ok"]) if not reasons else None
+    except ls.ListingSetRefused as e:
+        certificate = None
+        reasons.append(f"listing-set certificate (#70): {str(e)[:400]}")
+    if certificate is None:
+        cert = {"valid": False, "issued": False, "rechecked": rechecked,
+                "why": "no disclosed-set certificate is issued while any precondition or gate "
+                       "above fails"}
+        if not any(r.startswith("listing-set certificate") for r in reasons):
+            reasons.append(f"listing-set certificate (#70): {cert['why']}")
+    else:
+        cert = _record_certificate(db, certificate, release_hash=release_hash or "",
+                                   issue=issue, rechecked=rechecked)
+        if not cert.get("valid"):
+            reasons.append(f"listing-set certificate (#70): {cert.get('why')}")
+    return {
+        "slug": slug, "version": version, "blocks_release": bool(reasons),
+        "reasons": reasons, "kind": ls.DISCLOSED_RENDER,
+        "frames": [{"position": f["position"], "role": f.get("role"), "job":
+                    (f.get("disclosed_render") or {}).get("job"),
+                    "may_export": not reasons, "why": "; ".join(reasons)[:200]}
+                   | {"gates": dict(gate_results)}
+                   for f in sorted(rec.get("frames") or [], key=lambda f: f["position"])],
+        "frame_set": {"ok": bool(((rec.get("qa") or {}).get("frame_set") or {}).get("ok"))},
+        "dimensions": {k: dim[k] for k in ("ok", "problems", "sources", "displayed",
+                                           "references")},
+        "certificate": cert,
+    }
+
+
+def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, issue: bool,
+                        rechecked: list) -> dict:
+    """File a certificate unless a valid one already covers exactly these frame hashes."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import ListingSetCertificateRecord
+
+    hashes = {f.position: f.sha256 for f in cert.frames}
+    with db.session() as s:
+        current = s.scalar(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.product_slug == cert.slug,
+            ListingSetCertificateRecord.version == cert.version,
+            ListingSetCertificateRecord.state == "valid")
+            .order_by(desc(ListingSetCertificateRecord.id)).limit(1))
+        if current is not None:
+            on_file = {f["position"]: f["sha256"]
+                       for f in (current.certificate or {}).get("frames", [])}
+            if on_file == hashes:
+                return {"valid": True, "issued": False, "record_id": current.id,
+                        "rechecked": rechecked,
+                        "why": "a valid certificate covers exactly these frame hashes"}
+            current.state = "superseded"
+            current.invalidated_by = ["frame_hashes_changed"]
+            current.invalidated_at = datetime.now(timezone.utc)
+    if not issue:
+        return {"valid": False, "issued": False, "rechecked": rechecked,
+                "why": "no valid certificate covers these frames and issuing was not asked"}
+    with db.session() as s:
+        rec = ListingSetCertificateRecord(
+            product_slug=cert.slug, version=cert.version, release_hash=release_hash,
+            certificate=cert.to_dict(), geometry_fingerprint=cert.geometry_fingerprint,
+            claims_fingerprint=cert.claims_fingerprint, policy_version=cert.policy_version,
+            state="valid")
+        s.add(rec)
+        s.flush()
+        rid = rec.id
+    return {"valid": True, "issued": True, "record_id": rid, "rechecked": rechecked,
+            "frame_order": list(cert.frame_order),
+            "why": "every disclosed frame passed all four gates and the exporter's "
+                   "disclosure and structural checks; certificate issued"}
+
+
 def _aggregate(per_frame: list[dict]) -> dict:
     out = {}
     for gate in el.GATES:
@@ -598,7 +726,8 @@ def _certificate_from_record(rec) -> ls.ListingCertificate:
     frames = tuple(ls.CertifiedFrame(
         position=f["position"], asset_id=f["asset_id"], sha256=f["sha256"], job=f["job"],
         purpose=f["purpose"], medium=f["medium"], honesty_label=f.get("honesty_label", ""),
-        measurement_sources=tuple(f.get("measurement_sources") or ()))
+        measurement_sources=tuple(f.get("measurement_sources") or ()),
+        kind=f.get("kind", ""), alt_text=f.get("alt_text", ""))
         for f in body.get("frames", []))
     return ls.ListingCertificate(
         slug=rec.product_slug, version=rec.version, frames=frames,

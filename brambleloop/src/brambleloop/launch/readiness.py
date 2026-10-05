@@ -345,6 +345,82 @@ def _build(key: str, description: str, ready: bool, evidence: dict) -> Requireme
                        blocked_by=None if ready else BLOCKED_BUILD, evidence=evidence)
 
 
+# D-FB-7: the parity dimensions this company cannot answer by its own work today, and the
+# capability each waits on. HERO needs a vision model to describe the hero (`image_vision`,
+# held in shadow by the owner's provider decision); COMPETITIVE needs a blind review over
+# observed benchmark galleries, which needs the same vision path and observed benchmark data.
+_EXTERNAL_PARITY = {
+    "hero": ("image_vision",),
+    "competitive_blind_review": ("image_vision", "benchmark_observation"),
+}
+
+
+def _listing_photography(db, photo: dict) -> Requirement:
+    """Truthful customer-ready listing imagery for every certified product-first pattern.
+
+    A product counts when it has a photograph that cleared its floors or, under D-FB-7, a
+    disclosed deterministic render set that verifies against its CIR and passed every
+    listing-image QA gate (`owned_photography.coverage` counts both). Once every product has
+    one, the listing's parity verdict is read: what still blocks it is reported against who
+    can clear it -- company work stays `build`; HERO and COMPETITIVE, which wait on a vision
+    model and observed benchmark data this company does not yet hold, are `integration`
+    while their gates are closed, never folded into company work and never assumed passed.
+    """
+    description = ("every certified product-first pattern has truthful customer-ready listing "
+                   "imagery that cleared its floors (a photograph, or a verified disclosed "
+                   "render set under D-FB-7)")
+    evidence = {
+        "listable": photo["listable"], "certified": photo["certified"],
+        "with_disclosed_render": photo.get("with_disclosed_render", [])[:10],
+        "with_no_asset_at_all": photo["with_no_asset_at_all"][:5],
+        "with_only_unusable_assets": photo["with_only_unusable_assets"][:5],
+        "method_blocked_on": photo.get("method_blocked_on") or [],
+        "why_this_is_separate_from_listing_imagery": (
+            "that requirement counts approved rows in the asset table, which include "
+            "charts and schematics. This one counts customer images that passed the gates, "
+            "which is what a buyer sees")}
+    if not photo["complete"]:
+        return _build("listing_photography", description, False, evidence)
+
+    from ..creative import blind_review
+    from ..publish import listing_asset
+    from ..visual import parity
+    from ..visual.gallery import gates_now
+
+    gates = gates_now(db, keys=("image_vision", "benchmark_observation"))
+    company: dict[str, list[str]] = {}
+    external: dict[str, dict[str, list[str]]] = {}
+    for slug in photo["with_usable_asset"]:
+        review = blind_review.current_review(db, slug=slug)
+        verdict = parity.assess(listing_asset.frames_for(db, slug=slug),
+                                benchmark_quality=review)
+        for dim in verdict["failed"]:
+            company.setdefault(slug, []).append(f"{dim}: failed")
+        for dim in verdict["unjudged"]:
+            closed = [g for g in _EXTERNAL_PARITY.get(dim, ()) if not gates.get(g)]
+            if closed:
+                external.setdefault(slug, {})[dim] = closed
+            else:
+                company.setdefault(slug, []).append(f"{dim}: unjudged")
+    evidence["parity_company_work"] = company
+    evidence["parity_waiting_on_gates"] = external
+    evidence["gates"] = gates
+    if company:
+        return _build("listing_photography", description, False, evidence)
+    if external:
+        evidence["note"] = (
+            "every product's listing set is built and passes the gates this company can run; "
+            "parity still waits on " + ", ".join(sorted({d for v in external.values()
+                                                         for d in v})) +
+            ", each behind a closed gate (" + ", ".join(sorted({g for v in external.values()
+                                                                for gs in v.values()
+                                                                for g in gs})) +
+            "). Unjudged is not a pass, so the listing stays blocked")
+        return Requirement(key="listing_photography", description=description, ready=False,
+                           blocked_by=BLOCKED_INTEGRATION, evidence=evidence)
+    return _build("listing_photography", description, True, evidence)
+
+
 def _count(session, model) -> int:
     from sqlalchemy import func, select
 
@@ -455,27 +531,19 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # the coverage endpoint cannot drift apart again by construction.
     from ..publish import owned_photography
     from ..products.builder import for_slug
+    from ..visual.render_verification import authoritative_cir
 
     photo_slugs, photo_versions = [], {}
     for slug in certified_slugs:
-        cir = for_slug(slug)
+        # Launch-0 variants (the baskets, the coaster set) are defined in the Launch-0
+        # registry rather than the catalogue builder; the disclosed-render path verifies
+        # against that registry, so readiness resolves them from the same place.
+        cir = for_slug(slug) or authoritative_cir(slug)
         if cir is not None and owned_photography.needs_no_model(cir):
             photo_slugs.append(slug)
             photo_versions[slug] = cir.version
     photo = owned_photography.coverage(db, slugs=photo_slugs, versions=photo_versions)
-    out.append(_build(
-        "listing_photography",
-        "every certified product-first pattern has a listing photograph that cleared its "
-        "floors",
-        photo["complete"],
-        {"listable": photo["listable"], "certified": photo["certified"],
-         "with_no_asset_at_all": photo["with_no_asset_at_all"][:5],
-         "with_only_unusable_assets": photo["with_only_unusable_assets"][:5],
-         "method_blocked_on": photo.get("method_blocked_on") or [],
-         "why_this_is_separate_from_listing_imagery": (
-             "that requirement counts approved rows in the asset table, which include "
-             "charts and schematics. This one counts rendered photographs that passed "
-             "the gates, which is what a buyer sees")}))
+    out.append(_listing_photography(db, photo))
 
     unpriced = sorted(l.product_slug for l in listings if l.price_cad <= 0)
     out.append(_build(

@@ -22,7 +22,11 @@ Where each answer comes from, and none of it is new opinion:
                         read off the blind description rather than asserted by the brief.
   MOBILE GRID           legibility at Etsy's search-thumbnail scale, which is where the
                         buying decision actually starts.
-  LIFESTYLE QUALITY     the natural-photography standard, which is a gate of its own.
+  LIFESTYLE QUALITY     the natural-photography standard, which is a gate of its own -- for
+                        photographs and generated frames. A verified disclosed render
+                        (D-FB-7) is judged instead on the deterministic presentation
+                        standard (D-FB-9): listing-image QA, mobile, thumbnail, 340 px
+                        legibility and the disclosure in pixels, alt text and copy.
   GALLERY               the sequence: every frame doing a declared job, no filler, and the
                         evidence frames present.
   BRAND                 recognisably Brambleloop -- the identity being the *same* one
@@ -110,6 +114,55 @@ def _realism_of(frame: dict) -> dict | None:
         return {"verdict": "clear", "from": "inspection.realism", "checks": checks}
     return {"verdict": "unjudged", "from": "inspection.realism", "checks": checks}
 
+DISCLOSED_RENDER = "disclosed_render"
+
+# D-FB-9: what LIFESTYLE_QUALITY asks of a verified disclosed render. Every one is a reading the
+# listing-image QA already made (`publish.disclosed_listing.listing_qa`) or a disclosure check,
+# never a new opinion; missing evidence is unjudged, and unjudged blocks.
+PRESENTATION_CHECKS: tuple[str, ...] = (
+    "layout_qa",               # publish.layout_qa over the ordered set
+    "mobile_contexts",         # publish.mobile.qa over the rendered phone contexts
+    "hero_thumbnail",          # commerce.thumbnail on the hero
+    "legibility_340",          # this frame at 340 px: whole product, pieces, colours
+    "disclosure_in_image",     # the caption measured in the pixels
+    "disclosure_in_alt_text",  # the wording opens the alt text, within Etsy's limit
+    "disclosure_in_copy",      # the wording is in the listing description
+)
+
+
+def presentation_quality(frame: dict, *, floor: dict | None = None) -> dict:
+    """The deterministic presentation standard for one disclosed render (D-FB-9).
+
+    Applies only to a frame that is a bound disclosed render with structural truth PASS from
+    `product_authority.structural_floor` -- anything else claiming the kind gets no benefit and
+    reads unjudged. PASS only when every check in PRESENTATION_CHECKS read True; FAIL when any
+    read False; otherwise unjudged, naming what is missing.
+    """
+    if frame.get("kind") != DISCLOSED_RENDER:
+        return {"verdict": UNJUDGED, "failed": [], "unknown": [],
+                "why": "not a disclosed render; the photography standard applies"}
+    if floor is None:
+        from .product_authority import structural_floor
+
+        floor = structural_floor(frame)
+    if floor.get("status") != "PASS":
+        return {"verdict": UNJUDGED, "failed": [], "unknown": ["structural_truth"],
+                "why": (f"structural truth {floor.get('status')}: only a verified render may be "
+                        f"judged on presentation rather than photography")}
+    evidence = frame.get("presentation_qa")
+    if not isinstance(evidence, dict):
+        return {"verdict": UNJUDGED, "failed": [], "unknown": list(PRESENTATION_CHECKS),
+                "why": "no listing-image QA evidence is attached to this frame"}
+    failed = [c for c in PRESENTATION_CHECKS if evidence.get(c) is False]
+    unknown = [c for c in PRESENTATION_CHECKS if evidence.get(c) is not True
+               and evidence.get(c) is not False]
+    verdict = FAIL if failed else UNJUDGED if unknown else PASS
+    return {"verdict": verdict, "failed": failed, "unknown": unknown,
+            "why": (f"presentation checks failed: {failed}" if failed else
+                    f"presentation checks not made: {unknown}" if unknown else
+                    "every presentation check passed on a verified disclosed render")}
+
+
 def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
            deterministic_available: bool | None = None,
            gate_open: dict[str, bool] | None = None, start_attempt: int = 0) -> dict:
@@ -182,22 +235,38 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
     else:
         results[MOBILE_GRID] = _verdict(True, "every frame reads at grid scale")
 
-    # 5. LIFESTYLE QUALITY -- the natural-photography standard.
-    judged = [f for f in frames if _realism_of(f) is not None]
-    if not judged:
+    # 5. LIFESTYLE QUALITY -- the natural-photography standard for photographs and generated
+    # frames, unchanged; for a verified disclosed render (D-FB-7 / D-FB-9) the deterministic
+    # presentation standard instead, because a frame that says it is not a photograph cannot
+    # be judged on whether it passes for one.
+    rendered = [(f, s) for f, s in zip(frames, structures) if f.get("kind") == DISCLOSED_RENDER]
+    others = [f for f in frames if f.get("kind") != DISCLOSED_RENDER]
+    judged = [f for f in others if _realism_of(f) is not None]
+    states = [str((_realism_of(f) or {}).get("verdict") or "") for f in judged]
+    shown = [presentation_quality(f, floor=s) for f, s in rendered]
+    if not judged and not shown:
         results[LIFESTYLE_QUALITY] = _verdict(
             None, "no frame was judged against the photography standard")
+    elif any(s == "blocked" for s in states):
+        results[LIFESTYLE_QUALITY] = _verdict(
+            False, "a frame reads as generated rather than photographed")
+    elif any(p["verdict"] == FAIL for p in shown):
+        failed_checks = sorted({c for p in shown for c in p["failed"]})
+        results[LIFESTYLE_QUALITY] = _verdict(
+            False, f"a disclosed render fails the presentation standard: {failed_checks}")
+    elif all(s == "clear" for s in states) and all(p["verdict"] == PASS for p in shown):
+        said = [f"{len(judged)} frame(s) read as believable photography"] if judged else []
+        if shown:
+            said.append(f"{len(shown)} verified disclosed render(s) pass every presentation "
+                        f"check {list(PRESENTATION_CHECKS)}")
+        results[LIFESTYLE_QUALITY] = _verdict(True, "; ".join(said))
+    elif any(s != "clear" for s in states):
+        results[LIFESTYLE_QUALITY] = _verdict(
+            None, f"the photography standard could not be judged: {states}")
     else:
-        states = [str((_realism_of(f) or {}).get("verdict") or "") for f in judged]
-        if any(s == "blocked" for s in states):
-            results[LIFESTYLE_QUALITY] = _verdict(
-                False, "a frame reads as generated rather than photographed")
-        elif all(s == "clear" for s in states):
-            results[LIFESTYLE_QUALITY] = _verdict(
-                True, f"{len(judged)} frame(s) read as believable photography")
-        else:
-            results[LIFESTYLE_QUALITY] = _verdict(
-                None, f"the photography standard could not be judged: {states}")
+        unknown = sorted({c for p in shown for c in p["unknown"]})
+        results[LIFESTYLE_QUALITY] = _verdict(
+            None, f"a disclosed render's presentation evidence is incomplete: {unknown}")
 
     # 6. GALLERY -- structural, so answered structurally.
     from .gallery import JOBS

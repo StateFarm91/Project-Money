@@ -293,7 +293,6 @@ BASELINE: set[tuple[str, str, str]] = {
     ('test_launch0.py', 'test_the_subjects_we_never_publish_are_enumerated_from_the_constraint_module', 'never'),
     ('test_listing_schema.py', 'test_every_gap_states_its_evidential_status_and_cannot_invent_a_claim', 'S.gaps()'),
     ('test_moat.py', 'test_an_asset_nobody_has_built_is_not_counted_as_a_moat', 'keys'),
-    ('test_model_photography.py', 'test_a_frame_with_any_failed_floor_is_never_kept', "first['frames']"),
     ('test_owned_photography.py', 'test_the_prompt_is_derived_from_the_certified_pattern', 'cir.colors'),
     ('test_physical.py', 'test_the_factor_reaches_the_yardage_the_customer_reads', 'twin.yarn_metres_by_color.items()'),
     ('test_product_run.py', 'test_the_detected_repeat_is_the_real_one_not_a_convenient_one', 'enumerate(grid)'),

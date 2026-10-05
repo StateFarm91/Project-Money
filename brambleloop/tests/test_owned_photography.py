@@ -6,12 +6,16 @@ difference between having a picture and claiming to have made the thing in it.
 """
 from __future__ import annotations
 
+import os
 import sys
+import tempfile as _tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
+os.environ.setdefault("BRAMBLELOOP_ARTIFACT_DIR",
+                      os.path.join(_tempfile.mkdtemp(prefix="owned_photo_"), "artifacts"))
 
 from brambleloop.cir.compiler import compile_cir  # noqa: E402
 from brambleloop.cir.twin import build_twin  # noqa: E402
@@ -73,6 +77,40 @@ def _make(tmp: Path, **kw):
                    motif_judger=kw.pop("motif_judger", _motif()), **kw)
 
 
+class _Spy:
+    """A generator / inspector / motif judge that records whether it was ever reached."""
+
+    def __init__(self, inner):
+        self.inner, self.calls = inner, 0
+
+    def __call__(self, *a, **k):
+        self.calls += 1
+        return self.inner(*a, **k)
+
+
+def _refused_before_any_render(record: dict, *spies: _Spy) -> None:
+    """F-852 (Visual authority, e6b6d47): generative product redraw is refused before a
+    generator, describer or judge is reached -- so nothing is spent and nothing is judged,
+    and the record says why rather than carrying a verdict about a picture never made."""
+    assert record["made"] is False and record["generated"] is False, record
+    assert record["usable_as_listing_asset"] is False
+    assert record["waiting_on"] == "qualified_protected_product_renderer"
+    assert "F-852" in record["why"] and "redraw" in record["why"]
+    assert "verdict" not in record and "image" not in record, record
+    assert (record.get("structural_truth") or {}).get("status") == "UNKNOWN"
+    for spy in spies:
+        assert spy.calls == 0, "the redraw path was reached"
+
+
+def _make_spied(tmp: Path, **kw):
+    cir, twin = _subject()
+    gen = _Spy(_generator(tmp))
+    insp = _Spy(_inspector(**kw.pop("inspection", {})))
+    motif = _Spy(kw.pop("motif_judger", _motif()))
+    record = op.make(_db(), cir, twin, generator=gen, inspector=insp, motif_judger=motif, **kw)
+    return record, (gen, insp, motif)
+
+
 def test_the_prompt_is_derived_from_the_certified_pattern():
     """A prompt somebody typed is a second, unvalidated description of the product."""
     cir, twin = _subject()
@@ -88,79 +126,81 @@ def test_the_prompt_is_derived_from_the_certified_pattern():
 
 
 def test_it_is_an_illustration_and_it_says_so_everywhere():
-    """This company has not photographed a made item, and must never imply that it has."""
+    """This company has not photographed a made item, and must never imply that it has.
+
+    Rewritten for F-852: the V1 test asserted a *generated* redraw came back labelled as an
+    illustration. Generative product redraw is now refused outright, so the stronger
+    property is that no generated picture of the product is made at all -- labelled or not.
+    """
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        record = _make(Path(tmp))
-    assert record["generated"] is True
-    assert record["disclosed_as_illustration"] is True
-    assert "Not a photograph of a made item" in record["disclosure"]
-    assert "fabricated proof" in record["never_a_photograph"]
+        record, spies = _make_spied(Path(tmp))
+    _refused_before_any_render(record, *spies)
 
 
 def test_a_picture_that_does_not_show_what_the_pattern_says_is_not_usable():
-    """The describer never sees the claim; the comparison is deterministic code."""
+    """F-852 rewrite: the describer is never reached because no picture is generated; the
+    record is unusable for the stronger reason that the redraw itself is refused."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        record = _make(Path(tmp), inspection={"description": {
+        record, spies = _make_spied(Path(tmp), inspection={"description": {
             "finished_or_in_progress": "in progress", "chart_or_diagram": False,
             "human_present": False, "clarity": "clear", "object_count": "1"}})
-    assert record["verdict"] == "blocked"
-    assert record["usable_as_listing_asset"] is False
+    _refused_before_any_render(record, *spies)
 
 
 def test_an_unmade_realism_check_is_not_a_pass():
+    """F-852 rewrite: unmade checks still never pass -- and now no check is made at all."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        record = _make(Path(tmp), inspection={
+        record, spies = _make_spied(Path(tmp), inspection={
             "realism_judged": False, "realism": {},
             "realism_unjudged": sorted(inspect_mod.REALISM_CHECKS)})
-    assert record["verdict"] == "unjudged"
-    assert record["usable_as_listing_asset"] is False
+    _refused_before_any_render(record, *spies)
 
 
 def test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image():
+    """F-852 rewrite. V1 asserted a generated render with perfect judge answers became a
+    listing image. Under F-852 even a flawless-looking generation is refused: a picture a
+    model drew is not structural evidence of the crochet, however clean it looks. The only
+    product-first listing imagery is the disclosed deterministic render
+    (`listing_asset.make`, D-FB-7), covered in test_disclosed_render_runtime."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        record = _make(Path(tmp))
-    assert record["verdict"] == "clear"
-    assert record["image"]["url"].startswith("/api/model-tournament/image/")
-    assert record["spent_cad"] == 0.04
-    assert record["motif_verified"] is True
-    assert record["usable_as_listing_asset"] is True
+        record, spies = _make_spied(Path(tmp))
+    _refused_before_any_render(record, *spies)
+    assert "spent_cad" not in record, "a refused redraw spends nothing"
 
 
 def test_the_checkerboard_that_started_this_is_blocked():
     """The live failure, as the test that keeps it failing.
 
-    A clean, believable crocheted blanket in the right two colours, on the right surface,
-    in the right light -- worked in a checkerboard, while the certified pattern makes a
-    diamond lattice on a nine-stitch repeat. Everything else about it was right, which is
-    why nothing caught it.
+    A clean, believable crocheted blanket in the right two colours -- worked in a
+    checkerboard, while the certified pattern makes a diamond lattice. F-852 rewrite: the
+    checkerboard can no longer even be drawn, because the redraw is refused before any
+    generator runs.
     """
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        record = _make(Path(tmp), motif_judger=_motif(
+        record, spies = _make_spied(Path(tmp), motif_judger=_motif(
             repeating_unit_shape="solid square", repeats_across=8))
-    assert record["verdict"] == "clear", "the asset-truth checks still pass, as they did"
-    assert record["motif_verified"] is False
-    assert record["usable_as_listing_asset"] is False
-    assert record["motif"]["verdict"] == "mismatch"
+    _refused_before_any_render(record, *spies)
 
 
 def test_fabric_nobody_could_see_blocks_too_and_says_what_it_needs():
+    """F-852 rewrite: still blocked, and what it needs is named -- a qualified protected
+    product renderer rather than a closer generated crop."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
-        record = _make(Path(tmp), motif_judger=_motif(fabric_readable=False))
-    assert record["motif"]["verdict"] == "unmeasurable"
-    assert record["usable_as_listing_asset"] is False
-    assert "closer" in record["motif"]["why"]
+        record, spies = _make_spied(Path(tmp), motif_judger=_motif(fabric_readable=False))
+    _refused_before_any_render(record, *spies)
+    assert "rendered and protected" in record["why"]
 
 
 def test_the_prompt_states_the_patterns_own_motif():
@@ -173,14 +213,12 @@ def test_a_product_whose_listing_needs_the_model_is_refused_for_the_true_reason(
     """A worn form is refused, and the refusal has to say which of two things is missing.
 
     It used to return one hardcoded sentence -- "she is built but not approved" -- and on
-    2026-09-22 that became false while still being returned: the owner approved and froze
-    the canonical identity, and a garment went on being refused for a reason that had
-    expired. A refusal that states a condition instead of reading it is the same defect as
-    a gate reading configuration rather than demonstrated capability, and worse in a
-    message, because the message is what the next session believes.
+    2026-09-22 that became false while still being returned. A refusal that states a
+    condition instead of reading it is the same defect as a gate reading configuration.
 
-    A product-first form waits on neither -- #204 says a clean product-only hero outsells
-    a modelled one for exactly these forms.
+    F-852 rewrite: `make` now refuses every product redraw first, for garments and flat
+    products alike, so the true reason from `make` is F-852. The model-bearing reason is
+    still read rather than stated, and is asserted on `model_bearing_refusal` directly.
     """
     import dataclasses
     import tempfile
@@ -188,45 +226,43 @@ def test_a_product_whose_listing_needs_the_model_is_refused_for_the_true_reason(
     from brambleloop.visual import freeze, identity, model_registry
 
     cir, twin = _subject()
-    # The same certified object under a garment's slug: the form is what decides, and a
-    # cardigan's listing has to answer a question only a body can answer.
     garment = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
     assert op.needs_no_model(cir) is True
     assert op.needs_no_model(garment) is False
 
-    # No canonical identity: blocked on the owner's decision.
     db = _db()
     with tempfile.TemporaryDirectory() as tmp:
-        record = op.make(db, garment, twin, generator=_generator(Path(tmp)),
-                         inspector=_inspector())
-    assert record["made"] is False
-    assert record["waiting_on"] == "canonical_model"
-    assert "no canonical identity has been approved" in record["why"]
+        gen = _Spy(_generator(Path(tmp)))
+        record = op.make(db, garment, twin, generator=gen, inspector=_inspector())
+    _refused_before_any_render(record, gen)
 
-    # Frozen: she exists and is enforced, so what is missing is the render path -- which
-    # is this build's work rather than a decision, and the message must say so.
+    # No canonical identity: blocked on the owner's decision -- read, not stated.
+    before = op.model_bearing_refusal(db, garment)
+    assert before["waiting_on"] == "canonical_model"
+    assert "no canonical identity has been approved" in before["why"]
+
     model_registry.record_candidate(
         db, "brambleloop-canonical",
         fields={f: "described" for f in identity.IDENTITY_FIELDS},
         image_refs=[freeze.brief.approved_portrait()])
     model_registry.select_canonical(db, "brambleloop-canonical", owner_approved=True)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        after = op.make(db, garment, twin, generator=_generator(Path(tmp)),
-                        inspector=_inspector())
-    assert after["made"] is False
+    after = op.model_bearing_refusal(db, garment)
     assert after["waiting_on"] == "model_bearing_render_path"
     assert "approved and frozen" in after["why"]
     assert "not approved" not in after["why"], "the expired reason came back"
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Spy(_generator(Path(tmp)))
+        _refused_before_any_render(op.make(db, garment, twin, generator=gen), gen)
 
 
 def test_the_provider_is_named_rather_than_left_to_a_variable_nobody_set():
     """The first live run of this job died inside the gateway for exactly this.
 
     `images.generate` without a provider falls back to `BRAMBLELOOP_IMAGE_PROVIDER`, which
-    nobody has set, so it resolved to None and the call failed with an AttributeError deep
-    in the request builder. The benchmark already measured which model renders listing
-    imagery; using its leader is what that measurement was for.
+    nobody has set. The historical V1 body (retained for evidence, unreachable) still names
+    its provider at every call; F-852 rewrite: with nothing able to render, `make` declines
+    for the stronger reason -- the redraw is refused -- rather than crashing or rendering.
     """
     import ast
 
@@ -234,15 +270,12 @@ def test_the_provider_is_named_rather_than_left_to_a_variable_nobody_set():
     calls = [n for n in ast.walk(tree)
              if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
              and n.func.attr == "generate"]
-    assert calls, "nothing generates an image here any more"
+    assert calls, "the retained V1 body no longer names a generate call to check"
     for call in calls:
         assert "provider_key" in {kw.arg for kw in call.keywords}, ast.dump(call)[:120]
 
-    # And with nothing able to render, it declines rather than crashing.
     cir, twin = _subject()
-    record = op.make(_db(), cir, twin)
-    assert record["made"] is False
-    assert "no verified image provider" in record["why"]
+    _refused_before_any_render(op.make(_db(), cir, twin))
 
 
 def test_the_seasonal_cycle_reports_the_asset_rather_than_rendering_one():
@@ -285,14 +318,25 @@ def test_an_unjudged_asset_is_not_a_release_that_already_has_one():
 
 
 def test_an_asset_that_cleared_its_checks_is_a_release_that_has_one():
-    """The gate has to be able to close, or the cadence never stops spending."""
+    """The gate has to be able to close, or the cadence never stops spending.
+
+    F-852 / F-856 rewrite: a record's self-declared `usable_as_listing_asset` is no longer a
+    cleared check -- usability needs structural truth PASS on bound bytes, which no generated
+    asset can have -- so a self-declared row does not close the gate. The cadence still
+    cannot spend: `make` refuses the redraw before any generator runs.
+    """
+    import tempfile
+
     db = _db()
     _file_asset(db, usable=True)
 
+    assert op.usable_asset(db, slug="cloudline-baby-blanket", version="1.0.0") is None
     move = op.what_to_do_next(db, slug="cloudline-baby-blanket", version="1.0.0")
-    assert move["render"] is False
-    assert move["reason"] == "usable_asset_on_file"
-    assert move["verdict"] == "clear"
+    assert move["reason"] != "usable_asset_on_file", move
+    cir, twin = _subject()
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Spy(_generator(Path(tmp)))
+        _refused_before_any_render(op.make(db, cir, twin, generator=gen), gen)
 
 
 def test_rephotographing_is_bounded_and_says_the_method_is_what_needs_changing():
@@ -316,41 +360,73 @@ def test_a_new_release_gets_its_own_attempts():
                               version="1.1.0")["render"] is True
 
 
+_DISCLOSED: dict = {}
+
+
+def _disclosed_coaster_set(db):
+    """A real disclosed render set (D-FB-7) for a Launch-0 product, built once, filed into
+    `db`. The bytes live in the artifact store; the verifier re-measures them on every read."""
+    from brambleloop.products import launch0
+    from brambleloop.publish import disclosed_listing
+
+    if "rec" not in _DISCLOSED:
+        cir = launch0.cir_for("hexagon_coasters")
+        _DISCLOSED["rec"] = disclosed_listing.build(cir)
+        assert _DISCLOSED["rec"]["usable_as_listing_asset"], _DISCLOSED["rec"]["launch_blocked"]
+    disclosed_listing.record(db, _DISCLOSED["rec"])
+    return _DISCLOSED["rec"]
+
+
 def test_coverage_counts_the_catalogue_rather_than_the_job():
     """"The photography job ran" and "the catalogue can be listed" are different facts.
 
     `_representative_slug` returned the same product every day for ever, so one product was
     photographed and the rest never were, while the cadence reported success. Nothing
     counted the difference until this did.
+
+    F-852 / D-FB-7 rewrite: a self-declared usable row ("a") no longer counts -- it is
+    reported unusable, with its record -- and the product that is listable is the one with a
+    verified disclosed render set.
     """
     db = _db()
+    rec = _disclosed_coaster_set(db)
     _file_asset(db, slug="a", usable=True)
     _file_asset(db, slug="b", usable=False, verdict="unjudged")
 
-    out = op.coverage(db, slugs=["a", "b", "c"],
-                      versions={"a": "1.0.0", "b": "1.0.0", "c": "1.0.0"})
-    assert out["certified"] == 3
-    assert out["with_usable_asset"] == ["a"]
-    assert out["with_only_unusable_assets"] == ["b"]
+    slug = rec["slug"]
+    out = op.coverage(db, slugs=[slug, "a", "b", "c"],
+                      versions={slug: rec["version"], "a": "1.0.0", "b": "1.0.0",
+                                "c": "1.0.0"})
+    assert out["certified"] == 4
+    assert out["with_usable_asset"] == [slug]
+    assert out["with_disclosed_render"] == [slug]
+    assert out["with_only_unusable_assets"] == ["a", "b"]
     assert out["with_no_asset_at_all"] == ["c"]
     assert out["listable"] == 1
     assert out["complete"] is False
     assert "method_blocked_on" in out, "the gate's state has to be readable without a render"
-    # Why it failed, not just that it did: the next decision is "render the rest or fix
-    # the method first", and that cannot be made without spending to find out otherwise.
     assert out["why_each_unusable_one_failed"]["b"]["verdict"] == "unjudged"
-    assert "a" not in out["why_each_unusable_one_failed"]
+    assert out["why_each_unusable_one_failed"]["a"]["verdict"] == "clear"
+    assert slug not in out["why_each_unusable_one_failed"]
     assert "c" not in out["why_each_unusable_one_failed"]
 
 
 def test_coverage_is_complete_only_when_every_certified_product_has_a_usable_asset():
+    """F-852 / D-FB-7 rewrite: two self-declared rows are not coverage; a verified disclosed
+    set is, and a disclosed set for a different version is not this release's."""
     db = _db()
     _file_asset(db, slug="a", usable=True)
     _file_asset(db, slug="b", usable=True)
-
     out = op.coverage(db, slugs=["a", "b"], versions={"a": "1.0.0", "b": "1.0.0"})
-    assert out["complete"] is True
-    assert out["listable"] == 2
+    assert out["complete"] is False
+    assert out["listable"] == 0
+
+    rec = _disclosed_coaster_set(db)
+    slug = rec["slug"]
+    out = op.coverage(db, slugs=[slug], versions={slug: rec["version"]})
+    assert out["complete"] is True and out["listable"] == 1
+    other = op.coverage(db, slugs=[slug], versions={slug: "9.9.9"})
+    assert other["complete"] is False
 
 
 def test_an_empty_catalogue_is_not_complete_coverage():
@@ -363,11 +439,9 @@ def test_an_empty_catalogue_is_not_complete_coverage():
 def test_the_generator_is_shown_the_chart_it_will_be_judged_against():
     """The render was failed for not reproducing information it was never given.
 
-    The prompt said "exactly as the accompanying stitch chart shows" and the call passed
-    `reference_urls=None`, so there was no accompanying chart. Production, 2026-09-23:
-    `cloudline-baby-blanket` came back `verdict: clear` -- every asset-truth check passed
-    -- with `motif: mismatch`, and the asset was unusable. A floor nothing can clear, and
-    the model path had already been fixed the same way.
+    F-852 rewrite: no generator is shown anything any more, because none is called -- the
+    product is never redrawn by a model, so there is no render to be judged against a chart
+    it never saw. Asserted with a generator that records every call.
     """
     import tempfile
 
@@ -375,21 +449,17 @@ def test_the_generator_is_shown_the_chart_it_will_be_judged_against():
 
     def generator(prompt, *, env=None, size="1024x1024", reference_urls=None):
         seen["refs"] = list(reference_urls or [])
-        seen["prompt"] = prompt
-        path = Path(tmp) / "owned.png"
-        path.write_bytes(b"\x89PNG\r\n\x1a\n")
-        return {"image_ref": str(path), "provider": "test", "cad": 0.04}
+        return {"image_ref": "", "provider": "test", "cad": 0.04}
 
     with tempfile.TemporaryDirectory() as tmp:
         cir = for_slug("cloudline-baby-blanket")
         result = compile_cir(cir)
-        op.make(_db(), cir, build_twin(cir, result), work_dir=tmp, generator=generator,
-                inspector=lambda ref, db=None, claim="": {"described": True, "checks": {}},
-                motif_judger=lambda *a, **k: {"judged": False})
-
-    assert seen["refs"], "the generator was asked for a chart it was never shown"
-    assert any("chart" in r.lower() or r.endswith(".png") for r in seen["refs"]), seen["refs"]
-    assert "stitch chart" in seen["prompt"] or "motif" in seen["prompt"].lower()
+        record = op.make(_db(), cir, build_twin(cir, result), work_dir=tmp,
+                         generator=generator,
+                         inspector=lambda ref, db=None, claim="": {"described": True},
+                         motif_judger=lambda *a, **k: {"judged": False})
+    _refused_before_any_render(record)
+    assert seen == {}, "the generator was reached"
 
 
 def test_an_asset_from_a_superseded_method_is_not_read_as_this_release_s():
