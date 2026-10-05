@@ -745,13 +745,16 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
             f"key. This is the state the gate describes rather than a failure to retry")
 
-    # With a database, a renamed copy of a purchased file is caught by its bytes as well.
+    # A renamed copy of a purchased file is caught by its bytes as well. A caller that passes
+    # no database is checked against the same default database its budget reservation uses
+    # (`_budget_db`): skipping the byte test because a caller omitted `db` would let a renamed
+    # benchmark image condition a render that the ceiling still let through.
     hashes = None
-    if reference_urls and db is not None:
+    if reference_urls:
         try:
             from ..gates.originality import benchmark_file_hashes
 
-            hashes = benchmark_file_hashes(db)
+            hashes = benchmark_file_hashes(_budget_db(db))
         except Exception as exc:  # noqa: BLE001 - an unreadable manifest is UNKNOWN, refused
             # Fail closed (FB2-R2 #3). Carrying on with `hashes = None` skipped the byte test,
             # so a renamed copy of a purchased benchmark image would have passed the path and

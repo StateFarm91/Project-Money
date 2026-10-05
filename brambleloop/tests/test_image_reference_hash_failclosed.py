@@ -73,6 +73,25 @@ class HashLookupFailClosed(unittest.TestCase):
             self.generate(self.ours)
         self.assertIn("budget", str(caught.exception))
 
+    def test_a_caller_without_db_is_checked_against_the_default_database(self):
+        # Several reference-conditioned callers pass no `db`. They must get the same byte test,
+        # against the database their budget reservation would use, not a skipped one.
+        def post(*a, **k):
+            raise Reached("provider request sent")
+
+        def reserve(*a, **k):
+            raise Reached("budget reserved")
+        with patch.object(I, "_DEFAULT_DB", self.db), \
+                patch.object(I, "_post", side_effect=post), \
+                patch.object(I, "reserve_render", side_effect=reserve):
+            with self.assertRaises(I.ImagesRefused) as caught:
+                I.generate("a cardigan", reference_urls=[str(self.renamed)], env=ENV,
+                           work_dir=str(self.work))
+            self.assertIn("byte-identical", str(caught.exception))
+            with self.assertRaises(Reached):
+                I.generate("a cardigan", reference_urls=[str(self.ours)], env=ENV,
+                           work_dir=str(self.work))
+
 
 if __name__ == "__main__":
     unittest.main()
