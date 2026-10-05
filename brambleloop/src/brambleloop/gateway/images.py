@@ -970,7 +970,7 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
                 estimated_cad=provider.cad_per_image, purpose=PROBE_ACTION,
                 provider=provider.key, model=provider.key, department="gateway",
                 job_id=job_id, kind=routing.COST_KIND,
-                detail={"price_basis": "assumed"})
+                detail={"price_basis": "assumed", "attribution": "shared"})
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=PROBE_ACTION,

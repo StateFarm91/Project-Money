@@ -185,8 +185,13 @@ class Worker:
         # reclaimable, which is what the lease exists for.
         renewal = _LeaseRenewal(self.queue, job.id, worker=self.name)
         renewal.start()
+        from ..finance import spend_report as _spend
+
         try:
-            outputs = handler(ctx) or {}
+            # Spend inside the handler is attributed to the product the job works for
+            # (F-321/F-324): the slug lives in the job, the bill is written five calls deeper.
+            with _spend.attributed_to(_spend.job_product(self.db, job)):
+                outputs = handler(ctx) or {}
             renewal.stop()
             # Provenance backstop (#171). The write path records lineage as it writes; this
             # is the check that it did, after the handler and before the job is marked done.

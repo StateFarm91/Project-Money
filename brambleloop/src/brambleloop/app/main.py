@@ -5014,16 +5014,25 @@ def dashboard() -> str:
         ], [["CA$5K model", "Value"]], "")
 
     def _creative() -> str:
-        from ..creative.audit import audit_catalogue
+        from ..creative.audit import audit_catalogue, tournament_cohort
 
         report = audit_catalogue()
         freedom = report["generator_degrees_of_freedom"]
+        cohort = report["cohort"]
+        # F-188: the tournament is a separate cohort with its own row, so the legacy
+        # catalogue's failures are never read as the current generator's.
+        t = tournament_cohort(db)
         return rows([
+            ("cohort measured", f"{cohort['name']} ({cohort['generator_version']}, "
+                                f"n={cohort['n']})"),
             ("products audited", str(report["products_audited"])),
             ("survived the creative gate", str(len(report["survivors"]))),
             ("dominant failure", str(report["autopsy"]["dominant_cause"])),
             ("constructions used", ", ".join(freedom["constructions_used"])),
             ("stitch vocabularies", ", ".join(freedom["stitch_vocabularies"])),
+            ("tournament cohort survivors",
+             (f"{t['survivors']} / {t['candidates']} over {t['runs']} runs"
+              if t["state"] == "MEASURED" else t["state"])),
         ], [["Creative gate", "Value"]], "")
 
     def _improve() -> str:
