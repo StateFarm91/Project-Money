@@ -457,8 +457,10 @@ RAGLAN_REQUIRES = ("bust", "back_length", "cross_back", "arm_length", "upper_arm
 def harbour_pullover() -> GradedDesign:
     """An adult relaxed drop-shoulder pullover in ridged single crochet, CYC woman XS-5X."""
     family = StitchFamily("sc", "ridged")
-    gauge = Gauge(stitches_per_10cm=16, rows_per_10cm=18, stitch_type="sc", hook_mm=5.5,
-                  yarn_weight="worsted")
+    # Derived from the declared worsted's published band (D-FB-6): a typed 16 sc/10cm is a
+    # fabric worsted cannot make. Grading recomputes every count from it.
+    from ..creative.prototype import gauge_for
+    gauge = gauge_for("worsted")
     material = Material(name="worsted wool", yarn_weight="worsted")
     key, title = "harbour-drop-shoulder-pullover", "Harbour Drop-Shoulder Pullover"
     return GradedDesign(

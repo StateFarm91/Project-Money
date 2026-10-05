@@ -18,15 +18,32 @@ and arithmetic the compiler checks rather than a designer's confidence.
 """
 from __future__ import annotations
 
+from ..cir import stitches as _stitches
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..creative.prototype import gauge_for
 from ..gates.originality import catalogue_provenance
 
-WORSTED = Gauge(stitches_per_10cm=16, rows_per_10cm=18, stitch_type="sc", hook_mm=5.0)
+# The worsted gauge is derived from the declared yarn's published single-crochet band
+# (D-FB-6, F-116). It used to be a typed 16 sc/18 rows per 10cm against worsted -- a fabric
+# worsted cannot make (band 11-14) -- so the cable throw and the bobble pillow stated sizes and
+# yardage from a gauge their own yarn could not hold. Their stitch and row counts are now
+# recomputed from this gauge to keep the finished sizes the designs were drawn at
+# (`CABLE_TARGET_CM`, `PILLOW_TARGET_CM`).
+WORSTED = gauge_for("worsted")
+# 11 sc/10cm sits inside the published bulky band (8-11), so the scarf's gauge is evidenced by
+# its declared yarn as typed; it is not re-derived, and its counts are unchanged.
 CHUNKY = Gauge(stitches_per_10cm=11, rows_per_10cm=13, stitch_type="sc", hook_mm=6.5)
 
 # The cushion pad this cover is designed around. Named once, because it appears in the
 # sizing arithmetic and in the sentence the buyer reads, and those two must not drift.
 PAD_CM = 45.0
+
+# Intended finished (width, height) in cm of the two worsted designs: the sizes their counts
+# made when they were drawn (70 sts x 13 bobble blocks; 144 sts x 30 cable blocks, as the twin
+# measured them). Counts follow the derived gauge in whole repeats and whole blocks, so the
+# stated size is what the counts make, within one repeat of this intent.
+PILLOW_TARGET_CM = (43.8, 43.9)
+CABLE_TARGET_CM = (90.0, 128.9)
 
 PINE = {"pine": "#244A3A"}
 HEARTH = {"gold": "#C49545"}
@@ -53,6 +70,18 @@ def across_cm(stitches: int, gauge: Gauge) -> float:
     agree until somebody changes one of them.
     """
     return stitches / gauge.stitches_per_10cm * 10.0
+
+
+def _nearest(target: float, unit: float) -> int:
+    """Whole units closest to `target`, never fewer than one."""
+    return max(1, int(target / unit + 0.5))
+
+
+def _row_height_cm(codes: tuple[str, ...], gauge: Gauge) -> float:
+    """One row's height, as the twin measures it: as tall as its tallest stitch."""
+    base = _stitches.get(gauge.stitch_type).row_height or 1.0
+    tallest = max(_stitches.get(c).row_height for c in codes)
+    return 10.0 / gauge.rows_per_10cm * (tallest / base)
 
 
 def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
@@ -116,8 +145,12 @@ def build_bobble_pillow(version: str = "1.0.0") -> CIR:
     # in it. The figure that goes on the listing is computed below rather than written here:
     # a centimetre count typed beside a stitch count is the second copy that went wrong last
     # time, when the note claimed this panel was wider than the pad it is narrower than.
-    width = 70
-    across = _check(width, 5, "bobble pillow")
+    across = _nearest(PILLOW_TARGET_CM[0], 5 * 10.0 / WORSTED.stitches_per_10cm)
+    width = across * 5
+    _check(width, 5, "bobble pillow")
+    block_cm = (2 * _row_height_cm(("sc",), WORSTED)
+                + 2 * _row_height_cm(("sc", "bob"), WORSTED))
+    blocks = _nearest(PILLOW_TARGET_CM[1] - _row_height_cm(("sc",), WORSTED), block_cm)
     panel_cm = across_cm(width, WORSTED)
     # Stated in the sentence below rather than assumed by it: which way round the panel and
     # the pad sit is worked out from the arithmetic, not typed.
@@ -129,9 +162,9 @@ def build_bobble_pillow(version: str = "1.0.0") -> CIR:
     rows: list[Row] = [Row(index=1, ops=[Op("sc", width)], declared_count=width,
                            color="gold", turning_chain=1)]
     index = 1
-    # Thirteen four-row blocks: plain, bobbles, plain, bobbles offset. The offset is the
-    # difference between a grid and a set of columns.
-    for _ in range(13):
+    # Four-row blocks: plain, bobbles, plain, bobbles offset. The offset is the difference
+    # between a grid and a set of columns.
+    for _ in range(blocks):
         index += 1
         rows.append(Row(index=index, ops=[Op("sc", width)], declared_count=width,
                         color="gold", turning_chain=1))
@@ -173,7 +206,7 @@ def build_bobble_pillow(version: str = "1.0.0") -> CIR:
         provenance=catalogue_provenance(
             "bobble-floor-pillow",
             {"builder": "products.texture.build_bobble_pillow", "width": width,
-             "blocks": 13, "pad_cm": PAD_CM, "gauge": vars(WORSTED)},
+             "blocks": blocks, "pad_cm": PAD_CM, "gauge": vars(WORSTED)},
             ("products.texture", "staggered_bobble_grid")),
     )
 
@@ -187,8 +220,9 @@ def build_cable_throw(version: str = "1.0.0") -> CIR:
     compiler guarantees stays exact, and which pair crosses in front is a property of the
     stitch instead of prose nobody checked.
     """
-    width = 144
-    across = _check(width, 8, "cable throw")
+    across = _nearest(CABLE_TARGET_CM[0], 8 * 10.0 / WORSTED.stitches_per_10cm)
+    width = across * 8
+    _check(width, 8, "cable throw")
     wide_cm = across_cm(width, WORSTED)
 
     rows: list[Row] = [Row(index=1, ops=[Op("sc", width)], declared_count=width,
@@ -196,9 +230,12 @@ def build_cable_throw(version: str = "1.0.0") -> CIR:
     plain = [Op("bpdc", 2), Op("fpdc", 4), Op("bpdc", 2)]
     crossing = [Op("bpdc", 2), Op("cable2x2"), Op("bpdc", 2)]
 
+    block_cm = (3 * _row_height_cm(("bpdc", "fpdc"), WORSTED)
+                + _row_height_cm(("bpdc", "cable2x2"), WORSTED))
+    blocks = _nearest(CABLE_TARGET_CM[1] - _row_height_cm(("sc",), WORSTED), block_cm)
     index = 1
-    # Thirty four-row blocks: three rows of ribbed columns, then the crossing row.
-    for _ in range(30):
+    # Four-row blocks: three rows of ribbed columns, then the crossing row.
+    for _ in range(blocks):
         for body in (plain, plain, plain, crossing):
             index += 1
             rows.append(Row(index=index, ops=[Repeat(list(body), times=across)],
@@ -226,7 +263,7 @@ def build_cable_throw(version: str = "1.0.0") -> CIR:
         # F-783: cable columns built on the compiler's composite crossing stitch.
         provenance=catalogue_provenance(
             "heirloom-cable-blanket",
-            {"builder": "products.texture.build_cable_throw", "width": width, "blocks": 30,
+            {"builder": "products.texture.build_cable_throw", "width": width, "blocks": blocks,
              "column": 8, "gauge": vars(WORSTED)},
             ("products.texture", "cir.stitches:cable2x2", "post_stitch_ribbing")),
     )

@@ -132,13 +132,19 @@ def _patched(generator):
 
 
 def _handler(db, job_type: str, inputs: dict | None = None, *, generator=None,
-             agent: str = "creative_director") -> tuple[dict, list]:
-    """Enqueue, then dispatch through the handler registry with a real JobContext."""
+             agent: str = "creative_director", bind=None) -> tuple[dict, list]:
+    """Enqueue, then dispatch through the handler registry with a real JobContext.
+
+    `bind`, when given, is called with the enqueued job before it runs -- how a fixture
+    records the job as the tournament a mission event launched (an exact coverage origin
+    names its tournament job, c5ec2f9)."""
     from brambleloop.gateway import model_gateway
 
     q = JobQueue(db)
     job = q.enqueue(agent, job_type, inputs or {},
                     idempotency_key=f"t:{job_type}:{os.urandom(4).hex()}")
+    if bind is not None:
+        bind(job)
     ctx = JobContext(job=job, db=db, queue=q, registry=Registry(db), phase=None)
     handler = handlers.get(job_type)
     assert handler is not None, f"{job_type} has no registered handler"
@@ -465,12 +471,38 @@ def test_gap_queue_scores_timing_search_and_make_time_and_advances_314():
     assert 0.0 < components["search_opportunity"] < 1.0
     assert set(missing) == {"expected_contribution", "creative_potential"}
     # A stockings department winner that clears engineering moves its gap to engineering.
+    # Since c5ec2f9 a gap moves only for a winner bound to the exact mission that produced
+    # it (`intake.advance_gap`; a department alone is not an origin), so the fixture records
+    # that mission event -- its gap, its fingerprint and the tournament job it launched --
+    # the way `intel.mission_runtime` does, and the tournament runs for that event.
     db2 = _db()
     _stockings(db2)
-    from brambleloop.intel import coverage
+    from brambleloop.core.models import MjsMissionEvent
+    from brambleloop.intel import coverage, mission_runtime
     coverage.upsert(db2, benchmark_key=benchmarks.MJS_KEY, arena="Christmas stockings",
                     pod="stockings", components={"apparent_demand": 0.5})
-    _r, row = _tournament(db2)
+    fp = hashlib.sha256(b"fixture stockings listing").hexdigest()
+    with db2.session() as s:
+        ev = MjsMissionEvent(benchmark_key=benchmarks.MJS_KEY, listing_ref="S0",
+                             fingerprint=fp, pod="stockings", arena="Christmas stockings")
+        s.add(ev)
+        s.flush()
+        event_id = ev.id
+    gap_id, _state, origin = mission_runtime.coverage_target(
+        db2, key=benchmarks.MJS_KEY, pod="stockings", event_id=event_id, fp=fp)
+    assert gap_id is not None, "the fixture department has no unique gap to bind"
+
+    def launched(job):
+        with db2.session() as s:
+            ev = s.get(MjsMissionEvent, event_id)
+            ev.gap_id, ev.tournament_job_id = gap_id, job.id
+            ev.steps = {"coverage": {"gap": gap_id, "origin": origin}}
+
+    result, _asked = _handler(db2, "creative.tournament", {"mjs_event_id": event_id},
+                              bind=launched)
+    rows = _rows(db2, intake.INTAKE_ACTION)
+    row = rows[-1][2] if rows else {}
+    assert row.get("mjs_event_id") == event_id, row
     _judge(db2, row["concept"]["key"])
     _handler(db2, "mjs.seasonal_sentinel", {}, agent="market_radar")
     with db2.session() as s:

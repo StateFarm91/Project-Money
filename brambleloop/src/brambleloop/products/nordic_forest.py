@@ -19,9 +19,10 @@ full throw are the same verified design, and each one gets its own compile.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
-from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..cir.model import CIR, Component, Material, Op, Repeat, Row
+from ..creative.prototype import gauge_for
 from ..gates.originality import catalogue_provenance
 
 # 12-stitch repeat, read bottom row first. 1 = the raised contrast stitch (dc), 0 = the
@@ -56,11 +57,45 @@ MOTIF: list[str] = [
 MOTIF_WIDTH = 12
 PALETTE = {"forest": "#244A3A", "cream": "#FAF6EB"}
 
+# The declared yarn. The gauge is derived from its published single-crochet band
+# (`creative.prototype.gauge_for`), never typed: this module used to type 16 sc/18 rows per
+# 10cm against worsted, a fabric worsted cannot make (band 11-14), so every size and yardage
+# figure was arithmetic from a gauge its own yarn could not hold (F-112, F-116; D-FB-6).
+YARN_WEIGHT = "worsted"
+GAUGE = gauge_for(YARN_WEIGHT)
+
+# name: intended finished (width, height) in cm. These are the sizes the original counts
+# made (96/144/192 sts x 3/5/7 motif repeats, as the twin measured them at the old typed
+# gauge), kept as the design intent. The counts are recomputed from the derived gauge in whole
+# motif repeats -- a tree or a star is never cut -- so the size each pattern states is the
+# size its own counts make at its own gauge, within one motif of the intent.
+TARGET_CM: dict[str, tuple[float, float]] = {
+    "baby": (60.0, 73.3),
+    "throw": (90.0, 122.2),
+    "large": (120.0, 171.1),
+}
+
+
+def _repeat_height_cm(gauge) -> float:
+    """One motif repeat's height at `gauge`, measured as the twin measures it: each row is as
+    tall as its tallest stitch, so a row carrying raised dc is a dc row high."""
+    from ..cir import stitches
+
+    base = stitches.get("sc").row_height or 1.0
+    tall = stitches.get("dc").row_height / base
+    return sum((tall if "1" in line else 1.0) for line in MOTIF) * 10.0 / gauge.rows_per_10cm
+
+
+def _nearest(target: float, unit: float) -> int:
+    """Whole units closest to `target`, never fewer than one."""
+    return max(1, int(target / unit + 0.5))
+
+
 SIZES: dict[str, tuple[int, int]] = {
-    # name: (stitches wide, motif repeats tall)
-    "baby": (96, 3),
-    "throw": (144, 5),
-    "large": (192, 7),
+    # name: (stitches wide, motif repeats tall), derived from TARGET_CM at GAUGE
+    name: (_nearest(w, MOTIF_WIDTH * 10.0 / GAUGE.stitches_per_10cm) * MOTIF_WIDTH,
+           _nearest(h, _repeat_height_cm(GAUGE)))
+    for name, (w, h) in TARGET_CM.items()
 }
 
 
@@ -154,8 +189,8 @@ def build(size: str = "throw", version: str = "1.0.0") -> CIR:
         construction="flat_rows",
         risk_class="A",
         colors=dict(PALETTE),
-        gauge=Gauge(stitches_per_10cm=16, rows_per_10cm=18, stitch_type="sc", hook_mm=5.0),
-        materials=[Material(name="worsted acrylic", yarn_weight="worsted", color_id=c)
+        gauge=replace(GAUGE),  # a copy, so mutating one CIR cannot move the module's gauge
+        materials=[Material(name="worsted acrylic", yarn_weight=YARN_WEIGHT, color_id=c)
                    for c in PALETTE],
         components=[Component(name="blanket", construction="flat_rows", rows=rows,
                               foundation=width, foundation_kind="chain")],

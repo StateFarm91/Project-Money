@@ -237,7 +237,10 @@ def test_support_answers_from_the_released_version():
     out = q.get(job.id).outputs
     assert out["cited_version"] == f"{FLAGSHIP}@1.0.0"
     assert out["cited_rows"] == [12]
-    assert "144 stitches" in out["body"], out["body"]
+    # The throw's width is whatever the released design makes at its yarn-derived gauge
+    # (108 since the D-FB-6 re-derivation; 144 at the old typed gauge), so the expected count
+    # is read from the design rather than typed beside it.
+    assert f"{nf.SIZES['throw'][0]} stitches" in out["body"], out["body"]
     assert out["sent"] is False, "shadow mode drafted a reply and marked it sent"
 
 
@@ -432,8 +435,18 @@ def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
         from brambleloop.core.models import AuditLog as _AuditLog
         collection_stage = [a for a in s.scalars(_select(_AuditLog)) if a.action in (
             "collection.assessed", "collection.refused", "collection.assembled")]
+        certified = {p.slug for p in s.scalars(_select(Product))
+                     if p.status == "certified"}
     assert not broken, broken
-    assert len(listings) >= 10, f"the rebuild reached only {len(listings)} listings"
+    # Every product that had shipped is reached again -- the property under test. This read
+    # ">= 10 listings" when fifteen products certified; under the strict gauge gate (6747ddd)
+    # and the primitive-calibration gate this cycle's portfolio certifies eight (the cable
+    # throw waits on a physical test, autumn-oak is the held legacy record), so the count is
+    # read from what certified rather than typed.
+    assert len(certified) >= 5, f"only {sorted(certified)} certified; the test proves little"
+    reached = {l.product_slug for l in listings}
+    assert certified <= reached, \
+        f"the rebuild reached only {len(listings)} listings; missing {sorted(certified - reached)}"
     assert images and content
     assert collections or collection_stage, "the rebuild never reached the collection stage"
     assert {l.chain_version for l in listings} == {CHAIN_VERSION}
