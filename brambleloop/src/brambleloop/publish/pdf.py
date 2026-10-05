@@ -1301,7 +1301,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.need(6 * mm)
             doc.c.linkURL(target, (MARGIN, doc.y, PAGE_W - MARGIN, doc.y + 5 * mm),
                           relative=0, thickness=0)
-            doc.para(target, size=8)
+            # The URL is the thing a maker printing this page has to type in, so it is the
+            # last line on the page that may be set below the brand's minimum. It was 8pt.
+            doc.para(target, size=MIN_BODY_PT)
 
     # -- licence -----------------------------------------------------------
     doc.new_page(head)

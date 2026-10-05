@@ -301,9 +301,16 @@ def test_the_coaster_listing_states_the_size_the_stitch_count_makes():
         assert any(abs(n - made) < 0.1 for n in stated), \
             f"asked {asked}, made {made:.2f} cm, listing says {stated}"
 
-    # The floor is the case no existing test could reach, so it is named outright.
+    # The floor is the case no existing test could reach, so it is named outright. The
+    # figure is the floor's own -- twelve stitches at the coaster gauge, recomputed here --
+    # rather than a pinned "1.9 cm", which was true at a 20-stitch gauge and stopped being
+    # true when the coaster gauge was re-derived from the yarn. What must hold is that the
+    # listing states the floored size, not the 1 cm that was asked for.
     tiny = V.build_hexagon_coaster(across_cm=1.0)
-    assert "1.9 cm" in (tiny.finished_size_note or ""), tiny.finished_size_note
+    floored = _across_points_cm(12, V.COASTER_GAUGE)
+    assert floored > 1.8, floored
+    assert f"{floored:.1f} cm" in (tiny.finished_size_note or ""), tiny.finished_size_note
+    assert "About 1 cm" not in (tiny.finished_size_note or "")
 
 
 def test_the_basket_listing_states_the_size_the_stitch_count_makes():
