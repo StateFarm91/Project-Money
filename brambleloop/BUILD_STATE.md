@@ -9879,3 +9879,48 @@ had 4,395 / 5 failing, all since fixed). The previously date-dependent
 `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling` now passes on its
 frozen date. `research/v1grad/test_v1grad.py` 40/0 unchanged. Deployed service (read-only):
 `/api/verify` 12/12 at `fcb982d`.
+
+## 2026-10-05 — Final Build resume: Codex reconciled by evidence; FB-2/FB-3 integrated; 5,653 passing / 0 failing
+
+Branch `claude/visual-investigation` (Final Build). **Production unchanged at `fcb982d`**; nothing
+merged or deployed; no Etsy publication, spend, banking or KYC action. Phase stays SHADOW.
+
+**What is true now (verified):**
+- Full lock-matched suite on `6f9a2f7`, clean tree, HEAD unchanged at end: **5,653 passing, 0 failing
+  suites, release_eligible=true** (record `research/final_build/RUN_6f9a2f7_full_suite.json`).
+- Codex work reconciled by reproduction, not acceptance (D-FB-8). Of Codex build2-assist's 75
+  findings: 39 were still applicable at the start of this session and are now fixed or re-audited;
+  **C-78 was false** — the Orders hardening that Build-2 certification counted as merged never was;
+  ported and proven (Codex's adversarial receipt script 11/11). Codex's Final Build repairs: 9
+  verified, 3 partial (closed), 2 regressions (closed), details in
+  `research/final_build/codex_reconciliation/`.
+- Launch-0 (nesting baskets ×3, Cloudline blanket, hexagon coasters): every product certifies;
+  disclosed deterministic renders (D-FB-7) pass an independent pixel verifier; disclosed frames reach
+  Etsy only through the listing-set certificate (D-FB-9); size labels are gated against the twin
+  (large basket corrected 25 → 24 cm).
+- Protected actions: store.publish needs a sealed, scoped, expiring owner publication grant (D-FB-10);
+  activation keeps its own grant; refusals before any request no longer park a version.
+- Queue: customer-support and truth-defect work can never be overtaken by steered or aged work (G02).
+- Money: refunds, partial/late refunds, unpaid receipts and negative contribution are reconciled as
+  state; modelled/unknown/unbilled spend counts against every ceiling (regression-tested).
+- Catalogue: generators derive gauge from the declared yarn band; re-derived designs carry new
+  versions, and a content-fingerprint test refuses a content change under an old version.
+- Postgres: fcb982d schema+data migrates to head additively with all rows preserved (local evidence;
+  a rehearsal on a snapshot of the real database remains a deploy gate).
+
+**What is NOT true / still blocked:**
+- No Final Build release candidate is frozen yet: launch-critical closure-matrix rows are being
+  re-mapped against current code (the matrix still carries 019ebf0-era mappings for 123 rows).
+- Launch-0 parity still blocks on HERO (needs the `image_vision` gate — owner) and COMPETITIVE
+  (blind review over observed benchmark galleries — data + `image_vision`).
+- Cable throw, bobble pillow and ribbed scarf need physical calibration of their special stitches.
+- Nothing is listed, sold or measured commercially.
+
+**OWNER ACTION REQUIRED (batched; nothing requested before the gate is reached):**
+1. Decision: launch readiness needs 8 listable products; Launch-0 has 5 slugs across 3 products.
+   Keep the threshold (launch waits for more products) or set a Launch-0-specific depth. 2 minutes.
+2. At the live-publish gate only: per release, set `BRAMBLELOOP_OPS_TOKEN` and
+   `BRAMBLELOOP_PUBLISH_AUTHORISED=1`, then preview + approve via `/api/owner/publication/*`.
+   CA$0, ~5 min/release; without it every publish refuses before any Etsy request.
+3. Standing: re-authorise Etsy `transactions_r`; vision-gate ruling; model/vision spend headroom
+   (≤CA$25 top-up proposal; CA$76.40/100 used); rotate the Anthropic key exposed 2026-09-19.
