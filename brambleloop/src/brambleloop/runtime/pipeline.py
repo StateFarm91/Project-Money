@@ -28,6 +28,11 @@ from ..gates.certificate import DOC_VERSION, certify
 from ..gates.incidents import IncidentTracker
 from ..gates.policy import ListingDraft
 from ..radar.opportunity import POOL, ConceptSeed, score_concept, select_portfolio
+from ..integrations.etsy import EtsyClient as _StockEtsyClient
+
+# Bound at import, not looked up per call: a harness that rebinds `etsy.EtsyClient` must not
+# make its stand-in count as the stock client whose create-hook order is known (FB2-R2 #1).
+_STOCK_PUBLISH = _StockEtsyClient.publish
 from .worker import CapabilityNotEnabled, JobContext, handlers
 
 PROMOTION_THRESHOLD = 0.55
@@ -1477,7 +1482,6 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # The uploaded name comes from the same place as the stored one. It was spelled out here,
     # so the file in the buyer's downloads folder and the file in the artifact store could have
     # been named by two different rules.
-    from ..integrations.etsy import EtsyClient
     from ..publish import draft_intent
     content_digest = _publish_content_digest(release, payload, docs, listing_images)
     # FB2-R2 #1: the pre-create evidence (owner publication authority, runtime phase, the
@@ -1489,16 +1493,22 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # (`before_create`); a refusal *there* happens after the claim and stays conservative.
     # An intent that already exists is reported first: its unknown outcome outranks today's
     # evidence.
+    #
+    # The early check applies to the stock `EtsyClient.publish`, which is known to run
+    # `before_create` strictly before `create_draft`: for it, this only moves a refusal that
+    # would have happened anyway to before the claim. A publish implementation of unknown
+    # order is handled exactly as before (its own hook use decides), and any failure of it
+    # stays RECONCILE_REQUIRED below.
+    known_order = getattr(type(client), "publish", None) is _STOCK_PUBLISH
     draft_intent.refuse_if_existing(ctx.db, slug, version)
-    _revalidate_publish_effect(ctx, slug=slug, version=version, release=release,
-                               payload=payload, docs=docs, listing_images=listing_images,
-                               reserved_digest=content_digest)
+    if known_order:
+        _revalidate_publish_effect(ctx, slug=slug, version=version, release=release,
+                                   payload=payload, docs=docs, listing_images=listing_images,
+                                   reserved_digest=content_digest)
     intent_key, intent_token = draft_intent.claim(
         ctx.db,slug=slug,version=version,release=release,content_digest=content_digest)
-    # Whether the create request could have left. Only the stock `EtsyClient.publish` is
-    # known to call `before_create` strictly before `create_draft`; for any other publish
-    # implementation the request is presumed possibly sent (fail closed).
-    known_order = type(client).publish is EtsyClient.publish
+    # Whether the create request could have left. For any publish implementation other than
+    # the stock one the request is presumed possibly sent (fail closed).
     hook = {"entered": not known_order}
 
     def before_create():
