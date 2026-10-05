@@ -164,5 +164,5 @@ def test_unknown_fee_offsets_remain_unobserved():
 
 if __name__=='__main__':
     funcs=[v for k,v in list(globals().items()) if k.startswith('test_')]
-    for fn in funcs:fn();print('PASS',fn.__name__)
+    for fn in funcs:fn();print('OK  ',fn.__name__)
     print(len(funcs),'passed')

@@ -155,9 +155,12 @@ def _record_assets_built(db, p, docs, *, release: str = "r" * 64) -> dict:
 def _publish(db, fake, p, *, docs=None, certified=None, client=None):
     """Publish as the pipeline does once the owner has granted publication authority.
 
-    The owner grant is read from the environment at execution time by both the client and
-    `_revalidate_publish_effect`, so it is set for the duration of the publish and restored
-    afterwards: activation tests then decide authority for themselves at activation time.
+    Owner publication authority is a durable, sealed, content-bound grant
+    (`ops.publication_authority`) recorded here through the real `approve` path against the
+    real preview digest, under the ops credential already in the environment (or a fixture
+    one for the duration of the publish). The environment flag is only the global
+    kill-switch, held open for the duration of the publish and restored afterwards:
+    activation tests then decide authority for themselves at activation time.
     The creative-parity and release gates are held passing here, exactly as `_gates_pass`
     does for activation, because this fixture is a synthetic release with no parity or
     release evidence; the authority, PDF-hash, payload, image and release-binding checks of
@@ -174,11 +177,17 @@ def _publish(db, fake, p, *, docs=None, certified=None, client=None):
     stored = types.SimpleNamespace(sha256=certified["US"])
     before = len(_audits(db, "store.execution_revalidated"))
     prior = os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED")
+    prior_token = os.environ.get("BRAMBLELOOP_OPS_TOKEN")
     os.environ["BRAMBLELOOP_PUBLISH_AUTHORISED"] = "1"
+    from brambleloop.core import opsauth
+    if not opsauth.configured():
+        os.environ["BRAMBLELOOP_OPS_TOKEN"] = PUBLISH_FIXTURE_TOKEN
     orig = _gates_pass()
     try:
+        grant = _grant_publication(db, p["slug"], p["version"], "r" * 64)
+        used = client or _client(fake, owner=True)
         out = pipeline._publish_guarded(
-            ctx, client or _client(fake, owner=True), slug=p["slug"], version=p["version"],
+            ctx, used, slug=p["slug"], version=p["version"],
             release="r" * 64, payload=payload, docs=docs, hash_check={"certified": certified},
             stored=stored, stored_by_terminology={t: types.SimpleNamespace(sha256=h)
                                                   for t, h in certified.items()},
@@ -189,9 +198,37 @@ def _publish(db, fake, p, *, docs=None, certified=None, client=None):
             os.environ.pop("BRAMBLELOOP_PUBLISH_AUTHORISED", None)
         else:
             os.environ["BRAMBLELOOP_PUBLISH_AUTHORISED"] = prior
-    # The pre-create revalidation really ran and passed before the draft was created.
-    assert len(_audits(db, "store.execution_revalidated")) == before + 1
+        if prior_token is None:
+            os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)
+        else:
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = prior_token
+    # The full pre-create revalidation really ran and passed on the merits, at both
+    # boundaries, under the owner's durable grant: once before the durable intent was claimed
+    # (`pre_claim`) and once inside the stock client immediately before the create request
+    # (`before_create`). A client of unknown publish order runs only the in-hook check.
+    runs = _audits(db, "store.execution_revalidated")[before:]
+    from brambleloop.runtime.pipeline import _STOCK_PUBLISH
+    expected = (["pre_claim", "before_create"]
+                if getattr(type(used), "publish", None) is _STOCK_PUBLISH
+                else ["before_create"])
+    assert [r.get("stage") for r in runs] == expected, runs
+    assert all(r.get("owner_publication_grant") == grant for r in runs), (runs, grant)
+    assert all(r.get("current_evidence") is True for r in runs), runs
     return out, ctx
+
+
+PUBLISH_FIXTURE_TOKEN = "fixture-owner-publication-credential-32+"
+
+
+def _grant_publication(db, slug: str, version: str, release: str) -> int:
+    """The owner's publication grant, recorded through the real approve path (FB3-P)."""
+    from brambleloop.ops import publication_authority as pa
+
+    token = os.environ["BRAMBLELOOP_OPS_TOKEN"]
+    content = pa.snapshot(db, slug, version, release)
+    return pa.approve(db, authorization=token, slug=slug, version=version, release=release,
+                      expected_digest=pa.digest(content),
+                      reason="fixture: owner reviewed this release")["approval_id"]
 
 
 def _audits(db, action: str) -> list[dict]:

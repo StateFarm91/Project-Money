@@ -76,5 +76,5 @@ def test_actual_snapshot_and_worker_reject_magic_authority():
 
 if __name__ == '__main__':
     for fn in (test_authority_lifecycle_and_adversarial_mutations, test_actual_snapshot_and_worker_reject_magic_authority):
-        fn(); print('PASS', fn.__name__)
+        fn(); print('OK  ', fn.__name__)
     print('2 passed')
