@@ -458,12 +458,12 @@ CANDIDATES: tuple[Candidate, ...] = (
     Candidate(
         slug="harvest-table-runner",
         title="Harvest Table Runner",
-        what_it_is="A 30 x 124 cm two-colour runner, worked flat with a chevron relief band.",
+        what_it_is="A 32 x 127 cm two-colour runner, worked flat with a chevron relief band.",
         why_at_launch=(
             "RESERVE, not launched. It passes every gate and adds no position: it repeats the "
             "blanket's construction, it is not a children's product, and Launch-0 is small on "
             "purpose. It is the first thing to add once there is evidence to add against."),
-        variants=(Variant("one_size", "30 x 124 cm", "harvest_runner"),),
+        variants=(Variant("one_size", "32 x 127 cm", "harvest_runner"),),
         pod="home_decor",
         price=PriceBand(*_CLUSTER_BAND, proposed_cad=5.50, basis=SOURCED,
                         why="the CA$4-12 cluster from radar/market.py OBSERVATIONS"),

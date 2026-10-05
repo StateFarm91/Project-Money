@@ -790,6 +790,18 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     release_frames = list(i.get("frames") or _stored_frames(ctx.db, slug, version))
     on_file = listing_asset.frames_for(ctx.db, slug=slug)
     generated = [f for f in on_file if f.get("made") and f.get("generated", True)]
+    # Fail closed (F-852): a generated product picture filed for THIS release in a role that
+    # claims something about the object is classified even when another record won the
+    # listing slot. Which record `listing_asset.last` happens to prefer must not decide whether
+    # a picture of an object that does not exist is noticed.
+    from ..publish import model_photography as _mp, owned_photography as _op
+
+    for _rec in (_op.last_asset(ctx.db, slug=slug), _mp.last_asset(ctx.db, slug=slug)):
+        for _f in ((_rec or {}).get("frames") or ([_rec] if _rec else [])):
+            if (_f.get("made", (_rec or {}).get("made")) and _f.get("generated")
+                    and (_rec or {}).get("version") in (None, version)
+                    and not any(_f is g for g in generated)):
+                generated.append(_f)
     # D-FB-7: disclosed renders are classified as what they are, and their disclosure is
     # written into the copy the export check later reads back.
     disclosed = [f for f in on_file if f.get("kind") == "disclosed_render"]
