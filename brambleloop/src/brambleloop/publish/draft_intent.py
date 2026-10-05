@@ -94,3 +94,33 @@ def uncertain(db, key, token):
         intent.detail={"automatic_retry_create":False,"outcome":"remote ID recorded" if intent.remote_id else "unknown"}
         slug,version=intent.slug,intent.version
     reconcile(db,slug,version,"Creation/upload interrupted; use recorded remote ID or reconcile unknown outcome")
+
+
+def release_unsent(db, key, token):
+    """Drop an intent whose create request provably never left this process.
+
+    Only the claim's own owner (token match) may release, and only while no remote ID has
+    been recorded and the intent is still CREATING. Anything else is left untouched for
+    reconciliation: an unknown outcome is never released.
+    """
+    with db.session() as s:
+        intent=s.get(DraftIntent,key)
+        if (intent is None or intent.token!=token or intent.remote_id
+                or intent.state!="CREATING"):
+            return False
+        s.delete(intent)
+    return True
+
+
+def refuse_if_existing(db, slug, version):
+    """Raise ReconciliationRequired (with its incident) when an intent already exists.
+
+    Checked before any pre-create evidence so an outstanding unknown remote outcome is always
+    reported as what it is, whatever the current evidence says. `claim` remains the
+    authoritative, race-safe check; this is only the early answer.
+    """
+    with db.session() as s:
+        present=s.get(DraftIntent,key_for(slug,version)) is not None
+    if present:
+        reconcile(db,slug,version,"A durable creation intent already exists; its remote outcome must be reconciled")
+        raise ReconciliationRequired("DRAFT_CREATE_RECONCILIATION: existing intent; never blindly create again")
