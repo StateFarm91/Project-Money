@@ -441,9 +441,19 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
     images: list[tuple[str, bytes]] = []
     order: list[dict] = []
     store = ArtifactStore(store_root)
+    from ..publish import disclosed_listing
+
+    disclosed = disclosed_listing.disclosed_shas(db)
     for frame in cert["frames"]:
         sha = str(frame.get("sha256") or "")
         position = int(frame.get("position") or 0)
+        if sha in disclosed:
+            # D-FB-7: a disclosed render leaves only through `disclosed_listing.export_images`,
+            # which carries its alt text and checks the disclosure in the pixels, the alt
+            # text and the copy. This path sends bytes with no alt text, so it refuses one.
+            problems.append(f"frame {position} ({sha[:12]}) is a disclosed render and must be "
+                            f"exported with its disclosure (disclosed_listing.export_images)")
+            continue
         try:
             data = store.get(sha, db=db)
         except ArtifactMissing as e:
