@@ -113,6 +113,25 @@ def _wait(pred, timeout: float, step: float = 1.0) -> bool:
     return False
 
 
+def _wait_progressing(pred, progress, stall: float, cap: float, step: float = 1.0):
+    """Wait for `pred` while the system keeps moving. A wall-clock deadline measures the
+    host's load, not the product: under a loaded suite run the chain is merely slower. What
+    must fail is a chain that STOPS -- no change in `progress()` for `stall` seconds -- or one
+    that never arrives within the hard `cap`. Returns (reached, why)."""
+    start = last_move = time.time()
+    seen = progress()
+    while time.time() - start < cap:
+        if pred():
+            return True, ""
+        now = progress()
+        if now != seen:
+            seen, last_move = now, time.time()
+        elif time.time() - last_move > stall:
+            return False, f"stalled for {stall:.0f}s at {seen!r}"
+        time.sleep(step)
+    return False, f"still moving after the {cap:.0f}s cap; last {seen!r}"
+
+
 def _aware(d):
     from datetime import timezone
 
@@ -202,10 +221,13 @@ def test_production_start_command_runs_kills_and_resumes_without_this_session():
             # store.publish is refused by the capability layer. That refusal is the gate
             # doing its job, recorded on a real job the chain itself enqueued. Then catch
             # the worker mid-job for the kill.
-            assert _wait(lambda: any(
-                j.job_type == "store.publish" and
-                (j.last_error or "").startswith("capability not enabled")
-                for j in _jobs(db)), 420), "the chain never reached the publish gate"
+            reached, why = _wait_progressing(
+                lambda: any(j.job_type == "store.publish" and
+                            (j.last_error or "").startswith("capability not enabled")
+                            for j in _jobs(db)),
+                lambda: sorted((j.job_type, str(j.status)) for j in _jobs(db)),
+                stall=240, cap=1500)
+            assert reached, "the chain never reached the publish gate: " + why
             _wait(lambda: any(j.status is JobStatus.RUNNING for j in _jobs(db)), 60, 0.2)
         finally:
             _kill(a)
