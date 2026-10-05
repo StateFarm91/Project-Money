@@ -229,3 +229,19 @@ on an sc/hdc original (certified topology exists) rather than the cable Heirloom
 
 This file is committed and pushed on `claude/visual-investigation`; the exact SHA is reported in
 the session's final message and is `git log -1 origin/claude/visual-investigation` at handoff.
+
+## Deploy path guard (F-461, FB-4 OPS)
+
+The production deploy trigger is a push to `claude/repository-setup-nc9x6o` (Railway builds
+it). `ops/deploy_guard.py` is now on that path, not advisory:
+
+1. `sh ops/install_hooks.sh` (once per clone) sets `core.hooksPath=ops/hooks`; `ops/hooks/pre-push`
+   runs `deploy_guard.py pre-push`, which checks every update to the production ref (and
+   refuses deleting it) and lets every other branch through.
+2. `sh ops/deploy.sh [--deployed <sha>]` is the one sanctioned deploy: guard `check` on HEAD
+   against the deployed commit (argument, `BRAMBLELOOP_DEPLOYED_SHA`, else production
+   `/api/status` `build.commit`), push only on ALLOW. `DRY_RUN=1` never pushes.
+3. Unknown deployed commit, non-descendant candidate, or no `release_eligible` full-suite
+   record for HEAD → REFUSE. The deploy itself still waits on the owner's `production_window`.
+
+Tested by `tests/test_deploy_path.py` (no network, no deploy). Heartbeat step 6 carries it.

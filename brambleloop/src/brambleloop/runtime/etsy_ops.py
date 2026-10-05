@@ -131,16 +131,26 @@ def classify_auth_failure(message: str) -> str:
     return "refused_by_etsy"
 
 
-def record_auth_needs_owner(db, error: BaseException | str, *, where: str) -> dict:
+def record_auth_needs_owner(db, error: BaseException | str, *, where: str,
+                            now: datetime | None = None) -> dict:
     """One owner action and one incident for an Etsy credential a browser must repair.
 
     Idempotent by key: the tenth failed publish restates the same owner action and the same
-    incident rather than adding nine more. Public so the orders path (cluster D) can call it
-    with `where="orders_ingest"` and land in the same row.
+    incident rather than adding nine more. This is the ONE path for the remedy (F-541): the
+    orders path (`commerce.orders_ingest.needs_owner`) calls it with its operation as
+    `where`, so publish, read-back, census and order ingest share one key, one incident and
+    one severity instead of two parallel requests for the same browser step.
+
+    `launch.readiness` never closes this row (its key starts with an `OWNER_PREFIXES`
+    entry and the open incident names it in `detail.owner_action`); only
+    `resolve_auth_needs_owner`, on an authenticated call that worked, or the owner does.
+    An action the owner marked done while the incident is still open is not re-added: their
+    "done" is theirs, and the incident's report count says the failure recurred. Once the
+    incident has been resolved on evidence, a new failure is a new episode and queues anew.
     """
     from sqlalchemy import select
 
-    from ..core.models import OwnerAction
+    from ..core.models import Incident, OwnerAction
     from ..ops import incident_lifecycle as lifecycle
 
     message = str(error)[:600]
@@ -148,30 +158,45 @@ def record_auth_needs_owner(db, error: BaseException | str, *, where: str) -> di
     with db.session() as s:
         row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == AUTH_KEY,
                                                  OwnerAction.done == False))  # noqa: E712
+        open_incident = s.scalar(select(Incident).where(
+            Incident.signature == AUTH_INCIDENT, Incident.resolved == False))  # noqa: E712
+        owner_closed = None
+        if row is None and open_incident is not None:
+            owner_closed = s.scalar(select(OwnerAction).where(
+                OwnerAction.requirement_key == AUTH_KEY,
+                OwnerAction.done == True).order_by(OwnerAction.id.desc()))  # noqa: E712
         action = ("Re-authorise the Brambleloop Etsy app once in a browser: open "
                   "/api/etsy/oauth/start while signed in to the shop's Etsy account and "
-                  "approve every scope listed.")
+                  "approve every scope listed (including transactions_r for orders).")
         reason = (f"Etsy refused this system's credential ({kind}) during {where}: "
                   f"{message[:300]}. A refresh cannot widen or revive a grant; only the "
                   f"account holder's consent can.")
-        if row is None:
+        if row is None and owner_closed is not None:
+            state = "already_decided"
+        elif row is None:
             s.add(OwnerAction(requirement_key=AUTH_KEY, action=action, reason=reason,
                               max_cost_cad=0.0, minutes=5,
                               consequence_of_delay=("no Etsy read or write succeeds: "
                                                     "publishing, read-back, the shop "
-                                                    "snapshot and the census all stop"),
-                              blocks="Etsy publish, read-back and observation"))
-            queued = True
+                                                    "snapshot, the census and order ingest "
+                                                    "all stop; sales stay UNMEASURED"),
+                              blocks=("Etsy publish, read-back, observation and order "
+                                      "ingest")))
+            state = "queued"
         else:
             row.reason = reason
-            queued = False
+            state = "restated"
+        wheres = sorted(set((open_incident.detail or {}).get("seen_during") or [])
+                        | {where}) if open_incident is not None else [where]
         incident, opened = lifecycle.open_or_restate(
             s, signature=AUTH_INCIDENT, severity="P1",
             summary=(f"Etsy credential needs the owner ({kind}) -- seen during {where}. "
                      f"Owner action {AUTH_KEY} carries the one step that fixes it."),
-            detail={"class": kind, "where": where, "error": message[:300]})
-    return {"owner_action": AUTH_KEY, "queued": queued, "incident": AUTH_INCIDENT,
-            "incident_opened": opened, "class": kind, "where": where}
+            detail={"class": kind, "where": where, "error": message[:300],
+                    "owner_action": AUTH_KEY, "seen_during": wheres}, now=now)
+    return {"owner_action": AUTH_KEY, "queued": state == "queued", "state": state,
+            "incident": AUTH_INCIDENT, "incident_opened": opened, "class": kind,
+            "where": where}
 
 
 def resolve_auth_needs_owner(db, *, evidence: str, granted_scopes=()) -> dict:
@@ -210,12 +235,14 @@ def resolve_auth_needs_owner(db, *, evidence: str, granted_scopes=()) -> dict:
 # ---- F-593 / F-547: the Etsy owner-only queue, in the one owner queue ----------------
 
 
-def seed_owner_queue(db) -> dict:
+def seed_owner_queue(db, *, defer: frozenset[str] | set[str] = frozenset()) -> dict:
     """Adopt `etsy_surfaces.owner_queue()` into `owner_actions`, idempotently by key.
 
     Each row carries the action, why software cannot do it, minutes, cost, consequence and
-    the evidence that closes it. A key that already has a row (open or done) is not added
-    again: a done row was closed on evidence, and re-adding it would ask the owner to repeat
+    the evidence that closes it. Items whose surface key is in `defer` are not added yet
+    (F-874: `launch.readiness` defers the KYC/tax step until the step before first sale);
+    a row already queued for one is left as it is. A key that already has a row (open or
+    done) is not added again: a done row was closed on evidence, and re-adding it would ask the owner to repeat
     an action already completed. Open rows are restated in place when the wording moved.
     """
     from sqlalchemy import select
@@ -235,8 +262,12 @@ def seed_owner_queue(db) -> dict:
         # opening of its action text, the same rule `launch.readiness` applies to its own.
         keyless = [r for r in s.scalars(select(OwnerAction).where(
             OwnerAction.requirement_key == "", OwnerAction.done == False))]  # noqa: E712
+        deferred = []
         for item in etsy_surfaces.owner_queue():
             key = f"{SURFACE_PREFIX}{item.key}"
+            if item.key in defer and key not in existing:
+                deferred.append(key)
+                continue
             if key not in existing:
                 for row in keyless:
                     if row.action[:ADOPT_PREFIX] == item.action[:ADOPT_PREFIX]:
@@ -260,7 +291,7 @@ def seed_owner_queue(db) -> dict:
                 row.minutes, row.max_cost_cad = item.minutes, item.max_cost_cad
                 row.consequence_of_delay, row.blocks = item.consequence_of_delay, blocks
                 restated.append(key)
-    return {"queued": queued, "restated": restated,
+    return {"queued": queued, "restated": restated, "deferred": deferred,
             "total": len(etsy_surfaces.owner_queue())}
 
 
