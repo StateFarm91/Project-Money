@@ -804,6 +804,61 @@ def band_for(job_type: str) -> dict:
             "mapped": mapped}
 
 
+# ---------------------------------------------------------------------------
+# Protected bands (Codex CB2-G02). A declared invariant, enforced in two places:
+#
+#   1. `JobQueue.claim` orders by claim tier first -- customer_incident job types, then
+#      truth_defect job types, then everything else -- and only then by priority less aging.
+#      Aging (C-15) still lifts a starved job past fresher work *within* its tier, but no
+#      amount of waiting, steering or explicit priority lets ordinary work be claimed while
+#      runnable protected work waits.
+#   2. `growth.steer` (and anything else that re-prioritises queued work) may move a job by
+#      at most `steer_floor`: a job outside the protected bands is never moved into them, and
+#      a job already inside one is never moved across it.
+#
+# The tier is decided by the job type's declared band (JOB_BANDS), not by the stored number,
+# because the stored number is precisely what steering, deadlines and explicit enqueues change.
+PROTECTED_KINDS: tuple[str, ...] = ("customer_incident", "truth_defect")
+PROTECTED_CEILING: int = max(BAND_BY_KIND[k] for k in PROTECTED_KINDS)
+ORDINARY_TIER: int = len(PROTECTED_KINDS)
+
+
+def protected_job_types() -> dict[str, frozenset[str]]:
+    """{protected kind: the job types declared in it}, in claim order."""
+    return {kind: frozenset(t for t, k in JOB_BANDS.items() if k == kind)
+            for kind in PROTECTED_KINDS}
+
+
+def claim_tier(job_type: str) -> int:
+    """0 customer_incident, 1 truth_defect, ORDINARY_TIER for every other job type."""
+    kind = JOB_BANDS.get(job_type)
+    return PROTECTED_KINDS.index(kind) if kind in PROTECTED_KINDS else ORDINARY_TIER
+
+
+def steer_floor(job_type: str, current: int) -> int:
+    """The lowest priority number a re-prioritisation may move this job to.
+
+    A job sitting outside the protected bands stops one point behind the truth_defect band.
+    A protected-type job sitting inside its own band stops at that band's floor (band less the
+    within-band allowance), never crossing into the band above it. A job whose stored number
+    is already at or below its floor is not moved further up at all.
+    """
+    current = int(current)
+    tier = claim_tier(job_type)
+    if tier < ORDINARY_TIER and current <= PROTECTED_CEILING:
+        floor = BAND_BY_KIND[PROTECTED_KINDS[tier]] - MAX_WITHIN_BAND
+        above = BAND_BY_KIND[PROTECTED_KINDS[tier - 1]] + 1 if tier > 0 else floor
+        floor = max(floor, above)
+    else:
+        floor = PROTECTED_CEILING + 1
+    return min(floor, current)
+
+
+def steered_priority(job_type: str, current: int, delta: int) -> int:
+    """`current + delta`, bounded below by `steer_floor` (Codex CB2-G02)."""
+    return max(int(current) + int(delta), steer_floor(job_type, current))
+
+
 def priority_for(job_type: str, inputs: dict | None = None, *, db=None,
                  now: datetime | None = None) -> int:
     """The `Job.priority` to enqueue a job at: its band, then deadline and value (#187).
@@ -1589,6 +1644,55 @@ def may_claim(db, agent_name: str, *, job_type: str = "", job_id: int | None = N
                           now=now)["may_claim"]
 
 
+# Codex CB2-P09: lane admission is serialized. Every lane/share decision counts the *other*
+# RUNNING jobs, and a just-claimed job is RUNNING before it is decided. Two workers that claimed
+# same-lane jobs at once each read the other as running and both held -- every runnable job of
+# the lane given back while nothing of it ran (mutual deferral), and with equal hold times the
+# same collision could repeat. Taking one admission lock before the reads and releasing it only
+# after a hold is written back means the second decider always sees the first one's outcome:
+# an admitted job as running, a held one as pending. The limit is never exceeded (a decider
+# reads every job claimed before its read) and a lane is never left fully held back.
+LANE_ADMISSION_LOCK_KEY = 0x6C616E65   # "lane": the Postgres advisory-lock key
+LANE_ADMISSION_RETRIES = 12
+
+
+def _admission_session(db, job):
+    """A session holding the lane-admission lock until it commits or rolls back.
+
+    Postgres: a transaction-scoped advisory lock. SQLite: the database write lock, taken by a
+    no-op write to the row this worker holds (WAL readers are not blocked by it).
+    """
+    import random
+    import time
+
+    from sqlalchemy import text, update
+    from sqlalchemy.exc import OperationalError
+
+    from ..core.db import is_postgres
+    from ..core.models import Job
+
+    delay = 0.02
+    for attempt in range(LANE_ADMISSION_RETRIES):
+        s = db.new_session()
+        try:
+            if is_postgres(db.engine):
+                s.execute(text("SELECT pg_advisory_xact_lock(:k)"),
+                          {"k": LANE_ADMISSION_LOCK_KEY})
+            else:
+                s.execute(update(Job).where(Job.id == job.id).values(leased_by=Job.leased_by)
+                          .execution_options(synchronize_session=False))
+            return s
+        except OperationalError as exc:
+            s.rollback()
+            s.close()
+            locked = "locked" in str(exc).lower()
+            if not locked or attempt == LANE_ADMISSION_RETRIES - 1:
+                raise
+            time.sleep(delay * (1.0 + random.random()))
+            delay = min(delay * 2, 1.0)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
     """Give a just-claimed job back to the queue if its lane is full. True when it was held.
 
@@ -1596,46 +1700,60 @@ def lane_hold(db, job, *, worker: str, now: datetime | None = None) -> bool:
     back exactly as it was -- pending, unleased, its attempt not counted -- and becomes
     claimable again after `LANE_HOLD_SECONDS`, so a held job never moves toward a dead letter.
     The write is conditional on this worker still holding the lease; a job it has already
-    lost is left alone and reported as not held.
+    lost is left alone and reported as not held. The decision and the hold run under the
+    lane-admission lock (CB2-P09), so concurrent deciders are serialized.
     """
     from sqlalchemy import update
 
     from ..core.models import AuditLog, Job, JobStatus
 
-    now = now or datetime.now(timezone.utc)
-    decision = claim_decision(db, job.agent, job_type=job.job_type, job_id=job.id, now=now)
-    if decision["may_claim"]:
-        # C-68 (#5, #30): the function mix and the production-lane split, at the same claim.
-        from .capacity import share_decision
+    lock = _admission_session(db, job)
+    try:
+        # Read the clock after the lock: a decider that waited must not judge leases by the
+        # moment it started waiting.
+        now = now or datetime.now(timezone.utc)
+        decision = claim_decision(db, job.agent, job_type=job.job_type, job_id=job.id,
+                                  now=now)
+        if decision["may_claim"]:
+            # C-68 (#5, #30): the function mix and the production-lane split, at the same claim.
+            from .capacity import share_decision
 
-        share = share_decision(db, job, now=now, exempt=LANE_EXEMPT_PREFIXES)
-        if not share["hold"]:
-            return False
-        decision = {**decision, "may_claim": False, "why": share["why"],
-                    "hold_kind": share.get("kind"), "share": share}
-    values = {"status": JobStatus.PENDING, "leased_by": None, "lease_expires_at": None,
-              "attempts": Job.attempts - 1,
-              "run_after": now + timedelta(seconds=LANE_HOLD_SECONDS)}
-    if int(job.attempts or 0) <= 1:
-        values["started_at"] = None            # the claim was its first; it has not started
-    with db.session() as s:
-        res = s.execute(update(Job).where(
+            share = share_decision(db, job, now=now, exempt=LANE_EXEMPT_PREFIXES)
+            if not share["hold"]:
+                lock.commit()
+                return False
+            decision = {**decision, "may_claim": False, "why": share["why"],
+                        "hold_kind": share.get("kind"), "share": share}
+        values = {"status": JobStatus.PENDING, "leased_by": None, "lease_expires_at": None,
+                  "attempts": Job.attempts - 1,
+                  "run_after": now + timedelta(seconds=LANE_HOLD_SECONDS)}
+        if int(job.attempts or 0) <= 1:
+            values["started_at"] = None        # the claim was its first; it has not started
+        res = lock.execute(update(Job).where(
             Job.id == job.id, Job.status == JobStatus.RUNNING, Job.leased_by == worker,
             Job.attempts == job.attempts).values(**values)
             .execution_options(synchronize_session=False))
         if res.rowcount != 1:
+            lock.commit()
             return False
-        s.add(AuditLog(actor="swarm_steward", action=LANE_HELD_ACTION,
-                       artifact=job.job_type, job_id=job.id,
-                       detail={"agent": job.agent, "worker": worker,
-                               "hold_kind": decision.get("hold_kind") or "agent_lane",
-                               "share": decision.get("share"),
-                               "running": decision.get("running"),
-                               "limit": decision.get("limit"),
-                               "allocation_id": (decision.get("lane") or {}).get(
-                                   "allocation_id"),
-                               "hold_seconds": LANE_HOLD_SECONDS, "why": decision["why"]}))
-    return True
+        lock.add(AuditLog(actor="swarm_steward", action=LANE_HELD_ACTION,
+                          artifact=job.job_type, job_id=job.id,
+                          detail={"agent": job.agent, "worker": worker,
+                                  "hold_kind": decision.get("hold_kind") or "agent_lane",
+                                  "share": decision.get("share"),
+                                  "running": decision.get("running"),
+                                  "limit": decision.get("limit"),
+                                  "allocation_id": (decision.get("lane") or {}).get(
+                                      "allocation_id"),
+                                  "hold_seconds": LANE_HOLD_SECONDS,
+                                  "why": decision["why"]}))
+        lock.commit()
+        return True
+    except Exception:
+        lock.rollback()
+        raise
+    finally:
+        lock.close()
 
 
 # ---------------------------------------------------------------------------

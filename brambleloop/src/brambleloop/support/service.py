@@ -49,6 +49,12 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
 
     Refuses a second recording rather than overwriting: a response time that can be revised
     is a response time somebody will revise, and the revision always goes one way.
+
+    The one sequence that is not a revision is the lifecycle itself (Codex CB2-G08): a reply
+    is drafted (`draft_ready`) and later sent (`sent`). Those are two different events, so the
+    sent timing is accepted after a draft timing and the draft timing is kept beside it under
+    `draft_ready_minutes`. Still refused: the same basis twice, a draft timing after the
+    reply was sent, and a sent timing earlier than the draft it delivered.
     """
     from ..core.models import SupportCase
 
@@ -62,11 +68,21 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
         if case is None:
             raise ServiceRefused(f"no support case {case_id}")
         detail = dict(case.detail or {})
+        draft_minutes = None
         if "response_minutes" in detail:
-            raise ServiceRefused(
-                f"case {case_id} already recorded {detail['response_minutes']} minutes. A "
-                f"response time that can be revised is one somebody will revise, and the "
-                f"revision always goes the same way")
+            prior_basis = detail.get("response_measured_as", "sent")
+            if not (prior_basis == "draft_ready" and measured_as == "sent"):
+                raise ServiceRefused(
+                    f"case {case_id} already recorded {detail['response_minutes']} minutes "
+                    f"({prior_basis}). A response time that can be revised is one somebody "
+                    f"will revise, and the revision always goes the same way")
+            draft_minutes = float(detail["response_minutes"])
+            if float(minutes) < draft_minutes:
+                raise ServiceRefused(
+                    f"case {case_id}: a reply sent after {float(minutes)} minutes cannot "
+                    f"predate the draft that was ready after {draft_minutes} minutes")
+            detail["draft_ready_minutes"] = draft_minutes
+            detail["draft_from_canonical"] = bool(detail.get("from_canonical"))
         detail["response_minutes"] = float(minutes)
         detail["from_canonical"] = bool(from_canonical)
         # In shadow mode a reply is drafted and held, so what can be timed is how long the
@@ -74,8 +90,11 @@ def record_response(db, case_id: int, *, minutes: float, from_canonical: bool,
         # held in a queue is not a response anybody received.
         detail["response_measured_as"] = measured_as
         case.detail = detail
-        return {"case_id": case_id, "minutes": float(minutes),
-                "from_canonical": bool(from_canonical), "measured_as": measured_as}
+        out = {"case_id": case_id, "minutes": float(minutes),
+               "from_canonical": bool(from_canonical), "measured_as": measured_as}
+        if draft_minutes is not None:
+            out["draft_ready_minutes"] = draft_minutes
+        return out
 
 
 def service_level(db, *, days: int = 30, now: datetime | None = None) -> dict:

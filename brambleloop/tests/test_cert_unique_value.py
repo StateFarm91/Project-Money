@@ -86,6 +86,12 @@ def test_a_release_whose_advantages_every_benchmark_matches_is_withheld_and_not_
 def test_an_advantage_beyond_the_best_benchmark_lets_the_release_proceed():
     db = _db()
     _benchmark(db, {"pattern_correctness_evidence": 3})
+    # CB2-P04: "beyond" needs this release's own measured score on the same dimension, above
+    # the benchmark's. A self-teardown finding (fixture) supplies it.
+    with db.session() as s:
+        s.add(TeardownFinding(benchmark_ref=f"{lab.SELF_PREFIX}hexie-coaster-set",
+                              dimension="pattern_correctness_evidence", score=4,
+                              mechanism="fixture", improvement="fixture"))
     cir, out = _certify(db, "hexie-coaster-set")
     assert not out.get("withheld"), out
     with db.session() as s:
@@ -95,6 +101,38 @@ def test_an_advantage_beyond_the_best_benchmark_lets_the_release_proceed():
     comparison = qa["unique_value"]["comparison"]
     assert comparison["verdicts"]["deterministic_validation"]["state"] == "beyond"
     assert qa["unique_value"]["status"] == "beyond"
+
+
+def test_a_low_benchmark_without_our_own_score_is_unmeasured_not_beyond():
+    """CB2-P04: a benchmark scoring 3 says nothing about this release. With no measured score
+    of our own on that dimension the verdict is unmeasured, never beyond."""
+    db = _db()
+    _benchmark(db, {"pattern_correctness_evidence": 3})
+    direct = lab.compare_advantages(db, ["deterministic_validation"], "mosaic_blanket")
+    assert direct["beyond"] == [], direct
+    v = direct["verdicts"]["deterministic_validation"]
+    assert v["state"] == "unmeasured" and v["our_score"] is None, v
+    assert direct["parity_only"] is False
+    # Ours measured but not above the benchmark is not beyond either.
+    level = lab.compare_advantages(db, ["deterministic_validation"], "mosaic_blanket",
+                                   ours={"pattern_correctness_evidence": 3})
+    assert level["beyond"] == [] and level["verdicts"]["deterministic_validation"][
+        "state"] == "matched", level
+    above = lab.compare_advantages(db, ["deterministic_validation"], "mosaic_blanket",
+                                   ours={"pattern_correctness_evidence": {"score": 4}})
+    assert above["beyond"] == ["deterministic_validation"], above
+    # product_qa's source of "ours": an audited self-teardown finding on the dimension.
+    assert "pattern_correctness_evidence" not in lab.own_scores(db, "no-such-product")
+    with db.session() as s:
+        s.add(TeardownFinding(benchmark_ref=f"{lab.SELF_PREFIX}some-release",
+                              dimension="pattern_correctness_evidence", score=4,
+                              mechanism="fixture", improvement="fixture"))
+    mine = lab.own_scores(db, "some-release")
+    assert mine["pattern_correctness_evidence"] == {
+        "score": 4.0, "source": "self_teardown", "evidence": mine[
+            "pattern_correctness_evidence"]["evidence"]}
+    via = lab.compare_advantages(db, ["deterministic_validation"], "mosaic_blanket", ours=mine)
+    assert via["beyond"] == ["deterministic_validation"], via
 
 
 def test_with_no_benchmark_scored_the_comparison_is_unmeasured_not_a_pass():

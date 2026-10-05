@@ -208,5 +208,49 @@ def _run() -> int:
     return failures
 
 
+def test_a_sent_timing_after_a_draft_timing_is_the_lifecycle_not_a_revision():
+    """CB2-G08: draft_ready then sent are two events. The sent time is accepted after a draft
+    time and counts in the service level; the draft time is kept beside it. A second draft,
+    a draft after sending, a second sent, and a sent time earlier than its draft are refused."""
+    db = _db()
+    case = _case(db)
+    service.record_response(db, case, minutes=3, from_canonical=True, measured_as="draft_ready")
+    before = service.service_level(db)
+    out = service.record_response(db, case, minutes=90, from_canonical=True, measured_as="sent")
+    assert out["measured_as"] == "sent" and out["draft_ready_minutes"] == 3.0
+    from brambleloop.core.models import SupportCase
+
+    with db.session() as s:
+        detail = dict(s.get(SupportCase, case).detail)
+    assert detail["response_minutes"] == 90.0 and detail["response_measured_as"] == "sent"
+    assert detail["draft_ready_minutes"] == 3.0
+    after = service.service_level(db)
+    assert after != before, "the sent timing did not reach the service level"
+    for basis, minutes in (("sent", 95), ("draft_ready", 1), ("sent", 1)):
+        try:
+            service.record_response(db, case, minutes=minutes, from_canonical=True,
+                                    measured_as=basis)
+        except service.ServiceRefused as e:
+            assert "always goes the same way" in str(e)
+        else:
+            raise AssertionError(f"a second {basis} timing was accepted after sending")
+
+    twice = _case(db)
+    service.record_response(db, twice, minutes=3, from_canonical=True, measured_as="draft_ready")
+    try:
+        service.record_response(db, twice, minutes=2, from_canonical=True,
+                                measured_as="draft_ready")
+    except service.ServiceRefused:
+        pass
+    else:
+        raise AssertionError("a draft timing was revised")
+    try:
+        service.record_response(db, twice, minutes=2, from_canonical=True, measured_as="sent")
+    except service.ServiceRefused as e:
+        assert "cannot predate" in str(e)
+    else:
+        raise AssertionError("a reply was sent before its draft was ready")
+
+
 if __name__ == "__main__":
     raise SystemExit(1 if _run() else 0)
