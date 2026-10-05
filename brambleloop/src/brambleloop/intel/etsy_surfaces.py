@@ -1920,6 +1920,69 @@ def work_plan() -> dict[str, list[str]]:
     return plan
 
 
+# F-588: the production-partners verdict (NOT_APPLICABLE) was reached with these outside
+# providers in view: the image models the gateway can be pointed at, and no fulfilment
+# provider (the shop sells a digital file). A provider joining or leaving either set is a
+# change in who might help make what a buyer receives, so it re-opens the review rather than
+# inheriting a verdict reached about a different set.
+PARTNERS_REVIEWED_IMAGE_PROVIDERS: frozenset[str] = frozenset(
+    {"flux-2-pro", "gpt-image-2", "nano-banana-2", "seedream-v5-lite"})
+PARTNERS_REVIEWED_FULFILMENT_PROVIDERS: frozenset[str] = frozenset()
+
+
+def _current_providers() -> tuple[set[str], set[str]]:
+    from ..gateway import images
+
+    return set(images.BY_KEY), set()
+
+
+def partners_reaudit(image_providers: Iterable[str] | None = None,
+                     fulfilment_providers: Iterable[str] | None = None) -> dict:
+    """Whether the provider set has moved since the production-partners review (F-588)."""
+    if image_providers is None or fulfilment_providers is None:
+        live_images, live_fulfilment = _current_providers()
+        image_providers = live_images if image_providers is None else image_providers
+        fulfilment_providers = (live_fulfilment if fulfilment_providers is None
+                                else fulfilment_providers)
+    images_now, fulfil_now = set(image_providers), set(fulfilment_providers)
+    added = sorted((images_now - PARTNERS_REVIEWED_IMAGE_PROVIDERS)
+                   | (fulfil_now - PARTNERS_REVIEWED_FULFILMENT_PROVIDERS))
+    removed = sorted((PARTNERS_REVIEWED_IMAGE_PROVIDERS - images_now)
+                     | (PARTNERS_REVIEWED_FULFILMENT_PROVIDERS - fulfil_now))
+    reopened = bool(added or removed)
+    return {"surface": "production_partners", "reopened": reopened,
+            "added": added, "removed": removed,
+            "why": (f"provider set changed since the production-partners review (added "
+                    f"{added}, removed {removed}); the NOT_APPLICABLE verdict must be "
+                    f"re-audited before it is relied on" if reopened else
+                    "provider set unchanged since the production-partners review")}
+
+
+def _unknowns() -> dict[str, list[str]]:
+    """Declared unknowns plus every Evidence(UNKNOWN) statement, per surface (F-588).
+
+    An UNKNOWN recorded as evidence was invisible to readiness, which reads only this dict:
+    the partners surface's open AI-partner question never reached it.
+    """
+    out: dict[str, list[str]] = {}
+    for surface in _SURFACES:
+        items = list(surface.unknowns)
+        for e in surface.evidence:
+            if e.kind == UNKNOWN and e.statement not in items:
+                items.append(e.statement)
+        if items:
+            out[surface.key] = items
+    try:
+        audit = partners_reaudit()
+    except Exception as exc:  # noqa: BLE001 - an unreadable provider set is itself unknown
+        audit = {"reopened": True,
+                 "why": f"provider set unreadable ({type(exc).__name__}); production-partners "
+                        f"review cannot be confirmed current"}
+    if audit["reopened"]:
+        out.setdefault("production_partners", []).append(audit["why"])
+    return out
+
+
 def coverage() -> dict:
     """One honest summary line per verdict, plus what is not evidenced at all."""
     counts = {v: len(by_verdict(v)) for v in VERDICTS}
@@ -1932,7 +1995,7 @@ def coverage() -> dict:
         "owner_actions": len(owner_queue()),
         "first_sale_owner_actions": len(owner_queue(first_sale_only=True)),
         "scope_gaps": scope_gaps(),
-        "unknowns": {s.key: list(s.unknowns) for s in _SURFACES if s.unknowns},
+        "unknowns": _unknowns(),
         "problems": check_registry(),
     }
 

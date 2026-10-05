@@ -5251,10 +5251,26 @@ async def api_teardown_intake(request: Request,
     if not uploads:
         return JSONResponse({"error": "no files were attached"}, status_code=400)
 
+    # F-786: the purchase's licence terms, as a JSON form field, recorded with the files.
+    # Validated before anything enters the quarantine; absent means the conservative
+    # personal-use reading (never a permissive one).
+    licence_terms = None
+    raw_terms = form.get("licence_terms")
+    if raw_terms not in (None, ""):
+        import json as _json
+
+        from ..teardown.licence import validate_purchase_terms
+
+        try:
+            licence_terms = validate_purchase_terms(_json.loads(str(raw_terms)))
+        except (ValueError, TypeError) as exc:
+            return JSONResponse({"error": f"licence_terms refused: {exc}"}, status_code=400)
+
     paid = form.get("paid_cad")
     try:
         result = receive(db, listing_ref, uploads,
-                         paid_cad=float(paid) if paid not in (None, "") else None)
+                         paid_cad=float(paid) if paid not in (None, "") else None,
+                         licence_terms=licence_terms)
     except IntakeRefused as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 

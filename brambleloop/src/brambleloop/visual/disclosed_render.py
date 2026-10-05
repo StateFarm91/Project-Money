@@ -574,6 +574,10 @@ def render(cir, view: str) -> RenderedFrame:
         "contract_version": K.CONTRACT_VERSION,
         "slug": cir.slug, "version": cir.version, "title": cir.title,
         "cir_fingerprint": cir.fingerprint,
+        # F-757: the configuration this frame shows -- the one the CIR's rows encode, which
+        # is the only one the renderer can draw. `single` for a design with no options.
+        "represented_variant": {"key": cir.variant_key,
+                                "features": dict(cir.represented_variant)},
         "twin_digest": twin_digest(twin),
         "colour_map_digest": colour_map_digest(cir, twin),
         "view": view, "role": VIEWS[view]["role"], "job": VIEWS[view]["job"],

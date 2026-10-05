@@ -367,6 +367,9 @@ def build(cir, *, store=None, db=None, lineage=None, description: str = "") -> d
     return {"made": True, "generated": False, "kind": "disclosed_render",
             "method_version": D.RENDERER_VERSION, "slug": cir.slug, "version": cir.version,
             "cir_fingerprint": cir.fingerprint, "frames": frames, "qa": qa,
+            # F-757: the configuration this listing claims -- the one the certified CIR's
+            # rows encode. `listing_set.certify_disclosed` refuses a frame showing another.
+            "represented_variant": cir.variant_key,
             "copy_disclosure": COPY_DISCLOSURE,
             "usable_as_listing_asset": not blocked, "launch_blocked": blocked,
             "why": ("every frame verified against the certified CIR, every listing-image QA "

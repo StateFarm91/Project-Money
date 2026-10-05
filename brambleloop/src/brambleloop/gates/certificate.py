@@ -151,6 +151,7 @@ def certify(
     physical_evidence: list[dict] | None = None,
     prior_risk_class: str | None = None,
     calibrated_primitives: frozenset[str] | set[str] = frozenset(),
+    listing_variant: str | None = None,
 ) -> ReleaseCertificate:
     """Run the full release chain and issue -- or refuse -- a certificate.
 
@@ -177,6 +178,12 @@ def certify(
     #     reconstructive gaps -- or a benchmark relabelled as ours -- could be certified.
     #     Benchmarks pass through: they are records of someone else's work, never products.
     findings.extend(specification_findings(cir))
+    # 1c. Gauge regimes (F-754) and the configuration the rows encode (F-757). Every length
+    #     downstream is computed from the one main gauge; a component declaring another is
+    #     refused rather than silently measured at the wrong one. A listing claiming a
+    #     configuration other than the one these rows encode is describing another product.
+    findings.extend(component_gauge_findings(cir))
+    findings.extend(configuration_findings(cir, listing_variant=listing_variant))
     stages.append("specification")
 
     # 2. Digital twin -- one per piece. Only the first component used to be modelled, so a
@@ -521,6 +528,59 @@ def specification_findings(cir: CIR) -> list[Finding]:
         _specification.refuse_a_benchmark_in_our_clothes(cir)
     except _specification.BenchmarkDerived as exc:
         out.append(Finding(ERROR, "BENCHMARK_DERIVED", str(exc)))
+    return out
+
+
+def component_gauge_findings(cir: CIR) -> list[Finding]:
+    """Refuse a second gauge regime until per-component gauge is carried end to end (F-754).
+
+    `Component.gauge` is declarable so the source's second gauge is recorded, but the twin,
+    the assembly and the PDF all compute from `CIR.gauge`. A component worked at a different
+    gauge would have its size, yardage and seam lengths quietly computed at the main one --
+    a wrong number printed as a verified one -- so it is an error, not a warning. A component
+    gauge identical to the main gauge says nothing new and passes.
+    """
+    out: list[Finding] = []
+    for comp in cir.components:
+        g = comp.gauge
+        if g is None:
+            continue
+        if cir.gauge is None:
+            out.append(Finding(ERROR, "COMPONENT_GAUGE_UNSUPPORTED", (
+                f"component {comp.name!r} declares its own gauge but the pattern has no main "
+                f"gauge; per-component gauge is not yet carried through twin, assembly and "
+                f"PDF (F-754)"), component=comp.name))
+            continue
+        main = cir.gauge
+        differs = [k for k in ("stitches_per_10cm", "rows_per_10cm", "stitch_type", "hook_mm",
+                               "yarn_weight", "chains_per_10cm")
+                   if getattr(g, k) is not None and getattr(g, k) != getattr(main, k)]
+        if differs:
+            out.append(Finding(ERROR, "COMPONENT_GAUGE_UNSUPPORTED", (
+                f"component {comp.name!r} declares a gauge that differs from the main gauge "
+                f"in {differs}; the twin, assembly and PDF compute every length from the main "
+                f"gauge, so its size and yardage would be wrong. Refused until per-component "
+                f"gauge is supported end to end (F-754)"), component=comp.name))
+    return out
+
+
+def configuration_findings(cir: CIR, *, listing_variant: str | None = None) -> list[Finding]:
+    """The CIR's feature configuration is well formed, and a listing claims the one it encodes.
+
+    F-757. Absent block = single variant. `listing_variant` is the configuration key a listing
+    or render set says it represents; anything other than the CIR's own is refused.
+    """
+    from ..cir.model import variant_key
+
+    out: list[Finding] = []
+    if cir.configuration is not None:
+        for problem in cir.configuration.problems():
+            out.append(Finding(ERROR, "CONFIGURATION_INVALID", problem))
+    if listing_variant is not None and listing_variant != variant_key(cir.represented_variant):
+        out.append(Finding(ERROR, "VARIANT_MISMATCH", (
+            f"the listing claims configuration {listing_variant!r} but this CIR's rows encode "
+            f"{variant_key(cir.represented_variant)!r}; an image or listing may only represent "
+            f"the configuration the pattern actually describes (F-757)")))
     return out
 
 

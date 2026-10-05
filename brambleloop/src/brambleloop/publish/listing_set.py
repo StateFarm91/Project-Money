@@ -43,6 +43,8 @@ class ListingSetRefused(ValueError):
 
 
 DISCLOSED_RENDER = "disclosed_render"
+# Mirrors `cir.model.SINGLE_VARIANT`: a product with no optional features has one variant.
+SINGLE_VARIANT = "single"
 
 
 def fingerprint(payload: dict) -> str:
@@ -69,6 +71,9 @@ class CertifiedFrame:
     # bytes to the upload rather than being re-derived there.
     kind: str = ""
     alt_text: str = ""
+    # F-757: which configuration of the product this frame shows (`cir.model.variant_key`).
+    # Empty means unrecorded, which only a legacy single-variant frame may be.
+    represented_variant: str = ""
 
     def __post_init__(self) -> None:
         if self.kind == DISCLOSED_RENDER:
@@ -100,7 +105,9 @@ class CertifiedFrame:
                 "sha256": self.sha256, "job": self.job, "purpose": self.purpose,
                 "medium": self.medium, "honesty_label": self.honesty_label,
                 "measurement_sources": list(self.measurement_sources)} | (
-                    {"kind": self.kind, "alt_text": self.alt_text} if self.kind else {})
+                    {"kind": self.kind, "alt_text": self.alt_text} if self.kind else {}) | (
+                    {"represented_variant": self.represented_variant}
+                    if self.represented_variant else {})
 
 
 @dataclass(frozen=True)
@@ -117,6 +124,8 @@ class ListingCertificate:
     platform_policy: dict = field(default_factory=dict)
     disclosures: tuple[str, ...] = ()
     issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    # F-757: the one configuration every frame in this set represents.
+    represented_variant: str = SINGLE_VARIANT
 
     @property
     def frame_order(self) -> tuple[str, ...]:
@@ -133,6 +142,7 @@ class ListingCertificate:
             "policy_version": self.policy_version,
             "platform_policy": dict(self.platform_policy),
             "disclosures": list(self.disclosures),
+            "represented_variant": self.represented_variant,
             "issued_at": self.issued_at.isoformat(),
             "measurement_sources": sorted({s for f in self.frames
                                            for s in f.measurement_sources}),
@@ -142,10 +152,29 @@ class ListingCertificate:
 def certify(*, slug: str, version: str, frames: list[CertifiedFrame],
             gate_results: dict, geometry: dict, claims: dict,
             policy_version: str, platform_policy: dict | None = None,
-            disclosures: tuple[str, ...] = ()) -> ListingCertificate:
-    """Issue a certificate, refusing one for a set that was not fully checked."""
+            disclosures: tuple[str, ...] = (),
+            variant: str | None = None) -> ListingCertificate:
+    """Issue a certificate, refusing one for a set that was not fully checked.
+
+    `variant` is the configuration the listing claims (F-757). Every frame must represent
+    exactly that configuration; a frame recording none is read as the single variant, which
+    is what every frame drawn before configurations existed showed. With `variant` None the
+    frames must agree among themselves and the certificate records what they agree on.
+    """
     if not frames:
         raise ListingSetRefused(f"{slug}: a listing set with no frames is not a set")
+    shown = {f.asset_id: (f.represented_variant or SINGLE_VARIANT) for f in frames}
+    claimed = variant if variant is not None else (
+        next(iter(shown.values())) if len(set(shown.values())) == 1 else None)
+    if claimed is None:
+        raise ListingSetRefused(
+            f"{slug}: the frames show different configurations {sorted(set(shown.values()))} "
+            f"and the listing does not say which it represents (F-757)")
+    wrong = sorted(a for a, v in shown.items() if v != claimed)
+    if wrong:
+        raise ListingSetRefused(
+            f"{slug}: frames {wrong} show a configuration other than the {claimed!r} the "
+            f"listing claims; an image must state the configuration it shows (F-757)")
 
     unknown = sorted(set(gate_results) - set(eligibility.GATES))
     if unknown:
@@ -177,7 +206,7 @@ def certify(*, slug: str, version: str, frames: list[CertifiedFrame],
         claims_fingerprint=fingerprint(claims or {}),
         policy_version=policy_version,
         platform_policy=dict(platform_policy or {}),
-        disclosures=tuple(disclosures))
+        disclosures=tuple(disclosures), represented_variant=claimed)
 
 
 # ---- D-FB-7: the disclosed-render listing set -----------------------------------------------
@@ -253,13 +282,14 @@ def disclosed_frames(rec: dict, images: list[tuple[str, bytes, str]], *,
         job = manifest.get("job") or ""
         purpose = _DISCLOSED_PURPOSE.get(f.get("view") or "", "")
         dims = manifest.get("finished_dimensions_cm") or {}
+        shown = (manifest.get("represented_variant") or {}).get("key") or SINGLE_VARIANT
         out.append(CertifiedFrame(
             position=int(f["position"]), asset_id=f"{slug}-disclosed-{f.get('view')}",
             sha256=sha, job=job, purpose=purpose,
             medium=AssetClass.DIGITAL_TWIN_RENDER.value, honesty_label=DISCLOSURE,
             measurement_sources=(("finished.width", "finished.length")
                                  if dims.get("width") and dims.get("height") else ()),
-            kind=DISCLOSED_RENDER, alt_text=alt))
+            kind=DISCLOSED_RENDER, alt_text=alt, represented_variant=shown))
     return out
 
 
@@ -286,7 +316,8 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
                    gate_results=disclosed_gate_results(rec, exported=True,
                                                        dimensions_ok=dimensions_ok),
                    geometry=geometry, claims=claims, policy_version=policy_version,
-                   platform_policy=platform_policy, disclosures=(DISCLOSURE,))
+                   platform_policy=platform_policy, disclosures=(DISCLOSURE,),
+                   variant=rec.get("represented_variant") or SINGLE_VARIANT)
 
 
 VALID = "valid"
@@ -353,6 +384,7 @@ def state() -> dict:
             "a certificate with no geometry recorded, which could never be invalidated",
             "two frames claiming one position",
             "a frame with no recorded asset hash",
+            "a frame showing a configuration other than the one the listing claims (F-757)",
         ],
         "note": ("validity is recomputed from the current inputs, never read from a flag. "
                  "The same mechanism as ops.artefacts for derived files and improve.upgrades "

@@ -727,7 +727,8 @@ def _certificate_from_record(rec) -> ls.ListingCertificate:
         position=f["position"], asset_id=f["asset_id"], sha256=f["sha256"], job=f["job"],
         purpose=f["purpose"], medium=f["medium"], honesty_label=f.get("honesty_label", ""),
         measurement_sources=tuple(f.get("measurement_sources") or ()),
-        kind=f.get("kind", ""), alt_text=f.get("alt_text", ""))
+        kind=f.get("kind", ""), alt_text=f.get("alt_text", ""),
+        represented_variant=f.get("represented_variant", ""))
         for f in body.get("frames", []))
     return ls.ListingCertificate(
         slug=rec.product_slug, version=rec.version, frames=frames,
@@ -735,7 +736,8 @@ def _certificate_from_record(rec) -> ls.ListingCertificate:
         geometry_fingerprint=rec.geometry_fingerprint,
         claims_fingerprint=rec.claims_fingerprint, policy_version=rec.policy_version,
         platform_policy=dict(body.get("platform_policy") or {}),
-        disclosures=tuple(body.get("disclosures") or ()))
+        disclosures=tuple(body.get("disclosures") or ()),
+        represented_variant=body.get("represented_variant") or ls.SINGLE_VARIANT)
 
 
 def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
