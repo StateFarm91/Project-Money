@@ -160,7 +160,7 @@ NECKBAND_CM = 3.0
 def drop_shoulder_flat(g: GradedSize, *, key: str, title: str, family: StitchFamily,
                        material: Material, length_ratio: float = 1.0,
                        neck_of_cross_back: float = NECK_OF_CROSS_BACK,
-                       colours: ColourPlan | None = None) -> CIR:
+                       colours: ColourPlan | None = None, version: str = "1.0.0") -> CIR:
     gauge = g.gauge
     fam = family
     tc = fam.turning_chain
@@ -244,7 +244,7 @@ def drop_shoulder_flat(g: GradedSize, *, key: str, title: str, family: StitchFam
     ]
     materials, palette = _materials(material, colours)
     return CIR(
-        slug=f"{key}-{g.size.lower()}", title=f"{title} (size {g.size})", version="1.0.0",
+        slug=f"{key}-{g.size.lower()}", title=f"{title} (size {g.size})", version=version,
         construction="flat_rows", components=[body, sleeve, band],
         gauge=gauge, materials=materials, colors=palette, risk_class=_risk(g),
         authored="brambleloop", assembly=seams,
@@ -327,7 +327,7 @@ def raglan_top_down(g: GradedSize, *, key: str, title: str, family: StitchFamily
                     material: Material, length_ratio: float = 1.0,
                     neck_of_cross_back: float = NECK_EDGE_OF_CROSS_BACK,
                     sleeve_at_neck_of_cross_back: float = SLEEVE_AT_NECK_OF_CROSS_BACK,
-                    colours: ColourPlan | None = None) -> CIR:
+                    colours: ColourPlan | None = None, version: str = "1.0.0") -> CIR:
     fam = family
     back = _even(g.stitches(g.finished_cm("bust") / 2.0))
     front = back // 2
@@ -407,7 +407,7 @@ def raglan_top_down(g: GradedSize, *, key: str, title: str, family: StitchFamily
              for name in ("sleeve_left", "sleeve_right")]
     materials, palette = _materials(material, colours)
     return CIR(
-        slug=f"{key}-{g.size.lower()}", title=f"{title} (size {g.size})", version="1.0.0",
+        slug=f"{key}-{g.size.lower()}", title=f"{title} (size {g.size})", version=version,
         construction="flat_rows", components=[yoke] + sleeves, gauge=g.gauge,
         materials=materials, colors=palette, risk_class=_risk(g), authored="brambleloop",
         assembly=seams,
@@ -454,6 +454,9 @@ RAGLAN_REQUIRES = ("bust", "back_length", "cross_back", "arm_length", "upper_arm
                    "armhole_depth")
 
 
+HARBOUR_VERSION = "1.1.0"
+
+
 def harbour_pullover() -> GradedDesign:
     """An adult relaxed drop-shoulder pullover in ridged single crochet, CYC woman XS-5X."""
     family = StitchFamily("sc", "ridged")
@@ -463,6 +466,9 @@ def harbour_pullover() -> GradedDesign:
     gauge = gauge_for("worsted")
     material = Material(name="worsted wool", yarn_weight="worsted")
     key, title = "harbour-drop-shoulder-pullover", "Harbour Drop-Shoulder Pullover"
+    # Patterns are software releases: the derived gauge changed every size's counts, so the
+    # released version moved 1.0.0 -> 1.1.0 (pinned in tests/data/release_fingerprints.tsv).
+    version = HARBOUR_VERSION
     return GradedDesign(
         key=key, title=title, table=WOMAN, gauge=gauge,
         fit=FitIntent({"bust": 20, "back_length": 15, "armhole_depth": 4, "upper_arm": 8}),
@@ -470,7 +476,7 @@ def harbour_pullover() -> GradedDesign:
         primitives=("cir.graded", "cir.shaping.taper", "cir.assembly", "Seam"),
         measure=built_measures,
         template=lambda g: drop_shoulder_flat(g, key=key, title=title, family=family,
-                                              material=material))
+                                              material=material, version=version))
 
 
 def pebble_cardigan() -> GradedDesign:

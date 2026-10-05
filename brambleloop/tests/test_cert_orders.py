@@ -199,16 +199,20 @@ def _certify(db, cir, correction=None):
 
 def _catalogue(db):
     """Three products: a certified throw (A) and two listed products (B, C)."""
+    from brambleloop.products.builder import for_slug
+
     cir = nf.build()
     _certify(db, cir)
     old = NOW - timedelta(weeks=8)
     with db.session() as s:
         s.add(Listing(product_slug=cir.slug, version=cir.version, title="A", description="",
                       price_cad=12.0, state="published", etsy_listing_id="111", created_at=old))
-        s.add(Listing(product_slug="cloudline-baby-blanket", version="1.0.0", title="B",
+        s.add(Listing(product_slug="cloudline-baby-blanket",
+                      version=for_slug("cloudline-baby-blanket").version, title="B",
                       description="", price_cad=9.0, state="published",
                       etsy_listing_id="222", created_at=old))
-        s.add(Listing(product_slug="harvest-table-runner", version="1.0.0", title="C",
+        s.add(Listing(product_slug="harvest-table-runner",
+                      version=for_slug("harvest-table-runner").version, title="C",
                       description="", price_cad=5.0, state="published",
                       etsy_listing_id="333", created_at=old))
     return cir
@@ -441,7 +445,14 @@ def test_portfolio_review_reads_exposure_and_consults_offers_before_retiring():
     del out
 
 
-CORRECTION = {"of_versions": ["1.0.0"],
+def _patch(version: str, n: int = 1) -> str:
+    """`n` patch releases after `version`: read from the builder, never a pinned literal,
+    because a design whose content changes carries a new version (patterns are releases)."""
+    major, minor, patch = (int(p) for p in version.split("."))
+    return f"{major}.{minor}.{patch + n}"
+
+
+CORRECTION = {"of_versions": [nf.build().version],
               "what_changed": "Row 12 read 84 stitches and should read 86 stitches."}
 
 
@@ -450,14 +461,15 @@ def test_a_correcting_version_prepares_the_notice_for_its_buyers():
     import dataclasses
 
     db, cir, _ = _ingested()
-    corrected = dataclasses.replace(cir, version="1.0.1")
+    fixed = _patch(cir.version)
+    corrected = dataclasses.replace(cir, version=fixed)
     _certify(db, corrected, correction={**CORRECTION, "of_versions": [cir.version]})
     with db.session() as s:
         rows = list(s.scalars(select(OrderVersion).where(
             OrderVersion.product_slug == cir.slug)))
         action = s.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == f"correction_notice:{cir.slug}@1.0.1"))
-    assert rows and all(r.current_safe_version == "1.0.1" for r in rows)
+            OwnerAction.requirement_key == f"correction_notice:{cir.slug}@{fixed}"))
+    assert rows and all(r.current_safe_version == fixed for r in rows)
     notices = [(r.detail or {}).get("correction_notice", {}) for r in rows]
     assert all(n.get("sent") is False for n in notices)
     # CB2-O09: preparation and delivery are separate states, and nothing was delivered.
@@ -479,7 +491,7 @@ def test_a_routine_newer_version_is_not_a_correction():
     from brambleloop.commerce import buyer_trust
 
     db, cir, _ = _ingested()
-    _certify(db, dataclasses.replace(cir, version="1.0.1"))          # routine release
+    _certify(db, dataclasses.replace(cir, version=_patch(cir.version)))   # routine release
     with db.session() as s:
         rows = list(s.scalars(select(OrderVersion).where(
             OrderVersion.product_slug == cir.slug)))
@@ -489,12 +501,12 @@ def test_a_routine_newer_version_is_not_a_correction():
     assert not any("correction_notice" in (r.detail or {}) for r in rows)
     assert actions == [] and _audit(db, "buyer_trust.correction_prepared") is None
     # A declared correction naming a version nobody bought prepares nothing either.
-    got = buyer_trust.on_certified(db, product_slug=cir.slug, version="1.0.1",
+    got = buyer_trust.on_certified(db, product_slug=cir.slug, version=_patch(cir.version),
                                    correction={**CORRECTION, "of_versions": ["0.9.0"]})
     assert got["correction"] is True and got["affected_count"] == 0 and got["notice"] is None
     # And a correction declared for a version that is not a certified stored release is
     # not releasable, so nothing is prepared and the reason says why.
-    got = buyer_trust.on_certified(db, product_slug=cir.slug, version="1.0.2",
+    got = buyer_trust.on_certified(db, product_slug=cir.slug, version=_patch(cir.version, 2),
                                    correction={**CORRECTION, "of_versions": [cir.version]})
     assert got["eligible"] is False and got["affected_count"] == 0
     assert "not releasable" in got["why"]

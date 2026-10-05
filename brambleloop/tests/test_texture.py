@@ -147,7 +147,13 @@ def test_the_written_patterns_stay_readable():
                    if l.startswith("Row ")]
         worked = len(cir.components[0].rows)
         assert len(printed) < 12, (cir.slug, len(printed))
-        assert worked > 50, (cir.slug, worked)
+        # The collapse has to be doing the work, or the readability limit above proves
+        # nothing. This used to be `worked > 50`, a fixed row count; the pillow's rows now
+        # follow its yarn-derived gauge (D-FB-6: 41 rows for the same 44 cm), so the guard is
+        # stated as the property it stood for -- the document prints at most a quarter of
+        # the rows the maker works -- rather than as a size the design must be.
+        assert worked >= 4 * len(printed), (cir.slug, worked, len(printed))
+        assert worked > 12, (cir.slug, worked)
 
 
 # ---- the claim -------------------------------------------------------------

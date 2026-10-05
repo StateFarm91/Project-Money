@@ -1172,10 +1172,16 @@ def test_the_chart_shows_the_repeat_the_written_instructions_use():
     cable = build_cable_throw()
     result, twin = _twin_for(cable)
     art = pdf_mod._chart_art(cable, twin)
-    assert "rows 2 to 5 29 times more" in art["caption"], art["caption"]
-    assert "Repeat rows 2-5 29 more times" in write_pattern(cable, result), \
+    # Computed from the design, not pinned: one foundation row, then four-row blocks, the
+    # first worked as written and the rest repeated (blocks - 1 more times).
+    rows = len(cable.components[0].rows)
+    blocks, extra = divmod(rows - 1, 4)
+    assert extra == 0 and blocks > 1, (rows, blocks)
+    more = blocks - 1
+    assert f"rows 2 to 5 {more} times more" in art["caption"], art["caption"]
+    assert f"Repeat rows 2-5 {more} more times" in write_pattern(cable, result), \
         "the written instructions no longer say what the caption was matched against"
-    assert "121 rows tall" not in art["caption"]
+    assert f"{rows} rows tall" not in art["caption"]
 
 
 def test_no_chart_cell_is_smaller_than_the_brand_allows_type_to_be():

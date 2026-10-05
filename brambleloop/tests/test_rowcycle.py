@@ -55,9 +55,14 @@ def test_the_flagship_has_a_real_cycle():
     cir = nf.build("throw")
     cycle = detect_cycle(cir.components[0].rows)
     assert cycle is not None
+    # The motif count follows the yarn-derived gauge (D-FB-6), so it is read from the design:
+    # the first pass is printed with the setup and the second as the block, and the rest are
+    # the repeats the instruction collapses.
+    motifs = nf.SIZES["throw"][1]
+    assert motifs >= 3, "the throw must work its block at least three times to collapse it"
     assert cycle.period == 24, cycle
-    assert cycle.repeats == 3, cycle
-    assert cycle.rows_saved == 72
+    assert cycle.repeats == motifs - 2, cycle
+    assert cycle.rows_saved == 24 * (motifs - 2)
 
 
 def test_a_short_pattern_is_left_alone():
@@ -202,9 +207,11 @@ def test_the_flagship_prints_a_fraction_of_its_rows():
     cir = nf.build("large")
     text = write_pattern(cir, compile_cir(cir))
     printed = len([ln for ln in text.splitlines() if ln.startswith("Row ")])
-    assert printed == 48, printed
-    assert len(cir.components[0].rows) == 168
-    assert len(parse_pattern(text, "US")) == 168
+    worked = 24 * nf.SIZES["large"][1]     # motif count follows the derived gauge (D-FB-6)
+    assert printed == 48, printed          # two 24-row passes, whatever the size
+    assert printed < worked / 2, (printed, worked)
+    assert len(cir.components[0].rows) == worked
+    assert len(parse_pattern(text, "US")) == worked
 
 
 # ---- attacks ---------------------------------------------------------------
@@ -214,7 +221,12 @@ def test_a_tampered_repeat_count_is_caught():
     """The instruction is as load-bearing as a row, so it has to be checked like one."""
     cir = nf.build("throw")
     text = write_pattern(cir, compile_cir(cir))
-    tampered = text.replace("3 more times", "4 more times")
+    # The count is read from the rendered text, not pinned: the throw's motif count follows
+    # its yarn-derived gauge (D-FB-6), so a literal stops matching when the design changes.
+    more = re.search(r"Repeat rows \d+-\d+ (\d+) more times", text)
+    assert more is not None, "the throw no longer collapses a repeat; the test proves nothing"
+    said = f"{more.group(1)} more times"
+    tampered = text.replace(said, f"{int(more.group(1)) + 1} more times")
     assert tampered != text
     findings = compare(cir, tampered, "US")
     assert findings, "an extra repeat pass passed unchallenged"
@@ -253,9 +265,15 @@ def test_a_repeat_pointing_at_rows_that_were_never_printed_is_refused():
 
 
 def test_a_tampered_row_inside_the_repeated_block_is_caught_in_every_pass():
-    """One wrong row in the block is wrong four times over, and must be reported."""
+    """One wrong row in the block is wrong in every pass, and must be reported each time."""
     cir = nf.build("throw")
     text = write_pattern(cir, compile_cir(cir))
+    # How many passes the block is worked, from the document's own total -- not a literal:
+    # the pass count follows the design (the throw's motif count is gauge-derived, D-FB-6).
+    total = re.search(r"\((\d+) repeats of the (\d+)-row block in total\.\)", text)
+    assert total is not None, "the throw no longer states its repeat total"
+    passes = int(total.group(1))
+    assert passes >= 2, "a block worked once is not a repeat; the test proves nothing"
 
     # Take the needle from the rendered text rather than a guessed literal: a hardcoded
     # instruction string silently stops matching the day the design changes, and a tamper
@@ -272,8 +290,8 @@ def test_a_tampered_row_inside_the_repeated_block_is_caught_in_every_pass():
     tampered = "\n".join(lines)
     assert tampered != text, "the tamper did not apply; the test proves nothing"
     findings = compare(cir, tampered, "US")
-    assert len(findings) >= 4, (
-        f"a row inside a four-pass block was reported {len(findings)} times; the error "
+    assert len(findings) >= passes, (
+        f"a row inside a {passes}-pass block was reported {len(findings)} times; the error "
         f"exists in every pass")
 
 

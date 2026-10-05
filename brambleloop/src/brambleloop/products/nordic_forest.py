@@ -91,6 +91,11 @@ def _nearest(target: float, unit: float) -> int:
     return max(1, int(target / unit + 0.5))
 
 
+# Patterns are software releases: the D-FB-6 re-derivation changed every size's counts and
+# gauge, so the released version moved 1.0.0 -> 1.1.0 (tests/data/release_fingerprints.tsv
+# pins content against version so a content change cannot keep a released number).
+RELEASE_VERSION = "1.1.0"
+
 SIZES: dict[str, tuple[int, int]] = {
     # name: (stitches wide, motif repeats tall), derived from TARGET_CM at GAUGE
     name: (_nearest(w, MOTIF_WIDTH * 10.0 / GAUGE.stitches_per_10cm) * MOTIF_WIDTH,
@@ -150,7 +155,7 @@ def _row_ops(pattern: str, width: int) -> list[Repeat]:
     return [Repeat(_runs(pattern), times=width // MOTIF_WIDTH)]
 
 
-def build(size: str = "throw", version: str = "1.0.0") -> CIR:
+def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
     """Build the CIR for one finished size.
 
     Colour alternates every row, which is how overlay mosaic is actually worked: you carry
@@ -207,5 +212,5 @@ def build(size: str = "throw", version: str = "1.0.0") -> CIR:
     )
 
 
-def all_sizes(version: str = "1.0.0") -> dict[str, CIR]:
+def all_sizes(version: str = RELEASE_VERSION) -> dict[str, CIR]:
     return {name: build(name, version) for name in SIZES}
