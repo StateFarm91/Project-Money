@@ -319,8 +319,10 @@ OBJECT_STORAGE = OwnerRequest(
 
 GRADUATION = OwnerRequest(
     key="phase",
-    action=("After the checks above, set BRAMBLELOOP_PHASE to staging (then limited "
-            "production) to graduate out of shadow mode, one step at a time."),
+    action=("After the checks above, record the move to staging (then limited "
+            "production) via POST /api/owner/phase/transition with readiness and rollback "
+            "evidence refs, and set BRAMBLELOOP_PHASE to the same value, one step at a time "
+            "(F-299: either one alone runs as the more restrictive phase)."),
     reason=("Shadow mode is enforced in code and refuses to publish, message customers or "
             "spend on advertising. Only the owner moves the phase, which is the point: the "
             "system cannot promote itself."),

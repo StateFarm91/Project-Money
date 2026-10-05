@@ -1453,13 +1453,16 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
                 release, payload, docs, listing_images):
             raise ValueError("actual content changed after durable intent reservation")
         phase = getattr(ctx.phase, "value", None)
-        configured = os.environ.get("BRAMBLELOOP_PHASE", phase)
-        if phase not in PHASES_THAT_MAY_PUBLISH or configured not in PHASES_THAT_MAY_PUBLISH:
-            raise ValueError("current runtime phase forbids publication")
+        # F-299: the environment alone no longer decides the phase -- it must agree with the
+        # owner's latest recorded PhaseTransition, else the more restrictive one applies.
+        from ..core.phase import effective as effective_phase
+        configured = effective_phase(ctx.db)
         refusal, grant_id = publication_authority.resolve(
             ctx.db, slug=slug, version=version, release=release, approval_id=approval_input)
         if refusal is not None:
             raise ValueError(f"current owner publication authority absent: {refusal}")
+        if phase not in PHASES_THAT_MAY_PUBLISH or configured not in PHASES_THAT_MAY_PUBLISH:
+            raise ValueError("current runtime phase forbids publication")
         # Historical replay dates cannot stand in for current execution evidence.
         inputs = dict(ctx.job.inputs)
         inputs.pop("as_of", None)
@@ -1496,7 +1499,7 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
             ctx.db, slug=slug, version=version, release=release, approval_id=approval_input)
         if (final_refusal is not None or final_grant != grant_id
                 or getattr(ctx.phase, "value", None) not in PHASES_THAT_MAY_PUBLISH
-                or os.environ.get("BRAMBLELOOP_PHASE", phase) not in PHASES_THAT_MAY_PUBLISH):
+                or effective_phase(ctx.db) not in PHASES_THAT_MAY_PUBLISH):
             raise ValueError("owner authority or runtime phase changed during revalidation")
     except Exception as exc:
         ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",

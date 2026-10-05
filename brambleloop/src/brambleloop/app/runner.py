@@ -227,7 +227,11 @@ def start(db: Database) -> RunnerState:
     if _threads or os.environ.get("BRAMBLELOOP_EMBEDDED_WORKER", "1") != "1":
         return STATE
     _stop.clear()  # a previous stop() must not silently disarm a fresh start
-    phase = Phase(os.environ.get("BRAMBLELOOP_PHASE", "shadow"))
+    # F-299: the environment AND the recorded owner transition; disagreement -> the more
+    # restrictive phase plus an incident. Shadow when nothing is recorded.
+    from ..core.phase import effective_phase
+
+    phase = effective_phase(db)
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"web-{os.getpid()}"
     STATE.enabled = True
     from ..swarm.capacity import worker_threads

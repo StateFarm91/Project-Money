@@ -45,9 +45,11 @@ db = Database()
 app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
+from .phase_api import make_router as phase_router
 
 app.include_router(activation_authority_router(db))
 app.include_router(publication_authority_router(db))
+app.include_router(phase_router(db))
 from ..learn.api import router as learn_router
 
 app.include_router(learn_router(db))

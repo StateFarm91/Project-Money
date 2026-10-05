@@ -36,6 +36,9 @@ class ExecutionRecheck(unittest.TestCase):
         self.gates=self.stack.enter_context(patch.object(pipeline,"_release_gates",return_value={"blocks_release":False}))
         self.payload=self.stack.enter_context(patch.object(etsy_ops,"certified_payload",return_value=copy.deepcopy(self.kw["payload"])))
         self.images=self.stack.enter_context(patch.object(etsy_ops,"certified_images",return_value={**copy.deepcopy(self.kw["listing_images"]),"problems":[]}))
+        # F-299: the env phase must agree with the owner's recorded transition.
+        from phase_fixture import record_phase_path
+        record_phase_path(self.db,OWNER_TOKEN,"production")
         # FB3-P: owner publication authority is a durable sealed grant, not the env flag.
         content=publication_authority.snapshot(self.db,"original","1","release-a")
         self.grant=publication_authority.approve(self.db,authorization=OWNER_TOKEN,slug="original",version="1",
