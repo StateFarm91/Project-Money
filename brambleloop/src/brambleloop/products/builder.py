@@ -67,6 +67,40 @@ def _runs(pattern: str) -> list[Op]:
     return ops
 
 
+def _drawn_size_cm(design: Design, motif: Motif) -> tuple[float, float]:
+    """The finished size a design's typed counts make at its typed gauge, as the twin
+    measures it (a row is as tall as its tallest stitch). This is the design's intent."""
+    from ..cir import stitches
+
+    width = design.width_stitches * 10.0 / design.stitches_per_10cm
+    return width, design.motif_repeats * _repeat_height_cm(motif, design.rows_per_10cm,
+                                                           stitches)
+
+
+def _repeat_height_cm(motif: Motif, rows_per_10cm: float, stitches) -> float:
+    tall = stitches.get("dc").row_height / (stitches.get("sc").row_height or 1.0)
+    return sum((tall if "1" in line else 1.0) for line in motif.grid) * 10.0 / rows_per_10cm
+
+
+def _derive_from_yarn(design: Design) -> Design:
+    """The same design at the gauge its declared yarn actually holds, counts recomputed to
+    the nearest whole motif of the size it was drawn at. A motif is never cut, so a piece
+    smaller than one motif at the new gauge is one motif, and the size it states is the
+    size its counts make."""
+    from ..cir import stitches
+    from ..creative.prototype import gauge_for
+
+    motif = get(design.motif)
+    gauge = gauge_for(design.yarn_weight)
+    width_cm, height_cm = _drawn_size_cm(design, motif)
+    across = max(1, int(width_cm * gauge.stitches_per_10cm / (10.0 * motif.width) + 0.5))
+    repeats = max(1, int(height_cm / _repeat_height_cm(motif, gauge.rows_per_10cm, stitches)
+                         + 0.5))
+    return replace(design, width_stitches=across * motif.width, motif_repeats=repeats,
+                   stitches_per_10cm=gauge.stitches_per_10cm,
+                   rows_per_10cm=gauge.rows_per_10cm, hook_mm=gauge.hook_mm)
+
+
 def build(design: Design, version: str = "1.0.0") -> CIR:
     """Generate the CIR. Refuses a width the motif cannot tile.
 
@@ -93,6 +127,10 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
         design = replace(design, width_stitches=across * motif.width, motif_repeats=repeats,
                          stitches_per_10cm=gauge.stitches_per_10cm,
                          rows_per_10cm=gauge.rows_per_10cm, hook_mm=gauge.hook_mm)
+        if version == "1.0.0":
+            version = "1.1.0"
+    elif design.slug in YARN_DERIVED and design == CATALOGUE[design.slug]:
+        design = _derive_from_yarn(design)
         if version == "1.0.0":
             version = "1.1.0"
     motif: Motif = get(design.motif)
@@ -227,6 +265,25 @@ CATALOGUE: dict[str, Design] = {
         slug="cottage-wall-hanging", title="Cottage Botanical Wall Hanging",
         motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6),
 }
+
+
+# D-FB-6 re-engineering of the flat catalogue (Cloudline has its own authorized border
+# redesign in `build`). Each design here has its gauge derived from its declared yarn's
+# published band (`creative.prototype.gauge_for`) and its stitch and row counts recomputed,
+# in whole motif repeats, to the size it was drawn at (`_derive_from_yarn`); its default
+# version becomes 1.1.0 because its content changed. Every Design still records the typed
+# 16 sc/10cm it was drawn at -- that is the record of the intent the counts are derived from.
+#
+# Held back, with the reason recorded rather than faked:
+LEGACY_HELD: dict[str, str] = {
+    "autumn-oak-mosaic-throw": (
+        "kept as the legacy record of a typed out-of-band gauge (16 sc/10cm against worsted): "
+        "the gauge gate refuses it and tests/test_launch0_gauge.py pins that refusal, the "
+        "proof that no catalogue design gains a pass except by re-engineering. It is not "
+        "routed to a certificate until it is re-engineered here"),
+    "cloudline-baby-blanket": "re-engineered separately: the D-FB-6 border redesign in build()",
+}
+YARN_DERIVED: frozenset[str] = frozenset(CATALOGUE) - frozenset(LEGACY_HELD)
 
 
 def for_slug(slug: str, version: str = "1.0.0") -> CIR | None:

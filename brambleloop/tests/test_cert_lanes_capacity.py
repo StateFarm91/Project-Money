@@ -239,9 +239,13 @@ def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_th
     from tests.test_cert_preengineering import _certify, _ctx
 
     db = _db()
-    # the two nordic-forest members this repository can engineer, and one lone throw
+    # the two nordic-forest members this repository can engineer, and one lone blanket.
+    # The lone one was autumn-oak-mosaic-throw, a legacy catalogue design whose typed gauge
+    # its declared yarn cannot hold: the strict gauge gate (6747ddd) refuses it and
+    # tests/test_launch0_gauge.py keeps it refused, so it can no longer stand in for a
+    # certified product. cloudline-baby-blanket is a certified family of one.
     for slug in ("nordic-forest-mosaic-throw", "nordic-star-ornaments",
-                 "autumn-oak-mosaic-throw"):
+                 "cloudline-baby-blanket"):
         _certify(db, slug)
     out = handlers.get("gate.lanes")(_ctx(db, "quality_director", "gate.lanes",
                                           {"as_of": "2026-09-17"}))
@@ -253,7 +257,7 @@ def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_th
     for slug in ("nordic-forest-mosaic-throw", "nordic-star-ornaments"):
         assert routed[slug]["profile"]["pattern_count"] == 2, routed[slug]["profile"]
         assert routed[slug]["profile"]["sizes"] == 1
-    assert routed["autumn-oak-mosaic-throw"]["profile"]["pattern_count"] == 1
+    assert routed["cloudline-baby-blanket"]["profile"]["pattern_count"] == 1
     # lanes.allocate's split, recorded for the claim. The three gate.certify runs above carry
     # the CIR (inputs.cir.slug) and are now counted (C-80 defect 3), so the split run so far
     # is measured -- strengthened from the earlier UNMEASURED, which was the uncounted bug.

@@ -55,6 +55,7 @@ from ..cir.model import Gauge, Material
 from ..cir.specification import garment_implausibilities
 from ..products import garments as G
 from .concept import FEELINGS, OCCASIONS, Concept
+from .prototype import gauge_for
 
 RAGLAN_CONSTRUCTIONS = frozenset({"top_down_yoke"})
 DROP_SHOULDER_CONSTRUCTIONS = frozenset({"flat_rows", "bottom_up", "side_to_side",
@@ -65,8 +66,12 @@ UNSIZED_RECIPIENTS = {"new_parent": "babywear: no sourced baby body table is on 
                                     "invent measurements"}
 QUICK_LANES = frozenset({"QUICK", "SHORT"})
 
-SC_WORSTED = (Gauge(stitches_per_10cm=16, rows_per_10cm=18, stitch_type="sc", hook_mm=5.5,
-                    yarn_weight="worsted"), Material(name="worsted wool", yarn_weight="worsted"))
+# The sc fabric's gauge is derived from the declared yarn's published band (D-FB-6, F-116),
+# never typed: this was a typed 16 sc/10cm against worsted, a fabric worsted cannot make
+# (band 11-14), so every concept routed here was refused by the gauge gate. Grading computes
+# every stitch and row count from this gauge, so the finished measurements stay the body
+# table plus ease rather than following the number.
+SC_WORSTED = (gauge_for("worsted"), Material(name="worsted wool", yarn_weight="worsted"))
 DC_DK = (Gauge(stitches_per_10cm=14, rows_per_10cm=8, stitch_type="dc", hook_mm=4.5,
                yarn_weight="dk"), Material(name="dk cotton", yarn_weight="dk"))
 
