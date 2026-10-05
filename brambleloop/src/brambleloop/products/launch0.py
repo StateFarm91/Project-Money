@@ -180,6 +180,26 @@ def assembly_promise(cir: CIR) -> dict:
                     f"{pieces} pieces")}
 
 
+def size_label_backed(label: str, width_cm: float | None, height_cm: float | None) -> dict:
+    """Every centimetre figure a customer reads in a size label is what the twin measures, to
+    the precision the label is written in ("24 cm" to the nearest cm, "9.2 cm" to the mm).
+    A label typed by hand drifts when the design is re-derived; this is the check that it did
+    not. Figures are matched in order against width then height."""
+    import re as _re
+
+    measured = [m for m in (width_cm, height_cm) if m is not None]
+    stated = _re.findall(r"(\d+(?:\.\d+)?)\s*(?:x\s*(\d+(?:\.\d+)?)\s*)?cm", label)
+    figures = [f for pair in stated for f in pair if f]
+    if not figures or not measured:
+        return {"backed": False, "why": "no centimetre figure or no measurement", "label": label}
+    wrong = []
+    for text, value in zip(figures, measured):
+        places = len(text.split(".")[1]) if "." in text else 0
+        if round(value, places) != float(text):
+            wrong.append({"stated": text, "measured": round(value, 2)})
+    return {"backed": not wrong, "wrong": wrong, "label": label}
+
+
 def fabric_truth(cir: CIR, twin) -> dict:
     """What the fabric actually does, and whether the name's technique claim is expressible.
 
@@ -313,7 +333,7 @@ CANDIDATES: tuple[Candidate, ...] = (
         title="Nesting Baskets, three sizes",
         what_it_is=(
             "One pattern, three baskets worked in the round from a flat disc base into "
-            "straight walls: 15 cm, 20 cm and 25 cm across at the stated gauge."),
+            "straight walls: 15 cm, 20 cm and 24 cm across at the stated gauge."),
         why_at_launch=(
             "The children's research puts nursery decor first on obligation and "
             "verifiability, not on demand, and a basket is the only nursery-decor object in "
@@ -323,7 +343,7 @@ CANDIDATES: tuple[Candidate, ...] = (
         variants=(
             Variant("small", "15 cm across, 9 cm tall", "basket_small"),
             Variant("medium", "20 cm across, 16 cm tall", "basket_medium"),
-            Variant("large", "25 cm across, 23 cm tall", "basket_large"),
+            Variant("large", "24 cm across, 23 cm tall", "basket_large"),
         ),
         pod="home_decor",
         subcategory="nursery_decor",
@@ -687,6 +707,7 @@ def product_truth(cand: Candidate) -> dict:
                 "stitches": twin.stitch_total,
                 "calibrated": twin.calibrated,
                 "fabric_truth": fabric_truth(cir, twin),
+                "size_label": size_label_backed(v.label, twin.width_cm, twin.height_cm),
             })
         variants.append(row)
 
@@ -696,6 +717,8 @@ def product_truth(cand: Candidate) -> dict:
         "assembly_promise_backed": all(v["assembly_promise"]["backed"] for v in variants),
         "fabric_claim_backed": all(v.get("fabric_truth", {}).get("backed", False)
                                    for v in variants),
+        "size_label_backed": all(v.get("size_label", {}).get("backed", False)
+                                 for v in variants),
     }
     calibrated = all(v.get("calibrated") for v in variants)
     return {
