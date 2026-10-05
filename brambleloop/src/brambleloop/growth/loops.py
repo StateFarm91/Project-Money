@@ -182,6 +182,45 @@ def observe(db, key: str, *, visits: int, orders: int = 0, cost_cad: float = 0.0
         return row.strength
 
 
+def reconcile(db, key: str, *, orders: int, contribution_cad: float,
+              visits: int | None = None) -> dict:
+    """Set a loop's order-derived counters to what the reconciled orders say (CB2-O06).
+
+    `observe` adds; a refund, a cancellation or a re-attribution needs the counters to go
+    *down*, so this sets them from facts and reports the signed correction it applied.
+    `visits` is set only when given (its fact source is the caller's, not the orders').
+    Strength is re-derived from the visits the row now holds: `measured` and `repeatable`
+    need the sample, `attempted` needs any visit or order, and a loop with neither is
+    `untested` -- a strength that stayed `measured` after its evidence was corrected away
+    would be the optimistic field this registry exists to refuse.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import GrowthLoop
+
+    with db.session() as s:
+        row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
+        if row is None:
+            raise LoopRefused(f"unknown loop {key!r}: add it to REGISTRY deliberately")
+        delta = {"orders": int(orders) - int(row.orders or 0),
+                 "contribution_cad": round(float(contribution_cad)
+                                           - float(row.contribution_cad or 0.0), 2),
+                 "visits": 0 if visits is None else int(visits) - int(row.visits or 0)}
+        row.orders = int(orders)
+        row.contribution_cad = round(float(contribution_cad), 2)
+        if visits is not None:
+            row.visits = int(visits)
+        was = row.strength
+        if row.visits >= MEASURED_SAMPLE:
+            row.strength = REPEATABLE if was in (MEASURED, REPEATABLE) else MEASURED
+        elif row.visits > 0 or row.orders > 0:
+            row.strength = ATTEMPTED
+        else:
+            row.strength = UNTESTED
+        return {"key": key, "delta": delta, "strength": row.strength,
+                "strength_was": was, "changed": any(delta.values()) or was != row.strength}
+
+
 def from_db(db) -> tuple[Loop, ...]:
     from sqlalchemy import select
 

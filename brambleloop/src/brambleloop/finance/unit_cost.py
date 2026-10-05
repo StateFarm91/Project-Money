@@ -89,9 +89,15 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         actions = [(a.action, _aware(a.at), a.job_id, a.detail or {})
                    for a in s.scalars(select(AuditLog).where(
                        AuditLog.at >= since, AuditLog.action.in_(produced_actions)))]
-        contribution = s.scalar(select(func.coalesce(
-            func.sum(LedgerEntry.gross_cad - LedgerEntry.fees_cad
-                     - LedgerEntry.refunds_cad - LedgerEntry.expense_cad), 0.0))) or 0.0
+        # Contribution over the SAME window as the operating cost it is divided by (Codex
+        # CB2-P15): a sale from last year does not pay for this month's work, and a ratio
+        # whose two sides cover different periods says nothing. Lifetime is kept beside it,
+        # labelled, and never enters a ratio or the burning flag.
+        net = (LedgerEntry.gross_cad - LedgerEntry.fees_cad - LedgerEntry.refunds_cad
+               - LedgerEntry.expense_cad)
+        contribution = s.scalar(select(func.coalesce(func.sum(net), 0.0)).where(
+            LedgerEntry.at >= since)) or 0.0
+        lifetime_contribution = s.scalar(select(func.coalesce(func.sum(net), 0.0))) or 0.0
 
     window_costs = [c for c in costs if c[2] >= since]
     total_cost = sum(c[1] for c in window_costs)
@@ -153,9 +159,12 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         "contribution_per_operating_dollar": (
             round(float(contribution) / total_cost, 3) if total_cost else None),
         "contribution_cad": round(float(contribution), 2),
+        "contribution_window_days": days,
+        "lifetime_contribution_cad": round(float(lifetime_contribution), 2),
         "burning": bool(total_cost > 0 and float(contribution) <= 0),
         "note": ((f"CA${total_cost:.2f} recorded operating exposure in {days} days; "
-                  f"CA${float(contribution):.2f} lifetime ledger contribution. Ratios use "
+                  f"CA${float(contribution):.2f} ledger contribution in the same {days} days "
+                  f"(CA${float(lifetime_contribution):.2f} lifetime, in no ratio). Ratios use "
                   "recorded amounts and are not proof of observed charges or cash."
                   + (" A six-figure store that burns more than it earns is failure (#31), and "
                      "the comfortable version of that failure is every number rising while "

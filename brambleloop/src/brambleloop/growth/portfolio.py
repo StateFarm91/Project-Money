@@ -31,6 +31,11 @@ SEO_PROBLEM = "SEO_PROBLEM"
 # unappealing product makes a cheaper unappealing product.
 APPEAL_PROBLEM = "APPEAL_PROBLEM"
 CONVERSION_PROBLEM = "CONVERSION_PROBLEM"
+# A discard-shaped verdict (RETIRE / REWORK / APPEAL_PROBLEM) that `commerce.offers.may_retire`
+# withheld because the design has worn too few offer families (#13, CB2-O08). Assigned by
+# `portfolio.review` after the guard, never by `review_portfolio` itself; the withheld
+# verdict is kept in the classification's evidence.
+OFFER_UNTESTED = "OFFER_UNTESTED"
 QUALITY_PROBLEM = "QUALITY_PROBLEM"
 SEASONAL = "SEASONAL"
 REWORK = "REWORK"
@@ -157,6 +162,12 @@ LADDERS: dict[str, list[str]] = {
         "stop spending attention on it",
         "keep it listed if it costs nothing, delist if it dilutes the grid",
         "record why, so the next portfolio does not rebuild the same SKU",
+    ],
+    OFFER_UNTESTED: [
+        "the design has been tested as one offer, not as a design: try the cheapest untried "
+        "deliverable offer before any discard verdict is acted on (#13)",
+        "give each offer enough buyers to mean anything before comparing them",
+        "re-assess as a design once two offer families have worn it",
     ],
     NO_EVIDENCE: [
         "do nothing to the product: it has not been seen enough to judge",

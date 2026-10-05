@@ -35,13 +35,20 @@ KIND = "commerce.orders"
 STUDY_KIND = "replication.study"
 UNMEASURED = "UNMEASURED"
 
-# Where an order's acquisition source maps to a growth loop (#271). Etsy receipts carry no
-# source beyond the marketplace itself, so "etsy" is the organic marketplace loop.
-SOURCE_TO_LOOP = {"etsy": "etsy_organic", "etsy_search": "etsy_organic",
+# Where an order's acquisition source maps to a growth loop (#271). An Etsy receipt carries no
+# acquisition channel -- search, Etsy Ads, Offsite Ads, a pin and a link all produce the same
+# receipt -- so the ingest records `unknown`, and unknown maps to NO loop (CB2-O06): it is
+# counted apart as `unattributed`, never credited to the organic marketplace loop.
+SOURCE_TO_LOOP = {"etsy_search": "etsy_organic",
                   "pinterest": "pinterest", "google": "google_seo", "seo": "google_seo",
                   "creator": "creators", "email": "email", "etsy_ads": "paid_ads",
                   "offsite_ads": "paid_ads", "bundle": "bundles"}
+UNATTRIBUTED = "unattributed"
 REFERRAL_SOURCES = ("referral_code", "unique_link", "recorded_mention", "referral")
+# How the money on every row here was arrived at, stated once and carried on each block that
+# sums it (CB2-O07): fees are estimated from the schedule, FX is measured or assumed per row.
+MONEY_BASIS = {"fees": "estimated", "contribution": "revenue net of refunds less estimated fees",
+               "fx": "per order: measured or assumed, see fx_measured"}
 
 
 def _aware(v):
@@ -72,6 +79,14 @@ def orders(db) -> list[dict]:
                  "contribution_cad": float(o.contribution_cad or 0.0),
                  "acquisition_source": o.acquisition_source or "unknown",
                  "refunded": bool(o.refunded), "is_repeat": bool(o.is_repeat),
+                 # The line's reconciled state and refund (CB2-O01); a row written before
+                 # states existed reads as paid or fully refunded from its flag.
+                 "state": ((o.detail or {}).get("state")
+                           or ("fully_refunded" if o.refunded else "paid")),
+                 "refund_cad": float(((o.detail or {}).get("refund") or {}).get("cad")
+                                     or 0.0),
+                 "fees_basis": (((o.detail or {}).get("money") or {}).get("fees") or {}
+                                ).get("basis") or "estimated",
                  "currency": o.currency or "CAD", "fx_measured": bool(o.fx_measured),
                  "fx_usd_per_cad": o.fx_usd_per_cad}
                 for o in s.scalars(select(Order).order_by(Order.at))]
@@ -137,12 +152,15 @@ def offer_results(db) -> list:
     results = []
     for (slug, offer), mine in sorted(grouped.items()):
         kept = [o for o in mine if not o["refunded"]]
+        # Revenue on each row is already net of its refund and a refunded row's
+        # contribution is its retained fees (a loss), so both are summed over every order
+        # the offer took: dropping the refunded rows would drop the losses (CB2-O07).
         results.append(offers.Result(
             design_slug=slug, offer=offer,
             visitors=(visits.get(slug) if offer == offers.SINGLE and slug in visits else None),
             buyers=len({o["customer_ref"] for o in kept}),
-            revenue_cad=round(sum(o["revenue_cad"] for o in kept), 2),
-            contribution_cad=round(sum(o["contribution_cad"] for o in kept), 2)))
+            revenue_cad=round(sum(o["revenue_cad"] for o in mine), 2),
+            contribution_cad=round(sum(o["contribution_cad"] for o in mine), 2)))
     return results
 
 
@@ -154,6 +172,7 @@ def offer_block(db) -> dict:
         return {"reading": UNMEASURED, "results": [],
                 "why": "no order exists, so no offer has a buyer or a visitor to divide by"}
     return {"reading": "measured", "comparison": offers.compare(results),
+            "money_basis": MONEY_BASIS,
             "results": [{"design": r.design_slug, "offer": r.offer, **r.measures()}
                         for r in results]}
 
@@ -381,14 +400,14 @@ def ladder_block(db, rows: list[dict], *, today: date | None = None) -> dict:
                       "moved": len(moved)})
     by_customer: dict[str, dict] = {}
     for o in rows:
+        b = by_customer.setdefault(o["customer_ref"], {"orders": 0, "contribution_cad": 0.0})
         if not o["refunded"]:
-            b = by_customer.setdefault(o["customer_ref"], {"orders": 0, "contribution_cad": 0.0})
             b["orders"] += 1
-            b["contribution_cad"] += o["contribution_cad"]
+        b["contribution_cad"] += o["contribution_cad"]  # losses retained (CB2-O07)
     return {
         "reading": "measured" if products else UNMEASURED,
         "why": "" if products else "no priced listing exists to place on a rung",
-        "products": products, "shape": shape,
+        "products": products, "shape": shape, "money_basis": MONEY_BASIS,
         "discount_guard": guard,
         "discount_refused": sorted(g["slug"] for g in guard if not g["ok"]),
         "movement": ladder.movement(moves),
@@ -450,7 +469,32 @@ def bundle_block(db) -> dict:
 # #235
 
 
+# The one promotion/referral verdict contract (CB2-X01). Any other reader of these decisions
+# -- the growth operations loop included -- consumes `promotion_block` / `referral_block`
+# through `latest()` / `directives()` or states a distinct purpose; it does not recompute a
+# verdict from the same rows under different thresholds.
+PROMOTION_CONTRACT = {
+    "evidence": ("launch cohort arms (`cohorts` rows with arm organic/promoted) and the "
+                 "shop's own on-sale price observations"),
+    "window": "the recorded sale window (from_date..to_date) per product",
+    "verdict": "commerce.promotion.incrementality: 'worth repeating' or not; measurable only "
+               "with a full-price arm beside the discounted one",
+    "acted_on_by": "pricing.position refuses a sale price for `do_not_repeat` products",
+    "canonical_reader": "commerce.order_readings.promotion_block",
+}
+REFERRAL_CONTRACT = {
+    "evidence": ("orders whose acquisition_source is a referral source and is_repeat is "
+                 "false; referral_reward ledger entries"),
+    "window": "all recorded orders while the order source is live",
+    "verdict": "commerce.referral.outcome and per-mechanic check against the validation "
+               "cohort's lifetime contribution per buyer",
+    "acted_on_by": "the mechanics in `may_run` are the only ones a growth job may operate",
+    "canonical_reader": "commerce.order_readings.referral_block",
+}
+
+
 def promotion_block(db) -> dict:
+    """The canonical promotion verdicts (#235); see PROMOTION_CONTRACT (CB2-X01)."""
     from sqlalchemy import select
 
     from ..core.models import Cohort, PriceObservation
@@ -492,7 +536,7 @@ def promotion_block(db) -> dict:
             "why": ("" if measured else
                     "no promotion has run beside a full-price arm, so no discount can be "
                     "shown to be accretive -- and none is assumed to be"),
-            "verdicts": verdicts,
+            "verdicts": verdicts, "contract": PROMOTION_CONTRACT,
             "do_not_repeat": sorted(v["slug"] for v in measured
                                     if v.get("verdict") != "worth repeating")}
 
@@ -509,8 +553,11 @@ def repeat_block(rows: list[dict], *, as_of: datetime) -> dict:
                 "windows": repeat.windows([], axis="first_product", value=""),
                 "lifetime_contribution": None}
     firsts: dict[str, dict] = {}
-    for o in sorted(rows, key=lambda o: o["at"]):
-        if not o["refunded"]:
+    # The first purchase is the earliest paid order, whether or not the money later went
+    # back: the same rule `cohorts.reconcile_customer` writes, so this block and the cohort
+    # tables cannot disagree about who a buyer's first product was (CB2-O04).
+    for o in sorted(rows, key=lambda o: (o["at"], o["customer_ref"])):
+        if o["state"] in ("paid", "partially_refunded", "fully_refunded"):
             firsts.setdefault(o["customer_ref"], o)
     out: dict[str, dict] = {}
     for axis, key in (("first_product", "product_slug"), ("first_category", "category"),
@@ -522,9 +569,8 @@ def repeat_block(rows: list[dict], *, as_of: datetime) -> dict:
                                                         as_of=as_of)
     per_customer: dict[str, float] = {}
     for o in rows:
-        if not o["refunded"]:
-            per_customer[o["customer_ref"]] = (per_customer.get(o["customer_ref"], 0.0)
-                                               + o["contribution_cad"])
+        per_customer[o["customer_ref"]] = (per_customer.get(o["customer_ref"], 0.0)
+                                           + o["contribution_cad"])  # losses retained
     lifetime = {}
     for label, w in out.items():
         axis, value = label.split("=", 1)
@@ -535,7 +581,7 @@ def repeat_block(rows: list[dict], *, as_of: datetime) -> dict:
                                  / len(members), 2) if members else None)
     measured = [k for k, v in out.items() if v.get("measurable")]
     return {"reading": "measured" if measured else UNMEASURED, "windows": out,
-            "lifetime_contribution_per_buyer_cad": lifetime,
+            "lifetime_contribution_per_buyer_cad": lifetime, "money_basis": MONEY_BASIS,
             "next_projects": {f["product_slug"]: [r["slug"] for r in repeat.recommend(
                 f["product_slug"]).get("next_project", [])[:3]]
                               for f in firsts.values() if _in_pool(f["product_slug"])}}
@@ -566,7 +612,7 @@ def referral_block(db, rows: list[dict], *, contribution_per_customer: float | N
         attributed = {o["customer_ref"] for o in rows
                       if o["acquisition_source"] in REFERRAL_SOURCES and not o["is_repeat"]}
         contribution = round(sum(o["contribution_cad"] for o in rows
-                                 if o["customer_ref"] in attributed and not o["refunded"]), 2)
+                                 if o["customer_ref"] in attributed), 2)  # losses retained
         result = referral.outcome(attributed_customers=len(attributed),
                                   contribution_cad=contribution, reward_spend_cad=rewards)
     else:
@@ -576,7 +622,7 @@ def referral_block(db, rows: list[dict], *, contribution_per_customer: float | N
               for m in referral.DECLARED]
     return {"outcome": result, "mechanics": checks,
             "may_run": sorted(c["mechanic"] for c in checks if c["ok"]),
-            "source_live": live}
+            "source_live": live, "contract": REFERRAL_CONTRACT}
 
 
 # ---------------------------------------------------------------------------
@@ -584,39 +630,60 @@ def referral_block(db, rows: list[dict], *, contribution_per_customer: float | N
 
 
 def loop_block(db, rows: list[dict]) -> dict:
-    """Bring each loop's recorded traffic and orders up to what the rows now say."""
+    """Bring each loop's counters to what the reconciled rows now say (#271, CB2-O06).
+
+    Orders are counted per loop as paid events (`orders`), with the refunded ones and the net
+    outcome (`net_orders`, `contribution_cad`, losses retained) reported beside them, and
+    the registry row is *set* to the facts through `loops.reconcile`, so a refund or a
+    correction moves a counter down as readily as a sale moved it up. An order whose
+    acquisition is unknown -- every Etsy receipt today -- is counted under `unattributed`
+    and credited to no loop.
+    """
     from sqlalchemy import select
 
-    from ..core.models import GrowthLoop, ListingOutcome
+    from ..core.models import ListingOutcome
     from ..growth import loops
 
     loops.seed(db)
     with db.session() as s:
         etsy_visits = sum(int(r.visits or 0) for r in s.scalars(select(ListingOutcome)))
-    want: dict[str, dict] = {k: {"visits": 0, "orders": 0, "contribution": 0.0}
-                             for k in loops.BY_KEY}
-    want["etsy_organic"]["visits"] = etsy_visits
+    empty = lambda: {"orders": 0, "refunded": 0, "net_orders": 0, "contribution": 0.0}  # noqa: E731
+    want: dict[str, dict] = {k: empty() for k in loops.BY_KEY}
+    unattributed = empty()
     for o in rows:
-        if o["refunded"]:
+        # A row without a state reads from its refunded flag, as `orders()` does.
+        state = o.get("state") or ("fully_refunded" if o.get("refunded") else "paid")
+        if state not in ("paid", "partially_refunded", "fully_refunded"):
             continue
-        key = SOURCE_TO_LOOP.get(o["acquisition_source"])
-        if key:
-            want[key]["orders"] += 1
-            want[key]["contribution"] += o["contribution_cad"]
+        key = SOURCE_TO_LOOP.get(o.get("acquisition_source") or "unknown")
+        bucket = want[key] if key else unattributed
+        bucket["orders"] += 1
+        if o.get("refunded") or state == "fully_refunded":
+            bucket["refunded"] += 1
+        else:
+            bucket["net_orders"] += 1
+        bucket["contribution"] += float(o.get("contribution_cad") or 0.0)
     moved = {}
     for key, w in want.items():
-        with db.session() as s:
-            row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
-            have_v, have_o = int(row.visits or 0), int(row.orders or 0)
-        dv, do = max(0, w["visits"] - have_v), max(0, w["orders"] - have_o)
-        if dv or do:
-            moved[key] = loops.observe(db, key, visits=dv, orders=do)
-        with db.session() as s:
-            row = s.scalar(select(GrowthLoop).where(GrowthLoop.key == key))
-            row.contribution_cad = round(w["contribution"], 2)
+        # The registry carries the NET outcome: a sale later refunded in full is not an
+        # order the loop delivered, so the counter goes down when the refund arrives (Codex
+        # CB2-O06). Paid events and refunds stay beside it in `by_loop`.
+        got = loops.reconcile(db, key, orders=w["net_orders"],
+                              contribution_cad=round(w["contribution"], 2),
+                              visits=etsy_visits if key == "etsy_organic" else None)
+        if got["changed"]:
+            moved[key] = got
     summary = loops.evidence_summary(loops.from_db(db))
     return {"moved": moved, "with_evidence": summary["with_evidence"],
-            "loops": summary["loops_detail"], "note": summary["note"]}
+            "loops": summary["loops_detail"], "note": summary["note"],
+            "by_loop": {k: {**w, "contribution": round(w["contribution"], 2)}
+                        for k, w in want.items() if w["orders"]},
+            "unattributed": {**unattributed,
+                             "contribution": round(unattributed["contribution"], 2),
+                             "why": ("acquisition unknown: an Etsy receipt names no channel, "
+                                     "so these orders are credited to no loop rather than "
+                                     "assumed organic")},
+            "money_basis": MONEY_BASIS}
 
 
 # ---------------------------------------------------------------------------

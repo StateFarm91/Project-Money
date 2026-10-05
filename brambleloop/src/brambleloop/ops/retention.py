@@ -161,6 +161,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                             "creative.standard.north_star_cohorts (C-64) also reads them by "
                             "month inside the horizon; older cohorts live on in the daily "
                             "creative.north_star operating_readings rows"),
+    "cir.drafted": ("windowed",
+                    "creative.standard.north_star_cohorts (CB2-O10) counts the month's drafted "
+                    "CIRs as the engineering event behind concept_to_engineering_survival, "
+                    "inside the horizon; older cohorts live on in the daily "
+                    "creative.north_star operating_readings rows"),
     "store.pdf_hash_verified": ("latest",
                                 "commerce.first_hundred reads the latest verification to "
                                 "say whether the delivery path is proven"),

@@ -289,14 +289,30 @@ def test_a_receipt_level_fee_is_shared_across_its_lines_by_price():
 
 
 def test_a_cancelled_receipt_keeps_no_revenue():
+    """FB-1 D's rule (a cancelled receipt keeps no money) read through CB2-O02: a receipt
+    cancelled before it was ever recorded is not a sale -- held by name, no order, no ledger
+    row, no customer -- and a recorded sale cancelled afterwards is voided in place."""
     db = _db()
     _listing(db)
     _open_gate(db)
-    orders_ingest.ingest(db, reader=Feed([_receipt(1, 501, "222", 900, status="canceled")]))
+    got = orders_ingest.ingest(db, reader=Feed([_receipt(1, 501, "222", 900,
+                                                         status="canceled")]))
+    assert got["held_by_state"] == {"cancelled": 1}
+    with db.session() as s:
+        assert s.scalar(select(Order)) is None
+        assert s.scalar(select(LedgerEntry)) is None
+        assert s.scalar(select(Customer)) is None
+    paid = _receipt(2, 502, "222", 900)
+    orders_ingest.ingest(db, reader=Feed([paid]))
+    cancelled = dict(paid, status="canceled",
+                     update_timestamp=paid["create_timestamp"] + 3600)
+    orders_ingest.ingest(db, reader=Feed([cancelled]))
     with db.session() as s:
         order = s.scalar(select(Order))
+        row = s.scalar(select(LedgerEntry))
     assert order.refunded is True and order.revenue_cad == 0.0
     assert order.detail["receipt_status"] == "canceled"
+    assert row.refunds_cad == row.gross_cad == 9.0
 
 
 def test_the_production_reader_reads_the_ledger_through_the_client_transport():
