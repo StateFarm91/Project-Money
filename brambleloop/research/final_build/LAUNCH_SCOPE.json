@@ -7,13 +7,13 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 123
+     "rows": 394
     }
    },
-   "rows_on_base": 743,
+   "rows_on_base": 472,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD 6f9a2f7 reachability; production fcb982d",
+  "reachability": "HEAD f5f9ced reachability; production fcb982d",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json"
  },
