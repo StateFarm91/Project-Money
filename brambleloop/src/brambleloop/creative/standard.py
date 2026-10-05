@@ -369,21 +369,39 @@ def north_star(cohorts: dict[str, dict]) -> dict:
     }
 
 
-def north_star_cohorts(db) -> dict[str, dict]:
+# Leading indicators that are NOT north-star metrics: each stands upstream of the lifecycle
+# event its metric is named for, and is reported beside it under its own name, never in its
+# place (CB2-O10). A tournament survivor has not reached engineering; a drafted listing has
+# not launched.
+NORTH_STAR_PROXIES: dict[str, str] = {
+    "tournament_survival": ("tournament survivors / concepts generated -- upstream of "
+                            "concept_to_engineering_survival, which needs a CIR drafted"),
+    "listing_drafted_share": ("products with any listing row / products -- upstream of "
+                              "concept_to_launch_survival, which needs a publication"),
+}
+
+
+def north_star_cohorts(db, *, with_proxies: bool = False):
     """The north-star metrics by monthly cohort, read from the rows that record them (C-64).
 
     A cohort is the calendar month a concept was generated (tournaments and expeditions) or
     a product was first recorded. Each metric is present only where its rows exist, so a
     metric a cohort has no evidence for is absent -- `north_star` reports it unmeasured --
-    and never a zero:
+    and never a zero. Each is computed from the lifecycle event it is named for (CB2-O10):
 
-    * concept_to_engineering_survival: tournament survivors / concepts generated;
+    * concept_to_engineering_survival: the month's `cir.drafted` releases (a concept became a
+      CIR: the engineering event) / the concepts the month's tournaments generated;
     * novelty_distance: mean novelty distance of the month's research survivors;
     * blind_grid_score: mean of our cells' judged grid scores from `creative.grid_tournament`;
-    * concept_to_launch_survival: the month's products that reached a listing;
+    * concept_to_launch_survival: the month's products that were PUBLISHED (a
+      `store.published` audit row or a listing in state `published`), not merely drafted;
     * creative_defect_rate: the month's certified products that produced a quality incident;
     * ctr, favourite_rate, conversion, contribution, bestseller_incidence,
-      collection_attach_rate: from listing outcomes and orders of the month's products.
+      collection_attach_rate: from listing outcomes and orders of the month's products, with
+      refunds reconciled and losses retained.
+
+    With `with_proxies`, returns `(cohorts, proxies)` where the proxies are the leading
+    indicators in `NORTH_STAR_PROXIES`, by cohort, labelled as such.
     """
     from sqlalchemy import select
 
@@ -394,16 +412,27 @@ def north_star_cohorts(db) -> dict[str, dict]:
         return at.strftime("%Y-%m") if at is not None else ""
 
     acc: dict[str, dict[str, list[float]]] = {}
+    proxies: dict[str, dict[str, list[float]]] = {}
 
-    def add(cohort: str, metric: str, value) -> None:
+    def add(cohort: str, metric: str, value, into=None) -> None:
         if cohort and isinstance(value, (int, float)):
-            acc.setdefault(cohort, {}).setdefault(metric, []).append(float(value))
+            (acc if into is None else into).setdefault(cohort, {}).setdefault(
+                metric, []).append(float(value))
 
+    generated_by_month: dict[str, int] = {}
+    drafted_by_month: dict[str, set] = {}
     with db.session() as s:
         for a in s.scalars(select(AuditLog).where(AuditLog.action.in_(
-                ("creative.tournament", "creative.expedition", "creative.grid_tournament")))):
+                ("creative.tournament", "creative.expedition", "creative.grid_tournament",
+                 "cir.drafted", "store.published")))):
             d = a.detail or {}
             m = month(a.at)
+            if a.action == "cir.drafted":
+                if a.artifact:
+                    drafted_by_month.setdefault(m, set()).add(a.artifact.split("@")[0])
+                continue
+            if a.action == "store.published":
+                continue
             if a.action == "creative.grid_tournament":
                 for pod in (d.get("pods") or {}).values():
                     for v in ((pod or {}).get("our_scores") or {}).values():
@@ -411,15 +440,22 @@ def north_star_cohorts(db) -> dict[str, dict]:
                 continue
             generated = int(((d.get("field") or {}).get("generated")) or 0)
             survivors = d.get("survivors")
-            if a.action == "creative.tournament" and generated > 0 and isinstance(survivors,
-                                                                                  list):
-                add(m, "concept_to_engineering_survival", len(survivors) / generated)
+            if generated > 0:
+                generated_by_month[m] = generated_by_month.get(m, 0) + generated
+            n_survivors = (len(survivors) if isinstance(survivors, list)
+                           else survivors if isinstance(survivors, int) else None)
+            if a.action == "creative.tournament" and generated > 0 and n_survivors is not None:
+                add(m, "tournament_survival", n_survivors / generated, proxies)
             for e in (d.get("research_survivors") or d.get("survivors") or []):
                 if isinstance(e, dict):
                     add(m, "novelty_distance", e.get("novelty_distance"))
 
         products = list(s.scalars(select(Product)))
         listed = {r.product_slug for r in s.scalars(select(Listing))}
+        published = {r.product_slug for r in s.scalars(select(Listing).where(
+            Listing.state == "published"))}
+        published |= {a.artifact.split("@")[0] for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "store.published")) if a.artifact}
         certified = {p.slug for p, _v in s.execute(
             select(Product, PatternVersion).where(PatternVersion.product_id == Product.id,
                                                   PatternVersion.certified.is_(True)))}
@@ -433,11 +469,19 @@ def north_star_cohorts(db) -> dict[str, dict]:
             orders.setdefault(o.product_slug, []).append(o)
         cohort_of = {p.slug: month(p.created_at) for p in products}
 
+    # The engineering event: concepts generated in the month against CIRs drafted in it.
+    for m, generated in generated_by_month.items():
+        add(m, "concept_to_engineering_survival",
+            len(drafted_by_month.get(m, set())) / generated)
+
     by_cohort: dict[str, list[str]] = {}
     for slug, m in cohort_of.items():
         by_cohort.setdefault(m, []).append(slug)
     for m, slugs in by_cohort.items():
-        add(m, "concept_to_launch_survival", sum(1 for x in slugs if x in listed) / len(slugs))
+        add(m, "concept_to_launch_survival",
+            sum(1 for x in slugs if x in published) / len(slugs))
+        add(m, "listing_drafted_share", sum(1 for x in slugs if x in listed) / len(slugs),
+            proxies)
         released = [x for x in slugs if x in certified]
         if released:
             add(m, "creative_defect_rate",
@@ -446,15 +490,21 @@ def north_star_cohorts(db) -> dict[str, dict]:
         visits = sum(int(r.visits or 0) for x in slugs for r in outcomes.get(x, []))
         favs = [int(r.favourites) for x in slugs for r in outcomes.get(x, [])
                 if r.favourites is not None]
-        sold = [o for x in slugs for o in orders.get(x, []) if not o.refunded]
+        # Paid sales, refunds reconciled: a refunded order is not a conversion, but its
+        # contribution (a loss of fees) stays in the money (CB2-O07).
+        placed = [o for x in slugs for o in orders.get(x, [])
+                  if ((o.detail or {}).get("state") or "paid") in
+                  ("paid", "partially_refunded", "fully_refunded")]
+        sold = [o for o in placed if not o.refunded]
         if imps:
             add(m, "ctr", visits / imps)
         if visits:
             if favs:
                 add(m, "favourite_rate", sum(favs) / visits)
             add(m, "conversion", len(sold) / visits)
+        if placed:
+            add(m, "contribution", sum(float(o.contribution_cad or 0.0) for o in placed))
         if sold:
-            add(m, "contribution", sum(float(o.contribution_cad or 0.0) for o in sold))
             per = {}
             for o in sold:
                 per[o.product_slug] = per.get(o.product_slug, 0) + 1
@@ -467,17 +517,25 @@ def north_star_cohorts(db) -> dict[str, dict]:
             add(m, "collection_attach_rate",
                 sum(1 for v in receipts.values() if len(v) > 1) / len(receipts))
 
-    return {m: {k: round(sum(v) / len(v), 4) for k, v in metrics.items()}
-            for m, metrics in sorted(acc.items()) if m}
+    def fold(table):
+        return {m: {k: round(sum(v) / len(v), 4) for k, v in metrics.items()}
+                for m, metrics in sorted(table.items()) if m}
+
+    if with_proxies:
+        return fold(acc), fold(proxies)
+    return fold(acc)
 
 
 def north_star_from_db(db) -> dict:
     """`north_star` over the cohorts the database records -- never over an empty dict."""
-    cohorts = north_star_cohorts(db)
+    cohorts, proxies = north_star_cohorts(db, with_proxies=True)
     out = north_star(cohorts)
     out["by_cohort"] = cohorts
-    out["source"] = ("creative.tournament / creative.expedition / creative.grid_tournament "
-                     "audit rows, products, listings, incidents, listing outcomes and orders")
+    out["proxies_by_cohort"] = proxies
+    out["proxies"] = dict(NORTH_STAR_PROXIES)
+    out["source"] = ("creative.tournament / creative.expedition / creative.grid_tournament / "
+                     "cir.drafted / store.published audit rows, products, published "
+                     "listings, incidents, listing outcomes and reconciled orders")
     return out
 
 

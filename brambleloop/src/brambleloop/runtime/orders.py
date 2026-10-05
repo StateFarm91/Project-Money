@@ -77,10 +77,19 @@ def handle_orders_ingest(ctx: JobContext) -> dict:
 
     got = orders_ingest.ingest(ctx.db)
     summary = {k: got.get(k) for k in ("ran", "reading", "receipts", "orders_created",
+                                       "orders_reconciled", "reconciliations",
                                        "customers_created", "ledger_entries",
-                                       "versions_recorded", "network_calls")}
+                                       "versions_recorded", "versions_unknown",
+                                       "network_calls", "since", "read_mode", "cursor",
+                                       "held", "held_by_state", "validation_cohort")}
     summary["gate_missing"] = got["gate"]["missing"]
-    if got.get("orders_created"):
+    if got.get("held"):
+        # Receipts held for an unrecognised state are a reader contract this module does not
+        # know yet, not sales and not zero: surfaced by name so somebody teaches it.
+        summary["held_unknown"] = [h["ref"] for h in got["held"] if h["held"] == "unknown"]
+    if got.get("orders_created") or got.get("orders_reconciled"):
+        # A new order or a reconciled one (a refund, a cancellation) changes what every
+        # reader says, so the readings run now rather than at the next daily cadence.
         ctx.enqueue("cfo", READINGS, {},
                     idempotency_key=f"{READINGS}:after-ingest:{ctx.job.id}")
         summary["queued_readings"] = True

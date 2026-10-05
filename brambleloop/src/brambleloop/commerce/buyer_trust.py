@@ -415,13 +415,14 @@ def correction_notice(*, product_slug: str, from_versions: tuple, to_version: st
 # ---------------------------------------------------------------------------
 # #42, persisted: the order-to-version map as a table, written on the order path
 
-def current_safe_version(db, product_slug: str) -> str:
+def current_safe_version(db, product_slug: str, *, session=None) -> str:
     """The newest certified version of a product, or "" when none is certified."""
     from sqlalchemy import select
 
     from ..core.models import PatternVersion, Product
+    from .cohorts import use_session
 
-    with db.session() as s:
+    with use_session(db, session) as s:
         rows = list(s.scalars(select(PatternVersion).join(Product).where(
             Product.slug == product_slug, PatternVersion.certified.is_(True))))
     if not rows:
@@ -431,23 +432,24 @@ def current_safe_version(db, product_slug: str) -> str:
 
 
 def record_sale_version(db, *, order_ref: str, product_slug: str, version: str,
-                        release_hash: str = "", sold_at=None) -> dict:
+                        release_hash: str = "", sold_at=None, session=None) -> dict:
     """Write which version an order bought, at sale time. Idempotent per order (#42).
 
-    Called from the order path (`commerce.cohorts.record_order` is the intended caller). A
-    second call for the same order changes nothing: what a buyer bought does not change
-    because somebody recorded it twice.
+    Called from the order path (`commerce.cohorts.record_order` is the intended caller,
+    inside the order's own transaction). A second call for the same order changes nothing:
+    what a buyer bought does not change because somebody recorded it twice.
     """
     from datetime import datetime, timezone
 
     from sqlalchemy import select
 
     from ..core.models import OrderVersion, PatternVersion, Product
+    from .cohorts import use_session
 
     if not order_ref or not product_slug or not version:
         raise TrustRefused("an order maps to a product and a version, or support cannot "
                            "answer it")
-    with db.session() as s:
+    with use_session(db, session) as s:
         existing = s.scalar(select(OrderVersion).where(OrderVersion.order_ref == order_ref))
         if existing is not None:
             return {"created": False, "order_ref": order_ref,
@@ -456,12 +458,12 @@ def record_sale_version(db, *, order_ref: str, product_slug: str, version: str,
             pv = s.scalar(select(PatternVersion).join(Product).where(
                 Product.slug == product_slug, PatternVersion.version == version))
             release_hash = (pv.release_hash or "") if pv is not None else ""
-    safe = current_safe_version(db, product_slug) or version
-    with db.session() as s:
+        safe = current_safe_version(db, product_slug, session=s) or version
         s.add(OrderVersion(order_ref=order_ref, product_slug=product_slug, version=version,
                            release_hash=release_hash,
                            sold_at=sold_at or datetime.now(timezone.utc),
                            current_safe_version=safe))
+        s.flush()
     return {"created": True, "order_ref": order_ref, "version": version,
             "release_hash": release_hash, "current_safe_version": safe}
 
@@ -746,43 +748,108 @@ def _version_key(v: str) -> tuple:
     return tuple(int(p) if p.isdigit() else 0 for p in (v or "").split("."))
 
 
+# The states a prepared notice moves through. Preparation is this system's; delivery is the
+# owner's (shadow mode messages nobody), and the two are never one field (CB2-O09).
+NOTICE_PREPARED = "prepared"
+NOTICE_NOT_SENT = "not_sent"
+
+
+def _correction_relation(correction) -> dict | None:
+    """The declared correction relation, normalised, or None when nothing was declared."""
+    if not isinstance(correction, dict):
+        return None
+    versions = tuple(str(v) for v in (correction.get("of_versions") or []) if str(v))
+    hashes = tuple(str(h) for h in (correction.get("of_release_hashes") or []) if str(h))
+    what = str(correction.get("what_changed") or "").strip()
+    if not (versions or hashes) or not what:
+        return None
+    return {"of_versions": versions, "of_release_hashes": hashes, "what_changed": what}
+
+
+def release_eligible(db, *, product_slug: str, version: str, release_hash: str = "") -> dict:
+    """Whether this version is a certified, stored release buyers can actually be pointed at.
+
+    A correction notice tells a buyer to work from another version, so that version has to
+    exist as a certified release row -- a certificate that was granted but never persisted,
+    or a hash that does not match the stored release, is not something to send anyone to.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == product_slug, PatternVersion.version == version))
+        if pv is None:
+            return {"eligible": False, "why": f"no stored release row for "
+                                             f"{product_slug}@{version}"}
+        if not pv.certified:
+            return {"eligible": False, "why": f"{product_slug}@{version} is stored but not "
+                                             f"certified"}
+        if release_hash and (pv.release_hash or "") != release_hash:
+            return {"eligible": False,
+                    "why": (f"the stored release hash for {product_slug}@{version} is not the "
+                            f"one this certification produced")}
+    return {"eligible": True, "why": ""}
+
+
 def on_certified(db, *, product_slug: str, version: str, release_hash: str = "",
-                 previous_release_hash: str = "") -> dict:
+                 previous_release_hash: str = "", correction=None) -> dict:
     """Called by `gate.certify` when a release certifies (#42).
 
-    A newer certified version corrects every older one a buyer holds; a re-certification of
-    the same version under a different release hash corrects the buyers who received the
-    old hash. Either way the affected orders are read from `order_versions` (written at sale
-    time), every affected row's `current_safe_version` moves to the new version, the notice
-    is prepared with `correction_notice` and kept on the row, and sending it -- messaging
-    customers, which shadow mode refuses and the owner authorises -- becomes one owner
-    action per correction. No affected buyer, no notice and no action.
+    A certification is a correction only when it says so. `correction` is the declared
+    relation -- `{"of_versions": [...], "of_release_hashes": [...], "what_changed": "..."}`
+    -- carried on the certify job's inputs by whoever re-engineered the pattern. Without it a
+    newer version is a routine release: buyers of older versions are not told anything,
+    their `current_safe_version` does not move, and nothing is prepared (CB2-O09). With it,
+    and only when the new version is an eligible stored release, the affected orders are read
+    from `order_versions` (written at sale time), each affected row's `current_safe_version`
+    moves to the new version, the notice is prepared and kept on the row in state
+    `prepared` with its delivery state `not_sent`, and sending -- messaging customers, which
+    shadow mode refuses and the owner authorises -- becomes one owner action per correction.
+
+    Orders of this product whose delivered version is unknown (no `order_versions` row,
+    because the sale predates any recorded listing version) cannot be excluded; they are
+    counted and routed to the same review rather than silently treated as unaffected
+    (CB2-O03).
     """
     from datetime import datetime, timezone
 
     from sqlalchemy import select
 
-    from ..core.models import OrderVersion, OwnerAction
+    from ..core.models import Order, OrderVersion, OwnerAction
+
+    relation = _correction_relation(correction)
+    base = {"product_slug": product_slug, "version": version, "affected_count": 0,
+            "notice": None, "correction": relation is not None}
+    if relation is None:
+        return {**base, "why": ("routine release: no correction relation was declared, so "
+                                "no buyer is told to move and no notice is prepared")}
+    eligibility = release_eligible(db, product_slug=product_slug, version=version,
+                                   release_hash=release_hash)
+    if not eligibility["eligible"]:
+        return {**base, "eligible": False,
+                "why": f"correction declared but not releasable: {eligibility['why']}"}
 
     with db.session() as s:
         rows = list(s.scalars(select(OrderVersion).where(
             OrderVersion.product_slug == product_slug)))
         held = [(r.order_ref, r.version, r.release_hash) for r in rows]
+        unknown_version = sorted(o.external_ref for o in s.scalars(select(Order).where(
+            Order.product_slug == product_slug, Order.version == "")))
     older = sorted({v for _ref, v, _h in held
-                    if _version_key(v) < _version_key(version)})
+                    if v in relation["of_versions"] and _version_key(v) < _version_key(version)})
+    hashes = set(relation["of_release_hashes"])
+    if previous_release_hash and version in relation["of_versions"]:
+        hashes.add(previous_release_hash)
     same_old_hash = sorted({ref for ref, v, h in held
-                            if v == version and previous_release_hash
-                            and h == previous_release_hash and h != release_hash})
+                            if v == version and h and h in hashes and h != release_hash})
     if not older and not same_old_hash:
-        return {"product_slug": product_slug, "version": version, "affected_count": 0,
-                "notice": None,
-                "why": ("no recorded buyer holds a version this release corrects"
+        return {**base, "eligible": True, "version_unknown_orders": unknown_version,
+                "why": ("no recorded buyer holds a version this correction names"
                         if held else "no order of this product has been recorded")}
 
-    what = (f"Version {version} of this pattern was certified after yours and replaces "
-            f"{', '.join(older + ([version] if same_old_hash else []))}: work started from "
-            f"your copy should be checked against the corrected pattern from the first "
-            f"differing row.")
+    what = relation["what_changed"]
     affected = affected_orders(db, product_slug=product_slug, corrected_from=tuple(older))
     if same_old_hash:
         with db.session() as s:
@@ -797,19 +864,27 @@ def on_certified(db, *, product_slug: str, version: str, release_hash: str = "",
         for r in s.scalars(select(OrderVersion).where(OrderVersion.order_ref.in_(refs))):
             r.current_safe_version = version
             r.detail = {**(r.detail or {}),
-                        "correction_notice": {"to_version": version, "prepared_at": now,
-                                              "sent": False}}
+                        "correction_notice": {
+                            "to_version": version, "prepared_at": now,
+                            "state": NOTICE_PREPARED, "sent": False,
+                            "delivery": {"state": NOTICE_NOT_SENT, "sent_at": None,
+                                         "authorised_by": None},
+                            "what_changed": what[:300]}}
         key = f"{CORRECTION_ACTION_PREFIX}{product_slug}@{version}"
+        review = (f"; {len(unknown_version)} further order(s) of this product hold an "
+                  f"unrecorded version and need review before they are treated as unaffected"
+                  if unknown_version else "")
         if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)) is None:
             s.add(OwnerAction(
                 requirement_key=key,
                 action=(f"Approve sending the prepared correction notice for {product_slug} "
-                        f"{version} to {len(refs)} buyer(s)"),
+                        f"{version} to {len(refs)} buyer(s){review}"),
                 reason=notice["body"][:500], max_cost_cad=0.0, minutes=5,
                 consequence_of_delay=("buyers keep working from a version with a known "
                                       "correction; support answers against their version "
                                       "meanwhile"),
                 blocks="#42 correction notice"))
-    return {"product_slug": product_slug, "version": version,
-            "affected_count": len(refs), "affected_orders": refs,
-            "notice": notice, "owner_action": key}
+    return {**base, "eligible": True, "affected_count": len(refs), "affected_orders": refs,
+            "version_unknown_orders": unknown_version,
+            "notice": notice, "owner_action": key,
+            "states": {"preparation": NOTICE_PREPARED, "delivery": NOTICE_NOT_SENT}}

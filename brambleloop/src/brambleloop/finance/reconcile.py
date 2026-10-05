@@ -138,6 +138,7 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
     from . import listing_costs
     listing_fee_entries = listing_costs.ingest_actual(db, norm)
     fees = [e for e in norm if e["kind"] in FEE_KINDS]
+    refund_entries = [e for e in norm if e["kind"] == "refund"]
     by_ref: dict[str, list[dict]] = {}
     for e in fees:
         by_ref.setdefault(e["reference_id"], []).append(e)
@@ -186,8 +187,11 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
                     + offsite, 2)
                 if o.offsite_ads_fee_cad > 0:
                     o.offsite_ad_attributed = True
-                revenue = 0.0 if o.refunded else float(o.revenue_cad or 0.0)
-                o.contribution_cad = round(max(0.0, revenue - o.fees_cad), 2)
+                # `revenue_cad` is already net of every refund the receipt carries (and 0
+                # for a full refund or a cancellation). Signed: a refunded sale whose fees
+                # stayed with Etsy is a loss, and the books keep it (CB2-O07).
+                revenue = float(o.revenue_cad or 0.0)
+                o.contribution_cad = round(revenue - o.fees_cad, 2)
                 state = (RECONCILED if all(k in kinds for k in EXPECTED_PER_ORDER)
                          else PARTIAL)
                 detail["fee_entries"] = sorted(done | {e["entry_id"] for e, _ in new})
@@ -208,6 +212,7 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
                                                                            ""):
                     attributions.append((o.external_ref, ",".join(
                         e["entry_id"] for e, _ in new if e["kind"] == "offsite_ads_fee")))
+        refunds = _apply_refunds(s, by_receipt, refund_entries)
     for ref, ids in attributions:
         sources.attribute(db, ref, "offsite_ads", by="finance.reconcile",
                           evidence=f"Etsy payment-account ledger Offsite Ads fee entry "
@@ -218,6 +223,10 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
     # for is a disagreement between Etsy and the internal orders -- an order we cannot see.
     # It becomes a reconciliation incident, never a silent line in a report.
     orphans = [e for e in unmatched if e["reference_type"].lower() in ORDER_REFERENCE_TYPES]
+    # A refund Etsy paid out against an order this system does not have is the same
+    # disagreement, and joins the same incident.
+    orphans += [e for e in refund_entries if e["entry_id"] not in refunds["matched_ids"]
+                and e["reference_type"].lower() in ORDER_REFERENCE_TYPES]
     incident = reconciliation_incident(db, orphans) if orphans else None
     return {
         "entries": len(norm), "fee_entries": len(fees),
@@ -231,9 +240,86 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
                                    "reference": f"{e['reference_type']}:{e['reference_id']}",
                                    "charge": e["charge"], "currency": e["currency"]}
                                   for e in unmatched][:50],
+        "refund_entries": len(refund_entries),
+        "orders_refund_raised": refunds["raised"],
+        "orders_refund_disagreeing": refunds["disagreeing"],
         "orphan_fee_entries": len(orphans),
         "reconciliation_incident": incident,
     }
+
+
+def _apply_refunds(s, by_receipt: dict[str, list], refund_entries: list[dict]) -> dict:
+    """Etsy ledger refund entries onto the orders they paid back (Codex CB2-O07, FB-2 O).
+
+    The receipt's own `refunds[]` is the order's refund (commerce.orders_ingest). The
+    payment-account ledger is the record of money that actually left the shop. Each order
+    keeps the refund entry ids already applied and their cumulative CAD amount
+    (`detail.ledger_refund_cad`), so a re-read adds nothing. When the ledger has paid back
+    MORE than the receipt says, the ledger wins -- money that left is not revenue -- and the
+    order's revenue, contribution (signed, never clamped) and its sale ledger row's refund
+    move to it. When it has paid back less, the receipt figure stands (the ledger can lag)
+    and the disagreement is kept on the order by name.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry
+
+    by_ref: dict[str, list[dict]] = {}
+    for e in refund_entries:
+        by_ref.setdefault(e["reference_id"], []).append(e)
+    matched_ids: set[str] = set()
+    raised, disagreeing = [], []
+    for rid, group in by_receipt.items():
+        receipt_entries = by_ref.get(rid, [])
+        total_price = sum(float(o.price_cad or 0.0) for o in group) or 1.0
+        for o in group:
+            txn = o.external_ref.rsplit(":", 1)[-1]
+            share = (float(o.price_cad or 0.0) / total_price) if len(group) > 1 else 1.0
+            candidates = ([(e, 1.0) for e in by_ref.get(txn, [])]
+                          + [(e, share) for e in receipt_entries])
+            if not candidates:
+                continue
+            detail = dict(o.detail or {})
+            done = set(detail.get("refund_entries") or [])
+            ledger_refund = float(detail.get("ledger_refund_cad") or 0.0)
+            on = (o.at or datetime.now(timezone.utc)).date()
+            for e, w in candidates:
+                matched_ids.add(e["entry_id"])
+                if e["entry_id"] in done:
+                    continue
+                # The sign of a refund entry's amount is UNVERIFIED against a live shop
+                # (module docstring); a refund entry is money paid back either way.
+                cad, _measured = _to_cad(abs(e["charge"]) * w, e["currency"], on)
+                ledger_refund += cad
+                done.add(e["entry_id"])
+            price = float(o.price_cad or 0.0)
+            ledger_refund = round(min(price, max(0.0, ledger_refund)), 2)
+            stored = (detail.get("refund") or {}).get("cad")
+            receipt_refund = round(float(stored) if stored is not None
+                                   else price - float(o.revenue_cad or 0.0), 2)
+            current_refund = round(price - float(o.revenue_cad or 0.0), 2)
+            detail["refund_entries"] = sorted(done)
+            detail["ledger_refund_cad"] = ledger_refund
+            if ledger_refund > receipt_refund + 0.005:
+                detail["refund_reconciliation"] = "raised_to_etsy_ledger"
+                if ledger_refund <= current_refund + 0.005:
+                    o.detail = detail
+                    continue
+                o.revenue_cad = round(price - ledger_refund, 2)
+                o.contribution_cad = round(float(o.revenue_cad) - float(o.fees_cad or 0.0), 2)
+                o.refunded = o.revenue_cad <= 0.005
+                row = s.scalar(select(LedgerEntry).where(
+                    LedgerEntry.evidence_ref == o.external_ref))
+                if row is not None:
+                    row.refunds_cad = ledger_refund
+                raised.append(o.external_ref)
+            elif ledger_refund < receipt_refund - 0.005:
+                detail["refund_reconciliation"] = "receipt_exceeds_etsy_ledger"
+                disagreeing.append(o.external_ref)
+            else:
+                detail["refund_reconciliation"] = "matched_etsy_ledger"
+            o.detail = detail
+    return {"matched_ids": matched_ids, "raised": raised, "disagreeing": disagreeing}
 
 
 # Ledger references that name an order. A fee against one of these that matches no order

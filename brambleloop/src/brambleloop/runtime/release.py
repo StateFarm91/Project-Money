@@ -461,15 +461,35 @@ def handle_pricing_position(ctx: JobContext) -> dict:
         slug, category_band_cad=band, proposed_cad=proposed,
         has_video=False, sizes_offered=sizes,
         is_bundle=is_bundle, bundle_members_cad=members, **net_inputs)
-    # #233 / #235: the daily order readings' discount guard and promotion verdicts. A product
-    # the guard refused, or whose promotion lost contribution, is priced at full price only.
+    # #269 (CB2-O08): a net floor no price in the band can clear stops the chain here. The
+    # product is not passed to listing at a price that cannot pay for itself; the refusal is
+    # audited and the job returns it, and nothing downstream is queued.
+    if decision.refused:
+        ctx.audit("pricing.refused", artifact=slug,
+                  detail={**decision.to_dict(), "stopped": "listing.seo not enqueued"})
+        return {**decision.to_dict(), "stopped": True}
+
+    # #233 / #235 (CB2-O08): the daily order readings' discount guard and promotion verdicts.
+    # A product the guard refused, or whose promotion lost contribution, is full price only:
+    # any sale the job was asked to run (`inputs.promotion`, a promo price and window) is
+    # dropped before it reaches the listing, and the listing is told no sale is allowed.
     from ..commerce.order_readings import directives
 
     guard = directives(ctx.db)
+    sale_allowed = True
     if slug in guard["discount_refused"] or slug in guard["promotion_do_not_repeat"]:
+        sale_allowed = False
         decision.reasons.append(
             "full price only: the value-ladder discount guard or a measured promotion "
             "verdict refuses a sale price for this product (#233, #235)")
+        if i.get("promotion"):
+            ctx.audit("pricing.promotion_refused", artifact=slug,
+                      detail={"promotion": i["promotion"],
+                              "discount_refused": slug in guard["discount_refused"],
+                              "promotion_do_not_repeat":
+                                  slug in guard["promotion_do_not_repeat"]})
+            i.pop("promotion", None)
+    i["sale_allowed"] = sale_allowed
 
     # The category's standing "50% off" is not available to us; assert that explicitly rather
     # than relying on nobody adding it later.

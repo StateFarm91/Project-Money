@@ -193,12 +193,16 @@ class PriceDecision:
     reasons: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     net_contribution: dict = field(default_factory=dict)
+    # Why this price may NOT be acted on, or "" (CB2-O08). A refusal is not a warning: the
+    # consumer (`pricing.position`) stops the chain on it rather than listing at a price
+    # that cannot clear the net floor.
+    refused: str = ""
 
     def to_dict(self) -> dict:
         return {"slug": self.slug, "price_cad": self.price_cad, "floor_cad": self.floor_cad,
                 "ceiling_cad": self.ceiling_cad, "net_cad": self.net_cad,
                 "take_rate": self.take_rate, "reasons": list(self.reasons),
-                "warnings": list(self.warnings),
+                "warnings": list(self.warnings), "refused": self.refused,
                 "net_contribution": dict(self.net_contribution)}
 
 
@@ -325,6 +329,7 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
             price = round(float(best["price_cad"]), 2)
     # Second, the floor on net contribution per sale is binding, not advisory.
     net_now = _net(price, rate, foreign_share, expected_sales)
+    refused = ""
     if net_now < MIN_NET_CONTRIBUTION_CAD:
         candidate = round(price, 2)
         while candidate < hi and _net(candidate, rate, foreign_share,
@@ -337,9 +342,11 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
                 f"CA${MIN_NET_CONTRIBUTION_CAD:.2f} floor the price is decided on")
             price = candidate
         else:
-            warnings.append(
-                f"no price inside the band clears CA${MIN_NET_CONTRIBUTION_CAD:.2f} of net "
-                f"contribution per sale; CA${price:.2f} nets CA${net_now:.2f}")
+            refused = (f"no price inside the band CA${lo:.2f}-CA${hi:.2f} clears "
+                       f"CA${MIN_NET_CONTRIBUTION_CAD:.2f} of net contribution per sale; "
+                       f"CA${price:.2f} nets CA${net_now:.2f}. The floor is binding: this "
+                       f"product is not listed at this price")
+            warnings.append(refused)
     net_block = net_contribution(price, rate=rate, foreign_share=foreign_share,
                                  expected_sales=expected_sales)
 
@@ -366,7 +373,8 @@ def decide_price(slug: str, *, category_band_cad: tuple[float, float],
             f"would cost money to fulfil")
     return PriceDecision(slug=slug, price_cad=round(price, 2), floor_cad=round(lo, 2),
                          ceiling_cad=round(hi, 2), net_cad=f.net_cad, take_rate=f.take_rate,
-                         reasons=reasons, warnings=warnings, net_contribution=net_block)
+                         reasons=reasons, warnings=warnings, net_contribution=net_block,
+                         refused=refused)
 
 
 def check_no_fake_discount(price_cad: float, reference_price_cad: float | None,

@@ -480,7 +480,10 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         ctx.audit("cir.drafted", artifact=f"{engineered.slug}@{engineered.version}",
                   detail={"source": "engineered design", "rows": sum(
                       len(c.rows) for c in engineered.components)})
-        ctx.enqueue("validator", "cir.compile", {"cir": engineered.to_dict()},
+        compile_inputs = {"cir": engineered.to_dict()}
+        if isinstance(ctx.job.inputs.get("correction"), dict):
+            compile_inputs["correction"] = ctx.job.inputs["correction"]  # CB2-O09
+        ctx.enqueue("validator", "cir.compile", compile_inputs,
                     idempotency_key=(f"compile:{engineered.slug}:{engineered.version}"
                                      f":{engineered.fingerprint}"))
         return {"artifact": f"{engineered.slug}@{engineered.version}",
@@ -544,7 +547,10 @@ def handle_cir_compile(ctx: JobContext) -> dict:
         # A failing compile is a real outcome, not an exception: the concept dies here.
         return {"artifact": f"{cir.slug}@{cir.version}", "compiled": False,
                 "errors": [str(f) for f in result.errors]}
-    ctx.enqueue("quality_director", "gate.certify", {"cir": ctx.job.inputs["cir"]},
+    certify_inputs = {"cir": ctx.job.inputs["cir"]}
+    if isinstance(ctx.job.inputs.get("correction"), dict):
+        certify_inputs["correction"] = ctx.job.inputs["correction"]  # CB2-O09
+    ctx.enqueue("quality_director", "gate.certify", certify_inputs,
                 idempotency_key=(f"certify:{cir.slug}:{cir.version}:{cir.fingerprint}"
                                  f":d{DOC_VERSION}"))
     return {"artifact": f"{cir.slug}@{cir.version}", "compiled": True,
@@ -619,13 +625,25 @@ def handle_certify(ctx: JobContext) -> dict:
         # owner's (an owner action is raised); nothing is sent from here.
         from ..commerce import buyer_trust
 
+        # A release is a correction only when the job that certified it says so
+        # (`inputs.correction`, carried from the engineering job that made the change);
+        # a routine newer version prepares nothing (CB2-O09).
         correction = buyer_trust.on_certified(
             ctx.db, product_slug=cir.slug, version=cir.version,
-            release_hash=cert.release_hash or "", previous_release_hash=previous_hash)
+            release_hash=cert.release_hash or "", previous_release_hash=previous_hash,
+            correction=ctx.job.inputs.get("correction"))
         if correction["affected_count"]:
             ctx.audit("buyer_trust.correction_prepared", artifact=f"{cir.slug}@{cir.version}",
                       detail={k: correction[k] for k in ("affected_count", "affected_orders",
-                                                         "owner_action")})
+                                                         "owner_action",
+                                                         "version_unknown_orders", "states")})
+        elif correction.get("correction"):
+            ctx.audit("buyer_trust.correction_unprepared",
+                      artifact=f"{cir.slug}@{cir.version}",
+                      detail={"why": correction.get("why", ""),
+                              "eligible": correction.get("eligible"),
+                              "version_unknown_orders":
+                                  correction.get("version_unknown_orders", [])})
         # #70: a revision that changes geometry or claims invalidates the listing-set
         # certificate issued against the old ones, recomputed here rather than remembered,
         # and the affected frames lose their approval until the chain re-certifies them.
@@ -1984,7 +2002,7 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
     # has worn; a refusal replaces the discard with the cheapest untried offer.
     from ..commerce import offers as offers_mod
     from ..commerce.order_readings import offer_results
-    from ..growth.portfolio import APPEAL_PROBLEM, LADDERS, RETIRE, REWORK
+    from ..growth.portfolio import APPEAL_PROBLEM, LADDERS, OFFER_UNTESTED, RETIRE, REWORK
 
     results = offer_results(ctx.db)
     offer_guard = []
@@ -1995,15 +2013,25 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
                                                 if r.design_slug == c.slug])
         offer_guard.append({"slug": c.slug, "label": c.label, **ruling})
         if not ruling["may_retire"]:
+            # The refusal changes the classification itself, not only its prose (CB2-O08):
+            # a design the guard protects is not RETIRE/REWORK/APPEAL_PROBLEM in the stored
+            # review or its summary, so nothing that reads the label can discard it. Its
+            # ladder is the offer ladder; the discard-shaped verdict is kept as evidence.
             nxt = (ruling.get("try_next") or {}).get("offer")
+            c.evidence["offer_guard"] = ruling["reasons"]
+            c.evidence["discard_verdict_withheld"] = c.label
+            c.label = OFFER_UNTESTED
+            c.reason = (f"{c.evidence['discard_verdict_withheld']} withheld: {c.reason}. "
+                        f"The design has worn too few offer families for the verdict to be "
+                        f"about the design")
             c.interventions = ([f"fix the offer before discarding the design: try {nxt}"
                                 if nxt else "fix the offer before discarding the design"]
-                               + [i for i in LADDERS[c.label] if "retire" not in i.lower()])
-            c.evidence["offer_guard"] = ruling["reasons"]
+                               + list(LADDERS[OFFER_UNTESTED]))
             verdict.actions.append(
-                f"{c.slug}: {c.label} is a verdict about an offer until it has worn "
-                f"{offers_mod.MIN_OFFER_FAMILIES_BEFORE_RETIRING} offer families -- "
-                f"{'try ' + nxt if nxt else 'fix the offer'} before discarding it (#13).")
+                f"{c.slug}: {c.evidence['discard_verdict_withheld']} is a verdict about an "
+                f"offer until it has worn {offers_mod.MIN_OFFER_FAMILIES_BEFORE_RETIRING} "
+                f"offer families -- {'try ' + nxt if nxt else 'fix the offer'} before "
+                f"discarding it (#13).")
 
     missing = sorted(should_exist - built)
     off_portfolio = sorted(built - should_exist)
@@ -2022,6 +2050,7 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
         "off_portfolio": off_portfolio[:20],
         "constraints_met": portfolio.constraints_met,
         "classifications": verdict.summary(),
+        "classifications_detail": [c.to_dict() for c in verdict.classifications],
         "evidence_available": verdict.evidence_available,
         "offer_guard": offer_guard,
         "exposure_read": {"listing_outcomes": sum(1 for m in metrics if m.impressions),
