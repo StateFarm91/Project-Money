@@ -60,6 +60,9 @@ class PreCreateRefusal(unittest.TestCase):
                                               return_value=copy.deepcopy(self.kw["payload"])))
         self.stack.enter_context(patch.object(etsy_ops, "certified_images", return_value={
             **copy.deepcopy(self.kw["listing_images"]), "problems": []}))
+        # F-299: the env phase must agree with the owner's recorded transition.
+        from phase_fixture import record_phase_path
+        record_phase_path(self.db, OWNER_TOKEN, "production")
 
     def grant(self, *, slug="original", version="1", release="release-a"):
         """The owner's durable publication grant, through the real approve path."""

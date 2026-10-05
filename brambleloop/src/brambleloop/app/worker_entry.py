@@ -31,7 +31,11 @@ def main() -> int:
 
     seed_benchmarks(db)
 
-    phase = Phase(os.environ.get("BRAMBLELOOP_PHASE", "shadow"))
+    # F-299: the environment AND the recorded owner transition; disagreement -> the more
+    # restrictive phase plus an incident. Shadow when nothing is recorded.
+    from ..core.phase import effective_phase
+
+    phase = effective_phase(db)
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"worker-{os.getpid()}"
     log.info("starting worker %s in phase %s", name, phase.value)
 
