@@ -25,6 +25,14 @@ def needs_the_model(cir) -> bool:
     return not owned_photography.needs_no_model(cir)
 
 
+def _in_launch_scope(slug: str) -> bool:
+    """Disclosed renders are verified against the Launch-0 registry (D-FB-7); a product
+    outside it has no authoritative CIR to verify against, so it is not offered one."""
+    from ..products.launch0 import launch_scope_slugs
+
+    return slug in launch_scope_slugs()
+
+
 def make(db, cir, twin, *, record: bool = True, **kw) -> dict:
     """Render the listing asset this product actually needs, by its form, and file it.
 
@@ -52,6 +60,17 @@ def make(db, cir, twin, *, record: bool = True, **kw) -> dict:
         for identity_only in ("observer", "realism_judger"):
             kw.pop(identity_only, None)
         action, out = owned_photography.ACTION, owned_photography.make(db, cir, twin, **kw)
+        if not out.get("made") and _in_launch_scope(cir.slug):
+            # D-FB-7: no qualified photograph and generative redraw is refused (F-852), so
+            # the product's listing imagery is the disclosed deterministic render -- drawn
+            # from this CIR, verified against it from the pixels, disclosed in the image,
+            # its alt text and the copy. A product the renderer cannot draw truthfully is
+            # refused there and stays without imagery rather than getting a guess.
+            from . import disclosed_listing
+
+            rendered = disclosed_listing.build(cir, db=db)
+            if rendered.get("made"):
+                action, out = disclosed_listing.ACTION, rendered
 
     if record and out.get("made"):
         from ..core.models import AuditLog
@@ -63,10 +82,17 @@ def make(db, cir, twin, *, record: bool = True, **kw) -> dict:
 
 def last(db, *, slug: str = "") -> dict | None:
     """The most recent listing asset on file from either path, newest first."""
-    from . import model_photography, owned_photography
+    from . import disclosed_listing, model_photography, owned_photography
 
     found = [a for a in (model_photography.last_asset(db, slug=slug),
                          owned_photography.last_asset(db, slug=slug)) if a]
+    # A photograph that clears every floor wins; otherwise the disclosed render set, which is
+    # the listing imagery D-FB-7 permits when it verifies, ahead of an unusable photo record.
+    if any(usable(a) for a in found):
+        return next(a for a in found if usable(a))
+    disclosed = disclosed_listing.last_asset(db, slug=slug)
+    if disclosed is not None:
+        return disclosed
     if not found:
         return None
     # Both records carry the audit row's own ordering only within their own action, so

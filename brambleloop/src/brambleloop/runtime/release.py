@@ -357,6 +357,10 @@ def handle_assets_build(ctx: JobContext) -> dict:
                              f"{CHAIN_VERSION}; hero sha256 "
                              f"{stored_frames[0]['sha256'] if stored_frames else '-'}"))
     _persist_frames(ctx, slug, version, frames, stored_frames, blocking)
+    # D-FB-7: the product's customer imagery when no qualified photograph exists -- the
+    # disclosed deterministic render set, drawn from this certified CIR, verified from its
+    # pixels and filed where the parity and eligibility readers find it.
+    disclosed = _disclosed_render_set(ctx, cir, slug, version, store, lineage)
 
     ctx.audit("assets.listing_images_built" if not blocking else "assets.listing_images_blocked",
               artifact=f"{slug}@{version}",
@@ -371,7 +375,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
                                            "recurrences": captured["recurrences"]}
                                           if captured else None),
                       "fixture_replay": {"fixtures": replayed["fixtures"],
-                                         "failed": replayed["failed"][:5]}})
+                                         "failed": replayed["failed"][:5]},
+                      "disclosed_render": disclosed})
     if blocking:
         # A listing whose imagery misrepresents the pattern does not proceed to pricing. The
         # chain stops here rather than producing a price for something that cannot ship.
@@ -396,6 +401,37 @@ def handle_assets_build(ctx: JobContext) -> dict:
     ctx.enqueue("pricing", "pricing.position", payload,
                 idempotency_key=chain_key("price", slug, version, release, token))
     return payload
+
+
+def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
+                          lineage) -> dict | None:
+    """Render, verify, QA and file the disclosed listing set for a Launch-0 release.
+
+    Skipped when a photograph that clears every floor is on file, and reused when this exact
+    design already has a set. Returns a summary for the build's audit row; the full record
+    (frames, manifests, verification, QA) is its own audit row, which `listing_asset.last`
+    reads for the parity and eligibility gates.
+    """
+    from ..publish import disclosed_listing, listing_asset
+
+    if not listing_asset._in_launch_scope(slug):
+        return None
+    current = listing_asset.last(ctx.db, slug=slug)
+    if current and current.get("kind") != "disclosed_render" and listing_asset.usable(current):
+        return {"skipped": "a qualified photograph is on file"}
+    if (current and current.get("kind") == "disclosed_render"
+            and current.get("version") == version
+            and current.get("cir_fingerprint") == cir.fingerprint):
+        return {"reused": True, "usable": current.get("usable_as_listing_asset"),
+                "frames": [f["image"]["sha256"] for f in current.get("frames") or []]}
+    rec = disclosed_listing.build(cir, store=store, db=ctx.db, lineage=lineage)
+    if rec.get("made"):
+        disclosed_listing.record(ctx.db, rec)
+    return {"made": rec.get("made"), "usable": rec.get("usable_as_listing_asset"),
+            "launch_blocked": rec.get("launch_blocked", [])[:5],
+            "frames": [{"view": f["view"], "sha256": f["image"]["sha256"],
+                        "structural_truth": f["structural_truth"]["status"]}
+                       for f in rec.get("frames") or []]}
 
 
 def _pricing_net_inputs(db, slug: str) -> dict:
@@ -726,10 +762,14 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     from ..publish import listing_asset
 
     release_frames = list(i.get("frames") or _stored_frames(ctx.db, slug, version))
-    generated = [f for f in listing_asset.frames_for(ctx.db, slug=slug)
-                 if f.get("made") and f.get("generated", True)]
+    on_file = listing_asset.frames_for(ctx.db, slug=slug)
+    generated = [f for f in on_file if f.get("made") and f.get("generated", True)]
+    # D-FB-7: disclosed renders are classified as what they are, and their disclosure is
+    # written into the copy the export check later reads back.
+    disclosed = [f for f in on_file if f.get("kind") == "disclosed_render"]
     try:
-        classification = platform_policy.classify_release(release_frames, generated)
+        classification = platform_policy.classify_release(release_frames, generated,
+                                                          disclosed=disclosed)
         class_problems = [f"POLICY_CLASSIFICATION: {p}" for p in classification.problems]
     except platform_policy.PolicyRefused as exc:
         classification = None

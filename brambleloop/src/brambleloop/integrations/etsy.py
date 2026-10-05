@@ -1087,7 +1087,7 @@ class EtsyClient:
     # ---- the publish path, unchanged in what it permits -------------------
 
     def publish(self, *, payload: ListingPayload, filename: str, data: bytes,
-                images: list[tuple[str, bytes]] | None = None,
+                images: list[tuple] | None = None,
                 on_created=None, before_create=None) -> PublishOutcome:
         """Create the draft, attach the file and upload the images, reporting each honestly.
 
@@ -1123,10 +1123,14 @@ class EtsyClient:
 
         problems = [] if uploaded else [f"listing {listing_id} exists with no file attached"]
         images_uploaded = 0
-        for rank, (image_name, image_bytes) in enumerate(images or [], start=1):
+        for rank, entry in enumerate(images or [], start=1):
+            # (name, bytes) or (name, bytes, alt_text): a disclosed render (D-FB-7) carries
+            # its disclosure in its alt text, so the alt text travels with the bytes.
+            image_name, image_bytes = entry[0], entry[1]
+            image_alt = entry[2] if len(entry) > 2 else ""
             try:
                 self.upload_image(listing_id, filename=image_name, data=image_bytes,
-                                  rank=rank)
+                                  rank=rank, alt_text=image_alt)
                 images_uploaded += 1
             except (TransientError, EtsyRejected) as e:
                 problems.append(f"image {rank} ({image_name}) was not uploaded: {e}")

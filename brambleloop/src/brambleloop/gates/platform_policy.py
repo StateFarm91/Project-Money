@@ -105,6 +105,13 @@ DISCLOSURES: dict[str, str] = {
     "digital_download": ("This is a digital pattern. No physical item is shipped."),
     "deterministic_render": ("Charts and previews are rendered directly from the pattern "
                              "file, so they show exactly what is in the document."),
+    # D-FB-7: the product images are disclosed deterministic renders. The wording carries the
+    # contract phrase the images themselves carry (visual.render_contract.DISCLOSURE).
+    "disclosed_render": ("About the images: each listing image is a digital rendering of the "
+                         "pattern's finished design, not a photograph. Every stitch in it is "
+                         "drawn from the pattern itself at the stated gauge, with a centimetre "
+                         "scale; no sample has been photographed, and your finished piece will "
+                         "vary with yarn and tension."),
 }
 
 
@@ -391,10 +398,12 @@ class AssetClaim:
     generated: bool = False
     deterministic_render: bool = False
     labelled: bool = False
+    disclosed_render: bool = False
 
     def to_dict(self) -> dict:
         return {"ref": self.ref, "role": self.role, "generated": self.generated,
-                "deterministic_render": self.deterministic_render, "labelled": self.labelled}
+                "deterministic_render": self.deterministic_render, "labelled": self.labelled,
+                "disclosed_render": self.disclosed_render}
 
 
 @dataclass
@@ -445,12 +454,20 @@ def classify(*, product_class: str, assets: list[AssetClaim],
 
     any_generated = False
     any_deterministic = False
+    any_disclosed = False
     for asset in assets:
         if asset.role not in ASSET_ROLES:
             raise PolicyRefused(f"{asset.role!r} is not an asset role: {sorted(ASSET_ROLES)}")
         requirement, why = ASSET_ROLES[asset.role]
         if asset.deterministic_render:
             any_deterministic = True
+        if asset.disclosed_render:
+            any_disclosed = True
+            if not asset.labelled:
+                problems.append(
+                    f"{asset.ref}: a disclosed render in the {asset.role!r} role without its "
+                    f"disclosure in the image and alt text; it may not be classified as "
+                    f"disclosed until it carries both")
         if not asset.generated:
             continue
         any_generated = True
@@ -469,6 +486,8 @@ def classify(*, product_class: str, assets: list[AssetClaim],
         disclosures.append(DISCLOSURES["generated_imagery"])
     if any_deterministic:
         disclosures.append(DISCLOSURES["deterministic_render"])
+    if any_disclosed:
+        disclosures.append(DISCLOSURES["disclosed_render"])
 
     if not assets:
         problems.append(
@@ -505,7 +524,16 @@ GENERATED_ROLE: dict[str, str] = {
 }
 
 
-def release_assets(frames: list[dict], generated: list[dict] | None = None) -> list[AssetClaim]:
+# Disclosed renders (D-FB-7) make claims about the finished object -- that is their job -- and
+# they make them as deterministic renders of the design being sold, which `classify` permits
+# in a photograph-required role. They are never `generated`.
+DISCLOSED_ROLE: dict[str, str] = {
+    "hero": "primary_listing_image", "scale": "scale_reference", "detail": "detail_photo",
+}
+
+
+def release_assets(frames: list[dict], generated: list[dict] | None = None,
+                   disclosed: list[dict] | None = None) -> list[AssetClaim]:
     """The asset claims a release's listing gallery makes, from the records on file.
 
     `frames` are the deterministic frames `assets.build` stored; `generated` are the
@@ -528,16 +556,30 @@ def release_assets(frames: list[dict], generated: list[dict] | None = None) -> l
             role=GENERATED_ROLE.get(job, "finished_object_photo"), generated=True,
             deterministic_render=False,
             labelled=bool(frame.get("disclosed_as_illustration", False))))
+    # D-FB-7: disclosed deterministic renders of the finished design. Never `generated`; a
+    # frame that is not a disclosed render (a photo, a generation) is not accepted here.
+    for frame in disclosed or []:
+        if frame.get("kind") != "disclosed_render" or frame.get("generated") is not False:
+            raise PolicyRefused(f"{frame.get('image_ref')!r} is not a disclosed render")
+        role = DISCLOSED_ROLE.get(str(frame.get("role") or ""))
+        if role is None:
+            raise PolicyRefused(f"disclosed frame role {frame.get('role')!r} has no asset role")
+        disclosure = frame.get("disclosure") or {}
+        claims.append(AssetClaim(
+            ref=str(frame.get("image_ref") or f"disclosed-{frame.get('position')}"), role=role,
+            generated=False, deterministic_render=True, disclosed_render=True,
+            labelled=bool(disclosure.get("in_image") and disclosure.get("in_alt_text"))))
     return claims
 
 
 def classify_release(frames: list[dict], generated: list[dict] | None = None, *,
-                     ai_assisted_design: bool = True) -> Classification:
+                     ai_assisted_design: bool = True,
+                     disclosed: list[dict] | None = None) -> Classification:
     """#35 for one release: Brambleloop sells seller-designed digital patterns whose design
     was developed with AI assistance, so the class is `ai_assisted_design`, digital."""
     return classify(product_class=AI_ASSISTED_DESIGN if ai_assisted_design
                     else SELLER_DESIGNED_DIGITAL,
-                    assets=release_assets(frames, generated),
+                    assets=release_assets(frames, generated, disclosed),
                     ai_assisted_design=ai_assisted_design, digital=True)
 
 
