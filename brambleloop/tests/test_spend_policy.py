@@ -217,10 +217,13 @@ def test_an_untroubled_month_asks_for_nothing():
 
 
 def test_an_escalation_carries_all_six_fields_the_owner_asked_for():
+    """Read at the wall clock: `R.record` stamps `utcnow()`, so reading at the frozen
+    September `NOW` stopped seeing the spend once the calendar reached October (red from
+    2026-10-01 with no code change). Same clock for the write and the read."""
     db = _db()
     R.record(db, agent="creative_director", amount_cad=P.CEILING_CAD * 0.9,
              purpose="concept_generation", model="claude-opus-5", department="creative")
-    out = P.escalation(db, now=NOW, constrained=["the weekly arena expedition"],
+    out = P.escalation(db, now=datetime.now(timezone.utc), constrained=["the weekly arena expedition"],
                        expected_value="two more expeditions a month")
     assert out["required"] is True
     for field in ("current_spend_cad", "burn_rate_cad_per_day", "what_the_money_produced",
