@@ -141,3 +141,20 @@ set BRAMBLELOOP_OPS_TOKEN (>=24 chars) and BRAMBLELOOP_PUBLISH_AUTHORISED=1 in t
 POST /api/owner/publication/preview then /approve (expected_digest from preview). Cost CA$0,
 ~5 min/release, grant valid 24 h. Without it every store.publish refuses before any Etsy request.
 Owner decision recorded: catalogue_depth needs 8 listable products; Launch-0 has 5 slugs.
+
+## FB-4 wave (dispatched 2026-10-05 ~20:00Z, base cfa5e8a; PUB base acb6c9f)
+Matrix after re-mapping 123 launch-critical rows on 6f9a2f7: LC MISSING 11, IMPLEMENTED 6, TESTED 37,
+≥INTEGRATED 385. Workers (branches claude/fb4-*): **PUB** store.publish search verdict never PASS at
+runtime (F-004/F-005) + physical intake for blocked releases (F-074/F-078); **FIN** spend product
+tagging (F-321/324/325/329), break_even from missing data, launch_inventory gauge (F-186), modelled
+confidence consumers (F-189), creative cohort label (F-188); **OPS** orders re-auth action closed by
+readiness (F-541), credential register wiring (F-160), maturity disagreements (F-125), deploy_guard on
+the deploy path (F-461), reliability ledger (F-350/F-344), first-response watch (F-043), defer legal
+setup (F-874); **J** closure validator hardening, completion verdict/OPEN count, launch-scope ledger,
+scripts/shadow_rehearsal.py, scripts/freeze_candidate.py; **STORE** ranking readiness (F-003), shop
+SEO/opening grid/storefront preview/seller identity/search-visibility intake (F-236..F-293);
+**LC** Learn graph read + lesson links + asset byte check (F-815/808/821), licence registration
+(F-786/787), surface unknowns (F-588), component-gauge refusal (F-754), variant config (F-757).
+Integration order: PUB → FIN → OPS → LC → STORE → J (J last: validator + rehearsal on merged head),
+full suite, re-aggregate, then freeze candidate with scripts/freeze_candidate.py and start
+adversarial certification. On reset: `git ls-remote origin 'claude/fb4-*'`.
