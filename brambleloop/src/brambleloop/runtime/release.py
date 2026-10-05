@@ -424,7 +424,13 @@ def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
             and current.get("cir_fingerprint") == cir.fingerprint):
         return {"reused": True, "usable": current.get("usable_as_listing_asset"),
                 "frames": [f["image"]["sha256"] for f in current.get("frames") or []]}
-    rec = disclosed_listing.build(cir, store=store, db=ctx.db, lineage=lineage)
+    try:
+        rec = disclosed_listing.build(cir, store=store, db=ctx.db, lineage=lineage)
+    except Exception as exc:  # noqa: BLE001 - imagery that could not be made is recorded,
+        # never allowed to take the PDF and chart build down with it.
+        ctx.audit("assets.disclosed_render_failed", artifact=f"{slug}@{version}",
+                  detail={"why": f"{type(exc).__name__}: {str(exc)[:300]}"})
+        return {"made": False, "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
     if rec.get("made"):
         disclosed_listing.record(ctx.db, rec)
     return {"made": rec.get("made"), "usable": rec.get("usable_as_listing_asset"),

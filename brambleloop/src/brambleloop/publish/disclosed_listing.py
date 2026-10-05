@@ -308,7 +308,7 @@ def build(cir, *, store=None, db=None, lineage=None, description: str = "") -> d
     store = store or ArtifactStore()
     try:
         rendered = D.listing_set(cir)
-    except D.RenderRefused as exc:
+    except (D.RenderRefused, RuntimeError, OSError) as exc:
         return {"made": False, "generated": False, "kind": "disclosed_render", "slug": cir.slug,
                 "version": cir.version, "usable_as_listing_asset": False,
                 "launch_blocked": [f"renderer refused: {exc}"], "why": str(exc)}

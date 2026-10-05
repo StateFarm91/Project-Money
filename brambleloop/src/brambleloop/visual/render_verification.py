@@ -587,7 +587,19 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
 # --------------------------------------------------------------------------- entry point
 
 def verify(png: bytes, *, cir, view: str) -> dict:
-    """Verify one disclosed frame's pixels against the given authoritative CIR."""
+    """Verify one disclosed frame's pixels against the given authoritative CIR.
+
+    Fails closed: anything that goes wrong while measuring is UNKNOWN, never a crash in the
+    gate that called it and never a PASS."""
+    try:
+        return _verify(png, cir=cir, view=view)
+    except Exception as exc:  # noqa: BLE001
+        return _verdict([_check("measurement", UNKNOWN,
+                                f"verification could not complete: {type(exc).__name__}: "
+                                f"{str(exc)[:200]}")])
+
+
+def _verify(png: bytes, *, cir, view: str) -> dict:
     checks: list[dict] = []
     try:
         model = expected_model(cir)
