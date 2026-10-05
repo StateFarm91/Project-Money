@@ -783,10 +783,23 @@ def test_a_continuity_export_does_not_carry_the_credential_or_a_handshake():
                                        if '"__table__"' in line and "oauth" in line]
 
 
+# The twelve shadow-mode checks this file was written against, plus the thirteenth that
+# FB-1/E (836d140) added on purpose: an owner action already satisfied must not be presented
+# as outstanding. Named exactly, so a check that disappears or is renamed still fails here.
+VERIFY_CHECKS = [
+    "phase_is_shadow", "nothing_published", "publication_was_actually_attempted_and_refused",
+    "no_paid_advertising", "no_revenue_claimed", "model_spend_within_its_ceiling",
+    "every_agent_has_a_cost_ceiling", "spend_limits_not_breached",
+    "state_is_in_a_durable_database", "worker_is_alive", "scheduler_has_ticked",
+    "no_unexpected_dead_letters_in_24h", "no_satisfied_owner_action_presented",
+]
+
+
 def test_the_verify_endpoint_still_reports_twelve_checks():
     with _client() as c:
         body = c.get("/api/verify").json()
-    assert len(body["checks"]) == 12, [c["check"] for c in body["checks"]]
+    names = [c["check"] for c in body["checks"]]
+    assert len(names) == 13 and names == VERIFY_CHECKS, names
     assert body["checks"][0]["check"] == "phase_is_shadow"
 
 

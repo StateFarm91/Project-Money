@@ -72,7 +72,15 @@ class AuthorProvenance(unittest.TestCase):
         payload=detail["payload"]
         self.assertEqual(payload["concept"]["provenance"],"benchmark:original-source")
         self.assertEqual(payload["brief"]["benchmarks_consulted"],["brief-only-source","original-source"])
-        self.assertEqual(payload["brief"]["source_context"],{"opaque":"unchanged"})
+        # The opaque context is carried through unchanged. Intake also stamps the exact
+        # coverage origin it resolved (creative.intake, exact-coverage-origin fix); this
+        # synthetic candidate has no mission event, so that origin is explicitly unknown
+        # (None) rather than absent, and nothing else is added to the context.
+        self.assertEqual(payload["brief"]["source_context"]["opaque"],"unchanged")
+        self.assertIn("coverage_origin",payload["brief"]["source_context"])
+        self.assertIsNone(payload["brief"]["source_context"]["coverage_origin"])
+        self.assertEqual(payload["brief"]["source_context"],
+                         {"opaque":"unchanged","coverage_origin":None})
         # Intake correctly refuses unproven research/absent funnel. Author boundary only.
         self.assertNotEqual(detail["decision"],intake.ENGINEERING)
         emitted=[]
