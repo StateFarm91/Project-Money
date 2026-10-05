@@ -35,11 +35,16 @@ from brambleloop.core.models import (  # noqa: E402
     PatternVersion, Product,
 )
 from brambleloop.ops import artefacts as P  # noqa: E402
+from brambleloop.products import vessels as _vessels  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: F401,E402  -- registers handlers
 from brambleloop.runtime.worker import HandlerRegistry, Worker  # noqa: E402
 
 SLUG = "hexagon-coaster-set"
+# The release the chain certifies is whatever version the builder makes today -- pinned from
+# the builder, not restated, so a version bump cannot strand these assertions on a release
+# that was never stored.
+VERSION = _vessels.build_hexagon_coaster().version
 _CHAIN: dict = {}
 
 
@@ -128,13 +133,13 @@ def test_the_pdfs_and_charts_in_the_job_outputs_are_counted():
                      if j.job_type == "assets.build" and j.status == JobStatus.DONE)
     keys = {(c, k) for c, k, _ in expected}
     for terminology, sha in build.outputs["pdf_sha256_by_terminology"].items():
-        assert ("pdf", P.pdf_key(SLUG, "1.0.0", terminology)) in keys
+        assert ("pdf", P.pdf_key(SLUG, VERSION, terminology)) in keys
         row = next(r for r in _rows(db)
-                   if r.artefact_key == P.pdf_key(SLUG, "1.0.0", terminology))
+                   if r.artefact_key == P.pdf_key(SLUG, VERSION, terminology))
         assert row.sha256 == sha, "the recorded hash is not the file the job produced"
-    assert ("chart", P.chart_key(SLUG, "1.0.0", "chart")) in keys
-    assert ("chart", P.chart_key(SLUG, "1.0.0", "legend")) in keys
-    assert ("pricing", P.release_key(SLUG, "1.0.0")) in keys
+    assert ("chart", P.chart_key(SLUG, VERSION, "chart")) in keys
+    assert ("chart", P.chart_key(SLUG, VERSION, "legend")) in keys
+    assert ("pricing", P.release_key(SLUG, VERSION)) in keys
     assert "lower bound" in P.expected_from_db.__doc__
 
 
@@ -165,7 +170,7 @@ def test_design_inputs_fingerprint_the_stored_json():
     db = _chain()
     with db.session() as s:
         pv = s.scalar(select(PatternVersion))
-        inputs = P.design_inputs(s, SLUG, "1.0.0")
+        inputs = P.design_inputs(s, SLUG, VERSION)
     assert inputs[f"cir:{SLUG}"] == P.fingerprint(pv.cir_json)
     assert inputs[f"release:{SLUG}"] == pv.release_hash[:16]
     assert inputs["chain:release"] == P.chain_fingerprint()
@@ -209,13 +214,13 @@ def test_a_file_artefact_carries_the_hash_of_the_file_it_is():
 def test_the_rebuild_graph_can_follow_the_parents():
     rows = _rows(_chain())
     by = {(r.artefact_class, r.artefact_key): r for r in rows}
-    certificate = f"certificate:{P.release_key(SLUG, '1.0.0')}"
-    assert certificate in by[("pdf", P.pdf_key(SLUG, "1.0.0", "US"))].parents
-    assert certificate in by[("listing_copy", P.release_key(SLUG, "1.0.0"))].parents
-    assert f"listing_copy:{P.release_key(SLUG, '1.0.0')}" in by[("seo", P.release_key(
-        SLUG, "1.0.0"))].parents
+    certificate = f"certificate:{P.release_key(SLUG, VERSION)}"
+    assert certificate in by[("pdf", P.pdf_key(SLUG, VERSION, "US"))].parents
+    assert certificate in by[("listing_copy", P.release_key(SLUG, VERSION))].parents
+    assert f"listing_copy:{P.release_key(SLUG, VERSION)}" in by[("seo", P.release_key(
+        SLUG, VERSION))].parents
     piece = next(r for r in rows if r.artefact_class == "marketing_asset")
-    assert f"listing_copy:{P.release_key(SLUG, '1.0.0')}" in piece.parents
+    assert f"listing_copy:{P.release_key(SLUG, VERSION)}" in piece.parents
 
 
 # --- deliberate stale-data injection through the real rows ---------------------------------------

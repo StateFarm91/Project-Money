@@ -850,14 +850,18 @@ def test_the_key_completeness_check_is_measured_on_the_whole_document():
 
     # And the real documents pass it, on their whole prose rather than on one section.
     for design in _designs():
-        _, design_twin = _twin_for(design)
+        design_result, design_twin = _twin_for(design)
         for terminology in pdf_mod.TERMINOLOGIES:
             doc = _doc_for(design, design_twin, terminology)
             assert not any(p.startswith("PDF_ABBREVIATION_UNDEFINED")
                            for p in doc.problems), (design.slug, terminology, doc.problems)
             # The prose the check reads is the document's own words, and there is more of it
-            # than the instructions.
-            assert len(doc.prose) > len(text), (design.slug, terminology)
+            # than *its own* instructions. This compared every design's prose against the
+            # Cloudline blanket's instructions, which held only while Cloudline's were short;
+            # the gauge redesign lengthened them past the whole of a small ornament document.
+            own = write_pattern(design, design_result, terminology=terminology)
+            assert len(doc.prose) > len(own), (design.slug, terminology,
+                                               len(doc.prose), len(own))
 
     # The document still refuses to be quiet about it if the defect returns: with the gauge
     # line un-localised, a UK render reports the undefined token rather than shipping it.
@@ -1669,15 +1673,25 @@ def test_the_progress_table_reads_the_height_the_twin_measured_rather_than_a_sha
             assert mark["across_cm"] == round(ring.diameter_cm, 1), (cir.slug, mark)
             assert "stitches around" in mark["measured"], (cir.slug, mark)
 
-    # And the document prints those numbers rather than a second opinion about them.
+    # And the document prints those numbers rather than a second opinion about them. The
+    # milestone checked is the last one the twin measures as still flat -- found from the
+    # twin, not pinned: it was "ROUND 17 OF 70 102 stitches" before the basket was re-derived
+    # from its yarn, and is whatever the certified basket's base makes it now.
     cir = build_basket("large")
     _, twin = _twin_for(cir)
     flat = _flat(_doc_for(cir, twin))
-    assert "ROUND 17 OF 70 102 stitches around, about 18 cm across, still flat" in flat, flat
+    rings = twin.geometry.rings
+    marks = value_stack.milestones(cir, twin)["milestones"]
+    flat_marks = [m for m in marks if m["row"] > 1 and rings[m["row"] - 1].axial_cm == 0.0]
+    assert flat_marks, "this design no longer holds the defect"
+    mark = flat_marks[-1]
+    assert mark["measured"].endswith("still flat"), mark
+    assert f"ROUND {mark['row']} OF {len(rings)} {mark['measured']}" in flat, flat
 
     # Proved against the defect, injected: withhold the twin's rings -- which is exactly what
-    # the old code did, by never looking for them -- and the same table claims 5.6 cm of
-    # height on a round the twin measures at 0.0.
+    # the old code did, by never looking for them -- and the same table claims centimetres
+    # of height (5.6 cm, when measured on the seventy-round basket) on a round the twin
+    # measures at 0.0.
     original = value_stack._rings_by_row
     try:
         value_stack._rings_by_row = lambda c, t: None
@@ -1685,8 +1699,8 @@ def test_the_progress_table_reads_the_height_the_twin_measured_rather_than_a_sha
                    for m in value_stack.milestones(cir, twin)["milestones"]}
     finally:
         value_stack._rings_by_row = original
-    assert twin.geometry.rings[16].axial_cm == 0.0, "this design no longer holds the defect"
-    assert claimed[17] > 5.0, claimed
+    assert rings[mark["row"] - 1].axial_cm == 0.0, "this design no longer holds the defect"
+    assert claimed[mark["row"]] > 5.0, claimed
 
 
 def test_no_document_explains_a_gauge_difference_with_a_stitch_it_does_not_contain():
@@ -1740,7 +1754,14 @@ def test_no_document_explains_a_gauge_difference_with_a_stitch_it_does_not_conta
     finally:
         pdf_mod._taller_than_gauge, pdf_mod._fabric_row_gauge = was_taller, was_gauge
     assert "worked in taller stitches as well" in broken
-    assert "THIS FABRIC about 30 rows = 10 cm" in broken, broken
+    # The false number is the every-round arithmetic on *this* basket, computed rather than
+    # pinned: it read "about 30" when the large basket was seventy rounds at 20 rows = 10 cm,
+    # and reads whatever the current certified basket makes it read. What must hold is that
+    # it is printed and that it is far enough from the stated gauge to be the defect.
+    shipped_wrong = len(twin.row_widths) / twin.height_cm * 10.0
+    assert abs(shipped_wrong - cir.gauge.rows_per_10cm) / cir.gauge.rows_per_10cm \
+        >= pdf_mod.ROW_GAUGE_DRIFT, (shipped_wrong, cir.gauge.rows_per_10cm)
+    assert f"THIS FABRIC about {shipped_wrong:.0f} rows = 10 cm" in broken, broken
 
 
 def test_the_key_does_not_contradict_the_instructions_about_joining_the_rounds():
@@ -1903,10 +1924,12 @@ def test_the_listing_chart_shows_what_the_document_shows():
         assert unit >= 40.0, (cir.slug, unit)
 
     # The flagship, with the number in the assertion so a regression is legible in the
-    # failure rather than only in the diff. 8.2 px before, 43 px now.
+    # failure rather than only in the diff. 8.2 px before the fix; 43 px on the seventy-round
+    # basket; 56 px (55.9) since the basket was re-derived from its yarn to a 16-round base,
+    # which has fewer rings to fit in the same frame. The pin moved up, never down.
     cir = build_basket("large")
     _, twin = _twin_for(cir)
-    assert round(la.chart_frame_unit_px(cir, twin)) == 43, la.chart_frame_unit_px(cir, twin)
+    assert round(la.chart_frame_unit_px(cir, twin)) == 56, la.chart_frame_unit_px(cir, twin)
 
     # Flat: the listing crops to the block the written instructions repeat, which is what the
     # document's chart shows, rather than to a period that merely divides the row count.
@@ -1971,7 +1994,10 @@ def test_support_does_not_send_a_buyer_looking_for_a_column_that_does_not_exist(
     rnd = c.answer("how many stitches should I have at the end of round 24?")
     assert not rnd.escalated, rnd
     assert rnd.cited_rows == [24], rnd
-    assert "round 24" in rnd.answer and "144 stitches" in rnd.answer, rnd.answer
+    # The count is the certified pattern's own, read from the compiler rather than pinned:
+    # it was 144 when the large basket was worked at a finer gauge.
+    at_24 = compile_cir(basket).row(basket.components[0].name, 24).stitch_count
+    assert "round 24" in rnd.answer and f"{at_24} stitches" in rnd.answer, rnd.answer
     assert "row" not in rnd.answer, rnd.answer
 
     # A flat pattern still answers in rows, because that is what its document prints.

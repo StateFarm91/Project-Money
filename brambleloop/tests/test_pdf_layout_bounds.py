@@ -1,6 +1,11 @@
 """Actual PDF text bounds and fail-closed chart diagnostics; synthetic local checks."""
-import io, unittest
+import io, sys, unittest
+from pathlib import Path
 from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
+
 from pypdf import PdfReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from brambleloop.publish import pdf
@@ -20,6 +25,9 @@ class LayoutBounds(unittest.TestCase):
             if text:runs.append((text,tm[4],tm[5],font["/BaseFont"].removeprefix("/"),size))
         extracted=page.extract_text(visitor_text=visit)
         body=[r for r in runs if not r[0].startswith("page ")]
+        # Two key/value pairs were drawn; a page that extracted to nothing would pass every
+        # bound below vacuously, so the body is required to hold at least those four runs.
+        self.assertGreaterEqual(len(body),4,body)
         for text,x,y,font,size in body:
             self.assertGreaterEqual(size,9)
             self.assertGreaterEqual(x,pdf.MARGIN-.01)
@@ -52,4 +60,16 @@ class LayoutBounds(unittest.TestCase):
         self.assertTrue(any(p.startswith("PDF_CHART_CELL_BELOW_BRAND_MINIMUM") for p in art["problems"]))
         self.assertIn("mm on the page",art["problems"][0]);self.assertNotIn("tiles",art)
 
-if __name__=="__main__":unittest.main()
+if __name__=="__main__":
+    # One line per test, starting OK or FAIL, which is what the suite harness counts.
+    failed=0
+    for name in unittest.defaultTestLoader.getTestCaseNames(LayoutBounds):
+        result=unittest.TestResult()
+        LayoutBounds(name).run(result)
+        problems=result.failures+result.errors
+        if problems or not result.wasSuccessful():
+            failed+=1
+            print(f"FAIL {name} {problems[0][1].strip().splitlines()[-1] if problems else ''}")
+        else:
+            print(f"OK   {name}")
+    sys.exit(1 if failed else 0)
