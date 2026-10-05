@@ -107,12 +107,18 @@ class Reply:
     escalation_reason: str = ""
     sent: bool = False          # always False in shadow mode
     defect_suspected: bool = False
+    # F-808: approved, revision-bound Learn lessons linked from the answer. Empty until an
+    # owned HTTPS Learn origin is configured (owner gate `owned_surfaces`).
+    lesson_links: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"specialist": self.specialist, "body": self.body,
-                "cited_version": self.cited_version, "cited_rows": list(self.cited_rows),
-                "escalated": self.escalated, "escalation_reason": self.escalation_reason,
-                "sent": self.sent, "defect_suspected": self.defect_suspected}
+        out = {"specialist": self.specialist, "body": self.body,
+               "cited_version": self.cited_version, "cited_rows": list(self.cited_rows),
+               "escalated": self.escalated, "escalation_reason": self.escalation_reason,
+               "sent": self.sent, "defect_suspected": self.defect_suspected}
+        if self.lesson_links:
+            out["lesson_links"] = [dict(link) for link in self.lesson_links]
+        return out
 
 
 DOWNLOAD_REPLY = (
@@ -211,10 +217,32 @@ class CustomerExperience:
                                              if answer.escalated else ""))
             if specialist == TROUBLESHOOTER:
                 reply.defect_suspected = True
+            self._link_lessons(reply, cir)
 
         check_reply(reply.body)
         self._record(customer_ref, product_slug, version, message, reply, case_id=case_id)
         return reply
+
+    def _link_lessons(self, reply: Reply, cir) -> None:
+        """Append approved Learn lessons the answer's pattern and specialist route to (F-808).
+
+        Chosen by `learn.service.support_help_links`, which reads the knowledge graph, so a
+        recorded topic edge changes which lessons a support answer offers (F-815). Only
+        approved revisions, only absolute URLs on the owned origin; none when unconfigured.
+        A Learn failure never blocks the reply -- the answer stands on the pattern alone.
+        """
+        try:
+            from ..learn.service import support_help_links
+
+            links = support_help_links(self.db, cir.to_dict(), reply.specialist)
+        except Exception:  # noqa: BLE001 - help links are an addition, never a dependency
+            return
+        if not links:
+            return
+        reply.lesson_links = [{"slug": link["slug"], "revision": link["revision"],
+                               "url": link["url"]} for link in links]
+        reply.body = (reply.body + "\n\nStep-by-step technique help: "
+                      + "; ".join(link["url"] for link in links))
 
     def _record(self, customer_ref, product_slug, version, message, reply: Reply, *,
                 case_id: int | None = None) -> None:
@@ -231,6 +259,8 @@ class CustomerExperience:
                 case.resolved = not reply.escalated
                 case.sent = False     # shadow mode: drafted and held, and recorded as such
                 case.detail = {**dict(case.detail or {}),
+                               **({"lesson_links": reply.lesson_links}
+                                  if reply.lesson_links else {}),
                                "cited_rows": reply.cited_rows,
                                "defect_suspected": reply.defect_suspected,
                                "escalation_reason": reply.escalation_reason,
@@ -243,6 +273,7 @@ class CustomerExperience:
                 escalated=reply.escalated, resolved=not reply.escalated,
                 sent=False,   # shadow mode: drafted and held, and recorded as such
                 detail={"cited_rows": reply.cited_rows,
+                        **({"lesson_links": reply.lesson_links} if reply.lesson_links else {}),
                         "defect_suspected": reply.defect_suspected,
                         "escalation_reason": reply.escalation_reason},
             ))

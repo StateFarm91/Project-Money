@@ -114,12 +114,55 @@ def validate_spec(spec):
     return errors
 
 
-def save_lesson(db, slug, spec):
+def benchmark_asset_refusals(db, spec, asset_bytes=None):
+    """Byte-level provenance for lesson assets against the benchmark corpus (F-821).
+
+    `validate_spec` checks that each asset *declares* rights, a source and a sha256. That is a
+    self-declaration. This checks it: every declared hash, and the hash of any bytes supplied
+    for an asset (keyed by the asset's `source`), is looked up in every benchmark purchase
+    manifest (`gates.originality.benchmark_file_hashes`, the same lookup the image gateway
+    uses). A match is a purchased competitor file and is refused whatever rights it declares.
+    Supplied bytes that do not hash to the declared sha256 are refused too: the declaration
+    is then not about these bytes. An unreadable corpus is UNKNOWN and refused, never "no
+    match".
+    """
+    from ..gates.originality import benchmark_file_hashes
+
+    try:
+        corpus = benchmark_file_hashes(db)
+    except Exception as exc:  # noqa: BLE001 - unknown originality is refused, not passed
+        return [f"benchmark corpus unreadable ({type(exc).__name__}); asset originality "
+                f"UNKNOWN, refused (F-821)"]
+    errors = []
+    supplied = dict(asset_bytes or {})
+    for asset in (spec.get("assets") or []):
+        declared = str(asset.get("sha256", ""))
+        source = str(asset.get("source", ""))
+        if declared in corpus:
+            errors.append(f"asset {source!r} is byte-identical to a benchmark purchase file "
+                          f"(sha256 {declared[:12]}); competitor material is never a lesson "
+                          f"asset (F-821)")
+        if source in supplied:
+            actual = hashlib.sha256(supplied[source]).hexdigest()
+            if actual != declared:
+                errors.append(f"asset {source!r} bytes hash to {actual[:12]}, not the declared "
+                              f"{declared[:12]}; the provenance declaration is not about these "
+                              f"bytes (F-821)")
+            if actual in corpus and actual != declared:
+                errors.append(f"asset {source!r} bytes are a benchmark purchase file "
+                              f"(sha256 {actual[:12]}) (F-821)")
+    return errors
+
+
+def save_lesson(db, slug, spec, *, asset_bytes=None):
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
         raise ValueError("invalid lesson slug")
     errors = validate_spec(spec)
     if errors:
         raise ValueError("; ".join(errors))
+    refused = benchmark_asset_refusals(db, spec, asset_bytes)
+    if refused:
+        raise ValueError("; ".join(refused))
     revision = digest(spec)
     with db.session() as s:
         row = s.get(Lesson, slug)
@@ -146,6 +189,15 @@ def review_lesson(db, slug, revision, reviewer, verdicts, evidence_ref):
         row = s.get(Lesson, slug)
         if row is None or row.revision != revision or digest(row.spec) != revision:
             raise ValueError("review revision is stale")
+        spec = row.spec
+    # F-821: the corpus may have grown since the draft was saved; re-checked at review.
+    refused = benchmark_asset_refusals(db, spec)
+    if refused:
+        raise ValueError("; ".join(refused))
+    with db.session() as s:
+        row = s.get(Lesson, slug)
+        if row is None or row.revision != revision or digest(row.spec) != revision:
+            raise ValueError("review revision is stale")
         if reviewer == row.spec.get("author"):
             raise ValueError("lesson author cannot self-approve")
         row.reviews = [{"revision": revision, "reviewer": reviewer,
@@ -162,13 +214,76 @@ def eligible(row):
                for r in row.reviews)
 
 
+# Topic-to-topic relations a consumer follows when choosing lessons (F-815). One hop, from a
+# requested topic outward: "a pattern that needs magic_ring help also benefits from the sc
+# lesson" is an edge somebody recorded, never an inference made here.
+FOLLOWED_RELATIONS = ("related", "prerequisite")
+TOPIC_RELATIONS = FOLLOWED_RELATIONS
+
+
+def expand_topics(db, requested):
+    """The requested topics plus every topic one recorded graph edge away (F-815)."""
+    requested = set(requested)
+    if not requested:
+        return requested
+    with db.session() as s:
+        edges = s.scalars(select(LearnEdge).where(
+            LearnEdge.source.in_(sorted(requested)),
+            LearnEdge.relation.in_(FOLLOWED_RELATIONS))).all()
+        return requested | {e.target for e in edges}
+
+
+def link_topics(db, source, target, relation="related", evidence=None):
+    """Record a topic-to-topic edge the help-link consumers follow (F-815)."""
+    if relation not in TOPIC_RELATIONS:
+        raise ValueError(f"relation must be one of {TOPIC_RELATIONS}")
+    for key in (source, target):
+        if (not isinstance(key, str) or ":" not in key or key.split(":")[0] in
+                ("pattern", "lesson") or not key.split(":", 1)[1]):
+            raise ValueError("graph links join topic nodes (kind:name), not sources or lessons")
+    if source == target:
+        raise ValueError("a topic does not relate to itself")
+    with db.session() as s:
+        for key in (source, target):
+            if s.get(LearnNode, key) is None:
+                s.add(LearnNode(key=key, kind=key.split(":")[0], detail={}))
+        edge_key = digest([source, relation, target])
+        s.merge(LearnEdge(key=edge_key, source=source, target=target, relation=relation,
+                          evidence=dict(evidence or {})))
+    return edge_key
+
+
+def graph(db, node=None):
+    """A DB-computed read of the knowledge graph (F-815): nodes and edges, optionally around one node."""
+    with db.session() as s:
+        q = select(LearnEdge)
+        if node:
+            q = q.where((LearnEdge.source == node) | (LearnEdge.target == node))
+        edges = s.scalars(q.order_by(LearnEdge.key)).all()
+        keys = {e.source for e in edges} | {e.target for e in edges}
+        if node:
+            keys.add(node)
+            nodes = [n for n in (s.get(LearnNode, k) for k in sorted(keys)) if n is not None]
+        else:
+            nodes = s.scalars(select(LearnNode).order_by(LearnNode.key)).all()
+        return {"nodes": [{"key": n.key, "kind": n.kind, "detail": n.detail} for n in nodes],
+                "edges": [{"key": e.key, "source": e.source, "target": e.target,
+                           "relation": e.relation, "evidence": e.evidence} for e in edges],
+                "counts": {"nodes": len(nodes), "edges": len(edges)}}
+
+
 def help_links(db, requested):
-    """Internal routes only; approval is revalidated at consumption, not trusted by label."""
+    """Internal routes only; approval is revalidated at consumption, not trusted by label.
+
+    The requested topics are widened by the recorded graph (`expand_topics`), so a lesson
+    reachable through a related/prerequisite edge is linked too (F-815).
+    """
+    wanted = expand_topics(db, requested)
     with db.session() as s:
         return [{"slug": row.slug, "href": "/learn/" + row.slug + "?revision=" + row.revision, "revision": row.revision,
-                 "topics": sorted(set(row.spec["topics"]) & set(requested))}
+                 "topics": sorted(set(row.spec["topics"]) & wanted)}
                 for row in s.scalars(select(Lesson)).all()
-                if eligible(row) and set(row.spec["topics"]) & set(requested)]
+                if eligible(row) and set(row.spec["topics"]) & wanted]
 
 
 def scan(db):
@@ -226,20 +341,53 @@ def approved_lesson(db, slug):
         return {"slug": row.slug, "revision": row.revision, "spec": row.spec}
 
 
+def _public_origin():
+    import os
+    from urllib.parse import urlsplit
+    base = os.environ.get("BRAMBLELOOP_LEARN_PUBLIC_ORIGIN", "").strip()
+    if not base:
+        return ""
+    parsed = urlsplit(base)
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.path not in ("", "/") or parsed.query or parsed.fragment):
+        raise ValueError("Learn public origin must be an operator-owned HTTPS origin")
+    return base.rstrip("/")
+
+
+def public_help_links(db, requested):
+    """Absolute links to approved lessons, for anything a customer reads outside the app.
+
+    Empty until an owned HTTPS Learn origin is configured (owner gate `owned_surfaces`):
+    a relative route or an invented URL never reaches a buyer.
+    """
+    base = _public_origin()
+    if not base:
+        return []
+    return [{**link, "url": base + link["href"]} for link in help_links(db, requested)]
+
+
 def pdf_help_links(db, cir):
     """An operator-configured HTTPS origin is necessary for portable PDF links.
 
     Never put a relative route into a downloadable PDF. With no deployed owned origin,
     return no links; the architecture does not invent a live website.
     """
-    import os
-    from urllib.parse import urlsplit
-    base = os.environ.get("BRAMBLELOOP_LEARN_PUBLIC_ORIGIN", "").strip()
-    if not base:
-        return []
-    parsed = urlsplit(base)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
-            or parsed.path not in ("", "/") or parsed.query or parsed.fragment):
-        raise ValueError("Learn public origin must be an operator-owned HTTPS origin")
-    return [{**link, "url": base.rstrip("/") + link["href"]}
-            for link in help_links(db, topics(cir))]
+    return public_help_links(db, topics(cir))
+
+
+def listing_help_links(db, cir):
+    """Approved lessons for a listing description (F-808); same gate as the PDF."""
+    return public_help_links(db, topics(cir))
+
+
+def support_help_links(db, cir, specialist=None):
+    """Approved lessons for a support answer (F-808, F-815).
+
+    The topics are the bought pattern's own structure plus the support specialist's node
+    (`support:<specialist>`, the node `scan` files support cases under), widened by the
+    graph -- so an edge from `support:troubleshooter` to a technique routes that lesson.
+    """
+    wanted = set(topics(cir) if cir is not None else ())
+    if specialist:
+        wanted.add("support:" + str(specialist))
+    return public_help_links(db, wanted)

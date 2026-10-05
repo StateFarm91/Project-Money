@@ -210,14 +210,51 @@ def capture_purchase(db, ref: str, *, terms: dict | None = None, source_url: str
 
 def register_public_source(db, ref: str, *, url: str, kind: str = "public_web",
                            attribution: str = "", notes: str = "",
-                           recorded_by: str = "orchestrator") -> dict:
-    """A public tutorial or free pattern: research only, never a publishable source (F-787)."""
+                           recorded_by: str = "orchestrator", overwrite: bool = True) -> dict:
+    """A public tutorial or free pattern: research only, never a publishable source (F-787).
+
+    `overwrite=False` keeps a record already written for this ref, so a periodic observer can
+    call this on every sighting without rewriting terms somebody recorded by hand.
+    """
     lic = Licence(source_ref=ref, source_kind=kind,
                   terms_source="public material: viewing does not license republication",
                   allowed_uses=PUBLIC_RESEARCH_USES, prohibited_uses=PUBLISHING_USES,
                   attribution=attribution, finished_item_rights="unknown",
                   pattern_rights="none", source_url=url, notes=notes)
-    return record(db, lic, recorded_by=recorded_by)
+    return record(db, lic, recorded_by=recorded_by, overwrite=overwrite)
+
+
+def public_listing_ref(listing_ref: str) -> str:
+    """The licence ref under which a publicly observed marketplace listing is recorded."""
+    return f"public-listing-{str(listing_ref).strip()}"
+
+
+def validate_purchase_terms(terms) -> dict:
+    """Check owner-supplied purchase terms against the vocabulary before anything is written.
+
+    The same construction `capture_purchase` performs, run first so the upload route can
+    refuse bad terms with a 400 before the files enter the quarantine (F-786). Returns the
+    terms dict unchanged when valid; raises ValueError otherwise.
+    """
+    if not isinstance(terms, dict):
+        raise ValueError("licence terms must be a JSON object")
+    allowed_keys = {"terms_source", "allowed_uses", "prohibited_uses", "attribution",
+                    "finished_item_rights", "pattern_rights", "notes"}
+    extra = sorted(set(terms) - allowed_keys)
+    if extra:
+        raise ValueError(f"unrecognised licence term fields {extra}; expected "
+                         f"{sorted(allowed_keys)}")
+    for key in ("allowed_uses", "prohibited_uses"):
+        if key in terms and not (isinstance(terms[key], list)
+                                 and all(isinstance(u, str) for u in terms[key])):
+            raise ValueError(f"{key} must be a list of use names")
+    Licence(source_ref="validation", source_kind="purchased",
+            terms_source=str(terms.get("terms_source") or "owner-supplied at intake"),
+            allowed_uses=tuple(terms.get("allowed_uses") or PRIVATE_RESEARCH_USES),
+            prohibited_uses=tuple(terms.get("prohibited_uses") or PUBLISHING_USES),
+            finished_item_rights=str(terms.get("finished_item_rights") or "unknown"),
+            pattern_rights=str(terms.get("pattern_rights") or "personal_use"))
+    return terms
 
 
 def seed_known(db) -> list[str]:

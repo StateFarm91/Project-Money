@@ -362,6 +362,14 @@ class Component:
     # That is the single most visible property of a textured garment in a photograph, and
     # without this field nothing downstream may claim it in either direction.
     grain: Literal["up", "across"] = "up"
+    # A gauge this piece is worked at when it is not the CIR's main gauge (F-754): a ribbed
+    # band, a cuff in a smaller hook. Declarable so a source that states a second gauge
+    # regime is *recorded* rather than silently dropped -- but the twin, the assembly and
+    # the PDF still compute every length from `CIR.gauge`, so certification refuses a
+    # component whose gauge differs from the main one (COMPONENT_GAUGE_UNSUPPORTED) until
+    # per-component gauge is carried end to end. Omitted from `to_dict` when None, so no
+    # existing Product Truth digest moves.
+    gauge: "Gauge | None" = None
 
     @property
     def rows_run_vertically_on_the_body(self) -> bool:
@@ -376,6 +384,8 @@ class Component:
         names = [h.name for h in self.holds]
         if len(names) != len(set(names)):
             raise ValueError(f"component {self.name!r} has duplicate hold names: {names}")
+        if isinstance(self.gauge, dict):
+            self.gauge = Gauge(**self.gauge)
 
 
 SeamMethod = Literal["whipstitch", "slst", "mattress", "sew"]
@@ -475,6 +485,57 @@ class Provenance:
         self.benchmarks_consulted = tuple(str(b) for b in (self.benchmarks_consulted or ()))
 
 
+SINGLE_VARIANT = "single"
+
+
+@dataclass
+class Configuration:
+    """Which optional features this design has, and which configuration its rows encode (F-757).
+
+    `features` maps a feature name to the options a maker can choose ("hood": ["on", "off"]).
+    `default` names the option of every feature that this CIR's rows, counts and twin
+    actually describe -- which is therefore the configuration every disclosed render drawn
+    from this CIR shows, and the one a listing image may claim. A CIR with no configuration
+    block is a single-variant design (`SINGLE_VARIANT`), which is every existing product.
+
+    Structural problems (an option the feature does not offer, a feature with no default)
+    are reported by `configuration_problems` and refused at certification rather than at
+    construction, so a malformed block reaches a finding instead of a stack trace.
+    """
+
+    features: dict[str, list[str]] = field(default_factory=dict)
+    default: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        self.features = {str(k): [str(o) for o in (v or [])]
+                         for k, v in dict(self.features or {}).items()}
+        self.default = {str(k): str(v) for k, v in dict(self.default or {}).items()}
+
+    def problems(self) -> list[str]:
+        out = []
+        for name, options in sorted(self.features.items()):
+            if not options:
+                out.append(f"feature {name!r} declares no options")
+            if len(set(options)) != len(options):
+                out.append(f"feature {name!r} repeats an option: {options}")
+            if name not in self.default:
+                out.append(f"feature {name!r} has no default: the rows must encode one "
+                           f"configuration")
+            elif self.default[name] not in options:
+                out.append(f"feature {name!r} default {self.default[name]!r} is not one of "
+                           f"{options}")
+        for name in sorted(set(self.default) - set(self.features)):
+            out.append(f"default names undeclared feature {name!r}")
+        return out
+
+
+def variant_key(selection: dict[str, str] | None) -> str:
+    """A stable name for one configuration: `single` for none, else `a=x;b=y` sorted."""
+    if not selection:
+        return SINGLE_VARIANT
+    return ";".join(f"{k}={selection[k]}" for k in sorted(selection))
+
+
 @dataclass
 class CIR:
     """The canonical pattern object."""
@@ -507,6 +568,8 @@ class CIR:
     assembly: list[Seam] = field(default_factory=list)
     # Optional. Absent from `to_dict` when None: see `Provenance`.
     provenance: Provenance | None = None
+    # Optional (F-757). Absent from `to_dict` when None: a single-variant design.
+    configuration: Configuration | None = None
 
     def __post_init__(self) -> None:
         if not self.components:
@@ -516,6 +579,17 @@ class CIR:
             raise ValueError(f"component names must be unique, got {names}")
         if isinstance(self.provenance, dict):
             self.provenance = Provenance(**self.provenance)
+        if isinstance(self.configuration, dict):
+            self.configuration = Configuration(**self.configuration)
+
+    @property
+    def represented_variant(self) -> dict[str, str]:
+        """The configuration this CIR's rows encode: `{}` for a single-variant design."""
+        return dict(self.configuration.default) if self.configuration else {}
+
+    @property
+    def variant_key(self) -> str:
+        return variant_key(self.represented_variant)
 
     @property
     def makes_a_closed_form(self) -> bool:
@@ -556,6 +630,11 @@ class CIR:
         # taken must not appear in the payload they were taken over.
         if out.get("provenance") is None:
             out.pop("provenance", None)
+        if out.get("configuration") is None:
+            out.pop("configuration", None)
+        for comp in out.get("components", []):
+            if comp.get("gauge") is None:
+                comp.pop("gauge", None)
         return out
 
     def to_json(self, **kw: Any) -> str:
@@ -589,6 +668,7 @@ class CIR:
                 holds=[Hold(**h) for h in c.get("holds", [])],
                 resumes=c.get("resumes"),
                 grain=c.get("grain", "up"),
+                gauge=Gauge(**c["gauge"]) if c.get("gauge") else None,
                 rows=[
                     Row(
                         index=r["index"],
@@ -622,6 +702,8 @@ class CIR:
             finished_size_note=d.get("finished_size_note"),
             assembly=[Seam(**seam) for seam in d.get("assembly", [])],
             provenance=Provenance(**d["provenance"]) if d.get("provenance") else None,
+            configuration=(Configuration(**d["configuration"])
+                           if d.get("configuration") else None),
         )
 
     @staticmethod

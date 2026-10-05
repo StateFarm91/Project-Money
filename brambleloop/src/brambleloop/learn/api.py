@@ -9,7 +9,7 @@ from fastapi import APIRouter, Header, HTTPException
 from sqlalchemy import select
 from ..core import opsauth
 from .models import LearnGap, Lesson
-from .service import approved_lesson, save_lesson, review_lesson
+from .service import approved_lesson, graph, link_topics, save_lesson, review_lesson
 
 EDITOR = "learn-operator-editor"
 
@@ -47,6 +47,24 @@ def router(db):
         with db.session() as s:
             return [{"topic": g.topic, "state": g.state, "owner": g.owner,
                      "evidence": g.evidence} for g in s.scalars(select(LearnGap)).all()]
+
+    @routes.get("/api/learn/graph")
+    def read_graph(node: str | None = None, authorization: str | None = Header(default=None)):
+        # F-815: the knowledge graph computed from learn_nodes/learn_edges, editor-only like
+        # the queue (it carries support-case and pattern-version evidence).
+        _editor(authorization)
+        return graph(db, node)
+
+    @routes.post("/api/learn/graph/edges")
+    def add_edge(edge: dict, authorization: str | None = Header(default=None)):
+        _editor(authorization)
+        try:
+            key = link_topics(db, edge.get("source"), edge.get("target"),
+                              edge.get("relation", "related"),
+                              {"recorded_by": EDITOR, "reason": str(edge.get("reason") or "")})
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(422, str(exc))
+        return {"key": key}
 
     @routes.put("/api/learn/lessons/{slug}")
     def draft(slug: str, spec: dict, authorization: str | None = Header(default=None)):

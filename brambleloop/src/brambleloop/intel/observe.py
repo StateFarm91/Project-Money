@@ -218,6 +218,27 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 row.detail["size_range"] = sizes
             result.pods_notified.add(pod)
 
+    # -- F-787: a publicly observed listing is a public source, recorded as one ----------
+    #
+    # Everything this scan reads comes through the public, read-only marketplace API, so a
+    # new or changed listing is public material: it may inform demand and merchandising
+    # research and is never a source for publishable output. Recording it as such puts a
+    # `pattern_rights='none'` licence row where `gates.originality.release_findings` and the
+    # library read licences, instead of leaving the listing to the purchase-default reading.
+    # `overwrite=False`: terms somebody recorded by hand are never rewritten by a sighting.
+    from ..teardown import licence as _licence
+
+    for listing in to_audit:
+        ref = str(listing.get("listing_id"))
+        try:
+            _licence.register_public_source(
+                db, _licence.public_listing_ref(ref), url=str(listing.get("url") or ""),
+                kind="public_web", attribution=shop_name,
+                notes=f"observed by intel.observe.scan of {benchmark_key}",
+                recorded_by="intel.observe", overwrite=False)
+        except Exception as exc:  # noqa: BLE001 - a failed record is a reported problem
+            result.problems.append(f"{ref}: public-source licence not recorded ({exc})")
+
     # -- the deep audit: what moved first, then the backlog (#208, #212, #303) ----
     #
     # The limit here was a first-scan safeguard and had quietly become a permanent ceiling.

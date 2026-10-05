@@ -201,8 +201,13 @@ def build_description(product_title: str, *, size_label: str | None,
                       season: str | None = None, pages: int | None = None,
                       collapsed_repeats: bool = False,
                       childrens: "ch.RenderedStatements | None" = None,
-                      key_phrases: list[str] | None = None) -> str:
+                      key_phrases: list[str] | None = None,
+                      lesson_links: list[dict] | None = None) -> str:
     """Assemble the description entirely from verified pattern facts.
+
+    `lesson_links` is `learn.service.listing_help_links(db, cir)` (F-808): approved,
+    revision-bound lessons on the owned Learn origin. Empty -- and no section printed --
+    until that origin is configured; only entries carrying an absolute https `url` print.
 
     `terminology` is still accepted and no line depends on it any more: both documents ship, so
     the honest sentence names two files rather than one terminology. Kept in the signature
@@ -277,6 +282,12 @@ def build_description(product_title: str, *, size_label: str | None,
         # Above the "how this was made" block and well above the licence, because it is a
         # suitability fact rather than a disclosure: the buyer is still deciding here.
         out.extend(childrens_listing_block(childrens))
+        out.append("")
+    help_urls = [link["url"] for link in (lesson_links or [])
+                 if str(link.get("url", "")).startswith("https://")]
+    if help_urls:
+        out.append("TECHNIQUE HELP")
+        out.extend(f"- {u}" for u in help_urls)
         out.append("")
     out.append("HOW THIS PATTERN WAS MADE")
     out.append("The design was developed with AI assistance, and every stitch count was "
