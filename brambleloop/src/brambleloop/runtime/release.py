@@ -834,6 +834,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     childrens = (childrens_statements(cir, twin, assignment)
                  if assignment is not None else None)
 
+    from ..learn import service as _learn_service
+
     copy = seo_mod.ListingCopy(
         title=title,
         tags=tags,
@@ -844,7 +846,9 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             gauge_line=gauge_line, stitches=sorted(twin.stitch_types_used),
             season=season, pages=i.get("pages"),
             collapsed_repeats=collapses_rows(cir), childrens=childrens,
-            key_phrases=_opening_phrases(tags, queries)),
+            key_phrases=_opening_phrases(tags, queries),
+            # F-808: approved lessons only, and only once an owned HTTPS Learn origin is set.
+            lesson_links=_learn_service.listing_help_links(ctx.db, cir.to_dict())),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],
