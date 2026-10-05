@@ -241,6 +241,19 @@ class JobQueue:
         credit = case((steps > AGING_CAP, AGING_CAP), (steps < 0, 0), else_=steps)
         return Job.priority - credit
 
+    @staticmethod
+    def _claim_tier():
+        """Protected bands first (Codex CB2-G02): customer_incident job types, then
+        truth_defect job types, then all other work. Declared in `swarm.orchestrate`
+        (PROTECTED_KINDS / claim_tier); aging and stored priority order work only *within* a
+        tier, so neither a steered priority nor a long wait lets ordinary work be claimed
+        while runnable protected work waits."""
+        from ..swarm.orchestrate import ORDINARY_TIER, protected_job_types
+
+        whens = [(Job.job_type.in_(sorted(types)), tier)
+                 for tier, types in enumerate(protected_job_types().values()) if types]
+        return case(*whens, else_=ORDINARY_TIER)
+
     def claim(self, worker: str, job_types: Sequence[str] | None = None) -> Job | None:
         """Atomically lease one runnable job, or return None.
 
@@ -275,7 +288,8 @@ class JobQueue:
                             Job.status.in_([JobStatus.PENDING, JobStatus.FAILED]),
                             Job.run_after <= now,
                         )
-                        .order_by(self._effective_priority(now).asc(),
+                        .order_by(self._claim_tier().asc(),
+                                  self._effective_priority(now).asc(),
                                   Job.run_after.asc(), Job.id.asc())
                         .limit(1)
                     )
@@ -327,7 +341,7 @@ class JobQueue:
         q = (
             select(Job.id, Job.attempts, Job.max_attempts)
             .where(Job.status == JobStatus.RUNNING, Job.lease_expires_at <= now)
-            .order_by(Job.priority.asc(), Job.id.asc())
+            .order_by(self._claim_tier().asc(), Job.priority.asc(), Job.id.asc())
         )
         if job_types:
             q = q.where(Job.job_type.in_(list(job_types)))

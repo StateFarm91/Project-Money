@@ -37,7 +37,7 @@ def _frames(*, with_chart: bool) -> list[dict]:
 
 
 def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = None,
-                     slug: str = SLUG) -> dict:
+                     slug: str = SLUG, version: str = "1.0.0") -> dict:
     db = Database(f"sqlite:///{tempfile.mkdtemp()}/esc.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
@@ -49,7 +49,7 @@ def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = N
         s.add(AuditLog(actor="publishing", action=owned_photography.ACTION,
                        detail={"made": True, "slug": slug, "frames": frames,
                                "method_version": owned_photography.METHOD_VERSION}))
-    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": "1.0.0"})
+    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": version})
     Worker(db, "w", phase=Phase.SHADOW).run_once()
     with db.session() as s:
         verdicts = [dict(r.detail) for r in s.scalars(select(AuditLog))
@@ -131,8 +131,9 @@ def test_an_open_image_gate_attempts_the_first_rung_through_the_photography_job(
         assert jobs and jobs[0].inputs["reason"] == "parity_escalation:regenerate_constrained"
 
 
-def _publish_again(db, *, job_types=("store.publish",), slug: str = SLUG) -> dict:
-    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": "1.0.0"})
+def _publish_again(db, *, job_types=("store.publish",), slug: str = SLUG,
+                   version: str = "1.0.0") -> dict:
+    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": version})
     Worker(db, "w2", phase=Phase.SHADOW, job_types=list(job_types)).run_once()
     with db.session() as s:
         verdicts = [dict(r.detail) for r in s.scalars(select(AuditLog))
@@ -152,11 +153,16 @@ def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
 
     # a catalogue product `products.builder.for_slug` can build, product-first, compiling
     slug = "cloudline-baby-blanket"
+    # CB2-P11: the release under test is the CIR the catalogue builds today (the fixture used
+    # to hard-code 1.0.0, which went stale when cloudline was redesigned to 1.1.0).
+    from brambleloop.products.builder import for_slug
+
+    version = for_slug(slug).version
     calls: list[dict] = []
 
     def fake_make(db, cir, twin, **kw):
         calls.append(dict(kw))
-        return {"made": True, "slug": slug, "version": "1.0.0",
+        return {"made": True, "slug": slug, "version": version,
                 "method_version": owned_photography.METHOD_VERSION,
                 "frames": _frames(with_chart=True), "rung": kw.get("rung") or None,
                 "rung_constraints": list(kw.get("constraints") or ()),
@@ -173,7 +179,8 @@ def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
     tournament.alternate_provider = lambda db=None, env=None, *, exclude=(): "flux-2-pro"
     dbs: list = []
     try:
-        verdict = _publish_attempt(_frames(with_chart=True), keep_db=dbs, slug=slug)
+        verdict = _publish_attempt(_frames(with_chart=True), keep_db=dbs, slug=slug,
+                                   version=version)
         db = dbs[0]
         assert verdict["escalation"]["taken"] == "regenerate_constrained"
 
@@ -182,7 +189,7 @@ def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
                 job = next(j for j in s.scalars(select(Job).where(
                     Job.job_type == "assets.owned_photography", Job.status == JobStatus.PENDING)))
                 assert job.inputs["rung"] == expected_rung, job.inputs
-                assert job.inputs["version"] == "1.0.0"
+                assert job.inputs["version"] == version
                 job_id = job.id
             Worker(db, "rung", phase=Phase.SHADOW,
                    job_types=["assets.owned_photography"]).run_once()
@@ -195,11 +202,11 @@ def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
         assert out["ran"] and out["attempted"] and out["usable"] is False
         assert any("failed these checks" in c and parity.PRODUCT_TRUTH in c
                    for c in calls[-1]["constraints"]), calls[-1]
-        progress = gallery.escalation_progress(db, slug=slug, version="1.0.0")
+        progress = gallery.escalation_progress(db, slug=slug, version=version)
         assert progress["start_attempt"] == 1 and progress["attempted"] == [
             "regenerate_constrained"]
 
-        verdict = _publish_again(db, slug=slug)
+        verdict = _publish_again(db, slug=slug, version=version)
         plan = verdict["escalation"]
         assert plan["taken"] == "change_composition", plan
         assert plan["start_attempt"] == 1 and "regenerate_constrained" in plan["rung_results"]
@@ -207,18 +214,18 @@ def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
         assert out["composition"] == "alternate"
         assert any("composition" in c.lower() for c in calls[-1]["constraints"])
 
-        verdict = _publish_again(db, slug=slug)
+        verdict = _publish_again(db, slug=slug, version=version)
         assert verdict["escalation"]["taken"] == "change_tool"
         out = run_rung("change_tool")
         assert calls[-1]["provider_key"] == "flux-2-pro" and out["provider"] == "flux-2-pro"
 
         # every generation rung has been tried once, on its own budget: the ordinary daily
         # budget is untouched and the ladder now takes the free deterministic rung
-        assert owned_photography.ordinary_attempts(db, slug=slug, version="1.0.0") == []
+        assert owned_photography.ordinary_attempts(db, slug=slug, version=version) == []
         for rung in gallery.GENERATION_RUNGS:
-            assert len(owned_photography.rung_attempts(db, slug=slug, version="1.0.0",
+            assert len(owned_photography.rung_attempts(db, slug=slug, version=version,
                                                        rung=rung)) == 1
-        verdict = _publish_again(db, slug=slug)
+        verdict = _publish_again(db, slug=slug, version=version)
         plan = verdict["escalation"]
         assert plan["start_attempt"] == 3
         assert plan["taken"] == "deterministic_representation", plan
@@ -228,7 +235,7 @@ def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
         assert plan["still_blocks_release"] is True
         # a rung is never repeated: the same job asked again records it and renders nothing
         JobQueue(db).enqueue("publishing", "assets.owned_photography",
-                             {"slug": slug, "version": "1.0.0", "rung": "change_tool",
+                             {"slug": slug, "version": version, "rung": "change_tool",
                               "reason": "parity_escalation:change_tool", "failed": ["x"]},
                              idempotency_key="repeat-rung")
         before = len(calls)
@@ -242,6 +249,54 @@ def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
     finally:
         (gate.check, images.usable, owned_photography.make,
          tournament.alternate_provider) = originals
+
+
+def test_a_rung_for_a_superseded_version_is_refused_and_recorded_not_rendered():
+    """CB2-P11: the rung job names the release whose parity failed. When the CIR on file has
+    since been rebuilt under another version, the handler refuses explicitly -- recorded under
+    the requested release with reason stale_version -- and renders nothing, rather than
+    filing a render of the new release as the old one's rung result."""
+    from brambleloop.build2 import executor
+    from brambleloop.core.models import Job, JobStatus
+    from brambleloop.gateway import images
+    from brambleloop.products.builder import for_slug
+
+    slug = "cloudline-baby-blanket"
+    current = for_slug(slug).version
+    stale = "0.0.1" if current != "0.0.1" else "0.0.2"
+    calls: list = []
+    gate = executor.GATE_BY_KEY["image_generation"]
+    originals = (gate.check, images.usable, owned_photography.make)
+    gate.check = lambda db, env: True
+    images.usable = lambda db: True
+    owned_photography.make = lambda *a, **k: calls.append(k) or {"made": True}
+    try:
+        db = Database(f"sqlite:///{tempfile.mkdtemp()}/stale.sqlite")
+        db.create_all()
+        Registry(db).seed_defaults()
+        job = JobQueue(db).enqueue(
+            "publishing", "assets.owned_photography",
+            {"slug": slug, "version": stale, "rung": "regenerate_constrained",
+             "reason": "parity_escalation:regenerate_constrained", "failed": ["x"]})
+        Worker(db, "rung", phase=Phase.SHADOW,
+               job_types=["assets.owned_photography"]).run_once()
+        with db.session() as s:
+            row = s.get(Job, job.id)
+            assert row.status == JobStatus.DONE, row.last_error
+            out = dict(row.outputs)
+            rec = [dict(r.detail) for r in s.scalars(select(AuditLog).where(
+                AuditLog.action == gallery.ESCALATION_RESULT_ACTION,
+                AuditLog.artifact == f"{slug}@{stale}"))]
+        assert calls == [], "a superseded release's rung rendered the new release"
+        assert out["attempted"] is False and out["reason"] == "stale_version", out
+        assert out["version"] == stale and out["current_version"] == current
+        assert rec and rec[-1]["reason"] == "stale_version"
+        # Not counted as an attempt: the ladder for the stale release did not advance falsely,
+        # and the current release's ladder is untouched.
+        assert gallery.escalation_progress(db, slug=slug, version=stale)["attempted"] == []
+        assert gallery.escalation_progress(db, slug=slug, version=current)["attempted"] == []
+    finally:
+        gate.check, images.usable, owned_photography.make = originals
 
 
 def test_unjudged_is_not_escalated_because_nobody_looked():

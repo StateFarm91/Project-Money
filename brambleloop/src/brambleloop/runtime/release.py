@@ -1804,7 +1804,11 @@ def _check_and_time_reply(ctx: JobContext, *, case_id, customer: str, question: 
                     "timing": {"recorded": False, "why": "no stored case to time"}}
         cid = int(case.id)
         at = case.at if case.at.tzinfo else case.at.replace(tzinfo=timezone.utc)
-        already = "response_minutes" in (case.detail or {})
+        # A draft timing does not block the later sent timing (Codex CB2-G08); a sent one,
+        # or a second draft, is already recorded.
+        prior = dict(case.detail or {})
+        already = "response_minutes" in prior and (
+            prior.get("response_measured_as", "sent") == "sent" or not reply.sent)
         if not copy["ok"]:
             case.answer = ""
             case.escalated = True
@@ -7011,6 +7015,15 @@ def _owned_photography_rung(ctx: JobContext, cir, slug: str, rung: str,
     from ..visual.gallery import ESCALATION_RESULT_ACTION, GENERATION_RUNGS, RUNG_BRIEFS
 
     version = cir.version
+    # Codex CB2-P11: a rung is enqueued for the release whose parity failed, named by
+    # job.inputs["version"]. The catalogue may since have rebuilt the CIR under a new version;
+    # rendering that one and filing it as the old release's rung result would be a result for
+    # a release nobody asked about. Refused explicitly, recorded under the requested release,
+    # nothing rendered or spent; the new release walks its own ladder.
+    requested = str(ctx.job.inputs.get("version") or "").strip()
+    stale = bool(requested) and requested != str(version)
+    if stale:
+        version = requested
     key = f"{slug}@{version}"
 
     def result(**detail):
@@ -7019,6 +7032,11 @@ def _owned_photography_rung(ctx: JobContext, cir, slug: str, rung: str,
         return {"ran": bool(detail.get("attempted")), "slug": slug, "version": version,
                 "rung": rung, **detail}
 
+    if stale:
+        return result(attempted=False, reason="stale_version", current_version=cir.version,
+                      why=(f"this rung was asked for {slug}@{requested}, but the CIR on file "
+                           f"is {cir.version}; a render of {cir.version} is not a result for "
+                           f"{requested}, so nothing was rendered"))
     if rung not in GENERATION_RUNGS:
         return result(attempted=False, reason="not_a_generation_rung",
                       why=f"{rung!r} is not a rung this job executes")

@@ -680,11 +680,18 @@ def creators_reading(db) -> dict:
     for ref, counts in sorted(testers.items()):
         profile = profiles.get(ref)
         perms = list(getattr(profile, "permissions", None) or [])
-        consent = next((p.split(":", 1)[1] for p in perms
-                        if isinstance(p, str) and p.startswith("advocate:")), "")
+
+        def _recorded(prefix: str, perms=perms) -> str:
+            return next((p.split(":", 1)[1] for p in perms
+                         if isinstance(p, str) and p.startswith(prefix)), "")
+
+        # Codex CB2-G05: the two agreements are read from the roster, never passed blank. A
+        # tester with no recorded testing or ambassador agreement is refused by may_graduate.
         graduations.append(creators.may_graduate(creators.Graduation(
             tester_ref=ref, invited=counts["invited"], delivered=counts["delivered"],
-            testing_terms="", ambassador_terms="", consent_ref=consent)))
+            testing_terms=_recorded("testing_terms:"),
+            ambassador_terms=_recorded("ambassador_terms:"),
+            consent_ref=_recorded("advocate:"))))
     graduated = [g["tester_ref"] for g in graduations if g["may_graduate"]]
     # #250: the offer itself is the owner's -- a second, separate agreement with a person --
     # so a tester the check clears becomes one owner card, once, at no cost. Nothing is sent.
@@ -1190,6 +1197,7 @@ def steer(db, *, today: date | None = None) -> dict:
     from ..radar.opportunity import POOL
     from ..scale.war_room import board as war_board
     from ..seasonal import daily
+    from ..swarm.orchestrate import steer_floor, steered_priority
 
     today = today or date.today()
     week = weekly.latest(db) or {}
@@ -1224,7 +1232,7 @@ def steer(db, *, today: date | None = None) -> dict:
     seasons_up = {m["to"] for m in engineering + marketing}
     seasons_down = {m["from"] for m in engineering + marketing} - seasons_up
     season_of = {m.slug: m.season for m in POOL if m.season}
-    moved = []
+    moved, held = [], []
     with db.session() as s:
         pending = list(s.scalars(select(Job).where(Job.status == JobStatus.PENDING)
                                  .order_by(Job.id).limit(2000)))
@@ -1248,9 +1256,23 @@ def steer(db, *, today: date | None = None) -> dict:
                 why, delta = f"{season} no longer holds capacity (#267)", STEER_CREDIT
             if not delta:
                 continue
-            job.priority = int(job.priority) + delta
-            moved.append({"job_id": job.id, "job_type": job.job_type, "agent": job.agent,
-                          "delta": delta, "why": why})
+            # Codex CB2-G02: the credit is bounded by the protected bands. A steer never
+            # carries a job into the customer_incident / truth_defect bands (or across one),
+            # so a fast-lane rebuild cannot be claimed ahead of a waiting support reply.
+            before = int(job.priority)
+            after = steered_priority(job.job_type, before, delta)
+            if after == before:
+                held.append({"job_id": job.id, "job_type": job.job_type,
+                             "requested_delta": delta, "why": why,
+                             "held_by": "protected band floor (CB2-G02)"})
+                continue
+            job.priority = after
+            entry = {"job_id": job.id, "job_type": job.job_type, "agent": job.agent,
+                     "delta": after - before, "why": why}
+            if after - before != delta:
+                entry.update(requested_delta=delta,
+                             clamped_at=steer_floor(job.job_type, before))
+            moved.append(entry)
         # The experiment queue: experiments on the constraint's levers first (#264).
         ranked = []
         levers = set(realloc.get("experiments") or []) if realloc.get("move") else set()
@@ -1274,7 +1296,8 @@ def steer(db, *, today: date | None = None) -> dict:
         "board": {"winners": sorted(winners),
                   "primary_constraint": board["primary_constraint"].get("value"),
                   "top_actions_status": board["top_actions"]["status"]},
-        "jobs_moved": moved, "experiments_prioritised": ranked,
+        "jobs_moved": moved, "jobs_held_at_band_floor": held,
+        "experiments_prioritised": ranked,
         "note": ("nothing moved: no constraint is identifiable, no occasion has released "
                  "capacity and nothing was admitted or is winning"
                  if not moved and not ranked else ""),

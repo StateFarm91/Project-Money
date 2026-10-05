@@ -217,7 +217,10 @@ def test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak
                            completed_at=NOW, passed=True))
         s.add(PhysicalTest(product_slug=FLAGSHIP, version="1.0.0", tester_ref="t1",
                            completed_at=NOW, passed=True))
-        s.add(CreatorProfile(ref="t1", permissions=["advocate:consent-form-7"]))
+        # CB2-G05: graduation needs both separate agreements on record, not blank terms.
+        s.add(CreatorProfile(ref="t1", permissions=[
+            "advocate:consent-form-7", "testing_terms:tester-agreement-v2",
+            "ambassador_terms:ambassador-agreement-v1"]))
     _orders(db, "creator-order", 1, contribution=5.0, source="creator:weak")
     # The flagship is a winner (#295): the pin plan grows by a new angle, never a copy.
     _orders(db, FLAGSHIP, 18, contribution=10.0)

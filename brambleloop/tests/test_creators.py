@@ -390,6 +390,22 @@ def test_state_names_what_can_never_be_bought():
     assert out["outreach_basis"]["basis"] == owned.IMPLIED_PUBLISHED
 
 
+def test_blank_agreements_cannot_graduate_a_tester():
+    """CB2-G05: "separate agreements" needs two agreements that exist."""
+    for testing, ambassador in (("", ""), ("make it and report what broke", ""),
+                                ("", "post when you like"), ("   ", "  ")):
+        out = C.may_graduate(C.Graduation("t1", invited=3, delivered=3,
+                                          testing_terms=testing, ambassador_terms=ambassador,
+                                          consent_ref="c-1"))
+        assert out["may_graduate"] is False, (testing, ambassador)
+        assert any("agreement is recorded" in r for r in out["reasons"]), out["reasons"]
+    same = C.may_graduate(C.Graduation("t1", invited=3, delivered=3,
+                                       testing_terms="Terms v1", ambassador_terms="terms v1",
+                                       consent_ref="c-1"))
+    assert same["may_graduate"] is False
+    assert any("same text" in r for r in same["reasons"])
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

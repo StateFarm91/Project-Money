@@ -384,24 +384,70 @@ def _class_composite(db, product_class: str) -> dict:
     return {"scope": scope, "best": best}
 
 
-def compare_advantages(db, advantages: list[str], product_class: str) -> dict:
-    """Each evidenced advantage against the purchased benchmarks: beyond, matched or unmeasured."""
+def own_scores(db, slug: str) -> dict[str, dict]:
+    """This release's own scores, by dimension: an audited self-teardown finding
+    (`brambleloop:<slug>`) where one exists, else `measured_self_scores`. A dimension with
+    neither is absent -- never defaulted."""
+    from sqlalchemy import select
+
+    from ..core.models import TeardownFinding
+
+    out = {dim: {"score": float(v["score"]), "source": "measured_self_scores",
+                 "evidence": v.get("evidence")}
+           for dim, v in measured_self_scores(db, slug).items()
+           if isinstance(v, dict) and v.get("score") is not None}
+    with db.session() as s:
+        for r in s.scalars(select(TeardownFinding).where(
+                TeardownFinding.benchmark_ref == f"{SELF_PREFIX}{slug}")
+                .order_by(TeardownFinding.id)):
+            out[r.dimension] = {"score": float(r.score), "source": "self_teardown",
+                                "evidence": f"teardown finding {r.id}"}
+    return out
+
+
+def compare_advantages(db, advantages: list[str], product_class: str,
+                       ours: dict | None = None) -> dict:
+    """Each evidenced advantage against the purchased benchmarks: beyond, matched or unmeasured.
+
+    Codex CB2-P04: "beyond" is a comparison of two measured scores -- this release's own score
+    on the advantage's dimension against the best purchased benchmark's -- and holds only when
+    ours is strictly higher. A benchmark that scores low proves nothing about this release: with
+    no score of our own on that dimension the verdict is "unmeasured", never "beyond". `ours`
+    is {dimension: score or {"score": ...}}; omitted, nothing of ours is measured.
+    """
     composite = _class_composite(db, product_class)
+    mine: dict[str, float] = {}
+    for dim, v in (ours or {}).items():
+        score = v.get("score") if isinstance(v, dict) else v
+        if isinstance(score, (int, float)) and not isinstance(score, bool):
+            mine[dim] = float(score)
     verdicts = {}
     for adv in advantages:
         dim = ADVANTAGE_DIMENSION.get(adv)
         top = composite["best"].get(dim)
+        own = mine.get(dim) if dim else None
         if top is None:
-            verdicts[adv] = {"dimension": dim, "state": "unmeasured",
+            verdicts[adv] = {"dimension": dim, "state": "unmeasured", "our_score": own,
                              "why": f"no purchased benchmark has been scored on {dim}"}
         elif top[0] >= MATCHED_AT:
             verdicts[adv] = {"dimension": dim, "state": "matched", "by": top[1],
-                             "benchmark_score": top[0],
+                             "benchmark_score": top[0], "our_score": own,
                              "why": f"{top[1]} already scores {top[0]} on {dim}"}
-        else:
+        elif own is None:
+            verdicts[adv] = {"dimension": dim, "state": "unmeasured", "by": top[1],
+                             "benchmark_best": top[0], "our_score": None,
+                             "why": (f"this release has no measured score on {dim}; a "
+                                     f"benchmark scoring {top[0]} does not make ours higher")}
+        elif own > top[0]:
             verdicts[adv] = {"dimension": dim, "state": "beyond", "benchmark_best": top[0],
-                             "by": top[1],
-                             "why": f"the best purchased benchmark scores {top[0]} on {dim}"}
+                             "by": top[1], "our_score": own,
+                             "why": (f"this release scores {own} on {dim}; the best purchased "
+                                     f"benchmark scores {top[0]}")}
+        else:
+            verdicts[adv] = {"dimension": dim, "state": "matched", "by": top[1],
+                             "benchmark_score": top[0], "our_score": own,
+                             "why": (f"this release scores {own} on {dim}, not above "
+                                     f"{top[1]}'s {top[0]}")}
     beyond = sorted(a for a, v in verdicts.items() if v["state"] == "beyond")
     measured = [a for a, v in verdicts.items() if v["state"] != "unmeasured"]
     return {"scope": composite["scope"], "verdicts": verdicts, "beyond": beyond,
@@ -472,7 +518,7 @@ def product_qa(db, slug: str, *, product_class: str = "") -> dict:
     # evidenced advantage against the purchased benchmarks' composite. Advantages the
     # benchmarks all match are parity; with no benchmark scored on those dimensions the
     # comparison is UNMEASURED (the purchases are the owner's), recorded and not blocking.
-    comparison = compare_advantages(db, advantages, category)
+    comparison = compare_advantages(db, advantages, category, ours=own_scores(db, slug))
     parity["comparison"] = comparison
     if not parity["refused"] and comparison["parity_only"]:
         parity = {**parity, "refused": True,
