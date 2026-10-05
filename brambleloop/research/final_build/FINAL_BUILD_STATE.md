@@ -123,3 +123,4 @@ find cause); gateway/images.generate(db=None) skips benchmark byte check; vacuit
 loop roots named values/items/keys (false negatives); C-78 certification row must be corrected
 in the Build-2 certification record; heartbeat prompt targets production branch (owner decision).
 Launch-0 listings remain blocked on HERO (vision gate, owner) and COMPETITIVE (blind review, data).
+- 2026-10-05T16:15Z heartbeat: production `/api/verify` read-only — 12 checks, 0 failing, ok=True. Final Build work continues on claude/visual-investigation; nothing pushed to the production branch.
