@@ -23,9 +23,86 @@ purpose whose estimates are consistently low is a ceiling with a hole in it.
 from __future__ import annotations
 from .listing_costs import cost_basis, basis_summary
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 
 UNATTRIBUTED = "unattributed"
+
+# ---------------------------------------------------------------------------
+# Product attribution (F-321/F-324/F-325/F-329)
+#
+# Every billable writer used to pass `product_slug=""` because none of them knew which product
+# they were working for: the slug lives in the *job*, and the spend happens five calls deep
+# in a gateway or a vision judge that was never handed it. The result was a ledger where only
+# test fixtures carried a product, so `sustainability.forecast` was INSUFFICIENT_DATA by
+# construction and the launch requirement `sustainable_economics` could never pass.
+#
+# The slug is therefore carried as job context rather than threaded through forty
+# signatures: the worker opens `attributed_to(job_product(db, job))` around the handler, and
+# `record`, the reservation and the gateway's own cost row read it when the caller named no
+# product. Spend outside any product job -- cadences, probes, research -- stays untagged and
+# is labelled `shared` in its detail, which is platform spend, not a product's creation cost.
+
+ATTRIBUTION_PRODUCT = "product"
+ATTRIBUTION_SHARED = "shared"
+
+_CURRENT_PRODUCT: ContextVar[str] = ContextVar("brambleloop_spend_product", default="")
+
+
+def current_product() -> str:
+    """The product the running job works for, or "" when the spend is shared."""
+    return _CURRENT_PRODUCT.get()
+
+
+@contextmanager
+def attributed_to(product_slug: str | None):
+    """Attribute every spend write inside this block to `product_slug` ("" = shared)."""
+    token = _CURRENT_PRODUCT.set(str(product_slug or "")[:80])
+    try:
+        yield
+    finally:
+        _CURRENT_PRODUCT.reset(token)
+
+
+def job_product(db, job) -> str:
+    """The product a job's spend is attributable to, or "" when it is genuinely shared.
+
+    Reads the slug wherever job inputs carry it (`slug`, `product_slug`, `cir.slug`). A slug
+    is only a *product* when the job carries the CIR or the catalogue knows the product
+    (a `Product` or `Listing` row); a slug naming anything else -- a lesson, a season, a
+    benchmark -- is not a product and its spend stays shared rather than being mis-charged to
+    a product's break-even.
+    """
+    inputs = getattr(job, "inputs", None)
+    inputs = inputs if isinstance(inputs, dict) else {}
+    cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
+    slug = str(inputs.get("slug") or inputs.get("product_slug") or cir.get("slug") or "")
+    if not slug:
+        return ""
+    if cir.get("slug") == slug:
+        return slug
+    try:
+        from sqlalchemy import select
+
+        from ..core.models import Listing, Product
+
+        with db.session() as s:
+            known = (s.scalar(select(Product.id).where(Product.slug == slug).limit(1))
+                     or s.scalar(select(Listing.id).where(Listing.product_slug == slug)
+                                 .limit(1)))
+    except Exception:  # noqa: BLE001 - attribution must never fail the job it describes
+        return ""
+    return slug if known else ""
+
+
+def attribution(product_slug: str, detail: dict | None) -> tuple[str, dict]:
+    """(slug, detail) with the context applied and the attribution labelled."""
+    out = dict(detail or {})
+    if not product_slug and out.get("attribution") != ATTRIBUTION_SHARED:
+        product_slug = current_product()
+    out["attribution"] = ATTRIBUTION_PRODUCT if product_slug else ATTRIBUTION_SHARED
+    return product_slug, out
 
 # An estimate this far from the bill, consistently, is a pricing fault rather than noise.
 # One call can be anything; a purpose whose estimates average outside this band is a ceiling
@@ -326,9 +403,14 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
     A single writer so the dimensions cannot be optional by accident. They were optional
     before -- written into a JSON blob where somebody remembered -- and the result was a
     ledger that could total and could not explain.
+
+    `product_slug` left empty takes the running job's product (`attributed_to`); a caller
+    whose spend is genuinely shared passes `detail={"attribution": "shared"}` to keep it
+    untagged even inside a product job.
     """
     from ..core.models import CostEntry
 
+    product_slug, detail = attribution(product_slug, detail)
     with db.session() as s:
         row = CostEntry(
             agent=agent, job_id=job_id, kind=kind,

@@ -223,7 +223,7 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
                  now: datetime | None = None, uncommitted_cad: float = 0.0,
                  agent: str = "", purpose: str = "", job_id: int | None = None,
                  reserve: bool = True, holder: str | None = None,
-                 ttl_seconds: int | None = None) -> dict:
+                 ttl_seconds: int | None = None, product_slug: str = "") -> dict:
     """Refuse a call that would cross the ceiling, before it is made.
 
     Assumes the model writes its entire output allowance. It usually does not, and budgeting
@@ -278,14 +278,14 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
     return check_budget_cad(db, estimate_cad=estimate, model=model, provider="anthropic",
                             now=now, uncommitted_cad=uncommitted_cad, agent=agent,
                             purpose=purpose, job_id=job_id, reserve=reserve, holder=holder,
-                            ttl_seconds=ttl_seconds)
+                            ttl_seconds=ttl_seconds, product_slug=product_slug)
 
 
 def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str = "",
                      job_id: int | None = None, uncommitted_cad: float = 0.0,
                      holder: str | None = None, ttl_seconds: int | None = None,
                      now: datetime | None = None, reserve: bool = True,
-                     model: str = "", provider: str = "") -> dict:
+                     model: str = "", provider: str = "", product_slug: str = "") -> dict:
     """The ceiling check itself, on an estimate already expressed in dollars.
 
     Factored out of `check_budget` on 2026-09-26 so that image generation could stop being
@@ -406,9 +406,17 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
         # supplies a timestamp writes a reservation that reads as already expired -- a
         # reservation that protects nothing, in exactly the callers that are most careful
         # about which instant they mean.
+        # The product this reservation is held for (F-321): the caller's slug, else the
+        # running job's (`spend_report.attributed_to`), else shared. `SpendReservation` has no
+        # product column, so it rides in the detail beside the provider.
+        from ..finance import spend_report as _attr
+
+        held_for, held_detail = _attr.attribution(
+            product_slug, {"provider": provider} if provider else None)
+        held_detail["product_slug"] = held_for
         reservation_id = reservations.reserve(
             db, amount_cad=estimate, holder=me, agent=agent, purpose=purpose, model=model,
-            job_id=job_id, now=now, detail={"provider": provider} if provider else None,
+            job_id=job_id, now=now, detail=held_detail,
             ttl_seconds=(reservations.DEFAULT_TTL_SECONDS if ttl_seconds is None
                          else ttl_seconds))
 
@@ -651,7 +659,8 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                 purpose="model.probe", provider="anthropic", model=response.model,
                 department="gateway", job_id=job_id, kind=routing.COST_KIND,
                 tokens_in=response.input_tokens, tokens_out=response.output_tokens,
-                detail={"price_basis": "assumed", "latency_ms": record.get("latency_ms")})
+                detail={"price_basis": "assumed", "latency_ms": record.get("latency_ms"),
+                        "attribution": "shared"})
 
             # A call that got an answer is evidence the balance is no longer the blocker,
             # which is the only honest way to close an owner action about money: by the
@@ -818,7 +827,7 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
                 purpose=VISION_PROBE_ACTION, provider="anthropic", model=response.model,
                 department="gateway", job_id=job_id, kind=routing.COST_KIND,
                 tokens_in=response.input_tokens, tokens_out=response.output_tokens,
-                detail={"price_basis": "assumed"})
+                detail={"price_basis": "assumed", "attribution": "shared"})
 
             # This call got an answer, so the balance is no longer the blocker.
             #

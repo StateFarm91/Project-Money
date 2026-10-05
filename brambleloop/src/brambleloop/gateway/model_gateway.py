@@ -135,7 +135,7 @@ class CallRecord:
 class ModelGateway:
     def __init__(self, providers: list[Provider], registry: Registry | None = None,
                  breaker_threshold: int = 3, breaker_reset_seconds: float = 30.0,
-                 job_id: int | None = None):
+                 job_id: int | None = None, product_slug: str | None = None):
         """`job_id` is what makes a cost attributable to the artefact it produced (#31).
 
         Without it every model cost lands in the ledger with a null job, `unit_costs()` can
@@ -143,10 +143,15 @@ class ModelGateway:
         artefact reports a cost *floor* while the money is real and counted. The ratios were
         correct arithmetic over an empty attribution the whole time -- the same shape as a
         scorer nobody feeds.
+
+        `product_slug` does the same for the product (F-321/F-324): left as None it is read
+        at call time from the running job (`spend_report.attributed_to`), so a gateway built
+        inside a product job bills that product and one built anywhere else bills shared.
         """
         self.providers = list(providers)
         self.registry = registry
         self.job_id = job_id
+        self.product_slug = product_slug
         self.breakers = {
             p.name: CircuitBreaker(name=p.name, threshold=breaker_threshold,
                                    reset_after_seconds=breaker_reset_seconds)
@@ -208,7 +213,8 @@ class ModelGateway:
                         self.registry.db,
                         estimate_cad=self._estimate_cad(prompt, provider, user),
                         agent=agent, purpose=prompt.ref, job_id=self.job_id,
-                        model=provider.model, provider=provider.name)
+                        model=provider.model, provider=provider.name,
+                        product_slug=self.product_slug or "")
                 started = time.time()
                 try:
                     response = breaker.call(
@@ -323,21 +329,24 @@ class ModelGateway:
             # `Registry.record_cost` writes none of those, so the row is written here with
             # the same order that method keeps: write first, then refuse on the agent's day.
             from ..core.models import CostEntry
+            from ..finance import spend_report
 
             estimated = float((reservation or {}).get("estimate_cad") or 0.0)
+            product_slug, attributed = spend_report.attribution(self.product_slug or "", {
+                "prompt": prompt.ref, "provider": provider.name,
+                "latency_ms": round(latency_ms, 1),
+                "reservation_id": (reservation or {}).get("reservation_id")})
             with self.registry.db.session() as s:
                 s.add(CostEntry(
                     agent=agent, amount_cad=cost, kind=routing.COST_KIND, job_id=self.job_id,
                     tokens_in=in_tok, tokens_out=out_tok, provider=provider.name[:40],
                     model=str(provider.model or "")[:80], purpose=prompt.ref[:60],
-                    estimated_cad=round(estimated, 6),
+                    estimated_cad=round(estimated, 6), product_slug=product_slug,
                     # #31 asks for agent/API *minutes* as well as dollars. The latency is
                     # already measured for the response; persisting it is what makes the
                     # minutes half of that requirement a query rather than a number nobody
                     # kept.
-                    detail={"prompt": prompt.ref, "provider": provider.name,
-                            "latency_ms": round(latency_ms, 1),
-                            "reservation_id": (reservation or {}).get("reservation_id")}))
+                    detail=attributed))
             ceiling = self.registry.get(agent).daily_cost_ceiling_cad
             if self.registry.spend_today(agent) > ceiling:
                 raise BudgetExceeded(

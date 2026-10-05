@@ -99,6 +99,76 @@ def catalogue_concepts() -> list[Concept]:
     return [concept_from_design(design) for design in CATALOGUE.values()]
 
 
+# F-188: which cohort a creative reading measures. `audit_catalogue` judges the legacy Build-1
+# builder catalogue -- not the concept tournament -- and saying so is the difference between
+# "the current generator fails the creative gate" and "the retired one did".
+LEGACY_COHORT = "legacy_builder_catalogue"
+TOURNAMENT_COHORT = "tournament"
+TOURNAMENT_ACTIONS = ("creative.tournament", "creative.expedition")
+
+
+def legacy_cohort() -> dict:
+    """The cohort `audit_catalogue` measures, with the generator version that produced it.
+
+    The builder carries no version constant, so the version is the builder source's own
+    fingerprint: a change to the generator changes the label, and a reading taken against an
+    older builder cannot be mistaken for one taken against today's.
+    """
+    import hashlib
+    import inspect
+
+    from ..products import builder
+
+    try:
+        digest = hashlib.sha256(inspect.getsource(builder).encode()).hexdigest()[:12]
+    except (OSError, TypeError):
+        digest = "unknown"
+    return {"name": LEGACY_COHORT,
+            "generator": "products.builder (Design: motif, palette, width, repeat)",
+            "generator_version": f"builder@{digest}",
+            "n": len(builder.CATALOGUE),
+            "excludes": TOURNAMENT_COHORT,
+            "why": ("the legacy Build-1 catalogue; concept-tournament output is a separate "
+                    "cohort and is not counted here")}
+
+
+def tournament_cohort(db) -> dict:
+    """F-188: the concept tournament's own reading, kept apart from the legacy catalogue.
+
+    Read from the `creative.tournament` / `creative.expedition` audit rows the runs write. No
+    run on file is NO_RUNS with survivors None -- not zero survivors, which would be a
+    measurement nobody took.
+    """
+    base = {"name": TOURNAMENT_COHORT,
+            "generator": "creative.prospecting (Concept: form, construction, recipient, "
+                         "occasion, function)",
+            "excludes": LEGACY_COHORT}
+    if db is None:
+        return {**base, "state": "UNKNOWN", "runs": None, "candidates": None,
+                "survivors": None, "why": "no database to read tournament runs from"}
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = [(r.action, r.at, dict(r.detail or {})) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action.in_(TOURNAMENT_ACTIONS))
+            .order_by(desc(AuditLog.id)).limit(200))]
+    if not rows:
+        return {**base, "state": "NO_RUNS", "runs": 0, "candidates": None,
+                "survivors": None,
+                "why": "no tournament or expedition has run, so this cohort is unmeasured"}
+    candidates = sum(_field_size(d) for _a, _t, d in rows)
+    survivors = sum(len([e for e in (d.get("survivors") or []) if isinstance(e, dict)])
+                    for _a, _t, d in rows)
+    latest = rows[0][1]
+    return {**base, "state": "MEASURED", "runs": len(rows), "candidates": candidates,
+            "survivors": survivors,
+            "survival_rate": round(survivors / candidates, 4) if candidates else None,
+            "latest_at": latest.isoformat() if latest is not None else None,
+            "why": f"{len(rows)} tournament/expedition runs on file (latest 200 read)"}
+
+
 def audit_catalogue() -> dict:
     """Run the creative gate against our own products and report what it finds.
 
@@ -131,6 +201,7 @@ def audit_catalogue() -> dict:
                  if distance(a, b) == 0.0]
 
     return {
+        "cohort": legacy_cohort(),
         "products_audited": len(concepts),
         "generator_degrees_of_freedom": generator_degrees_of_freedom(),
         "field_spread": field.spread(),

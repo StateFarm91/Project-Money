@@ -60,10 +60,11 @@ def test_the_reserves_fill_before_anything_is_spare():
 def test_the_recommendation_is_scaled_by_confidence_rather_than_by_appetite():
     """Cash from an unrepeatable source is not evidence that spending will repeat it."""
     db = _db()
-    # With no customers the ladder is zero, so an account full of cash recommends nothing.
+    # With no customers confidence is UNMEASURED (F-189: not the modelled 0.0 bound), so an
+    # account full of cash recommends nothing.
     unearned = R.envelope(db, gross_cad=20_000.0)
     assert unearned.envelope_cad > 10_000
-    assert unearned.confidence == 0.0
+    assert unearned.confidence is None and unearned.confidence_state == "UNMEASURED"
     assert unearned.recommended_cad == 0.0
 
     confident = R.envelope(db, gross_cad=20_000.0, confidence=0.8)
