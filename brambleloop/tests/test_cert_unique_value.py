@@ -38,6 +38,9 @@ def _db():
     return db
 
 
+# CB2-P05 fixture: these tests certified nordic-forest-mosaic-throw, which no longer certifies
+# under the strict gauge gate (GAUGE_OUTSIDE_DECLARED_YARN_BAND, 6747ddd). They use
+# hexie-coaster-set, a Launch-0 product that certifies as built. The gate is unchanged.
 def _certify(db, slug):
     from brambleloop.runtime.pipeline import _engineered_cir
 
@@ -63,7 +66,7 @@ def test_a_release_whose_advantages_every_benchmark_matches_is_withheld_and_not_
     db = _db()
     _benchmark(db, {"pattern_correctness_evidence": 5, "listing_promise_alignment": 5,
                     "materials_clarity": 5, "support_experience": 5, "chart_quality": 5})
-    cir, out = _certify(db, "nordic-forest-mosaic-throw")
+    cir, out = _certify(db, "hexie-coaster-set")
     assert out["granted"] and out.get("withheld") is True, out
     with db.session() as s:
         pv = s.scalar(select(PatternVersion))
@@ -83,7 +86,7 @@ def test_a_release_whose_advantages_every_benchmark_matches_is_withheld_and_not_
 def test_an_advantage_beyond_the_best_benchmark_lets_the_release_proceed():
     db = _db()
     _benchmark(db, {"pattern_correctness_evidence": 3})
-    cir, out = _certify(db, "nordic-forest-mosaic-throw")
+    cir, out = _certify(db, "hexie-coaster-set")
     assert not out.get("withheld"), out
     with db.session() as s:
         qa = [r.detail for r in s.scalars(select(AuditLog).where(
@@ -96,7 +99,7 @@ def test_an_advantage_beyond_the_best_benchmark_lets_the_release_proceed():
 
 def test_with_no_benchmark_scored_the_comparison_is_unmeasured_not_a_pass():
     db = _db()
-    cir, out = _certify(db, "nordic-forest-mosaic-throw")
+    cir, out = _certify(db, "hexie-coaster-set")
     with db.session() as s:
         qa = [r.detail for r in s.scalars(select(AuditLog).where(
             AuditLog.action == lab.ACTION_QA))][-1]
@@ -107,7 +110,7 @@ def test_with_no_benchmark_scored_the_comparison_is_unmeasured_not_a_pass():
 
 def test_delight_is_measured_from_the_products_artefacts_and_the_weakest_is_acted_on():
     db = _db()
-    cir, out = _certify(db, "nordic-forest-mosaic-throw")
+    cir, out = _certify(db, "hexie-coaster-set")
     qa = lab.product_qa(db, cir.slug)
     delight = qa["delight"]
     assert delight["answerable"] is True
@@ -130,7 +133,7 @@ def test_customization_and_support_are_read_from_this_releases_own_artefacts():
     from brambleloop.core.models import ArtefactProvenance
 
     db = _db()
-    cir, out = _certify(db, "nordic-forest-mosaic-throw")
+    cir, out = _certify(db, "hexie-coaster-set")
     scores = lab.measured_self_scores(db, cir.slug)
     assert scores["customization"]["score"] == 3
     assert "one certified size" in scores["customization"]["evidence"]

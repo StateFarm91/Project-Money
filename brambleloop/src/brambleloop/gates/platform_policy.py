@@ -193,14 +193,19 @@ def unreviewed_changes(db) -> list[dict]:
 
     from ..core.models import PolicySnapshot
 
+    # CB2-I01: the question is whether the newest *material change* of each source was
+    # reviewed, not whether the newest *reading* is a change. A->B followed by a second
+    # unchanged reading of B is still the unreviewed A->B change; reading a page twice is
+    # not reviewing it.
     with db.session() as s:
-        latest: dict[str, PolicySnapshot] = {}
-        for r in s.scalars(select(PolicySnapshot).order_by(PolicySnapshot.id)):
-            latest[r.source] = r
+        latest_change: dict[str, PolicySnapshot] = {}
+        for r in s.scalars(select(PolicySnapshot).where(
+                PolicySnapshot.material_change.is_(True)).order_by(PolicySnapshot.id)):
+            latest_change[r.source] = r
         return [{"source": src, "snapshot_id": r.id, "checked_on": r.checked_on,
                  "version": r.version, "affects": list(r.affects or POLICY_SOURCES[src][1])}
-                for src, r in latest.items()
-                if r.material_change and not (r.detail or {}).get("reviewed_at")]
+                for src, r in latest_change.items()
+                if not (r.detail or {}).get("reviewed_at")]
 
 
 def review_change(db, source: str, *, reviewed_by: str, tested: str) -> dict:
@@ -217,9 +222,12 @@ def review_change(db, source: str, *, reviewed_by: str, tested: str) -> dict:
     if not (reviewed_by or "").strip() or not (tested or "").strip():
         raise PolicyRefused("a change review names who reviewed it and what was re-tested")
     with db.session() as s:
-        row = s.scalars(select(PolicySnapshot).where(PolicySnapshot.source == source)
-                        .order_by(PolicySnapshot.id.desc())).first()
-        if row is None or not row.material_change:
+        # The newest material change of this source, even when unchanged readings were
+        # recorded after it (CB2-I01).
+        row = s.scalars(select(PolicySnapshot).where(
+            PolicySnapshot.source == source, PolicySnapshot.material_change.is_(True))
+            .order_by(PolicySnapshot.id.desc())).first()
+        if row is None or (row.detail or {}).get("reviewed_at"):
             raise PolicyRefused(f"{source}: there is no material change to review")
         detail = dict(row.detail or {})
         detail.update(reviewed_at=datetime.now(timezone.utc).isoformat(),

@@ -100,6 +100,16 @@ def run(db, *, today: date | None = None) -> dict:
     today = today or datetime.now(timezone.utc).date()
     out = series(db)
     drifting = {f"{SIGNATURE}{g['dimension']}": g for g in out["gradual_drift"]}
+    # CB2-I07: only a measured "not rising" resolves an incident. With too few batches
+    # (UNMEASURED, e.g. evidence aged out of the window), or a dimension without enough
+    # readable batches of its own, the drift is unknown -- and unknown keeps the halt.
+    measured = ({d for d, shares in (out.get("per_dimension") or {}).items()
+                 if len([x for x in shares if x is not None]) >= TREND_BATCHES}
+                if out.get("measurable") else set())
+
+    def still_open(inc) -> bool:
+        return (inc.signature in drifting
+                or inc.signature[len(SIGNATURE):] not in measured)
     with db.session() as s:
         row = s.scalar(select(OperatingReading).where(
             OperatingReading.kind == KIND, OperatingReading.period_key == today.isoformat()))
@@ -108,7 +118,7 @@ def run(db, *, today: date | None = None) -> dict:
         else:
             row.payload = out
         life = lifecycle.reconcile(
-            s, SIGNATURE, lambda inc: inc.signature in drifting,
+            s, SIGNATURE, still_open,
             resolution="the dimension's drift share stopped rising across recent batches")
         opened = []
         for sig, g in drifting.items():
