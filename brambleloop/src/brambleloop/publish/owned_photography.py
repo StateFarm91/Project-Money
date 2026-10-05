@@ -247,6 +247,10 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
     judged against nothing. The render's bytes are in the artifact store before this returns,
     so the directory has nothing left to hold.
     """
+    from ..visual.product_authority import redraw_refusal
+    return redraw_refusal(cir.slug)
+
+    # Historical Visual V1 implementation retained for evidence, unreachable in production.
     from ..core import workspace
 
     if not work_dir:
@@ -455,8 +459,10 @@ def ordinary_attempts(db, *, slug: str, version: str) -> list[dict]:
 
 def usable_asset(db, *, slug: str, version: str) -> dict | None:
     """An asset that actually cleared its checks. The only kind a listing may use."""
+    from ..visual.product_authority import structural_floor
+
     for asset in assets_for(db, slug=slug, version=version):
-        if asset.get("usable_as_listing_asset"):
+        if asset.get("usable_as_listing_asset") and structural_floor(asset)["status"] == "PASS":
             return asset
     return None
 

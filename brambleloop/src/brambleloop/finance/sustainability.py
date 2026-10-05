@@ -26,6 +26,7 @@ Only AI/API kinds (`llm`, `api`) are counted -- hosting and ads have their own c
 reports, and the Master's question here is inference cost.
 """
 from __future__ import annotations
+from .listing_costs import cost_basis, basis_summary
 
 import math
 from datetime import datetime, timedelta, timezone
@@ -53,11 +54,11 @@ SCENARIOS: dict[str, dict] = {
     "base": {"catalogue_listings": 25, "sales_per_month": 60, "support_rate": 0.08,
              "new_products_per_month": 3, "platform_factor": 1.0,
              "why": "the planned catalogue at modest traction, platform spend continuing at "
-                    "its measured rate"},
+                    "its recorded rate"},
     "high": {"catalogue_listings": 60, "sales_per_month": 200, "support_rate": 0.12,
              "new_products_per_month": 6, "platform_factor": 1.5,
              "why": "a larger catalogue with real traction, heavier observation and support, "
-                    "platform spend half again its measured rate"},
+                    "platform spend half again its recorded rate"},
 }
 
 
@@ -75,7 +76,7 @@ def _rows(db):
 
     with db.session() as s:
         costs = [(_aware(c.at), c.kind or "", float(c.amount_cad or 0.0),
-                  c.product_slug or "", c.purpose or "", c.agent or "")
+                  c.product_slug or "", c.purpose or "", c.agent or "", cost_basis(c))
                  for c in s.scalars(select(CostEntry))]
         listings = [(l.product_slug, float(l.price_cad or 0.0), l.state or "",
                      bool(l.etsy_listing_id), _aware(l.created_at))
@@ -112,7 +113,7 @@ def split_costs(db) -> dict:
     creation: dict[str, float] = {}
     maintenance: dict[str, float] = {}
     platform = 0.0
-    for at, kind, amount, slug, _purpose, _agent in costs:
+    for at, kind, amount, slug, _purpose, _agent, _basis in costs:
         if kind not in AI_KINDS:
             continue
         if not slug:
@@ -122,6 +123,7 @@ def split_costs(db) -> dict:
         else:
             creation[slug] = creation.get(slug, 0.0) + amount
     return {"creation": creation, "maintenance": maintenance, "platform": platform,
+            "cost_basis": basis_summary((c[2],c[6]) for c in costs if c[1] in AI_KINDS),
             "live_since": {k: v.isoformat() for k, v in live.items()}}
 
 
@@ -140,14 +142,15 @@ def listing_maintenance_cost(db, *, now: datetime | None = None) -> dict:
                        "Until then per-listing maintenance is inside platform spend"}
     per: dict[str, dict] = {}
     for slug, since in live.items():
-        spent = sum(a for at, kind, a, s_, _p, _g in costs
-                    if s_ == slug and kind in AI_KINDS and at is not None and at >= since)
+        selected = [c for c in costs if c[3] == slug and c[1] in AI_KINDS and c[0] is not None and c[0] >= since]
+        spent = sum(c[2] for c in selected)
         months = max((now - since).days, 1) / 30.0
-        per[slug] = {"live_since": since.isoformat(), "spent_cad": round(spent, 4),
+        per[slug] = {"cost_basis": basis_summary((c[2],c[6]) for c in selected), "live_since": since.isoformat(), "spent_cad": round(spent, 4),
                      "per_month_cad": round(spent / months, 4),
                      "months_observed": round(months, 2)}
     monthly = [v["per_month_cad"] for v in per.values()]
-    return {"reading": "measured", "listings": per,
+    basis = basis_summary((c[2],c[6]) for c in costs if c[3] in live and c[1] in AI_KINDS and c[0] is not None and c[0] >= live[c[3]])
+    return {"reading": basis["reading"], "cost_basis": basis, "listings": per,
             "per_listing_month_cad": round(sum(monthly) / len(monthly), 4),
             "note": "cost tagged to the product after its first live listing; product work "
                     "that was not tagged is in platform spend, so this is a floor"}
@@ -237,10 +240,10 @@ def forecast(db, *, now: datetime | None = None) -> dict:
 
     window_start = now - timedelta(days=WINDOW_DAYS)
     window_days = min(WINDOW_DAYS, max(history_days, 1))
-    platform_window = sum(a for at, k, a, slug, _p, _g in ai
+    platform_window = sum(a for at, k, a, slug, _p, _g, _basis in ai
                           if not slug and at >= window_start)
     platform_monthly = round(platform_window * 30.0 / window_days, 2)
-    support_rows = [a for at, k, a, slug, p, g in ai
+    support_rows = [a for at, k, a, slug, p, g, _basis in ai
                     if at >= window_start and ("support" in p or g == "support")]
     maintenance = listing_maintenance_cost(db, now=now)
 
@@ -258,10 +261,12 @@ def forecast(db, *, now: datetime | None = None) -> dict:
     if missing:
         return {
             "status": "INSUFFICIENT_DATA", "scenarios": None, "measured": measured,
+            "cost_basis": split["cost_basis"],
+            "input_label": "legacy measured key includes recorded/modelled costs; see cost_basis",
             "missing": missing,
             "known_floor_monthly_cad": platform_monthly,
             "why": ("a precise steady-state forecast is refused: the operational data "
-                    "underneath it is too thin. The measured platform spend is shown as a "
+                    "underneath it is too thin. The recorded platform exposure is shown as a "
                     "floor, not a forecast"),
         }
 
@@ -290,9 +295,11 @@ def forecast(db, *, now: datetime | None = None) -> dict:
         ("support_cost_per_case", measured["support_cost_per_case_cad"])) if v is None]
     return {
         "status": "computed", "scenarios": scenarios, "measured": measured,
+        "cost_basis": split["cost_basis"],
+        "input_label": "legacy measured key includes recorded/modelled costs; see cost_basis",
         "contribution_per_sale": per_sale,
         "unmeasured_terms": unmeasured_terms,
-        "note": ("every scenario figure is a named assumption multiplied by a measured unit "
+        "note": ("every scenario figure is a named assumption multiplied by a recorded unit "
                  "cost. " + (f"{unmeasured_terms} are not yet measurable and are carried "
                              f"inside platform spend (costed at 0 separately), which is why "
                              f"platform spend is scaled per scenario" if unmeasured_terms

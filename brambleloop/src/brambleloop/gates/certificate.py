@@ -27,6 +27,7 @@ from .asset_truth import (
     Asset, check_assets, check_shape_claims, check_technique_claims,
 )
 from .confidence import assess
+from . import originality as _originality
 from .policy import (
     POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
 )
@@ -38,7 +39,7 @@ from .policy import (
 # added, repeats collapsed), every certificate issued before that describes a document that no
 # longer exists. Bumping this makes certification re-run for products already certified, which
 # is the only way the stored certificate keeps matching the PDF a buyer would download.
-DOC_VERSION = "2"
+DOC_VERSION = "3"
 
 
 @dataclass
@@ -139,6 +140,7 @@ CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
 def certify(
     cir: CIR,
     *,
+    db=None,
     assets: list[Asset] | None = None,
     listing: ListingDraft | None = None,
     physical_test_passed: bool = False,
@@ -239,6 +241,9 @@ def certify(
     # that way or it does not -- which is why this half is safe on prose and that half is not.
     findings.extend(check_technique_claims(cir.designer_notes or "", cir, twin,
                                            "cir.designer_notes"))
+    # Design provenance, the design-difference ledger and the similarity review against
+    # every purchased benchmark (F-783, F-798, F-794, F-791, F-795): `gates/originality.py`.
+    findings.extend(_originality.release_findings(cir, pattern_text=pattern_text, db=db))
     stages.append("originality")
 
     # 4. Asset truth.
@@ -278,15 +283,19 @@ def certify(
             ERROR, "PHYSICAL_TEST_REQUIRED",
             f"risk class {cir.risk_class} requires a physical test before release; "
             "computation alone cannot confirm fit and drape"))
-    # 6b/6c. The gauge-band and new-primitive refusals (F-112, F-116, F-074) are computed by
-    #     `gauge_findings` / `primitive_findings` below. The primitive status is recorded on
-    #     every certificate; turning either into a refusal is staged separately
-    #     (research/final_build/waves/fb1_C_strict.patch) because every product module in the
-    #     catalogue declares a yarn weight whose band cannot hold its typed gauge, and the
-    #     refusal lands together with the product re-declaration, not ahead of it.
-    primitive_status, _ = primitive_findings(
+    # 6b. The gauge against the declared yarn (F-112, F-116). A gauge the declared yarn's
+    #     published band cannot hold is a known-implausible assumption, and every finished
+    #     size and yardage figure in the document is arithmetic from it. It used to reach the
+    #     buyer as a "swatch before you buy" note in the PDF; a warning cannot stand in for
+    #     truth, so it is refused here unless a tester's measured sample of this exact content
+    #     is the evidence for it instead.
+    findings.extend(gauge_findings(cir, physically_evidenced=physical_test_passed))
+    # 6c. New primitives (F-074): a stitch whose real-world height and yarn behaviour no
+    #     sample has measured does not carry unrestricted size or yardage claims.
+    primitive_status, primitive_errors = primitive_findings(
         cir, physically_evidenced=physical_test_passed,
         calibrated_primitives=calibrated_primitives)
+    findings.extend(primitive_errors)
     # 6d. No convenience downgrade (F-090): a lower risk class than this product has held
     #     before needs evidence, and the only evidence that reduces physical testing is a
     #     physical test of this content.
@@ -319,10 +328,9 @@ def certify(
         physical_test_passed=physical_test_passed,
         content_hash=content,
         physical_evidence=binding,
-        # Stamped only where `gauge_findings` refuses (the staged strict patch). Until then no
-        # certificate claims the current gauge standard, so no legacy product clears
-        # quarantine by re-certification -- the fail-closed direction (F-111, F-119).
-        gauge_standard=None,
+        # Every certificate from here was examined by `gauge_findings`; a stored one without
+        # this stamp predates the check and is legacy (F-111, F-119).
+        gauge_standard=GAUGE_STANDARD,
         primitives=primitive_status,
     )
 

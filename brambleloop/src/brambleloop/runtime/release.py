@@ -174,7 +174,10 @@ def handle_assets_build(ctx: JobContext) -> dict:
     # The refusal is load-bearing here: a gap in the table stops this handler rather than
     # shipping a UK document that instructs the wrong stitch.
     released_on = _released_on(ctx, slug, version)
-    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on)
+    from ..learn.service import pdf_help_links
+    lesson_links = pdf_help_links(ctx.db, cir.to_dict())
+    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on,
+                                 lesson_links=lesson_links)
             for t in TERMINOLOGIES}
     doc = docs["US"]
     # Every file this handler stores is a derived artefact the provenance sentinel watches,
@@ -603,11 +606,29 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     size_label = (f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm"
                   if twin.width_cm and twin.height_cm else None)
 
+    # F-005..F-009: the deepest truthful Etsy category, from the stored taxonomy snapshot,
+    # and every property of that node decided from the pattern's own facts. No snapshot is
+    # UNKNOWN -- the draft proceeds, and search certification refuses below.
+    from ..commerce import category as category_mod
+
+    difficulty = _difficulty(twin, cir)
+    colors = sorted(c for c in twin.colors_used if c)
+    facts = category_mod.Facts(
+        category=category, difficulty=difficulty,
+        colors=[(c, (cir.colors or {}).get(c)) for c in colors], season=season,
+        width_cm=twin.width_cm or None, height_cm=twin.height_cm or None)
+    cat_reading = category_mod.for_product(ctx.db, category=category, facts=facts)
+    choice, props = cat_reading["choice"], cat_reading["properties"]
+    # F-006 / F-014: the phrases the structured fields already supply.
+    structured = (category_mod.path_phrases(choice)
+                  + category_mod.attribute_values(props["decisions"]))
+
     # Tags come from the query model rather than a fixed template: thirteen slots are
     # scarce, and spending them on head terms a shop with no history cannot place for is the
     # most common way a new listing is invisible.
     techniques = ["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]
-    queries = search_mod.build_query_set(category, motifs, season, techniques)
+    queries = search_mod.build_query_set(category, motifs, season, techniques,
+                                         difficulty=difficulty)
     # #293: the phrases buyers were observed using for this product's facets join the query
     # set, and the ones that fit a tag are spent first -- the search strategy starts from
     # what buyers already type, and stays accurate because the facets are the product's own.
@@ -616,7 +637,16 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     buyer = intent_mod.listing_language(ctx.db, slug=slug, category=category, season=season,
                                         difficulty=_difficulty(twin, cir),
                                         techniques=techniques)
-    queries = queries + list(buyer["queries"])
+    # F-020: the observed phrases carry their provenance and the date they were read; every
+    # template phrase stays `assumed`.
+    import dataclasses
+
+    read_at = date.today().isoformat()
+    queries = queries + [dataclasses.replace(q, provenance="observed:benchmark_titles+serp",
+                                             read_at=read_at, family="buyer_language")
+                         for q in buyer["queries"]
+                         # F-008: observed is not the same as true of this product.
+                         if not search_mod.tag_truth(q.phrase, difficulty=difficulty)]
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
     # #97: Listings read their lesson inbox. A search-language or construction lesson whose
@@ -639,7 +669,11 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                 must.append(q.phrase)
                 break
     must = must[:len(buyer["tags"]) + 2]
-    tags = search_mod.choose_tags(queries, must_include=must)
+    # F-008: an observed or lesson phrase is still a claim; one this pattern cannot support
+    # ("easy" on an intermediate pattern, finished-item phrasing) never takes a slot.
+    untrue_must = [m for m in must if search_mod.tag_truth(m, difficulty=difficulty)]
+    must = [m for m in must if m not in untrue_must]
+    tags = search_mod.choose_tags(queries, must_include=must, exclude=structured)
     lesson_slots = [m for m in must if m not in buyer["tags"]]
     if lesson_slots:
         consume.act(ctx.db, "seo_search", seo_lessons,
@@ -670,21 +704,19 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         tags=tags,
         description=seo_mod.build_description(
             cir.title, size_label=size_label, yardage_lines=yardage_lines,
-            tolerance_pct=tolerance_pct, difficulty=_difficulty(twin, cir),
-            colors=sorted(c for c in twin.colors_used if c), terminology="US",
+            tolerance_pct=tolerance_pct, difficulty=difficulty,
+            colors=colors, terminology="US",
             gauge_line=gauge_line, stitches=sorted(twin.stitch_types_used),
             season=season, pages=i.get("pages"),
-            collapsed_repeats=collapses_rows(cir), childrens=childrens),
+            collapsed_repeats=collapses_rows(cir), childrens=childrens,
+            key_phrases=_opening_phrases(tags, queries)),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],
     )
 
-    coverage = search_mod.score_coverage(queries, title=copy.title, tags=copy.tags,
-                                         description=copy.description)
     attributes = search_mod.listing_attributes(
-        category=category, difficulty=_difficulty(twin, cir),
-        colors=sorted(c for c in twin.colors_used if c), season=season)
+        category=category, difficulty=difficulty, colors=colors, season=season)
 
     # #35: classify this release under the Creativity Standards before its listing exists,
     # generate the disclosures it owes into the copy, and let the Policy Gate check the copy
@@ -721,8 +753,10 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         "problems": class_problems, "assets": len(release_frames) + len(generated),
         "generated_assets": len(generated), "class_enablement": new_class})
 
-    coverage = search_mod.score_coverage(queries, title=copy.title, tags=copy.tags,
-                                         description=copy.description)
+    coverage = search_mod.score_coverage(
+        queries, title=copy.title, tags=copy.tags, description=copy.description,
+        category_path=choice.path_names,
+        attribute_values=category_mod.attribute_values(props["decisions"]))
 
     # #139: famous dialogue, lyrics, slogans and catchphrases the culture radar declared
     # are screened out of customer-facing copy unless a recorded basis puts them in the
@@ -735,14 +769,59 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     policy = check_listing(ListingDraft(title=copy.title, description=copy.description,
                                         tags=copy.tags, price_cad=copy.price_cad),
                            classification=classification)
+    # The search-copy gate and the truth gates are blocking (F-011, F-021, F-245, F-298,
+    # F-026, F-008, F-251): a stuffed title, unused tag slots with no recorded limitation, a
+    # keyword-dump description, an untrue tag or attribute stop the draft. They were audited
+    # after the listing was written; an audit nobody acts on is not a gate.
+    copy_gate = seo_mod.check_search_copy(
+        copy, phrases=[q.phrase for q in queries],
+        tag_limitation=i.get("tag_slot_limitation"),
+        translation_record=i.get("translation_record"))
+    tag_problems = search_mod.tags_truth(copy.tags, difficulty=difficulty)
+    attribute_problems = search_mod.attribute_truth(attributes, difficulty=difficulty,
+                                                    colors=colors, season=season)
     blocking = (structural + [str(f) for f in policy if f.is_error] + class_problems
-                + rights_problems)
+                + rights_problems + copy_gate["blocking"] + tag_problems + attribute_problems)
+
+    # F-004: the holistic search certificate. Category, properties, copy, tags and the
+    # description must all pass; the hero is completed at publish by release_gates.
+    duplicates = search_mod.structured_duplicates(copy.tags, structured)
+    description_problems = [p for p in copy_gate["blocking"] if p.startswith("DESCRIPTION_")]
+    certificate = search_mod.search_certificate(
+        category=choice.to_dict(), properties=props, attribute_problems=attribute_problems,
+        copy_gate={**copy_gate, "blocking": [p for p in copy_gate["blocking"]
+                                             if not p.startswith("DESCRIPTION_")],
+                   "ok": not [p for p in copy_gate["blocking"]
+                              if not p.startswith("DESCRIPTION_")]},
+        tag_problems=tag_problems + [f"TAG_REPEATS_STRUCTURED_FIELD: {t!r}"
+                                     for t in duplicates],
+        description_problems=description_problems)
+    tag_sources = search_mod.tag_provenance(copy.tags, queries, observed_tags=buyer["tags"])
+    _persist_search_profile(ctx, slug, version, copy=copy, choice=choice, props=props,
+                            attributes=attributes, coverage=coverage, tag_sources=tag_sources,
+                            certificate=certificate,
+                            tag_limitation=i.get("tag_slot_limitation") or "",
+                            snapshot=cat_reading["snapshot"])
 
     ctx.audit("listing.seo_drafted" if not blocking else "listing.seo_blocked",
               artifact=f"{slug}@{version}",
               detail={"title_len": len(copy.title), "tags": len(copy.tags),
                       "search_share": coverage.share, "gaps": coverage.gaps[:5],
+                      "search_share_basis": "assumed+observed (planning proxy)",
+                      "evidence_share": coverage.to_dict()["evidence_share"],
                       "blocking": blocking[:5],
+                      "search_copy_soft": copy_gate["soft"],
+                      "stuffing": copy_gate["stuffing"],
+                      "untrue_phrases_withheld": untrue_must,
+                      "category": {k: choice.to_dict()[k] for k in
+                                   ("status", "taxonomy_id", "path_names", "why")},
+                      "properties": {"complete": props.get("complete"),
+                                     "gaps": list(props.get("gaps") or [])[:6]},
+                      "filters": props.get("filters"),
+                      "search_certificate": {k: certificate[k] for k in
+                                             ("verdict", "failed", "pending")},
+                      "tag_provenance": tag_sources,
+                      "coverage_matrix": coverage.matrix,
                       "buyer_language": {k: v for k, v in buyer.items() if k != "queries"},
                       "disclosures_owed": (classification.disclosures
                                            if classification else None),
@@ -752,6 +831,12 @@ def handle_listing_seo(ctx: JobContext) -> dict:
 
     i.update({"listing": copy.to_dict(), "attributes": attributes,
               "search_coverage": coverage.to_dict(),
+              # For the publish path (cluster B): the node and the property payload to send.
+              "search_category": {k: choice.to_dict()[k] for k in
+                                  ("status", "taxonomy_id", "path_names")},
+              "etsy_properties": list(props.get("payload") or []),
+              "search_certificate": {k: certificate[k] for k in
+                                     ("verdict", "failed", "pending")},
               "classification": classification.to_dict() if classification else None})
     _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""))
 
@@ -792,6 +877,83 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading}
+
+
+# Query families whose phrases name the product rather than the file format, which is what
+# a description's first sentence should carry (F-025).
+_OPENING_FAMILIES = ("buyer_language", "motif", "object", "core", "seasonal", "family")
+
+
+def _opening_phrases(tags: list[str], queries) -> list[str]:
+    """Up to three of the chosen tags that name the product, in slot order (F-025)."""
+    family = {q.phrase: q.family for q in queries}
+    return [t for t in tags if family.get(t) in _OPENING_FAMILIES][:3]
+
+
+def _persist_search_profile(ctx: JobContext, slug: str, version: str, *, copy, choice, props,
+                            attributes: dict, coverage, tag_sources: list, certificate: dict,
+                            tag_limitation: str, snapshot: dict | None) -> None:
+    """The listing's search-truth reading, bound to the copy it was computed on (F-002, F-004).
+
+    Written whether or not the draft was blocked: the query -> field matrix and the refusal
+    reasons of a blocked draft are exactly what somebody needs to read. The fingerprint is
+    of the copy passed here, which is the copy `_persist_listing` stores when the draft is
+    not blocked, so `release_gates.search_gate` can tell an edited listing from this one.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import ListingSearchProfile
+    from ..publish.release_gates import search_fingerprint
+
+    payload = list(props.get("payload") or [])
+    fingerprint = search_fingerprint(title=copy.title, description=copy.description,
+                                     tags=copy.tags, taxonomy_id=choice.taxonomy_id,
+                                     properties=payload)
+    with ctx.db.session() as s:
+        row = s.scalar(select(ListingSearchProfile).where(
+            ListingSearchProfile.product_slug == slug,
+            ListingSearchProfile.version == version))
+        if row is None:
+            row = ListingSearchProfile(product_slug=slug, version=version)
+            s.add(row)
+        row.snapshot_id = (snapshot or {}).get("id")
+        row.category_status = choice.status
+        row.taxonomy_id = choice.taxonomy_id
+        row.taxonomy_path = list(choice.path_names)
+        row.attributes = json.loads(json.dumps(attributes, default=str))
+        row.properties = json.loads(json.dumps(payload, default=str))
+        row.filters = json.loads(json.dumps({**(props.get("filters") or {}),
+                                             "decisions": props.get("decisions") or []},
+                                            default=str))
+        row.coverage_matrix = json.loads(json.dumps(coverage.matrix, default=str))
+        row.tag_provenance = list(tag_sources)
+        row.tag_limitation = tag_limitation or ""
+        row.verdict = certificate["verdict"]
+        row.certificate = json.loads(json.dumps(certificate, default=str))
+        row.fingerprint = fingerprint
+        row.updated_at = datetime.now(timezone.utc)
+
+
+@handlers.register("listing.taxonomy_refresh")
+def handle_taxonomy_refresh(ctx: JobContext) -> dict:
+    """F-005: read Etsy's seller taxonomy into a snapshot, behind the etsy_api gate.
+
+    A closed gate is an honest no-op: no client is built, no request is made, and the run
+    says UNMEASURED with the reason. Every category then stays UNKNOWN and search
+    certification refuses -- which is the truth about a company that has not read the tree.
+    """
+    from ..integrations import etsy_taxonomy
+
+    got = etsy_taxonomy.refresh(ctx.db)
+    summary = {k: got.get(k) for k in ("ran", "reading", "network_calls", "snapshot_id",
+                                       "new_snapshot", "nodes", "pattern_subtree",
+                                       "properties_read", "truncated", "why")}
+    summary["gate_missing"] = (got.get("gate") or {}).get("missing", [])
+    ctx.audit(etsy_taxonomy.REFRESHED_ACTION if got.get("ran")
+              else "etsy.taxonomy_unmeasured", detail=summary)
+    return summary
 
 
 SUPPORT_KNOWLEDGE_ACTION = "support.knowledge_built"
@@ -3026,6 +3188,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     from ..core.models import OwnerAction
     from ..gateway.model_gateway import available_providers
     from ..launch.readiness import assess
+    from . import etsy_ops
 
     try:
         providers = available_providers()
@@ -3163,8 +3326,16 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                 # #165's refresh purchases are raised and bounded by `intel.benchmark_refresh`.
                 if key.startswith("benchmark_refresh:"):
                     continue
+                # FB-1 B (F-593, F-541): the Etsy owner-only queue and the re-authorisation
+                # action are closed by `runtime.etsy_ops` on the reading their evidence names.
+                if key.startswith(etsy_ops.OWNER_PREFIXES):
+                    continue
                 row.done = True
                 closed.append(key)
+
+    # F-593 / F-547: the Etsy owner-only queue from `intel.etsy_surfaces`, adopted into the
+    # one owner queue by key. Idempotent; closed only on evidence (see runtime.etsy_ops).
+    etsy_queue = etsy_ops.seed_owner_queue(ctx.db)
 
     ctx.audit("launch.assessed", detail={
         "ready": ready,
@@ -3181,6 +3352,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         "owner_actions_queued": queued,
         "owner_actions_restated": restated,
         "owner_actions_closed": closed,
+        "etsy_owner_queue": etsy_queue,
         "capabilities_unavailable": access.unmet_report()["unmet_capabilities"]})
 
     outstanding = [r.key for r in readiness.outstanding]

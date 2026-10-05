@@ -424,9 +424,29 @@ def _google_tier(size: str) -> str:
     return "4K" if px >= 3072 else "2K" if px >= 1536 else "1K"
 
 
+def refuse_benchmark_references(reference_urls: list[str] | None, *,
+                                benchmark_hashes=None) -> None:
+    """F-785: no benchmark or seller image ever conditions a Brambleloop render.
+
+    Checked here, where every provider's request is built, so no caller -- a tournament, a
+    reference pack, a repair pass -- can reach a provider with one. The provenance tests live in
+    `gates.originality.refuse_benchmark_reference`: inside the benchmark library, marked as
+    seller/designer/competitor photography or a benchmark reconstruction, or byte-identical to
+    a file in a purchase manifest.
+    """
+    from ..gates.originality import ReferenceRefused, refuse_benchmark_reference
+
+    for ref in reference_urls or ():
+        try:
+            refuse_benchmark_reference(ref, benchmark_hashes=benchmark_hashes)
+        except ReferenceRefused as exc:
+            raise ImagesRefused(str(exc)) from exc
+
+
 def _request_for(provider: ImageProvider, key: str, prompt: str,
                  reference_urls: list[str] | None, size: str,
-                 extra_fields: dict | None = None) -> tuple[str, dict, bytes]:
+                 extra_fields: dict | None = None, *,
+                 benchmark_hashes=None) -> tuple[str, dict, bytes]:
     """The URL, headers and body this provider actually accepts.
 
     Verified against the live API for `google` on 2026-09-21: the auth header, the
@@ -437,6 +457,8 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
     exists yet, and the probe is what will prove them rather than this comment.
     """
     refs = list(reference_urls or [])
+    # Before any bytes are read or any body is built (F-785).
+    refuse_benchmark_references(refs, benchmark_hashes=benchmark_hashes)
     if provider.dialect == "google":
         url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
                f"{provider.model}:generateContent")
@@ -723,7 +745,17 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
             f"key. This is the state the gate describes rather than a failure to retry")
 
-    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size, extra_fields)
+    # With a database, a renamed copy of a purchased file is caught by its bytes as well.
+    hashes = None
+    if reference_urls and db is not None:
+        try:
+            from ..gates.originality import benchmark_file_hashes
+
+            hashes = benchmark_file_hashes(db)
+        except Exception:  # noqa: BLE001 - the path tests still run; the hash test is extra
+            hashes = None
+    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size,
+                                         extra_fields, benchmark_hashes=hashes)
     # Reserved before the request leaves. A refusal here has cost nothing; the same refusal
     # after `_post` would be a report about money already spent.
     budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id)

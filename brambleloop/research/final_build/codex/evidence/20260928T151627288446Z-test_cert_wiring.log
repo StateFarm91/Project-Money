@@ -1,0 +1,20 @@
+OK   test_every_target_is_scheduled_handled_and_permitted_statically
+OK   test_each_target_was_enqueued_by_its_cadence_and_executed_to_done
+OK   test_no_job_in_the_drain_died_except_by_deliberate_refusal
+OK   test_scheduler_tick_calls_priority_for_and_bands_every_cadence_job
+OK   test_follow_on_work_is_enqueued_at_its_band_too
+OK   test_swarm_handlers_reach_their_runtime_functions
+OK   test_weekly_cycle_calls_retirement_review_autopsy_memory_and_director
+OK   test_retrospective_reaches_cells_and_reports_the_new_sections
+OK   test_listing_draft_actually_runs_the_disclosure_check
+OK   test_growth_experiments_calls_launch_pack_for_every_drafted_listing
+OK   test_mjs_scan_consults_the_adaptive_interval_before_any_request
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+OK   test_record_order_writes_the_bought_version
+C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\runtime-build2\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+OK   test_api_paths_reach_radar_memory_and_the_stress_test
+OK   test_radar_memory_is_read_by_some_agent_at_runtime
+      registry status of the 17 wiring rows: {41: 'partial', 42: 'covered', 81: 'covered', 85: 'covered', 91: 'covered', 100: 'covered', 144: 'covered', 174: 'covered', 175: 'covered', 176: 'covered', 186: 'covered', 187: 'covered', 192: 'covered', 241: 'partial', 265: 'partial', 270: 'partial', 313: 'covered'}
+OK   test_no_row_whose_wiring_failed_here_is_still_claimed_covered
+16/16 passed in 150s

@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..gates.originality import catalogue_provenance
 
 # 12-stitch repeat, read bottom row first. 1 = the raised contrast stitch (dc), 0 = the
 # background stitch (sc). Two alternating bands: a stylised fir tree and a nordic star.
@@ -162,6 +163,12 @@ def build(size: str = "throw", version: str = "1.0.0") -> CIR:
             f"Overlay mosaic on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
             f"({repeats} motif repeats). Fir and star bands alternate. Colour changes every "
             f"row; carry the resting colour up the side."),
+        # F-783: the fir-and-star motif and the size table are this module's own.
+        provenance=catalogue_provenance(
+            "nordic-forest-mosaic-throw",
+            {"builder": "products.nordic_forest.build", "size": size, "width": width,
+             "repeats": repeats, "motif": list(MOTIF), "palette": dict(PALETTE)},
+            ("products.nordic_forest", "products.nordic_forest.MOTIF", "overlay_mosaic")),
     )
 
 

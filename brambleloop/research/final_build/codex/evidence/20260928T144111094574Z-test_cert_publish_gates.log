@@ -1,0 +1,20 @@
+OK   test_shadow_publish_runs_every_gate_library_on_the_real_listing_set
+OK   test_the_qa_stage_stores_the_context_renders_and_publish_only_verifies_them
+flagship release-gate verdict: True ['mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok', 'listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run', 'LEGACY_PRE_CALIBRATION: outside Launch-0 and not re-certified under the current gauge standard (cyc-sc-band/1); stored standard: none -- predates the check']
+OK   test_the_verdict_for_the_flagship_is_reported_honestly
+OK   test_a_filler_frame_with_no_job_is_refused_and_blocks_export
+OK   test_a_frame_the_build_refused_fails_its_gate_and_cannot_export
+OK   test_a_listing_copy_size_that_contradicts_the_geometry_is_caught
+OK   test_the_size_card_names_its_scale_reference
+OK   test_a_halting_incident_blocks_store_publish_before_any_upload
+OK   test_a_halting_incident_blocks_marketing_schedule
+OK   test_a_moved_upstream_blocks_publication_and_the_sentinel_enqueues_the_graph_rebuild
+OK   test_a_missed_window_holds_the_launch_and_queues_no_publication
+OK   test_a_pivot_decision_is_carried_out_by_rewriting_the_listing_as_evergreen
+OK   test_a_launch_registers_its_experiment_pack_at_launch
+OK   test_an_unjudged_search_grid_blocks_publish_as_an_audited_refusal
+OK   test_a_granted_certificate_enqueues_lane_routing
+OK   test_an_on_time_launch_still_queues_publication_and_marketing
+OK   test_a_certificate_is_invalidated_by_a_geometry_change_and_frames_lose_approval
+OK   test_gate_certify_rechecks_listing_certificates
+0 failed

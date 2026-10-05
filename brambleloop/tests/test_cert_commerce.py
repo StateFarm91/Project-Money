@@ -49,7 +49,7 @@ from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (AuditLog, Job, JobStatus, Listing, PatternVersion,  # noqa: E402
                                      Phase, Product)
-from brambleloop.products import nordic_forest as nf  # noqa: E402
+from brambleloop.products import builder as flat  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402  (registers handlers)
 from brambleloop.runtime.worker import Worker  # noqa: E402
@@ -84,7 +84,7 @@ def _drain(w: Worker, limit: int = 400) -> None:
 
 
 def chain() -> dict:
-    """compile the Nordic Forest throw and let the worker take it as far as it goes."""
+    """Compile the gauge-qualified Cloudline fixture; publication gates stay unchanged."""
     if _STATE:
         return _STATE
     from brambleloop.gates import policy
@@ -95,7 +95,7 @@ def chain() -> dict:
         db = Database(f"sqlite:///{_TMP}/commerce.db")
         db.create_all()
         Registry(db).seed_defaults()
-        cir = nf.build()
+        cir = flat.for_slug("cloudline-baby-blanket")
         ai_spy = Spy(policy, "check_ai_disclosure")
         JobQueue(db).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                              idempotency_key="cert-commerce-compile")
@@ -289,6 +289,7 @@ class _StubClient:
         return None
 
     def publish(self, **k):
+        # Transport reachability only; real callback enforcement has its own adversarial suite.
         raise _Reached("upload reached")
 
     def attach_file(self, *a, **k):
@@ -310,6 +311,23 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     from brambleloop.integrations import etsy
     from brambleloop.publish import pdf as pdf_mod
     from brambleloop.runtime import release as release_mod
+
+    # Independent hash scenarios must not retry another scenario's uncertain draft.
+    # Snapshot its genuine compiled/certified state; never erase an intent in production.
+    import sqlite3
+    snapshot = os.path.join(_TMP, key + ".sqlite")
+    source = sqlite3.connect(db.engine.url.database)
+    target = sqlite3.connect(snapshot)
+    try:
+        source.backup(target)
+    finally:
+        target.close()
+        source.close()
+    db = Database(f"sqlite:///{snapshot}")
+    from brambleloop.commerce import category
+    taxonomy = Spy(category, "publish_inputs", replacement=lambda *a, **k: {
+        "status": category.CHOSEN, "taxonomy_id": 66, "properties": [],
+        "certified": "PASS", "fixture": "synthetic transport premise, not taxonomy proof"})
 
     injected = []
     if shim:
@@ -336,6 +354,15 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
     gates = Spy(pipeline, "_release_gates",
                 replacement=lambda ctx: {"blocks_release": False, "reasons": [],
                                          "forced": "cert harness"})
+    # FB-1 B (F-524): the certified listing images are read after the release gates and
+    # before anything is stored or sent, and are proven to refuse on a missing or unreadable
+    # frame in tests/test_etsy_readback_observe.py. Forced here like the gates above, so this
+    # file keeps measuring the hash check and the upload behind them.
+    from brambleloop.runtime import etsy_ops
+    images = Spy(etsy_ops, "certified_images",
+                 replacement=lambda *a, **k: {"images": [("f-1.png", b"\x89PNG-cert")],
+                                              "order": [], "record_id": None,
+                                              "problems": []})
     render = Spy(pdf_mod, "build_pattern_pdf", replacement=render_patch) if render_patch else None
     # Earlier publish attempts in this file failed into retry backoff; once their backoff
     # elapses the worker would claim one of them instead of this job. Park them.
@@ -357,6 +384,8 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
         parity.restore()
         grid.restore()
         gates.restore()
+        images.restore()
+        taxonomy.restore()
         if render:
             render.restore()
         for name in injected:
@@ -366,7 +395,19 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
         audits = [(a.action, dict(a.detail or {})) for a in s.scalars(
             select(AuditLog).where(AuditLog.job_id == job.id).order_by(AuditLog.id))]
     reached = reached or ["upload reached" in (job.last_error or "")]
+    db.engine.dispose()
     return job, audits, bool(reached[0])
+
+
+def test_missing_taxonomy_is_refused_without_a_default():
+    from brambleloop.runtime import etsy_ops
+    st = chain()
+    try:
+        etsy_ops.certified_payload(st["db"], st["slug"], st["version"])
+    except ValueError as exc:
+        assert "taxonomy UNKNOWN" in str(exc), str(exc)
+    else:
+        raise AssertionError("missing taxonomy silently gained a default")
 
 
 def test_past_shadow_publish_runs_at_all_without_a_test_shim():

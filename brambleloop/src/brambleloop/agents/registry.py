@@ -41,6 +41,8 @@ class BudgetExceeded(Exception):
 # The starting organisation. Job types are explicit: an agent can only ever run what is
 # listed here, so widening authority is a visible, reviewable change.
 DEFAULT_AGENTS: list[dict] = [
+    dict(name="learn", description="Learn source gaps and approved education; no publication/spend.",
+         allowed_job_types=["learn.scan"], authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
     dict(name="orchestrator", description="CEO/Orchestrator: sets priorities, schedules work",
          allowed_job_types=["scale.trajectory",  # C-64 / #26: nightly scenario analysis
                             "plan.cycle", "portfolio.review", "ops.heartbeat",
@@ -205,7 +207,9 @@ DEFAULT_AGENTS: list[dict] = [
     dict(name="listing", description="Drafts listings and SEO. Cannot spend ad money.",
          allowed_job_types=["seasonal.remerchandising",
                             "listing.draft", "listing.seo", "collection.assemble",
-                            "chain.rebuild"],
+                            "chain.rebuild",
+                            # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
+                            "listing.taxonomy_refresh"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",
@@ -670,3 +674,20 @@ class SpendGuard:
             lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == scope))
             if lim:
                 lim.paused = True
+
+
+# ---------------------------------------------------------------------------
+# FB-1 cluster B (2026-09-28). Appended so no existing entry moves. The orchestrator gains the
+# three daily Etsy observation reads (credential health, shop snapshot, listing census): GREEN,
+# read-only against Etsy, writing only readings, incidents and owner-action state. The store
+# operator gains `store.activate`, which is refused in SHADOW and needs the owner's grant, a
+# per-job Launch-0 authorisation and room under its own daily ceiling for the listing fee.
+for _agent in DEFAULT_AGENTS:
+    if _agent["name"] == "orchestrator":
+        _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + [
+            "etsy.credential_health", "etsy.shop_snapshot", "etsy.listing_census"]
+    elif _agent["name"] == "store_operator":
+        _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + ["store.activate"]
+for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):
+    FORBIDDEN_COMBINATIONS.setdefault(_name, set()).add("store.activate")
+del _agent, _name

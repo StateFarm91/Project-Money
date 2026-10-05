@@ -1,0 +1,197 @@
+{
+  "evaluated_head": "f964758",
+  "certified": false,
+  "production_actions": [],
+  "paid_spend": 0,
+  "inherited_matrix": {
+    "records": 866,
+    "launch_critical": 446,
+    "launch_full_claims_inherited": 88,
+    "launch_partial_claims_inherited": 358,
+    "codex_promotions": 0,
+    "note": "Inherited claims are not independent proof; authoritative matrix/statuses unchanged"
+  },
+  "defects": [
+    {
+      "id": "A-EMPTY-CERT",
+      "state": "local repair integrated",
+      "finding": "Search certificates must explicitly contain every required check; omitted/malformed check refuses",
+      "repair_commit": "9c6aa49",
+      "focused_suites": [
+        "test_search_certificate_integrity.py",
+        "test_search_truth.py"
+      ],
+      "remaining_limit": "No live marketplace verification"
+    },
+    {
+      "id": "B-OWNER-AUTH",
+      "state": "local repair integrated",
+      "finding": "Recorded authenticated owner approval bound to current content and revalidated before activation",
+      "repair_commit": "910925c",
+      "focused_suites": [
+        "test_activation_authority.py"
+      ],
+      "remaining_limit": "Shared ops credential is not individual human identity; remote exactly-once unproven"
+    },
+    {
+      "id": "AB-01",
+      "state": "local repair integrated",
+      "finding": "Chosen taxonomy/properties sent, independently read back, bound to approval and census",
+      "repair_commit": "a4c79ed",
+      "focused_suites": [
+        "test_etsy_property_contract.py"
+      ],
+      "remaining_limit": "Local fake transport only; later owner-authorized Etsy exercise remains"
+    },
+    {
+      "id": "I-PDF-DRIFT",
+      "state": "local repair integrated",
+      "finding": "Both render sites resolve identical current revision-bound Learn links; stale approval still changes hash",
+      "repair_commit": "a4c79ed",
+      "focused_suites": [
+        "test_learn_publish_contract.py"
+      ],
+      "remaining_limit": "No approved public lesson collection/deployed origin asserted"
+    },
+    {
+      "id": "G-CORPUS",
+      "state": "local repair integrated",
+      "finding": "Actual licensed intake fingerprints consumed by certification and current protected publication",
+      "repair_commit": "2684cf6",
+      "focused_suites": [
+        "test_originality_runtime.py"
+      ],
+      "remaining_limit": "Similarity proxy is not legal or creative adjudication"
+    },
+    {
+      "id": "G-AUTHOR-LINEAGE",
+      "state": "active worker",
+      "finding": "Preserve concept/brief benchmark and gap provenance through actual authoring",
+      "repair_commit": "",
+      "focused_suites": [],
+      "remaining_limit": "No assigning latest department gap to infer original source"
+    },
+    {
+      "id": "H-CONSTRUCTION",
+      "state": "OPEN launch blocker",
+      "finding": "No qualified full-product construction image producer. Preservation/motif match cannot certify it",
+      "repair_commit": "e6b6d47",
+      "focused_suites": [
+        "test_final_visual_authority.py"
+      ],
+      "remaining_limit": "Refusal controls implemented; H not a renderer. Frozen Visual V2 untouched"
+    },
+    {
+      "id": "DRAFT-CRASH",
+      "state": "active worker",
+      "finding": "Remote create before durable ID can duplicate after crash; durable intent/checkpoint proposed",
+      "repair_commit": "",
+      "focused_suites": [],
+      "remaining_limit": "Unknown outcome must refuse blind retry; no external exactly-once claim"
+    },
+    {
+      "id": "FIN-COST-BASIS",
+      "state": "local repair independently exercised",
+      "finding": "Modeled listing fee was recorded and reported as measured cost/cash",
+      "repair_commit": "d12b342",
+      "focused_suites": [
+        "test_operating_cost_basis.py:8",
+        "test_cost_consumer_basis.py:3"
+      ],
+      "remaining_limit": "Dashboard path pending bounded diagnostic; no invoice completeness or production proof"
+    },
+    {
+      "id": "PORT-CONTINUITY",
+      "state": "local repair integrated",
+      "finding": "Dispose scratch SQLite engine before directory cleanup on success/failure",
+      "repair_commit": "93351c1",
+      "focused_suites": [
+        "test_continuity_cleanup.py"
+      ],
+      "remaining_limit": "Postgres not exercised"
+    },
+    {
+      "id": "PORT-NETWORK",
+      "state": "local repair integrated",
+      "finding": "Allow only internal socket pair for Windows event loop while blocking ordinary network paths",
+      "repair_commit": "e0cf403",
+      "focused_suites": [
+        "test_network_guard.py"
+      ],
+      "remaining_limit": "Integrated wiring16/16 locally; production lock unverified"
+    },
+    {
+      "id": "DEPS-LOCK",
+      "state": "OPEN verification blocker",
+      "finding": "Local dependencies differ from production lock; no locked full-suite proof",
+      "repair_commit": "",
+      "focused_suites": [],
+      "remaining_limit": "SciPy diagnostic optional and unlocked; missing dependency returns UNKNOWN"
+    },
+    {
+      "id": "FIN-PERIOD",
+      "state": "local repair independently exercised",
+      "finding": "Later actual fee on existing listing erases earlier period exposure and bypasses today budget; actual updated old-dated CostEntry",
+      "owner": "b_authorization",
+      "evidence": "153721870457 operating cost basis:8/8",
+      "certified": false,
+      "repair_commit": "0cd7c9e",
+      "remaining_limit": "Legacy pre-mirror ledger migration and Postgres unverified"
+    },
+    {
+      "id": "PDF-CLOUDLINE-READABILITY",
+      "state": "local chart/layout repairs independently exercised",
+      "finding": "Current Cloudline chart3.2mm cell/~4pt below unchanged9pt minimum",
+      "owner": "master_proof",
+      "evidence": "root3layout+4tile and fullcommerce14/14 PASS at5d543ba; receipt162101464942; inspected materials/URL pages",
+      "certified": false,
+      "repair_commit": "54df8bc+5d543ba",
+      "remaining_limit": "No customer usability/physical proof; sparsepage6/countsuffix split documented"
+    },
+    {
+      "id": "ORIGIN-WRONG-GAP",
+      "state": "local repair independently exercised",
+      "finding": "Oldest department gap advanced for unrelated originating product",
+      "owner": "learn_launch",
+      "evidence": "root9/9 exact origin controls",
+      "certified": false,
+      "repair_commit": "7fd49e8",
+      "remaining_limit": "Legacy origin and PostgreSQL remain UNKNOWN"
+    },
+    {
+      "id": "COMMERCE-FIXTURE-PREREQUISITES",
+      "state": "scoped fixture isolation verified",
+      "finding": "Five old publish/hash checks lack now-required chosen taxonomy; no default restoration permitted",
+      "evidence": "Real taxonomy UNKNOWN refusal plus isolated hash transport cases pass; fullcommerce14/14 at5d543ba",
+      "certified": false,
+      "remaining_limit": "Synthetic transport profile/images do not prove publication eligibility"
+    },
+    {
+      "id": "EVIDENCE-IMPORT-CACHE",
+      "state": "local repair independently exercised",
+      "repair_commit": "9cb646d+50680c8+47a9330",
+      "finding": "Unkeyed import cache reused changed source; native Windows paths broke import matching",
+      "evidence": "root4freshness+5request+2path checks",
+      "remaining_limit": "Other caches/full report performance unverified; static imports not actual test execution",
+      "certified": false
+    },
+    {
+      "id": "LEARN-INPUT-SHAPES",
+      "state": "local repair independently exercised",
+      "finding": "Malformed external draft fields raised AttributeError/500",
+      "repair_commit": "47879dd",
+      "evidence": "worker19 affected checks; root3 malformed-input/API/state controls PASS",
+      "remaining_limit": "Curriculum/public lessons/reviewer evidence not supplied by validation",
+      "certified": false
+    },
+    {
+      "id": "RUNTIME-GRAPH-CACHE",
+      "state": "local repair independently exercised",
+      "finding": "Source edits retained stale reachability; Windows root paths mismatched",
+      "repair_commit": "9220c58+b7fecd9+c5a759f",
+      "evidence": "root9graph+11fullreachability+5composedsnapshot; closure/API27/27 clean rerun164127186301; initial resolver failure and pre-cleanup warning retained",
+      "remaining_limit": "Static not execution; other caches and filesystem ABA remain; locked production fullsuite unverified",
+      "certified": false
+    }
+  ]
+}

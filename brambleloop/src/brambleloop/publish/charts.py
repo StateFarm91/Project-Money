@@ -12,6 +12,7 @@ so they are consistent, legible and reproducible for every size we publish.
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw, ImageFont
@@ -186,7 +187,10 @@ def round_cue_labels(cir: CIR, twin: TwinModel, *, ring_px: int,
 def _font(size: int) -> ImageFont.ImageFont:
     """Load a real TrueType face when one exists, else fall back without crashing."""
     global FONT_FALLBACK_IN_USE
-    for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    # Local verification hosts may keep the same font outside Linux's system paths.
+    # This selects bytes, never overrides the downstream legibility/fallback gate.
+    configured = os.environ.get("BRAMBLELOOP_FONT_PATH", "").strip()
+    for path in ((configured,) if configured else ()) + ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                  "/usr/share/fonts/truetype/DejaVuSansMono.ttf"):
         try:
@@ -626,7 +630,8 @@ def round_chart_size(twin: TwinModel, spec: ChartSpec | None = None, *,
 
 def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                  grids: tuple[list[list[str]], list[list[str | None]]] | None = None,
-                 caption: str | None = None) -> Image.Image:
+                 caption: str | None = None, *, row_offset: int = 0,
+                 column_offset: int = 0, show_columns: bool = False) -> Image.Image:
     """Colour chart with stitch glyphs, row numbers and working direction.
 
     Row 1 is drawn at the bottom, the way fabric actually grows, and alternate rows are
@@ -674,8 +679,8 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     d = ImageDraw.Draw(img)
 
     for r_idx in range(rows):
-        row_number = r_idx + 1
-        y = gutter + (rows - row_number) * cell   # row 1 at the bottom
+        row_number = row_offset + r_idx + 1
+        y = gutter + (rows - r_idx - 1) * cell   # row 1 at the bottom
         row_cells = grid[r_idx]
         row_colors = colors[r_idx] if r_idx < len(colors) else []
         for c_idx in range(len(row_cells)):
@@ -704,7 +709,7 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
         # Number every row on the side it is worked from; on a tiny cell, every fifth.
         if cell >= 10 or row_number % 5 == 0 or row_number == rows:
             label = str(row_number)
-            if row_number % 2 == 1:
+            if row_number % 2 == 0:
                 d.text((left - 8, y + cell / 2), label, font=label_font, fill=MUTED,
                        anchor="rm")
             else:
@@ -712,7 +717,11 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                        font=label_font, fill=MUTED, anchor="lm")
 
     d.text((width / 2, gutter - 26), title, font=label_font, fill=PINE, anchor="ms")
-    d.text((width / 2, height - gutter + 22), footer, font=label_font, fill=MUTED,
+    if show_columns:
+        for c_idx in range(cols):
+            d.text((left + (c_idx + .5) * cell, height - gutter + 4),
+                   str(column_offset + c_idx + 1), font=label_font, fill=MUTED, anchor="mt")
+    d.text((width / 2, height - gutter + (46 if show_columns else 22)), footer, font=label_font, fill=MUTED,
            anchor="ms")
     return img
 
@@ -947,6 +956,14 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
     used_colors = sorted(c for c in twin.colors_used if c)
     entries = len(stitches) + len(used_colors) + 2
     width, height = 720, 40 + entries * row_h
+    head, body = _font(LEGEND_TYPE_PX["head"]), _font(LEGEND_TYPE_PX["body"])
+    footer_lines = []
+    footer_step = LEGEND_TYPE_PX["body"] + 6
+    if len(used_colors) > 1:
+        probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+        footer_lines = _wrap(probe, COLOUR_CUE_NOTE_ROUND if is_round(cir, twin)
+                             else COLOUR_CUE_NOTE_FLAT, body, width - 48)
+        height += len(footer_lines) * footer_step + 18
     img = Image.new("RGB", (width, height), CREAM)
     d = ImageDraw.Draw(img)
     head, body = _font(LEGEND_TYPE_PX["head"]), _font(LEGEND_TYPE_PX["body"])
@@ -994,9 +1011,8 @@ def render_legend(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None) -> I
         # a chart that was not in front of them. The flat chart's letter sits in the corner of
         # the square and the symbol in the middle is the stitch, which is also worth saying:
         # several stitch glyphs are themselves capital letters.
-        d.text((24, y + 6), COLOUR_CUE_NOTE_ROUND if is_round(cir, twin)
-                            else COLOUR_CUE_NOTE_FLAT,
-               font=body, fill=MUTED)
+        for i, line in enumerate(footer_lines):
+            d.text((24, y + 6 + i * footer_step), line, font=body, fill=MUTED)
     return img
 
 

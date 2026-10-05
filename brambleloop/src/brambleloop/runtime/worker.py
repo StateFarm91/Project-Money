@@ -301,6 +301,7 @@ class Worker:
 # cadence twice in the same window is refused by the job's idempotency key, so a restart loop
 # cannot flood the queue.
 CADENCES: list[tuple[str, str, str, int]] = [
+    ("learn_gap_scan", "learn", "learn.scan", 3600),
     # (name, agent, job_type, period_seconds)
     ("infra_heartbeat", "orchestrator", "ops.heartbeat", 15 * 60),
     ("queue_check", "orchestrator", "ops.queue_check", 60 * 60),
@@ -356,6 +357,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # while it is closed), everything that reads orders (daily, and after any ingest that
     # wrote one), the nightly trajectory (#26) and the creative north star by cohort (#132).
     ("orders_ingest", "cfo", "commerce.orders_ingest", 6 * 60 * 60),
+    # F-005: Etsy's seller taxonomy and the crochet-pattern subtree's property schemas, into
+    # a snapshot the category chooser reads. Daily, read-only, CA$0, and a no-op with no
+    # network call while the etsy_api gate is closed.
+    ("etsy_taxonomy", "listing", "listing.taxonomy_refresh", 24 * 60 * 60),
     ("order_readings", "cfo", "commerce.order_readings", 24 * 60 * 60),
     ("trajectory_nightly", "orchestrator", "scale.trajectory", 24 * 60 * 60),
     ("creative_north_star", "creative_director", "creative.north_star", 24 * 60 * 60),
@@ -602,6 +607,16 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("improve_replay", "orchestrator", "improve.replay", 24 * 60 * 60),
     # #153-#161: teardown findings checked as enforced requirements and routed to consumers.
     ("teardown_enforce", "orchestrator", "teardown.enforce", 24 * 60 * 60),
+    # FB-1 cluster B. Daily reads of our own shop, through scopes already granted; none of
+    # them writes to Etsy. F-540: the stored OAuth credential is openable, fully scoped and
+    # still refreshing (one getMe, which rotates and persists the refresh token). F-515 /
+    # F-577 / F-585: getShop stored and judged by `etsy_surfaces.assess_shop` (vacation,
+    # currency, payments and trust-surface drift become incidents; passing checks close the
+    # owner actions they evidence). F-553 / F-544 / F-568: getListingsByShop in every state,
+    # compared with what we created, field drift and suspected takedowns as incidents.
+    ("etsy_credential_health", "orchestrator", "etsy.credential_health", 24 * 60 * 60),
+    ("etsy_shop_snapshot", "orchestrator", "etsy.shop_snapshot", 24 * 60 * 60),
+    ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),
 ]
 
 

@@ -29,7 +29,7 @@ from brambleloop.core.models import (  # noqa: E402
     ArtefactProvenance, AuditLog, Job, JobStatus, Listing, PatternVersion, Phase, Product,
     utcnow,
 )
-from brambleloop.products import nordic_forest as nf  # noqa: E402
+from brambleloop.products import builder  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime.worker import Worker  # noqa: E402
@@ -50,7 +50,9 @@ def chain() -> dict:
     db = Database(f"sqlite:///{_TMP}/chain.db")
     db.create_all()
     Registry(db).seed_defaults()
-    cir = nf.build()
+    # Current Launch-0 construction; this suite tests lifecycle/provenance, not mosaic math.
+    # The independent shaped fixture and synthetic recognisability judge remain unchanged.
+    cir = builder.for_slug("cloudline-baby-blanket")
     JobQueue(db).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                          idempotency_key="rb-compile")
     _drain(db)

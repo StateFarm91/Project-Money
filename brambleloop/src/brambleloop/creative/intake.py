@@ -494,7 +494,8 @@ def brief_for(db, concept: Concept, *, event: str = "", event_date: date | None 
 
 GATE_BRIEF_FIELDS: tuple[str, ...] = (
     "thumbnail_storyboard", "motifs", "season", "wow_mechanism", "wow_grounding",
-    "silhouette_qualifiers", "techniques", "trend_domain")
+    "silhouette_qualifiers", "techniques", "trend_domain",
+    "benchmarks_consulted", "design_difference_ledger", "source_context")
 
 
 # ---------------------------------------------------------------------------
@@ -546,36 +547,113 @@ def _event_for(concept: Concept, arena, today: date) -> tuple[str, date | None, 
     return _EVENT_OF_OCCASION.get(concept.occasion, ""), today + timedelta(days=days), days
 
 
-def _gap_for(db, pod: str):
-    from sqlalchemy import select
+def coverage_origin(db, *, event_id, pod: str, product_slug: str,
+                    candidate_key: str, job_id=None) -> dict | None:
+    """Bind a candidate to the exact mission-produced gap; absent lineage stays unknown."""
+    from ..core.models import CoverageGap, MjsMissionEvent
 
-    from ..core.models import CoverageGap
-
+    if not event_id or not candidate_key or not product_slug:
+        return None
     with db.session() as s:
-        gap = s.scalar(select(CoverageGap).where(CoverageGap.pod == pod)
-                       .order_by(CoverageGap.id).limit(1))
-        return (gap.id, gap.state) if gap is not None else (None, None)
+        ev = s.get(MjsMissionEvent, event_id)
+        if ev is None or ev.pod != pod or not ev.tournament_job_id:
+            return None
+        if job_id is not None and ev.tournament_job_id != job_id:
+            return None
+        steps = ev.steps if isinstance(ev.steps, dict) else {}
+        coverage_step = steps.get("coverage")
+        if not isinstance(coverage_step, dict):
+            return None
+        recorded = coverage_step.get("origin")
+        gap = s.get(CoverageGap, ev.gap_id) if ev.gap_id else None
+        if gap is None or gap.pod != pod or gap.benchmark_key != ev.benchmark_key:
+            return None
+        expected = {"gap_id": gap.id, "benchmark_key": gap.benchmark_key,
+                    "coverage_arena": gap.arena, "pod": pod,
+                    "event_id": ev.id, "event_fingerprint": ev.fingerprint}
+        if not ev.fingerprint or recorded != expected:
+            return None
+        if gap.product_slug and gap.product_slug != product_slug:
+            return None
+        return {**expected, "candidate_key": candidate_key,
+                "product_slug": product_slug, "mission_arena": ev.arena,
+                "tournament_job_id": ev.tournament_job_id}
 
 
-def advance_gap(db, pod: str, to: str, *, reason: str, product_slug: str = "") -> dict:
-    """Move the pod's coverage gap forward along #314's lifecycle, never backward here."""
+def brief_coverage_origin(brief) -> dict | None:
+    """Malformed persisted provenance is unknown, including during re-presentation."""
+    context = brief.get("source_context") if isinstance(brief, dict) else None
+    origin = context.get("coverage_origin") if isinstance(context, dict) else None
+    return origin if isinstance(origin, dict) else None
+
+
+def advance_gap(db, pod: str, to: str, *, reason: str, product_slug: str = "",
+                origin: dict | None = None, event_id=None, candidate_key: str = "") -> dict:
+    """Advance only a validated origin, with identity and mutation in one transaction."""
+    from sqlalchemy import select, update, exists, cast, String, JSON, literal
+    from ..core.models import CoverageGap, MjsMissionEvent, utcnow
     from ..intel import coverage
 
-    gap_id, state = _gap_for(db, pod)
-    if gap_id is None:
-        return {"gap": None, "why": "no coverage gap is open for this department"}
+    unknown = {"gap": None, "moved": False, "verdict": "UNKNOWN",
+               "why": "missing or inconsistent exact coverage origin"}
+    if (not isinstance(origin, dict) or not event_id or not candidate_key
+            or origin.get("event_id") != event_id
+            or origin.get("candidate_key") != candidate_key):
+        return unknown
+    expected = coverage_origin(db, event_id=origin.get("event_id"), pod=pod,
+                              product_slug=product_slug,
+                              candidate_key=origin.get("candidate_key", ""))
+    if expected is None or origin != expected:
+        return unknown
     order = list(coverage.STATES[:6])
-    if state not in order or to not in order or order.index(to) <= order.index(state):
-        return {"gap": gap_id, "state": state, "moved": False}
-    moves = []
-    try:
-        while order.index(state) < order.index(to):
-            state = coverage.advance(db, gap_id, order[order.index(state) + 1],
-                                     reason=reason, product_slug=product_slug)
-            moves.append(state)
-    except coverage.GapRefused as exc:
-        return {"gap": gap_id, "state": state, "moved": bool(moves), "refused": str(exc)}
-    return {"gap": gap_id, "state": state, "moved": True, "moves": moves}
+    with db.session() as s:
+        ev = s.scalar(select(MjsMissionEvent).where(
+            MjsMissionEvent.id == origin["event_id"]).with_for_update())
+        gap = s.scalar(select(CoverageGap).where(CoverageGap.id == origin["gap_id"])
+                       .with_for_update())
+        producer_origin = {key: origin[key] for key in (
+            "gap_id", "benchmark_key", "coverage_arena", "pod", "event_id",
+            "event_fingerprint")}
+        # Recheck identity inside the transaction; never overwrite another product's binding.
+        if (gap is None or ev is None or ev.gap_id != gap.id
+                or ev.fingerprint != origin["event_fingerprint"]
+                or ev.pod != pod or ev.benchmark_key != origin["benchmark_key"]
+                or ev.arena != origin["mission_arena"]
+                or ev.tournament_job_id != origin["tournament_job_id"]
+                or not isinstance(ev.steps, dict)
+                or not isinstance(ev.steps.get("coverage"), dict)
+                or ev.steps["coverage"].get("origin") != producer_origin
+                or gap.pod != pod or gap.benchmark_key != origin["benchmark_key"]
+                or gap.arena != origin["coverage_arena"]
+                or (gap.product_slug and gap.product_slug != product_slug)):
+            return unknown
+        state = gap.state
+        if state not in order or to not in order or order.index(to) <= order.index(state):
+            return {"gap": gap.id, "state": state, "moved": False}
+        moves = order[order.index(state) + 1:order.index(to) + 1]
+        for next_state in moves:
+            coverage.check_transition(state, next_state, reason)
+            state = next_state
+        # Conditional write also protects SQLite, whose FOR UPDATE is a no-op.
+        changed = s.execute(update(CoverageGap).where(
+            CoverageGap.id == gap.id, CoverageGap.state == gap.state,
+            CoverageGap.product_slug == gap.product_slug,
+            CoverageGap.pod == pod, CoverageGap.benchmark_key == origin["benchmark_key"],
+            CoverageGap.arena == origin["coverage_arena"],
+            exists(select(MjsMissionEvent.id).where(
+                MjsMissionEvent.id == origin["event_id"],
+                MjsMissionEvent.gap_id == origin["gap_id"],
+                MjsMissionEvent.pod == pod,
+                MjsMissionEvent.benchmark_key == origin["benchmark_key"],
+                MjsMissionEvent.arena == origin["mission_arena"],
+                MjsMissionEvent.fingerprint == origin["event_fingerprint"],
+                MjsMissionEvent.tournament_job_id == origin["tournament_job_id"],
+                cast(MjsMissionEvent.steps, String) == cast(literal(ev.steps, type_=JSON), String)))
+        ).values(state=state, product_slug=product_slug, reason=reason,
+                 updated_at=utcnow()).execution_options(synchronize_session=False))
+        if changed.rowcount != 1:
+            return unknown
+        return {"gap": gap.id, "state": state, "moved": True, "moves": moves}
 
 
 def _payload(designed: Concept, brief: dict, *, source: str, original_key: str,
@@ -598,12 +676,8 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     concept: Concept = candidate.concept
     original_key = concept.key
     slug = design_slug(concept)
-    # A seasonal transformation of a catalogue product (#279) keeps its parent in its
-    # provenance, so the design records what it was transformed from as well as the run.
-    lineage = (f" <- {concept.provenance}" if str(concept.provenance or "")
-               .startswith("transformed:") else "")
-    designed = replace(concept, key=slug,
-                       provenance=f"{source}:{original_key}{lineage}"[:120])
+    # The run's source belongs in the intake record, not over the original lineage.
+    designed = replace(concept, key=slug)
     judged = judgement_for(db, slug)
     if judged:
         designed = replace(designed, **{k: judged[k] for k in ("thumbnail_reads_small",
@@ -613,6 +687,27 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     brief = brief_for(db, designed, event=event, event_date=event_date, days_to_event=days,
                       vision=plan.get("vision"), trend_domain=culture_domain(db, culture_id),
                       today=today)
+    supplied = plan.get("brief") or {}
+    if not isinstance(supplied, dict):
+        raise ValueError("source brief must be an object; provenance UNKNOWN")
+    for field in ("benchmarks_consulted", "design_difference_ledger", "source_context"):
+        if field in supplied:
+            brief[field] = supplied[field]
+    origin = coverage_origin(db, event_id=mjs_event_id, pod=designed.pod,
+                             product_slug=slug, candidate_key=original_key,
+                             job_id=ctx.job.id)
+    context = brief.get("source_context") or {}
+    if not isinstance(context, dict):
+        origin = None
+    elif "coverage_origin" in context and context["coverage_origin"] != origin:
+        origin = None
+    if isinstance(context, dict):
+        brief["source_context"] = {**context, "coverage_origin": origin}
+    from .prototype import source_provenance
+    lineage_record = source_provenance(designed.key, designed.to_dict(), brief,
+                                       ("creative.intake",))
+    if lineage_record is not None:
+        brief["benchmarks_consulted"] = list(lineage_record.benchmarks_consulted)
     funnel = funnel_verdict(funnel_rounds, original_key)
     gate = ideation.pre_engineering_gate(
         db, SimpleNamespace(concept=designed), ctx=ctx, source=source,
@@ -633,7 +728,8 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
         provenance = {"refused": str(exc)[:200]}
 
     pod = designed.pod
-    gap = advance_gap(db, pod, "concepting",
+    gap = advance_gap(db, pod, "concepting", origin=origin, product_slug=slug,
+                      event_id=mjs_event_id, candidate_key=original_key,
                       reason=f"{source} selected {slug} for this department")
     lesson = response_lesson(db, pod=pod, event=event or designed.occasion,
                              noun=noun_for(designed), slug=slug, mjs_event_id=mjs_event_id)
@@ -659,7 +755,8 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     if decision == ENGINEERING:
         job = ctx.enqueue("crochet_engineer", "cir.draft", payload,
                           idempotency_key=f"draft:{slug}")
-        detail["coverage"] = advance_gap(db, pod, "engineering",
+        detail["coverage"] = advance_gap(db, pod, "engineering", origin=origin,
+                                         event_id=mjs_event_id, candidate_key=original_key,
                                          reason=f"{slug} cleared the funnel and the "
                                                 f"pre-engineering gate; cir.draft queued",
                                          product_slug=slug)
@@ -879,6 +976,9 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
             job = ctx.enqueue("crochet_engineer", "cir.draft", payload,
                               idempotency_key=f"draft:{slug}")
             advance_gap(ctx.db, concept.pod, "engineering", product_slug=slug,
+                        origin=brief_coverage_origin(brief),
+                        event_id=detail.get("mjs_event_id"),
+                        candidate_key=detail.get("original_key", ""),
                         reason=f"{slug} cleared the pre-engineering gate on re-presentation")
             queued.append({"slug": slug, "job": getattr(job, "id", None)})
     return {"presented": presented, "queued": queued, "held": held[:REGATE_LIMIT],

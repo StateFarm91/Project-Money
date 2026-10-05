@@ -45,8 +45,10 @@ longer be fooled by is a description route or an audit receipt.
 from __future__ import annotations
 
 import ast
+import os
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import lru_cache, wraps
+from contextvars import ContextVar
 from pathlib import Path
 
 PKG = Path(__file__).resolve().parents[1]          # src/brambleloop
@@ -67,6 +69,65 @@ WRITE_ATTRS = frozenset({"add", "add_all", "execute", "enqueue", "merge", "delet
                          "bulk_save_objects", "commit", "flush"})
 
 
+_GRAPH_SCOPE = ContextVar("brambleloop_graph_sources", default=None)
+_POLICY_NAMES = ("ROOTS", "LOOP_MODULES", "EXECUTING_MODULE_BODIES", "API", "AUDIT_SINKS", "WRITE_ATTRS")
+
+
+def _capture_graph_sources():
+    root = PKG.resolve()
+    if not root.is_dir():
+        raise RuntimeError("runtime graph package source unavailable")
+    policies = tuple((name, globals()[name]) for name in _POLICY_NAMES)
+    def unreadable(error):
+        raise error
+    paths = []
+    # pathlib glob can suppress directory traversal errors: an unreadable subtree must
+    # not silently become missing evidence while another cached path still looks live.
+    for directory, _dirs, files in os.walk(root, onerror=unreadable):
+        paths.extend(Path(directory) / name for name in files if name.endswith(".py"))
+    sources = tuple((path.relative_to(root).as_posix(), path.read_bytes())
+                    for path in sorted(paths))
+    return str(root), policies, sources
+
+
+def _graph_boundary(function):
+    @wraps(function)
+    def checked(*args, **kwargs):
+        if _GRAPH_SCOPE.get() is not None:
+            return function(*args, **kwargs)
+        captured = _capture_graph_sources()
+        context = {"key": captured, "root": Path(captured[0]),
+                   "policies": dict(captured[1]), "sources": dict(captured[2])}
+        token = _GRAPH_SCOPE.set(context)
+        try:
+            result = function(*args, **kwargs)
+            try:
+                current = _capture_graph_sources()
+            except Exception as exc:
+                raise RuntimeError("runtime graph source unreadable during revalidation") from exc
+            if current != captured:
+                raise RuntimeError("runtime graph source changed during analysis")
+            return result
+        finally:
+            _GRAPH_SCOPE.reset(token)
+    return checked
+
+
+def _policy(name):
+    active = _GRAPH_SCOPE.get()
+    return active["policies"][name] if active is not None else globals()[name]
+
+
+def _package_root():
+    active = _GRAPH_SCOPE.get()
+    return active["root"] if active is not None else PKG
+
+
+def _source_exists(path):
+    active = _GRAPH_SCOPE.get()
+    return path.relative_to(active["root"]).as_posix() in active["sources"] if active is not None else path.exists()
+
+
 def module_name(rel: str) -> str:
     rel = rel.removesuffix(".py").replace("/", ".")
     return "brambleloop." + rel.removesuffix(".__init__")
@@ -74,16 +135,18 @@ def module_name(rel: str) -> str:
 
 def _rel_of(mod: str) -> str:
     p = _path_of(mod)
-    return str(p.relative_to(PKG)) if p else mod
+    return p.relative_to(_package_root()).as_posix() if p else mod
 
 
 def _path_of(mod: str) -> Path | None:
     parts = mod.split(".")[1:]
-    f = PKG.joinpath(*parts).with_suffix(".py")
-    if f.exists():
-        return f
-    init = PKG.joinpath(*parts, "__init__.py")
-    return init if init.exists() else None
+    # The top-level package is __init__.py, never the sibling PKG.with_suffix(".py").
+    if parts:
+        f = _package_root().joinpath(*parts).with_suffix(".py")
+        if _source_exists(f):
+            return f
+    init = _package_root().joinpath(*parts, "__init__.py")
+    return init if _source_exists(init) else None
 
 
 def _resolve(current: str, is_pkg: bool, node: ast.ImportFrom) -> list[str]:
@@ -111,16 +174,23 @@ def _from_prefix(current: str, is_pkg: bool, node: ast.ImportFrom) -> str:
     return node.module or ""
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=1024)
+def _parse_source(root, rel, source):
+    return ast.parse(source.decode("utf-8"), filename=str(Path(root) / rel))
+
+
+@_graph_boundary
 def _parse(mod: str):
     path = _path_of(mod)
     if path is None:
         return None
-    return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    active = _GRAPH_SCOPE.get()
+    rel = path.relative_to(active["root"]).as_posix()
+    return _parse_source(str(active["root"]), rel, active["sources"][rel])
 
 
-@lru_cache(maxsize=None)
-def _imports(mod: str) -> frozenset[str]:
+@lru_cache(maxsize=1024)
+def _imports_cached(snapshot, mod: str) -> frozenset[str]:
     tree = _parse(mod)
     if tree is None:
         return set()
@@ -134,11 +204,16 @@ def _imports(mod: str) -> frozenset[str]:
     return frozenset(m for m in found if _path_of(m) is not None)
 
 
-@lru_cache(maxsize=1)
-def reachable() -> frozenset[str]:
+@_graph_boundary
+def _imports(mod: str):
+    return _imports_cached(_GRAPH_SCOPE.get()["key"], mod)
+
+
+@lru_cache(maxsize=2)
+def _reachable_cached(snapshot) -> frozenset[str]:
     """Every module imported, transitively, from a runtime root (necessary, not sufficient)."""
     seen: set[str] = set()
-    todo = [module_name(r) for r in ROOTS if _path_of(module_name(r))]
+    todo = [module_name(r) for r in _policy("ROOTS") if _path_of(module_name(r))]
     while todo:
         mod = todo.pop()
         if mod in seen:
@@ -146,6 +221,11 @@ def reachable() -> frozenset[str]:
         seen.add(mod)
         todo.extend(_imports(mod) - seen)
     return frozenset(seen)
+
+
+@_graph_boundary
+def reachable() -> frozenset[str]:
+    return _reachable_cached(_GRAPH_SCOPE.get()["key"])
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +406,7 @@ class _Analysis:
                 local = _aliases_in(mod, nodes)
                 for n in nodes:
                     if isinstance(n, ast.Call):
-                        if isinstance(n.func, ast.Attribute) and n.func.attr in WRITE_ATTRS:
+                        if isinstance(n.func, ast.Attribute) and n.func.attr in _policy("WRITE_ATTRS"):
                             direct.add((mod, qual))
                         ref = self._resolve_ref(mod, n.func, cls, local)
                         if ref:
@@ -427,7 +507,7 @@ class _Analysis:
         """ids of nodes whose value goes only into an audit write."""
         inside: set[int] = set()
         for n in nodes:
-            if isinstance(n, ast.Call) and _call_name(n) in AUDIT_SINKS:
+            if isinstance(n, ast.Call) and _call_name(n) in _policy("AUDIT_SINKS"):
                 for a in list(n.args) + [k.value for k in n.keywords]:
                     inside.update(id(x) for x in ast.walk(a))
         # a variable assigned from a call and then read only inside audit writes
@@ -558,7 +638,7 @@ class _Analysis:
 
     def _run(self) -> None:
         self._exprs: dict[int, tuple[ast.AST, str | None]] = {}
-        for rel in LOOP_MODULES:
+        for rel in _policy("LOOP_MODULES"):
             mod = module_name(rel)
             if mod not in self.mods:
                 continue
@@ -566,11 +646,11 @@ class _Analysis:
                 self._mark((mod, qual), f"runtime loop {rel}")
             for c in self.mods[mod].classes:
                 self._mark((mod, c), f"runtime loop {rel}")
-        for rel in EXECUTING_MODULE_BODIES:
+        for rel in _policy("EXECUTING_MODULE_BODIES"):
             mod = module_name(rel)
             if mod in self.mods:
                 self._queue.append((mod, "<module>", "full", f"module body {rel}"))
-        api = module_name(API)
+        api = module_name(_policy("API"))
         if api in self.mods:
             for qual, fn in self.mods[api].funcs.items():
                 for d in getattr(fn, "decorator_list", []):
@@ -609,21 +689,28 @@ class _Analysis:
                        + (f"; imported by {imported_by[0]}" if imported_by else "")), []
 
 
-@lru_cache(maxsize=1)
-def _references() -> _Analysis:
+@lru_cache(maxsize=2)
+def _references_cached(snapshot) -> _Analysis:
     return _Analysis()
 
 
+@_graph_boundary
+def _references() -> _Analysis:
+    return _references_cached(_GRAPH_SCOPE.get()["key"])
+
+
+@_graph_boundary
 def analysis() -> _Analysis:
     return _references()
 
 
+@_graph_boundary
 def reached(rel: str) -> dict:
     """The verdict for one proof module path like `intel/serp.py`."""
     mod = module_name(rel)
     if _path_of(mod) is None:
         return {"module": rel, "reached": False, "why": "no such module"}
-    if rel in ROOTS:
+    if rel in _policy("ROOTS"):
         return {"module": rel, "reached": True, "why": "runtime root"}
     if mod not in reachable():
         return {"module": rel, "reached": False,
@@ -635,6 +722,7 @@ def reached(rel: str) -> dict:
     return out
 
 
+@_graph_boundary
 def function_reached(rel: str, qual: str) -> dict:
     """Is one named function (or `Class.method`) on a live path? For row-level proofs."""
     a = _references()
@@ -645,7 +733,14 @@ def function_reached(rel: str, qual: str) -> dict:
 
 
 def clear_cache() -> None:
-    _parse.cache_clear()
-    _imports.cache_clear()
-    reachable.cache_clear()
-    _references.cache_clear()
+    _parse_source.cache_clear()
+    _imports_cached.cache_clear()
+    _reachable_cached.cache_clear()
+    _references_cached.cache_clear()
+
+
+# Existing certification callers explicitly clear these caches between fixtures.
+_parse.cache_clear = _parse_source.cache_clear
+_imports.cache_clear = _imports_cached.cache_clear
+reachable.cache_clear = _reachable_cached.cache_clear
+_references.cache_clear = _references_cached.cache_clear

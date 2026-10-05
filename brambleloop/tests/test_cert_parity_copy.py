@@ -46,7 +46,12 @@ from brambleloop.runtime.worker import Worker  # noqa: E402
 from brambleloop.core.models import Phase  # noqa: E402
 from brambleloop.visual import parity  # noqa: E402
 
-SLUG = "hexagon-coaster-set"
+from brambleloop.products.vessels import build_hexagon_coaster
+
+# Follow the current construction revision; independent synthetic rows below keep theirs.
+CHAIN_CIR = build_hexagon_coaster()
+SLUG = CHAIN_CIR.slug
+CIR_VERSION = CHAIN_CIR.version
 KEY = "mjs_off_the_hook_designs"
 _TMP = tempfile.mkdtemp()
 _CHAIN: dict = {}
@@ -62,12 +67,10 @@ def _boot(path: str) -> Database:
 def _chain_file() -> str:
     """One certified product through the whole post-certification chain, run once."""
     if not _CHAIN:
-        from brambleloop.products.vessels import build_hexagon_coaster
-
         path = f"{_TMP}/chain.sqlite"
         db = _boot(path)
         JobQueue(db).enqueue("quality_director", "gate.certify",
-                             {"cir": build_hexagon_coaster().to_dict()})
+                             {"cir": CHAIN_CIR.to_dict()})
         w = Worker(db, "w1b-chain")
         for _ in range(100):
             if not w.run_once():
@@ -206,7 +209,7 @@ def test_store_publish_reads_the_product_own_review_through_the_handler():
     for slug, _ in R.catalogue_slugs():
         R.record(db, {"slug": slug, "materially_inferior": None, "why": "fixture",
                       "reviewed_at": datetime.now(timezone.utc).isoformat()})
-    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": "1.0.0"},
+    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": CIR_VERSION},
                key="w1b-publish-own-review")
     assert job.status == JobStatus.DEAD and "SHADOW" in (job.last_error or "")
     row = [a for a in _audits(db, "listing.parity") if a["_job_id"] == job.id][0]
@@ -222,16 +225,16 @@ def test_a_taken_deterministic_rung_enqueues_assets_build_once():
     R.record(db, {"slug": SLUG, "materially_inferior": True, "why": "fixture: inferior",
                   "reviewed_at": datetime.now(timezone.utc).isoformat()})
     before = len(_jobs(db, "assets.build"))
-    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": "1.0.0"},
+    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": CIR_VERSION},
                key="w1b-escalate-1")
     row = [a for a in _audits(db, "listing.parity") if a["_job_id"] == job.id][0]
     assert row["escalation"]["taken"] == "deterministic_representation"
     builds = _jobs(db, "assets.build")
     assert len(builds) == before + 1, "the taken rung was recorded and not enqueued"
     assert builds[-1].inputs["rebuild"].startswith("parity-escalation:")
-    assert _audits(db, "creative.escalation_taken", f"{SLUG}@1.0.0")
+    assert _audits(db, "creative.escalation_taken", f"{SLUG}@{CIR_VERSION}")
     # Same failure, same evidence: a retried publish does not queue it again.
-    _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": "1.0.0"},
+    _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": CIR_VERSION},
          key="w1b-escalate-2")
     assert len(_jobs(db, "assets.build")) == before + 1
     # Release stays blocked: the ladder never lowers the bar.
@@ -333,8 +336,8 @@ def test_an_inferior_product_is_returned_to_creative_development_by_the_handler(
 
 def test_the_disclosure_check_measures_the_stored_listing_in_the_chain():
     db = _fresh_chain()
-    checked = _audits(db, "listing.disclosure_checked", f"{SLUG}@1.0.0") + \
-        _audits(db, "listing.disclosure_finding", f"{SLUG}@1.0.0")
+    checked = _audits(db, "listing.disclosure_checked", f"{SLUG}@{CIR_VERSION}") + \
+        _audits(db, "listing.disclosure_finding", f"{SLUG}@{CIR_VERSION}")
     assert checked, "listing.seo never ran the disclosure check"
     assert checked[-1]["checked"] is True, "the check ran before the Listing row existed"
     assert checked[-1]["finding"] is False
@@ -349,7 +352,7 @@ def test_a_listing_whose_copy_lost_its_disclosure_is_blocked_at_publish():
         row = s.scalar(select(Listing).where(Listing.product_slug == SLUG))
         row.title = "Hexagon Coasters"
         row.description = "Lovely coasters."
-    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": "1.0.0"},
+    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": CIR_VERSION},
                key="w1b-publish-disclosure")
     row = [a for a in _audits(db, "listing.parity") if a["_job_id"] == job.id][0]
     assert row["disclosures"]["finding"] is True
@@ -363,7 +366,7 @@ def test_a_listing_whose_copy_lost_its_disclosure_is_blocked_at_publish():
 
 def test_every_release_is_classified_and_its_disclosures_are_in_the_copy():
     db = _fresh_chain()
-    classified = _audits(db, "listing.classified", f"{SLUG}@1.0.0")
+    classified = _audits(db, "listing.classified", f"{SLUG}@{CIR_VERSION}")
     assert classified and classified[-1]["classification"]["ok"] is True
     owed = classified[-1]["classification"]["disclosures"]
     assert owed
@@ -375,7 +378,7 @@ def test_every_release_is_classified_and_its_disclosures_are_in_the_copy():
     # No policy snapshot exists here, so the class is recorded as not enabled -- and the
     # publish-time re-check blocks on it rather than assuming the reading is current.
     assert classified[-1]["class_enablement"]["enabled"] is False
-    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": "1.0.0"},
+    job = _run(db, "store_operator", "store.publish", {"slug": SLUG, "version": CIR_VERSION},
                key="w1b-publish-class")
     row = [a for a in _audits(db, "listing.parity") if a["_job_id"] == job.id][0]
     assert row["classification"]["ok"] is False and "#35" in row["why"]
@@ -389,7 +392,7 @@ def test_a_generated_hero_photograph_is_refused_by_the_policy_gate_in_listing_se
 
     with db.session() as s:
         s.add(AuditLog(actor="publishing", action=owned_photography.ACTION, detail={
-            "made": True, "slug": SLUG, "version": "1.0.0", "role": "hero",
+            "made": True, "slug": SLUG, "version": CIR_VERSION, "role": "hero",
             "method_version": owned_photography.METHOD_VERSION, "generated": True,
             "disclosed_as_illustration": True, "image_ref": "fixture-generated-hero"}))
     job = _run(db, "listing", "listing.seo", _seo_inputs(db), key="w1b-seo-generated")
@@ -403,12 +406,12 @@ def test_a_generated_hero_photograph_is_refused_by_the_policy_gate_in_listing_se
 
 def test_image_provenance_is_stored_by_assets_build():
     db = _fresh_chain()
-    rows = _audits(db, "assets.image_provenance", f"{SLUG}@1.0.0")
+    rows = _audits(db, "assets.image_provenance", f"{SLUG}@{CIR_VERSION}")
     assert rows, "record_image was never called by assets.build"
     images = rows[-1]["images"]
     assert len(images) >= 6
     for image in images:
-        assert image["pattern_version"] == "1.0.0"
+        assert image["pattern_version"] == CIR_VERSION
         assert image["nature"] == "simulated" and image["is_proof"] is False
         assert image["ai_assisted"] is False and image["colourway"]
     assert rows[-1]["proof"]["has_physical_proof"] is False
@@ -420,7 +423,7 @@ def test_image_provenance_is_stored_by_assets_build():
     try:
         buyer_trust.records_for_frames([{"position": 9, "role": "hero",
                                          "asset_class": "PHYSICAL_PRODUCT_PHOTO"}],
-                                       slug=SLUG, version="1.0.0")
+                                       slug=SLUG, version=CIR_VERSION)
     except buyer_trust.TrustRefused:
         pass
     else:
@@ -432,7 +435,7 @@ def test_image_provenance_is_stored_by_assets_build():
 
 def test_assets_build_walks_the_evidence_to_creative_flow():
     db = _fresh_chain()
-    flows = _audits(db, "creative.evidence_flow", f"{SLUG}@1.0.0")
+    flows = _audits(db, "creative.evidence_flow", f"{SLUG}@{CIR_VERSION}")
     assert flows, "brief_from_truth / check_creative / advance were never called"
     flow = flows[-1]
     assert flow["steps"] == ["compiled_twin_truth", "engineering_evidence", "creative_brief",
@@ -445,7 +448,7 @@ def test_assets_build_walks_the_evidence_to_creative_flow():
 
 def _rebuild(db: Database, key: str) -> Job:
     return _run(db, "publishing", "assets.build",
-                {"slug": SLUG, "version": "1.0.0", "release": "", "rebuild": key}, key=key)
+                {"slug": SLUG, "version": CIR_VERSION, "release": "", "rebuild": key}, key=key)
 
 
 def test_creative_that_invents_a_stitch_is_blocked_and_sent_back_to_the_brief():
@@ -491,7 +494,7 @@ def test_a_visual_defect_becomes_a_fixture_and_a_recurrence_is_a_fixture_bug():
     assert (defects.WEAK_HERO, defects.FIRST) in kinds
     assert (defects.WEAK_HERO, defects.RECURRENCE) in kinds
     assert defects.WEAK_HERO in defects.fixtured_classes(db)
-    assert all(r["reproduces_with"].startswith(f"assets.build {SLUG}@1.0.0") for r in rows)
+    assert all(r["reproduces_with"].startswith(f"assets.build {SLUG}@{CIR_VERSION}") for r in rows)
     # The second build replayed the first build's fixture and it failed: the regression
     # was caught by the fixture, not rediscovered.
     blocked = [a for a in _audits(db, "assets.listing_images_blocked")

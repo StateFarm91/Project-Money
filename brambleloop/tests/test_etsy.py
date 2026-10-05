@@ -378,7 +378,12 @@ def test_the_drift_check_sits_after_the_shadow_refusal_and_before_any_upload():
     src = inspect.getsource(pipeline.handle_store_publish)
     shadow = src.index("raise ShadowModeRefusal(")
     check = src.index("check_pdf_hashes(")
-    assert shadow < check < src.index("store.put(") < src.index("client.publish(")
+    # FB-1 B: the upload moved into `_publish_and_read_back` (reached only through
+    # `_publish_guarded`) so the read-back and the F-541 owner path wrap it. The order is
+    # pinned through the call that now performs it.
+    assert shadow < check < src.index("store.put(") < src.index("_publish_guarded(")
+    helper = inspect.getsource(pipeline._publish_and_read_back)
+    assert helper.index("client.publish(") < helper.index("etsy_ops.read_back(")
 
 
 if __name__ == "__main__":

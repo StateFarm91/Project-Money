@@ -47,7 +47,8 @@ from __future__ import annotations
 import ast
 import re
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
+from functools import lru_cache, wraps
+from contextvars import ContextVar
 from pathlib import Path
 
 from . import requirements as reg
@@ -96,23 +97,23 @@ def _module_of(token: str) -> str | None:
     if token.endswith(".py"):
         candidate = _PACKAGE / token
         if candidate.is_file():
-            return token
+            return Path(token).as_posix()
         # A bare `lanes.py` with no package: accept it only if exactly one file matches,
         # because two candidates mean the note did not say which.
         hits = [p for p in _PACKAGE.rglob(token) if p.is_file()]
         if len(hits) == 1:
-            return str(hits[0].relative_to(_PACKAGE))
+            return hits[0].relative_to(_PACKAGE).as_posix()
         return None
     parts = token.split(".")
     candidate = _PACKAGE / Path(*parts[:-1]) / f"{parts[-1]}.py"
     if candidate.is_file():
-        return str(candidate.relative_to(_PACKAGE))
+        return candidate.relative_to(_PACKAGE).as_posix()
     candidate = _PACKAGE / Path(*parts).with_suffix(".py")
     if candidate.is_file():
-        return str(candidate.relative_to(_PACKAGE))
+        return candidate.relative_to(_PACKAGE).as_posix()
     hits = [p for p in _PACKAGE.rglob(f"{parts[0]}.py") if p.is_file()]
     if len(hits) == 1:
-        return str(hits[0].relative_to(_PACKAGE))
+        return hits[0].relative_to(_PACKAGE).as_posix()
     return None
 
 
@@ -200,7 +201,6 @@ def jobs_reaching(module: str) -> tuple[str, ...]:
 # The rungs
 
 
-@lru_cache(maxsize=1)
 def _tested_modules() -> frozenset[str]:
     """Every Brambleloop module the suite imports, parsed rather than grepped.
 
@@ -211,12 +211,49 @@ def _tested_modules() -> frozenset[str]:
     test coverage, it is measuring how people happen to write imports -- and it fails in
     the direction that invents work.
     """
-    if not _TESTS.is_dir():
-        return frozenset()
-    found: set[str] = set()
-    for path in sorted(_TESTS.glob("test_*.py")):
+    active = _test_import_snapshot.get()
+    if active is not None:
+        return active
+    return _tested_modules_from_sources(*_capture_test_sources())
+
+
+def _capture_test_sources() -> tuple:
+    # Exact bytes, never mtime/size alone. Read failures cannot reuse previous evidence.
+    root = str(_TESTS.resolve())
+    sources = tuple((path.name, path.read_bytes())
+                    for path in sorted(_TESTS.glob("test_*.py"))) if _TESTS.is_dir() else ()
+    return root, sources
+
+
+_test_import_snapshot = ContextVar("brambleloop_test_import_snapshot", default=None)
+
+
+def _with_test_import_snapshot(function):
+    """Use one immutable import set, then refuse a result if its source has changed."""
+    @wraps(function)
+    def checked(*args, **kwargs):
+        captured = _capture_test_sources()
+        token = _test_import_snapshot.set(_tested_modules_from_sources(*captured))
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+            result = function(*args, **kwargs)
+            try:
+                current = _capture_test_sources()
+            except Exception as exc:
+                raise RuntimeError("test source evidence unreadable during revalidation") from exc
+            if current != captured:
+                raise RuntimeError("test source evidence changed during report")
+            return result
+        finally:
+            _test_import_snapshot.reset(token)
+    return checked
+
+
+@lru_cache(maxsize=1)
+def _tested_modules_from_sources(root: str, sources: tuple) -> frozenset[str]:
+    found: set[str] = set()
+    for _path, source in sources:
+        try:
+            tree = ast.parse(source.decode("utf-8", errors="replace"))
         except SyntaxError:                                     # pragma: no cover
             continue
         for node in ast.walk(tree):
@@ -229,6 +266,11 @@ def _tested_modules() -> frozenset[str]:
                     found.add(alias.name)
     return frozenset(
         n[len("brambleloop."):] for n in found if n.startswith("brambleloop."))
+
+
+# Retain the previous diagnostic/test cache interface.
+_tested_modules.cache_clear = _tested_modules_from_sources.cache_clear
+_tested_modules.cache_info = _tested_modules_from_sources.cache_info
 
 
 def _tested(module: str) -> bool:
@@ -423,6 +465,7 @@ def _signals(db) -> dict:
     }
 
 
+@_with_test_import_snapshot
 def report(db, *, env: dict[str, str] | None = None) -> dict:
     """The ladder across every requirement the registry calls covered.
 

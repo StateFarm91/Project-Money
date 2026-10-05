@@ -574,7 +574,69 @@ def test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalib
 
 
 
-# ---- F-116 (runtime half): the live author derives its gauge ------------------------------
+# ---- gauge evidence (F-112, F-116) and new primitives (F-074) ------------------------------
+
+
+def _worsted_at(sts: float):
+    from brambleloop.cir.model import Gauge, Material
+
+    cir = fixtures.good_mosaic_panel()
+    cir.gauge = Gauge(stitches_per_10cm=sts, rows_per_10cm=14, stitch_type="sc", hook_mm=5.0)
+    cir.materials = [Material(name="worsted acrylic", yarn_weight="worsted", color_id=c)
+                     for c in cir.colors]
+    return cir
+
+
+def test_a_worsted_16_sts_pattern_fails_certification_rather_than_printing_a_swatch_note():
+    """F-112: the implausible gauge BUILD_STATE flagged is refused, not warned about."""
+    from brambleloop.gates.certificate import GAUGE_STANDARD
+
+    cert = certify(_worsted_at(16))
+    assert not cert.granted
+    assert "GAUGE_OUTSIDE_DECLARED_YARN_BAND" in {f.code for f in cert.errors}
+    assert cert.gauge_standard == GAUGE_STANDARD
+
+    fine = certify(_worsted_at(12.5))                  # the middle of worsted's 11-14 band
+    assert fine.granted, fine.blocking_reasons
+    assert fine.to_dict()["gauge_standard"] == GAUGE_STANDARD
+
+
+def test_an_out_of_band_gauge_is_released_only_on_a_sample_of_this_content():
+    """F-116's other way through: calibrated physical evidence, bound to the exact content."""
+    cir = _worsted_at(16)
+    content = certify(cir).content_hash
+    row = {"id": 3, "slug": cir.slug, "version": cir.version, "passed": True,
+           "completed_at": "2026-09-28T00:00:00+00:00", "content_hash": content}
+    cert = certify(cir, physical_evidence=[row])
+    assert cert.granted, cert.blocking_reasons
+    assert "GAUGE_OUTSIDE_BAND_PHYSICALLY_EVIDENCED" in {f.code for f in cert.findings}
+
+
+def test_a_gauge_typed_against_no_yarn_is_refused_and_a_benchmark_is_not_judged():
+    cir = fixtures.good_mosaic_panel()
+    cir.gauge.yarn_weight = None                       # no gauge weight, no materials
+    assert "GAUGE_WITHOUT_YARN_EVIDENCE" in {f.code for f in certify(cir).errors}
+    cir.authored = "benchmark"
+    from brambleloop.gates.certificate import gauge_findings
+    assert gauge_findings(cir) == []
+
+
+def test_a_pattern_using_an_uncalibrated_primitive_is_restricted_until_evidence():
+    """F-074: a bobble no sample has measured does not carry unrestricted claims."""
+    from brambleloop.cir.model import Op, Row
+
+    cir = fixtures.good_mosaic_panel()
+    cir.components[0].rows.append(Row(index=5, ops=[Op("sc", 19), Op("bob"), Op("sc", 20)],
+                                      declared_count=40, color="forest", turning_chain=1))
+    cert = certify(cir)
+    assert "UNCALIBRATED_PRIMITIVE" in {f.code for f in cert.errors}, cert.blocking_reasons
+    assert cert.primitives["uncalibrated"] == ["bob"]
+    assert cert.primitives["unrestricted"] is False
+    # A primitive a passed sample has measured is calibrated, and the restriction lifts.
+    lifted = certify(cir, calibrated_primitives={"bob"})
+    assert "UNCALIBRATED_PRIMITIVE" not in {f.code for f in lifted.findings}, \
+        lifted.blocking_reasons
+    assert lifted.primitives["status"]["bob"] == "calibrated"
 
 
 def test_the_runtime_author_derives_its_gauge_from_the_declared_yarn():

@@ -251,23 +251,34 @@ class _Doc:
         made them do a translation the document was supposed to do for them.
         """
         self.prose.append(f"{key} {value}")
-        self.need(5 * mm)
-        self.c.setFont("Helvetica-Bold", 9)
-        self.c.setFillColor(MUTED)
-        self.c.drawString(MARGIN, self.y, key.upper() if upper else key)
-        self.c.setFont("Helvetica", 10)
-        self.c.setFillColor(INK)
-        self.c.drawString(MARGIN + 42 * mm, self.y, value)
-        self.y -= 5.2 * mm
+        key_lines = _wrap(self.c, key.upper() if upper else key,
+                          "Helvetica-Bold", 9, 39 * mm)
+        value_lines = _wrap(self.c, value, "Helvetica", 10,
+                            PAGE_W - 2 * MARGIN - 42 * mm)
+        line_height = 5.2 * mm
+        self.need(max(len(key_lines), len(value_lines)) * line_height)
+        for i in range(max(len(key_lines), len(value_lines))):
+            # Repeat the space check for unusually long values that span a page.
+            self.need(line_height)
+            if i < len(key_lines):
+                self.c.setFont("Helvetica-Bold", 9)
+                self.c.setFillColor(MUTED)
+                self.c.drawString(MARGIN, self.y, key_lines[i])
+            if i < len(value_lines):
+                self.c.setFont("Helvetica", 10)
+                self.c.setFillColor(INK)
+                self.c.drawString(MARGIN + 42 * mm, self.y, value_lines[i])
+            self.y -= line_height
 
-    def image(self, img, running_head: str | None = None) -> None:
+    def image(self, img, running_head: str | None = None, *, max_height=None) -> None:
         from reportlab.lib.utils import ImageReader
 
         usable_w = PAGE_W - 2 * MARGIN
         scale = min(1.0, usable_w / img.width)
         w, h = img.width * scale, img.height * scale
-        if h > PAGE_H - 2 * MARGIN:
-            scale *= (PAGE_H - 2 * MARGIN) / h
+        height_limit = PAGE_H - 2 * MARGIN if max_height is None else max_height
+        if h > height_limit:
+            scale *= height_limit / h
             w, h = img.width * scale, img.height * scale
         self.need(h + 4 * mm, running_head)
         self.c.drawImage(ImageReader(img), MARGIN, self.y - h, width=w, height=h,
@@ -294,7 +305,14 @@ def _wrap(c, text: str, font: str, size: int, width: float) -> list[str]:
             else:
                 if line:
                     out.append(line)
-                line = word
+                # A URL or identifier may be wider than a complete line. Keep
+                # every character, splitting only for display rather than clipping.
+                line = ""
+                for char in word:
+                    if line and c.stringWidth(line + char, font, size) > width:
+                        out.append(line)
+                        line = ""
+                    line += char
         out.append(line)
     return out
 
@@ -616,7 +634,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       twin: TwinModel | None = None,
                       designer: str = "Brambleloop Studio",
                       released_on: date | None = None,
-                      childrens: tuple[str, str] | None = None) -> PatternDocument:
+                      childrens: tuple[str, str] | None = None,
+                      lesson_links: list[dict] | None = None) -> PatternDocument:
     """Render the full pattern document.
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
@@ -691,7 +710,7 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         doc, claims, problems = _render(cir, twin, result, text=text, art=art,
                                         terminology=terminology, designer=designer,
                                         released_on=released_on, total_pages=total,
-                                        childrens=childrens)
+                                        childrens=childrens, lesson_links=lesson_links)
         if doc.pages == total:
             break
         total = doc.pages
@@ -821,7 +840,8 @@ def _refuse_an_incomplete_childrens_document(cir: CIR, twin: TwinModel, pdf_byte
 def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             terminology: str, designer: str, released_on: date,
             total_pages: int,
-            childrens: tuple[str, str] | None = None) -> tuple["_Doc", list[str], list[str]]:
+            childrens: tuple[str, str] | None = None,
+            lesson_links: list[dict] | None = None) -> tuple["_Doc", list[str], list[str]]:
     """Lay the document out. Called twice: once to count the pages, once to print them."""
     doc = _Doc(f"{cir.title} - {designer}", total_pages=total_pages, author=designer,
                subject=f"Crochet pattern, {terminology.upper()} terms, version {cir.version}")
@@ -1031,14 +1051,16 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                    f"({row['balls_100g'][0]}-{row['balls_100g'][1]} x 100g balls); "
                    f"{row['fabric_changes']}")
         if guide["declared_weight"] and not guide["substitutes"]["declared_holds_gauge"]:
-            # Said out loud rather than quietly corrected. Which number is wrong -- the gauge
-            # or the weight on the band -- is decided by a swatch, and this document has not
-            # seen one. Picking a side here would be inventing a measurement.
+            # F-112: this note used to be the whole answer -- "swatch before you buy" printed
+            # over a gauge the declared yarn cannot make. A warning is not a substitute for
+            # truth, so certification now refuses such a pattern (GAUGE_OUTSIDE_DECLARED_YARN
+            # _BAND) unless a physical test of this exact content is bound to it. What is left
+            # here is a statement of fact about a released pattern, not a compensation.
             doc.para(
                 f"Note: the gauge above sits outside the published band for "
-                f"{guide['declared_weight'].replace('_', ' ')} yarn. Swatch before you buy: "
-                f"either this fabric wants a different weight than the one named, or it wants "
-                f"a different hook.", size=9, color=MUTED)
+                f"{guide['declared_weight'].replace('_', ' ')} yarn. It is this pattern's "
+                f"tested gauge rather than the band's; match it with your own swatch.",
+                size=9, color=MUTED)
         doc.para(
             f"Those metres are this pattern's own estimate plus {substitution.BUY_MARGIN:.0%}. "
             f"Buying exactly enough is how a project ends one row short in a dye lot that has "
@@ -1126,7 +1148,22 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.heading("Chart")
     doc.para(art["caption"], size=9, color=MUTED)
     doc.space(2 * mm)
-    doc.image(art["chart"], running_head=head)
+    if art.get("tiles"):
+        doc.heading("Tile placement index", size=12)
+        for start in dict.fromkeys(t["row_start"] for t in art["tiles"]):
+            band = [(n, t) for n, t in enumerate(art["tiles"], 1) if t["row_start"] == start]
+            doc.para(f"Rows {start}-{band[0][1]['row_end']}: " + "; ".join(
+                f"tile {n}, columns {t['column_start']}-{t['column_end']}" for n, t in band), size=9)
+        for number, tile in enumerate(art["tiles"], 1):
+            doc.new_page(head)
+            doc.heading("Chart continued")
+            doc.para(f"Tile {number} of {len(art['tiles'])}: rows {tile['row_start']}-{tile['row_end']}, "
+                     f"columns {tile['column_start']}-{tile['column_end']} (left to right).", size=9)
+            doc.image(tile["chart"], running_head=head, max_height=CHART_TILE_HEIGHT)
+        doc.new_page(head)
+        doc.heading("Chart key")
+    else:
+        doc.image(art["chart"], running_head=head)
     doc.image(art["legend"], running_head=head)
     # What is wrong with the chart, measured on the chart as it lands on the page. Carried onto
     # the document's problems so the release chain sees it, like every other finding here.
@@ -1245,6 +1282,26 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"PDF_CHILDRENS_STATEMENT_UNRENDERABLE: {statement_key} is required for a "
                 f"{childrens[0]} product stated for {childrens[1]} and this document cannot "
                 f"state it: {why}")
+
+    # Approved contextual links supplied by assets.build, bound to lesson revisions.
+    # Missing public origin or approved coverage emits nothing, never a dead promise.
+    if lesson_links:
+        from urllib.parse import urlsplit
+        doc.heading("Technique help")
+        for lesson_link in lesson_links:
+            target = lesson_link["url"]
+            parsed = urlsplit(target)
+            revision = lesson_link["revision"]
+            if (parsed.scheme != "https" or parsed.username or parsed.password
+                    or parsed.query != "revision=" + revision
+                    or not parsed.path.startswith("/learn/") or parsed.fragment):
+                raise ValueError("unsafe or unversioned lesson link")
+            label = ", ".join(lesson_link["topics"])
+            doc.para(label, size=10)
+            doc.need(6 * mm)
+            doc.c.linkURL(target, (MARGIN, doc.y, PAGE_W - MARGIN, doc.y + 5 * mm),
+                          relative=0, thickness=0)
+            doc.para(target, size=8)
 
     # -- licence -----------------------------------------------------------
     doc.new_page(head)
@@ -1697,6 +1754,11 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
                    "right.")
 
     if cell_mm < CHART_MIN_CELL_MM:
+        tiled = _tiled_chart_art(cir, twin, grid, colour_grid)
+        if tiled is not None:
+            return tiled
+
+    if cell_mm < CHART_MIN_CELL_MM:
         # Reported with the measurement in it, because "the chart is small" is an opinion and
         # "each cell is 2.1 mm on the printed page, carrying a 4pt glyph" is a fact somebody can
         # act on. Nothing measured this before: the chart's type is pixels inside an image, so
@@ -1719,6 +1781,53 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
         "cues": chart_mod.flat_cue_letters(cir, charted_colors, charted_cell),
         "problems": problems,
     }
+
+
+# Reserve the measured area for heading, explanatory caption and tile range.
+CHART_TILE_HEIGHT = PAGE_H - 2 * MARGIN - 55 * mm
+
+
+def _tiled_chart_art(cir, twin, grid, colors):
+    """Partition the full authoritative fabric; no omitted borders or inferred repeats."""
+    full_rows, full_cols = len(grid), max(map(len, grid))
+    spec = ChartSpec(cell_px=32, margin_px=64)
+    cols, rows = min(24, full_cols), min(28, full_rows)
+    def scale_for(image):
+        return min(1.0, (PAGE_W - 2 * MARGIN) / image.width, CHART_TILE_HEIGHT / image.height)
+    while True:
+        sample = ( [r[:cols] for r in grid[:rows]], [r[:cols] for r in colors[:rows]] )
+        chart = render_chart(cir, twin, spec, grids=sample, caption="Chart tile",
+                             show_columns=True)
+        scale = scale_for(chart)
+        if (spec.cell_px * scale / mm >= CHART_MIN_CELL_MM
+                and min(chart_mod.flat_type_px(spec.cell_px).values()) * scale >= MIN_BODY_PT):
+            break
+        if rows >= cols and rows > 1: rows -= 1
+        elif cols > 1: cols -= 1
+        else: return None  # Caller retains measured, structured refusal; never PASS.
+    tiles = []
+    for row in range(0, full_rows, rows):
+        for col in range(0, full_cols, cols):
+            grids = ([r[col:col+cols] for r in grid[row:row+rows]],
+                     [r[col:col+cols] for r in colors[row:row+rows]])
+            image = render_chart(cir, twin, spec, grids=grids, caption="Chart tile",
+                                 row_offset=row, column_offset=col, show_columns=True)
+            scale = scale_for(image)
+            tiles.append({"row_start": row+1, "row_end": min(row+rows, full_rows),
+                          "column_start": col+1, "column_end": min(col+cols, full_cols),
+                          "grids": grids, "chart": image,
+                          "cell_mm": spec.cell_px*scale/mm,
+                          "minimum_type_pt": min(chart_mod.flat_type_px(spec.cell_px).values())*scale})
+    problems = []
+    if any(t["cell_mm"] < CHART_MIN_CELL_MM or t["minimum_type_pt"] < MIN_BODY_PT for t in tiles):
+        problems.append("PDF_CHART_CELL_BELOW_BRAND_MINIMUM: tiled chart below existing minimum")
+    return {"chart": tiles[0]["chart"], "tiles": tiles, "legend": render_legend(cir, twin),
+            "caption": f"Full chart: {full_cols} columns by {full_rows} rows, split into {len(tiles)} tiles. "
+                       "Columns are numbered left to right. Complete each entire row across its tiles: "
+                       "odd rows right to left; even rows left to right. Then advance one row. "
+                       "Do not work a tile as a separate piece. Every border and stitch is included once.",
+            "cell_mm": min(t["cell_mm"] for t in tiles),
+            "cues": chart_mod.flat_cue_letters(cir, colors, spec.cell_px), "problems": problems}
 
 
 def _times(n: int) -> str:
