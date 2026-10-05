@@ -557,8 +557,10 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
 
     store_problems = check_storefront(build_storefront(db=db))
     out.append(_build(
-        "storefront", "shop announcement, About and all five policies pass their checks",
-        not store_problems, {"problems": store_problems[:5]}))
+        "storefront", "shop announcement, About, all five policies, the shop SEO surface "
+                      "(F-236) and the public identity (F-240) pass their checks",
+        not store_problems, {"problems": store_problems[:8]}))
+    out.extend(_storefront_items(db))
 
     out.append(_build(
         "no_open_incidents", "no unresolved P0/P1 defect",
@@ -830,6 +832,56 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     return Readiness(requirements=out, unknowns=unknowns(db, out))
 
 
+def _storefront_items(db) -> list[Requirement]:
+    """F-238 opening grid, F-239/F-293 storefront preview, F-240 seller identity."""
+    from ..brand import seller_identity, storefront_preview
+    from ..brand.storefront import opening_grid
+
+    grid = opening_grid(db)
+    items = [_build(
+        "opening_grid",
+        "the shop's first screen holds launch-cleared products only, season first, strongest "
+        "first, more than one price rung, and reads as one shop (F-238)",
+        bool(grid["ok"]),
+        {"problems": grid["problems"][:6], "visible": [t["slug"] for t in grid["visible"]],
+         "excluded": len(grid["excluded"]), "coherence": grid["coherence"],
+         "active_events": grid["active_events"]})]
+
+    view = storefront_preview.preview(db, grid=grid)
+    items.append(_build(
+        "storefront_preview",
+        "the pre-launch storefront preview renders at phone and desktop widths and passes its "
+        "legibility checks: icon at 40/70px, banner crops, announcement opening, sections, "
+        "first tiles from certified frames (F-239/F-293)",
+        bool(view["ok"]),
+        {"problems": view["problems"][:8], "icon_basis": view["icon"]["basis"],
+         "banner_basis": view["banner"]["basis"],
+         "tiles": [{"slug": t["slug"], "status": t["status"]} for t in view["tiles"]],
+         # Not part of this requirement's verdict and never passed by it: the live shop as
+         # Etsy serves it needs a browser worker and a live shop.
+         "live_inspection": view["live_inspection"]}))
+
+    ident = seller_identity.state()
+    if ident["problems"]:
+        blocked = BLOCKED_BUILD
+    elif ident["undetermined"]:
+        blocked = BLOCKED_OWNER
+    else:
+        blocked = None
+    items.append(Requirement(
+        key="seller_identity",
+        description=("the public shop identity differs from the legal/tax identity only where "
+                     "a cited Etsy rule permits, and the legal side is confirmed by the account "
+                     "holder (F-240)"),
+        ready=blocked is None, blocked_by=blocked,
+        evidence={"problems": ident["problems"][:5], "undetermined": ident["undetermined"],
+                  "pending_rule_readings": [r["field"] for r in ident["pending_rule_readings"]],
+                  "note": ("legal, payout and tax identity are entered at Etsy KYC; the owner "
+                           "request is the etsy_shop requirement's, not repeated here")},
+        owner_request=None))
+    return items
+
+
 def _launch_scope_counts(db, certified) -> tuple[dict, list[dict]]:
     """Certified versions split into what counts toward launch and legacy that counts zero."""
     from sqlalchemy import select
@@ -921,6 +973,16 @@ def unknowns(db, requirements: list[Requirement] | None = None) -> list[dict]:
         if ev.get("recognisability_by_proxy_only"):
             add(f"proxy:{r.key}", f"launch.readiness:{r.key}",
                 f"measured by proxy only ({ev.get('recognisability_proxy')})", r.description)
+        if r.key == "seller_identity":
+            for f in ev.get("undetermined") or []:
+                add(f"seller_identity:{f}", "brand.seller_identity",
+                    f"the {f} on the legal/payout/tax side is UNKNOWN until the account "
+                    f"holder confirms it at Etsy KYC", r.description)
+        if r.key == "storefront_preview":
+            add("storefront_preview:viewport", "brand.storefront_preview",
+                "the phone banner crop, announcement length and section-label width are "
+                "ASSUMED figures for Etsy's layout; the live shop is inspected only once a "
+                "browser worker exists (rendered_pages)", r.description)
         if r.key == "model_credits" and not ev.get("probed"):
             add("model_provider", "gateway.anthropic.last_probe",
                 "the model provider has never been probed", r.description)

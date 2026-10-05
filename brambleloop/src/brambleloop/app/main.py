@@ -51,6 +51,9 @@ app.include_router(publication_authority_router(db))
 from ..learn.api import router as learn_router
 
 app.include_router(learn_router(db))
+from .storefront_api import make_router as storefront_router
+
+app.include_router(storefront_router(db))
 
 
 # What the last boot's enqueues did, readable from /health.
@@ -553,6 +556,16 @@ def api_catalogue() -> dict:
     for c in content:
         content_by_slug[c.product_slug] = content_by_slug.get(c.product_slug, 0) + 1
 
+    # F-003: the search column is the search certificate's verdict, not the planning proxy
+    # (`seo_score`, an assumed+observed query share), and it sits beside the five ranking-
+    # readiness dimensions, each MEASURED or UNMEASURED and never blended into one number.
+    from ..commerce import ranking_readiness
+
+    shared = ranking_readiness.shop_wide(db)
+    profiles = {(l.product_slug, l.version): ranking_readiness.profile(
+        db, l.product_slug, l.version, shared=shared) for l in listings}
+    order = {"PASS": 0, "REFUSED": 1, "STALE": 2, "NONE": 3}
+
     return {
         "published": False,
         "why": ("BRAMBLELOOP_PHASE=shadow. There is no Etsy, Pinterest, email or messaging "
@@ -560,13 +573,24 @@ def api_catalogue() -> dict:
         "listings": [
             {"slug": l.product_slug, "version": l.version, "title": l.title,
              "price_cad": l.price_cad, "tags": len(l.tags), "state": l.state,
-             "search_share": round(l.seo_score, 3),
+             "search_certificate": profiles[(l.product_slug, l.version)]["search_certificate"]
+             ["verdict"],
+             "ranking_readiness": ranking_readiness.summary(
+                 profiles[(l.product_slug, l.version)]),
              "chain_version": l.chain_version,
              "release": (l.release_hash or "")[:12],
              "images": by_slug.get(l.product_slug, 0),
              "content_pieces": content_by_slug.get(l.product_slug, 0)}
-            for l in sorted(listings, key=lambda x: -x.seo_score)
+            for l in sorted(listings, key=lambda x: (
+                order.get(profiles[(x.product_slug, x.version)]["search_certificate"]
+                          ["verdict"], 9), x.product_slug))
         ],
+        "ranking_readiness_basis": {
+            "dimensions": list(ranking_readiness.DIMENSIONS),
+            "rule": ("each dimension is MEASURED (PASS/FAIL) or UNMEASURED; there is no "
+                     "blended score, and UNMEASURED is never PASS"),
+            "search_certificate": ("the search certificate listing.seo issued, as the publish "
+                                   "gate reads it: NONE, STALE, REFUSED or PASS")},
         "collections": [{"slug": c.slug, "title": c.title, "family": c.family}
                         for c in collections],
         "totals": {"listings": len(listings), "listing_images": len(assets),

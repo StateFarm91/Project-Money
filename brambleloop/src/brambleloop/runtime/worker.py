@@ -361,6 +361,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # a snapshot the category chooser reads. Daily, read-only, CA$0, and a no-op with no
     # network call while the etsy_api gate is closed.
     ("etsy_taxonomy", "listing", "listing.taxonomy_refresh", 24 * 60 * 60),
+    # F-280: launch-week Search Visibility watch -- a daily owner card for the seven days
+    # after the phase first leaves shadow; a no-op in shadow (runtime.storefront_watch).
+    ("search_visibility_watch", "listing", "listing.search_visibility_watch", 24 * 60 * 60),
     ("order_readings", "cfo", "commerce.order_readings", 24 * 60 * 60),
     ("trajectory_nightly", "orchestrator", "scale.trajectory", 24 * 60 * 60),
     ("creative_north_star", "creative_director", "creative.north_star", 24 * 60 * 60),

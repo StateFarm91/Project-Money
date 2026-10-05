@@ -783,6 +783,8 @@ JOB_BANDS: dict[str, str] = {
     "commerce.orders_ingest": "exploration",
     # F-005: a read-only Etsy taxonomy snapshot, behind the etsy_api gate.
     "listing.taxonomy_refresh": "exploration",
+    # F-280: a daily owner card during launch week; a no-op in shadow.
+    "listing.search_visibility_watch": "housekeeping",
     "commerce.order_readings": "exploration",
     "scale.trajectory": "exploration",
     "creative.north_star": "exploration",

@@ -209,7 +209,10 @@ DEFAULT_AGENTS: list[dict] = [
                             "listing.draft", "listing.seo", "collection.assemble",
                             "chain.rebuild",
                             # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
-                            "listing.taxonomy_refresh"],
+                            "listing.taxonomy_refresh",
+                            # F-280: launch-week Search Visibility owner card (no-op in
+                            # shadow; reads the database and writes one owner card).
+                            "listing.search_visibility_watch"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",
