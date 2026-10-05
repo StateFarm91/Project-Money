@@ -94,7 +94,28 @@ def test_parity_is_enforced_after_capability_and_before_anything_is_sent():
         "the verdict is computed after the phase check, so shadow never exercises it"
     assert lines["refusal"] < lines["raise ParityRefusal"], \
         "parity is enforced before the client's own capability refusals"
-    assert lines["raise ParityRefusal"] < lines["publish"], \
+    # The send moved out of the handler (FB-1 B, 80c7770): `handle_store_publish` hands the
+    # certified content to `_publish_guarded`, which calls `_publish_and_read_back`, which is
+    # where `client.publish` is. The order is followed through that chain rather than relaxed:
+    # the handler's hand-off must come after the parity refusal, and the chain must really
+    # reach the client's publish (so the hand-off is the send point, not a decoy).
+    def _fn(name):
+        return next(n for n in ast.walk(tree)
+                    if isinstance(n, ast.FunctionDef) and n.name == name)
+
+    def _calls(f, name):
+        return any(isinstance(c, ast.Call) and getattr(c.func, "id", None) == name
+                   for c in ast.walk(f))
+
+    send = lines.get("publish", lines.get("_publish_guarded"))
+    assert send is not None, "handle_store_publish no longer reaches a publish at all"
+    if "publish" not in lines:
+        assert _calls(_fn("_publish_guarded"), "_publish_and_read_back")
+        assert any(isinstance(a, ast.Attribute) and a.attr == "publish"
+                   and getattr(a.value, "id", None) == "client"
+                   for a in ast.walk(_fn("_publish_and_read_back"))), \
+            "the publish chain no longer reaches client.publish"
+    assert lines["raise ParityRefusal"] < send, \
         "a blocked listing would already have been sent"
 
 

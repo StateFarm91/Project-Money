@@ -1241,6 +1241,10 @@ def handle_store_publish(ctx: JobContext) -> dict:
         credentials=Credentials.from_env(transport=transport, db=ctx.db),
         phase=ctx.phase.value,
         # A separate fact from having a key: publishing is RED in the authority matrix.
+        # FB3-P: this environment flag is only the global kill-switch (it can deny, never
+        # grant). The owner's authority itself is the durable, sealed, release-bound grant in
+        # `ops.publication_authority`, resolved in `_revalidate_publish_effect` before the
+        # durable intent is claimed and again immediately before the create request.
         owner_authorised=os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") == "1")
 
     refusal = client.refusal()
@@ -1415,8 +1419,16 @@ def _publish_content_digest(release, payload, docs, listing_images):
 
 
 def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, listing_images,
-                               reserved_digest=None):
-    """Current evidence bound to the exact bytes about to leave; unknown is a refusal."""
+                               reserved_digest=None, stage="before_create"):
+    """Current evidence bound to the exact bytes about to leave; unknown is a refusal.
+
+    Owner publication authority is a durable, sealed, content-bound grant
+    (`ops.publication_authority`), resolved anew here at both boundaries; the
+    `BRAMBLELOOP_PUBLISH_AUTHORISED` environment flag is only a global kill-switch that can
+    deny, never grant. `stage` names the boundary in the audit row: `pre_claim` (before the
+    durable intent is claimed) or `before_create` (inside the client, immediately before the
+    createDraftListing request), so each run of the full check is separately evidenced.
+    """
     import hashlib
     import os
     from types import SimpleNamespace
@@ -1425,8 +1437,12 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
     from ..core.models import Listing
     from ..core.resilience import PermanentError
     from ..integrations.etsy import PHASES_THAT_MAY_PUBLISH
+    from ..ops import publication_authority
     from ..publish.pdf import TERMINOLOGIES
     from . import etsy_ops
+    grant_id = None
+    approval_input = (getattr(ctx.job, "inputs", None) or {}).get(
+        "owner_publication_approval_id")
     try:
         if reserved_digest is not None and reserved_digest != _publish_content_digest(
                 release, payload, docs, listing_images):
@@ -1435,8 +1451,10 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
         configured = os.environ.get("BRAMBLELOOP_PHASE", phase)
         if phase not in PHASES_THAT_MAY_PUBLISH or configured not in PHASES_THAT_MAY_PUBLISH:
             raise ValueError("current runtime phase forbids publication")
-        if os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1":
-            raise ValueError("current owner publication authority absent")
+        refusal, grant_id = publication_authority.resolve(
+            ctx.db, slug=slug, version=version, release=release, approval_id=approval_input)
+        if refusal is not None:
+            raise ValueError(f"current owner publication authority absent: {refusal}")
         # Historical replay dates cannot stand in for current execution evidence.
         inputs = dict(ctx.job.inputs)
         inputs.pop("as_of", None)
@@ -1469,14 +1487,21 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
             raise ValueError("current image evidence refuses or is UNKNOWN")
         if image_binding(current) != image_binding(listing_images):
             raise ValueError("actual images differ from current certified image set")
-        if (os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1"
+        final_refusal, final_grant = publication_authority.resolve(
+            ctx.db, slug=slug, version=version, release=release, approval_id=approval_input)
+        if (final_refusal is not None or final_grant != grant_id
                 or getattr(ctx.phase, "value", None) not in PHASES_THAT_MAY_PUBLISH
                 or os.environ.get("BRAMBLELOOP_PHASE", phase) not in PHASES_THAT_MAY_PUBLISH):
             raise ValueError("owner authority or runtime phase changed during revalidation")
     except Exception as exc:
+        ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "stage": stage, "reason": str(exc)[:500],
+                          "owner_publication_grant": grant_id})
         raise PermanentError("PUBLISH_EXECUTION_REFUSED: " + str(exc)) from exc
     ctx.audit("store.execution_revalidated", artifact=f"{slug}@{version}",
-              detail={"release": release, "current_evidence": True})
+              detail={"release": release, "current_evidence": True, "stage": stage,
+                      "owner_publication_grant": grant_id,
+                      "content_digest": reserved_digest})
 
 
 def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
@@ -1522,7 +1547,7 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     if known_order:
         _revalidate_publish_effect(ctx, slug=slug, version=version, release=release,
                                    payload=payload, docs=docs, listing_images=listing_images,
-                                   reserved_digest=content_digest)
+                                   reserved_digest=content_digest, stage="pre_claim")
     intent_key, intent_token = draft_intent.claim(
         ctx.db,slug=slug,version=version,release=release,content_digest=content_digest)
     # Whether the create request could have left. For any publish implementation other than
@@ -1534,7 +1559,7 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
         _revalidate_publish_effect(
             ctx, slug=slug, version=version, release=release,
             payload=payload, docs=docs, listing_images=listing_images,
-            reserved_digest=content_digest)
+            reserved_digest=content_digest, stage="before_create")
 
     try:
         outcome = client.publish(payload=payload,

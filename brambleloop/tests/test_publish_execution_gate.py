@@ -12,6 +12,9 @@ from brambleloop.integrations.etsy import EtsyClient
 from brambleloop.core.models import Product,PatternVersion,AuditLog,Job
 from brambleloop.publish import draft_intent
 from brambleloop.core.resilience import PermanentError
+from brambleloop.ops import publication_authority
+
+OWNER_TOKEN="synthetic-owner-ops-credential-not-a-secret"
 
 REAL_RELEASE_GATES=pipeline._release_gates
 
@@ -22,16 +25,21 @@ class ExecutionRecheck(unittest.TestCase):
         self.kw=args();self.ctx=ctx(self.db)
         with self.db.session() as s:
             p=Product(slug="original",title="Synthetic");s.add(p);s.flush()
-            s.add(PatternVersion(product_id=p.id,version="1",cir_json={},certified=True,release_hash="release-a"))
+            s.add(PatternVersion(product_id=p.id,version="1",cir_json={"synthetic":True},certified=True,release_hash="release-a"))
             j=Job(agent="synthetic",job_type="assets.build",inputs={"release":"release-a"});s.add(j);s.flush()
             s.add(AuditLog(actor="synthetic",action="assets.built",artifact="original@1",job_id=j.id,
                 detail={"pdf_sha256_by_terminology":{k:hashlib.sha256(v.pdf_bytes).hexdigest() for k,v in self.kw["docs"].items()}}))
         self.stack=ExitStack();self.addCleanup(self.stack.close)
-        self.stack.enter_context(patch.dict(os.environ,{"BRAMBLELOOP_PUBLISH_AUTHORISED":"1","BRAMBLELOOP_PHASE":"production"}))
+        self.stack.enter_context(patch.dict(os.environ,{"BRAMBLELOOP_PUBLISH_AUTHORISED":"1","BRAMBLELOOP_PHASE":"production",
+            "BRAMBLELOOP_OPS_TOKEN":OWNER_TOKEN}))
         self.parity=self.stack.enter_context(patch.object(pipeline,"_listing_parity",return_value={"blocks_release":False}))
         self.gates=self.stack.enter_context(patch.object(pipeline,"_release_gates",return_value={"blocks_release":False}))
         self.payload=self.stack.enter_context(patch.object(etsy_ops,"certified_payload",return_value=copy.deepcopy(self.kw["payload"])))
         self.images=self.stack.enter_context(patch.object(etsy_ops,"certified_images",return_value={**copy.deepcopy(self.kw["listing_images"]),"problems":[]}))
+        # FB3-P: owner publication authority is a durable sealed grant, not the env flag.
+        content=publication_authority.snapshot(self.db,"original","1","release-a")
+        self.grant=publication_authority.approve(self.db,authorization=OWNER_TOKEN,slug="original",version="1",
+            release="release-a",expected_digest=publication_authority.digest(content),reason="synthetic owner review")["approval_id"]
 
     def check(self):
         pipeline._revalidate_publish_effect(self.ctx,**{k:self.kw[k] for k in
@@ -98,6 +106,13 @@ class ExecutionRecheck(unittest.TestCase):
         t=FakeTransport();client=EtsyClient(t,credentials=CREDS,phase="production",owner_authorised=True)
         with self.assertRaises(PermanentError):pipeline._publish_and_read_back(self.ctx,client,**self.kw)
         self.assertEqual(t.calls,[])
+
+    def test_env_flag_alone_no_longer_authorises(self):
+        self.check()
+        publication_authority.revoke(self.db,authorization=OWNER_TOKEN,approval_id=self.grant)
+        self.assertEqual(os.environ["BRAMBLELOOP_PUBLISH_AUTHORISED"],"1")
+        with self.assertRaises(PermanentError) as caught:self.check()
+        self.assertIn("revoked",str(caught.exception))
 
     def test_phase_and_unavailable_evidence_refuse(self):
         os.environ["BRAMBLELOOP_PHASE"]="shadow"

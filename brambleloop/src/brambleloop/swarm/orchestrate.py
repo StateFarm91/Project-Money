@@ -711,6 +711,11 @@ JOB_BANDS: dict[str, str] = {
     "collection.assemble": "proven_winner",
     "store.publish": "proven_winner",
     "store.update": "proven_winner",
+    # Activation is a protected *publishing* action: its protection is the owner activation
+    # grant and the release gates at the execution boundary, not queue precedence. It must
+    # never claim ahead of a waiting customer or a truth defect, so it sits with store.publish
+    # in the ordinary tier rather than in PROTECTED_KINDS.
+    "store.activate": "proven_winner",
     "content.draft": "proven_winner",
     "finance.reconcile": "proven_winner",
     # The named benchmark moved, or might have.
@@ -721,6 +726,12 @@ JOB_BANDS: dict[str, str] = {
     "intel.panel_discovery": "benchmark_change",
     "intel.benchmark_refresh": "benchmark_change",
     "etsy.probe": "benchmark_change",
+    # Read-only Etsy observation (shop snapshot, listing census, credential health): the same
+    # family and band as the probe. Observation, not a protected tier -- a read never claims
+    # ahead of a customer or a truth defect.
+    "etsy.shop_snapshot": "benchmark_change",
+    "etsy.listing_census": "benchmark_change",
+    "etsy.credential_health": "benchmark_change",
     "intel.gallery_analysis": "benchmark_change",
     "intel.acceptance": "benchmark_change",
     "radar.scan": "benchmark_change",
@@ -765,6 +776,8 @@ JOB_BANDS: dict[str, str] = {
     "improve.replay": "exploration",
     "teardown.enforce": "benchmark_change",
     "creative.style_learning": "exploration",
+    # Learning-centre scan: reads evidence, no committed value.
+    "learn.scan": "exploration",
     "creative.white_space": "exploration",
     "commerce.readings": "exploration",
     "commerce.orders_ingest": "exploration",

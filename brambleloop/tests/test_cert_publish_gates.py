@@ -30,8 +30,9 @@ from brambleloop.core.models import (  # noqa: E402
     ArtefactProvenance, AuditLog, Incident, Job, JobStatus, ListingAsset,
     ListingSetCertificateRecord, Phase,
 )
-from brambleloop.products import nordic_forest as nf  # noqa: E402
 from brambleloop.publish import release_gates as RG  # noqa: E402
+from brambleloop.products import nordic_forest as nf  # noqa: E402
+from brambleloop.cir.model import CIR  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import pipeline  # noqa: E402,F401 - registers handlers
 from brambleloop.runtime.worker import Worker  # noqa: E402
@@ -45,7 +46,21 @@ def chain() -> dict:
     db = Database(f"sqlite:///{_TMP}/gates.db")
     db.create_all()
     Registry(db).seed_defaults()
+    # The flagship as built declares worsted at 16 sc/10cm, outside worsted's published band
+    # (11-14), so since the strict gauge gate (GAUGE_OUTSIDE_DECLARED_YARN_BAND, F-116) it no
+    # longer certifies: the chain stopped at gate.certify and never reached store.publish, and
+    # every gate assertion below failed for a reason unrelated to its subject. The gate is
+    # unchanged and the flagship's own refusal is tested where it belongs
+    # (test_launch0_gauge). This fixture does what that refusal asks of a product -- declares
+    # the yarn weight that holds the gauge (DK, the same declaration tests/fixtures.py uses for
+    # 16 sc/10cm) -- so the release-chain gates here are driven on a seasonal (Christmas)
+    # product that genuinely certifies.
     cir = nf.build()
+    cir = CIR.from_dict({**cir.to_dict(),
+                         "gauge": {**cir.to_dict()["gauge"], "yarn_weight": "dk"},
+                         "materials": [{**m, "yarn_weight": "dk",
+                                        "name": m["name"].replace("worsted", "DK")}
+                                       for m in cir.to_dict()["materials"]]})
     JobQueue(db).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                          idempotency_key="gates-compile")
     w = Worker(db, "gates-chain", phase=Phase.SHADOW, lease_seconds=900)
@@ -76,6 +91,39 @@ def _run(db, agent: str, job_type: str, inputs: dict, key: str, *,
 
 class _Reached(Exception):
     pass
+
+
+from contextlib import contextmanager  # noqa: E402
+
+
+@contextmanager
+def _chosen_category(db, slug: str, version: str):
+    """The Etsy taxonomy node, as a live `listing.seo` would have chosen it.
+
+    The payload builder refuses an UNKNOWN taxonomy before any of the release-chain gates are
+    reached (no default node is ever sent), and choosing one needs a live Etsy taxonomy read
+    this environment cannot make. These tests are about the gates *after* the payload, so the
+    profile is recorded CHOSEN/PASS for the duration of the publish attempt and restored after;
+    the release gates themselves still read the stored rows unaltered otherwise.
+    """
+    from brambleloop.core.models import ListingSearchProfile
+
+    with db.session() as s:
+        row = s.scalar(select(ListingSearchProfile).where(
+            ListingSearchProfile.product_slug == slug, ListingSearchProfile.version == version))
+        saved = (row.category_status, row.taxonomy_id, row.verdict, row.properties)
+        row.category_status, row.taxonomy_id, row.verdict = "CHOSEN", 2114, "PASS"
+        row.properties = []
+        s.commit()
+    try:
+        yield
+    finally:
+        with db.session() as s:
+            row = s.scalar(select(ListingSearchProfile).where(
+                ListingSearchProfile.product_slug == slug,
+                ListingSearchProfile.version == version))
+            row.category_status, row.taxonomy_id, row.verdict, row.properties = saved
+            s.commit()
 
 
 class _StubClient:
@@ -110,8 +158,9 @@ def _publish_past_shadow(db, key: str, inputs: dict) -> Job:
     orig_grid = preengineering.release_grid_verdict
     preengineering.release_grid_verdict = lambda db, slug: {"cleared": True, "why": "test"}
     try:
-        return _run(db, "store_operator", "store.publish", inputs, key,
-                    phase=Phase.LIMITED_PRODUCTION)
+        with _chosen_category(db, inputs["slug"], inputs.get("version", "1.0.0")):
+            return _run(db, "store_operator", "store.publish", inputs, key,
+                        phase=Phase.LIMITED_PRODUCTION)
     finally:
         etsy.EtsyClient, etsy.Credentials.from_env = orig
         pipeline._listing_parity = orig_parity
@@ -495,9 +544,10 @@ def test_an_unjudged_search_grid_blocks_publish_as_an_audited_refusal():
     pipeline._listing_parity = lambda ctx: {"verdict": "pass", "blocks_release": False,
                                             "why": "forced by test", "dimensions": {}}
     try:
-        job = _run(db, "store_operator", "store.publish",
-                   {"slug": st["slug"], "version": st["version"]}, "gates-grid",
-                   phase=Phase.LIMITED_PRODUCTION)
+        with _chosen_category(db, st["slug"], st["version"]):
+            job = _run(db, "store_operator", "store.publish",
+                       {"slug": st["slug"], "version": st["version"]}, "gates-grid",
+                       phase=Phase.LIMITED_PRODUCTION)
     finally:
         etsy.EtsyClient, etsy.Credentials.from_env, pipeline._listing_parity = orig
     assert job.status == JobStatus.DONE, job.last_error
