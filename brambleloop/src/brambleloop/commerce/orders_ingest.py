@@ -99,9 +99,15 @@ CURSOR_KIND = "commerce.orders_ingest"
 CURSOR_KEY = "cursor"
 OWNER_ACTION_KEY = "reauthorise_transactions_r"
 # F-541: the owner action and incident an auth failure raises. One key for every failure
-# class, because every class ends in the same place -- the owner re-approving the app.
-AUTH_ACTION_KEY = "etsy.oauth.reauthorise"
-AUTH_INCIDENT_SIGNATURE = "etsy.oauth.needs_owner"
+# class, because every class ends in the same place -- the owner re-approving the app --
+# and the SAME key and incident the publish/read-back path raises
+# (`runtime.etsy_ops.AUTH_KEY` / `AUTH_INCIDENT`; a test asserts they are equal). These used
+# to be a second pair ("etsy.oauth.reauthorise", P2) which `launch.readiness` silently
+# closed on its next run; the legacy pair is adopted on the next failure.
+AUTH_ACTION_KEY = "etsy.auth:reauthorise"
+AUTH_INCIDENT_SIGNATURE = "etsy.auth_needs_owner"
+LEGACY_AUTH_ACTION_KEY = "etsy.oauth.reauthorise"
+LEGACY_AUTH_INCIDENT_SIGNATURE = "etsy.oauth.needs_owner"
 LEDGER_OPERATION = "getShopPaymentAccountLedgerEntries"
 # How far back the payment-account ledger is read on a run with no earlier order: fees post
 # after the sale, so the window reaches past the receipt window.
@@ -771,6 +777,9 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
                 "why": ("the Etsy credential needs the owner (" + raised["failure_class"]
                         + "): " + str(exc)[:300] + ". Receipts were not read; no order is "
                         "invented and nothing is retried until the owner re-authorises")}
+    # F-541: the read worked, so a re-authorisation request raised by an earlier refusal no
+    # longer describes the shop; it closes on this evidence, never on a readiness sweep.
+    auth_cleared = resolve_needs_owner(db, operation=OPERATION, now=now)
     history = listing_history(db)
     written, refused, held = [], [], []
     from .cohorts import CohortRefused
@@ -835,6 +844,7 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
         "first_sale": ({k: first.get(k) for k in ("external_ref", "acquisition_source",
                                                   "created")} if first else None),
         "validation_cohort": validation,
+        "auth_cleared": auth_cleared,
     }
 
 
@@ -896,62 +906,63 @@ def failure_class(exc: Exception) -> str:
 def needs_owner(db, exc: Exception, *, operation: str, now: datetime | None = None) -> dict:
     """One owner action and one incident for an Etsy credential only the owner can fix.
 
-    Idempotent on `AUTH_ACTION_KEY` and `AUTH_INCIDENT_SIGNATURE`: a six-hourly cadence
-    hitting the same revoked grant restates the open action and counts another report on
-    the open incident; it never adds a second row, and it never re-opens an action the
-    owner has closed (their "done" is theirs -- if the failure recurs after it, the incident
-    count says so).
+    Routed through `runtime.etsy_ops.record_auth_needs_owner` (F-541): one key, one incident
+    and one severity for the one remedy, whichever path met the refusal first. Idempotent:
+    a six-hourly cadence hitting the same revoked grant restates the open action and counts
+    another report on the open incident; it never adds a second row, and it never re-opens
+    an action the owner has closed while the incident is still open (their "done" is theirs
+    -- if the failure recurs after it, the incident count says so).
     """
     from sqlalchemy import select
 
     from ..core.models import Incident, OwnerAction
+    from ..ops import incident_lifecycle as lifecycle
+    from ..runtime import etsy_ops
 
     now = now or datetime.now(timezone.utc)
     kind = failure_class(exc)
-    message = str(exc)[:600]
-    fields = {
-        "action": ("Re-authorise the Brambleloop Etsy app in a browser (start at "
-                   "/api/etsy/oauth/start) with the full scope set, including transactions_r. "
-                   f"Etsy refused {operation}: {kind}."),
-        "reason": ("Etsy grants and restores OAuth access only through the "
-                   "authorization-code flow, which needs the account holder at a consent "
-                   f"screen. No code path avoids it. Failure: {message}"),
-        "max_cost_cad": 0.0, "minutes": 6,
-        "consequence_of_delay": ("Orders, payments and fees cannot be read: sales stay "
-                                 "UNMEASURED and every order-reading decision waits."),
-        "blocks": "order ingest, fee reconciliation, first-sale record",
-    }
-    result = {"failure_class": kind, "operation": operation, "owner_action": None,
-              "incident": None}
+    # Adopt the legacy pair (written before the paths were unified) rather than leave a
+    # second request for the same browser step beside the canonical one.
     with db.session() as s:
-        action = s.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == AUTH_ACTION_KEY))
-        if action is None:
-            s.add(OwnerAction(requirement_key=AUTH_ACTION_KEY, **fields))
-            result["owner_action"] = "queued"
-        elif action.done:
-            result["owner_action"] = "already_decided"
-        else:
-            for name, value in fields.items():
-                setattr(action, name, value)
-            result["owner_action"] = "restated"
-        incident = s.scalar(select(Incident).where(
-            Incident.signature == AUTH_INCIDENT_SIGNATURE,
-            Incident.resolved == False))  # noqa: E712
-        if incident is None:
-            s.add(Incident(signature=AUTH_INCIDENT_SIGNATURE, severity="P2",
-                           summary=f"Etsy credential needs the owner ({kind}) on {operation}",
-                           detail={"failure_class": kind, "operation": operation,
-                                   "first_at": now.isoformat(), "last_at": now.isoformat(),
-                                   "message": message, "owner_action": AUTH_ACTION_KEY}))
-            result["incident"] = "opened"
-        else:
-            incident.report_count = int(incident.report_count or 1) + 1
-            detail = dict(incident.detail or {})
-            classes = sorted((set(detail.get("classes") or [detail.get("failure_class")])
-                              | {kind}) - {None})
-            detail.update({"last_at": now.isoformat(), "message": message,
-                           "classes": classes})
-            incident.detail = detail
-            result["incident"] = "counted"
-    return result
+        legacy = list(s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == LEGACY_AUTH_ACTION_KEY,
+            OwnerAction.done == False)))  # noqa: E712
+        canonical = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == AUTH_ACTION_KEY,
+            OwnerAction.done == False))  # noqa: E712
+        for row in legacy:
+            if canonical is None:
+                row.requirement_key = AUTH_ACTION_KEY
+                canonical = row
+            else:
+                row.done = True
+                row.reason = (row.reason or "") + (f" [merged into {AUTH_ACTION_KEY}, which "
+                                                   f"carries the same step]")
+        if s.scalar(select(Incident).where(
+                Incident.signature == LEGACY_AUTH_INCIDENT_SIGNATURE,
+                Incident.resolved == False)) is not None:  # noqa: E712
+            lifecycle.resolve_signatures(
+                s, [LEGACY_AUTH_INCIDENT_SIGNATURE], now=now,
+                resolution=f"merged into {AUTH_INCIDENT_SIGNATURE} (one remedy, one incident)")
+    got = etsy_ops.record_auth_needs_owner(db, exc, where=f"orders_ingest.{operation}",
+                                           now=now)
+    return {"failure_class": kind, "operation": operation,
+            "owner_action": got["state"],
+            "owner_action_key": got["owner_action"],
+            "incident": "opened" if got["incident_opened"] else "counted",
+            "incident_signature": got["incident"], "severity": "P1"}
+
+
+def resolve_needs_owner(db, *, operation: str, now: datetime | None = None) -> dict:
+    """An authenticated read of `operation` succeeded: the condition no longer holds.
+
+    Closes the shared re-authorisation action and incident through
+    `etsy_ops.resolve_auth_needs_owner`, which keeps them open when the failure was a scope
+    the stored grant still lacks.
+    """
+    from ..runtime import etsy_ops
+
+    return etsy_ops.resolve_auth_needs_owner(
+        db, evidence=(f"an authenticated {operation} read succeeded at "
+                      f"{(now or datetime.now(timezone.utc)).isoformat()}"),
+        granted_scopes=granted_scopes(db))

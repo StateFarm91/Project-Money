@@ -64,6 +64,8 @@ DEFAULT_AGENTS: list[dict] = [
                             # C-69 (#50, #29): the daily dependency and fragility sweep.
                             "ops.dependencies",
                             "ops.provenance_backfill",
+                            # F-125: completion claims vs the maturity measurement.
+                            "ops.maturity_disagreements",
                             # The three gates that stopped reading environment variables
                             # need something to keep asking whether the capability still
                             # works. Three reads and a fraction of a cent (B-479).

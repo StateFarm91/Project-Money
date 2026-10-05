@@ -609,12 +609,45 @@ def survey(path: Path | str = REGISTRY, **kw) -> dict:
     return Registry(path).survey(**kw)
 
 
+def ack_and_account(reg: "Registry", name: str, *, waiter=None) -> dict:
+    """Acknowledge `name` and account its idle gap (F-344), exactly as `waiter.py ack` does.
+
+    Imported lazily: `waiter` imports this module. A waiter that cannot be built still lets
+    the acknowledgement through, and says the gap went unaccounted.
+    """
+    if waiter is None:
+        try:
+            import waiter as W
+
+            waiter = W.Waiter(registry=reg)
+        except Exception as exc:  # noqa: BLE001
+            out = reg.acknowledge(name)
+            out["idle"] = {"accounted": False, "why": f"waiter unavailable: {exc}"[:200]}
+            return out
+    return waiter.ack(name)
+
+
+def reliability_lines(*, ledger=None, waste: dict | None = None) -> list[str]:
+    """Open reliability incidents and the week's time waste, for the board (F-344, F-350)."""
+    try:
+        import incidents as I
+
+        if waste is None:
+            import waiter as W
+
+            waste = W.Waiter().waste_report(7)
+        return I.board_lines(ledger, waste)
+    except Exception as exc:  # noqa: BLE001 - the board must not fail on its own accounting
+        return [f"reliability ledger unavailable ({type(exc).__name__}); NOT checked"]
+
+
 def _cli(argv: list[str]) -> int:
     """Read and write the file. No scheduling, no supervision, no daemon -- on purpose."""
     cmd = argv[1] if len(argv) > 1 else "survey"
     reg = Registry()
     if cmd == "survey":
         out = reg.survey()
+        out["reliability"] = reliability_lines()
         print(json.dumps(out, indent=2, sort_keys=True))
         return 1 if out["needs_attention"] else 0
     if cmd == "enrol" and len(argv) >= 4:
@@ -627,7 +660,10 @@ def _cli(argv: list[str]) -> int:
         print(json.dumps(rec, indent=2, sort_keys=True))
         return 0
     if cmd == "ack" and len(argv) >= 3:
-        print(json.dumps(reg.acknowledge(argv[2]), indent=2, sort_keys=True))
+        # F-344: the heartbeat's ack (step 3) accounts the lane's idle wall-clock too, through
+        # the waiter -- acknowledging here used to record the ack and forget the gap.
+        print(json.dumps(ack_and_account(reg, argv[2]), indent=2, sort_keys=True,
+                         default=str))
         return 0
     if cmd == "integrate" and len(argv) >= 4:
         print(json.dumps(reg.integrate(argv[2], argv[3]), indent=2, sort_keys=True))

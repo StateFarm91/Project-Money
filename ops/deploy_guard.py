@@ -4,6 +4,21 @@
 Usage:
   python3 ops/deploy_guard.py check --candidate <rev> --deployed <sha>   -> exit 0 ALLOW, 1 REFUSE
   python3 ops/deploy_guard.py latest-suite [--sha <rev>] [--eligible]    -> the newest run record
+  python3 ops/deploy_guard.py pre-push <remote> <url>  (stdin: git pre-push lines) -> 0 / 1
+
+ON THE DEPLOY PATH (F-461, wired). Production deploys on a push to the production branch
+(`PRODUCTION_BRANCH`; Railway builds it). Two doors lead there and both pass through `check`:
+
+* `ops/hooks/pre-push` (installed by `ops/install_hooks.sh`, which sets `core.hooksPath`):
+  git hands it every ref being pushed; any update to the production branch is checked and a
+  REFUSE aborts the push. Pushes to any other branch are not deploys and pass untouched.
+* `ops/deploy.sh`: the one sanctioned deploy command. It runs `check` on HEAD against the
+  deployed commit and pushes to the production branch only on ALLOW.
+
+The deployed commit comes from `--deployed`, else `BRAMBLELOOP_DEPLOYED_SHA` -- which the hook
+and `ops/deploy.sh` fill from `ops/deployed_sha.py` (production's own `/api/status`,
+`build.commit`, only when `build.known`). This module itself makes no network call. If nobody
+says, the deployed commit is unknown and the verdict is REFUSE.
 
 THIS SCRIPT NEVER DEPLOYS. It reads git and the suite run records and prints a verdict; the
 integrator (the only role allowed to deploy) runs it and acts on the answer. It makes no network
@@ -38,6 +53,10 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+PRODUCTION_BRANCH = "claude/repository-setup-nc9x6o"
+PRODUCTION_REF = f"refs/heads/{PRODUCTION_BRANCH}"
+DEPLOYED_ENV = "BRAMBLELOOP_DEPLOYED_SHA"
+ZERO = "0" * 40
 RECORD_DIR = REPO / "brambleloop" / "artifacts" / "suite_runs"
 _TOTAL = re.compile(r"^TOTAL PASSING: (\d+) ; suites failing: (\d+)\s*$", re.M)
 
@@ -149,6 +168,61 @@ def check(candidate: str, deployed: str | None, *, repo: Path = REPO,
     }
 
 
+def deployed_from(explicit: str | None = None, env: dict | None = None) -> tuple[str | None, str]:
+    """The deployed commit the caller supplied: `--deployed`, else `BRAMBLELOOP_DEPLOYED_SHA`.
+
+    This module never asks production itself (no network, by test). `ops/deployed_sha.py`
+    reads production's `/api/status`; the hook and `ops/deploy.sh` run it and pass the answer
+    in. Nothing supplied is unknown, and `check` refuses on unknown.
+    """
+    import os
+
+    if explicit:
+        return explicit, "argument"
+    e = os.environ if env is None else env
+    if e.get(DEPLOYED_ENV):
+        return e[DEPLOYED_ENV], DEPLOYED_ENV
+    return None, (f"deployed commit not supplied: pass --deployed or set {DEPLOYED_ENV} "
+                  "(ops/deployed_sha.py reads it from production /api/status)")
+
+
+def pre_push(lines, *, deployed: str | None = None, env: dict | None = None,
+             repo: Path = REPO, record_dir: Path = RECORD_DIR, checker=None) -> dict:
+    """Decide a `git push` from the lines git gives a pre-push hook.
+
+    Each line is `<local ref> <local sha> <remote ref> <remote sha>`. Only updates to the
+    production branch are deploys; each is run through `check` and any REFUSE refuses the
+    push. Deleting the production branch is refused outright.
+    """
+    checker = checker or check
+    decisions = []
+    for raw in lines:
+        parts = raw.split()
+        if len(parts) != 4:
+            continue
+        local_ref, local_sha, remote_ref, _remote_sha = parts
+        if remote_ref != PRODUCTION_REF:
+            decisions.append({"remote_ref": remote_ref, "verdict": "NOT_A_DEPLOY"})
+            continue
+        if local_sha == ZERO:
+            decisions.append({"remote_ref": remote_ref, "verdict": "REFUSE",
+                              "reasons": ["deleting the production branch is not a deploy "
+                                          "this guard can prove safe"]})
+            continue
+        dep, source = deployed_from(deployed, env)
+        out = checker(local_sha, dep, repo=repo, record_dir=record_dir)
+        out = {**out, "remote_ref": remote_ref, "local_ref": local_ref,
+               "deployed_source": source}
+        if dep is None:
+            out["reasons"] = list(out.get("reasons") or []) + [source]
+            out["verdict"] = "REFUSE"
+        decisions.append(out)
+    refused = [d for d in decisions if d["verdict"] == "REFUSE"]
+    return {"verdict": "REFUSE" if refused else "ALLOW", "decisions": decisions,
+            "production_ref": PRODUCTION_REF,
+            "note": "verdict only; the push itself is git's (F-461)"}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -156,14 +230,30 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--candidate", default="HEAD")
     c.add_argument("--deployed", default="")
     c.add_argument("--records", default=str(RECORD_DIR))
+    c.add_argument("--repo", default=str(REPO))
+    pp = sub.add_parser("pre-push")
+    pp.add_argument("remote", nargs="?", default="")
+    pp.add_argument("url", nargs="?", default="")
+    pp.add_argument("--deployed", default="")
+    pp.add_argument("--records", default=str(RECORD_DIR))
+    pp.add_argument("--repo", default=str(REPO))
     ls = sub.add_parser("latest-suite")
     ls.add_argument("--sha", default="")
     ls.add_argument("--eligible", action="store_true")
     ls.add_argument("--records", default=str(RECORD_DIR))
     a = ap.parse_args(argv)
     if a.cmd == "check":
-        out = check(a.candidate, a.deployed or None, record_dir=Path(a.records))
+        out = check(a.candidate, deployed_from(a.deployed or None)[0], repo=Path(a.repo),
+                    record_dir=Path(a.records))
         print(json.dumps(out, indent=2, sort_keys=True))
+        return 0 if out["verdict"] == "ALLOW" else 1
+    if a.cmd == "pre-push":
+        out = pre_push(sys.stdin.read().splitlines(), deployed=a.deployed or None,
+                       repo=Path(a.repo), record_dir=Path(a.records))
+        print(json.dumps(out, indent=2, sort_keys=True), file=sys.stderr)
+        if out["verdict"] != "ALLOW":
+            print("deploy_guard: REFUSED push to the production branch (F-461); see reasons "
+                  "above. Push to a work branch instead.", file=sys.stderr)
         return 0 if out["verdict"] == "ALLOW" else 1
     sha = resolve(REPO, a.sha) if a.sha else None
     rec = latest_suite(Path(a.records), sha=sha or (a.sha or None), eligible_only=a.eligible)

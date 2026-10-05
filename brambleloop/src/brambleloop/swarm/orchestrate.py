@@ -799,6 +799,7 @@ JOB_BANDS: dict[str, str] = {
     "ops.capacity": "housekeeping",
     "ops.dependencies": "housekeeping",
     "ops.provenance_backfill": "housekeeping",
+    "ops.maturity_disagreements": "truth_defect",
     "swarm.review": "housekeeping",
     "swarm.allocate": "housekeeping",
     "swarm.orphans": "housekeeping",

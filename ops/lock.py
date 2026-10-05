@@ -100,6 +100,10 @@ def _show_unread_lanes():
     except Exception as exc:                                       # noqa: BLE001
         print(f"job board unavailable ({type(exc).__name__}); lanes were NOT checked")
         return
+    # F-344 / F-350: reliability incidents and time waste are part of the board, printed on
+    # the way in, not left in a JSONL file somebody has to remember to read.
+    for line in registry.reliability_lines():
+        print(line)
     if not rows:
         return
     print(f"\n{len(rows)} lane(s) need attention before new work is started:")
