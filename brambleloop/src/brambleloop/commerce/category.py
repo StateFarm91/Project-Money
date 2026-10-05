@@ -404,7 +404,9 @@ def publish_inputs(db, *, slug: str, version: str) -> dict:
     The interface cluster B's `store.publish` reads. `taxonomy_id` is None when the category
     is UNKNOWN, and the publish path must then refuse rather than send a default node;
     `properties` is shaped for `updateListingProperty` (property_id, value_ids, values,
-    scale_id). `certified` is the drafted search certificate's verdict; the publish-time
+    scale_id). `certified` is the stored search certificate's verdict -- PASS only once the
+    hero was judged on a certified listing set and while that evidence and the copy are
+    still current (`search.stored_pass_problems`), STALE otherwise; the publish-time
     verdict, with the hero and the fingerprint check, is `release_gates.search_gate`.
     """
     from sqlalchemy import select
@@ -418,7 +420,17 @@ def publish_inputs(db, *, slug: str, version: str) -> dict:
         if row is None:
             return {"status": UNKNOWN, "taxonomy_id": None, "properties": [],
                     "certified": None, "why": "listing.seo has recorded no search profile"}
-        return {"status": row.category_status, "taxonomy_id": row.taxonomy_id,
-                "path": list(row.taxonomy_path or []), "properties": list(row.properties or []),
-                "certified": row.verdict,
-                "why": "" if row.category_status == CHOSEN else "category UNKNOWN"}
+        out = {"status": row.category_status, "taxonomy_id": row.taxonomy_id,
+               "path": list(row.taxonomy_path or []), "properties": list(row.properties or []),
+               "certified": row.verdict,
+               "why": "" if row.category_status == CHOSEN else "category UNKNOWN"}
+    # A stored PASS counts only while it still describes this listing: the hero judged on the
+    # listing-set certificate still valid for this release, and the copy unchanged since.
+    if out["certified"] == "PASS":
+        from .search import stored_pass_problems
+
+        stale = stored_pass_problems(db, slug=slug, version=version)
+        if stale:
+            out["certified"] = "STALE"
+            out["certified_problems"] = stale
+    return out
