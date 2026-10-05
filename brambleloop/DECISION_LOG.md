@@ -1366,3 +1366,30 @@ all FB-1 clusters plus repairs). It merged cleanly as 07a8c3b. Its local evidenc
 lock-matched Linux full suite before any closure-matrix row moves. Codex is a worker, not the
 certifier; where Codex and Claude solved the same thing, the current correct implementation is kept
 and the other recorded as superseded.
+
+## D-FB-9 (2026-10-05) — LIFESTYLE_QUALITY for disclosed renders is a deterministic presentation standard, not photographic realism
+
+Under D-FB-7 a disclosed deterministic render states that it is not a photograph, so the
+photographic-realism judgement of F-221 / F-229(B) / F-856 cannot meaningfully apply to it. For a
+frame of kind `disclosed_render` whose `product_authority.structural_floor` is PASS on its
+sha256-bound bytes, parity LIFESTYLE_QUALITY is judged only on readings the listing-image QA
+already made — `layout_qa`, the rendered mobile contexts, hero thumbnail, 340 px legibility, and
+the disclosure measured in the pixels, in the alt text (≤500 characters) and in the listing copy on
+file. PASS only if all are True; FAIL if any is False; unjudged (blocking) if any is missing.
+Photograph and generated frames keep the realism gate unchanged. A frame claiming the kind without
+structural PASS, or carrying photo/generated/provider/realism markers, gets no benefit. No
+threshold changed; disclosure never substitutes for Product Truth — it is one presentation check
+applied only after structural truth passed.
+
+Disclosed frames reach Etsy only through the listing-set certificate and
+`runtime.etsy_ops.certified_images` (preconditions: `disclosed_listing.export_images` refusals;
+certificate records kind and alt text; alt text travels into `EtsyClient.publish` and its content
+digest). Integrated as fb3-V fa5ff94.
+
+Still blocking Launch-0 parity, honestly gated: HERO needs a vision description (`image_vision`
+gate closed — owner) and COMPETITIVE needs a blind review over observed benchmark galleries
+(data + `image_vision`). Readiness reports both as integration/data gated, not company work.
+
+Open for owner decision (recorded, not changed): launch readiness `catalogue_depth` requires 8
+listable products (MIN_LISTINGS_TO_OPEN) while Launch-0 has 5 renderable slugs across 3 products;
+the threshold was not lowered.
