@@ -231,11 +231,11 @@ def test_support_answers_from_the_released_version():
         assert product is not None
     q = JobQueue(db)
     job = q.enqueue("support", "support.reply", {
-        "slug": FLAGSHIP, "version": "1.0.0",
+        "slug": FLAGSHIP, "version": nf.build().version,
         "question": "how many stitches should I have at the end of row 12?"})
     assert Worker(db, "support-worker").run_once() is True
     out = q.get(job.id).outputs
-    assert out["cited_version"] == f"{FLAGSHIP}@1.0.0"
+    assert out["cited_version"] == f"{FLAGSHIP}@{nf.build().version}"
     assert out["cited_rows"] == [12]
     # The throw's width is whatever the released design makes at its yarn-derived gauge
     # (108 since the D-FB-6 re-derivation; 144 at the old typed gauge), so the expected count

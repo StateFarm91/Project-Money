@@ -43,6 +43,10 @@ PAD_CM = 45.0
 # measured them). Counts follow the derived gauge in whole repeats and whole blocks, so the
 # stated size is what the counts make, within one repeat of this intent.
 PILLOW_TARGET_CM = (43.8, 43.9)
+# Patterns are software releases: re-deriving the gauge and counts changed the pillow's and
+# the cable throw's content, so their released version moved 1.0.0 -> 1.1.0. The ribbed
+# scarf's content did not change and it stays at 1.0.0 (tests/data/release_fingerprints.tsv).
+DERIVED_VERSION = "1.1.0"
 CABLE_TARGET_CM = (90.0, 128.9)
 
 PINE = {"pine": "#244A3A"}
@@ -132,7 +136,7 @@ def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
     )
 
 
-def build_bobble_pillow(version: str = "1.0.0") -> CIR:
+def build_bobble_pillow(version: str = DERIVED_VERSION) -> CIR:
     """A staggered bobble grid on a single crochet ground.
 
     The bobbles alternate position every second bobble row, which is what makes a grid rather
@@ -211,7 +215,7 @@ def build_bobble_pillow(version: str = "1.0.0") -> CIR:
     )
 
 
-def build_cable_throw(version: str = "1.0.0") -> CIR:
+def build_cable_throw(version: str = DERIVED_VERSION) -> CIR:
     """Cable columns separated by post-stitch ribbing, crossing every fourth row.
 
     A cable is a crossing: stitches worked out of order, around each other. The CIR consumes

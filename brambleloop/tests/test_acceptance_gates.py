@@ -292,11 +292,12 @@ def test_gate_e_routine_support_is_answered_from_the_correct_pattern_version():
     db = _full_cycle()
     q = JobQueue(db)
     job = q.enqueue("support", "support.reply", {
-        "slug": "nordic-forest-mosaic-throw", "version": "1.0.0", "customer_ref": "gate-e",
+        "slug": "nordic-forest-mosaic-throw", "version": nf.build().version,
+        "customer_ref": "gate-e",
         "question": "how many stitches at the end of row 12?"})
     assert Worker(db, "gate-e").run_once() is True
     out = q.get(job.id).outputs
-    assert out["cited_version"] == "nordic-forest-mosaic-throw@1.0.0"
+    assert out["cited_version"] == f"nordic-forest-mosaic-throw@{nf.build().version}"
     assert out["escalated"] is False
     assert out["sent"] is False
     with db.session() as s:
@@ -379,7 +380,8 @@ def test_gate_f_a_full_product_completes_the_whole_chain_without_intervention():
     # Simulated support closes the chain.
     q = JobQueue(db)
     job = q.enqueue("support", "support.reply", {
-        "slug": "nordic-forest-mosaic-throw", "version": "1.0.0", "customer_ref": "gate-f",
+        "slug": "nordic-forest-mosaic-throw", "version": nf.build().version,
+        "customer_ref": "gate-f",
         "question": "what gauge is this?"})
     Worker(db, "gate-f").run_once()
     assert q.get(job.id).outputs["cited_version"].startswith("nordic-forest-mosaic-throw")

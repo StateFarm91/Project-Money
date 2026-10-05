@@ -418,21 +418,26 @@ ENGINEERED: dict[str, str] = {
 }
 
 
-def _engineered_cir(slug: str, version: str = "1.0.0") -> CIR | None:
+def _engineered_cir(slug: str, version: str | None = None) -> CIR | None:
+    """The engineered design for `slug`. With no `version`, the builder's own released
+    version: a design whose content changed carries a new version (patterns are software
+    releases), and a caller defaulting to "1.0.0" here would stamp new content with the old
+    release number."""
     module_path = ENGINEERED.get(slug)
     if module_path:
         import importlib
 
         name, _, function = module_path.partition(":")
         module = importlib.import_module(name)
-        cir = getattr(module, function or "build")(version=version)
+        make = getattr(module, function or "build")
+        cir = make() if version is None else make(version=version)
         # Keep the concept's slug so the radar, the portfolio and the product row agree on the
         # name; the size-specific slugs are for the variants, not the headline product.
         return CIR.from_dict({**cir.to_dict(), "slug": slug})
 
     from ..products.builder import for_slug
 
-    return for_slug(slug, version)
+    return for_slug(slug) if version is None else for_slug(slug, version)
 
 
 @handlers.register("cir.draft")

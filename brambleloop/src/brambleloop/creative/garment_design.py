@@ -72,6 +72,10 @@ QUICK_LANES = frozenset({"QUICK", "SHORT"})
 # every stitch and row count from this gauge, so the finished measurements stay the body
 # table plus ease rather than following the number.
 SC_WORSTED = (gauge_for("worsted"), Material(name="worsted wool", yarn_weight="worsted"))
+# Patterns are software releases: a design generated on SC_WORSTED changed content when its
+# gauge was derived (D-FB-6), so it is released as 1.1.0; DC_DK designs are unchanged at 1.0.0.
+SC_WORSTED_VERSION = "1.1.0"
+DC_DK_VERSION = "1.0.0"
 DC_DK = (Gauge(stitches_per_10cm=14, rows_per_10cm=8, stitch_type="dc", hook_mm=4.5,
                yarn_weight="dk"), Material(name="dk cotton", yarn_weight="dk"))
 
@@ -294,6 +298,7 @@ def design_for(concept: Concept) -> GradedDesign:
     ch = choices_for(concept)
     table = CHILD if ch.table == "child" else WOMAN
     gauge, material = DC_DK if ch.stitch == "dc" else SC_WORSTED
+    version = DC_DK_VERSION if ch.stitch == "dc" else SC_WORSTED_VERSION
     family = G.StitchFamily(ch.stitch, ch.texture)
     ease = EASE_SETS[ch.table][ch.ease]
     colours = G.ColourPlan(ch.colours, ch.colour_plan, ch.band_cm)
@@ -307,10 +312,11 @@ def design_for(concept: Concept) -> GradedDesign:
                                      material=material, length_ratio=length_ratio,
                                      neck_of_cross_back=n["raglan"],
                                      sleeve_at_neck_of_cross_back=n["saddle"],
-                                     colours=colours)
+                                     colours=colours, version=version)
         return G.drop_shoulder_flat(g, key=key, title=title, family=family,
                                     material=material, length_ratio=length_ratio,
-                                    neck_of_cross_back=n["drop"], colours=colours)
+                                    neck_of_cross_back=n["drop"], colours=colours,
+                                    version=version)
 
     def template(g):
         ladder = NECKLINE_LADDER[NECKLINE_LADDER.index(ch.neckline):]
