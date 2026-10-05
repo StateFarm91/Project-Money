@@ -168,7 +168,13 @@ def solve(db, *, today: date | None = None, qa: dict | None = None) -> dict:
                                              if x not in cohort_slugs],
         "stress_test": report["stress_test"],
         "diversification_plan": report["diversification_plan"],
-        "confidence": {"probability": probability["probability"],
+        # F-189: the measured figure or UNMEASURED, never the modelled bound read as a
+        # confidence. `probability` is None while the #275 evidence gate is unmet; the bound is
+        # kept, labelled, for a reader who needs the conservative ceiling.
+        "confidence": {"probability": probability["reported_probability"],
+                       "state": probability["state"],
+                       "display": probability["display"],
+                       "modelled_bound": probability["modelled_bound"],
                        "weakest_critical_layer": probability["weakest_critical_layer"],
                        "capped_by": probability["capped_by"],
                        "resilience_rung": resilience,

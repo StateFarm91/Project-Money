@@ -5831,7 +5831,8 @@ def handle_capacity_review(ctx: JobContext) -> dict:
         "scale_ready": reading["scale_readiness"]["ready"],
         "scale_tilt_refused": reading["scale_tilt_refused"],
         "winners_declarable": reading["bundle_attribution"]["winners_declarable"],
-        "confidence": reading["confidence"]["probability"],
+        "confidence": reading["confidence"]["probability"],  # F-189: None if UNMEASURED
+        "confidence_state": reading["confidence"].get("state"),
         "resilience": reading["confidence"]["resilience_rung"]["evidence"].get("stress_test"),
         "conditions_met": reading["confidence"]["conditions_met"],
         "calibration_ceiling": reading["confidence"]["calibration_ceiling"],

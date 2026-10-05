@@ -56,9 +56,12 @@ class Envelope:
     operating_reserve_cad: float
     cash_reserve_cad: float
     envelope_cad: float
-    confidence: float
+    confidence: float | None
     recommended_cad: float
     reserves_short_by_cad: float = 0.0
+    # F-189: MEASURED, or UNMEASURED while the #275 evidence gate is unmet. An UNMEASURED
+    # confidence is None, never the ladder's modelled bound, and recommends nothing.
+    confidence_state: str = "MEASURED"
 
     def to_dict(self) -> dict:
         return {
@@ -67,7 +70,9 @@ class Envelope:
             "operating_reserve_cad": round(self.operating_reserve_cad, 2),
             "cash_reserve_cad": round(self.cash_reserve_cad, 2),
             "envelope_cad": round(self.envelope_cad, 2),
-            "confidence": round(self.confidence, 3),
+            "confidence": (round(self.confidence, 3) if self.confidence is not None
+                           else None),
+            "confidence_state": self.confidence_state,
             "recommended_cad": round(self.recommended_cad, 2),
             "reserves_short_by_cad": round(self.reserves_short_by_cad, 2),
             "requires_owner_approval": self.recommended_cad > 0,
@@ -79,6 +84,10 @@ class Envelope:
             return (f"Nothing is spare: the reserves are short by "
                     f"CA${self.reserves_short_by_cad:.2f}. Revenue fills the tax, operating "
                     f"and cash reserves before any of it is an envelope.")
+        if self.envelope_cad > 0 and self.confidence is None:
+            return (f"CA${self.envelope_cad:.2f} is spare and nothing is recommended: "
+                    f"confidence is {self.confidence_state} (insufficient commercial "
+                    f"evidence), and a modelled bound is not a measurement to spend on.")
         if self.envelope_cad > 0 and self.recommended_cad < self.envelope_cad:
             return (f"CA${self.envelope_cad:.2f} is spare and CA${self.recommended_cad:.2f} "
                     f"is recommended, because the envelope is scaled by a modelled "
@@ -94,11 +103,19 @@ def envelope(db, *, gross_cad: float, months_of_revenue: int = 1,
     Confidence comes from the ladder rather than from a caller by default, so a recommendation
     cannot be produced by supplying an optimistic number alongside the cash.
     """
-    from ..scale.confidence import probability
+    from ..scale.confidence import MEASURED, UNMEASURED, probability
 
+    state = MEASURED
     if confidence is None:
-        confidence = probability(db)["probability"]
-    if not 0.0 <= confidence <= 1.0:
+        # F-189: the measured figure or nothing. `probability` is the ladder's modelled
+        # bound and stays inside `scale.confidence`; reading it here made a spend
+        # recommendation out of a number the dashboard itself labels UNMEASURED.
+        reading = probability(db)
+        confidence = reading.get("reported_probability")
+        state = reading.get("state") or UNMEASURED
+        if state != MEASURED:
+            confidence = None
+    if confidence is not None and not 0.0 <= confidence <= 1.0:
         raise ReinvestmentRefused(f"confidence {confidence!r} is outside 0.0-1.0")
 
     tax = gross_cad * TAX_RATE
@@ -111,11 +128,13 @@ def envelope(db, *, gross_cad: float, months_of_revenue: int = 1,
 
     # Scaled by confidence, not by appetite. An envelope is what is spare; the recommendation
     # is what the evidence supports spending out of it.
-    recommended = round(spare * confidence, 2)
+    # An UNMEASURED confidence recommends nothing: no decision is made from a modelled bound.
+    recommended = round(spare * confidence, 2) if confidence is not None else 0.0
     return Envelope(gross_cad=gross_cad, tax_reserve_cad=tax,
                     operating_reserve_cad=operating, cash_reserve_cad=cash,
                     envelope_cad=spare, confidence=confidence,
-                    recommended_cad=recommended, reserves_short_by_cad=short)
+                    recommended_cad=recommended, reserves_short_by_cad=short,
+                    confidence_state=state)
 
 
 def recommend(db, *, gross_cad: float, purpose: str, months_of_revenue: int = 1,

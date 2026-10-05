@@ -387,15 +387,18 @@ def test_reinvestment_raises_an_owner_action_when_the_envelope_is_non_zero():
     with db.session() as s:
         s.add(LedgerEntry(category="sale", gross_cad=5000.0, evidence_ref="etsy:9:90",
                           at=NOW - timedelta(days=2)))
-    # Today the modelled confidence is 0.0, so the envelope is spare and nothing is
-    # recommended -- the honest reading.
+    # Today confidence is UNMEASURED (no commercial evidence), so the envelope is spare and
+    # nothing is recommended -- the honest reading (F-189: no decision from a modelled bound).
     _run(db, "cfo", "commerce.order_readings")
     first = order_readings.latest(db)["reinvestment"]
     assert first["recommendation"]["envelope"]["envelope_cad"] > 0
     assert first["recommendation"]["recommended_cad"] == 0 and first["owner_action"] is None
+    assert first["recommendation"]["envelope"]["confidence"] is None
+    assert first["recommendation"]["envelope"]["confidence_state"] == "UNMEASURED"
     # When the confidence ladder reads above zero, the same job raises the owner action.
     original = confidence.probability
-    confidence.probability = lambda _db, **_k: {"probability": 0.5}
+    confidence.probability = lambda _db, **_k: {"probability": 0.5, "state": "MEASURED",
+                                                 "reported_probability": 0.5}
     try:
         _run(db, "cfo", "commerce.order_readings")
     finally:

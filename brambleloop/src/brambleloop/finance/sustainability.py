@@ -185,21 +185,32 @@ def break_even(db) -> dict:
             m = _modelled_contribution(prices[slug])
             per_sale, basis = m["per_sale_cad"], "modelled at the listed price"
         else:
-            out[slug] = {"creation_cost_cad": creation, "break_even_sales": None,
+            out[slug] = {"creation_cost_cad": creation if creation > 0 else None,
+                         "break_even_sales": None, "recovered": None, "reading": "UNKNOWN",
                          "why": "no price and no order: contribution per sale is unknown"}
             continue
         maintenance = round(split["maintenance"].get(slug, 0.0), 4)
         row = {"creation_cost_cad": creation, "contribution_per_sale_cad": per_sale,
                "contribution_basis": basis, "sales_so_far": len(sold),
                "maintenance_cost_so_far_cad": maintenance}
-        if per_sale <= 0:
-            row.update(break_even_sales=None,
+        if creation <= 0:
+            # F-324: no AI/API spend tagged to this product is not a product that cost
+            # nothing to make -- it is a product whose creation cost nobody attributed. A
+            # break-even of 0 sales and `recovered: True` was a number made out of missing
+            # data, so the row says UNKNOWN and why instead.
+            row.update(creation_cost_cad=None, creation_cost_reading="UNKNOWN",
+                       break_even_sales=None, recovered=None, reading="UNKNOWN",
+                       why=("no AI/API spend is tagged to this product, so its creation "
+                            "cost is unknown (not zero) and break-even cannot be computed; "
+                            "untagged product work sits in platform spend"))
+        elif per_sale <= 0:
+            row.update(break_even_sales=None, recovered=False, reading="NEVER",
                        why="each sale leaves no positive contribution, so no number of "
                            "sales recovers the creation spend")
         else:
-            n = math.ceil(creation / per_sale) if creation > 0 else 0
+            n = math.ceil(creation / per_sale)
             row.update(break_even_sales=n,
-                       recovered=len(sold) >= n,
+                       recovered=len(sold) >= n, reading="computed",
                        why=("one-time creation spend recovered after this many sales; the "
                             "contribution each later sale leaves is recurring margin, less "
                             "per-listing maintenance"))

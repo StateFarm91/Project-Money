@@ -11,9 +11,9 @@ F-665: every headline KPI carries an evidence envelope -- where it came from, wh
 how it was transformed, what confidence it carries and whether it has been reconciled -- so a
 number on the page can be argued with rather than trusted.
 
-Unknown stays UNKNOWN. A criterion this module cannot assess (the gauge standard, whose owner
-is the certificate cluster) is reported as unassessed, and a product is never counted as
-launch-cleared on a criterion nobody checked.
+Unknown stays UNKNOWN. The gauge standard is read from the stored certificate's stamp (the
+certificate cluster owns the check; this reads its result), and a product is never counted as
+launch-cleared on a criterion nobody checked -- a certificate with no stamp does not pass.
 """
 from __future__ import annotations
 
@@ -39,18 +39,28 @@ def evidence(source: str, *, transform: str, confidence: str = "measured",
             "external_ids": list(external_ids or [])}
 
 
-def creative_survivors() -> dict:
-    from ..creative.audit import audit_catalogue
+def creative_survivors(db=None) -> dict:
+    """Creative-gate survivors, labelled by the cohort measured (F-188).
+
+    `audit_catalogue` measures the legacy builder catalogue; the concept tournament is a
+    separate cohort read from its own runs, so legacy failures are never attributed to it.
+    """
+    from ..creative.audit import audit_catalogue, tournament_cohort
 
     report = audit_catalogue()
     survivors = [str(s) for s in report["survivors"]]
+    cohort = report["cohort"]
     return {"survivors": survivors, "count": len(survivors),
             "audited": report["products_audited"],
+            "cohort": cohort,
+            "tournament_cohort": tournament_cohort(db),
             "dominant_failure": report["autopsy"].get("dominant_cause"),
-            "evidence": evidence("creative.audit.audit_catalogue (the current creative gate)",
-                                 transform="count of catalogue concepts whose jury verdict "
-                                           "survives",
-                                 confidence="measured (deterministic jury)")}
+            "evidence": evidence(
+                f"creative.audit.audit_catalogue (cohort {cohort['name']}, "
+                f"{cohort['generator_version']})",
+                transform="count of legacy builder-catalogue concepts whose jury verdict "
+                          "survives the current creative gate",
+                confidence="measured (deterministic jury)")}
 
 
 def launch_inventory(db, survivors: list[str] | None = None) -> dict:
@@ -58,17 +68,26 @@ def launch_inventory(db, survivors: list[str] | None = None) -> dict:
     from sqlalchemy import select
 
     from ..core.models import ListingAsset, PatternVersion, Product
+    from ..gates.certificate import GAUGE_STANDARD
 
     if survivors is None:
         survivors = creative_survivors()["survivors"]
     alive = set(survivors)
     with db.session() as s:
         certified: dict[str, set[str]] = {}
-        for slug, version in s.execute(
-                select(Product.slug, PatternVersion.version)
+        # F-186: the gauge standard is read from the stored certificate, the same stamp
+        # `publish.eligibility.legacy_status` checks. A certified version whose certificate
+        # carries the current `GAUGE_STANDARD` was examined by `gauge_findings`; one with no
+        # stamp predates the check and does not pass. Hard-coding None made the
+        # launch-cleared count 0 by construction.
+        stamps: dict[str, set[str]] = {}
+        for slug, version, cert in s.execute(
+                select(Product.slug, PatternVersion.version, PatternVersion.certificate)
                 .join(PatternVersion, PatternVersion.product_id == Product.id)
                 .where(PatternVersion.certified.is_(True))):
             certified.setdefault(slug, set()).add(version)
+            stamp = (cert or {}).get("gauge_standard") if isinstance(cert, dict) else None
+            stamps.setdefault(slug, set()).add(str(stamp) if stamp else "")
         usable: set[tuple[str, str]] = set()
         for a in s.scalars(select(ListingAsset).where(ListingAsset.approved.is_(True))):
             if a.sha256 and not (a.blocked_reasons or []):
@@ -79,13 +98,17 @@ def launch_inventory(db, survivors: list[str] | None = None) -> dict:
             "certified": True,
             "usable_listing_asset": any((slug, v) in usable for v in certified[slug]),
             "creative_gate_survivor": slug in alive,
-            # Not assessable here: the gauge-within-yarn-band standard is enforced by the
-            # certificate (cluster C). Unassessed is not passed.
-            "gauge_standard": None,
+            "gauge_standard": GAUGE_STANDARD in stamps.get(slug, set()),
         }
         failing = [k for k in LAUNCH_CRITERIA if crit[k] is not True]
+        found = sorted(x for x in stamps.get(slug, set()) if x)
         rows.append({"slug": slug, "criteria": crit, "launch_cleared": not failing,
-                     "failing": failing})
+                     "failing": failing,
+                     "gauge_standard_why": (
+                         f"certified under the current gauge standard ({GAUGE_STANDARD})"
+                         if crit["gauge_standard"] else
+                         f"no certified version carries the current gauge standard "
+                         f"({GAUGE_STANDARD}); stored: {found or 'none -- predates the check'}")})
     cleared = [r["slug"] for r in rows if r["launch_cleared"]]
     return {
         "certified": len(rows),
@@ -93,13 +116,15 @@ def launch_inventory(db, survivors: list[str] | None = None) -> dict:
         "cleared_slugs": cleared,
         "products": rows,
         "criteria": list(LAUNCH_CRITERIA),
-        "unassessed_criteria": ["gauge_standard"],
+        "unassessed_criteria": [],
+        "gauge_standard": GAUGE_STANDARD,
         "evidence": evidence(
             "pattern_versions (certified) x listing_assets (approved, hashed, unblocked) x "
             "creative.audit survivors",
             transform="a product is launch-cleared only when every criterion is established; "
-                      "an unassessed criterion (gauge_standard) blocks clearance",
-            confidence="measured for three criteria; gauge_standard UNASSESSED"),
+                      "gauge_standard is the stored certificate's stamp, and a certificate "
+                      "with no stamp predates the check and blocks clearance",
+            confidence="measured"),
     }
 
 
@@ -165,9 +190,23 @@ def dead_letter_split(status: dict) -> dict:
                                  confidence="measured")}
 
 
+def _tournament_kpi(t: dict) -> dict:
+    """F-188: the concept-tournament cohort as its own row, never merged with the legacy one."""
+    measured = t.get("state") == "MEASURED"
+    return {"key": "tournament_cohort", "label": "Tournament-cohort survivors",
+            "value": (f"{t['survivors']} / {t['candidates']}" if measured
+                      else str(t.get("state") or "UNKNOWN")),
+            "alarm": not measured or not t.get("survivors"),
+            "evidence": evidence("audit_log (creative.tournament, creative.expedition)",
+                                 transform="final-stage survivors over generated candidates, "
+                                           "summed over the runs on file",
+                                 confidence="measured" if measured else "unmeasured"),
+            "why": f"cohort {t['name']} ({t['generator']}): {t.get('why', '')}"}
+
+
 def headline(db, status: dict, inbox: dict | None = None) -> dict:
     """The commercial-truth headline (F-206) plus the demoted volume counts."""
-    survivors = creative_survivors()
+    survivors = creative_survivors(db)
     inventory = launch_inventory(db, survivors["survivors"])
     commerce = commercial_evidence(db)
     bench = benchmark_status(db)
@@ -185,7 +224,10 @@ def headline(db, status: dict, inbox: dict | None = None) -> dict:
          "why": ("no product survives the current creative gate: this is the principal "
                  f"commercial blocker (dominant failure: {survivors['dominant_failure']})"
                  if survivors["count"] == 0 else
-                 f"{survivors['count']} concepts survive the current creative gate")},
+                 f"{survivors['count']} concepts survive the current creative gate")
+                + f" [cohort: {survivors['cohort']['name']}, "
+                  f"{survivors['cohort']['generator_version']}]"},
+        _tournament_kpi(survivors["tournament_cohort"]),
         {"key": "benchmark", "label": "Benchmark status",
          "value": bench["state"], "alarm": bench["state"] != "OBSERVED",
          "evidence": bench["evidence"],
