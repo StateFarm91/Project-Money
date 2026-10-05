@@ -232,7 +232,7 @@ def calibration_for(cir, assessments: list[SampleAssessment]) -> float:
 # ---- persistence -----------------------------------------------------------
 
 
-def record(db, assessment: SampleAssessment) -> int:
+def record(db, assessment: SampleAssessment, *, content_hash: str | None = None) -> int:
     """Store the sample. The row is the evidence; the assessment is what we concluded.
 
     `passed` is not "the tester liked it": it is whether this sample can be used, which
@@ -242,6 +242,10 @@ def record(db, assessment: SampleAssessment) -> int:
     """
     from ..core.models import PhysicalTest
 
+    measured = assessment.to_dict()
+    if content_hash:
+        # The text the tester worked against (F-078): what certification binds evidence to.
+        measured["content_hash"] = content_hash
     with db.session() as s:
         row = PhysicalTest(
             product_slug=assessment.report.product_slug,
@@ -249,7 +253,7 @@ def record(db, assessment: SampleAssessment) -> int:
             tester_ref=assessment.report.tester_ref,
             completed_at=assessment.assessed_at,
             passed=assessment.usable_for_calibration and assessment.size_agrees is not False,
-            measured=assessment.to_dict(),
+            measured=measured,
             notes=assessment.report.notes[:2000],
         )
         s.add(row)

@@ -77,11 +77,6 @@ def _product(db, *, frames: int = 3) -> dict:
     shas = [store.put(f"{cir.slug}/frame{p}.png", PNG + bytes([p]) * (p + 5),
                       "image/png").sha256 for p in range(1, frames + 1)]
     with db.session() as s:
-        from brambleloop.core.models import ListingSearchProfile
-        s.add(ListingSearchProfile(product_slug=cir.slug, version=cir.version,
-                                  category_status="CHOSEN", taxonomy_id=2114,
-                                  properties=[{"property_id": 200, "value_ids": [1], "values": ["Beige"], "scale_id": None}],
-                                  verdict="PASS"))
         product = Product(slug=cir.slug, title="Nordic Forest", status="certified")
         s.add(product)
         s.flush()
@@ -91,12 +86,34 @@ def _product(db, *, frames: int = 3) -> dict:
                       description=DESCRIPTION, tags=["crochet pattern", "throw blanket"],
                       price_cad=12.5, release_hash="r" * 64))
         # Stored out of order on purpose: the upload must follow `position`, not row order.
-        s.add(ListingSetCertificateRecord(
+        record = ListingSetCertificateRecord(
             product_slug=cir.slug, version=cir.version, release_hash="r" * 64, state="valid",
             certificate={"frames": [
                 {"position": p, "asset_id": f"{cir.slug}-frame-{p}", "sha256": shas[p - 1],
                  "job": "hero", "purpose": "conversion", "medium": "render"}
-                for p in reversed(range(1, frames + 1))]}))
+                for p in reversed(range(1, frames + 1))]})
+        s.add(record)
+        s.flush()
+        # A completed search certificate in the shape `search.judge_hero` writes, bound to
+        # the listing-set record above and to this copy. Synthetic: this file tests
+        # read-back and activation, not search certification (that is
+        # test_search_hero_publish, on the real listing.seo path).
+        from brambleloop.core.models import ListingSearchProfile
+        from brambleloop.publish.release_gates import search_fingerprint
+        props = [{"property_id": 200, "value_ids": [1], "values": ["Beige"], "scale_id": None}]
+        tags = ["crochet pattern", "throw blanket"]
+        fingerprint = search_fingerprint(title=TITLE, description=DESCRIPTION, tags=tags,
+                                         taxonomy_id=2114, properties=props)
+        checks = {k: {"ok": True, "why": "fixture"} for k in
+                  ("category", "attributes", "copy", "tags", "description", "hero")}
+        s.add(ListingSearchProfile(
+            product_slug=cir.slug, version=cir.version, category_status="CHOSEN",
+            taxonomy_id=2114, properties=props, verdict="PASS", fingerprint=fingerprint,
+            certificate={"verdict": "PASS", "checks": checks, "failed": [], "pending": [],
+                         "bound_fingerprint": fingerprint,
+                         "hero_evidence": {"listing_set_record_id": record.id,
+                                           "release_hash": "r" * 64,
+                                           "frame_1_sha256": shas[0]}}))
     return {"slug": cir.slug, "version": cir.version, "shas": shas}
 
 

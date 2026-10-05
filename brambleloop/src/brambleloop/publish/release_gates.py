@@ -985,6 +985,17 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     # and hero, bound to the listing as it stands.
     search = search_gate(db, slug=slug, version=version, set_verdict=set_verdict)
     reasons.extend(search["reasons"])
+    # The hero judged here is written back to the stored certificate with the evidence it
+    # used, so the stored verdict the payload builder reads is the one this gate computed --
+    # PASS only when this gate passed on a certified set, never PENDING promoted.
+    from ..commerce import search as search_mod
+
+    try:
+        search["stored"] = search_mod.judge_hero(db, slug=slug, version=version,
+                                                 set_verdict=set_verdict, gate=search)
+    except Exception as exc:  # noqa: BLE001 - an unrecorded verdict refuses, never passes
+        reasons.append(f"search certificate (F-004): the hero verdict could not be recorded "
+                       f"({type(exc).__name__})")
     # #153-#160, #220, #228: the standards this company holds itself to, read at the gate.
     standards = standards_gate(db, slug=slug, version=version)
     reasons.extend(standards["reasons"])

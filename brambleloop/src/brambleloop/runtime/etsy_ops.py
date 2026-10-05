@@ -344,8 +344,14 @@ def certified_payload(db, slug: str, version: str):
     selected = category.publish_inputs(db, slug=slug, version=version)
     if selected.get("status") != category.CHOSEN or not selected.get("taxonomy_id"):
         raise ValueError("certified listing taxonomy UNKNOWN; default fallback prohibited")
+    # F-004: PASS is written back only once the hero was judged on the certified listing
+    # set (`search.judge_hero`) and only while that evidence and the copy are current;
+    # PENDING (hero unjudged), REFUSED and STALE all refuse here.
     if selected.get("certified") != "PASS":
-        raise ValueError("listing search profile not certified PASS")
+        raise ValueError(
+            f"listing search profile not certified PASS "
+            f"({selected.get('certified')}: "
+            f"{'; '.join(selected.get('certified_problems') or []) or 'see the search certificate'})")
     payload = build_payload(materials=[m.name for m in cir.materials], **copy)
     payload.taxonomy_id = int(selected["taxonomy_id"])
     payload.properties = canonical_properties(selected.get("properties"))
