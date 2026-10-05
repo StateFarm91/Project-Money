@@ -66,8 +66,8 @@
   "downgraded": 123,
   "defects": 111,
   "wave_reported": {
-   "DONE": 34,
-   "PARTIAL": 25,
+   "PARTIAL": 50,
+   "DONE": 55,
    "NOT_STARTED": 1
   }
  },
@@ -153,7 +153,16 @@
    "id": "F-002",
    "title": "Query Coverage Matrix",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "Exposure on /api/catalogue is cluster E (app/main.py).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-003",
@@ -227,7 +236,16 @@
    "id": "F-004",
    "title": "Holistic Search Gate",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "Listing.seo_score/search_share still exists as a labelled planning proxy (share_basis) on /api/catalogue; E may want to show the certificate verdict instead.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-005",
@@ -261,7 +279,16 @@
    "id": "F-005",
    "title": "Deepest Truthful Category",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "Cluster B must send category.publish_inputs(...).taxonomy_id in ListingPayload instead of TAXONOMY_PATTERNS=66 and refuse when it is None; the real Etsy tree has never been read (tests use a recorded-shape fixture with illustrative ids), so node-name vocabulary in CATEGORY_NODE_TERMS is unverified against the live tree until the cadence runs with the gate open.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-006",
@@ -292,7 +319,16 @@
    "id": "F-006",
    "title": "Category Inheritance Awareness",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "Only meaningful once a real snapshot exists (UNKNOWN category has an empty path).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-007",
@@ -332,7 +368,16 @@
    "id": "F-007",
    "title": "Attribute Completeness",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "Transmission (updateListingProperty) is cluster B's; property rules cover colour/holiday/occasion/craft/skill/file type/dimensions + explicit N/A list; any other real property will read UNDECIDED and refuse certification until a rule is added.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-008",
@@ -368,7 +413,16 @@
    "id": "F-008",
    "title": "Attribute Truth Gate",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-009",
@@ -399,7 +453,16 @@
    "id": "F-009",
    "title": "Filter-Surface Audit",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "Surfacing on /api/catalogue is cluster E (route).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-010",
@@ -476,7 +539,16 @@
    "id": "F-011",
    "title": "13-Tag Gate",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-012",
@@ -586,7 +658,16 @@
    "id": "F-014",
    "title": "Structured-Field Deduplication",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-015",
@@ -628,7 +709,16 @@
    "id": "F-015",
    "title": "Long-Tail Portfolio",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "Long-tail mix is still driven by assumed constants until observed SERP density exists for more phrases.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-016",
@@ -794,7 +884,16 @@
    "id": "F-020",
    "title": "Keyword Provenance",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "Freshness max age (OBSERVED_MAX_AGE_DAYS) is declared but no consumer yet rejects stale observed phrases.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-021",
@@ -834,7 +933,16 @@
    "id": "F-021",
    "title": "Title Clarity Gate",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-022",
@@ -904,7 +1012,16 @@
    "id": "F-023",
    "title": "Title Length Discipline",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-024",
@@ -940,7 +1057,16 @@
    "id": "F-024",
    "title": "Subjective-Word Relocation",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-025",
@@ -978,7 +1104,16 @@
    "id": "F-025",
    "title": "Description Opening Optimizer",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-026",
@@ -1013,7 +1148,16 @@
    "id": "F-026",
    "title": "Human Description Gate",
    "version": "v0.1",
-   "master_priority": "P0-before-launch"
+   "master_priority": "P0-before-launch",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-027",
@@ -9601,7 +9745,16 @@
    "id": "F-245",
    "title": "Buyer-Friendly Title Gate",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "Catalogue-level repeated-phrase check across titles (shared 'US and UK Terms' tail) not added.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-246",
@@ -9786,7 +9939,16 @@
    "id": "F-250",
    "title": "Recency Non-Gaming",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "Any future renewal handler must call it.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-251",
@@ -9819,7 +9981,16 @@
    "id": "F-251",
    "title": "Search Language Integrity",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "Etsy payload language field is cluster B.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-252",
@@ -11477,7 +11648,16 @@
    "id": "F-294",
    "title": "Search Certificate Required",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-295",
@@ -11630,7 +11810,16 @@
    "id": "F-298",
    "title": "No Visibility Shortcut",
    "version": "v0.8",
-   "master_priority": "addendum-P0-launch-critical"
+   "master_priority": "addendum-P0-launch-critical",
+   "wave": [
+    {
+     "cluster": "A",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "Clickbait-image and ad-tactic rules not in this cluster.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-299",
@@ -20124,7 +20313,16 @@
    "id": "F-515",
    "title": "Shop Completeness Gate",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "a dedicated readiness item reading the snapshot (NO_EVIDENCE != pass) is outside my readiness ownership - needs_from_others",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-516@v0.16",
@@ -20471,7 +20669,16 @@
    "id": "F-524",
    "title": "First-Image Program",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "hero-image experiments with rollback have no runtime path; no alt text sent; image bytes still depend on non-durable artifact storage (owner storage decision)",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-525",
@@ -21079,7 +21286,16 @@
    "id": "F-540",
    "title": "OAuth Credential Health",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "rotation in production is proven only after deploy (owner production_window)",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-541",
@@ -21124,6 +21340,13 @@
      "status": "DONE",
      "remaining": "Orders side only; publish side (runtime/pipeline.py::handle_store_publish) is another cluster.",
      "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    },
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "orders path (commerce/orders_ingest) belongs to cluster D",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
     }
    ]
   },
@@ -21163,7 +21386,16 @@
    "id": "F-542",
    "title": "Remote Write Readback",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "never run against real Etsy (owner-gated exercise round trip)",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-543",
@@ -21205,7 +21437,16 @@
    "id": "F-543",
    "title": "Draft-to-Live Activation Gate",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "no owner route to enqueue store.activate with a launch_authorisation (cluster E); taxonomy properties not checked (cluster A); gated on publication_authority",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-544",
@@ -21242,7 +21483,16 @@
    "id": "F-544",
    "title": "Live Listing Drift Detector",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "files and image drift not compared in the census",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-545",
@@ -21355,7 +21605,16 @@
    "id": "F-547",
    "title": "Browser-Only Work Queue",
    "version": "v0.16",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "approval-inbox rendering is cluster E",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-548",
@@ -21576,7 +21835,16 @@
    "id": "F-553",
    "title": "Listing Estate Manager",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "no Listing columns (remote_state/last_seen/expires_at) - kept in the reading to avoid a migration; fees, properties and per-listing files not collected",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-554",
@@ -21817,7 +22085,16 @@
    "id": "F-559",
    "title": "Digital Delivery Verification",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "daily census does not re-read files per listing; language-variant and post-purchase availability checks not built; gates/first_customer not wired into readiness (not in my ownership)",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-560",
@@ -22148,7 +22425,16 @@
    "id": "F-568",
    "title": "Policy Violation Incident System",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "owner-recorded notices route POST /api/policy-violation belongs to cluster E",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-569",
@@ -22488,7 +22774,16 @@
    "id": "F-577",
    "title": "Payment Settings Guard",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "production observation after deploy",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-578",
@@ -22777,7 +23072,16 @@
    "id": "F-585",
    "title": "Shop Options Registry",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "only the Options getShop exposes; readiness item not added (ownership)",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-586",
@@ -23082,7 +23386,16 @@
    "id": "F-593",
    "title": "Owner-Only Action Queue",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "statement-closed actions (apps, ads-off, etc.) close only by the owner marking them done",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-594",
@@ -23125,7 +23438,16 @@
    "id": "F-594",
    "title": "First-Sale Readiness Gate",
    "version": "v0.17",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "B",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "file-verification, search-readiness and first_customer items not added (edit only the etsy_integration item); owner-authorised round trip not run",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-595",
@@ -29781,7 +30103,16 @@
    "id": "F-783",
    "title": "Independent Design Provenance",
    "version": "v0.22",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "runtime/pipeline.concept_to_cir (cluster C) builds raw-geometry CIRs with no Provenance; certify now refuses them. C must stamp originality.catalogue_provenance there (or retire that path).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-784",
@@ -29853,7 +30184,16 @@
    "id": "F-785",
    "title": "Benchmark Images Never Become Listing Inputs",
    "version": "v0.22",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "path/name heuristics plus manifest hashes; an unregistered competitor image with a neutral name outside those folders is not detectable by provenance alone.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-786",
@@ -29889,7 +30229,16 @@
    "id": "F-786",
    "title": "Licence Terms Are Machine-Readable",
    "version": "v0.22",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "no live caller passes db to library.retrieve/reader.read (teardown/proof_run.py calls reader.read without db). next_action: pass db in every live reader.read/retrieve call, and expose licence terms entry at the upload route (app/main.py, cluster E) via intake.receive(licence_terms=...).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-787",
@@ -29924,7 +30273,16 @@
    "id": "F-787",
    "title": "Public/Free Version Does Not Erase Rights",
    "version": "v0.22",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "no live producer registers public sources. next_action: call register_public_source from the intel observation path that records public tutorials (intel/observe.py) when source_kind is public.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-788",
@@ -29959,7 +30317,16 @@
    "id": "F-788",
    "title": "Finished-Item Permission != Pattern Permission",
    "version": "v0.22",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "as F-786 (consumer live only with db).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-789",
@@ -30070,7 +30437,16 @@
    "id": "F-791",
    "title": "Meaningful Redesign Gate",
    "version": "v0.23",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "DONE",
+     "remaining": "classification is keyword/magnitude based; a determined mislabel with material vocabulary passes. Owner/analyst review of ledgers remains the backstop.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-792",
@@ -30106,7 +30482,16 @@
    "id": "F-792",
    "title": "Independent Instruction Draft",
    "version": "v0.23",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "no spec-freeze event. next_action: record originality.spec_frozen (CIR fingerprint + UTC time) before cir/writer runs for a competitor-informed product and assert no benchmark read (audit) after it.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-793",
@@ -30173,7 +30558,16 @@
    "id": "F-794",
    "title": "Design-Difference Ledger",
    "version": "v0.23",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "certify cannot read DB ledgers (no db) and creative CIRs only carry benchmarks_consulted from Concept.provenance 'benchmark:<ref>' lineage, not from brief['benchmarks_consulted']. next_action: creative prototype/garment_design stamp brief benchmarks into Provenance; handle_certify passes originality.ledger_from_db(ctx.db, concept_key) into certify (needs an optional ledger/db arg, cluster C).",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-795",
@@ -30208,7 +30602,16 @@
    "id": "F-795",
    "title": "Similarity Review Before Sale",
    "version": "v0.23",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "not run as a separate independent job before store.publish; DB wording fingerprints are not consulted at certify (no db); listing-presentation comparison absent; benchmark 1/2 wording fingerprints not captured (PDFs are not in the repo). next_action: cluster B enqueue a 'originality.similarity_review' job (similarity_review(cir, pattern_text, db=ctx.db)) before store.publish with escalation -> redesign card; analyst runs reader.read(..., db=db) on the purchased PDFs to capture wording.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-796",
@@ -30316,7 +30719,16 @@
    "id": "F-798",
    "title": "Originality Is Part of Product Truth",
    "version": "v0.23",
-   "master_priority": null
+   "master_priority": null,
+   "wave": [
+    {
+     "cluster": "G",
+     "merge": "07a8c3b",
+     "status": "PARTIAL",
+     "remaining": "certify does not read licence state (teardown/licence) for licensed inputs, because certify has no db and no product has licensed inputs today. next_action: give certify an optional db (cluster C, handle_certify passes ctx.db) and have originality refuse a provenance naming a licensed source whose licence lacks 'adapt_pattern_for_sale'.",
+     "note": "worker-reported; integrator ran targeted suites; maturity not re-mapped yet"
+    }
+   ]
   },
   {
    "uid": "F-799",

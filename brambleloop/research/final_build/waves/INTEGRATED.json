@@ -14,5 +14,17 @@
  "E": {
   "merge": "787895a",
   "branch_head": "1049c23"
+ },
+ "A": {
+  "merge": "07a8c3b",
+  "branch_head": "via Codex final-build-integration-01 (ec2b250)"
+ },
+ "B": {
+  "merge": "07a8c3b",
+  "branch_head": "via Codex final-build-integration-01 (ec2b250)"
+ },
+ "G": {
+  "merge": "07a8c3b",
+  "branch_head": "via Codex final-build-integration-01 (ec2b250)"
  }
 }
