@@ -151,6 +151,13 @@ def _gate_card(c: dict) -> dict:
         "executable": any(a["action"] != "owner_action.defer" for a in actions),
         "actions": actions, "not_executable_reason": reason,
         "sources": sources,
+        # F-870 / F-623 / F-197 / F-180 (K7): the packet, the rank and the tester route.
+        "why_software_cannot": c.get("why_software_cannot"),
+        "requirement_kind": c.get("requirement_kind"),
+        "packet_missing": c.get("packet_missing") or [],
+        "rank": c.get("rank"), "urgency": c.get("urgency"),
+        "steps": c.get("steps"), "state": c.get("state"),
+        **({"tester_route": c["tester_route"]} if c.get("tester_route") else {}),
     }
 
 
@@ -239,6 +246,9 @@ def inbox(db) -> dict:
         status = "DEGRADED" if status == "OK" else status
     cards = cards + pub
     return {"status": status, "reason": reason, "cards": cards, "open": len(cards),
+            # F-204 (K7): an empty queue is proven only by a fresh assessment + live gates.
+            "empty_state": raw.get("empty_state"),
+            "parked_owner_actions": raw.get("parked_owner_actions") or [],
             "waiting_on_data": raw.get("waiting_on_data") or [],
             "external_capability_unavailable": raw.get("external_capability_unavailable")
             or [],
@@ -351,9 +361,18 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
         elif action == "owner_action.defer":
             oid = _int(body, "owner_action_id")
             with db.session() as s:
-                if s.get(OwnerAction, oid) is None:
+                row = s.get(OwnerAction, oid)
+                if row is None:
                     raise ActionRefused(f"no owner action {oid}")
-            result = {"deferred": oid, "note": str(body.get("note") or "")[:500]}
+                # F-180 (K7): a deferral is the owner parking the action -- it leaves the
+                # active queue with a timestamp and reason; the row and its history stay.
+                from ...ops import owner_queue
+
+                note = str(body.get("note") or "")[:500]
+                if owner_queue.effective_state(row) == owner_queue.OPEN:
+                    owner_queue.transition(s, row, owner_queue.PARKED,
+                                           note or "deferred by the owner", actor=actor)
+            result = {"deferred": oid, "note": note, "state": owner_queue.PARKED}
         else:  # pragma: no cover - ACTIONS is exhaustive
             raise ActionRefused(action)
     except ActionRefused:

@@ -1251,7 +1251,9 @@ def needs_owner(db, exc: Exception, *, operation: str, now: datetime | None = No
                 row.requirement_key = AUTH_ACTION_KEY
                 canonical = row
             else:
-                row.done = True
+                from ..ops import owner_queue
+                owner_queue.close(row, owner_queue.SUPERSEDED,
+                                  f"merged into {AUTH_ACTION_KEY}")
                 row.reason = (row.reason or "") + (f" [merged into {AUTH_ACTION_KEY}, which "
                                                    f"carries the same step]")
         if s.scalar(select(Incident).where(

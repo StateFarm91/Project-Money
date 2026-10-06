@@ -467,7 +467,9 @@ def route_retirements(db, review: dict) -> dict:
             OwnerAction.done == False))  # noqa: E712
         if fields is None:
             if row is not None:
-                row.done = True
+                from ..ops import owner_queue
+                owner_queue.close(row, owner_queue.WITHDRAWN,
+                                  "no cell is a retirement candidate any more")
                 state = "closed"
         elif row is None:
             s.add(OwnerAction(requirement_key=RETIREMENT_CARD_KEY, **fields))

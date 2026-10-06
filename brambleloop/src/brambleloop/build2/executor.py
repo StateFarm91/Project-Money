@@ -1508,6 +1508,7 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
 
     from ..core.models import OwnerAction
     from ..launch import access
+    from ..ops import owner_queue
     from . import closure
 
     requests = {r.key: r for r in access.pending_requests(env)}
@@ -1520,9 +1521,15 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
                  "reason": a.reason or "", "max_cost_cad": float(a.max_cost_cad or 0.0),
                  "minutes": int(a.minutes or 0),
                  "consequence_of_delay": a.consequence_of_delay or "",
-                 "blocks": a.blocks or "", "at": a.at.isoformat() if a.at else None}
+                 "blocks": a.blocks or "", "at": a.at.isoformat() if a.at else None,
+                 # F-180 / F-870 (K7): lifecycle state and why software cannot do it.
+                 "state": owner_queue.effective_state(a),
+                 "why_software_cannot": getattr(a, "why_software_cannot", "") or ""}
                 for a in s.scalars(select(OwnerAction).where(
                     OwnerAction.done == False))]  # noqa: E712
+    # F-180: a parked action is not active. It is listed, never presented as a card.
+    parked_actions = [r for r in rows if r["state"] == owner_queue.PARKED]
+    rows = [r for r in rows if r["state"] != owner_queue.PARKED]
     rows_by_gate: dict[str, list[dict]] = {}
     standalone: list[dict] = []
     for row in rows:
@@ -1636,6 +1643,12 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
         })
 
     cards.sort(key=_urgency)
+    # F-870 / F-623 / F-197 (K7): packet fields, explicit rank and urgency, the tester route.
+    owner_queue.enrich_cards(db, cards, why_by_action_id={
+        r["id"]: r["why_software_cannot"] for r in rows if r["why_software_cannot"]})
+    # F-204: the gates above were read live on this call; the guard also needs a fresh
+    # readiness assessment before an empty queue is called proven.
+    empty_state = owner_queue.empty_guard(db, cards, gates_read_live=True)
     snapshot = queue(db)
     free_and_quick = [c for c in cards if c["max_cost_cad"] == 0.0]
     return {
@@ -1646,6 +1659,10 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
         "waiting_on_data": data_wait,
         "suppressed_unblocks_nothing": suppressed,
         "satisfied_but_open": satisfied_but_open,
+        "parked_owner_actions": [{"owner_action_id": r["id"],
+                                  "requirement_key": r["requirement_key"],
+                                  "action": r["action"]} for r in parked_actions],
+        "empty_state": empty_state,
         "gate_open": gate_open,
         "source": ("one queue: executor gate state merged with OwnerAction rows by "
                    "requirement_key (build2.executor.approval_inbox)"),

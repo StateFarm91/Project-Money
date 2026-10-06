@@ -29,6 +29,9 @@ PROVIDERS: dict[str, tuple[str, str]] = {
     "seo": ("brambleloop.seo.status", "summary"),
     "ads": ("brambleloop.growth.ads_readiness", "summary"),
     "slo": ("brambleloop.ops.slo", "summary"),
+    # wave-3 K7: owner queue lifecycle/inventories, security controls, postconditions,
+    # rollback baseline, provenance coverage, job activity, incident actionability.
+    "ops_truth": ("brambleloop.ops.truth", "summary"),
 }
 
 
@@ -95,6 +98,11 @@ def validate(out, name: str) -> dict:
     out["items"] = out.get("items") if isinstance(out.get("items"), list) else []
     out["sources"] = out.get("sources") if isinstance(out.get("sources"), list) else []
     out["provider"] = name
+    # F-203 (K7): the as-of range of the rows behind the card, so a mixed snapshot cannot
+    # read as one current state.
+    from ...ops.truth import observation_window
+
+    out.setdefault("observation_window", observation_window(out["items"]))
     if out["status"] != "OK" and not out.get("reason"):
         out["reason"] = "provider gave no reason"
     return out

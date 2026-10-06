@@ -195,7 +195,9 @@ def watch(db, *, now: datetime | None = None) -> dict:
                 OwnerAction.done == False))  # noqa: E712
             if _answered(case):
                 if action is not None:
-                    action.done = True
+                    from ..ops import owner_queue
+                    owner_queue.close(action, owner_queue.SATISFIED,
+                                      "the support case has a recorded response")
                     closed.append(case.id)
                 lifecycle.resolve_signatures(
                     s, [signature], now=now,

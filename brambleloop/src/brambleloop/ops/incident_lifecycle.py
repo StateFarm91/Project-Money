@@ -159,6 +159,188 @@ def _aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+# F-195 (wave-3 K7): every open incident names who owns its remediation and by what path.
+# Keyed by detector family (`kind_of`). A family missing here is reported with
+# `needs_owner_path: true` rather than given an owner nobody assigned.
+REMEDIATION: dict[str, tuple[str, str]] = {
+    "health": ("ops.health sweep", "resolves itself when the signal reads healthy again"),
+    "stale-artefact": ("ops.sentinel + rebuild graph",
+                       "rebuild enqueued by the sentinel; resolves when upstreams match"),
+    "policy_stale": ("owner", "read the Etsy policy page in a browser and record it with "
+                              "POST /api/policy/snapshot (operator credential); software is "
+                              "refused by Etsy (HTTP 403) and must not spoof a browser"),
+    "policy_changed": ("owner", "review the material policy change and record the review on "
+                                "the snapshot; the affected workflows re-test"),
+    "authority_chain_tamper": ("owner", "inspect the sealed authority chain; publication "
+                                        "stays refused until it verifies"),
+    "spend-anomaly": ("finance.reconcile", "explained or reversed by the finance close"),
+    "support.first_response": ("support.response_watch", "a recorded response closes it"),
+    "release.unproven_build": ("deploy guard", "deploy a build with a committed release "
+                                               "record (ops/deploy_guard.py record)"),
+    "rebuild-incomplete": ("ops.rebuild_graph", "the outstanding rebuild completes"),
+    "systemic-halt": ("ops.truth sweep", "resolves when the systemic evidence stops holding"),
+    "incident-recurrence": ("ops.truth sweep", "the family's prevention is fixed and the "
+                                               "regression check passes"),
+    "postcondition": ("ops.truth sweep", "the postcondition reads VERIFIED again"),
+    "etsy.oauth.needs_owner": ("owner", "re-authorise the Etsy app in a browser"),
+    "etsy.auth_needs_owner": ("owner", "re-authorise the Etsy app in a browser"),
+}
+CONFIRMED_WITHIN_HOURS = 48
+
+
+def actionability(incident: Incident, *, now: datetime | None = None) -> dict:
+    """F-195: last-confirmed time, current applicability and the owning remediation/gate."""
+    now = now or datetime.now(timezone.utc)
+    detail = incident.detail or {}
+    kind = kind_of(incident.signature)
+    last = detail.get("last_seen") or detail.get("first_seen")
+    try:
+        last_dt = _aware(datetime.fromisoformat(last)) if last else _aware(incident.at)
+    except ValueError:
+        last_dt = _aware(incident.at)
+    owner, path = REMEDIATION.get(kind, (None, None))
+    if detail.get("owner_action") and not path:
+        owner, path = "owner", str(detail["owner_action"])
+    age_h = (now - last_dt).total_seconds() / 3600
+    if incident.resolved:
+        applicability = "resolved"
+    elif age_h <= CONFIRMED_WITHIN_HOURS:
+        applicability = "current"
+    else:
+        applicability = "UNCONFIRMED"
+    return {"last_confirmed": last_dt.isoformat(),
+            "applicability": applicability,
+            "remediation_owner": owner, "remediation_path": path,
+            "needs_owner_path": owner is None,
+            "why": ("" if applicability != "UNCONFIRMED" else
+                    f"no detector has re-confirmed this for {round(age_h)}h; it may no longer "
+                    f"hold, and it is not called current")}
+
+
+# F-392 (wave-3 K7): incident learning. A meaningful incident carries, once resolved, a root
+# cause, a durable prevention reference, regression coverage and its failure family; a family
+# that recurs after its prevention was recorded is surfaced, never silent.
+MEANINGFUL_PREFIXES = ("health", "spend", "stale-artefact", "authority_chain_tamper",
+                       "finance.", "support.", "release.", "rebuild", "identity_drift",
+                       "customer", "policy_changed", "systemic-halt", "postcondition")
+
+
+def meaningful(incident: Incident) -> bool:
+    return incident.severity in ("P0", "P1") or any(
+        incident.signature.startswith(p) for p in MEANINGFUL_PREFIXES)
+
+
+def record_learning(session, incident_id: int, *, root_cause: str, prevention_ref: str,
+                    regression_ref: str, family: str | None = None,
+                    now: datetime | None = None) -> dict:
+    """Attach the learning to an incident. Every field is required; none may be blank."""
+    row = session.get(Incident, incident_id)
+    if row is None:
+        raise KeyError(incident_id)
+    fields = {"root_cause": root_cause, "prevention_ref": prevention_ref,
+              "regression_ref": regression_ref}
+    blank = [k for k, v in fields.items() if not str(v or "").strip()]
+    if blank:
+        raise ValueError(f"incident learning needs {blank}: a learning record with a blank "
+                         f"field is how the same failure recurs silently")
+    merged = dict(row.detail or {})
+    merged["learning"] = dict({k: str(v)[:1000] for k, v in fields.items()},
+                              family=family or kind_of(row.signature),
+                              recorded_at=_now_iso(now))
+    row.detail = merged
+    return merged["learning"]
+
+
+def learning(session, *, now: datetime | None = None, days: int = 30) -> dict:
+    """Meaningful resolved incidents lacking learning, and families recurring after it."""
+    from sqlalchemy import select
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=days)
+    gaps, learned_families, recurred = [], {}, []
+    rows = list(session.scalars(select(Incident).order_by(Incident.id.desc()).limit(2000)))
+    for row in rows:
+        detail = row.detail or {}
+        if row.resolved and detail.get("learning"):
+            fam = detail["learning"].get("family") or kind_of(row.signature)
+            learned_families.setdefault(fam, detail["learning"].get("recorded_at"))
+    for row in rows:
+        detail = row.detail or {}
+        if not meaningful(row):
+            continue
+        if row.resolved and not detail.get("learning") and _aware(row.at) >= since:
+            gaps.append({"id": row.id, "signature": row.signature,
+                         "severity": row.severity, "resolution": detail.get("resolution")})
+        fam = kind_of(row.signature)
+        if not row.resolved and fam in learned_families:
+            recorded = learned_families[fam]
+            try:
+                after = recorded and _aware(row.at) >= _aware(datetime.fromisoformat(recorded))
+            except ValueError:
+                after = False
+            if after:
+                recurred.append({"id": row.id, "signature": row.signature, "family": fam,
+                                 "prevention_recorded_at": recorded})
+    return {"gaps": gaps, "recurred_after_prevention": recurred,
+            "families_with_learning": sorted(learned_families), "window_days": days,
+            "status": ("DEGRADED" if gaps or recurred else "OK"),
+            "rule": ("every meaningful incident (P0/P1, or reliability/spend/evidence/"
+                     "customer family) needs root_cause, prevention_ref and regression_ref "
+                     "once resolved; an open incident in a family whose prevention is "
+                     "recorded is a recurrence and is surfaced")}
+
+
+# F-168 (wave-3 K7): halts are per product slug unless evidence shows systemic corruption.
+SYSTEMIC_SIGNATURE = "systemic-halt:publication"
+SYSTEMIC_MIN_SLUGS = 3
+SYSTEMIC_SHARE = 0.5
+INTEGRITY_FAMILIES = ("authority_chain_tamper",)
+
+
+def systemic_evidence(session) -> dict:
+    """Whether open halting incidents amount to systemic corruption, and the evidence."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+
+    open_rows = list(session.scalars(select(Incident).where(
+        Incident.resolved == False)))  # noqa: E712
+    tamper = [r.signature for r in open_rows
+              if kind_of(r.signature) in INTEGRITY_FAMILIES]
+    products = len(list(session.scalars(select(Product.id))))
+    by_family: dict[str, set[str]] = {}
+    for r in open_rows:
+        if r.halts_publication and r.product_slug:
+            by_family.setdefault(kind_of(r.signature), set()).add(r.product_slug)
+    widespread = {fam: sorted(slugs) for fam, slugs in by_family.items()
+                  if len(slugs) >= SYSTEMIC_MIN_SLUGS and products
+                  and len(slugs) / products >= SYSTEMIC_SHARE}
+    return {"systemic": bool(tamper or widespread), "integrity_failures": tamper,
+            "widespread_families": widespread, "products": products,
+            "rule": (f"one failure family halting >= {SYSTEMIC_MIN_SLUGS} products and >= "
+                     f"{int(SYSTEMIC_SHARE * 100)}% of the catalogue, or any open "
+                     f"integrity failure ({', '.join(INTEGRITY_FAMILIES)}), escalates to a "
+                     f"company-wide publication halt; otherwise halts stay per product")}
+
+
+def escalate_systemic(session, *, now: datetime | None = None) -> dict:
+    """Open (or restate) the company-wide halt while the evidence holds; resolve it after."""
+    ev = systemic_evidence(session)
+    life = reconcile(session, SYSTEMIC_SIGNATURE, lambda _inc: ev["systemic"],
+                     resolution="the systemic evidence no longer holds; halts are per product "
+                                "again", now=now)
+    opened = False
+    if ev["systemic"]:
+        _row, opened = open_or_restate(
+            session, signature=SYSTEMIC_SIGNATURE, severity="P0", product_slug=None,
+            halts_publication=True,
+            summary=("systemic corruption evidence: publication halted company-wide "
+                     f"(integrity: {ev['integrity_failures']}; widespread: "
+                     f"{sorted(ev['widespread_families'])})"),
+            detail={"evidence": ev}, now=now)
+    return dict(ev, opened=opened, resolved=life["resolved"])
+
+
 def _row(incident: Incident) -> dict:
     detail = incident.detail or {}
     return {
@@ -176,6 +358,8 @@ def _row(incident: Incident) -> dict:
         "resolved": bool(incident.resolved),
         "resolved_at": detail.get("resolved_at"),
         "resolution": detail.get("resolution"),
+        "learning": detail.get("learning"),
+        **actionability(incident),
     }
 
 
@@ -229,6 +413,12 @@ def snapshot(session, *, now: datetime | None = None,
         "resolved_recently_total": len(recently),
         "resolved_without_evidence_in_sample": without_evidence,
         "by_kind": {kind: by_kind[kind] for kind in sorted(by_kind)},
+        # F-195: open rows nobody owns, or that no detector has re-confirmed recently.
+        "needs_owner_path": [r["signature"] for r in open_rows if r["needs_owner_path"]],
+        "unconfirmed": [r["signature"] for r in open_rows
+                        if r["applicability"] == "UNCONFIRMED"],
+        # F-392: learning gaps and recurrences.
+        "learning": learning(session, now=now),
         "note": ("An incident closes when its condition stops holding and says what closed "
                  "it (detail.resolution, detail.resolved_at). A row that only says "
                  "'resolved' is counted under resolved_without_evidence rather than shown "

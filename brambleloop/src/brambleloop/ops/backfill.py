@@ -90,8 +90,10 @@ class _Report:
         self.why: dict[str, dict[str, int]] = {}
         self.rows: list[dict] = []
         self.skipped_existing = 0
+        self.unproven_keys: list[tuple[str, str]] = []
 
     def unproven(self, cls: str, key: str, reason: str) -> None:
+        self.unproven_keys.append((cls, key))
         self.left_unproven[cls] = self.left_unproven.get(cls, 0) + 1
         bucket = self.why.setdefault(cls, {})
         bucket[reason] = bucket.get(reason, 0) + 1
@@ -390,7 +392,44 @@ def run(db, *, dry_run: bool = False) -> dict:
 
     if not dry_run:
         db.flush()
-    return report.to_dict()
+    out = report.to_dict()
+    out["relevance"] = relevance(db, report.unproven_keys)
+    return out
+
+
+def _slug_of(key: str) -> str:
+    return key.split("@", 1)[0].split(":", 1)[0]
+
+
+def relevance(db, keys: list[tuple[str, str]]) -> dict:
+    """F-167: what is left unproven, split by whether it matters for launch.
+
+    `launch_relevant` -- a current release of a Launch-0 product: backfill evidence is wanted
+    first, and it stays unproven (counted) until evidence exists. `retired` -- legacy output
+    of a superseded design or a retired duplicate slug: invalidated by the sentinel
+    (`artefacts.INVALIDATED`), not backfilled. `other` -- current but outside launch scope.
+    """
+    try:
+        from ..products.launch0 import launch_scope_slugs
+        launch = set(launch_scope_slugs())
+    except Exception:  # noqa: BLE001 - no scope list means nothing is called launch-relevant
+        launch = set()
+    superseded = P._superseded_lookup(db)
+    buckets: dict[str, list[str]] = {"launch_relevant": [], "retired": [], "other": []}
+    for cls, key in keys:
+        slug = _slug_of(key)
+        if superseded(key, slug):
+            buckets["retired"].append(f"{cls}:{key}")
+        elif slug in launch:
+            buckets["launch_relevant"].append(f"{cls}:{key}")
+        else:
+            buckets["other"].append(f"{cls}:{key}")
+    return {"counts": {k: len(v) for k, v in buckets.items()},
+            "launch_relevant_first": buckets["launch_relevant"][:200],
+            "retired_sample": buckets["retired"][:50],
+            "launch_scope": sorted(launch),
+            "rule": ("launch-relevant legacy artefacts are backfilled from evidence first; "
+                     "obsolete ones are retired (invalidated), never backfilled into fresh")}
 
 
 def state() -> dict:

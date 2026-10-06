@@ -276,7 +276,9 @@ def record_evidence(db, *, status, evidence_source, verified_at, eligible_from=N
                       "evidence_kind": "operator_attested_etsy_ui", "evidence_history": history}
         for action in s.scalars(select(OwnerAction).where(
                 OwnerAction.requirement_key == REFRESH_KEY, OwnerAction.done == False)):  # noqa: E712
-            action.done = True
+            from ..ops import owner_queue
+            owner_queue.close(action, owner_queue.SATISFIED,
+                              f"eligibility reading recorded ({status})")
         return snapshot(row, now)
 
 
