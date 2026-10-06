@@ -356,10 +356,25 @@ def test_verify_fails_loudly_rather_than_reporting_green_on_ephemeral_storage():
 
 
 def test_scheduler_tick_endpoint_is_idempotent_within_a_window():
+    """A repeated tick re-enqueues nothing whose cadence window is unchanged.
+
+    The windows are wall-clock (now // period), so two calls can legitimately straddle a
+    boundary -- the full suite on 0de125e caught exactly that for the two 15-minute cadences.
+    Only a cadence whose window actually advanced between the calls may be enqueued again.
+    """
+    import time as _time
+
+    from brambleloop.runtime.worker import CADENCES
+
+    periods = {name: period for name, _agent, _job, period in CADENCES}
     with _client() as c:
+        t0 = _time.time()
         first = c.post("/api/scheduler/tick").json()["enqueued"]
         second = c.post("/api/scheduler/tick").json()["enqueued"]
-    assert second == [], f"a repeated tick re-enqueued {second} (first was {first})"
+        t1 = _time.time()
+    advanced = {n for n, p in periods.items() if int(t0 // p) != int(t1 // p)}
+    unexpected = [n for n in second if n not in advanced]
+    assert unexpected == [], f"a repeated tick re-enqueued {unexpected} (first was {first})"
 
 
 def test_platform_database_url_is_normalised():
