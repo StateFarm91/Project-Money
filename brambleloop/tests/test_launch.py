@@ -271,8 +271,16 @@ def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
     # (`app.dashboard_truth.launch_inventory` -- no creative-gate survivor, and the gauge
     # criterion is unassessed there), so the first screen is empty and has no tiles. They are
     # named exactly, with the reason, rather than folded into "only imagery is left".
-    assert [r.key for r in readiness.buildable] == [
-        "listing_photography", "opening_grid", "storefront_preview"], \
+    # F-400 / F-879 (lane TOOLS): the Final Master closure is company-side work too, and it is
+    # honestly unfinished while any launch-critical row is OPEN or the snapshot fails integrity.
+    from brambleloop.build2 import final_master
+    fm = final_master.summary(db)
+    expected = ["listing_photography", "opening_grid", "storefront_preview"]
+    if not fm.get("launch_ready"):
+        assert fm.get("launch_critical_open") or fm.get("integrity_violations") \
+            or fm.get("status") != "OK", fm
+        expected.append("final_master_closure")
+    assert [r.key for r in readiness.buildable] == expected, \
         [r.key for r in readiness.buildable]
     grid = next(r for r in readiness.requirements if r.key == "opening_grid")
     assert grid.evidence["problems"][0].startswith("OPENING_GRID_EMPTY"), grid.evidence
@@ -285,7 +293,8 @@ def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
     assert sorted(photo.evidence["with_no_asset_at_all"]) == sorted(
         s for s in stocked if s not in in_scope)[:5]
     remaining = {r.blocked_by for r in readiness.outstanding
-                 if r.key not in ("listing_photography", "opening_grid", "storefront_preview")}
+                 if r.key not in ("listing_photography", "opening_grid", "storefront_preview",
+                                  "final_master_closure")}
     # F-071: a sample waits on an independent tester -- a person, and not the owner.
     assert remaining <= {BLOCKED_OWNER, BLOCKED_INTEGRATION, BLOCKED_TESTER}, remaining
 
