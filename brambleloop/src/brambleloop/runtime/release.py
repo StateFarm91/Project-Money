@@ -2622,9 +2622,20 @@ def handle_physical_record(ctx: JobContext) -> dict:
         instructions_followed=bool(i.get("instructions_followed", True)))
 
     assessment = assess(report, twin, cir)
-    row_id = record(ctx.db, assessment, content_hash=content_hash)
+    # F-072: `scope` is what the tester did -- "full_make", "swatch" or "component". With no
+    # scope, a sample that reported a finished measurement is a full make and one that
+    # reported only yarn used is partial; an unknown scope word is refused, never guessed.
+    from ..gates.risk_matrix import scope_to_class
+
+    evidence_class = scope_to_class(
+        i.get("scope"), measured_finished_size=any(
+            i.get(k) is not None for k in ("measured_width_cm", "measured_height_cm",
+                                           "measured_around_cm")))
+    row_id = record(ctx.db, assessment, content_hash=content_hash,
+                    evidence_class=evidence_class)
     ctx.audit("physical.recorded", artifact=f"{slug}@{version}",
               detail={"row": row_id, "content_hash": content_hash,
+                      "evidence_class": evidence_class,
                       "release_certified": certified, **assessment.to_dict()})
 
     if assessment.size_agrees is False:
