@@ -515,6 +515,59 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
     return provider.endpoint, {"authorization": f"Bearer {key}"}, json.dumps(body).encode()
 
 
+CONDITIONING_RECEIPT_VERSION = "conditioning-receipt/1"
+
+
+def conditioning_receipt(provider: ImageProvider, reference_urls: list[str] | None,
+                         payload: bytes) -> dict:
+    """Proof, per request, that each reference's bytes are inside the body being sent (F-212).
+
+    A prompt that says "the same person as the reference" is not conditioning, and neither
+    is a `reference_urls` argument: the dialect builders decide what actually leaves, and
+    one of them (BFL) only ever sends the first reference. So this reads the *built request
+    body* -- the exact bytes `_post` will transmit -- and, for every reference, checks that
+    its file bytes are in it in the form this dialect carries them (base64 inline for Google
+    and BFL, the raw upload for OpenAI-shaped multipart). Deterministic and offline: the
+    sha256 of each reference is recorded so a frame record can be compared against the
+    frozen pack (`visual.identity.provenance_check`) without anyone re-reading the file.
+
+    `proven` is true only when there was at least one reference and every one of them was
+    found in the body. No references: `proven` is False with `requested` 0 -- nothing was
+    conditioned on, which is a fact rather than a failure for an unconditioned render.
+    """
+    import base64
+    import hashlib
+
+    refs = list(reference_urls or [])
+    body = bytes(payload or b"")
+    rows: list[dict] = []
+    for ref in refs:
+        path = Path(str(ref))
+        if not path.is_file():
+            rows.append({"reference": str(ref)[:200], "sha256": "", "bytes": 0,
+                         "transmitted": False, "why": "not a file on this disk"})
+            continue
+        raw = path.read_bytes()
+        encoded = base64.standard_b64encode(raw)
+        found = bool(raw) and (encoded in body if provider.dialect in ("google", "bfl")
+                               else raw in body)
+        rows.append({"reference": path.name, "sha256": hashlib.sha256(raw).hexdigest(),
+                     "bytes": len(raw), "transmitted": found,
+                     "carried_as": ("base64_inline" if provider.dialect in ("google", "bfl")
+                                    else "multipart_upload"),
+                     "why": "" if found else (
+                         f"the {provider.dialect} request body does not contain these bytes; "
+                         f"this dialect did not transmit this reference")})
+    proven = bool(rows) and all(r["transmitted"] for r in rows)
+    return {"version": CONDITIONING_RECEIPT_VERSION, "provider": provider.key,
+            "dialect": provider.dialect, "requested": len(refs),
+            "transmitted": sum(1 for r in rows if r["transmitted"]),
+            "references": rows, "proven": proven,
+            "request_sha256": hashlib.sha256(body).hexdigest(),
+            "basis": ("measured: reference bytes located in the exact request body sent"
+                      if rows else "no reference requested")}
+
+
 def _multipart(fields: dict, files: list[tuple[str, str, bytes]]) -> tuple[str, bytes]:
     """Encode a multipart/form-data body. Small and local: one caller, one shape."""
     import mimetypes
@@ -823,6 +876,16 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
                 f"references is UNKNOWN and the render is refused (F-785)") from exc
     url, headers, payload = _request_for(provider, key, prompt, reference_urls, size,
                                          extra_fields, benchmark_hashes=hashes)
+    # F-212: a reference the caller asked for and the request does not carry is refused
+    # before any budget is reserved. Silently conditioning on fewer references than asked
+    # for (BFL sends only the first) would turn an identity lock back into a prompt.
+    receipt = conditioning_receipt(provider, reference_urls, payload)
+    if reference_urls and not receipt["proven"]:
+        missing = [r["reference"] for r in receipt["references"] if not r["transmitted"]]
+        raise ImagesRefused(
+            f"{provider.key} ({provider.dialect}) would transmit {receipt['transmitted']} of "
+            f"{receipt['requested']} reference(s); not carried: {missing}. Conditioning that "
+            f"cannot be proven in the request body is not conditioning (F-212)")
     # Reserved before the request leaves. A refusal here has cost nothing; the same refusal
     # after `_post` would be a report about money already spent.
     budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id)
@@ -839,7 +902,7 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
             # Served from an earlier attempt of this job (F-307): nothing was sent, so the
             # claim taken above comes back unbilled. The bill is the original attempt's row.
             release_render(db, budget, billed=False)
-        return result
+        return {**result, "conditioning": receipt}
     except BaseException as exc:
         # RC1 audit B3. Once the provider has accepted the request it has charged for the
         # work, whatever happens next -- a poll that times out, a moderation verdict, a link
@@ -1038,8 +1101,15 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
                               reference_urls=[first["image_ref"]], work_dir=root, db=db,
                               purpose=REFERENCE_PROBE_ACTION,
                               spend_detail=shared)
-            record.update(ok=True, cad=round(first["cad"] + second["cad"], 6),
-                          bytes=second.get("bytes"))
+            # `ok` means the conditioned render came back *and* the reference's bytes were
+            # proven to be in the request that produced it (F-212). A render alone proves
+            # only that the provider answered.
+            conditioning = dict(second.get("conditioning") or {})
+            record.update(ok=bool(conditioning.get("proven")),
+                          cad=round(first["cad"] + second["cad"], 6),
+                          bytes=second.get("bytes"), conditioning=conditioning,
+                          why=("" if conditioning.get("proven") else
+                               "rendered, but no per-request proof the reference was sent"))
     except Exception as exc:  # noqa: BLE001 - every failure means "do not run the schedule"
         record["why"] = f"{type(exc).__name__}: {str(exc)[:300]}"
 
@@ -1062,7 +1132,10 @@ def reference_proven(db, provider_key: str) -> bool:
                              .order_by(desc(AuditLog.id)).limit(40)):
             detail = row.detail or {}
             if detail.get("provider") == provider_key:
-                return bool(detail.get("ok"))
+                # A probe filed before per-request receipts existed proved a render, not
+                # that the reference was transmitted: it does not count (F-212).
+                return bool(detail.get("ok")) and bool(
+                    (detail.get("conditioning") or {}).get("proven"))
     return False
 
 
