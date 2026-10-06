@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
@@ -32,7 +33,18 @@ from ..core.models import Job, JobStatus
 from . import charters
 
 VOLATILE = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
-            "started_at", "finished_at", "duration_seconds", "elapsed", "job_id", "mission")
+            "started_at", "finished_at", "duration_seconds", "elapsed", "job_id", "mission",
+            # Audit ddf9c6e M-1: per-run identifiers and clocks that made identical-content
+            # outputs fingerprint differently (the self-review's snapshot key was one).
+            "snapshot", "snapshot_key", "brief", "run_id", "request_id", "trace_id",
+            "correlation_id", "lease_token", "worker", "attempts", "attempt", "created",
+            "created_at", "updated_at", "closed", "since", "until", "window", "content_hash",
+            "commit", "retry_for_commit", "cadence")
+# ISO-8601 timestamps and the per-run keys built from them are clocks, not content.
+_TS = re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([+-]\d{2}:?\d{2}|Z)?")
+# Job types that MEASURE a department rather than do its work. They are excluded from the
+# department's own KPI, so a department cannot be reviewed into a good score (M-1).
+SELF_MEASUREMENT_TYPES = ("autonomy.department_review", "autonomy.morning_handoff")
 GUARD_ERRORS = ("permission denied", "budget exceeded", "provenance refused")
 
 
@@ -42,28 +54,39 @@ def _aware(value):
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
-def fingerprint(outputs) -> str:
-    def strip(v):
-        if isinstance(v, dict):
-            return {k: strip(x) for k, x in sorted(v.items()) if k not in VOLATILE}
-        if isinstance(v, list):
-            return [strip(x) for x in v]
-        return v
+def _strip(v):
+    if isinstance(v, dict):
+        return {k: _strip(x) for k, x in sorted(v.items()) if k not in VOLATILE}
+    if isinstance(v, list):
+        return [_strip(x) for x in v]
+    if isinstance(v, str):
+        return _TS.sub("<ts>", v)
+    return v
 
-    blob = json.dumps(strip(outputs or {}), sort_keys=True, default=str)
+
+def fingerprint(outputs) -> str:
+    blob = json.dumps(_strip(outputs or {}), sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
-def did_no_work(outputs) -> bool:
+def content_hash(body) -> str:
+    """Hash of a finding/brief's content with clocks and per-run ids removed (H-1/M-1)."""
+    return fingerprint(body)
+
+
+def did_no_work(outputs, job_type: str | None = None) -> bool:
+    """The one useful-work judge (`runtime.pipeline.did_no_work`), with the job type so the
+    per-job-type work declaration applies. A judge that cannot run says "no work" -- an
+    unreadable output is not evidence of useful work (H-1)."""
     from ..runtime.pipeline import did_no_work as _dnw
 
     outputs = outputs or {}
     if not outputs:
         return True
     try:
-        return bool(_dnw(outputs))
+        return bool(_dnw(outputs, job_type))
     except Exception:  # noqa: BLE001
-        return False
+        return True
 
 
 def job_department(job_type: str, inputs: dict | None) -> str | None:
@@ -141,7 +164,8 @@ def compute(db, key: str, *, now: datetime | None = None, window_hours: int = 24
         last_done = dict(s.execute(
             select(Job.job_type, func.max(Job.finished_at))
             .where(Job.status == JobStatus.DONE).group_by(Job.job_type)).all())
-    mine = [r for r in rows if job_department(r.job_type, r.inputs) == key]
+    mine = [r for r in rows if job_department(r.job_type, r.inputs) == key
+            and r.job_type not in SELF_MEASUREMENT_TYPES]
 
     guard_breaches: list[str] = []
     for r in mine:
@@ -155,7 +179,7 @@ def compute(db, key: str, *, now: datetime | None = None, window_hours: int = 24
     for r in mine:
         if _status(r) != "done":
             continue
-        if did_no_work(r.outputs):
+        if did_no_work(r.outputs, r.job_type):
             noop += 1
             if (r.inputs or {}).get("source") == "autonomy":
                 generated_noop += 1

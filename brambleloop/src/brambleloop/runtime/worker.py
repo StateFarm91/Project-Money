@@ -70,6 +70,36 @@ class JobContext:
         return self.queue.heartbeat(self.job.id, worker=self.job.leased_by or None,
                                     lease_token=getattr(self.job, "lease_token", None))
 
+    def assert_lease(self) -> None:
+        """Raise `LeaseLost` unless this context's claim still holds the job (audit ddf9c6e
+        L-1). Called at the effect boundary (`queue.effects.guard`) so a stale-but-alive
+        worker stops BEFORE an external effect, not only at its (fenced) completion. A
+        context built without a lease token (direct handler calls in tests/tools) has no
+        claim to lose and passes."""
+        token = getattr(self.job, "lease_token", None)
+        if not token or getattr(self.job, "id", None) is None:
+            return
+        from ..queue.effects import LeaseLost
+
+        with self.db.session() as s:
+            row = s.execute(select(Job.status, Job.lease_token, Job.lease_expires_at)
+                            .where(Job.id == self.job.id)).first()
+        if row is None or row.status != JobStatus.RUNNING or row.lease_token != token:
+            raise LeaseLost(f"job {self.job.id}: lease no longer held by this attempt; "
+                            f"external effect not performed")
+        exp = row.lease_expires_at
+        if exp is not None:
+            exp = exp if exp.tzinfo else exp.replace(tzinfo=utcnow().tzinfo)
+            if exp <= utcnow():
+                raise LeaseLost(f"job {self.job.id}: lease expired at {exp.isoformat()}; "
+                                f"external effect not performed")
+
+    def effect(self, effect: str, idem: str):
+        """`with ctx.effect("etsy.activate", key) as intent:` -- see queue.effects.guard."""
+        from ..queue import effects
+
+        return effects.guard(self, effect, idem)
+
 
 def protected_phase(ctx: "JobContext") -> Phase:
     """rc1-AUTH A1: the phase a protected external effect may run in, resolved *now*.
@@ -781,10 +811,68 @@ class Scheduler:
         self.db = db
         self.queue = JobQueue(db)
 
+    def _blocked_departments(self, now) -> dict[str, str]:
+        """Departments whose cadences this tick must not enqueue (audit ddf9c6e L-2).
+
+        A department block (owner action / command-center block) now binds the department's
+        scheduled cadences as well as orchestrator generation. Never-pause departments
+        (F-889: executive, product truth, finance, platform) are exempt -- the same single rule
+        the emergency pause and the orchestrator use. Blocks expire (memory.BLOCK_DEFAULT_TTL)
+        unless renewed, so a forgotten block cannot silence a department forever."""
+        out: dict[str, str] = {}
+        try:
+            from ..app.command_center.emergency import never_paused_refusal
+            from ..autonomy import memory
+            from ..autonomy.charters import CHARTERS
+
+            for ch in CHARTERS:
+                if never_paused_refusal(ch.key) is not None:
+                    continue
+                block = memory.active_block(self.db, ch.key, now=now)
+                if block:
+                    out[ch.key] = str(block["body"].get("reason") or "blocked")
+        except Exception:  # noqa: BLE001 - an unreadable block table never stops scheduling
+            self.block_read_error = traceback.format_exc(limit=2)[-300:]
+        return out
+
+    def _record_cadence_failure(self, name: str, job_type: str, exc: BaseException) -> None:
+        """One poisoned cadence -> one deduplicated incident + audit row (audit ddf9c6e M-2)."""
+        from ..core.models import AuditLog, Incident
+
+        sig = f"scheduler.cadence_failed:{name}"[:200]
+        err = f"{type(exc).__name__}: {str(exc)[:300]}"
+        try:
+            with self.db.session() as s:
+                inc = s.scalar(select(Incident).where(Incident.signature == sig,
+                                                      Incident.resolved.is_(False)))
+                if inc is None:
+                    s.add(Incident(severity="P2", signature=sig,
+                                   summary=(f"cadence {name} ({job_type}) could not be "
+                                            f"enqueued; the other cadences continue"),
+                                   detail={"cadence": name, "job_type": job_type,
+                                           "error": err}))
+                else:
+                    inc.report_count = (inc.report_count or 1) + 1
+                    inc.detail = {**(inc.detail or {}), "error": err}
+                s.add(AuditLog(actor="scheduler", action="scheduler.cadence_failed",
+                               artifact=name[:200],
+                               detail={"job_type": job_type, "error": err}))
+        except Exception:  # noqa: BLE001 - recording a failure must not become one
+            pass
+
     def tick(self, now=None) -> list[str]:
-        """Enqueue any cadence whose window has opened. Safe to call as often as you like."""
+        """Enqueue any cadence whose window has opened. Safe to call as often as you like.
+
+        Per-cadence isolation (audit ddf9c6e M-2): one cadence whose enqueue raises is
+        recorded (incident + audit) and skipped; the remaining cadences are still enqueued
+        and the tick completes, so the runner's heartbeat stays fresh and the stale-scheduler
+        self-exit is not driven by a single poisoned cadence. Only when EVERY cadence that
+        was attempted failed (database down) does the tick raise -- that is a scheduler that
+        has genuinely stopped, which the self-exit exists for."""
         now = now or utcnow()
         enqueued: list[str] = []
+        self.failures: dict[str, str] = {}
+        self.blocked_skipped: dict[str, str] = {}
         # #34: a loop the thrash breaker suspended, or a poll it backed off, is not re-enqueued
         # by the next cadence window.
         try:
@@ -794,18 +882,40 @@ class Scheduler:
         except Exception:  # noqa: BLE001 - a failed read must never stop the scheduler
             suspended = {}
         self.suspended = suspended
+        blocked = self._blocked_departments(now)
+        self.blocked = blocked
+        try:
+            from ..autonomy.charters import department_of
+        except Exception:  # noqa: BLE001
+            def department_of(_jt):  # type: ignore[misc]
+                return None
+        attempted = ok = 0
         for name, agent, job_type, period in CADENCES:
             if job_type in suspended:
                 continue
-            window = int(now.timestamp() // period)
-            key = f"cadence:{name}:{window}"
+            dept = department_of(job_type) if blocked else None
+            if dept in blocked:
+                self.blocked_skipped[name] = dept
+                continue
+            attempted += 1
             try:
+                window = int(now.timestamp() // period)
+                key = f"cadence:{name}:{window}"
                 # The job type's band (#187), not how often it happens to be scheduled.
                 self.queue.enqueue(agent, job_type, {"cadence": name}, idempotency_key=key,
                                    priority=priority_for(job_type))
                 enqueued.append(name)
+                ok += 1
             except DuplicateJob:
+                ok += 1
                 continue
+            except Exception as exc:  # noqa: BLE001 - one cadence never starves the others
+                self.failures[name] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                self._record_cadence_failure(name, job_type, exc)
+                continue
+        if attempted and not ok:
+            raise RuntimeError(f"every cadence failed to enqueue ({len(self.failures)}); "
+                               f"first: {next(iter(self.failures.values()), '')}")
         # PRIORITY ZERO: an empty queue is a reason to ask the orchestrator now, not to wait
         # for its next window. Keyed per five minutes inside `idle_wake`, so it cannot flood.
         try:

@@ -2078,9 +2078,27 @@ def handle_store_activate(ctx: JobContext) -> dict:
     grant = OwnerGrant(ctx.db, action=OwnerGrant.ACTIVATE, approval_id=authorisation,
                        slug=slug, version=version, release=i.get("release", ""),
                        listing_id=str(listing_id))
+    # Audit ddf9c6e L-1: the activation (a listing fee) is at-most-one automatic attempt per
+    # listing + approval. A reclaimed or retried run finds the write-ahead intent and is
+    # refused for reconciliation instead of re-sending; a stale worker stops at the lease check.
+    from ..queue.effects import EffectAlreadyApplied, EffectNotSent, guard as effect_guard
+
     try:
-        client.activate(listing_id, launch_authorisation=f"owner-approval:{authorisation}",
-                        grant=grant)
+        try:
+            with effect_guard(ctx, "etsy.activate", f"{listing_id}:{authorisation}") as intent:
+                try:
+                    client.activate(listing_id,
+                                    launch_authorisation=f"owner-approval:{authorisation}",
+                                    grant=grant)
+                except EtsyAuthNeedsOwner as e:
+                    # Refused for authentication: the activation was not performed, so the
+                    # intent is released and a run after the owner re-authorises may try.
+                    raise EffectNotSent(str(e)) from e
+                intent.applied(f"etsy_listing:{listing_id}")
+        except EffectNotSent as ns:
+            raise ns.__cause__ if isinstance(ns.__cause__, EtsyAuthNeedsOwner) else ns
+        after = client.get_listing(listing_id)
+    except EffectAlreadyApplied:
         after = client.get_listing(listing_id)
     except EtsyAuthNeedsOwner as e:
         etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")
@@ -2147,23 +2165,217 @@ WORK_COUNTERS: tuple[str, ...] = (
     # only `survivors` would call the most informative possible result a no-op and re-drive
     # it, which would pay for the same answer again.
     "generated", "reviews_read",
+    # Audit ddf9c6e H-1: the generic counters an undeclared handler can report work through.
+    "created", "opened", "written", "posted", "matched", "pruned", "deleted", "published",
+    "promoted", "recorded", "drafted", "compiled", "certified", "escalated", "resolved",
+    "new_finding", "new_brief", "lessons_routed", "evidence_added", "proposals_written",
 )
 
+# Durable artefacts an undeclared handler may report having produced (H-1). A reading row a
+# cadence writes on every run (`reading_id`) is deliberately NOT here: an identical reading of
+# an empty database is a measurement of nothing, not an artefact.
+DURABLE_KEYS: tuple[str, ...] = ("artifact", "artifact_id", "created_ids", "written_ids",
+                                 "pdf_sha256", "release_hash")
 
-def did_no_work(outputs: dict) -> bool:
-    """True when a completed job reports that nothing happened.
+# Audit ddf9c6e H-1: the explicit per-job-type declaration of which output keys MEASURE
+# work. A job of a declared type did useful work only when one of these is positive (a number
+# > 0, True, a non-empty list/dict/string -- dicts read recursively; dotted keys reach into a
+# nested reading). Everything else in its outputs (state readings, configuration echoes,
+# `UNMEASURED` labels, per-run reading ids) is context, not work. An empty tuple declares a
+# job type that never counts as useful work on its own (pure liveness).
+WORK_KEYS: dict[str, tuple[str, ...]] = {
+    "ads.adjust": ("enqueued", "escalations"),
+    "assets.build": ("pdf_sha256",),
+    "autonomy.department_review": ("new_finding", "lessons_routed"),
+    "autonomy.morning_handoff": ("new_brief",),
+    "autonomy.orchestrate": ("enqueued",),
+    "build.tick": ("unparked",),
+    "chain.rebuild": ("certified", "restarted", "redrafted", "collections_restarted"),
+    "cir.compile": ("compiled",),
+    "cir.draft": ("drafted",),
+    "collection.assemble": ("requeued", "assembled"),
+    "commerce.order_readings": ("study_opened", "reinvestment_owner_action"),
+    "commerce.orders_ingest": ("orders_created", "orders_reconciled", "customers_created",
+                               "ledger_entries", "versions_recorded", "reconciliations"),
+    "commerce.readings": ("acted",),
+    "creative.benchmark_memory": ("judged_listings", "rewarded"),
+    "creative.blind_review": ("returned_to_development", "counts.inferior",
+                              "counts.not_inferior"),
+    "creative.four_season": (),
+    "creative.grid_tournament": ("pods", "concepts"),
+    "creative.model_reference_pack": ("built",),
+    "creative.north_star": ("improving", "regressing", "incident"),
+    "creative.outcome_learning": ("concepts_with_outcomes",),
+    "creative.style_learning": ("measured_styles", "promoted"),
+    "creative.white_space": ("hypotheses", "complaints"),
+    "culture.sweep": ("recorded", "discovered", "placed", "routed", "demand_points"),
+    "etsy.credential_health": ("findings",),
+    "etsy.probe": ("ok",),
+    "finance.accounting.cycle": ("posting.posted", "posting.reversed", "matching.matched",
+                                 "posting_after_match.posted", "anomalies.findings",
+                                 "anomalies.opened"),
+    "finance.challenge": ("challenges", "blocking"),
+    "finance.escalation_check": ("required", "owner_action"),
+    "finance.governor": ("paused", "incidents", "agents_spiking", "ceilings_changed"),
+    "finance.reconcile": ("pl.gross_sales_cad", "pl.net_sales_cad", "pl.refunds_cad",
+                          "pl.platform_fees_cad"),
+    "gate.certify": ("granted",),
+    "gate.lanes": ("release_refused", "withdrawn", "testers_assigned"),
+    "growth.conclude": ("concluded", "killed"),
+    "growth.distribution": ("pins_ready", "pins_amplified", "clusters_buildable",
+                            "video_modules", "video_stale_replanned", "creators_stopped",
+                            "testers_graduated", "tools_hostable"),
+    "growth.experiments": ("created",),
+    "growth.journey": ("listings_audited", "friction_incidents", "proof_recorded",
+                       "promotions"),
+    "growth.preproduction": ("prepared", "acted_on"),
+    "growth.steer": ("moved", "job_ids", "experiments_prioritised"),
+    "improve.league": ("challengers_registered.registered", "compared", "promoted",
+                       "rolled_back", "cards_closed", "owner_cards"),
+    "improve.measure": ("measured",),
+    "improve.mine": ("published", "regression_fixtures", "routed_to"),
+    "improve.monitor": ("promoted", "judged", "reverted", "rollback_proposals"),
+    "improve.nightly": ("total_found",),
+    "improve.retrospective": ("promotions_assessed", "returned", "regressed_promotions"),
+    "improve.role_work": ("proposed", "kept"),
+    "improve.sandbox": ("sandboxed", "tested", "approved", "promoted", "executed",
+                        "rejected"),
+    "improve.weekly": ("executed", "queued_for_authority", "added"),
+    "intel.acceptance": ("passed",),
+    "intel.benchmark_health": ("incidents_opened",),
+    "intel.benchmark_refresh": ("triggers", "raised"),
+    "intel.panel_discovery": ("joined", "scanned"),
+    "intel.pod_learning": ("records", "judgements", "measured"),
+    "launch.readiness": ("owner_actions_added", "owner_actions_closed"),
+    "learn.scan": ("queued", "generated", "published"),
+    "listing.draft": ("drafted",),
+    "listing.seo": ("listing",),
+    "marketing.ads_readiness": ("rechecked", "campaign_activated"),
+    "marketing.schedule": ("pieces",),
+    "mjs.seasonal_sentinel": ("incidents_opened", "queued", "reallocated"),
+    "model.probe": ("ok",),
+    "ops.capability_probes": ("working",),
+    "ops.capacity": ("reallocation.move",),
+    "ops.continuity": ("retained.archive_id",),
+    "ops.dependencies": ("opened", "resolved"),
+    "ops.health": ("escalated", "recovered", "repaired_elsewhere", "must_escalate"),
+    "ops.heartbeat": (),
+    "ops.maturity_disagreements": ("opened", "resolved"),
+    "ops.offsite_archive": ("ok",),
+    "ops.policy_watch": ("changes_opened", "incidents_opened", "incidents_resolved",
+                         "seeded"),
+    "ops.provenance_backfill": ("backfilled",),
+    "ops.queue_check": ("requeued", "recadenced"),
+    "ops.sentinel": ("rebuild_enqueued", "publication_blocked"),
+    "ops.slo": ("incidents.opened", "incidents.resolved", "incidents.restated"),
+    "ops.thrash": ("tripped", "cancelled", "backoff.applied", "backoff.lifted"),
+    "physical.upgrade_impact": ("upgrades", "measured"),
+    "plan.cycle": ("planned",),
+    "portfolio.review": ("actions",),
+    "pricing.position": ("price_cad",),
+    "radar.scan": ("selected",),
+    "radar.score": ("score",),
+    "scale.trajectory": ("constraint_changed",),
+    "seasonal.engine": ("breakouts", "takeovers_planned", "fast_lane_admitted",
+                        "trend_rows_stamped", "teams_disbanded", "scored_events"),
+    "seasonal.harvest": ("measured",),
+    "seasonal.remerchandising": ("ready_moves", "catalogue_growth", "derived"),
+    "seasonal.sentinel": ("at_risk", "missed"),
+    "seo.cycle": ("changed", "evidence_added", "proposals_written"),
+    "support.triage": ("cases", "escalated", "triage.triaged", "triage.reply_jobs"),
+    "swarm.allocate": ("backlog_batch", "spend_increase_cad"),
+    "swarm.backlog": ("enqueued",),
+    "swarm.orphans": ("reassigned", "incident_owners_assigned", "surfaced_as_incident"),
+    "swarm.review": ("enacted", "retire", "merge"),
+    "teardown.enforce": ("binding", "provisional", "blocked", "lessons"),
+    "visual.identity_drift": ("gradual_drift", "incidents_opened"),
+    # Capability-gated cadences: shadow/credential-less runs report `ran: false` (no-op);
+    # these keys are what they report when the capability is open and they did the work.
+    "assets.model_photography": ("made",),
+    "assets.owned_photography": ("made", "attempted"),
+    "creative.blinded": ("judged",),
+    "creative.expedition": ("proposed", "survivors", "judged", "generated"),
+    "creative.image_benchmark": ("winner", "locked"),
+    "creative.model_tournament": ("finalists",),
+    "creative.reference_reading": ("read", "decompositions_stored"),
+    "creative.tournament": ("proposed", "survivors", "judged", "generated"),
+    "etsy.listing_census": ("observed",),
+    "etsy.shop_snapshot": ("failures", "incidents_opened"),
+    "improve.replay": ("runs", "challengers_registered", "proposed", "retired"),
+    "intel.gallery_analysis": ("judged",),
+    "intel.serp_capture": ("captured",),
+    "listing.search_visibility_watch": ("read_today", "card_raised"),
+    "listing.taxonomy_refresh": ("new_snapshot",),
+    "mjs.reviews": ("reviews_read",),
+    "mjs.scan": ("new", "reclassified", "inspected", "learning_domains"),
+    "ops.retention": ("removed",),
+    "plan.strategy": (),
+    "seasonal.cycle_proof": ("complete", "assets_state"),
+}
 
-    Two shapes, because handlers were written at different times: an explicit `ran: false`,
-    and a `ran: true` whose every work counter is zero. The second is the one that hides --
-    it reads as a successful run in every dashboard, and it is what a defect upstream of the
-    work produces.
-    """
+
+def _positive(value) -> bool:
+    if value is None or isinstance(value, bool):
+        return value is True
+    if isinstance(value, (int, float)):
+        return value > 0
+    if isinstance(value, dict):
+        return any(_positive(v) for v in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return len(value) > 0
+    if isinstance(value, str):
+        return bool(value.strip()) and value.strip().lower() not in (
+            "none", "unmeasured", "unknown", "no_evidence")
+    return bool(value)
+
+
+def _read(outputs: dict, key: str):
+    cur = outputs
+    for part in key.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+    return cur
+
+
+def reported_no_work(outputs: dict) -> bool:
+    """The narrow, pre-H-1 rule: the handler itself SAID nothing happened (`ran: false`, or
+    `ran: true` with every legacy work counter zero). Used only by `ops.queue_check` to
+    decide what to re-drive once per deploy -- a cost decision, deliberately narrower than
+    the usefulness judge so an honest "nothing to do" does not re-run on every deploy."""
     if outputs.get("ran") is False:
         return True
     if outputs.get("ran") is not True:
         return False
-    counters = [outputs.get(key) for key in WORK_COUNTERS if key in outputs]
+    counters = [outputs.get(key) for key in WORK_COUNTERS[:14] if key in outputs]
     return bool(counters) and not any(counters)
+
+
+def did_no_work(outputs: dict, job_type: str | None = None) -> bool:
+    """True when a completed job did no useful work. THE judge (audit ddf9c6e H-1).
+
+    Proxy is not measurement, so the default is "no work" unless the outputs show some:
+      * empty outputs, `ran: false`, or `measurable: false` -> no work;
+      * a handler may state it directly with `work_done` (a count; <= 0 is no work);
+      * a job type declared in WORK_KEYS did work only when a declared key is positive;
+      * an undeclared type did work only when a generic work counter is > 0 or it names a
+        durable artefact it produced (DURABLE_KEYS).
+    So `{"cases": 0}`, `{"checked": 0}`, `{"measurable": false}`, `{"products": 0, ...}`
+    and a hardcoded `generated: 1` from a self-review (now removed) are all no-ops."""
+    if not outputs:
+        return True
+    if outputs.get("ran") is False or outputs.get("measurable") is False:
+        return True
+    if "work_done" in outputs:
+        return not _positive(outputs.get("work_done"))
+    declared = WORK_KEYS.get(job_type) if job_type else None
+    if declared is not None:
+        return not any(_positive(_read(outputs, k)) for k in declared)
+    if any(_positive(outputs.get(k)) for k in WORK_COUNTERS):
+        return False
+    if any(_positive(outputs.get(k)) for k in DURABLE_KEYS):
+        return False
+    return True
 
 
 @handlers.register("ops.queue_check")
@@ -2225,7 +2437,7 @@ def handle_queue_check(ctx: JobContext) -> dict:
                                   .order_by(desc(Job.id)).limit(1)))
             if not last:
                 continue
-            if did_no_work(last[0].outputs or {}):
+            if reported_no_work(last[0].outputs or {}):
                 recadenced.append(name)
 
     for name, agent, job_type, _period in CADENCES:

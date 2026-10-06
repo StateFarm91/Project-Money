@@ -118,12 +118,12 @@ def collect(db, started, finished, samples) -> dict:
         e["total"] += 1
         e["done"] += st == "done"
         e["dead"] += st == "dead"
-        e["useful"] += st == "done" and not did_no_work(j.outputs)
+        e["useful"] += st == "done" and not did_no_work(j.outputs, j.job_type)
         if (j.inputs or {}).get("source") == "autonomy":
             g = generated.setdefault(d, {"jobs": [], "useful": 0})
             g["jobs"].append({"id": j.id, "job_type": j.job_type, "status": st,
                               "reason": (j.inputs or {}).get("reason", "")[:160]})
-            g["useful"] += st == "done" and not did_no_work(j.outputs)
+            g["useful"] += st == "done" and not did_no_work(j.outputs, j.job_type)
         if st == "dead":
             dead.append({"id": j.id, "job_type": j.job_type,
                          "class": classify_dead_letter(j.job_type, j.last_error or ""),

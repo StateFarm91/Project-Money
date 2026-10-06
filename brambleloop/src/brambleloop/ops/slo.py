@@ -770,9 +770,10 @@ def _did_no_work():
 
         return did_no_work, "runtime.pipeline.did_no_work"
     except Exception:  # noqa: BLE001 - judged conservatively without it
-        def fallback(outputs: dict) -> bool:
-            return (outputs or {}).get("ran") is False
-        return fallback, "fallback: outputs.ran is False"
+        def fallback(outputs: dict, job_type: str | None = None) -> bool:
+            # Without the judge nothing is proven useful (audit ddf9c6e H-1).
+            return True
+        return fallback, "fallback: judge unavailable, nothing counted as useful"
 
 
 def departments(s, now: datetime) -> tuple[dict, dict, list[dict]]:
@@ -827,9 +828,9 @@ def departments(s, now: datetime) -> tuple[dict, dict, list[dict]]:
             continue
         done_counts[dept] += 1
         try:
-            empty = judge(outputs or {})
-        except Exception:  # noqa: BLE001
-            empty = False
+            empty = judge(outputs or {}, jt)
+        except Exception:  # noqa: BLE001 - an unjudgeable output is not useful work
+            empty = True
         if not empty:
             useful_hours[dept].add(int((_aware(finished) - start).total_seconds() // 3600))
 
@@ -1100,6 +1101,84 @@ SOAK_MIN_HOURS = 24
 INTERACTIVE_ACTORS = ("owner", "operator", "claude", "codex", "fable", "chatgpt")
 
 
+def _effect_evidence(s, start: datetime, end: datetime, intents: list | None) -> dict:
+    """Audit ddf9c6e M-3: read the actual effect records, not only stale-lease refusals.
+
+    A job reclaimed after an attempt that never finished (`queue.lease_reclaimed`) ran its
+    handler body twice. That is a duplicated external effect unless one of these holds:
+      * its job type is declared effect-free (keyed DB writes only, queue.effects), or
+      * its external effect is guarded write-ahead (queue.effects intents with this job id,
+        or a type whose handler routes every effect through a guard: EFFECT_INVENTORY).
+    Independently, money is an external effect: a reclaimed job with cost_entries may have
+    paid twice, and two cost entries sharing a provider request id did. Each is a violation,
+    so the criterion FAILS; nothing here is inferred from the absence of a refusal row."""
+    from collections import Counter
+
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, CostEntry, Job
+
+    try:
+        from ..queue import effects as eff
+        inventory = eff.EXTERNAL_EFFECT_JOB_TYPES
+        effect_free = eff.EFFECT_FREE_JOB_TYPES
+    except Exception:  # noqa: BLE001 - nothing is assumed safe without the declarations
+        inventory, effect_free = frozenset(), frozenset()
+    reclaimed_ids = sorted({j for (j,) in s.execute(select(AuditLog.job_id).where(
+        AuditLog.action == "queue.lease_reclaimed", AuditLog.at >= start,
+        AuditLog.at <= end)).all() if j is not None})
+    types = dict(s.execute(select(Job.id, Job.job_type).where(
+        Job.id.in_(reclaimed_ids))).all()) if reclaimed_ids else {}
+    guarded_jobs = {r["job_id"] for r in (intents or []) if r["job_id"] is not None}
+    violations: list[dict] = []
+    for jid in reclaimed_ids:
+        jt = types.get(jid, "?")
+        if jt in effect_free or jt in inventory or jid in guarded_jobs:
+            continue
+        violations.append({"job_id": jid, "job_type": jt,
+                           "why": "re-executed after an interrupted attempt with no "
+                                  "write-ahead effect intent and not declared effect-free"})
+    if reclaimed_ids:
+        paid = sorted({j for (j,) in s.execute(select(CostEntry.job_id).where(
+            CostEntry.job_id.in_(reclaimed_ids))).all() if j is not None})
+        for jid in paid:
+            violations.append({"job_id": jid, "job_type": types.get(jid, "?"),
+                               "why": "paid call(s) recorded on a job that was re-executed "
+                                      "after an interrupted attempt"})
+    req = Counter()
+    for (detail,) in s.execute(select(CostEntry.detail).where(
+            CostEntry.at >= start, CostEntry.at <= end)).all():
+        rid = (detail or {}).get("request_id") if isinstance(detail, dict) else None
+        if rid:
+            req[str(rid)] += 1
+    for rid, n in req.items():
+        if n > 1:
+            violations.append({"request_id": rid[:80], "why": f"{n} cost entries for one "
+                               f"provider request id"})
+    try:
+        from ..publish.draft_intent import DraftIntent
+        draft_unknown = s.scalar(select(func_count()).select_from(DraftIntent).where(
+            DraftIntent.state == "RECONCILE_REQUIRED")) or 0
+    except Exception:  # noqa: BLE001
+        draft_unknown = None
+    dup_refused = s.scalar(select(func_count()).select_from(AuditLog).where(
+        AuditLog.action == "effect.duplicate_refused", AuditLog.at >= start,
+        AuditLog.at <= end)) or 0
+    return {"reclaimed_jobs": len(reclaimed_ids),
+            "effect_intents": None if intents is None else len(intents),
+            "uncertain_effects": None if intents is None else sum(
+                1 for r in intents if r["state"] == "UNCERTAIN"),
+            "draft_intents_reconcile_required": draft_unknown,
+            "duplicate_attempts_refused_by_guard": int(dup_refused),
+            "violations": violations[:20]}
+
+
+def func_count():
+    from sqlalchemy import func
+
+    return func.count()
+
+
 def soak_report(db, *, start: datetime, end: datetime | None = None) -> dict:
     """Pass/fail evidence for a lights-out window, computed only from durable rows.
 
@@ -1119,6 +1198,12 @@ def soak_report(db, *, start: datetime, end: datetime | None = None) -> dict:
         raise ValueError("a soak window cannot end in the future; it has to be lived through")
     hours = (end - start).total_seconds() / 3600
     report = evaluate(db, now=end)
+    try:  # read before the scope's transaction: the table may need creating (DDL)
+        from ..queue import effects as _eff
+
+        intents = _eff.rows(db)
+    except Exception:  # noqa: BLE001 - unreadable effect records cannot prove absence
+        intents = None
     with _Scope(db) as s:
         cadence_hours = {int((t - start).total_seconds() // 3600)
                          for t in _cadence_job_stamps(s, start, end)}
@@ -1143,6 +1228,7 @@ def soak_report(db, *, start: datetime, end: datetime | None = None) -> dict:
         dup_refusals = s.scalar(select(func.count()).select_from(AuditLog).where(
             AuditLog.action.in_(["queue.stale_lease_refused", "queue.unfenced_write_refused"]),
             AuditLog.at >= start, AuditLog.at <= end)) or 0
+        effect_evidence = _effect_evidence(s, start, end, intents)
     useful_depts = [r["department"] for r in report["departments"] if r["useful_hours"] > 0]
     slos = report["slos"]
     expected_hours = max(1, int(math.floor(hours)))
@@ -1177,8 +1263,11 @@ def soak_report(db, *, start: datetime, end: datetime | None = None) -> dict:
              None if avail["state"] == UNKNOWN else avail["state"] in (MET, AT_RISK),
              {"sli": avail["sli"], "coverage": (avail.get("measure") or {}).get("coverage")},
              "ops_runtime_samples(probe)"),
-        crit("no duplicated external effect (no fenced double-write)", dup_refusals == 0,
-             {"fenced_refusals": dup_refusals}, "audit_log(queue.*_refused)"),
+        crit("no duplicated external effect (effect records, reclaims, fenced writes)",
+             dup_refusals == 0 and not effect_evidence["violations"],
+             {"fenced_refusals": dup_refusals, **effect_evidence},
+             "effect_intents, draft_creation_intents, audit_log(queue.lease_reclaimed, "
+             "queue.*_refused, effect.duplicate_refused), cost_entries(job_id, request_id)"),
         crit("no P0/P1 incident opened", not p1_open, {"p0_p1": p1_open[:10]}, "incidents"),
     ]
     verdict = ("FAIL" if any(c["result"] == "FAIL" for c in criteria) else

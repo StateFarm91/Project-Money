@@ -137,10 +137,22 @@ def events(db, *, limit: int = 50, since: datetime | None = None,
 
 # ---- department blocks (F-894 / §95 "block one department on an owner action") ----------
 
+# Audit ddf9c6e L-2: a block is not forever by default. One that nobody renews lapses after
+# this long, so a forgotten manual block cannot silence a department indefinitely. Renewal is
+# explicit (`renew_block`, or blocking again), and an explicit `until` is honoured as given.
+BLOCK_DEFAULT_TTL = timedelta(hours=24)
+
+
 def block_department(db, department: str, *, reason: str, owner_action: str = "",
                      until: datetime | None = None, now: datetime | None = None) -> dict:
-    """Record that a department is blocked (owner action, emergency pause). Others continue."""
+    """Record that a department is blocked (owner action, emergency pause). Others continue.
+
+    The block binds both orchestrator generation and the department's scheduled cadences
+    (except never-pause departments, F-889), and expires after BLOCK_DEFAULT_TTL unless
+    `until` is given or it is renewed."""
     now = now or _now()
+    if until is None:
+        until = now + BLOCK_DEFAULT_TTL
     out = remember(db, f"block:{department}", kind="block", department=department,
                    subject=reason[:200], state="active",
                    body={"reason": reason, "owner_action": owner_action,
@@ -149,6 +161,24 @@ def block_department(db, department: str, *, reason: str, owner_action: str = ""
                    sources=[f"owner_actions:{owner_action}"] if owner_action else [], now=now)
     record_event(db, f"block:{department}:{now.isoformat()}", kind="department.blocked",
                  department=department, summary=f"{department} blocked: {reason}",
+                 severity="warn", at=now)
+    return out
+
+
+def renew_block(db, department: str, *, now: datetime | None = None,
+                ttl: timedelta = BLOCK_DEFAULT_TTL) -> dict | None:
+    """Explicitly extend an active block by `ttl` from now. None when nothing is active."""
+    now = now or _now()
+    row = active_block(db, department, now=now)
+    if row is None:
+        return None
+    until = now + ttl
+    out = remember(db, f"block:{department}", kind="block", department=department,
+                   state="active", body={**row["body"], "until": until.isoformat(),
+                                         "renewed": now.isoformat()}, now=now)
+    record_event(db, f"block.renewed:{department}:{now.isoformat()}",
+                 kind="department.block_renewed", department=department,
+                 summary=f"{department} block renewed until {until.isoformat()}",
                  severity="warn", at=now)
     return out
 
@@ -170,9 +200,18 @@ def active_block(db, department: str, *, now: datetime | None = None) -> dict | 
     if row is None or row["state"] != "active":
         return None
     until = row["body"].get("until")
+    if not until:
+        # A row written before blocks expired (no `until`): it lapses BLOCK_DEFAULT_TTL after
+        # it was placed, like any other unrenewed block.
+        since = row["body"].get("since")
+        try:
+            until = (datetime.fromisoformat(since) + BLOCK_DEFAULT_TTL).isoformat() \
+                if since else None
+        except ValueError:
+            until = None
     if until:
         try:
-            if datetime.fromisoformat(until) <= now:
+            if _aware(datetime.fromisoformat(until)) <= _aware(now):
                 return None
         except ValueError:
             pass
