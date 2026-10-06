@@ -67,13 +67,13 @@ def seed(db) -> dict:
     p = private_principal(db)
     ids = {"facts": [], "turns": []}
     for i, s in enumerate(SENTINELS[:4]):
-        ids["facts"].append(store.remember(db, p, f"k{i}", s))
+        ids["facts"].append(store.remember(db, p, f"PRIV-LABEL-{i}", s))
     t1 = store.record_turn(db, p, "owner", f"note {SENTINELS[4]} end")
     t2 = store.record_turn(db, p, "laura", f"ack {SENTINELS[5]}", reply_to=t1,
                            model_ref="provider-a/model-1")
     ids["turns"] += [t1, t2]
-    ids["facts"].append(store.remember(db, p, "quoted", SENTINELS[4], provenance="interaction",
-                                       sources=[t1]))
+    ids["facts"].append(store.remember(db, p, "PRIV-LABEL-QUOTED", SENTINELS[4],
+                                       provenance="interaction", sources=[t1]))
     t3 = store.record_turn(db, p, "owner", SENTINELS[6])
     ids["turns"].append(t3)
     ids["facts"].append(store.remember(db, p, "k-last", SENTINELS[7]))

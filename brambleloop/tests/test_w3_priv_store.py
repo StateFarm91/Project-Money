@@ -46,7 +46,7 @@ def test_roundtrip_returns_private_values():
     conv = store.conversation(db, ids["principal"])
     assert [r.role for r in conv] == ["owner", "laura", "owner"]
     assert conv[1].reply_to == conv[0].record_id and conv[1].model_ref == "provider-a/model-1"
-    one = store.facts(db, ids["principal"], "k1")
+    one = store.facts(db, ids["principal"], "PRIV-LABEL-1")
     assert len(one) == 1 and one[0].value.reveal() == kit.SENTINELS[1]
 
 
@@ -58,7 +58,7 @@ def test_content_is_encrypted_at_rest():
     assert len(blob) > 1000
     hits = [s for s in kit.SENTINELS if s.encode() in blob]
     assert not hits, hits
-    for label in (b"k0", b"quoted", b"provider-a/model-1"):
+    for label in (b"PRIV-LABEL-0", b"PRIV-LABEL-QUOTED", b"provider-a/model-1"):
         assert label not in blob, label           # keys and model refs are inside ciphertext
     with db.session() as s:
         rows = list(s.scalars(select(PrivateEntry)))
