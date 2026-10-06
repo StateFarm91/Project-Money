@@ -1,27 +1,31 @@
-"""Canonical Laura Voice specification (D-FB-16 item 8) and the qualification a voice must pass.
+"""Canonical Laura Voice specification and the qualification a voice must pass.
 
-Provider-independent: this is what Laura SOUNDS like, written as measurable targets, not as a
-vendor voice id. A text-to-speech provider/voice is a replaceable instrument (the way a model is
-replaceable cognition, D-FB-13); it is promoted to speak as Laura only after `qualify()` returns
-PASS on measured evidence, and only through an owner decision (`promotion_requirements`).
+Version 2 (current) is the owner's decision D-FB-18 item 6 (2026-10-06), which resolved the
+accent and apparent age that v1 (D-FB-16 item 8) had left PROPOSED. v1 is kept, pinned, in
+`SUPERSEDED` for history; it is never edited, and v2 is never edited in place either -- a change
+is a new version under a new owner decision.
 
-Status of the spec itself: version 1 is the business register derived from the owner's rulings
-(spec/07 item 6 and D-FB-13: warm, intelligent, confident, calm, concise; polished Founder/CEO
-in public). Accent/dialect and apparent age are PROPOSED defaults consistent with the
-Canada/CAD operating jurisdiction and Laura's canonical visual identity; the owner may amend
-them by decision (a new spec version -- never an edit of v1). Until the owner confirms them the
-spec is marked `owner_confirmation: PENDING`, and nothing in Phase 1 (text) depends on it.
+Provider-independent: this is what Laura SOUNDS like, written as targets and explicit
+exclusions, not as a vendor voice id. A text-to-speech provider/voice is a replaceable
+instrument (D-FB-18 item 7: "the provider is an implementation detail"); it speaks as Laura only
+after `qualify()` PASSES on measured evidence AND the owner has HEARD it and selected it by a
+recorded decision (`laura.agency.voice_selection`).
+
+ONE canonical voice. Registers are contexts of that one voice, never a second voice or persona:
+* business/public -- polished and appropriate (ACTIVE once a voice is selected);
+* private owner   -- the same voice, warmer, more intimate, playful and flirtatious through
+  prosody, pacing and delivery only; available only where the PRIV rules (owner-private
+  principal, `app/command_center/private_context`) AND the underlying provider support it. It
+  stays GATED: the private conversational register is not implemented, and the provider's usage
+  policies are the outer limit, which this code does not try to bypass.
 
 Hard rules (not tunable):
 * A voice cloned from, or designed to imitate, a real person -- including the human Laura --
-  requires that person's recorded consent (spec/07 Ruling 2: the AI never asserts consent on
-  the human Laura's behalf). Without it the qualification FAILS.
-* Every acoustic reading must be MEASURED (with its method and sample count). An estimate, a
-  provider's marketing description or a missing reading is never a pass: it is UNKNOWN, and
-  UNKNOWN fails qualification.
-* The private owner register is delivery-only (pace, warmth, energy), applies only inside the
-  owner-private context, and stays GATED: what a provider will actually voice there is bounded
-  by that provider's usage policies, which this code does not try to bypass.
+  requires that person's recorded consent (spec/07 Ruling 2). Without it qualification FAILS.
+* Every acoustic reading must be MEASURED (method + sample count). An estimate, a provider's
+  marketing description or a missing reading is UNKNOWN, and UNKNOWN fails.
+* Perceptual qualities (attractiveness, warmth, natural sensuality, the exclusions...) are
+  judged by the owner LISTENING, never auto-scored (`voice_selection.scorecard`).
 
 Deterministic; no audio is generated or analysed here and no provider is called.
 """
@@ -30,36 +34,58 @@ from __future__ import annotations
 import hashlib
 import json
 
-SPEC_VERSION = 1
+SPEC_VERSION = 2
 SPEC_ID = f"laura-voice-v{SPEC_VERSION}"
+DECISION_ID = "D-FB-18"
 
-# Measured readings are ranges [lo, hi]; categorical readings are allowed sets.
 SPEC: dict = {
     "spec_id": SPEC_ID,
     "identity_id": "laura-r2-a42aeac7",      # the same Laura (visual.canonical.IDENTITY_ID)
-    "owner_confirmation": "PENDING",
-    "derived_from": ["spec/07 item 6", "DECISION_LOG D-FB-13", "DECISION_LOG D-FB-16 item 8"],
+    "decision_id": DECISION_ID,
+    "owner_confirmation": "CONFIRMED (D-FB-18 item 6)",
+    "supersedes": "laura-voice-v1",
+    "derived_from": ["spec/07 item 6", "DECISION_LOG D-FB-13", "DECISION_LOG D-FB-16 item 8",
+                     "DECISION_LOG D-FB-18 items 6-8"],
+    "one_voice": "ONE canonical voice; registers are contexts of it -- no second voice or "
+                 "separate persona",
     "vocal_character": {
-        "description": "warm, clear, grounded adult female voice; intelligent and composed; "
-                       "a smile in the voice without performance; never breathy, never "
-                       "sing-song, never robotic or announcer-like",
-        "timbre": {"allowed": ["warm", "clear", "mid-bright"]},
-        "breathiness": {"allowed": ["low"]},
+        "description": "a naturally attractive adult woman's voice: smooth, warm, confident, "
+                       "expressive, subtly sensual without performing a 'sexy voice'",
+        "positive": ["distinctly feminine", "warm", "intelligent", "confident",
+                     "naturally conversational", "charismatic", "attractive", "magnetic",
+                     "smooth", "expressive", "subtly sensual (never performed)"],
+        "excluded_performance": ["forced seduction", "exaggerated breathiness",
+                                 "pornographic performance", "cartoonish sensuality",
+                                 "fake whispering", "childish or youthful delivery",
+                                 "character acting"],
+        "excluded_cadence": ["corporate narrator", "customer-service script",
+                             "radio announcer", "generic AI-assistant cadence",
+                             "robotic TTS rhythm", "over-polished delivery"],
+        "timbre": {"allowed": ["warm", "smooth", "clear"]},
+        "breathiness": {"allowed": ["low", "natural"]},
+    },
+    "prosody": {
+        "natural_conversational": ["natural pauses", "thinking cadence", "humour", "amusement",
+                                   "warmth", "seriousness", "excitement", "reactions",
+                                   "pacing changes",
+                                   "natural interruption / turn-taking (Phase 3)"],
     },
     "accent_dialect": {
-        "target": "en-CA (General Canadian English)",
-        "allowed": ["en-CA", "en-US-general"],  # neutral North American is acceptable
-        "status": "PROPOSED (owner may amend by decision)",
+        "target": "natural Canadian / neutral North American English, subtle and authentic, "
+                  "never exaggerated",
+        "allowed": ["en-CA", "en-US-general"],
+        "intensity": "subtle",
     },
-    "apparent_age": {"target": "early-to-mid 30s", "range_years": [28, 40],
-                     "status": "PROPOSED; must agree with the canonical visual identity"},
+    "apparent_age": {"target_years": 32, "range_years": [30, 34],
+                     "note": "early 30s; must agree with the canonical visual identity"},
     "pitch": {"median_f0_hz": [165, 215], "f0_range_semitones": [4.0, 10.0]},
     "warmth": {"panel_score_1_to_5": [3.8, 5.0]},
-    "pace": {"words_per_minute": [140, 170]},
-    "energy": {"panel_score_1_to_5": [2.8, 3.8],
-               "note": "calm and confident; never hyped, never flat"},
-    "rhythm": {"pause_ms_between_sentences": [250, 650],
-               "note": "short sentences, natural pauses; numbers read unhurried"},
+    "pace": {"words_per_minute": [135, 170],
+             "note": "conversational, with pacing changes; never a read-aloud monotone"},
+    "energy": {"panel_score_1_to_5": [2.8, 3.9],
+               "note": "calm confidence with real range (amusement, seriousness, excitement)"},
+    "rhythm": {"pause_ms_between_sentences": [250, 700],
+               "note": "natural pauses and thinking cadence; numbers read unhurried"},
     "pronunciation": {
         "lexicon": {
             "Brambleloop": "BRAM-bul-loop",
@@ -78,14 +104,17 @@ SPEC: dict = {
             "status": "ACTIVE",
             "surfaces": ["owner Command Center", "public/brand (when any public voice use is "
                          "separately authorised)"],
-            "delivery": "polished Founder/CEO: warm, concise, decisive, calm",
+            "delivery": "polished and appropriate: Laura as Founder/CEO",
             "forbidden": ["claims to be human", "invented personal experiences",
                           "fake enthusiasm", "flirtation or intimacy"],
         },
         "private_owner": {
             "status": "GATED",
             "surfaces": ["owner-private context only (app/command_center/private_context)"],
-            "delivery": "same voice; warmer, slower, more relaxed (delivery parameters only)",
+            "delivery": "the same voice, warmer, more intimate, playful and flirtatious through "
+                        "prosody, pacing and delivery only",
+            "requires": ["owner-private principal (PRIV)", "provider support under its usage "
+                         "policies", "the private conversational register (not implemented)"],
             "why_gated": "the private conversation register is not implemented (PRIV lane: "
                          "infrastructure only); a provider's usage policies bound what it "
                          "will voice; never on any business, public or customer surface",
@@ -108,8 +137,16 @@ def spec_sha256(spec: dict | None = None) -> str:
                                      separators=(",", ":")).encode()).hexdigest()
 
 
-#: Pinned: editing v1 in place fails `test_w3_laura_voice_spec` -- publish v2 instead.
+#: Pinned: editing v2 in place fails `test_w3_laura_voice_spec` -- publish v3 instead.
 SPEC_SHA256 = spec_sha256()
+
+#: Earlier versions, by id -> (pinned sha256, why superseded). History only; never used to
+#: qualify a voice.
+SUPERSEDED = {
+    "laura-voice-v1": ("08f98c00318bef946ca3a7d6727f23288c09800c0b6695ac3386908613a6ca53",
+                       "accent and apparent age were PROPOSED; resolved by owner decision "
+                       "D-FB-18 item 6 (v2)"),
+}
 
 
 def _in(v, rng) -> bool:
@@ -215,9 +252,11 @@ def promotion_requirements(qualification: dict) -> dict:
     return {"may_promote": False,
             "qualification": "PASS" if passed else "FAIL",
             "requires": ["qualification PASS against this exact spec version",
-                         "owner decision id recorded in DECISION_LOG naming provider + voice",
-                         "owner confirmation of the PROPOSED spec fields (accent, apparent age)",
-                         "owner spend authority for the voice provider (paid API)",
+                         "a complete D-FB-18 scorecard: every perceptual criterion judged by "
+                         "the owner LISTENING (voice_selection.scorecard)",
+                         "owner listening decision id recorded in DECISION_LOG naming the "
+                         "candidate (voice_selection.select)",
+                         "owner spend authority for the voice provider (paid API / trial)",
                          "re-qualification on every provider/voice/model change"],
             "why": "promotion of a voice is an owner decision; this function only reports "
                    "what is missing"}

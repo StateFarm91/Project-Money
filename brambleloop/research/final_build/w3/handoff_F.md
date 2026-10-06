@@ -143,3 +143,45 @@ Interpreter: `/home/user/Project-Money/brambleloop/.venv/bin/python`, `PYTHONPAT
 - **Private register:** not implemented (GATED). Only owner-supplied text is stored and shown.
 - **Delegation parser:** regex-based. Unusual phrasings fall back to the business intents or Ask Company. Naive pluralisation, e.g. "heros".
 - **Database:** SQLite only; Postgres not exercised.
+
+
+## Follow-up: D-FB-18 items 6–8 (Laura Voice decided; Phase 1 approved)
+I merged `claude/visual-investigation` again (d2c92e2), which brought in D-FB-18. The merge had no conflicts.
+
+| Item | Status | Where / proof |
+|---|---|---|
+| Voice spec v1 → v2 (decision D-FB-18), pinned | COMPLETE | **Spec content.** `voice_spec.py` is now `laura-voice-v2`, sha `4c5ab12b…`. v1 (`08f98c00…`) is kept pinned in `SUPERSEDED`. Apparent age is 30–34, centred on 32. Accent is subtle en-CA or neutral North American. The spec carries the full positive character list and both exclusion lists (performance and cadence), plus the natural conversational prosody list. **One canonical voice.** It has two registers: business (polished, ACTIVE) and private_owner. The private_owner register is the same voice made warmer, more intimate, playful and flirtatious through prosody only. It requires PRIV, provider support and the unbuilt private register, so it stays GATED exactly as before. **Qualification.** `qualify()` is unchanged except that it now checks against the v2 ranges. |
+| Candidate scorecard + selection rule + durable voice identity | COMPLETE (no voice selected) | **Scorecard.** `voice_selection.py` scores all 14 D-FB-18 criteria (plus "exclusions absent"). The 10 perceptual criteria are judgements by the owner or a named human listener, and each must name the samples heard. An automatic, model, metric or provider score reads UNKNOWN. Attractiveness, natural sensuality, match to appearance and same-voice are owner-only. **Technical criteria** need recorded measurements or evidence. Cost reads UNKNOWN until a price exists. **Selection.** `select()` requires all of: a PASS qualification on the current spec sha, a scorecard PASS, an owner listening decision id that is recorded in DECISION_LOG, and judgements made on the exact reference samples. It then writes a hash-chained `laura_voice_identity` row with provider-independent descriptors and the reference-sample digest. The provider is recorded as a replaceable instrument. **Replacement.** A replacement must requalify and be judged by the owner to be the same voice as the reference. A tampered chain is reported. No provider is called. |
+| Owner action "listen to shortlisted Laura voice candidates" | COMPLETE (catalogue; see wiring request 5) | `voice_selection.OWNER_ACTION`. It needs provider access and paid-trial approval; max cost is UNKNOWN until a provider is chosen. It is shown in the Laura presence card and in "What genuinely needs me?". I did **not** insert it into the consolidated `owner_actions` table, because `max_cost_cad` is a non-null float. Storing it there would show CA$0.00 and the executor would treat it as free. |
+| Voice (P2) and Live Presence (P3, Zoom-like) registered as REQUIRED open rows; voice as a permanent improvement domain | COMPLETE (registry in code); fold-in is wiring request 6 | `laura/agency/roadmap.py` holds rows LAURA-TEXT-P1 (COMPLETE), LAURA-VOICE-P2, LAURA-LIVE-P3, LAURA-PRIVATE-REGISTER and LAURA-VOICE-IMPROVE. Each GATED row is `required`, `cancelled: false`, and carries a `gate {kind, key, detail}` in the closure v1.1 row shape. Status is recomputed from the configured adapters and is never declared. `IMPROVEMENT_DOMAIN` covers realism, latency, prosody, expressiveness and conversation quality. Its invariant is the locked identity: every challenger must be judged the same voice. Its metrics are UNKNOWN. The new provider `laura_roadmap` is shown in the CC Learn tab (DEGRADED, with reason) and in `/api/cc/laura/presence`. |
+
+**Tests for this follow-up** (re-run on the final source; counts are OK lines; 0 FAIL in every suite):
+- New `test_w3_laura_voice_selection`: 4.
+- `test_w3_laura_voice_spec`: 7 (v2 pin plus the D-FB-18 content).
+
+| Suite | OK |
+|---|---|
+| `test_w3_laura_cc_access` | 5 |
+| `test_w3_laura_cc_delegation` | 5 |
+| `test_w3_laura_cc_followon` | 4 |
+| `test_w3_laura_cc_integration` | 5 |
+| `test_w3_laura_cc_private` | 7 |
+| `test_w3_laura_cc_providers` | 7 |
+| `test_w3_laura_cc_talk` | 9 |
+| `test_w3_laura_cc_wiring` | 5 |
+| `test_w3_laura_presence` | 4 |
+| `test_w3_priv_leak` | 7 |
+| `test_w3_priv_firewall` | 7 |
+| `test_vacuity` | 7 |
+| `test_secret_scan` | 7 |
+| `test_reachability` | 11 |
+| `test_v11_cc_views` | 13 |
+| `test_v11_pwa_static` | 79 |
+| `test_route_auth_default_deny` | 7 |
+| `test_w3_laura_core_identity` | 11 |
+
+**WIRING REQUESTS added by the follow-up:**
+
+5. **core/models owner (lane D / integrator):** give `OwnerAction` an explicit unknown max-cost (for example nullable `max_cost_cad` plus a `max_cost_basis`) and teach `build2.executor` not to treat UNKNOWN as free. Then seed `voice_selection.OWNER_ACTION` into the consolidated queue, keyed by `laura.voice.listen_shortlist`.
+6. **Lane K / integrator (closure):** fold `roadmap.ROWS` into the W3 closure's v1.1 overlay as owner-ruling rows. They must stay REQUIRED/GATED and must never be marked N/A or cancelled.
+7. **Learn/improve owner:** register a `laura_voice` loop in `improve.policy_loops` (or the department loop registry) once a voice is selected. Use `roadmap.IMPROVEMENT_DOMAIN`. The proposer is Brand/Laura, the challenger is an independent listener, the metric is owner A/B listening preference, and the guardrails are latency and same-voice. A loop with no measurable data today would be a fake loop, so I did not register one.

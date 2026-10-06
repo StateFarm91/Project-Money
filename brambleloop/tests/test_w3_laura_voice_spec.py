@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from brambleloop.laura.agency import voice_spec as V  # noqa: E402
 from brambleloop.visual import canonical  # noqa: E402
 
-PINNED = "08f98c00318bef946ca3a7d6727f23288c09800c0b6695ac3386908613a6ca53"
+PINNED = "4c5ab12b2975a0269cde6d4ea13d985c3eab252a3cdf953c5a19edc420585b2b"   # v2, D-FB-18
+PINNED_V1 = "08f98c00318bef946ca3a7d6727f23288c09800c0b6695ac3386908613a6ca53"
 
 
 def _m(value, samples=30, method="praat f0 + forced alignment over 30 business sentences"):
@@ -57,8 +58,38 @@ def test_spec_covers_every_owner_dimension_and_is_pinned():
     assert s["registers"]["business"]["status"] == "ACTIVE"
     assert s["registers"]["private_owner"]["status"] == "GATED"
     assert s["identity_id"] == canonical.IDENTITY_ID          # the same Laura
-    assert s["owner_confirmation"] == "PENDING"               # proposed fields are labelled
+    assert s["spec_id"] == "laura-voice-v2" and s["decision_id"] == "D-FB-18"
+    assert s["owner_confirmation"].startswith("CONFIRMED")
     assert V.SPEC_SHA256 == V.spec_sha256() == PINNED, V.spec_sha256()
+    assert V.SUPERSEDED["laura-voice-v1"][0] == PINNED_V1       # history kept, pinned
+
+
+def test_v2_carries_the_owner_d_fb_18_direction():
+    s = V.SPEC
+    assert s["apparent_age"]["range_years"] == [30, 34] and s["apparent_age"]["target_years"] == 32
+    assert s["accent_dialect"]["allowed"] == ["en-CA", "en-US-general"]
+    assert s["accent_dialect"]["intensity"] == "subtle"
+    vc = s["vocal_character"]
+    for w in ("distinctly feminine", "warm", "intelligent", "confident", "charismatic",
+              "attractive", "magnetic", "smooth", "expressive"):
+        assert w in vc["positive"], w
+    for w in ("forced seduction", "exaggerated breathiness", "pornographic performance",
+              "cartoonish sensuality", "fake whispering", "childish or youthful delivery",
+              "character acting"):
+        assert w in vc["excluded_performance"], w
+    for w in ("corporate narrator", "customer-service script", "radio announcer",
+              "generic AI-assistant cadence", "robotic TTS rhythm", "over-polished delivery"):
+        assert w in vc["excluded_cadence"], w
+    for w in ("natural pauses", "thinking cadence", "humour", "amusement", "seriousness",
+              "excitement", "reactions", "pacing changes"):
+        assert w in s["prosody"]["natural_conversational"], w
+    assert "ONE canonical voice" in s["one_voice"]
+    assert set(s["registers"]) == {"business", "private_owner"}   # contexts, not voices
+    priv = s["registers"]["private_owner"]
+    assert priv["status"] == "GATED" and "prosody" in priv["delivery"]
+    assert any("PRIV" in r for r in priv["requires"]) and any("provider" in r
+                                                             for r in priv["requires"])
+    assert "flirtation or intimacy" in s["registers"]["business"]["forbidden"]
     for k in V.REQUIRED_READINGS:                              # every reading has a target
         assert V._target(k)
 
@@ -71,7 +102,7 @@ def test_a_conforming_measured_voice_qualifies():
 
 def test_drift_on_any_single_dimension_fails():
     drifts = {"median_f0_hz": _m(240), "words_per_minute": _m(190),
-              "energy_panel": _panel(4.6), "apparent_age_years": _panel(52),
+              "energy_panel": _panel(4.6), "apparent_age_years": _panel(38),
               "accent": _panel("en-GB-rp"), "breathiness": _panel("high"),
               "pause_ms_between_sentences": _m(90), "pronunciation_accuracy": _m(0.9)}
     assert drifts
@@ -117,7 +148,7 @@ def test_promotion_is_never_automatic_and_public_view_hides_private_detail():
     q = V.qualify(CAND, good_eval())
     pr = V.promotion_requirements(q)
     assert pr["may_promote"] is False and pr["qualification"] == "PASS"
-    assert any("owner decision" in r for r in pr["requires"])
+    assert any("owner listening decision" in r for r in pr["requires"])
     pv = V.public_view()
     assert set(pv["registers"]["private_owner"]) == {"status", "why_gated"}
     assert pv["spec_sha256"] == PINNED

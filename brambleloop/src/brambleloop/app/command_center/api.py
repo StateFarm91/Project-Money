@@ -544,10 +544,13 @@ def make_router(db) -> APIRouter:
 
     @router.get("/laura/presence")
     def laura_presence(request: Request):
-        from ...laura.agency import identity_view, presence
+        from ...laura.agency import identity_view, presence, roadmap, voice_selection
 
         return ok({"capabilities": presence.capabilities(),
-                   "visible_identity": identity_view.visible_identity()})
+                   "visible_identity": identity_view.visible_identity(),
+                   "voice": voice_selection.status(db),
+                   "roadmap": roadmap.rows(),
+                   "improvement_domain": roadmap.IMPROVEMENT_DOMAIN})
 
     @router.get("/laura/voice-spec")
     def laura_voice_spec(request: Request):

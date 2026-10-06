@@ -131,7 +131,23 @@ function presenceCard(pres) {
         h("img", { src: f.path, alt: `Laura, ${f.frame} (${f.label})`, loading: "lazy", width: 120, height: 160 }),
         h("figcaption", { class: "laura-internal" }, f.label))))) : null,
     h("ul", { class: "rows" }, (Array.isArray(caps.phases) ? caps.phases : []).map(modeRow)),
+    voiceBlock(pres.voice, pres.roadmap),
     h("p", { class: "muted small" }, `Identity ${vis.identity_id || "Unknown"} · publication-approved frames: ${vis.publication_approved_frames ?? "Unknown"}`));
+}
+
+// Laura's voice (D-FB-18): spec, whether you have chosen one, the listening decision it needs,
+// and her required roadmap rows (gated, never cancelled).
+function voiceBlock(voice, roadmap) {
+  const v = voice || {};
+  const oa = v.owner_action || {};
+  const chosen = typeof v.canonical_voice === "string" ? v.canonical_voice : `version ${v.canonical_voice && v.canonical_voice.version}`;
+  const rows = Array.isArray(roadmap) ? roadmap : [];
+  return h("details", { class: "laura-voice" }, h("summary", null, `Voice: ${chosen || "Unknown"}`),
+    h("p", { class: "row-detail" }, `Spec ${v.spec_id || "Unknown"} (${v.decision_id || ""}).`),
+    oa.action ? h("p", { class: "callout callout-warn" }, `${oa.action}. Needs: ${(oa.needs || []).join("; ")}. Max cost: ${oa.max_cost || "Unknown"}.`) : null,
+    rows.length ? h("ul", { class: "rows" }, rows.map((r) => h("li", { class: "row" },
+      h("p", { class: "row-title" }, r.id, " ", statusPill(r.status === "COMPLETE" ? "OK" : "BLOCKED", r.status === "COMPLETE" ? "Complete" : "Required · gated")),
+      h("p", { class: "row-detail" }, r.title)))) : null);
 }
 
 // Owner-private context: opened only with a fresh step-up; content is fetched by POST and

@@ -110,12 +110,11 @@ PHASE_NEEDS = {
         {"need": "speech-to-text provider (streaming, en-CA) chosen and contracted",
          "who": "owner", "kind": "consequential spend + provider terms acceptance",
          "max_cost": "UNKNOWN until a provider is chosen (per-minute pricing)"},
-        {"need": "text-to-speech voice qualified against voice_spec v1 (measured readings, "
-                 "pronunciation lexicon) and promoted by an owner decision",
-         "who": "owner + Visual/Brand", "kind": "owner decision",
-         "max_cost": "UNKNOWN (provider dependent)"},
-        {"need": "owner confirmation of the PROPOSED voice spec fields (accent, apparent age)",
-         "who": "owner", "kind": "owner decision", "max_cost": "CA$0"},
+        {"need": "text-to-speech voice qualified against voice_spec v2 (D-FB-18: measured "
+                 "readings, pronunciation lexicon), then HEARD by the owner and selected by an "
+                 "owner listening decision (voice_selection.OWNER_ACTION)",
+         "who": "owner", "kind": "owner listening decision + paid trial approval",
+         "max_cost": "UNKNOWN until a provider is chosen"},
         {"need": "if the voice imitates the human Laura: her recorded consent",
          "who": "human Laura (via owner)", "kind": "human-gated consent", "max_cost": "CA$0"},
         {"need": "browser microphone permission on the owner's phone (Bluetooth earbuds work "

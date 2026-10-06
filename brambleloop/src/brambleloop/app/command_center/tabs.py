@@ -684,7 +684,8 @@ def autonomy(db) -> dict:
                              "visual_rnd": guard("visual_rnd",
                                                  lambda: visual_rnd_section(db)),
                              "visual_rnd_governance": guard(
-                                 "visual_rnd_governance", lambda: visual_rnd_governance(db))},
+                                 "visual_rnd_governance", lambda: visual_rnd_governance(db)),
+                             "laura_roadmap": providers.call("laura_roadmap", db)},
                 last_useful_action=jw.get("last_useful_action"))
 
 

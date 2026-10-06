@@ -61,7 +61,27 @@ class LauraFollowOn(Base):
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
-TABLES = (LauraTurn.__table__, LauraFollowOn.__table__)
+class LauraVoiceIdentity(Base):
+    """The durable Laura Voice identity (D-FB-18 item 7): one row per owner-selected voice
+    version, hash-chained. Provider-independent descriptors + the hash of the reference samples
+    the owner heard; the provider/voice that rendered them is recorded as the current
+    instrument, not as her identity. Written only by `voice_selection.select`."""
+
+    __tablename__ = "laura_voice_identity"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    version: Mapped[int] = mapped_column(Integer, unique=True)
+    spec_id: Mapped[str] = mapped_column(String(40))
+    spec_sha256: Mapped[str] = mapped_column(String(64))
+    owner_decision_id: Mapped[str] = mapped_column(String(40))
+    reference_samples_sha256: Mapped[str] = mapped_column(String(64))
+    record: Mapped[dict] = mapped_column(JSON, default=dict)
+    record_sha256: Mapped[str] = mapped_column(String(64))
+    prev_sha256: Mapped[str] = mapped_column(String(64), default="")
+
+
+TABLES = (LauraTurn.__table__, LauraFollowOn.__table__, LauraVoiceIdentity.__table__)
 _ENSURED: set[int] = set()
 
 

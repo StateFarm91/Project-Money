@@ -112,7 +112,7 @@ def _sections(db, intent: str) -> list[dict]:
     if intent == "launch_next":
         return [ev.products(db), ev.store(db), ev.owner_queue(db), ev.phase(db)]
     if intent == "needs_me":
-        return [ev.owner_queue(db)]
+        return [ev.owner_queue(db), _laura_owner_actions()]
     if intent == "visual":
         return [ev.visual_rnd(db)]
     return []
@@ -129,6 +129,18 @@ _OPENING = {
     "needs_me": "Here is what genuinely needs you -- only the decisions I can't make.",
     "visual": "Here is where Visual R&D stands.",
 }
+
+
+def _laura_owner_actions() -> dict:
+    """Laura's own catalogue owner actions (not yet in the consolidated queue because their
+    max cost is UNKNOWN, which that queue cannot represent without showing CA$0.00)."""
+    from . import voice_selection
+
+    a = voice_selection.OWNER_ACTION
+    f = ev.fact(f"{a['action']} -- needs {'; '.join(a['needs'])}; max cost {a['max_cost']}; "
+                f"about {a['minutes']} min; if it waits: {a['consequence_of_waiting']}",
+                "laura.agency.voice_selection.OWNER_ACTION (D-FB-18 item 7)", basis="unknown")
+    return ev.section("laura_owner_actions", "Laura's voice: your listening decision", [f])
 
 
 def _fact_line(facts: list[dict], n: int) -> str:
@@ -158,10 +170,13 @@ def _compose(intent: str, sections: list[dict]) -> tuple[str, str, list[dict]]:
     elif intent == "needs_me":
         q = sections[0] if sections else None
         if q and q.get("nothing_open"):
-            parts.append("Nothing needs you right now: no owner decision is open and no "
-                         "publication-halting or P0/P1 incident is recorded.")
+            parts.append("Nothing in the company queue needs you: no owner decision is open and "
+                         "no publication-halting or P0/P1 incident is recorded.")
         elif q and q["facts"]:
             parts.append(f"{len(q['facts'])} item(s) need you: {_fact_line(q['facts'], 6)}.")
+        v = next((x for x in sections if x["key"] == "laura_owner_actions"), None)
+        if v and v["facts"]:
+            parts.append(f"And one of mine, when you're ready: {_fact_line(v['facts'], 1)}.")
     elif intent == "launch_next":
         p = next((s for s in sections if s["key"] == "products"), None)
         items = (p or {}).get("items") or []

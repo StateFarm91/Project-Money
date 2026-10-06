@@ -36,6 +36,9 @@ PROVIDERS: dict[str, tuple[str, str]] = {
     # W3 K1 (optional): the search evidence dashboard (supremacy gate per listing). Same
     # tolerance while K1 is unmerged.
     "search_evidence": ("brambleloop.commerce.search_evidence", "summary"),
+    # W3 lane F (D-FB-18 item 8): Laura's REQUIRED roadmap rows (voice, live presence,
+    # private register, voice improvement domain) -- GATED, never cancelled.
+    "laura_roadmap": ("brambleloop.laura.agency.roadmap", "summary"),
 }
 
 
