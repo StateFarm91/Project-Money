@@ -1,0 +1,1823 @@
+{
+ "kind": "W3 lane F runtime proof: Talk to Laura on the real app (TestClient), shadow phase, temp SQLite, closed network, no model/provider credentials",
+ "started": "2026-10-06T17:52:24+00:00",
+ "finished": "2026-10-06T17:54:14+00:00",
+ "commit_base": "c10822eff1cebe35edde554af71cc412d455353b",
+ "honesty": [
+  "answers are deterministic retrieval over durable rows; no model call (phrasing off: no provider key)",
+  "the company's work before the conversation is real but bounded (90 s worker window), not a soak",
+  "voice/live are GATED: no STT/TTS/avatar provider configured; requests degrade to text",
+  "private context: only statuses are recorded here; Laura's private reply register is GATED (no reply generated)"
+ ],
+ "company_work_before_conversation": {
+  "laura_tick": {
+   "priorities": [
+    {
+     "key": "laura:provider:ads",
+     "score": 35,
+     "department": "growth",
+     "title": "ads reads UNKNOWN",
+     "job_type": "marketing.ads_readiness"
+    },
+    {
+     "key": "laura:provider:finance",
+     "score": 35,
+     "department": "finance",
+     "title": "finance reads UNKNOWN",
+     "job_type": "finance.accounting.cycle"
+    },
+    {
+     "key": "laura:provider:learn",
+     "score": 35,
+     "department": "learn",
+     "title": "learn reads UNKNOWN",
+     "job_type": "improve.measure"
+    },
+    {
+     "key": "laura:provider:seo",
+     "score": 35,
+     "department": "store_commerce",
+     "title": "seo reads UNKNOWN",
+     "job_type": "seo.cycle"
+    },
+    {
+     "key": "laura:provider:slo",
+     "score": 35,
+     "department": "platform",
+     "title": "slo reads UNKNOWN",
+     "job_type": "ops.slo"
+    },
+    {
+     "key": "laura:provider:visual_rnd",
+     "score": 35,
+     "department": "visual",
+     "title": "visual_rnd reads UNKNOWN",
+     "job_type": "visual.rnd.cycle"
+    },
+    {
+     "key": "laura:idle_work:executive:brief:2026-10-06",
+     "score": 28.0,
+     "department": "executive",
+     "title": "Company queue is empty: give Executive / COO its next safe work",
+     "job_type": "autonomy.morning_handoff"
+    },
+    {
+     "key": "laura:idle_work:intelligence:overdue:intel.pod_learning:never",
+     "score": 25.0,
+     "department": "intelligence",
+     "title": "Company queue is empty: give Intelligence its next safe work",
+     "job_type": "intel.pod_learning"
+    }
+   ],
+   "delegated": 6
+  },
+  "orchestrator_tick": {
+   "at": "2026-10-06T17:52:25.875843+00:00",
+   "departments": {
+    "support": {
+     "open_jobs": 0,
+     "suppressed": {},
+     "candidates": [
+      {
+       "department": "support",
+       "job_type": "support.triage",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence support_triage overdue: never succeeded, period 1 h",
+       "fingerprint": "overdue:support.triage:never",
+       "evidence": [
+        "jobs:none done for support.triage",
+        "worker.CADENCES:support_triage"
+       ],
+       "protected": false
+      },
+      {
+       "department": "support",
+       "job_type": "autonomy.department_review",
+       "value": 10,
+       "source": "review",
+       "reason": "no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)",
+       "fingerprint": "review:support:82930",
+       "evidence": [
+        "jobs:open for support=0"
+       ],
+       "protected": false
+      }
+     ],
+     "state": "GENERATED",
+     "mission": "autonomy:support:overdue:support.triage:never"
+    },
+    "product_truth": {
+     "open_jobs": 0,
+     "suppressed": {},
+     "candidates": [
+      {
+       "department": "product_truth",
+       "job_type": "physical.upgrade_impact",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence physical_upgrade_impact overdue: never succeeded, period 24 h",
+       "fingerprint": "overdue:physical.upgrade_impact:never",
+       "evidence": [
+        "jobs:none done for physical.upgrade_impact",
+        "worker.CADENCES:physical_upgrade_impact"
+       ],
+       "protected": false
+      },
+      {
+       "department": "product_truth",
+       "job_type": "ops.sentinel",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence stale_artefact_sentinel overdue: never succeeded, period 1 h",
+       "fingerprint": "overdue:ops.sentinel:never",
+       "evidence": [
+        "jobs:none done for ops.sentinel",
+        "worker.CADENCES:stale_artefact_sentinel"
+       ],
+       "protected": false
+      },
+      {
+       "department": "product_truth",
+       "job_type": "autonomy.department_review",
+       "value": 10,
+       "source": "review",
+       "reason": "no other ready work; measure Product Truth / QA KPIs and persist lessons (at most every 6 h)",
+       "fingerprint": "review:product_truth:82930",
+       "evidence": [
+        "jobs:open for product_truth=0"
+       ],
+       "protected": false
+      }
+     ],
+     "state": "GENERATED",
+     "mission": "autonomy:product_truth:overdue:physical.upgrade_impact:never"
+    },
+    "platform": {
+     "open_jobs": 0,
+     "suppressed": {},
+     "candidates": [
+      {
+       "department": "platform",
+       "job_type": "ops.queue_check",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence queue_check overdue: never succeeded, period 1 h",
+       "fingerprint": "overdue:ops.queue_check:never",
+       "evidence": [
+        "jobs:none done for ops.queue_check",
+        "worker.CADENCES:queue_check"
+       ],
+       "protected": false
+      },
+      {
+       "department": "platform",
+       "job_type": "ops.maturity_disagreements",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence maturity_disagreements overdue: never succeeded, period 24 h",
+       "fingerprint": "overdue:ops.maturity_disagreements:never",
+       "evidence": [
+        "jobs:none done for ops.maturity_disagreements",
+        "worker.CADENCES:maturity_disagreements"
+       ],
+       "protected": false
+      },
+      {
+       "department": "platform",
+       "job_type": "ops.slo",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence slo_check overdue: never succeeded, period 900 s",
+       "fingerprint": "overdue:ops.slo:never",
+       "evidence": [
+        "jobs:none done for ops.slo",
+        "worker.CADENCES:slo_check"
+       ],
+       "protected": false
+      },
+      {
+       "department": "platform",
+       "job_type": "autonomy.department_review",
+       "value": 10,
+       "source": "review",
+       "reason": "no other ready work; measure Platform / Reliability KPIs and persist lessons (at most every 6 h)",
+       "fingerprint": "review:platform:82930",
+       "evidence": [
+        "jobs:open for platform=0"
+       ],
+       "protected": false
+      }
+     ],
+     "state": "GENERATED",
+     "mission": "autonomy:platform:overdue:ops.queue_check:never"
+    },
+    "finance": {
+     "open_jobs": 1,
+     "state": "BUSY"
+    },
+    "executive": {
+     "open_jobs": 1,
+     "state": "BUSY"
+    },
+    "learn": {
+     "open_jobs": 1,
+     "state": "BUSY"
+    },
+    "growth": {
+     "open_jobs": 1,
+     "state": "BUSY"
+    },
+    "intelligence": {
+     "open_jobs": 1,
+     "state": "BUSY"
+    },
+    "product_design": {
+     "open_jobs": 0,
+     "suppressed": {},
+     "candidates": [
+      {
+       "department": "product_design",
+       "job_type": "creative.outcome_learning",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence outcome_learning overdue: never succeeded, period 24 h",
+       "fingerprint": "overdue:creative.outcome_learning:never",
+       "evidence": [
+        "jobs:none done for creative.outcome_learning",
+        "worker.CADENCES:outcome_learning"
+       ],
+       "protected": false
+      },
+      {
+       "department": "product_design",
+       "job_type": "seasonal.sentinel",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence seasonal_sentinel overdue: never succeeded, period 24 h",
+       "fingerprint": "overdue:seasonal.sentinel:never",
+       "evidence": [
+        "jobs:none done for seasonal.sentinel",
+        "worker.CADENCES:seasonal_sentinel"
+       ],
+       "protected": false
+      },
+      {
+       "department": "product_design",
+       "job_type": "autonomy.department_review",
+       "value": 10,
+       "source": "review",
+       "reason": "no other ready work; measure Product & Design KPIs and persist lessons (at most every 6 h)",
+       "fingerprint": "review:product_design:82930",
+       "evidence": [
+        "jobs:open for product_design=0"
+       ],
+       "protected": false
+      }
+     ],
+     "state": "GENERATED",
+     "mission": "autonomy:product_design:overdue:creative.outcome_learning:never"
+    },
+    "store_commerce": {
+     "open_jobs": 1,
+     "state": "BUSY"
+    },
+    "visual": {
+     "open_jobs": 0,
+     "suppressed": {},
+     "candidates": [
+      {
+       "department": "visual",
+       "job_type": "visual.rnd.cycle",
+       "value": 60,
+       "source": "provider",
+       "reason": "visual_rnd.next_work: baskets_storage: the incumbent pipeline has no judged production image",
+       "fingerprint": "provider:visual_rnd:visual.rnd.judge_production:baskets_storage:0:never",
+       "evidence": [
+        "brambleloop.visual.rnd.status.next_work:visual.rnd.judge_production:baskets_storage:0",
+        "jobs:none done for visual.rnd.cycle"
+       ],
+       "protected": false
+      },
+      {
+       "department": "visual",
+       "job_type": "visual.identity_drift",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence identity_drift overdue: never succeeded, period 24 h",
+       "fingerprint": "overdue:visual.identity_drift:never",
+       "evidence": [
+        "jobs:none done for visual.identity_drift",
+        "worker.CADENCES:identity_drift"
+       ],
+       "protected": false
+      },
+      {
+       "department": "visual",
+       "job_type": "visual.rnd.cycle",
+       "value": 50,
+       "source": "overdue",
+       "reason": "cadence visual_rnd overdue: never succeeded, period 6 h",
+       "fingerprint": "overdue:visual.rnd.cycle:never",
+       "evidence": [
+        "jobs:none done for visual.rnd.cycle",
+        "worker.CADENCES:visual_rnd"
+       ],
+       "protected": false
+      },
+      {
+       "department": "visual",
+       "job_type": "autonomy.department_review",
+       "value": 10,
+       "source": "review",
+       "reason": "no other ready work; measure Visual KPIs and persist lessons (at most every 6 h)",
+       "fingerprint": "review:visual:82930",
+       "evidence": [
+        "jobs:open for visual=0"
+       ],
+       "protected": false
+      }
+     ],
+     "state": "GENERATED",
+     "mission": "autonomy:visual:provider:visual_rnd:visual.rnd.judge_production:baskets_storage:0:never"
+    }
+   },
+   "missions": 5,
+   "approvals": 0,
+   "errors": {},
+   "reconciled": {
+    "useful": 0,
+    "noop": 0,
+    "failed": 0,
+    "open": 6
+   },
+   "created": 5
+  },
+  "worker_jobs_run": 7,
+  "work_window_s": 106.3,
+  "jobs_by_status": {
+   "pending": 4,
+   "done": 7
+  }
+ },
+ "access_checks": {
+  "anonymous_laura": 401,
+  "anonymous_ask": 401,
+  "anonymous_private_view": 401
+ },
+ "overview": {
+  "speaker": {
+   "name": "Laura",
+   "role": "Founder/CEO (persistent AI person)",
+   "identity_id": "laura-r2-a42aeac7",
+   "public_identity": "Brambleloop's AI founder",
+   "portrait_path": "/api/cc/laura/portrait",
+   "portrait_label": "Internal \u2014 canonical reference, not publication-approved",
+   "identity_source": "brambleloop.laura.identity"
+  },
+  "identity": {
+   "identity_id": "laura-r2-a42aeac7",
+   "name": "Laura",
+   "role": "Founder/CEO (persistent AI person)",
+   "public_identity": "Brambleloop's AI founder",
+   "truthful_identity": "Laura is a persistent AI person and the Founder/CEO of Brambleloop (D-FB-13). Publicly the Founder/CEO wording is used only with truthful AI disclosure (\"Laura, Brambleloop's AI founder\"), and her durable software actions are her genuine history. She is never claimed to be biologically human and is never given fabricated human experiences: a childhood, a family, learning to crochet from a relative, physically crocheting, designing or testing samples by hand, a home address, or events she attended. Laura copy never makes legal-ownership or seller-of-record statements; those must match the actual legal person(s).",
+   "authority": {
+    "may": [
+     "analyse",
+     "review",
+     "recommend",
+     "draft",
+     "set priorities",
+     "create internal follow-on work of job types every department charter already allows as generatable AND autonomy.charters.SAFE_GENERATED lists",
+     "convert protected work into owner action items"
+    ],
+    "may_not": [
+     "publish, activate or update anything on Etsy",
+     "spend money (her ceiling is CA$0.00)",
+     "message a customer",
+     "change price live",
+     "change Product Truth or certify a release",
+     "change financial truth or the books",
+     "fabricate evidence",
+     "weaken any gate, guardrail or evidence requirement",
+     "change her canonical identity",
+     "expand her own authority",
+     "act as, or consent for, the human Laura (legal consent, signatures, KYC, physical actions stay human-gated)"
+    ]
+   },
+   "source": "brambleloop.laura.identity",
+   "sources": [
+    "laura_identity_versions:2",
+    "laura.core.identity.GENESIS",
+    "visual.canonical"
+   ],
+   "verified": {
+    "status": "OK",
+    "reason": null,
+    "identity_version": 2,
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a"
+   },
+   "identity_disagreement": null
+  },
+  "needs_you": {
+   "status": "OK",
+   "count": 10,
+   "reason": null,
+   "items": [
+    {
+     "statement": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns -- Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-06T17:54:12+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "a listing that exists on the marketplace, which shadow mode forbids by design -- Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-06T17:54:12+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "a site or a Pinterest account this company can publish to, which only the owner can create -- Recommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-06T17:54:12+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "an approved advertising budget -- Recommended when convenient: it un-parks 6 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-06T17:54:12+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    },
+    {
+     "statement": "owner-recorded Marketplace Insights readings exist -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "as_of": "2026-10-06T17:54:12+00:00",
+     "link": "#/approvals",
+     "basis": "measured"
+    }
+   ]
+  },
+  "departments": {
+   "status": "OK",
+   "reason": null,
+   "by_status": {
+    "OK": 11
+   }
+  },
+  "phase": "the company runs in SHADOW -- nothing is published or spent live"
+ },
+ "presence": {
+  "capabilities": {
+   "contract_version": 1,
+   "modes": [
+    "live",
+    "voice",
+    "text"
+   ],
+   "degradation": "live+voice -> voice -> text",
+   "available": [
+    "text"
+   ],
+   "phases": [
+    {
+     "phase": 1,
+     "mode": "text",
+     "status": "ACTIVE",
+     "what": "text conversation with visible canonical Laura (owner-only)",
+     "needs": []
+    },
+    {
+     "phase": 2,
+     "mode": "voice",
+     "status": "GATED",
+     "what": "speech in (phone mic / earbuds) -> transcription -> the same conversation -> spoken reply in the canonical voice + text",
+     "needs": [
+      {
+       "need": "speech-to-text provider (streaming, en-CA) chosen and contracted",
+       "who": "owner",
+       "kind": "consequential spend + provider terms acceptance",
+       "max_cost": "UNKNOWN until a provider is chosen (per-minute pricing)"
+      },
+      {
+       "need": "text-to-speech voice qualified against voice_spec v1 (measured readings, pronunciation lexicon) and promoted by an owner decision",
+       "who": "owner + Visual/Brand",
+       "kind": "owner decision",
+       "max_cost": "UNKNOWN (provider dependent)"
+      },
+      {
+       "need": "owner confirmation of the PROPOSED voice spec fields (accent, apparent age)",
+       "who": "owner",
+       "kind": "owner decision",
+       "max_cost": "CA$0"
+      },
+      {
+       "need": "if the voice imitates the human Laura: her recorded consent",
+       "who": "human Laura (via owner)",
+       "kind": "human-gated consent",
+       "max_cost": "CA$0"
+      },
+      {
+       "need": "browser microphone permission on the owner's phone (Bluetooth earbuds work as the system audio route)",
+       "who": "owner",
+       "kind": "device permission",
+       "max_cost": "CA$0"
+      }
+     ],
+     "configured": {
+      "stt": null,
+      "tts": null,
+      "voice_qualified": false
+     }
+    },
+    {
+     "phase": 3,
+     "mode": "live",
+     "status": "GATED",
+     "what": "real-time live presence: canonical Laura, blinking, expressions, subtle movement, lip sync, turn-taking",
+     "needs": [
+      {
+       "need": "real-time avatar renderer able to reproduce laura-r2-a42aeac7 and pass the identity -> photorealism -> anatomy gates (nothing is publication-approved or presence-approved today)",
+       "who": "Visual + owner",
+       "kind": "provider + owner identity approval",
+       "max_cost": "UNKNOWN"
+      },
+      {
+       "need": "Phase 2 voice ACTIVE (lip sync needs the qualified voice's visemes)",
+       "who": "system",
+       "kind": "dependency",
+       "max_cost": "-"
+      },
+      {
+       "need": "owner spend authority for streaming render minutes",
+       "who": "owner",
+       "kind": "consequential spend",
+       "max_cost": "UNKNOWN"
+      }
+     ],
+     "configured": {
+      "renderer": null
+     }
+    }
+   ],
+   "invariants": [
+    "one Laura: identity, memory, authority and history are the same in every mode (talk.converse is the only conversation path)",
+    "no paid provider is called without owner spend authority",
+    "private register stays GATED in every mode"
+   ]
+  },
+  "visible_identity": {
+   "identity_id": "laura-r2-a42aeac7",
+   "status": "OK",
+   "problems": [],
+   "frames": [
+    {
+     "frame": "neutral_portrait",
+     "displayable_to_owner": true,
+     "path": "/api/cc/laura/frame/neutral_portrait",
+     "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+     "status": "canonical_reference",
+     "publication_approved": false,
+     "label": "Internal \u2014 owner-approved canonical reference, not publication-approved"
+    },
+    {
+     "frame": "torso_fit_reference",
+     "displayable_to_owner": true,
+     "path": "/api/cc/laura/frame/torso_fit_reference",
+     "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+     "status": "canonical_reference",
+     "publication_approved": false,
+     "label": "Internal \u2014 owner-approved canonical reference, not publication-approved"
+    },
+    {
+     "frame": "full_length_standing",
+     "displayable_to_owner": true,
+     "path": "/api/cc/laura/frame/full_length_standing",
+     "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
+     "status": "canonical_reference",
+     "publication_approved": false,
+     "label": "Internal \u2014 owner-approved canonical reference, not publication-approved"
+    }
+   ],
+   "publication_approved_frames": 0,
+   "customer_ready": false,
+   "state": "No Laura image is publication-approved. The owner view shows her owner-approved canonical reference frames, labelled internal; customer surfaces show none until every Visual gate passes.",
+   "missing_canonical_history": [
+    "reference_pack/torso_fit_reference",
+    "reference_pack/full_length_standing",
+    "stress_set/fitted_garment",
+    "stress_set/fitted_garment_close",
+    "stress_set/loose_layered_garment",
+    "stress_set/non_garment_lifestyle",
+    "stress_set/winter_seasonal"
+   ],
+   "source": "visual.canonical (manifest v2, D-FB-11/D-FB-14)"
+  }
+ },
+ "voice_request": {
+  "http": 503,
+  "code": "VOICE_GATED"
+ },
+ "voice_spec": {
+  "spec_id": "laura-voice-v1",
+  "spec_sha256": "08f98c00318bef946ca3a7d6727f23288c09800c0b6695ac3386908613a6ca53",
+  "owner_confirmation": "PENDING"
+ },
+ "private_context": {
+  "status_before": {
+   "configured": true,
+   "open": false,
+   "requires": "a fresh owner step-up to open; closes on logout/revoke or after 30 min",
+   "reply_register": "GATED",
+   "reply_why": "Laura's private conversational register is not implemented (GATED, D-FB-15/D-FB-16 item 11): your words are stored encrypted in the private context; no reply is generated.",
+   "isolation": "encrypted owner-only store; never read by business, public, customer or protected paths"
+  },
+  "open_without_stepup_http": null,
+  "stepup_http": 200,
+  "open_http": 200,
+  "owner_turn_http": 200,
+  "reply_status": "GATED",
+  "view_http": 200,
+  "view_counts": {
+   "facts": 0,
+   "conversation": 1,
+   "laura_turns": 0
+  },
+  "close_http": 200,
+  "view_after_close_http": 403
+ },
+ "conversation": [
+  {
+   "at": "2026-10-06T17:54:12+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "Who are you?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 1,
+    "intent": "identity",
+    "status": "ANSWERED",
+    "answer": "I'm Laura, Brambleloop's AI founder -- Founder/CEO (persistent AI person). I'm an AI, not a human; my history is the work my company has actually recorded. I run Brambleloop through its departments within my authority, and Finance, Product Truth and Security can challenge or block me.",
+    "sources": [
+     "laura_identity_versions:2",
+     "DECISION_LOG D-FB-13"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "identity laura-r2-a42aeac7: Laura, Founder/CEO (persistent AI person)",
+     "source": "laura_identity_versions:2",
+     "basis": "measured"
+    },
+    {
+     "statement": "Laura is a persistent AI person and the Founder/CEO of Brambleloop (D-FB-13). Publicly the Founder/CEO wording is used only with truthful AI disclosure (\"Laura, Brambleloop's AI founder\"), and her durable software actions are her genuine history. She is never claimed to be biologically human and is never given fabricated human experiences: a childhood, a family, learning to cro",
+     "source": "laura_identity_versions:2",
+     "basis": "measured"
+    },
+    {
+     "statement": "model-independent: identity, memory and history live in Brambleloop's durable state; a model provides cognition only",
+     "source": "DECISION_LOG D-FB-13",
+     "basis": "measured"
+    }
+   ],
+   "proposals": []
+  },
+  {
+   "at": "2026-10-06T17:54:12+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What did your company do overnight?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 2,
+    "intent": "overnight",
+    "status": "ANSWERED",
+    "answer": "Here is what my company did, straight from the records. What the company did (last 12 h): 7 job(s) completed and 0 failed in the last 12 h; creative_director completed 1 job(s); market_radar completed 1 job(s); orchestrator completed 2 job(s); publishing completed 1 job(s). Departments (autonomy status): the COO orchestrator last ran at 2026-10-06T17:52:25.875843+00:00; Executive / COO: OK, 0 job(s) completed in 24 h (0 useful), 1 open; Intelligence: OK, 1 job(s) completed in 24 h (0 useful), blocked by read-only Etsy API credentials that can actually serve a request; Etsy API credentials, which are what lets this system read the shop's own seller; Product & Design: OK, 1 job(s) completed in 24 h (0 useful), blocked by a model provider that can actually serve a request; Product Truth / QA: OK, 1 job(s) completed in 24 h (0 useful).",
+    "sources": [
+     "jobs",
+     "company_memory (kind=mission)",
+     "jobs:11",
+     "jobs:10",
+     "jobs:9",
+     "jobs:8",
+     "jobs:7",
+     "laura_memory:operational:decision/5a7bc7a0031ae16c2fdd",
+     "jobs:6",
+     "laura_memory:operational:decision/679adaf4334146383ab5",
+     "brambleloop.autonomy.status.summary",
+     "brambleloop.autonomy.status.summary[executive]",
+     "brambleloop.autonomy.status.summary[intelligence]",
+     "brambleloop.autonomy.status.summary[product_design]",
+     "brambleloop.autonomy.status.summary[product_truth]",
+     "brambleloop.autonomy.status.summary[visual]",
+     "brambleloop.autonomy.status.summary[store_commerce]",
+     "brambleloop.autonomy.status.summary[support]",
+     "brambleloop.autonomy.status.summary[finance]",
+     "brambleloop.autonomy.status.summary[growth]",
+     "brambleloop.autonomy.status.summary[learn]",
+     "brambleloop.autonomy.status.summary[platform]"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "7 job(s) completed and 0 failed in the last 12 h",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "creative_director completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "market_radar completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "orchestrator completed 2 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "publishing completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "quality_director completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "support completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "11 department mission(s) touched: 11 queued",
+     "source": "company_memory (kind=mission)",
+     "basis": "measured"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:executive:autonomy.morning_handoff",
+     "kind": "mission",
+     "department": "executive",
+     "job_type": "autonomy.morning_handoff",
+     "title": "Write a fresh company brief",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:12+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What are you working on?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 3,
+    "intent": "working_on",
+    "status": "ANSWERED",
+    "answer": "Here is what my company is working on right now. My executive priorities: priority (intelligence, delegated): Company queue is empty: give Intelligence its next safe work -- overdue: cadence mjs_pod_learning overdue: never succeeded, period 24 h; priority (executive, delegated): Company queue is empty: give Executive / COO its next safe work -- handoff: no morning brief yet for 2026-10-06; summarise the unattended hours; priority (visual, open): visual_rnd reads UNKNOWN -- no image has been judged and no experiment run yet; priority (platform, open): slo reads UNKNOWN -- no objective has enough durable evidence to be judged; priority (store_commerce, delegated): seo reads UNKNOWN -- no SEO proposal exists yet: seo.jobs.run_cycle has not produced one. Work in progress: visual: visual.rnd.cycle: visual_rnd.next_work: baskets_storage: the incumbent pipeline has no judged production image; product_design: creative.outcome_learning: cadence outcome_learning overdue: never succeeded, period 24 h; platform: ops.queue_check: cadence queue_check overdue: never succeeded, period 1 h; product_truth: physical.upgrade_impact: cadence physical_upgrade_impact overdue: never succeeded, period 24 h; support: support.triage: cadence support_triage overdue: never succeeded, period 1 h. Departments (autonomy status): the COO orchestrator last ran at 2026-10-06T17:52:25.875843+00:00; Executive / COO: OK, 0 job(s) completed in 24 h (0 useful), 1 open; Intelligence: OK, 1 job(s) completed in 24 h (0 useful), blocked by read-only Etsy API credentials that can actually serve a request; Etsy API credentials, which are what lets this system read the shop's own seller; Product & Design: OK, 1 job(s) completed in 24 h (0 useful), blocked by a model provider that can actually serve a request; Product Truth / QA: OK, 1 job(s) completed in 24 h (0 useful). My memory: operational/decision/5a7bc7a0031ae16c2fdd: Laura delegation: intel.pod_learning -> intelligence: Company queue is empty: give Intelligence its next safe work; operational/decision/679adaf4334146383ab5: Laura priority.set: Company queue is empty: give Intelligence its next safe work; operational/decision/09e1bb930264873eabe8: Laura delegation: autonomy.morning_handoff -> executive: Company queue is empty: give Executive / COO its next safe work; operational/decision/e5c4a38bf2ec6a6d8130: Laura priority.set: Company queue is empty: give Executive / COO its next safe work.",
+    "sources": [
+     "laura_priorities:laura:idle_work:intelligence:overdue:intel.pod_learning:never",
+     "laura_priorities:laura:idle_work:executive:brief:2026-10-06",
+     "laura_priorities:laura:provider:visual_rnd",
+     "laura_priorities:laura:provider:slo",
+     "laura_priorities:laura:provider:seo",
+     "laura_priorities:laura:provider:learn",
+     "laura_decisions:None",
+     "company_memory:autonomy:visual:provider:visual_rnd:visual.rnd.judge_production:baskets_storage:0:never",
+     "company_memory:autonomy:product_design:overdue:creative.outcome_learning:never",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:never",
+     "company_memory:autonomy:product_truth:overdue:physical.upgrade_impact:never",
+     "company_memory:autonomy:support:overdue:support.triage:never",
+     "company_memory:autonomy:intelligence:overdue:intel.pod_learning:never",
+     "company_memory:autonomy:executive:brief:2026-10-06",
+     "company_memory:autonomy:store_commerce:laura:provider:seo:2026-10-06",
+     "company_memory:autonomy:learn:laura:provider:learn:2026-10-06",
+     "company_memory:autonomy:finance:laura:provider:finance:2026-10-06",
+     "company_memory:autonomy:growth:laura:provider:ads:2026-10-06",
+     "jobs",
+     "brambleloop.autonomy.status.summary",
+     "brambleloop.autonomy.status.summary[executive]",
+     "brambleloop.autonomy.status.summary[intelligence]",
+     "brambleloop.autonomy.status.summary[product_design]",
+     "brambleloop.autonomy.status.summary[product_truth]",
+     "brambleloop.autonomy.status.summary[visual]",
+     "brambleloop.autonomy.status.summary[store_commerce]",
+     "brambleloop.autonomy.status.summary[support]",
+     "brambleloop.autonomy.status.summary[finance]",
+     "brambleloop.autonomy.status.summary[growth]",
+     "brambleloop.autonomy.status.summary[learn]",
+     "brambleloop.autonomy.status.summary[platform]",
+     "laura_memory:operational:decision/5a7bc7a0031ae16c2fdd",
+     "laura_memory:operational:decision/679adaf4334146383ab5",
+     "laura_memory:operational:decision/09e1bb930264873eabe8",
+     "laura_memory:operational:decision/e5c4a38bf2ec6a6d8130"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "priority (intelligence, delegated): Company queue is empty: give Intelligence its next safe work -- overdue: cadence mjs_pod_learning overdue: never succeeded, period 24 h",
+     "source": "laura_priorities:laura:idle_work:intelligence:overdue:intel.pod_learning:never",
+     "basis": "measured"
+    },
+    {
+     "statement": "priority (executive, delegated): Company queue is empty: give Executive / COO its next safe work -- handoff: no morning brief yet for 2026-10-06; summarise the unattended hours",
+     "source": "laura_priorities:laura:idle_work:executive:brief:2026-10-06",
+     "basis": "measured"
+    },
+    {
+     "statement": "priority (visual, open): visual_rnd reads UNKNOWN -- no image has been judged and no experiment run yet",
+     "source": "laura_priorities:laura:provider:visual_rnd",
+     "basis": "measured"
+    },
+    {
+     "statement": "priority (platform, open): slo reads UNKNOWN -- no objective has enough durable evidence to be judged",
+     "source": "laura_priorities:laura:provider:slo",
+     "basis": "measured"
+    },
+    {
+     "statement": "priority (store_commerce, delegated): seo reads UNKNOWN -- no SEO proposal exists yet: seo.jobs.run_cycle has not produced one",
+     "source": "laura_priorities:laura:provider:seo",
+     "basis": "measured"
+    },
+    {
+     "statement": "priority (learn, delegated): learn reads UNKNOWN -- no policy-loop decision, outcome or proposal has been recorded yet; the loops are built and waiting for data",
+     "source": "laura_priorities:laura:provider:learn",
+     "basis": "measured"
+    },
+    {
+     "statement": "decision (delegation): intel.pod_learning -> intelligence: Company queue is empty: give Intelligence its next safe work",
+     "source": "laura_decisions:None",
+     "basis": "measured"
+    },
+    {
+     "statement": "decision (priority.set): Company queue is empty: give Intelligence its next safe work",
+     "source": "laura_decisions:None",
+     "basis": "measured"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:executive:autonomy.morning_handoff",
+     "kind": "mission",
+     "department": "executive",
+     "job_type": "autonomy.morning_handoff",
+     "title": "Write a fresh company brief",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "How does your store look?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 4,
+    "intent": "store",
+    "status": "PARTIAL",
+    "answer": "Here is how the store stands today, read from Store Foundation. The store (Store Foundation): store surfaces: 0 FAIL, 2 GATED, 10 NEEDS_OWNER, 2 READY, 8 UNVERIFIED; Shop name: NEEDS_OWNER (NAME_CONFIRM: confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name mus); Shop icon: NEEDS_OWNER (ICON_RASTER_PENDING: Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upl); Shop banner: NEEDS_OWNER (BANNER_RASTER_PENDING: Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or); Brand face (Laura): NEEDS_OWNER (BRAND_FACE_MISSING_CANONICAL: frozen v15 frames held only in production: ['reference_pack/torso_fit_reference', 'referen). Not known yet: Products (no product recorded); Search (SEO) (no SEO proposal exists yet: seo.jobs.run_cycle has not produced one).",
+    "sources": [
+     "brambleloop.store_foundation.preview.summary",
+     "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+     "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+     "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+     "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+     "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+     "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+     "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+     "store_foundation.copy_v2.DELIVERY (via commerce.shop_package)",
+     "store_foundation.copy_v2.RETURNS (via commerce.shop_package)",
+     "commerce.terms via commerce.shop_package.licence_text",
+     "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
+     "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES (digital_download, ai_assisted_design, deterministic_render, disclosed_render) verbatim + Laura and account-holder lines",
+     "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
+     "store_foundation.copy_v2.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
+     "store_foundation.copy_v2.DIGITAL_SALE_MESSAGE (via commerce.shop_package)",
+     "store_foundation.copy_v2.SECTIONS (owner nav) over brand.storefront.SECTIONS slugs, populated from the Launch-0 products; unpopulated = planned, not shown",
+     "products.launch0 (+ drafted listings rows when present)",
+     "store_foundation.copy_v2.TRUST_SIGNALS",
+     "store_foundation.copy_v2.VOICE_PRINCIPLES; brand.bible",
+     "store_foundation.content.settings_checklist",
+     "brand.storefront.check_shop_seo; commerce.search_visibility",
+     "support.department; commerce.shop_package",
+     "visual.disclosed_render + visual.render_verification"
+    ],
+    "unknowns": [
+     {
+      "section": "products",
+      "title": "Products",
+      "reason": "no product recorded"
+     },
+     {
+      "section": "seo",
+      "title": "Search (SEO)",
+      "reason": "no SEO proposal exists yet: seo.jobs.run_cycle has not produced one"
+     }
+    ],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "store surfaces: 0 FAIL, 2 GATED, 10 NEEDS_OWNER, 2 READY, 8 UNVERIFIED",
+     "source": "brambleloop.store_foundation.preview.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop name: NEEDS_OWNER (NAME_CONFIRM: confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name mus)",
+     "source": "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop icon: NEEDS_OWNER (ICON_RASTER_PENDING: Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upl)",
+     "source": "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop banner: NEEDS_OWNER (BANNER_RASTER_PENDING: Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or)",
+     "source": "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Brand face (Laura): NEEDS_OWNER (BRAND_FACE_MISSING_CANONICAL: frozen v15 frames held only in production: ['reference_pack/torso_fit_reference', 'referen)",
+     "source": "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop title (tagline): UNVERIFIED (LIMIT_UNVERIFIED: the shop title (tagline under the shop name): 41 characters; Etsy's limit is not on file (not on file;)",
+     "source": "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Announcement: UNVERIFIED (LIMIT_REPO_ASSERTED: the shop announcement: 134/160 characters against an unsourced limit (brand.storefront.ANNOUNCEMENT)",
+     "source": "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+     "basis": "measured"
+    },
+    {
+     "statement": "About / shop story: UNVERIFIED (LIMIT_REPO_ASSERTED: the About / shop story: 2249/5000 characters against an unsourced limit (brand.storefront.ABOUT_MAX)",
+     "source": "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+     "basis": "measured"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:store_commerce:seo.cycle",
+     "kind": "mission",
+     "department": "store_commerce",
+     "job_type": "seo.cycle",
+     "title": "Run a store search (SEO) cycle",
+     "requires_step_up": false,
+     "brief": null
+    },
+    {
+     "key": "mission:store_commerce:autonomy.department_review",
+     "kind": "mission",
+     "department": "store_commerce",
+     "job_type": "autonomy.department_review",
+     "title": "Have Store / Commerce review itself",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What's making money / losing money?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 5,
+    "intent": "money",
+    "status": "PARTIAL",
+    "answer": "On money, I'll only tell you what the books measure. I can't yet tell you what is making or losing money: revenue is UNMEASURED and profit is UNKNOWN, and I won't show either as CA$0.00. Money (Accountant): Revenue (gross sales): UNKNOWN; Refunds: UNKNOWN; Net sales: UNKNOWN; Marketplace fees: UNKNOWN; Operating spend: CA$0.00; Contribution: UNKNOWN; Profit before tax reserve: UNKNOWN; Sales-tax reserve: UNKNOWN. Not known yet: Measured revenue (revenue is UNMEASURED; profit is UNKNOWN).",
+    "sources": [
+     "finance.accounting.dashboard:gross_sales",
+     "finance.accounting.dashboard:refunds",
+     "finance.accounting.dashboard:net_sales",
+     "finance.accounting.dashboard:fees",
+     "finance.accounting.dashboard:operating_spend",
+     "finance.accounting.dashboard:contribution",
+     "finance.accounting.dashboard:profit",
+     "finance.accounting.dashboard:tax_reserve",
+     "finance.accounting.dashboard:cash",
+     "finance.accounting.dashboard:expected_payout",
+     "finance.accounting.dashboard:committed_spend",
+     "finance.accounting.dashboard:owner_payable",
+     "finance.accounting.dashboard:safe_discretionary_budget",
+     "ledger",
+     "cost_entries",
+     "finance.accounting.health"
+    ],
+    "unknowns": [
+     {
+      "section": "money.revenue",
+      "title": "Measured revenue",
+      "reason": "revenue is UNMEASURED; profit is UNKNOWN"
+     }
+    ],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "Revenue (gross sales): UNKNOWN",
+     "source": "finance.accounting.dashboard:gross_sales",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Refunds: UNKNOWN",
+     "source": "finance.accounting.dashboard:refunds",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Net sales: UNKNOWN",
+     "source": "finance.accounting.dashboard:net_sales",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Marketplace fees: UNKNOWN",
+     "source": "finance.accounting.dashboard:fees",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Operating spend: CA$0.00",
+     "source": "finance.accounting.dashboard:operating_spend",
+     "basis": "measured"
+    },
+    {
+     "statement": "Contribution: UNKNOWN",
+     "source": "finance.accounting.dashboard:contribution",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Profit before tax reserve: UNKNOWN",
+     "source": "finance.accounting.dashboard:profit",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Sales-tax reserve: UNKNOWN",
+     "source": "finance.accounting.dashboard:tax_reserve",
+     "basis": "unknown"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:finance:finance.accounting.cycle",
+     "kind": "mission",
+     "department": "finance",
+     "job_type": "finance.accounting.cycle",
+     "title": "Refresh the books (accounting cycle)",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What did your departments discover?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 6,
+    "intent": "discoveries",
+    "status": "PARTIAL",
+    "answer": "Here is what my departments have turned up. Improvement loops (Learn): Listing / SEO lesson tag slots; Support lessons attached to cases; Pattern quality defect watch; Visual gate pre-check; Cost per release watch. Visual R&D: Visual R&D DEGRADED: 5 of 8 classes have no judged production image (no free producer; generated path gated on spend); slow loop has no marketplace evidence yet (no live listings); Seasonal creative -- pipeline seasonal/g1-97ce96ba (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN -- ; Loose garments -- pipeline loose_garments/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN ; Fitted garments -- pipeline fitted_garments/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOW; Accessories -- pipeline accessories/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN -- no . Not known yet: Lessons (no lesson is recorded in the last 72 h); Search (SEO) (no SEO proposal exists yet: seo.jobs.run_cycle has not produced one); Growth / ads readiness (ads readiness unreadable: AttributeError(\"'Session' object has no attribute 'engine'\")).",
+    "sources": [
+     "brambleloop.learn.improvement_status.summary",
+     "brambleloop.visual.rnd.status.summary"
+    ],
+    "unknowns": [
+     {
+      "section": "lessons",
+      "title": "Lessons",
+      "reason": "no lesson is recorded in the last 72 h"
+     },
+     {
+      "section": "seo",
+      "title": "Search (SEO)",
+      "reason": "no SEO proposal exists yet: seo.jobs.run_cycle has not produced one"
+     },
+     {
+      "section": "ads",
+      "title": "Growth / ads readiness",
+      "reason": "ads readiness unreadable: AttributeError(\"'Session' object has no attribute 'engine'\")"
+     }
+    ],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "Listing / SEO lesson tag slots",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Support lessons attached to cases",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Pattern quality defect watch",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Visual gate pre-check",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Cost per release watch",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Visual R&D DEGRADED: 5 of 8 classes have no judged production image (no free producer; generated path gated on spend); slow loop has no marketplace evidence yet (no live listings)",
+     "source": "brambleloop.visual.rnd.status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Seasonal creative -- pipeline seasonal/g1-97ce96ba (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN -- ",
+     "source": "brambleloop.visual.rnd.status.summary",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Loose garments -- pipeline loose_garments/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN ",
+     "source": "brambleloop.visual.rnd.status.summary",
+     "basis": "unknown"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:learn:improve.mine",
+     "kind": "mission",
+     "department": "learn",
+     "job_type": "improve.mine",
+     "title": "Mine recent failures for improvements",
+     "requires_step_up": false,
+     "brief": null
+    },
+    {
+     "key": "mission:intelligence:radar.score",
+     "kind": "mission",
+     "department": "intelligence",
+     "job_type": "radar.score",
+     "title": "Score the next uncovered market arena",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What did you learn?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 7,
+    "intent": "learned",
+    "status": "PARTIAL",
+    "answer": "Here is what we have learned, from recorded lessons and loops. Improvement loops (Learn): Listing / SEO lesson tag slots; Support lessons attached to cases; Pattern quality defect watch; Visual gate pre-check; Cost per release watch. Visual R&D: Visual R&D DEGRADED: 5 of 8 classes have no judged production image (no free producer; generated path gated on spend); slow loop has no marketplace evidence yet (no live listings); Seasonal creative -- pipeline seasonal/g1-97ce96ba (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN -- ; Loose garments -- pipeline loose_garments/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN ; Fitted garments -- pipeline fitted_garments/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOW; Accessories -- pipeline accessories/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN -- no . Not known yet: Lessons (no lesson is recorded).",
+    "sources": [
+     "brambleloop.learn.improvement_status.summary",
+     "brambleloop.visual.rnd.status.summary"
+    ],
+    "unknowns": [
+     {
+      "section": "lessons",
+      "title": "Lessons",
+      "reason": "no lesson is recorded"
+     }
+    ],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "Listing / SEO lesson tag slots",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Support lessons attached to cases",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Pattern quality defect watch",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Visual gate pre-check",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Cost per release watch",
+     "source": "brambleloop.learn.improvement_status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Visual R&D DEGRADED: 5 of 8 classes have no judged production image (no free producer; generated path gated on spend); slow loop has no marketplace evidence yet (no live listings)",
+     "source": "brambleloop.visual.rnd.status.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Seasonal creative -- pipeline seasonal/g1-97ce96ba (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN -- ",
+     "source": "brambleloop.visual.rnd.status.summary",
+     "basis": "unknown"
+    },
+    {
+     "statement": "Loose garments -- pipeline loose_garments/g1-1ce47f43 (generation 1); Accepted-image yield: UNKNOWN -- no production frame judged; Structural rejection trend: UNKNOWN -- no frame judged yet; Photorealism: UNKNOWN -- no photographic/generated frame judged: disclosed renders are not judged for realism (D-FB-9); the generated path is queued behind spend authority; Laura identity consistency: UNKNOWN ",
+     "source": "brambleloop.visual.rnd.status.summary",
+     "basis": "unknown"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:learn:improve.mine",
+     "kind": "mission",
+     "department": "learn",
+     "job_type": "improve.mine",
+     "title": "Mine recent failures for improvements",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What should we launch next?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 8,
+    "intent": "launch_next",
+    "status": "PARTIAL",
+    "answer": "Here is how I'd decide what to launch next, from the evidence. The store (Store Foundation): store surfaces: 0 FAIL, 2 GATED, 10 NEEDS_OWNER, 2 READY, 8 UNVERIFIED; Shop name: NEEDS_OWNER (NAME_CONFIRM: confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name mus); Shop icon: NEEDS_OWNER (ICON_RASTER_PENDING: Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upl); Shop banner: NEEDS_OWNER (BANNER_RASTER_PENDING: Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or). Decisions only you can make: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns -- Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it; a listing that exists on the marketplace, which shadow mode forbids by design -- Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it; a site or a Pinterest account this company can publish to, which only the owner can create -- Recommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on it; an approved advertising budget -- Recommended when convenient: it un-parks 6 parked requirement(s); nothing else waits on it. Company phase: the company runs in SHADOW -- nothing is published or spent live. Not known yet: Products (no product recorded).",
+    "sources": [
+     "brambleloop.store_foundation.preview.summary",
+     "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+     "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+     "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+     "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+     "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+     "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+     "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+     "store_foundation.copy_v2.DELIVERY (via commerce.shop_package)",
+     "store_foundation.copy_v2.RETURNS (via commerce.shop_package)",
+     "commerce.terms via commerce.shop_package.licence_text",
+     "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
+     "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES (digital_download, ai_assisted_design, deterministic_render, disclosed_render) verbatim + Laura and account-holder lines",
+     "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
+     "store_foundation.copy_v2.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
+     "store_foundation.copy_v2.DIGITAL_SALE_MESSAGE (via commerce.shop_package)",
+     "store_foundation.copy_v2.SECTIONS (owner nav) over brand.storefront.SECTIONS slugs, populated from the Launch-0 products; unpopulated = planned, not shown",
+     "products.launch0 (+ drafted listings rows when present)",
+     "store_foundation.copy_v2.TRUST_SIGNALS",
+     "store_foundation.copy_v2.VOICE_PRINCIPLES; brand.bible",
+     "store_foundation.content.settings_checklist",
+     "brand.storefront.check_shop_seo; commerce.search_visibility",
+     "support.department; commerce.shop_package",
+     "visual.disclosed_render + visual.render_verification",
+     "build2.executor.approval_inbox",
+     "core.phase.resolve (audit_log owner.phase.transition)"
+    ],
+    "unknowns": [
+     {
+      "section": "products",
+      "title": "Products",
+      "reason": "no product recorded"
+     }
+    ],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "store surfaces: 0 FAIL, 2 GATED, 10 NEEDS_OWNER, 2 READY, 8 UNVERIFIED",
+     "source": "brambleloop.store_foundation.preview.summary",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop name: NEEDS_OWNER (NAME_CONFIRM: confirm 'Brambleloop Studio' as the public name for the handle BrambleloopStudio; whether a legal name mus)",
+     "source": "brand.storefront.SHOP_NAME; handle from build2.executor (etsy_shop gate)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop icon: NEEDS_OWNER (ICON_RASTER_PENDING: Etsy takes a raster upload; export this SVG to PNG at Etsy's recommended size (not on file) and upl)",
+     "source": "store_foundation.assets.icon_svg (brief: brand.storefront._icon_brief)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop banner: NEEDS_OWNER (BANNER_RASTER_PENDING: Etsy takes a raster upload; export to PNG at Etsy's recommended size (not on file) and upload, or)",
+     "source": "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Brand face (Laura): NEEDS_OWNER (BRAND_FACE_MISSING_CANONICAL: frozen v15 frames held only in production: ['reference_pack/torso_fit_reference', 'referen)",
+     "source": "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Shop title (tagline): UNVERIFIED (LIMIT_UNVERIFIED: the shop title (tagline under the shop name): 41 characters; Etsy's limit is not on file (not on file;)",
+     "source": "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
+     "basis": "measured"
+    },
+    {
+     "statement": "Announcement: UNVERIFIED (LIMIT_REPO_ASSERTED: the shop announcement: 134/160 characters against an unsourced limit (brand.storefront.ANNOUNCEMENT)",
+     "source": "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
+     "basis": "measured"
+    },
+    {
+     "statement": "About / shop story: UNVERIFIED (LIMIT_REPO_ASSERTED: the About / shop story: 2249/5000 characters against an unsourced limit (brand.storefront.ABOUT_MAX)",
+     "source": "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
+     "basis": "measured"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:product_design:seasonal.sentinel",
+     "kind": "mission",
+     "department": "product_design",
+     "job_type": "seasonal.sentinel",
+     "title": "Recompute seasonal launch windows",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What genuinely needs me?",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 9,
+    "intent": "needs_me",
+    "status": "ANSWERED",
+    "answer": "Here is what genuinely needs you -- only the decisions I can't make. 10 item(s) need you: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns -- Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it; a listing that exists on the marketplace, which shadow mode forbids by design -- Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it; a site or a Pinterest account this company can publish to, which only the owner can create -- Recommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on it; an approved advertising budget -- Recommended when convenient: it un-parks 6 parked requirement(s); nothing else waits on it; owner-recorded Marketplace Insights readings exist -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it; roughly ten purchased competitor patterns -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it.",
+    "sources": [
+     "build2.executor.approval_inbox"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns -- Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    },
+    {
+     "statement": "a listing that exists on the marketplace, which shadow mode forbids by design -- Recommended when convenient: it un-parks 9 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    },
+    {
+     "statement": "a site or a Pinterest account this company can publish to, which only the owner can create -- Recommended when convenient: it un-parks 7 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    },
+    {
+     "statement": "an approved advertising budget -- Recommended when convenient: it un-parks 6 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    },
+    {
+     "statement": "owner-recorded Marketplace Insights readings exist -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    },
+    {
+     "statement": "roughly ten purchased competitor patterns -- Recommended when convenient: it un-parks 5 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    },
+    {
+     "statement": "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320 -- Recommended when convenient: it un-parks 4 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    },
+    {
+     "statement": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode -- Recommended when convenient: it un-parks 3 parked requirement(s); nothing else waits on it",
+     "source": "build2.executor.approval_inbox",
+     "basis": "measured"
+    }
+   ],
+   "proposals": []
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "I don't like that banner. Have Design make three more.",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 10,
+    "intent": "delegate",
+    "status": "ANSWERED",
+    "answer": "I'll give this to Product & Design: make three more banners (count: 3). Confirm and it goes on their queue as internal work -- no publishing, no spending, no customer contact. Honest limit: new imagery needs Visual's paid generation path, which waits on owner spend authority (visual.rnd paid_execution); until then the department works from existing assets.",
+    "sources": [
+     "autonomy.charters:product_design",
+     "autonomy.charters.PROTECTED_JOB_TYPES",
+     "visual.rnd.status (spend.paid_execution)",
+     "DECISION_LOG D-FB-17"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "Product & Design holds GREEN authority for: autonomy.department_review, creative.outcome_learning, seasonal.sentinel",
+     "source": "autonomy.charters:product_design",
+     "basis": "measured"
+    },
+    {
+     "statement": "Protected work (publish, activate, live listing changes, pricing, ads, customer messages) only ever becomes an owner decision",
+     "source": "autonomy.charters.PROTECTED_JOB_TYPES",
+     "basis": "measured"
+    },
+    {
+     "statement": "GATED: new imagery needs Visual's paid generation path, which waits on owner spend authority (visual.rnd paid_execution); until then the department works from existing assets",
+     "source": "visual.rnd.status (spend.paid_execution)",
+     "basis": "unknown"
+    },
+    {
+     "statement": "The owner's canonical banner and logo stay the art target; new work is a candidate for your review, never a silent replacement",
+     "source": "DECISION_LOG D-FB-17",
+     "basis": "measured"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:product_design:autonomy.department_review:delegation:make-three-more-banners",
+     "kind": "mission",
+     "department": "product_design",
+     "job_type": "autonomy.department_review",
+     "title": "Delegate to Product & Design: make three more banners",
+     "requires_step_up": false,
+     "brief": {
+      "requested_by": "owner via Laura (Command Center)",
+      "instruction": "I don't like that banner. Have Design make three more.",
+      "task": "make three more banners",
+      "count": 3,
+      "department": "product_design",
+      "constraints": [
+       "Product Truth unchanged: nothing may misrepresent a pattern",
+       "the owner's canonical logo and banner stay the hero identity and art target (D-FB-17); new work is a candidate for owner review, never a replacement",
+       "any Laura imagery preserves laura-r2-a42aeac7 and passes every Visual gate; nothing becomes publication-approved by this brief"
+      ],
+      "gated": [
+       "new imagery needs Visual's paid generation path, which waits on owner spend authority (visual.rnd paid_execution); until then the department works from existing assets"
+      ],
+      "deliverable_state": "GATED: new imagery needs Visual's paid generation path, which waits on owner spend authority (visual.rnd paid_execution); until then the department works from existing assets"
+     }
+    }
+   ],
+   "confirmation": {
+    "without_confirm_http": 400,
+    "without_confirm": {
+     "error": "confirm the follow-on explicitly ({\"confirm\": true})",
+     "code": "CONFIRMATION_REQUIRED"
+    },
+    "confirmed_http": 200,
+    "confirmed": {
+     "ok": true,
+     "created": true,
+     "kind": "mission",
+     "result_ref": "jobs:12",
+     "followon_id": 1,
+     "department": "product_design",
+     "job_type": "autonomy.department_review",
+     "job_id": 12,
+     "agent": "coo",
+     "mission": "autonomy:product_design:c4771e4e7eec74ee",
+     "delegation": true,
+     "constitution": "allow",
+     "memory_ref": "laura_memory:operational:cc/followon/1"
+    },
+    "job": {
+     "id": 12,
+     "job_type": "autonomy.department_review",
+     "agent": "coo",
+     "status": "JobStatus.PENDING",
+     "brief": {
+      "requested_by": "owner via Laura (Command Center)",
+      "instruction": "I don't like that banner. Have Design make three more.",
+      "task": "make three more banners",
+      "count": 3,
+      "department": "product_design",
+      "constraints": [
+       "Product Truth unchanged: nothing may misrepresent a pattern",
+       "the owner's canonical logo and banner stay the hero identity and art target (D-FB-17); new work is a candidate for owner review, never a replacement",
+       "any Laura imagery preserves laura-r2-a42aeac7 and passes every Visual gate; nothing becomes publication-approved by this brief"
+      ],
+      "gated": [
+       "new imagery needs Visual's paid generation path, which waits on owner spend authority (visual.rnd paid_execution); until then the department works from existing assets"
+      ],
+      "deliverable_state": "GATED: new imagery needs Visual's paid generation path, which waits on owner spend authority (visual.rnd paid_execution); until then the department works from existing assets"
+     }
+    }
+   }
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "Laura, have Store publish the market basket listing",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 11,
+    "intent": "delegate",
+    "status": "ANSWERED",
+    "answer": "That's protected (store.publish), so I can't just hand it to Store / Commerce. Confirm with step-up and I'll record it as your decision in Approvals; the act itself still needs its own grant.",
+    "sources": [
+     "autonomy.charters:store_commerce",
+     "autonomy.charters.PROTECTED_JOB_TYPES"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "Store / Commerce holds GREEN authority for: autonomy.department_review, seasonal.remerchandising, seo.cycle",
+     "source": "autonomy.charters:store_commerce",
+     "basis": "measured"
+    },
+    {
+     "statement": "Protected work (publish, activate, live listing changes, pricing, ads, customer messages) only ever becomes an owner decision",
+     "source": "autonomy.charters.PROTECTED_JOB_TYPES",
+     "basis": "measured"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "owner_action:store_commerce:store.publish:delegation:publish-the-market-basket-listing",
+     "kind": "owner_action",
+     "department": "store_commerce",
+     "job_type": "store.publish",
+     "title": "Delegate to Store / Commerce: publish the market basket listing",
+     "requires_step_up": true,
+     "brief": {
+      "requested_by": "owner via Laura (Command Center)",
+      "instruction": "Laura, have Store publish the market basket listing",
+      "task": "publish the market basket listing",
+      "count": null,
+      "department": "store_commerce",
+      "constraints": [
+       "Product Truth unchanged: nothing may misrepresent a pattern",
+       "the owner's canonical logo and banner stay the hero identity and art target (D-FB-17); new work is a candidate for owner review, never a replacement",
+       "any Laura imagery preserves laura-r2-a42aeac7 and passes every Visual gate; nothing becomes publication-approved by this brief"
+      ],
+      "gated": [],
+      "deliverable_state": "department review against this brief"
+     }
+    }
+   ]
+  },
+  {
+   "at": "2026-10-06T17:54:13+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "Ask finance to spend 50 dollars on yarn",
+   "modes_requested": null,
+   "laura": {
+    "turn_id": 12,
+    "intent": "delegate",
+    "status": "ANSWERED",
+    "answer": "I won't hand that to Finance / Accounting: spending money is owner-only authority (company constitution; no consequential spend without owner approval). That decision is yours; nothing has been queued.",
+    "sources": [
+     "autonomy.charters:finance",
+     "autonomy.charters.PROTECTED_JOB_TYPES",
+     "DECISION_LOG (company constitution)"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "text",
+     "delivered": "text",
+     "degraded": false,
+     "skipped": []
+    }
+   },
+   "facts": [
+    {
+     "statement": "Finance / Accounting holds GREEN authority for: autonomy.department_review, commerce.order_readings, commerce.readings, finance.accounting.cycle, finance.accounting.period_pack, finance.escalation_check, finance.reconcile",
+     "source": "autonomy.charters:finance",
+     "basis": "measured"
+    },
+    {
+     "statement": "Protected work (publish, activate, live listing changes, pricing, ads, customer messages) only ever becomes an owner decision",
+     "source": "autonomy.charters.PROTECTED_JOB_TYPES",
+     "basis": "measured"
+    },
+    {
+     "statement": "Refused: spending money is owner-only authority (company constitution; no consequential spend without owner approval)",
+     "source": "DECISION_LOG (company constitution)",
+     "basis": "measured"
+    }
+   ],
+   "proposals": []
+  },
+  {
+   "at": "2026-10-06T17:54:14+00:00",
+   "route": "POST /api/cc/laura/ask",
+   "http": 200,
+   "owner": "What did your company do overnight?",
+   "modes_requested": [
+    "live",
+    "voice",
+    "text"
+   ],
+   "laura": {
+    "turn_id": 13,
+    "intent": "overnight",
+    "status": "ANSWERED",
+    "answer": "Here is what my company did, straight from the records. What the company did (last 12 h): 7 job(s) completed and 0 failed in the last 12 h; creative_director completed 1 job(s); market_radar completed 1 job(s); orchestrator completed 2 job(s); publishing completed 1 job(s). Departments (autonomy status): the COO orchestrator last ran at 2026-10-06T17:52:25.875843+00:00; Executive / COO: OK, 0 job(s) completed in 24 h (0 useful), 1 open; Intelligence: OK, 1 job(s) completed in 24 h (0 useful), blocked by read-only Etsy API credentials that can actually serve a request; Etsy API credentials, which are what lets this system read the shop's own seller; Product & Design: OK, 1 job(s) completed in 24 h (0 useful), 1 open, blocked by a model provider that can actually serve a request; Product Truth / QA: OK, 1 job(s) completed in 24 h (0 useful).",
+    "sources": [
+     "jobs",
+     "company_memory (kind=mission)",
+     "jobs:12",
+     "jobs:11",
+     "jobs:10",
+     "jobs:9",
+     "jobs:8",
+     "jobs:7",
+     "laura_memory:operational:decision/5a7bc7a0031ae16c2fdd",
+     "brambleloop.autonomy.status.summary",
+     "brambleloop.autonomy.status.summary[executive]",
+     "brambleloop.autonomy.status.summary[intelligence]",
+     "brambleloop.autonomy.status.summary[product_design]",
+     "brambleloop.autonomy.status.summary[product_truth]",
+     "brambleloop.autonomy.status.summary[visual]",
+     "brambleloop.autonomy.status.summary[store_commerce]",
+     "brambleloop.autonomy.status.summary[support]",
+     "brambleloop.autonomy.status.summary[finance]",
+     "brambleloop.autonomy.status.summary[growth]",
+     "brambleloop.autonomy.status.summary[learn]",
+     "brambleloop.autonomy.status.summary[platform]"
+    ],
+    "unknowns": [],
+    "method": "deterministic retrieval over durable state + fixed templates (no model call)",
+    "delivery": {
+     "requested": "live",
+     "delivered": "text",
+     "degraded": true,
+     "skipped": [
+      {
+       "mode": "live",
+       "status": "GATED",
+       "why": "real-time avatar renderer able to reproduce laura-r2-a42aeac7 and pass the identity -> photorealism -> anatomy gates (nothing is publication-approved or presence-approved today); Phase 2 voice ACTIVE (lip sync needs the qualified voice's visemes)"
+      },
+      {
+       "mode": "voice",
+       "status": "GATED",
+       "why": "speech-to-text provider (streaming, en-CA) chosen and contracted; text-to-speech voice qualified against voice_spec v1 (measured readings, pronunciation lexicon) and promoted by an owner decision"
+      }
+     ]
+    }
+   },
+   "facts": [
+    {
+     "statement": "7 job(s) completed and 0 failed in the last 12 h",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "creative_director completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "market_radar completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "orchestrator completed 2 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "publishing completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "quality_director completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "support completed 1 job(s)",
+     "source": "jobs",
+     "basis": "measured"
+    },
+    {
+     "statement": "12 department mission(s) touched: 12 queued",
+     "source": "company_memory (kind=mission)",
+     "basis": "measured"
+    }
+   ],
+   "proposals": [
+    {
+     "key": "mission:executive:autonomy.morning_handoff",
+     "kind": "mission",
+     "department": "executive",
+     "job_type": "autonomy.morning_handoff",
+     "title": "Write a fresh company brief",
+     "requires_step_up": false,
+     "brief": null
+    }
+   ]
+  }
+ ]
+}
