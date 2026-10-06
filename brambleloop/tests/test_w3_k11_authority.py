@@ -14,6 +14,7 @@ F-708 / F-743                    -- improvement may never touch credentials, leg
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import importlib
 import os
 import sys
