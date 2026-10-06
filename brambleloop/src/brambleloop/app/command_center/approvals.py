@@ -15,6 +15,7 @@ revocation recorded before execution makes the protected action refuse (§95).
 """
 from __future__ import annotations
 
+import logging
 import os
 
 from sqlalchemy import select
@@ -38,7 +39,56 @@ ACTIONS: dict[str, tuple[bool, str]] = {
 
 
 class ActionRefused(ValueError):
-    """The underlying authority (or input validation) refused; message says why."""
+    """The underlying authority (or input validation) refused; message says why.
+
+    The message is owner-facing and stable; `detail` (raw exception text, if any) goes only to
+    the server log and the security-event audit row, never to the response (audit L3)."""
+
+    def __init__(self, message: str, *, detail: dict | None = None):
+        super().__init__(message)
+        self.detail = detail
+
+
+class ActionNotFound(ActionRefused):
+    """The thing the action names does not exist (HTTP 404)."""
+
+
+log = logging.getLogger("brambleloop.cc.approvals")
+
+# Refusal texts the authorities raise deliberately; these reach the owner verbatim. Any other
+# exception text (e.g. "invalid literal for int()") is replaced by a stable message.
+_AUTHORITY_MESSAGES = (
+    "owner decision reason required",
+    "approval preview changed; review the current content",
+    "slug, version and certified release hash are required",
+    "no certified release with that hash for this version",
+    "no drafted listing bound to that certified release",
+    "already on Etsy; publication grants cover draft creation only",
+    "no inactive recorded listing/release",
+    "certified frames and verified publication files required",
+    "owner credential unavailable",
+)
+_AUTHORITY_PREFIXES = ("the owner publication grant chain does not verify",
+                       "the owner activation approval chain does not verify")
+
+
+def _owner_message(exc: Exception) -> str:
+    text = str(exc).strip()
+    if type(exc).__name__ in ("ImprovementRefused", "LeagueRefused"):
+        return text[:500] or "refused by the improvement authority"
+    if text in _AUTHORITY_MESSAGES or text.startswith(_AUTHORITY_PREFIXES):
+        return text[:500]
+    return "refused: the request was malformed or named something that is not valid"
+
+
+def _int(body: dict, key: str) -> int:
+    value = body.get(key)
+    if isinstance(value, bool):
+        raise ActionRefused(f"{key} must be an integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ActionRefused(f"{key} must be an integer") from None
 
 
 def _ops_token() -> str:
@@ -213,6 +263,30 @@ def _audit(db, actor: str, action: str, artifact: str, detail: dict) -> int:
         return row.id
 
 
+def _require_publication_evidence(db, body: dict) -> None:
+    """Server-side evidence gate for publication.approve (audit ddf9c6e L1).
+
+    The inbox card is only `executable` when every gated section of the approval packet
+    passes; the server enforces the same rule rather than trusting the UI. FAIL and UNKNOWN
+    both refuse (UNKNOWN is never PASS); an unreadable packet refuses."""
+    from ...ops import publication_authority as pub
+
+    try:
+        ev = pub.evidence(db, body.get("slug"), body.get("version"), body.get("release", ""))
+        summary = ev["summary"]
+        ready = summary.get("all_gated_sections_pass") is True
+        not_passing = [str(x) for x in summary.get("not_passing") or []]
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        log.info("publication evidence unreadable: %s: %s", type(exc).__name__, exc)
+        raise ActionRefused("evidence not ready: the approval packet could not be read",
+                            detail={"exception": type(exc).__name__}) from None
+    if not ready:
+        raise ActionRefused("evidence not ready: " + (", ".join(not_passing) or "unknown")
+                            + " not passing; a publication grant needs every gated section "
+                            "to pass (Product Truth first)",
+                            detail={"not_passing": not_passing})
+
+
 def execute(db, action: str, body: dict, *, actor: str) -> dict:
     """Run one owner action through its existing mechanism. Raises ActionRefused."""
     from ...ops import activation_authority as act
@@ -238,34 +312,44 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
             mod = pub if action.startswith("publication") else act
             if not reason:
                 raise ActionRefused("owner decision reason required")
+            if mod is pub:
+                _require_publication_evidence(db, body)
             kwargs = dict(authorization=_ops_token(), slug=body.get("slug"),
                           version=body.get("version"), release=body.get("release", ""),
                           expected_digest=body.get("expected_digest"), reason=tagged)
             result = mod.approve(db, **kwargs)
         elif action in ("publication.revoke", "activation.revoke"):
             mod = pub if action.startswith("publication") else act
-            result = mod.revoke(db, authorization=_ops_token(),
-                                approval_id=int(body.get("approval_id")))
+            ident = _int(body, "approval_id")
+            with db.session() as s:
+                row = s.get(AuditLog, ident)
+                is_grant = (row is not None and row.action == mod.APPROVED
+                            and row.actor == mod.PRINCIPAL)
+            if not is_grant:
+                # Never seal a revocation for an id that is not a grant of this ledger: it
+                # would report success for nothing and pre-revoke a future id (audit L2).
+                raise ActionNotFound(f"no {action.split('.')[0]} grant {ident}")
+            result = mod.revoke(db, authorization=_ops_token(), approval_id=ident)
         elif action == "improvement.approve":
             from ...improve import cells
 
-            result = cells.record_owner_approval(db, int(body.get("id")), approved_by="owner",
+            result = cells.record_owner_approval(db, _int(body, "id"), approved_by="owner",
                                                  why=str(body.get("why") or reason))
         elif action == "challenger.approve":
             from ...improve import league
 
-            result = league.record_owner_decision(db, int(body.get("id")),
+            result = league.record_owner_decision(db, _int(body, "id"),
                                                   approved_by="owner",
                                                   why=str(body.get("why") or reason))
         elif action == "incident.acknowledge":
-            iid = int(body.get("incident_id"))
+            iid = _int(body, "incident_id")
             with db.session() as s:
                 if s.get(Incident, iid) is None:
                     raise ActionRefused(f"no incident {iid}")
             result = {"acknowledged": iid, "resolved": False,
                       "note": str(body.get("note") or "")[:500]}
         elif action == "owner_action.defer":
-            oid = int(body.get("owner_action_id"))
+            oid = _int(body, "owner_action_id")
             with db.session() as s:
                 if s.get(OwnerAction, oid) is None:
                     raise ActionRefused(f"no owner action {oid}")
@@ -275,12 +359,16 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
     except ActionRefused:
         raise
     except opsauth.OpsAuthUnavailable as exc:
-        raise ActionRefused(str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001 - the authority's refusal, verbatim
+        raise ActionRefused("operator credential not configured",
+                            detail={"exception": type(exc).__name__}) from exc
+    except Exception as exc:  # noqa: BLE001 - the authority's refusal, mapped to stable text
         name = type(exc).__name__
         if name in ("ValueError", "KeyError", "TypeError", "ImprovementRefused",
-                    "LeagueRefused", "PermissionError"):
-            raise ActionRefused(str(exc)[:500] or name) from exc
+                    "LeagueRefused", "PermissionError", "OpsAuthRefused"):
+            raw = str(exc)[:500]
+            log.info("command-center action %s refused: %s: %s", action, name, raw)
+            raise ActionRefused(_owner_message(exc),
+                                detail={"exception": name, "message": raw}) from exc
         raise
     audit_id = _audit(db, actor, f"cc.owner_action.{action}",
                       str(body.get("slug") or body.get("id") or body.get("approval_id")

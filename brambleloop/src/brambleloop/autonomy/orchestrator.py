@@ -37,6 +37,13 @@ from ..core.models import Job, JobStatus
 from . import charters, generators, memory
 from .models import ensure_tables
 
+
+def _never_paused(department: str) -> bool:
+    """The shared F-889 rule (one definition, in the emergency controls)."""
+    from ..app.command_center.emergency import never_paused_refusal
+
+    return never_paused_refusal(department) is not None
+
 MAX_MISSIONS_PER_TICK = 11          # at most one per department
 NOOP_SUPPRESS_AFTER = 3             # consecutive no-op generated missions of one job type
 NOOP_SUPPRESS_HOURS = 24
@@ -231,6 +238,11 @@ def tick(db, queue=None, *, now: datetime | None = None, departments=None) -> di
         report["departments"][key] = entry
         try:
             block = memory.active_block(db, key, now=now)
+            if block and _never_paused(key):
+                # F-889: monitoring/evidence/recovery departments never stop, whatever wrote
+                # the block (audit ddf9c6e M3). The block is reported, not obeyed.
+                entry["ignored_block"] = block["body"].get("reason")
+                block = None
             if block:
                 entry.update(state="BLOCKED", blocker=block["body"].get("reason"),
                              owner_action=block["body"].get("owner_action"))

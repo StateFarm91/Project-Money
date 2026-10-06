@@ -141,7 +141,14 @@ def test_activation_grant_via_command_center_then_revoke_before_execution_refuse
 
 def test_publication_grant_is_revoked_by_the_publishing_pause():
     c, csrf = session()
+    # Since audit ddf9c6e L1 the server refuses publication.approve unless every gated
+    # evidence section passes, so this pause test supplies a fully passing packet.
+    passing = {k: {"state": pub.PASS, "why": "test packet"}
+               for k in pub.GATED_SECTIONS + ("economics",)}
+    passing["summary"] = {"all_gated_sections_pass": True, "not_passing": [], "unknown": [],
+                          "economics_basis": pub.PASS}
     with patch.object(pub, "snapshot", return_value=PUB_CONTENT), \
+            patch.object(pub, "evidence", return_value=passing), \
             patch.dict(os.environ, {pub.KILL_SWITCH_VAR: "1"}):
         r = post(c, csrf, "/api/cc/actions/publication.preview",
                  {"slug": "throw", "version": "1", "release": "release-1"})
