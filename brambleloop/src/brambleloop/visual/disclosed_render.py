@@ -60,6 +60,28 @@ VIEWS: dict[str, dict] = {
 }
 
 
+# The spacing between the pieces of a multi-piece round hero, as a fraction of one piece's
+# width. A presentation-layout parameter (Visual R&D may run challengers on it); not a
+# measurement and not a threshold -- the verifier finds pieces without reading it.
+DEFAULT_HERO_GAP_RATIO = 0.18
+LAYOUT_PARAMS = {"hero_gap_ratio": (0.0, 0.5)}
+
+
+def _layout_params(layout: dict | None) -> dict:
+    if not layout:
+        return {}
+    out = {}
+    for key, value in dict(layout).items():
+        if key not in LAYOUT_PARAMS:
+            raise RenderRefused(f"{key!r} is not a layout parameter: {sorted(LAYOUT_PARAMS)}")
+        lo, hi = LAYOUT_PARAMS[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or \
+                not lo <= float(value) <= hi:
+            raise RenderRefused(f"{key}={value!r} is outside [{lo}, {hi}]")
+        out[key] = float(value)
+    return out
+
+
 class RenderRefused(ValueError):
     """The CIR asks for something this renderer cannot draw truthfully."""
 
@@ -486,7 +508,8 @@ def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float,
              "colour": rows[ring.index][0].color, "part": "wall"} for ring in wall]
 
 
-def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dict]:
+def _round_view(cir, result, twin, palette, view: str,
+                layout_params: dict | None = None) -> tuple[Image.Image, dict]:
     sides = _corners(result, cir)
     if sides is None:
         raise RenderRefused(
@@ -510,7 +533,8 @@ def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dic
         if view == "hero" and make > 1:
             cols = int(math.ceil(math.sqrt(make)))
             nrows = int(math.ceil(make / cols))
-            gap_cm = 0.18 * span_x
+            gap_ratio = (layout_params or {}).get("hero_gap_ratio", DEFAULT_HERO_GAP_RATIO)
+            gap_cm = float(gap_ratio) * span_x
             px = min(zw / (cols * span_x + (cols - 1) * gap_cm),
                      zh / (nrows * span_y + (nrows - 1) * gap_cm))
             total_w = (cols * span_x + (cols - 1) * gap_cm) * px
@@ -576,8 +600,17 @@ def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dic
 
 # --------------------------------------------------------------------------- public API
 
-def render(cir, view: str) -> RenderedFrame:
-    """One disclosed frame of the whole product, with its construction manifest."""
+def render(cir, view: str, *, layout: dict | None = None) -> RenderedFrame:
+    """One disclosed frame of the whole product, with its construction manifest.
+
+    `layout` (optional, Visual R&D) carries presentation-layout parameters the renderer
+    exposes as tunable: today only `hero_gap_ratio`, the spacing between the pieces of a
+    multi-piece round hero (coasters), as a fraction of one piece's width. Layout moves
+    where whole pieces sit; it never changes a stitch, a radius or the scale bar, and every
+    frame is still judged by the independent verifier on its bytes. Omitted (the default)
+    the output is byte-identical to the renderer without the parameter.
+    """
+    layout = _layout_params(layout)
     if view not in VIEWS:
         raise RenderRefused(f"{view!r} is not a view: {sorted(VIEWS)}")
     if cir.gauge is None:
@@ -585,10 +618,10 @@ def render(cir, view: str) -> RenderedFrame:
     result, twin, palette = _compiled(cir)
     construction = cir.components[0].construction
     if construction == "flat_rows":
-        img, layout = _flat_view(cir, twin, palette, view)
+        img, drawn = _flat_view(cir, twin, palette, view)
         form = "flat"
     elif construction in ("joined_rounds", "spiral_rounds"):
-        img, layout = _round_view(cir, result, twin, palette, view)
+        img, drawn = _round_view(cir, result, twin, palette, view, layout)
         form = "rounds"
     else:
         raise RenderRefused(f"{cir.slug}: construction {construction!r} is not drawable here")
@@ -611,7 +644,7 @@ def render(cir, view: str) -> RenderedFrame:
         "stitch_counts": {str(r): len(cs) for r, cs in rows.items()},
         "finished_dimensions_cm": {"width": twin.width_cm, "height": twin.height_cm},
         "pieces": cir.components[0].make,
-        "layout": layout,
+        "layout": drawn,
         "disclosure": K.DISCLOSURE,
         "image_sha256": hashlib.sha256(png).hexdigest(),
         "image_px": [K.CANVAS_PX, K.CANVAS_PX],
@@ -620,8 +653,10 @@ def render(cir, view: str) -> RenderedFrame:
         "modelling_notes": (
             ["polygon rounds are drawn on the perimeter the stitch count makes, so side "
              "pitch is the gauge width"]
-            if form == "rounds" and layout.get("sides") else []),
+            if form == "rounds" and drawn.get("sides") else []),
     }
+    if layout:
+        manifest["layout_params"] = dict(layout)
     return RenderedFrame(view=view, png=png, manifest=manifest)
 
 
