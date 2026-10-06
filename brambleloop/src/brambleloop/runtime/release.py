@@ -3794,8 +3794,23 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         ctx.db, defer=frozenset() if first_sale_step["reached"] else DEFERRED_UNTIL_FIRST_SALE)
     etsy_queue["first_sale_step"] = first_sale_step
 
+    # K4 / F-300: the same verdict answered as six separate questions, recorded with it so the
+    # owner's visibility view reads which question is a "no" without re-running the assessment.
+    try:
+        questions = assessed.questions
+    except Exception as exc:  # noqa: BLE001 - the grouping never changes `ready`
+        questions = {"unreadable": type(exc).__name__}
+    # F-281: snapshot each first-30-day review whose day has arrived (idempotent).
+    from ..launch import demand as launch_demand
+
+    try:
+        reviews_recorded = launch_demand.record_due_reviews(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - a review snapshot never blocks the assessment
+        reviews_recorded = {"unreadable": type(exc).__name__}
     ctx.audit("launch.assessed", detail={
         "ready": ready,
+        "questions": questions,
+        "learning_reviews_recorded": reviews_recorded,
         "rollback_rehearsed": rehearsed,
         "launch_package_blocked": package_blocked,
         "owner_requests_withheld_until_package_ready": withheld,

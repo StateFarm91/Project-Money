@@ -272,7 +272,13 @@ def test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are
     db = _db()
     from brambleloop.app import phase_api
 
-    with _Env(BRAMBLELOOP_OPS_TOKEN=TOKEN, BRAMBLELOOP_PHASE="limited_production"):
+    from phase_fixture import synthetic_readiness
+
+    # K4 / F-300: the route evaluates live readiness at transition time; a hermetic database
+    # cannot be launch-ready, so this route test substitutes the synthetic verdict (the real
+    # refusal is tested in test_w3_k4_launch_verdict.py).
+    with _Env(BRAMBLELOOP_OPS_TOKEN=TOKEN, BRAMBLELOOP_PHASE="limited_production"), \
+            patch.object(P, "live_readiness", synthetic_readiness):
         P.effective(db)  # mismatch incident opened first
         api = _api(db, phase_api)
         # rc1-AUTH D4: refs must resolve to real recorded evidence rows; free text does not.
