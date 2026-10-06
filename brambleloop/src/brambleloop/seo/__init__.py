@@ -22,6 +22,14 @@ Modules:
 - `taxonomy`  which Launch-0 products have a confirmed vs an assumed Etsy category.
 - `measure`   per-keyword outcome attribution when listing stats exist; UNKNOWN otherwise.
 - `jobs`      `run_cycle(db)`, idempotent: re-evaluates proposals only when inputs change.
+- `constraints` (wave 3) Etsy field/category/attribute constraints with evidence: VERIFIED
+              only from Etsy's OpenAPI v3 document (fetched + hashed 2026-10-06) or developer
+              docs; Help Center numbers (140/13/20, shop title 55, sections 20x24) UNVERIFIED.
+- `strategy`  (wave 3) Launch-0 query families, buyer-first titles, 13 tags, natural
+              descriptions, GATED category/attribute candidates; one listing per product.
+- `shop`      (wave 3) shop-level SEO recommendation for lane C and a checker for C's copy.
+- `learning`  (wave 3) search-learning hooks (impressions/clicks/favourites/carts/orders,
+              Search Visibility): UNKNOWN until data, then one funnel stage diagnosed.
 - `status`    `summary(db)` and `next_work(db)` -- the provider contract for lanes A and C.
 
 `db` everywhere is the repo's `core.db.Database` (the object every provider in this codebase

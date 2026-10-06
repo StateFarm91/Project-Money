@@ -313,6 +313,7 @@ TITLE_ONCE_ONLY = "%:&+"
 
 TAG_CATEGORIES = _LETTER + _DIGIT + _SPACE
 TAG_EXTRA = "-'" + _MARKS
+TAG_NO_LEADING = "-'"
 
 MATERIAL_CATEGORIES = _LETTER + _DIGIT + _SPACE
 MATERIAL_EXTRA = ""
@@ -390,6 +391,13 @@ def tag_problems(tags: list[str]) -> list[str]:
             problems.append(
                 f"TAG_CHARACTERS: {tag!r} contains {bad}; Etsy allows letters, numbers, "
                 f"whitespace, hyphen and apostrophe in a tag")
+        if tag[:1] in TAG_NO_LEADING:
+            # Etsy help 360000336307 (edited 2026-04-21, read 2026-10-06): "You're able to use
+            # ' and - within words and phrases, but cannot start your tag with these
+            # characters." The API regex allows both anywhere, so only the help text says it.
+            problems.append(
+                f"TAG_LEADING_PUNCTUATION: {tag!r} starts with {tag[:1]!r}; Etsy allows ' and "
+                f"- within a tag but not at its start")
         problems.extend(_normalisation_problems(tag, "TAG"))
     return problems
 
@@ -529,8 +537,12 @@ _MATRIX: tuple[dict, ...] = (
                       "AND step 6 reading one image back from Etsy")},
     {"claim": "image_minimum_acceptable",
      "state": IMPLEMENTED, "blocks_launch": False,
-     "what": ("a 1x1 PNG is an acceptable listing image. Etsy's image rules are on "
-              "help.etsy.com, which refuses automated readers, so this is not even a reading"),
+     "what": ("a 1x1 PNG is an acceptable listing image. Etsy's image article "
+              "(help 115015663347, read 2026-10-06 through the Help Center article API; the "
+              "HTML page refuses automated readers) publishes only recommendations for "
+              "listing photos -- 2000 px, and 635 px for the first photo 'to avoid showing up "
+              "lower in searches' -- and no hard minimum, so acceptance is still unobserved. "
+              "Every published rule: integrations.etsy_constraints"),
      "graduates_by": ("probe step 3 accepting the generated pixel; a refusal is a finding "
                       "about the fixture, not about the transport")},
     {"claim": "array_encoding_tags",
