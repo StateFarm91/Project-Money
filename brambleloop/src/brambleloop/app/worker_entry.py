@@ -45,7 +45,10 @@ def main() -> int:
     from ..core.phase import effective_phase
 
     phase = effective_phase(db)
-    name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"worker-{os.getpid()}"
+    import socket
+
+    name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or \
+        f"worker-{socket.gethostname()[:40]}-{os.getpid()}"
     log.info("starting worker %s in phase %s", name, phase.value)
 
     # rc1-AUTH A1: the boot-time phase is only the first reading; the worker re-resolves it

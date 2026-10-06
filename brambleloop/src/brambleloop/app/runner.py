@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
+import socket
 import threading
 import time
 from dataclasses import dataclass, field
@@ -62,6 +63,9 @@ class RunnerState:
     worker_pool: int = 1
     worker_target: int = 1
     worker_target_why: str = ""
+    # v1.1 lane A: dedicated lanes (runtime.lanes), e.g. the control lane that keeps the
+    # Executive Orchestrator turning while a long render holds the pool.
+    lanes: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         def iso(d: datetime | None) -> str | None:
@@ -85,6 +89,7 @@ class RunnerState:
             "worker_pool": self.worker_pool,
             "worker_target": self.worker_target,
             "worker_target_why": self.worker_target_why,
+            "lanes": {k: dict(v) for k, v in self.lanes.items()},
             # Measured here because this is the process that owns the disk. A health sweep
             # reading its own filesystem measures whichever machine is answering the
             # request, which in a split deployment is not the container doing the work.
@@ -203,6 +208,29 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
             stop.wait(min(60.0, 2.0 * STATE.worker_restarts))
 
 
+def _lane_loop(db: Database, name: str, phase: Phase, stop: threading.Event, lane: str,
+               job_types: list[str]) -> None:
+    """A dedicated claimer for one lane's job types (runtime.lanes). Restarts like the pool."""
+    info = STATE.lanes.setdefault(lane, {})
+    info.update(worker=name, job_types=list(job_types), last_tick=None, restarts=0,
+                last_error="")
+    if _START_DELAY > 0 and stop.wait(_START_DELAY):
+        return
+    while not stop.is_set():
+        try:
+            worker = Worker(db, name, phase=phase, job_types=job_types, live_phase=True)
+            while not stop.is_set():
+                did_work = worker.run_once()
+                info["last_tick"] = _now().isoformat()
+                if not did_work:
+                    stop.wait(_IDLE_SLEEP)
+        except Exception as e:  # noqa: BLE001
+            info["restarts"] = int(info.get("restarts") or 0) + 1
+            info["last_error"] = f"{type(e).__name__}: {e}"[:300]
+            log.exception("lane %s worker crashed; restarting", lane)
+            stop.wait(min(60.0, 2.0 * info["restarts"]))
+
+
 def _scheduler_loop(db: Database, stop: threading.Event) -> None:
     if _START_DELAY > 0 and stop.wait(_START_DELAY):
         return
@@ -233,7 +261,11 @@ def start(db: Database) -> RunnerState:
     from ..core.phase import effective_phase
 
     phase = effective_phase(db)
-    name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"web-{os.getpid()}"
+    # v1.1 lane A: the hostname as well as the PID. A container's PID is small and repeats
+    # across containers, so two replicas of an overlapping deploy could both be `web-7`; the
+    # lease token fences that case in the queue, and a unique name keeps the audit readable.
+    name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or \
+        f"web-{socket.gethostname()[:40]}-{os.getpid()}"
     STATE.enabled = True
     from ..swarm.capacity import worker_threads
 
@@ -242,6 +274,16 @@ def start(db: Database) -> RunnerState:
     shared = _Target(db, pool)
     loops = [(_worker_loop, (db, name if i == 0 else f"{name}-w{i}", phase, _stop, i, shared))
              for i in range(pool)]
+    # v1.1 lane A: dedicated lanes beside the pool (default: the control lane).
+    from ..runtime.lanes import partitions
+    from ..runtime.worker import handlers as _handlers
+
+    STATE.lanes.clear()
+    mode = os.environ.get("BRAMBLELOOP_WORKER_LANES", "control")
+    for lane, types in partitions(_handlers.known(), mode).items():
+        if lane == "company" or not types:
+            continue
+        loops.append((_lane_loop, (db, f"{name}-{lane}", phase, _stop, lane, types)))
     for i, (target, args) in enumerate(loops + [(_scheduler_loop, (db, _stop))]):
         t = threading.Thread(target=target, args=args, daemon=True,
                              name=f"brambleloop-{target.__name__}-{i}")

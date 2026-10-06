@@ -67,7 +67,8 @@ class JobContext:
         Fenced to this job's lease holder (C-13): the name is the one `claim` stamped on the
         job this context was built from, so a stale context cannot extend a lease another
         worker now holds."""
-        return self.queue.heartbeat(self.job.id, worker=self.job.leased_by or None)
+        return self.queue.heartbeat(self.job.id, worker=self.job.leased_by or None,
+                                    lease_token=getattr(self.job, "lease_token", None))
 
 
 def protected_phase(ctx: "JobContext") -> Phase:
@@ -194,7 +195,8 @@ class Worker:
             self.agents.authorize(job.agent, job.job_type)
         except PermissionDenied as e:
             # Never retry a permission failure: it will never spontaneously become allowed.
-            self.queue.fail(job.id, f"permission denied: {e}", retry=False, worker=self.name)
+            self.queue.fail(job.id, f"permission denied: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.denied", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.denied += 1
@@ -203,7 +205,7 @@ class Worker:
         handler = self.handlers.get(job.job_type)
         if handler is None:
             self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False,
-                            worker=self.name)
+                            worker=self.name, lease_token=job.lease_token)
             self.stats.skipped += 1
             return True
 
@@ -217,7 +219,8 @@ class Worker:
         # its result. Renewing from here covers every handler without each one remembering
         # to. It stops at MAX_HANDLER_SECONDS: a genuinely hung handler must still become
         # reclaimable, which is what the lease exists for.
-        renewal = _LeaseRenewal(self.queue, job.id, worker=self.name)
+        renewal = _LeaseRenewal(self.queue, job.id, worker=self.name,
+                                lease_token=job.lease_token)
         renewal.start()
         from ..finance import spend_report as _spend
 
@@ -270,7 +273,8 @@ class Worker:
             # build did exactly that: `built: false`, the provider's own sentence in `why`,
             # a green job, and nobody told.
             _note_funding(self.db, self._funding_text(outputs))
-            if not self.queue.complete(job.id, outputs, worker=self.name):
+            if not self.queue.complete(job.id, outputs, worker=self.name,
+                                       lease_token=job.lease_token):
                 # The lease was reclaimed while this handler ran. The queue recorded the
                 # refusal; the job's outcome belongs to the worker that holds it now.
                 self.stats.skipped += 1
@@ -281,13 +285,15 @@ class Worker:
             self.stats.completed += 1
         except CapabilityNotEnabled as e:
             renewal.stop()
-            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False, worker=self.name)
+            self.queue.fail(job.id, f"capability not enabled: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.capability_not_enabled", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
         except BudgetExceeded as e:
             renewal.stop()
-            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False, worker=self.name)
+            self.queue.fail(job.id, f"budget exceeded: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.budget_exceeded", job_id=job.id,
                               phase=self.phase, detail={"error": str(e)})
             self.stats.failed += 1
@@ -295,7 +301,8 @@ class Worker:
             renewal.stop()
             # Terminal, like a capability gate: a handler that cannot say what made its
             # artefact will not be able to say so on the next attempt either.
-            self.queue.fail(job.id, f"provenance refused: {e}", retry=False, worker=self.name)
+            self.queue.fail(job.id, f"provenance refused: {e}", retry=False,
+                            worker=self.name, lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.provenance_refused", artifact=job.job_type,
                               job_id=job.id, phase=self.phase, detail={"error": str(e)[:500]})
             self.stats.failed += 1
@@ -308,7 +315,8 @@ class Worker:
             from ..core.resilience import PermanentError
 
             self.queue.fail(job.id, f"{type(e).__name__}: {e}\n{traceback.format_exc()[:2000]}",
-                            retry=not isinstance(e, PermanentError), worker=self.name)
+                            retry=not isinstance(e, PermanentError), worker=self.name,
+                            lease_token=job.lease_token)
             self.agents.audit(job.agent, "job.failed", job_id=job.id, phase=self.phase,
                               detail={"error": str(e)})
             self.stats.failed += 1
@@ -662,6 +670,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("etsy_credential_health", "orchestrator", "etsy.credential_health", 24 * 60 * 60),
     ("etsy_shop_snapshot", "orchestrator", "etsy.shop_snapshot", 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),
+    # v1.1 lane A (PRIORITY ZERO, F-893/F-894): the Executive Orchestrator. Every fifteen
+    # minutes it reads every department, reconciles the missions it created, and gives each
+    # idle department its next highest-value safe work from durable evidence -- protected
+    # actions become owner approval items, never jobs. `Scheduler.tick` also wakes it at once
+    # when the whole queue is empty, so an empty queue never means an idle company.
+    ("executive_orchestrator", "coo", "autonomy.orchestrate", 15 * 60),
 ]
 
 
@@ -713,9 +727,10 @@ class _LeaseRenewal:
     than asking again every interval. `worker=None` keeps the unnamed legacy renewal."""
 
     def __init__(self, queue, job_id: int, *, worker: str | None = None,
-                 cap_seconds: int = MAX_HANDLER_SECONDS):
+                 cap_seconds: int = MAX_HANDLER_SECONDS, lease_token: str | None = None):
         self.queue, self.job_id, self.cap = queue, job_id, cap_seconds
         self.worker = worker
+        self.lease_token = lease_token
         self.interval = max(1.0, float(getattr(queue, "lease_seconds", 300)) / 3.0)
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True,
@@ -735,7 +750,10 @@ class _LeaseRenewal:
             if time.monotonic() - started >= self.cap:
                 return
             try:
-                extended = self.queue.heartbeat(self.job_id, worker=self.worker)
+                extended = (self.queue.heartbeat(self.job_id, worker=self.worker,
+                                                 lease_token=self.lease_token)
+                            if self.lease_token else
+                            self.queue.heartbeat(self.job_id, worker=self.worker))
             except Exception:  # noqa: BLE001 - a failed renewal must not kill the handler
                 continue
             if extended is False:
@@ -776,6 +794,15 @@ class Scheduler:
                 enqueued.append(name)
             except DuplicateJob:
                 continue
+        # PRIORITY ZERO: an empty queue is a reason to ask the orchestrator now, not to wait
+        # for its next window. Keyed per five minutes inside `idle_wake`, so it cannot flood.
+        try:
+            from ..autonomy.orchestrator import idle_wake
+
+            if idle_wake(self.db, self.queue, now=now):
+                enqueued.append("executive_orchestrator:idle_wake")
+        except Exception:  # noqa: BLE001 - a failed wake never stops the scheduler
+            pass
         return enqueued
 
     def due_soon(self, within_seconds: int = 3600) -> list[Job]:

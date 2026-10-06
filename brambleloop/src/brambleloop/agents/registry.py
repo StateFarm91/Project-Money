@@ -696,3 +696,29 @@ for _agent in DEFAULT_AGENTS:
 for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):
     FORBIDDEN_COMBINATIONS.setdefault(_name, set()).add("store.activate")
 del _agent, _name
+
+
+# ---------------------------------------------------------------------------
+# v1.1 lane A (F-890, F-892, F-893). The Executive / COO agent that runs the company loop:
+# `autonomy.orchestrate` generates missions for idle departments from durable evidence,
+# `autonomy.department_review` measures a department's KPIs and routes lessons, and
+# `autonomy.morning_handoff` writes the owner's brief. GREEN and zero-ceiling: it reads rows
+# and writes memory, timeline, idempotent jobs and deduplicated owner actions. It may never
+# hold a protected job type -- the charters' PROTECTED_JOB_TYPES are forbidden structurally,
+# so a future edit that widened its list would be refused at dispatch.
+DEFAULT_AGENTS.append(dict(
+    name="coo",
+    description=("Executive Orchestrator (F-893): keeps every department supplied with the next "
+                 "highest-value safe work, measures department KPIs, writes the morning brief. "
+                 "Publishes, activates, spends and messages nothing."),
+    allowed_job_types=["autonomy.orchestrate", "autonomy.department_review",
+                       "autonomy.morning_handoff"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["coo"] = {
+    "store.publish", "store.activate", "store.update", "ads.campaign", "ads.adjust",
+    "support.reply", "pricing.experiment", "cir.draft", "cir.revise", "gate.certify"}
+DECLARED_IO["coo"] = {"inputs": ["jobs", "company_memory", "owner_actions", "gate states"],
+                      "outputs": ["jobs (missions)", "company_memory", "company_timeline",
+                                  "owner_actions", "lessons"],
+                      "function_metric": "useful_output_rate",
+                      "function_reads": "done jobs whose outputs report work done"}
