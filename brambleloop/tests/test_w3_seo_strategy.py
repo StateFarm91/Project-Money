@@ -43,13 +43,17 @@ def test_three_products_and_baskets_are_one_listing_with_sizes():
 
 
 def test_every_product_passes_every_check():
-    for p in products():
+    ps = products()
+    assert len(ps) == 3
+    for p in ps:
         assert p["ok"], (p["slug"], p["blocking"])
         assert p["writes_to_etsy"] is False
 
 
 def test_thirteen_tags_within_limits_and_charset():
-    for p in products():
+    ps = products()
+    assert len(ps) == 3
+    for p in ps:
         assert len(p["tags"]) == 13, p["slug"]
         assert len({t.lower() for t in p["tags"]}) == 13
         for t in p["tags"]:
@@ -59,7 +63,9 @@ def test_thirteen_tags_within_limits_and_charset():
 def test_titles_buyer_first_no_repeats_under_limit():
     from brambleloop.seo import strategy
 
-    for p in products():
+    ps = products()
+    assert len(ps) == 3
+    for p in ps:
         assert len(p["title"]) <= 140
         assert "crochet pattern" in p["title"].lower()[:45], p["title"]
         assert strategy.title_repeats(p["title"]) == []
@@ -68,13 +74,17 @@ def test_titles_buyer_first_no_repeats_under_limit():
 def test_no_stem_stuffing():
     from brambleloop.seo import strategy
 
-    for p in products():
+    ps = products()
+    assert len(ps) == 3
+    for p in ps:
         counts = strategy.stem_slot_counts(p["tags"])
         assert counts and max(counts.values()) <= strategy.MAX_STEM_SLOTS, counts
 
 
 def test_demand_is_modelled_not_measured_without_evidence():
-    for p in products():
+    ps = products()
+    assert len(ps) == 3
+    for p in ps:
         assert p["tag_basis_counts"] == {"modelled": 13}
         assert p["families"]
         for fam in p["families"]:
@@ -134,7 +144,9 @@ def test_category_and_attributes_gated():
 
 
 def test_description_natural_and_honest():
-    for p in products():
+    ps = products()
+    assert len(ps) == 3
+    for p in ps:
         d = p["description"]
         assert d["final"] is False and d["findings"] == []
         text = d["text"]
@@ -157,8 +169,9 @@ def test_existing_validator_agrees():
     from brambleloop.products import launch0 as L
     from brambleloop.seo import facts, truth
 
-    assert products()
-    for p in products():
+    ps = products()
+    assert len(ps) == 3
+    for p in ps:
         f = facts.for_product(L.candidate(p["slug"]))
         v = truth.validate_listing(p["title"], p["tags"], f, competitors=[])
         assert v["ok"], v["blocking"]
