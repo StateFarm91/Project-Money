@@ -87,8 +87,12 @@ def test_a_finished_shop_with_counted_proof_clears_the_sequence():
     db = _db()
     _passing_test(db, trust.PROOF_FLOOR)
 
+    # F-060: the search supremacy gate is read beside the trust rungs; a cleared one is
+    # supplied here so this test keeps asking only about the trust sequence.
     decision = trust.may_scale_ads(db, disclosure_ok=True, claims_ok=True,
-                                   thumbnails_coherent=True, support_meets_target=True)
+                                   thumbnails_coherent=True, support_meets_target=True,
+                                   search_gate={"cleared": True, "failed": [],
+                                                "unmeasured": []})
 
     assert decision["may_scale"] is True
     assert decision["blocking"] == []

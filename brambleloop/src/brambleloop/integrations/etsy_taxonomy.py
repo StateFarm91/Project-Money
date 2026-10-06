@@ -53,15 +53,100 @@ class TaxonomyReadFailed(RuntimeError):
 # The gate
 
 
-def gate(db) -> dict:
-    """Whether the taxonomy may be read now, and what is missing if not."""
+# ---------------------------------------------------------------------------
+# The API-key-only read path (wave 3, lane G wiring request 2)
+#
+# Etsy's Open API v3 document gives getSellerTaxonomyNodes and getPropertiesByTaxonomyId an
+# `api_key` security requirement and no OAuth scope (`seo.constraints`
+# `seller_taxonomy_read_needs_api_key_only`, VERIFIED 2026-10-06). The taxonomy therefore does
+# not have to wait for the shop's OAuth grant: the app keystring alone may read it. This
+# client can do nothing else -- GET only, `/seller-taxonomy/` paths only, no Authorization
+# header -- so opening the gate on it cannot reach a shop, a listing or a write.
+
+TAXONOMY_PATH_PREFIX = "/seller-taxonomy/"
+# Injection point for the transport, so tests answer with recorded responses and make no
+# network call. None in production: `integrations.http.UrllibTransport`.
+api_key_transport_factory: Callable[[], Any] | None = None
+
+
+class ApiKeyTaxonomyClient:
+    """A read-only seller-taxonomy client authenticated by the app keystring alone."""
+
+    BASE = "https://openapi.etsy.com/v3/application"
+
+    def __init__(self, transport, *, api_key: str, shared_secret: str = ""):
+        if not api_key:
+            raise ValueError("an API-key client needs a keystring")
+        self.transport = transport
+        self._header = f"{api_key}:{shared_secret}" if shared_secret else api_key
+        self.calls: list[dict] = []
+
+    def _call(self, method: str, path: str, *, operation: str, authority: Any = None,
+              **_unused):
+        from .etsy import EtsyRejected, TransientError, classify_http
+
+        if method != "GET" or not path.startswith(TAXONOMY_PATH_PREFIX):
+            raise PermissionError(f"the API-key taxonomy client reads {TAXONOMY_PATH_PREFIX} "
+                                  f"with GET only; refused {method} {path} ({operation})")
+        response = self.transport.request("GET", f"{self.BASE}{path}",
+                                          headers={"x-api-key": self._header})
+        self.calls.append({"operation": operation, "method": "GET", "path": path,
+                           "status": response.status, "auth": "api_key_only"})
+        if response.status >= 400:
+            kind = classify_http(response.status)
+            message = (f"Etsy returned {response.status} for GET {path} ({operation}) on the "
+                       f"API-key-only path")
+            if kind is TransientError:
+                raise TransientError(message)
+            raise EtsyRejected(message)
+        return response
+
+    def __repr__(self) -> str:  # pragma: no cover - keeps the keystring out of logs
+        return f"ApiKeyTaxonomyClient(calls={len(self.calls)}, api_key=***)"
+
+
+def _api_key(env: dict | None = None) -> tuple[str, str]:
+    import os
+
+    e = env if env is not None else os.environ
+    return ((e.get("ETSY_KEYSTRING") or e.get("ETSY_API_KEY") or "").strip(),
+            (e.get("ETSY_SHARED_SECRET") or "").strip())
+
+
+def api_key_client(env: dict | None = None):
+    """The read-only API-key client, or None when no keystring is in the environment."""
+    key, secret = _api_key(env)
+    if not key:
+        return None
+    if api_key_transport_factory is not None:
+        transport = api_key_transport_factory()
+    else:
+        from .http import UrllibTransport
+
+        transport = UrllibTransport()
+    return ApiKeyTaxonomyClient(transport, api_key=key, shared_secret=secret)
+
+
+def gate(db, *, env: dict | None = None) -> dict:
+    """Whether the taxonomy may be read now, how, and what is missing if not.
+
+    Open by either path: a recorded successful `etsy.probe` (the shop credential), or -- since
+    these two reads need only the app keystring -- a keystring in the environment, read
+    through `ApiKeyTaxonomyClient`. `via` says which.
+    """
     from ..intel import etsy_public
 
     missing: list[str] = []
-    if not etsy_public.usable(db):
+    via = None
+    if etsy_public.usable(db):
+        via = "shop_credential"
+    elif _api_key(env)[0]:
+        via = "api_key_only"
+    else:
         missing.append("etsy_api: no recorded successful etsy.probe, so no working Etsy "
-                       "credential has been demonstrated")
-    return {"open": not missing, "missing": missing,
+                       "credential has been demonstrated; and no ETSY_KEYSTRING/ETSY_API_KEY "
+                       "is set for the API-key-only taxonomy read")
+    return {"open": not missing, "missing": missing, "via": via,
             "operations": [NODES_OPERATION, PROPERTIES_OPERATION]}
 
 
@@ -166,7 +251,12 @@ def refresh(db, *, now: datetime | None = None) -> dict:
         return {"ran": False, "reading": "UNMEASURED", "network_calls": 0, "gate": g,
                 "why": ("the etsy_api gate is closed, so the taxonomy was not read and no "
                         "client was constructed; every category reads UNKNOWN until it is")}
-    client = (client_factory or _production_client)(db)
+    if client_factory is not None:
+        client = client_factory(db)
+    elif g.get("via") == "api_key_only":
+        client = api_key_client()
+    else:
+        client = _production_client(db)
     if client is None:
         return {"ran": False, "reading": "UNMEASURED", "network_calls": 0, "gate": g,
                 "why": "the etsy_api gate is open but no Etsy credential is in this "

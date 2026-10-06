@@ -26,6 +26,13 @@ until the owner records a rebase down to shadow. Upward evidence refs must resol
 recent `launch.assessed` / `launch.rollback_rehearsed` rows -- passing ones from
 limited_production up (D4).
 
+K4 (F-300): a cited `launch.assessed` row is history. Every move up past shadow now also
+requires the launch readiness verdict (`launch.readiness.transition_verdict`: six questions,
+every other hard gate, the off-device autonomy proof, the F-275 demand-capture plan)
+evaluated at transition time and `ready`; the compact verdict is sealed into the chained row
+as `readiness_at_transition`. Owner authority is unchanged and still checked first; a move
+down (rollback) never evaluates readiness.
+
 Nothing here changes the deployed environment, contacts a provider or publishes anything.
 """
 from __future__ import annotations
@@ -261,8 +268,48 @@ def _resolve_evidence(session, to: str, refs: dict, now: datetime) -> dict:
     return out
 
 
+READINESS_AT_TRANSITION = "readiness_at_transition"
+
+
+def live_readiness(db, to: str) -> dict:
+    """The launch verdict for a move up to `to`, evaluated now
+    (`launch.readiness.transition_verdict`: the six questions, every other hard gate, the
+    off-device autonomy proof and the F-275 demand-capture plan)."""
+    from ..launch.readiness import transition_verdict
+
+    return transition_verdict(db, to=to)
+
+
+def _readiness_at_transition(db, to: str, evaluator) -> dict:
+    """K4 / F-300: evaluate the launch verdict at transition time and refuse unless ready.
+
+    Fails closed: an evaluator that raises, returns something other than a dict, or returns
+    anything but `ready is True` refuses the move. The compact verdict is returned for the
+    sealed row, with the evaluator's name so a substituted evaluator is visible in the chain.
+    """
+    fn = evaluator if evaluator is not None else live_readiness
+    name = f"{getattr(fn, '__module__', '?')}.{getattr(fn, '__qualname__', '?')}"
+    try:
+        v = fn(db, to)
+    except Exception as exc:  # noqa: BLE001 - an unevaluable verdict is not a ready one
+        raise ValueError(f"launch readiness could not be evaluated at transition time "
+                         f"({type(exc).__name__}); a move to {to!r} requires "
+                         f"readiness.ready") from exc
+    if not isinstance(v, dict) or v.get("ready") is not True:
+        failing = (v.get("failing") if isinstance(v, dict) else None) or []
+        raise ValueError(f"launch readiness is not ready at transition time; a move to "
+                         f"{to!r} requires readiness.ready (failing: "
+                         f"{', '.join(map(str, failing[:12])) or 'unstated'})")
+    keep = ("ready", "evaluated_at", "assessed_at_phase", "questions", "excluded",
+            "off_device_autonomy_proof", "demand_capture", "synthetic_fixture")
+    out = {k: v[k] for k in keep if k in v}
+    out["evaluator"] = name
+    out.setdefault("evaluated_at", datetime.now(timezone.utc).isoformat())
+    return out
+
+
 def record_transition(db, *, authorization, to, reason, evidence_refs=None,
-                      env: dict | None = None) -> dict:
+                      env: dict | None = None, readiness_verdict=None) -> dict:
     """Write one sealed, chained PhaseTransition under the owner credential.
 
     `from` is the currently recorded phase (shadow when none). Upward moves go one step at a
@@ -271,6 +318,11 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
     (D1); over a broken chain only a rebase down to shadow may be recorded. This records the
     decision -- the deployment's `BRAMBLELOOP_PHASE` must also be set to the same value before
     the runtime will run in it.
+
+    K4 / F-300: a move up additionally requires the launch readiness verdict evaluated at
+    transition time (`live_readiness` unless the caller passes `readiness_verdict`, a
+    callable `(db, to) -> dict`) to be ready; the compact verdict is sealed into the row as
+    `readiness_at_transition`. A move down never evaluates readiness.
     """
     from . import sealed_chain
     from .models import AuditLog
@@ -287,7 +339,8 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
                                              and str(v).strip() for k, v in refs.items()):
         raise ValueError("evidence_refs must map evidence kind to a non-empty reference")
     now_dt = datetime.now(timezone.utc)
-    with db.session() as s:
+
+    def position(s):
         rows = sealed_chain.load(s, (TRANSITION,))
         c = sealed_chain.walk(rows, _verify, link_ok=_link_ok, rebase_ok=_rebase_ok)
         if rows and not c["valid"]:
@@ -301,6 +354,13 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
         else:
             current = str(rows[-1][1].get("to")) if rows else DEFAULT
             recorded_valid = bool(rows)
+        return rows, c, current, recorded_valid
+
+    def checked(s, expect=None):
+        rows, c, current, recorded_valid = position(s)
+        if expect is not None and current != expect:
+            raise ValueError(f"the recorded phase changed from {expect!r} to {current!r} "
+                             "while launch readiness was evaluated; retry the transition")
         if to == current and recorded_valid:
             raise ValueError(f"phase is already recorded as {to!r}")
         evidence = None
@@ -312,6 +372,22 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
             if missing:
                 raise ValueError(f"an upward phase transition must cite evidence refs {missing}")
             evidence = _resolve_evidence(s, to, refs, now_dt)
+        return rows, c, current, evidence
+
+    # Every cheap precondition (credential, chain, one step, cited evidence) is checked first,
+    # so a malformed request never pays for the readiness evaluation.
+    with db.session() as s:
+        _rows, _c, before, _ev = checked(s)
+    verdict = None
+    if rank(to) > rank(before):
+        # K4 / F-300: every move up past shadow requires the launch readiness verdict,
+        # evaluated NOW (not a cited old row) and sealed into this transition. It runs outside
+        # the write session (it is a long read); the chain is re-read below and the move is
+        # refused if the recorded phase changed meanwhile. A move down (rollback) never
+        # consults readiness: it must always be possible.
+        verdict = _readiness_at_transition(db, to, readiness_verdict)
+    with db.session() as s:
+        rows, c, current, evidence = checked(s, expect=before)
         detail = {"principal": PRINCIPAL, "from": current, "to": to, "reason": reason.strip(),
                   "evidence_refs": {k: str(v) for k, v in sorted(refs.items())},
                   "at": now_dt.isoformat(),
@@ -320,6 +396,8 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
                   **sealed_chain.next_link(rows, c)}
         if evidence is not None:
             detail["evidence"] = evidence
+        if verdict is not None:
+            detail["readiness_at_transition"] = verdict
         detail["seal"] = _seal(detail)
         row = AuditLog(actor=PRINCIPAL, action=TRANSITION, artifact=f"phase:{current}->{to}",
                        detail=detail)

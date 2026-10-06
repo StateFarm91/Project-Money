@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory() as d:
     before = PP.freshness(db, today=today)
     check("before seeding every surface is never-checked", set(before["never_checked"]) == set(PP.POLICY_SOURCES))
     res = PK.seed_snapshots(db, today=today)
-    check("seeding records one snapshot per never-read surface with the reading's own date and basis", len(res["seeded"]) == len(PP.POLICY_SOURCES) and all(s["read_on"] == PK.READ_ON and s["basis"] == PK.BASIS_EXCERPT for s in res["seeded"]))
+    check("seeding records one snapshot per never-read surface with the reading's own date and basis", len(res["seeded"]) == len(PP.POLICY_SOURCES) and all(s["read_on"] == PK.READINGS[s["source"]].read_on and s["basis"] == PK.BASIS_EXCERPT for s in res["seeded"]))
     after = PP.freshness(db, today=today)
     check("after seeding the watch reports every surface current (read 1 day ago)", after["all_fresh"] and not after["never_checked"], str(after))
     check("seeding again records nothing (never over an existing snapshot)", PK.seed_snapshots(db, today=today)["seeded"] == [])

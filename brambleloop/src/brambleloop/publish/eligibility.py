@@ -91,6 +91,12 @@ SIZING = "SIZING"
 PATTERN_PREVIEW = "PATTERN_PREVIEW"
 PROOF = "PROOF"
 CROSS_SELL = "CROSS_SELL"
+# F-254 / F-030: the jobs a gallery needs beyond the ten above, "where applicable".
+ANGLE = "ANGLE"
+CONSTRUCTION = "CONSTRUCTION"
+COLOUR_CONTEXT = "COLOUR_CONTEXT"
+FIT = "FIT"
+LIFESTYLE = "LIFESTYLE"
 
 JOBS: dict[str, str] = {
     DESIRE: "make somebody want it, at thumbnail scale, in under a second",
@@ -103,6 +109,11 @@ JOBS: dict[str, str] = {
     PATTERN_PREVIEW: "what the document itself looks like to work from",
     PROOF: "that somebody has made this and it worked",
     CROSS_SELL: "what else in the shop goes with it",
+    ANGLE: "a useful alternate angle: the side, back or inside the hero cannot show",
+    CONSTRUCTION: "how it is put together: the base, joins, seams or assembly",
+    COLOUR_CONTEXT: "the colourway judged truthfully, against its alternatives or in a room",
+    FIT: "how it sits when worn, on a body whose size is stated",
+    LIFESTYLE: "the object in use, where a buyer would live with it",
 }
 
 # Which purposes can do which job. The hero row is the requirement's own example, encoded:
@@ -118,7 +129,63 @@ JOB_PURPOSES: dict[str, tuple[str, ...]] = {
     PATTERN_PREVIEW: (ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION),
     PROOF: (PHYSICAL_PROOF,),
     CROSS_SELL: (CONVERSION_CREATIVE, CUSTOMER_INFORMATION),
+    ANGLE: (PHYSICAL_PROOF, ENGINEERING_EVIDENCE, CONVERSION_CREATIVE),
+    CONSTRUCTION: (ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION, PHYSICAL_PROOF),
+    COLOUR_CONTEXT: (CUSTOMER_INFORMATION, CONVERSION_CREATIVE, PHYSICAL_PROOF),
+    # A worn view claims how a real object sits on a real body; only a photograph can.
+    FIT: (PHYSICAL_PROOF,),
+    LIFESTYLE: (CONVERSION_CREATIVE, PHYSICAL_PROOF),
 }
+
+# ---- gallery information architecture per category (F-030, F-254) ----------
+
+# Every listing answers these before a buyer asks (the roles `check_frame_plan` requires,
+# plus the stitch/motif detail).
+BASE_GALLERY_JOBS: tuple[str, ...] = (DESIRE, CONTENTS, SCALE, MATERIALS, DETAIL)
+# Where each further job applies, by catalogue category. "Where applicable" is the rule: a
+# coaster has no worn view and a flat blanket's back is its front.
+_THREE_D = frozenset({"basket", "amigurumi", "bag", "hat", "toy", "ornament", "stocking",
+                      "pillow", "pet", "flower", "seasonal_decor"})
+_WORN = frozenset({"hat", "scarf", "shawl", "garment", "accessory"})
+_COLOURWORK = frozenset({"mosaic_blanket", "graphghan", "blanket", "coaster", "placemat",
+                         "runner", "pillow", "wall_decor", "baby", "nursery"})
+_LIVED_WITH = frozenset({"basket", "blanket", "mosaic_blanket", "graphghan", "pillow",
+                         "runner", "coaster", "placemat", "wall_decor", "nursery", "baby",
+                         "pet", "seasonal_decor"})
+
+
+def gallery_jobs_for(category: str, *, sizes: int = 1, colours: int = 1) -> dict[str, str]:
+    """The gallery jobs that apply to this product, each with why (F-030, F-254)."""
+    cat = (category or "").lower()
+    jobs = {j: "every listing answers it before a buyer asks" for j in BASE_GALLERY_JOBS}
+    if cat in _THREE_D:
+        jobs[ANGLE] = "a three-dimensional object has sides the hero cannot show"
+        jobs[CONSTRUCTION] = "a shaped object is judged on how it is put together"
+    if cat in _WORN:
+        jobs[FIT] = "a worn item is bought on how it sits"
+    if cat in _COLOURWORK or colours > 1:
+        jobs[COLOUR_CONTEXT] = "colour is a deciding fact and a screen distorts it"
+    if cat in _LIVED_WITH:
+        jobs[LIFESTYLE] = "a home object is bought on where it will live"
+    if sizes > 1:
+        jobs[SIZING] = f"{sizes} sizes are sold and a buyer must see how they differ"
+    return jobs
+
+
+def gallery_architecture(category: str, jobs_covered, *, sizes: int = 1,
+                         colours: int = 1) -> dict:
+    """Which applicable gallery jobs this listing's frames do and which they leave out.
+
+    Not an export refusal: a missing job is a conversion-readiness gap, read by
+    `commerce.search_evidence` and the search supremacy gate (F-060), never padded over with
+    a frame that does no honest work.
+    """
+    applicable = gallery_jobs_for(category, sizes=sizes, colours=colours)
+    covered = sorted(set(jobs_covered or []) & set(applicable))
+    missing = sorted(set(applicable) - set(jobs_covered or []))
+    return {"category": category, "applicable": applicable, "covered": covered,
+            "missing": missing, "complete": not missing,
+            "basis": "publish.eligibility.gallery_jobs_for (F-030, F-254)"}
 
 # The hero is always frame one and its job is always DESIRE. Stated rather than derived so
 # that a listing cannot be built with a hero whose job is DETAIL and pass every other check.
@@ -159,7 +226,8 @@ PHOTO_LABEL = ""      # a photograph needs no disclaimer; it is the thing itself
 # Where the render/photograph distinction is material: any frame a buyer could reasonably
 # read as evidence of what the finished object looks like. On a materials list it is not
 # material, and labelling everything trains buyers to read nothing.
-MATERIAL_JOBS: tuple[str, ...] = (DESIRE, DETAIL, PROOF, SCALE)
+MATERIAL_JOBS: tuple[str, ...] = (DESIRE, DETAIL, PROOF, SCALE, ANGLE, FIT, LIFESTYLE,
+                                   COLOUR_CONTEXT, CONSTRUCTION)
 
 LABEL_FOR: dict[AssetClass, str] = {
     AssetClass.PHYSICAL_PRODUCT_PHOTO: PHOTO_LABEL,

@@ -327,6 +327,45 @@ class CoverageReport:
         return (round(self.observed_captured / self.observed_reachable, 4)
                 if self.observed_reachable else None)
 
+    @property
+    def match_stage(self) -> dict:
+        """Stage 1 of the two-stage model (F-001): query-match eligibility, nothing else.
+
+        Whether the listing's fields make it *eligible* to be returned for each target query,
+        read without competition, demand or placement weight. A query a head term owns is
+        still a query this listing matches; whether it can rank there is stage 2's question,
+        and blending the two is how a strong match on long-tail phrases hid a missing head
+        match (and the reverse).
+        """
+        by_family: dict[str, dict] = {}
+        for row in self.matrix:
+            fam = by_family.setdefault(row["family"], {"queries": 0, "matched": 0})
+            fam["queries"] += 1
+            fam["matched"] += 1 if row["field"] else 0
+        return {"stage": "match_eligibility", "queries": self.queries,
+                "matched": self.covered,
+                "match_rate": (round(self.covered / self.queries, 4) if self.queries
+                               else None),
+                "unmatched": [r["phrase"] for r in self.matrix if not r["field"]][:20],
+                "by_family": by_family,
+                "basis": "lexical match of each target query against title, tags, category "
+                         "path, attributes and description; competition is not read here"}
+
+    @property
+    def rank_stage(self) -> dict:
+        """Stage 2 (F-001): ranking/conversion readiness on the queries a new shop can reach.
+
+        The placement-weighted capture of reachable value -- the number `share` has always
+        carried, now named for what it is. Listing-level readiness (hero, conversion,
+        shop and service) is `commerce.ranking_readiness`; `search_evidence.two_stage`
+        puts the two side by side and never averages them.
+        """
+        return {"stage": "rank_readiness", "reachable_queries": self.reachable,
+                "matched_reachable": self.covered_reachable,
+                "placement_weighted_share": self.share,
+                "basis": "assumed+observed demand x (1 - competition), weighted by placement "
+                         "(planning proxy, not a measurement)"}
+
     def to_dict(self) -> dict:
         return {"queries": self.queries, "reachable": self.reachable,
                 "covered": self.covered, "covered_reachable": self.covered_reachable,
@@ -335,7 +374,8 @@ class CoverageReport:
                 "share": self.share, "share_basis": "assumed+observed (planning proxy)",
                 "evidence_share": (self.evidence_share if self.evidence_share is not None
                                    else "UNMEASURED"),
-                "gaps": list(self.gaps), "matrix": list(self.matrix)}
+                "gaps": list(self.gaps), "matrix": list(self.matrix),
+                "stages": {"match": self.match_stage, "rank": self.rank_stage}}
 
 
 def score_coverage(queries: list[Query], *, title: str, tags: list[str],
@@ -418,6 +458,95 @@ def structured_duplicates(tags: list[str], structured: list[str]) -> list[str]:
     return [t for t in tags if _normalise(t).strip() in have]
 
 
+# ---- tag diversity (F-013) -------------------------------------------------
+
+# Words a buyer uses interchangeably for the same thing. Conservative on purpose: a pair goes
+# here only when the two words name the same object or property in this market ("afghan" is
+# a blanket; "hexagonal" is a hexagon), never when one is a narrower search ("throw rug").
+TAG_SYNONYMS: dict[str, str] = {
+    "afghan": "blanket", "afghans": "blanket", "throw": "blanket", "throws": "blanket",
+    "hexagonal": "hexagon", "hexie": "hexagon", "hexies": "hexagon",
+    "textured": "texture", "colour": "color", "colours": "color", "colors": "color",
+    "grey": "gray", "simple": "easy", "graph": "chart", "graphs": "chart",
+    "printable": "pdf", "decoration": "decor", "decorations": "decor",
+    "amigurumi": "amigurumi", "crocheted": "crochet", "crocheting": "crochet",
+    "patterns": "pattern",
+}
+
+
+def _stem_word(word: str) -> str:
+    w = word.lower()
+    if len(w) > 4 and w.endswith("ies"):
+        return w[:-3] + "y"
+    if len(w) > 3 and w.endswith("s") and not w.endswith("ss"):
+        return w[:-1]
+    return w
+
+
+def intent_key(phrase: str) -> frozenset[str]:
+    """The canonical meaning of a tag: stemmed, synonym-folded words, order ignored.
+
+    "crochet afghan" and "afghan crochet" and "crochet blankets" all reduce to
+    {crochet, blanket}: three slots answering one query. Lexical comparison saw three
+    different strings.
+    """
+    out = set()
+    for w in _normalise(phrase).split():
+        if w in _TRAILING_STOPWORDS:
+            continue
+        w = TAG_SYNONYMS.get(w, w)
+        out.add(TAG_SYNONYMS.get(_stem_word(w), _stem_word(w)))
+    return frozenset(out)
+
+
+def semantic_duplicates(tags: list[str]) -> list[list[str]]:
+    """Groups of tags (2 or more) that mean the same search once stemmed and synonym-folded."""
+    groups: dict[frozenset[str], list[str]] = {}
+    for t in tags:
+        key = intent_key(t)
+        if key:
+            groups.setdefault(key, []).append(t)
+    return [g for g in groups.values() if len(g) > 1]
+
+
+def intent_coverage(tags: list[str], queries: list[Query]) -> dict:
+    """Which buyer intents the tag set answers, and which reachable ones it leaves out.
+
+    An intent is the query model's own label (product, category, technique, seasonal, gift).
+    `missing` lists intents a reachable, true query exists for and no tag answers -- the
+    distinct-intent coverage F-013 asks the gate to force.
+    """
+    by_phrase = {q.phrase: q for q in queries}
+    # A tag is often the query trimmed to 20 characters at a word boundary (`_fit_tag`).
+    by_fit: dict[str, Query] = {}
+    for q in sorted(queries, key=lambda x: (-x.value, x.phrase)):
+        by_fit.setdefault(_fit_tag(q.phrase) or "", q)
+    keys = {intent_key(q.phrase): q for q in queries}
+    covered: set[str] = set()
+    for t in tags:
+        q = by_phrase.get(t) or by_fit.get(t) or keys.get(intent_key(t))
+        # A gift phrase trimmed of the word "gift" no longer answers a gift search.
+        if q is not None and _answers_intent(q, t):
+            covered.add(q.intent)
+    available = {q.intent for q in queries
+                 if q.reachable and _answers_intent(q, _fit_tag(q.phrase))}
+    return {"covered": sorted(covered), "available": sorted(available),
+            "missing": sorted(available - covered)}
+
+
+def _answers_intent(q: Query, phrase: str | None) -> bool:
+    """Whether a (possibly trimmed) tag still answers its query's intent."""
+    if not phrase:
+        return False
+    return not (q.intent == "gift" and "gift" not in phrase.split())
+
+
+def tag_diversity_problems(tags: list[str]) -> list[str]:
+    """Blocking findings: semantically duplicate tags (F-013)."""
+    return [f"TAG_SEMANTIC_DUPLICATE: {g} are one search once plurals, word order and "
+            f"synonyms are folded" for g in semantic_duplicates(tags)]
+
+
 # ---- tag selection ---------------------------------------------------------
 
 
@@ -442,10 +571,31 @@ def choose_tags(queries: list[Query], *, must_include: list[str] | None = None,
 
     for tag in (must_include or []):
         t = tag.strip().lower()
-        if t and len(t) <= TAG_MAX_CHARS and t not in chosen:
+        if (t and len(t) <= TAG_MAX_CHARS and t not in chosen and t[:1] not in "'-"
+                and intent_key(t) not in {intent_key(c) for c in chosen}):
             take(t)
 
     ranked = sorted(queries, key=lambda x: (-x.value, x.phrase))
+
+    # F-013: distinct intent coverage is forced before value ordering spends the rest. The
+    # best reachable phrase of every intent no chosen tag answers yet takes a slot first; a
+    # set of thirteen "product" phrases answers one kind of search thirteen ways.
+    have_intents = {q.intent for q in queries
+                    if q.phrase in chosen or intent_key(q.phrase) in
+                    {intent_key(c) for c in chosen}}
+    for q in ranked:
+        if len(chosen) >= TAG_SLOTS:
+            break
+        if not q.reachable or q.intent in have_intents:
+            continue
+        phrase = _fit_tag(q.phrase)
+        if not _answers_intent(q, phrase):
+            continue
+        if phrase and _normalise(phrase).strip() in banned:
+            continue
+        if phrase and _acceptable_tag(phrase, chosen, budget, _MAX_SLOTS_PER_WORD):
+            take(phrase)
+            have_intents.add(q.intent)
 
     # Two passes. The first spends slots on distinct concepts under a strict word budget; the
     # second fills whatever is left over with the best remaining phrases. Leaving slots empty
@@ -503,10 +653,16 @@ def _acceptable_tag(phrase: str, chosen: list[str], budget: dict[str, int],
         return False
     if phrase in chosen:
         return False
+    if phrase[:1] in "'-":
+        return False   # Etsy refuses a tag starting with ' or - (publish.listing_schema)
+    key = intent_key(phrase)
     for existing in chosen:
         ew = set(existing.split())
         if set(words) <= ew or ew <= set(words):
             return False   # one tag wholly contains the other; the narrower one is wasted
+        ek = intent_key(existing)
+        if key and ek and (key <= ek or ek <= key):
+            return False   # F-013: the same search once plurals/order/synonyms are folded
     return all(budget.get(w, 0) < max_per_word for w in words)
 
 
@@ -816,4 +972,8 @@ def stored_pass_problems(db, *, slug: str, version: str, row=None) -> list[str]:
               or bound["release_hash"] != bound["pattern_release_hash"]
               or not bound["pattern_certified"]):
             problems.append("the hero evidence no longer matches the certified set and release")
+    # F-242: a material change to the search guidance after issue invalidates the PASS.
+    from . import search_policy
+
+    problems += search_policy.certificate_problems(db, cert.get("search_policy"))
     return problems

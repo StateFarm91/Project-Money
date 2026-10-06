@@ -332,6 +332,8 @@ GRADUATION = OwnerRequest(
             "production) via POST /api/owner/phase/transition with readiness and rollback "
             "evidence refs -- the ids of a recent launch.assessed row and a recent "
             "launch.rollback_rehearsed row (both passing from limited production up) -- "
+            "once GET /api/owner/phase/verdict shows the launch verdict ready (every move up "
+            "re-evaluates it at transition time, F-300), "
             "and set BRAMBLELOOP_PHASE to the same value, one step at a time "
             "(F-299: either one alone runs as the more restrictive phase)."),
     reason=("Shadow mode is enforced in code and refuses to publish, message customers or "
@@ -1314,6 +1316,11 @@ class LaunchAssessment:
     providers: list[str]
     storage_durable: bool
 
+    @property
+    def questions(self) -> dict:
+        """F-300: the same verdict, answered as six separate questions."""
+        return questions(self.readiness, self.off_device)
+
 
 def launch_assessment(db, *, phase: str, artifact_dir=None) -> LaunchAssessment:
     """Read-only: the inputs the handler uses, resolved the way the handler resolves them."""
@@ -1331,3 +1338,122 @@ def launch_assessment(db, *, phase: str, artifact_dir=None) -> LaunchAssessment:
     ready = bool(readiness.ready) and off_device.get("status") == autonomy.PROVEN
     return LaunchAssessment(readiness=readiness, off_device=off_device, ready=ready,
                             providers=providers, storage_durable=storage_durable)
+
+
+# ---- F-300: the launch verdict, answered as six separate questions ---------------------------
+#
+# `readiness.ready` is a single hard gate: any unmet requirement keeps it false. F-300 asks for
+# the final challenge to answer six questions *separately*, so a "no" says which question it
+# is a "no" to. Every requirement belongs to exactly one question or to `other_hard_gates`
+# (the accounts, keys, storage and process items that are not one of the six); a requirement
+# this table does not name falls into `other_hard_gates` rather than vanishing, so adding a
+# requirement can never silently pass a question. The verdict is unchanged by the grouping:
+# ready only when every question AND every other hard gate passes.
+
+QUESTIONS: tuple[tuple[str, str, frozenset[str]], ...] = (
+    ("findable", "Can buyers find it?",
+     frozenset({"catalogue_depth", "analytics_baseline", "launch_calendar"})),
+    ("clickable", "Will they click?",
+     frozenset({"listing_imagery", "listing_photography", "opening_grid",
+                "storefront_preview"})),
+    ("converts_honestly", "Does it convert honestly?",
+     frozenset({"pricing", "pricing_promotion_plan", "digital_disclosure", "content", "faq",
+                "sustainable_economics"})),
+    ("pattern_makes_what_is_shown", "Does the pattern make what is shown?",
+     frozenset({"imagery_truthful", "physical_calibration", "benchmark_challenge"})),
+    ("shop_trustworthy", "Is the shop trustworthy?",
+     frozenset({"storefront", "seller_identity", "brand_clearance", "brand_moat",
+                "no_open_incidents", "support_knowledge", "etsy_shop", "payout"})),
+    ("ads_measurable_bounded", "Are ads measurable and bounded?",
+     frozenset({"spend_guards", "rollback_plan"})),
+)
+OTHER_HARD_GATES = "other_hard_gates"
+OFF_DEVICE_KEY = "off_device_autonomy_proof"
+
+
+def questions(readiness: Readiness, off_device: dict | None = None, *,
+              exclude: Iterable[str] = ()) -> dict:
+    """F-300: the six launch questions answered separately, plus the other hard gates.
+
+    `exclude` names requirements deliberately left out (with the caller recording why) --
+    only the phase transition uses it, for the one requirement the transition itself
+    satisfies. "Ads measurable" also needs the measurement path: until an Etsy Stats export
+    has been ingested the analytics baseline says so, and it is counted under that question
+    as well as under findability, because ads that cannot be measured are not bounded in any
+    sense the owner can check.
+    """
+    skip = set(exclude)
+    reqs = [r for r in readiness.requirements if r.key not in skip]
+    mapped = set().union(*(keys for _k, _q, keys in QUESTIONS))
+    out: dict[str, dict] = {}
+    for key, question, keys in QUESTIONS:
+        mine = [r for r in reqs if r.key in keys]
+        if key == "ads_measurable_bounded":
+            mine += [r for r in reqs if r.key == "analytics_baseline"]
+        failing = [r.key for r in mine if not r.ready]
+        out[key] = {"question": question, "pass": bool(mine) and not failing,
+                    "checked": [r.key for r in mine], "failing": failing,
+                    "blocked_by": sorted({r.blocked_by for r in mine
+                                          if not r.ready and r.blocked_by})}
+        if not mine:
+            out[key]["why"] = "no requirement answering this question was assessed"
+    other = [r for r in reqs if r.key not in mapped]
+    failing_other = [r.key for r in other if not r.ready]
+    if off_device is not None:
+        if off_device.get("status") != "PROVEN":
+            failing_other.append(OFF_DEVICE_KEY)
+    out[OTHER_HARD_GATES] = {"question": "Every other hard gate (accounts, storage, process)",
+                             "pass": not failing_other,
+                             "checked": [r.key for r in other]
+                             + ([OFF_DEVICE_KEY] if off_device is not None else []),
+                             "failing": failing_other}
+    return {"ready": all(v["pass"] for v in out.values()),
+            "answers": out,
+            "excluded": sorted(skip),
+            "rule": "any failed hard gate blocks launch (F-300)"}
+
+
+# The requirement a phase transition itself satisfies. "the phase allows publishing" is false
+# in shadow and staging by definition; evaluating it before the owner records the move would
+# make every move refuse itself. It is the only exclusion, and it is recorded on the verdict.
+SELF_SATISFIED_BY_TRANSITION = "phase"
+
+
+def transition_verdict(db, *, to: str, artifact_dir=None, demand_plan=None) -> dict:
+    """F-300 / F-275: the launch verdict, evaluated now, for a phase move up to `to`.
+
+    The full `launch_assessment` (every readiness requirement plus the off-device autonomy
+    proof, #195) assessed at the target phase, answered as the six questions, with the one
+    self-referential requirement (`phase`) excluded and named. F-275 adds the demand-capture
+    plan: before a phase change every opening product must be linked to its search intents,
+    seasonal runway, storefront placement, organic readiness, ads plan and measurement
+    checkpoints. `ready` is True only when every question, every other hard gate and the
+    demand-capture plan pass. Read-only.
+    """
+    from datetime import datetime, timezone
+
+    from . import demand
+
+    a = launch_assessment(db, phase=to, artifact_dir=artifact_dir)
+    q = questions(a.readiness, a.off_device, exclude=(SELF_SATISFIED_BY_TRANSITION,))
+    plan = demand_plan if demand_plan is not None else demand.capture_plan(db)
+    ready = bool(q["ready"]) and bool(plan.get("complete"))
+    failing = [f"{k}:{f}" for k, v in q["answers"].items() for f in v["failing"]]
+    if not plan.get("complete"):
+        failing.append("demand_capture_plan:" + ",".join(plan.get("gaps_summary") or [])[:200])
+    return {
+        "ready": ready,
+        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "evaluator": "launch.readiness.transition_verdict",
+        "assessed_at_phase": to,
+        "questions": {k: {"pass": v["pass"], "failing": v["failing"][:12]}
+                      for k, v in q["answers"].items()},
+        "failing": failing[:40],
+        "excluded": {SELF_SATISFIED_BY_TRANSITION: (
+            "'the phase allows publishing' is what this transition decides; it cannot be a "
+            "precondition of itself")},
+        "off_device_autonomy_proof": a.off_device.get("status"),
+        "demand_capture": {"complete": bool(plan.get("complete")),
+                           "products": plan.get("products_count"),
+                           "gaps": (plan.get("gaps_summary") or [])[:12]},
+    }
