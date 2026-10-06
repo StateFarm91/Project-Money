@@ -452,7 +452,7 @@ def _spend(db, now: datetime) -> Reading:
     paused = [limit.scope for limit in limits if limit.paused]
 
     from ..finance.spend_policy import ceiling_cad
-    from ..gateway.routing import COST_KIND
+    from ..gateway.routing import counts_against_monthly_ceiling
 
     month_spend = 0.0
     today_by_agent: dict[str, float] = {}
@@ -460,7 +460,8 @@ def _spend(db, now: datetime) -> Reading:
     for row in db.scalars(_select(CostEntry)):
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
         amount = float(row.amount_cad or 0.0)
-        if row.kind == COST_KIND and (at.year, at.month) == (now.year, now.month):
+        # Same rule as the enforced monthly ceiling (rc1-SPEND B2): image and other spend counts.
+        if counts_against_monthly_ceiling(row.kind) and (at.year, at.month) == (now.year, now.month):
             month_spend += amount
         if at.date() == today:
             today_by_agent[row.agent or ""] = today_by_agent.get(row.agent or "", 0.0) + amount
