@@ -158,3 +158,16 @@ SEO/opening grid/storefront preview/seller identity/search-visibility intake (F-
 Integration order: PUB → FIN → OPS → LC → STORE → J (J last: validator + rehearsal on merged head),
 full suite, re-aggregate, then freeze candidate with scripts/freeze_candidate.py and start
 adversarial certification. On reset: `git ls-remote origin 'claude/fb4-*'`.
+- 2026-10-06T00:15Z heartbeat: production `/api/verify` read-only — 12 checks, 0 failing, ok=True. Nothing pushed to the production branch.
+
+## RELEASE CANDIDATE FROZEN — final-candidate-3be3096 (2026-10-06 ~00:45Z)
+Candidate SHA 3be3096 (local annotated tag, not pushed). Bound evidence: release-eligible full suite
+(5,773 passing / 0 failing; evidence/suite_3be3096.json), production-mode shadow rehearsal on the
+exact SHA (evidence/shadow_rehearsal_3be3096.json: certify → assets → listing.seo PASS; shadow
+publish refused; orders/support/ledger PASS; past-shadow publish blocked only by gated inputs:
+Etsy taxonomy (etsy_api), parity hero (image_vision) + blind review (data), frame review), closure
+matrix summary (launch-critical OPEN 300 under the strict definition, rows not yet re-mapped for
+FB-4). Files: CANDIDATE_3be3096.json, DEFECT_LEDGER_3be3096.json.
+Next (F-846): independent adversarial audit of this exact SHA by a different model; repairs land
+on a successor candidate, never on this tag. Commits since 958cb19 are UNSIGNED (signing helper
+lost in a disk cleanup) and NOT PUSHED; re-sign after a session restart, or push on owner say-so.
