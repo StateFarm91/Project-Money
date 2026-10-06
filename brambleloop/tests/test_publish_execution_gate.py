@@ -100,8 +100,25 @@ class ExecutionRecheck(unittest.TestCase):
         t=FakeTransport();client=EtsyClient(t,credentials=CREDS,phase="production",owner_authorised=True);seen=[]
         def check():
             self.assertEqual(t.calls,[]);self.check();seen.append(True)
-        client.publish(payload=self.kw["payload"],filename="synthetic.pdf",data=b"pdf",images=[],before_create=check)
+        from brambleloop.integrations.etsy import OwnerGrant
+        grant=OwnerGrant(self.db,action=OwnerGrant.PUBLISH,approval_id=self.grant,slug="original",version="1",release="release-a")
+        client.publish(payload=self.kw["payload"],filename="synthetic.pdf",data=b"pdf",images=[],before_create=check,grant=grant)
         self.assertEqual(seen,[True]);self.assertTrue(t.calls)
+
+    def test_real_client_refuses_without_a_validated_grant_object(self):
+        # rc1-AUTH D3: the client itself needs the owner's grant, not a string or nothing.
+        from brambleloop.integrations.etsy import OwnerGrant,EtsyNotPermitted
+        t=FakeTransport();client=EtsyClient(t,credentials=CREDS,phase="production",owner_authorised=True)
+        for bogus in (None,"owner-approval:1",self.grant):
+            out=client.publish(payload=self.kw["payload"],filename="synthetic.pdf",data=b"pdf",images=[],grant=bogus)
+            self.assertFalse(out.published);self.assertIn("OwnerGrant",out.problems[0])
+        self.assertEqual(t.calls,[])
+        # A grant object naming no valid grant (revoked) is refused right before the create.
+        publication_authority.revoke(self.db,authorization=OWNER_TOKEN,approval_id=self.grant)
+        grant=OwnerGrant(self.db,action=OwnerGrant.PUBLISH,approval_id=self.grant,slug="original",version="1",release="release-a")
+        with self.assertRaises(EtsyNotPermitted):
+            client.publish(payload=self.kw["payload"],filename="synthetic.pdf",data=b"pdf",images=[],grant=grant)
+        self.assertEqual(t.calls,[])
 
     def test_missing_real_release_proof_refuses_without_http(self):
         # The synthetic DB row is deliberately not a genuine certified CIR.

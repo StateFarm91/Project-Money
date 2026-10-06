@@ -82,7 +82,29 @@ def _audits(db, action: str, job_id: int | None = None) -> list[dict]:
 def _run(db, agent: str, job_type: str, inputs: dict, key: str, *,
          phase: Phase = Phase.SHADOW) -> Job:
     job = JobQueue(db).enqueue(agent, job_type, inputs, priority=0, idempotency_key=key)
-    Worker(db, f"gates-{key}", phase=phase, job_types=[job_type]).run_once()
+    # rc1-AUTH A1: protected effects re-resolve the effective phase (environment AND the
+    # owner's recorded transition) instead of trusting the worker's phase, so a run past
+    # shadow has the environment agree and the owner's path recorded (synthetic credential).
+    import os
+    from brambleloop.core import opsauth
+    from brambleloop.core import phase as phase_mod
+    saved = {k: os.environ.get(k) for k in ("BRAMBLELOOP_PHASE", "BRAMBLELOOP_OPS_TOKEN")}
+    if phase is not Phase.SHADOW:
+        os.environ["BRAMBLELOOP_PHASE"] = phase.value
+        if not opsauth.configured():
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = "cert-publish-gates-synthetic-owner-credential"
+        if not phase_mod.latest_recorded(db)["recorded"]:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from phase_fixture import record_phase_path
+            record_phase_path(db, os.environ["BRAMBLELOOP_OPS_TOKEN"], phase.value)
+    try:
+        Worker(db, f"gates-{key}", phase=phase, job_types=[job_type]).run_once()
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
     with db.session() as s:
         row = s.get(Job, job.id)
         s.expunge(row)

@@ -186,7 +186,8 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
         return
     while not stop.is_set():
         try:
-            worker = Worker(db, name, phase=phase)
+            # rc1-AUTH A1: re-resolve the effective phase per job, not once at boot.
+            worker = Worker(db, name, phase=phase, live_phase=True)
             while not stop.is_set():
                 if index > 0 and target is not None and index >= target.get():
                     stop.wait(_IDLE_SLEEP * 5)      # dormant: the allocation does not need it

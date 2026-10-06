@@ -44,4 +44,10 @@ def make_router(db):
     def revoke(approval_id: int, authorization: str = Header(default="")):
         return call(authority.revoke, db, authorization=authorization,
                     approval_id=approval_id)
+
+    @router.post("/rebase")
+    def rebase(body: dict, authorization: str = Header(default="")):
+        """rc1-AUTH D2: re-anchor a broken grant chain; voids every earlier grant."""
+        return call(authority.rebase, db, authorization=authorization,
+                    reason=body.get("reason"))
     return router

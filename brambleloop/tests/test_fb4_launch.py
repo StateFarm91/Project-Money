@@ -275,7 +275,15 @@ def test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are
     with _Env(BRAMBLELOOP_OPS_TOKEN=TOKEN, BRAMBLELOOP_PHASE="limited_production"):
         P.effective(db)  # mismatch incident opened first
         api = _api(db, phase_api)
-        refs = {"readiness": "readiness-run-1", "rollback": "launch.rollback_rehearsed:7"}
+        # rc1-AUTH D4: refs must resolve to real recorded evidence rows; free text does not.
+        invented = {"to": "staging", "reason": "readiness reviewed",
+                    "evidence_refs": {"readiness": "readiness-run-1",
+                                      "rollback": "launch.rollback_rehearsed:7"}}
+        assert api.post("/api/owner/phase/transition", json=invented,
+                        headers=AUTH).status_code == 409
+        from phase_fixture import synthetic_evidence
+
+        refs = synthetic_evidence(db)
         body = {"to": "staging", "reason": "readiness reviewed", "evidence_refs": refs}
         assert api.post("/api/owner/phase/transition", json=body).status_code == 403
         assert api.get("/api/owner/phase").status_code == 403
@@ -319,8 +327,11 @@ def test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are
         assert r.actor == P.PRINCIPAL and r.detail["principal"] == P.PRINCIPAL
         assert r.detail["reason"] and r.detail["at"] and r.detail["seal"]
         assert "token" not in json.dumps(r.detail).lower() or TOKEN not in json.dumps(r.detail)
-    assert rows[0].detail["evidence_refs"] == {"readiness": "readiness-run-1",
-                                               "rollback": "launch.rollback_rehearsed:7"}
+    assert rows[0].detail["evidence_refs"] == refs
+    # D4: the sealed row records what each ref resolved to; D1: rows are chained.
+    assert rows[0].detail["evidence"]["readiness"]["id"] == int(refs["readiness"])
+    assert [r.detail["seq"] for r in rows] == [1, 2, 3]
+    assert rows[1].detail["prev_id"] == rows[0].id
 
 
 def test_a_forged_or_edited_transition_row_is_not_authority():

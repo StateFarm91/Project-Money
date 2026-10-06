@@ -314,7 +314,34 @@ def _run(db, job_type: str, inputs: dict | None = None, *, agent: str = "orchest
             other.status = JobStatus.CANCELLED
     job = JobQueue(db).enqueue(agent, job_type, inputs or {},
                                idempotency_key=f"run:{job_type}:{time.time_ns()}")
-    assert Worker(db, f"w-{job_type}", phase=phase, job_types=[job_type]).run_once()
+    # rc1-AUTH A1: protected effects (store.activate, store.publish) re-resolve the effective
+    # phase -- environment AND the owner's recorded transition -- at their effect boundaries
+    # instead of trusting the worker's phase. A worker started past shadow therefore runs with
+    # the environment agreeing, and with the owner's path recorded when nothing has been
+    # recorded yet. A test that recorded its own transitions (a rollback, say) keeps them.
+    from brambleloop.core import opsauth
+    from brambleloop.core import phase as phase_mod
+    prior_phase = os.environ.get("BRAMBLELOOP_PHASE")
+    prior_token = os.environ.get("BRAMBLELOOP_OPS_TOKEN")
+    if phase is not Phase.SHADOW:
+        os.environ["BRAMBLELOOP_PHASE"] = phase.value
+        if not opsauth.configured():
+            # The same synthetic owner credential `_publish_guarded` records the phase with.
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = PUBLISH_FIXTURE_TOKEN
+        if opsauth.configured() and not phase_mod.latest_recorded(db)["recorded"]:
+            from phase_fixture import record_phase_path
+            record_phase_path(db, os.environ["BRAMBLELOOP_OPS_TOKEN"], phase.value)
+    try:
+        assert Worker(db, f"w-{job_type}", phase=phase, job_types=[job_type]).run_once()
+    finally:
+        if prior_phase is None:
+            os.environ.pop("BRAMBLELOOP_PHASE", None)
+        else:
+            os.environ["BRAMBLELOOP_PHASE"] = prior_phase
+        if prior_token is None:
+            os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)
+        else:
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = prior_token
     with db.session() as s:
         row = s.get(Job, job.id)
         s.expunge(row)
@@ -628,10 +655,12 @@ def test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_rea
     orig = _gates_pass()
     try:
         with FakeEtsy() as fake:
-            p, lid = _published(db, fake)
             from brambleloop.ops import activation_authority as authority
             from unittest.mock import patch
+            # One owner credential throughout (rc1-AUTH A1): the phase path the publish
+            # fixture records must verify under the credential activation runs with.
             with patch.dict(os.environ, {"BRAMBLELOOP_OPS_TOKEN": "test-owner-credential-32-characters"}):
+                p, lid = _published(db, fake)
                 content = authority.snapshot(db, p["slug"], p["version"])
                 approval = authority.approve(db, authorization="test-owner-credential-32-characters",
                     slug=p["slug"], version=p["version"], expected_digest=authority.digest(content),

@@ -33,7 +33,7 @@ from ..integrations.etsy import EtsyClient as _StockEtsyClient
 # Bound at import, not looked up per call: a harness that rebinds `etsy.EtsyClient` must not
 # make its stand-in count as the stock client whose create-hook order is known (FB2-R2 #1).
 _STOCK_PUBLISH = _StockEtsyClient.publish
-from .worker import CapabilityNotEnabled, JobContext, handlers
+from .worker import CapabilityNotEnabled, JobContext, handlers, protected_phase
 
 PROMOTION_THRESHOLD = 0.55
 """Below this a concept is not worth engineering time. Set from the pool: roughly the top
@@ -1205,7 +1205,10 @@ def handle_store_publish(ctx: JobContext) -> dict:
     ctx.audit("store.release_gates", artifact=ctx.job.inputs.get("slug"),
               detail=release_gates)
 
-    if ctx.phase is Phase.SHADOW:
+    # rc1-AUTH A1: the phase is re-resolved here (owner's recorded phase AND environment),
+    # not taken from the worker's boot reading.
+    phase_now = protected_phase(ctx)
+    if phase_now is Phase.SHADOW:
         ctx.audit("store.publish_refused", artifact=ctx.job.inputs.get("slug"),
                   detail={"reason": "shadow mode: no live publication",
                           "creative_parity": parity_verdict["verdict"],
@@ -1244,7 +1247,7 @@ def handle_store_publish(ctx: JobContext) -> dict:
         # rotation back under compare-and-set, which is what makes an unattended publish job
         # still authenticated next week.
         credentials=Credentials.from_env(transport=transport, db=ctx.db),
-        phase=ctx.phase.value,
+        phase=phase_now.value,
         # A separate fact from having a key: publishing is RED in the authority matrix.
         # FB3-P: this environment flag is only the global kill-switch (it can deny, never
         # grant). The owner's authority itself is the durable, sealed, release-bound grant in
@@ -1452,7 +1455,7 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
         if reserved_digest is not None and reserved_digest != _publish_content_digest(
                 release, payload, docs, listing_images):
             raise ValueError("actual content changed after durable intent reservation")
-        phase = getattr(ctx.phase, "value", None)
+        phase = protected_phase(ctx).value
         # F-299: the environment alone no longer decides the phase -- it must agree with the
         # owner's latest recorded PhaseTransition, else the more restrictive one applies.
         from ..core.phase import effective as effective_phase
@@ -1498,7 +1501,7 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
         final_refusal, final_grant = publication_authority.resolve(
             ctx.db, slug=slug, version=version, release=release, approval_id=approval_input)
         if (final_refusal is not None or final_grant != grant_id
-                or getattr(ctx.phase, "value", None) not in PHASES_THAT_MAY_PUBLISH
+                or protected_phase(ctx).value not in PHASES_THAT_MAY_PUBLISH
                 or effective_phase(ctx.db) not in PHASES_THAT_MAY_PUBLISH):
             raise ValueError("owner authority or runtime phase changed during revalidation")
     except Exception as exc:
@@ -1570,10 +1573,19 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
             reserved_digest=content_digest, stage="before_create")
 
     try:
+        from ..integrations.etsy import OwnerGrant
+
         outcome = client.publish(payload=payload,
                                  filename=f"{slug}-{pattern_filename('US')}",
                                  data=doc.pdf_bytes, images=listing_images["images"],
                                  before_create=before_create,
+                                 # rc1-AUTH D3: the client re-verifies the sealed grant and
+                                 # the live phase itself, immediately before the create.
+                                 grant=OwnerGrant(
+                                     ctx.db, action=OwnerGrant.PUBLISH,
+                                     approval_id=(ctx.job.inputs or {}).get(
+                                         "owner_publication_approval_id"),
+                                     slug=slug, version=version, release=release),
                                  on_created=lambda remote_id: draft_intent.checkpoint(
                                      ctx.db,intent_key,intent_token,remote_id))
     except BaseException:
@@ -1724,7 +1736,8 @@ def handle_store_activate(ctx: JobContext) -> dict:
        files by name and exact size against the files the verified publish sent (whose bytes
        were hash-checked against the release), and the owed disclosures on the copy **as Etsy
        holds it**. Any gap is a reasoned block, never an activation.
-    4. Authority is revalidated at execution (F-835): the phase from this worker, the owner's
+    4. Authority is revalidated at execution (F-835): the phase resolved now (rc1-AUTH A1:
+       the owner's recorded phase AND the environment, not the worker's boot reading), the owner's
        publishing grant read from the environment *now*, a recorded content-bound owner
        approval resolved from its ID, and the daily spend ceiling including the listing fee.
        Nothing the job carried from when it was planned counts.
@@ -1736,7 +1749,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
     from sqlalchemy import select
 
     from ..core.models import Listing
-    from ..integrations.etsy import LISTING_FEE_USD, Authority
+    from ..integrations.etsy import LISTING_FEE_USD, PHASES_THAT_MAY_PUBLISH, Authority
     from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
     from . import etsy_ops
 
@@ -1750,9 +1763,13 @@ def handle_store_activate(ctx: JobContext) -> dict:
                       "release_gates_block": release_gates["blocks_release"],
                       "reasons": release_gates["reasons"][:5]})
 
-    if ctx.phase is Phase.SHADOW:
+    # rc1-AUTH A1: the phase is the owner's recorded phase AND the environment, resolved
+    # now -- an owner rollback recorded after this worker booted stops activation.
+    phase_now = protected_phase(ctx)
+    if phase_now is Phase.SHADOW:
         ctx.audit("store.activate_refused", artifact=artifact,
-                  detail={"reason": "shadow mode: no listing is ever activated"})
+                  detail={"reason": "shadow mode: no listing is ever activated",
+                          "effective_phase": phase_now.value})
         raise ShadowModeRefusal(
             "store.activate publishes a listing on etsy.com; the system is in SHADOW mode.")
 
@@ -1772,7 +1789,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
 
     # Read at execution: the grant may have been withdrawn since this job was queued.
     owner_authorised = os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") == "1"
-    client = etsy_ops.build_client(ctx.db, ctx.phase.value, owner_authorised=owner_authorised)
+    client = etsy_ops.build_client(ctx.db, phase_now.value, owner_authorised=owner_authorised)
     if client.credentials is None:
         ctx.audit("store.activate_refused", artifact=artifact,
                   detail={"reason": client.refusal_for(Authority.READ)})
@@ -1857,6 +1874,10 @@ def handle_store_activate(ctx: JobContext) -> dict:
         refusal = "owner publishing grant withdrawn"
     if final_gates["blocks_release"] or final_parity["blocks_release"]:
         refusal = "release/parity gates changed before activation"
+    phase_live = protected_phase(ctx).value
+    if phase_live not in PHASES_THAT_MAY_PUBLISH:
+        refusal = (f"runtime phase is now {phase_live!r} (owner's recorded phase and the "
+                   f"environment); activation refused")
     if refusal:
         ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": refusal})
         return {"activated": False, "blocked": True, "reasons": [refusal]}
@@ -1873,13 +1894,31 @@ def handle_store_activate(ctx: JobContext) -> dict:
         refusal = "owner publishing grant withdrawn during reservation"
     if final_gates["blocks_release"] or final_parity["blocks_release"]:
         refusal = "release/parity gates changed during reservation"
+    phase_live = protected_phase(ctx).value
+    if phase_live not in PHASES_THAT_MAY_PUBLISH:
+        refusal = (f"runtime phase is now {phase_live!r} (owner's recorded phase and the "
+                   f"environment) during reservation; activation refused")
     if refusal:
         ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": refusal})
         return {"activated": False, "blocked": True, "reasons": [refusal]}
     ctx.audit("store.activation_authority_used", artifact=artifact,
               detail={"approval_id": int(authorisation), "etsy_listing_id": listing_id})
+    # Immediately before the request: the phase once more, then the client itself re-verifies
+    # the sealed grant and the live phase (rc1-AUTH D3) before it sends updateListing.
+    phase_live = protected_phase(ctx).value
+    if phase_live not in PHASES_THAT_MAY_PUBLISH:
+        refusal = (f"runtime phase is now {phase_live!r} immediately before activation; "
+                   f"activation refused")
+        ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": refusal})
+        return {"activated": False, "blocked": True, "reasons": [refusal]}
+    from ..integrations.etsy import OwnerGrant
+
+    grant = OwnerGrant(ctx.db, action=OwnerGrant.ACTIVATE, approval_id=authorisation,
+                       slug=slug, version=version, release=i.get("release", ""),
+                       listing_id=str(listing_id))
     try:
-        client.activate(listing_id, launch_authorisation=f"owner-approval:{authorisation}")
+        client.activate(listing_id, launch_authorisation=f"owner-approval:{authorisation}",
+                        grant=grant)
         after = client.get_listing(listing_id)
     except EtsyAuthNeedsOwner as e:
         etsy_ops.record_auth_needs_owner(ctx.db, e, where="store.activate")

@@ -3,6 +3,12 @@
 Uses existing ops credential and append-only audit evidence; this identifies the operator
 credential holder, not a separately verified natural person. Rotation invalidates grants.
 No endpoint queues or performs an Etsy action. Execution still requires every release gate.
+
+rc1-AUTH D2: approvals, revocations and owner rebases form one sealed hash chain
+(`core.sealed_chain.GrantLedger`). A revocation is sealed and bound to the grant's seal; any
+revocation row naming a grant revokes it (an unsealed one too, reported as tampering); a
+deleted, inserted or replayed row breaks the chain, refusing every activation grant with a P1
+tamper incident until the owner rebases.
 """
 from __future__ import annotations
 import hashlib
@@ -16,6 +22,7 @@ from ..core.models import AuditLog, Listing, PatternVersion, Product
 
 APPROVED = "owner.activation.approved"
 REVOKED = "owner.activation.revoked"
+REBASED = "owner.activation.rebased"
 PRINCIPAL = "owner:ops-token"
 
 
@@ -71,22 +78,32 @@ def approve(db, *, authorization, slug, version, expected_digest, reason, releas
     detail = {"principal": PRINCIPAL, "action": "store.activate", "content": content,
               "digest": digest(content), "reason": reason.strip(),
               "approved_at": now.isoformat(), "expires_at": (now + timedelta(hours=24)).isoformat()}
-    detail["seal"] = _seal(detail)
-    with db.session() as s:
-        row = AuditLog(actor=PRINCIPAL, action=APPROVED,
-                       artifact=f"{slug}@{version}", detail=detail)
-        s.add(row)
-        s.flush()
-        return {"approval_id": row.id, "digest": detail["digest"],
-                "expires_at": detail["expires_at"], "principal": PRINCIPAL}
+    ident = LEDGER.append(db, action=APPROVED, artifact=f"{slug}@{version}", detail=detail)
+    return {"approval_id": ident, "digest": detail["digest"],
+            "expires_at": detail["expires_at"], "principal": PRINCIPAL}
 
 
 def revoke(db, *, authorization, approval_id):
     opsauth.check(authorization)
-    with db.session() as s:
-        s.add(AuditLog(actor=PRINCIPAL, action=REVOKED,
-                      artifact=str(int(approval_id)), detail={"approval_id": int(approval_id)}))
+    LEDGER.revoke(db, int(approval_id))
     return {"revoked": int(approval_id)}
+
+
+def rebase(db, *, authorization, reason):
+    """Owner re-anchors a broken grant chain. Voids every earlier activation grant."""
+    opsauth.check(authorization)
+    return {"rebase_id": LEDGER.rebase(db, reason), "voids_grants_before": True}
+
+
+def _make_ledger():
+    from ..core.sealed_chain import GrantLedger
+
+    return GrantLedger(approved=APPROVED, revoked=REVOKED, rebased=REBASED, principal=PRINCIPAL,
+                       seal=_seal, signature="authority_chain_tamper:store.activate",
+                       label="owner activation approval")
+
+
+LEDGER = _make_ledger()
 
 
 def validate(db, approval_id, *, slug, version, listing_id, release=""):
@@ -97,11 +114,10 @@ def validate(db, approval_id, *, slug, version, listing_id, release=""):
             row = s.get(AuditLog, ident)
             if row is None or row.action != APPROVED or row.actor != PRINCIPAL:
                 return "recorded Launch-0 owner activation approval required"
-            revoked = s.scalar(select(AuditLog.id).where(AuditLog.action == REVOKED,
-                                                        AuditLog.artifact == str(ident)))
             detail = dict(row.detail or {})
-        if revoked:
-            return "owner activation approval revoked"
+        chained = LEDGER.refusal(db, ident)
+        if chained is not None:
+            return f"owner activation approval refused: {chained}"
         seal = detail.pop("seal", "")
         if not hmac.compare_digest(str(seal), _seal(detail)):
             return "owner activation approval invalid or credential rotated"
