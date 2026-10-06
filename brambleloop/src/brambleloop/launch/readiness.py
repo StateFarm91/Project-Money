@@ -196,18 +196,27 @@ def listing_fees_request(listings: int) -> OwnerRequest:
         blocks="publishing",
     )
 
+from ..gates import risk_matrix as _rm  # noqa: E402  (pure module: re + dataclasses)
+
 PHYSICAL_SAMPLE = OwnerRequest(
     key="physical_calibration",
-    action=("Crochet one sample -- the 20 cm storage basket is the best candidate, about "
-            "6-8 hours -- weigh the yarn used, and measure the finished piece across and "
-            "tall. Report: grams per colour, finished measurements, hook used, and anything "
-            "the written instructions got wrong."),
+    # F-071 / F-086 (K6): reworded from "Crochet one sample" to the risk-based evidence
+    # requirement. The truth objective is unchanged (a real, measured sample of this exact
+    # content); what the owner is asked for is the spend decision, never the crocheting.
+    action=("Approve commissioning one independent tester (not the owner) to make one "
+            "sample -- the 20 cm storage basket is the best candidate, about 6-8 hours -- "
+            "from the customer PDF, then record it through the physical.record job with "
+            "scope full_make: grams per colour, ball band, hook, finished measurements, and "
+            "anything the written instructions got wrong."),
     reason=("Yardage is an uncalibrated estimate carrying an explicit plus or minus 20%, and "
             "nothing but a real sample replaces that. It also calibrates every future "
-            "estimate at that gauge, and it is the gate Class C products cannot pass at all. "
-            "This cannot be automated: it requires hands, yarn and a hook."),
-    max_cost_cad=25.0,
-    minutes=420,
+            "estimate at that gauge, and gates.risk_matrix requires a full physical make of "
+            "this exact content before any Class C product can sell. This cannot be "
+            "automated: it requires hands, yarn and a hook -- a tester's, not the owner's."),
+    # ESTIMATED ceiling, not a sourced rate: 8 tester hours at the risk matrix's assumed fee
+    # plus the CA$25 of yarn the old owner-made sample budgeted (no tester has been paid yet).
+    max_cost_cad=round(8 * _rm.TESTER_FEE_CAD_PER_HOUR + 25.0, 2),
+    minutes=_rm.OWNER_MINUTES,
     consequence_of_delay=("Yardage stays a tolerance rather than a figure, Class C products "
                           "stay unshippable, and the first buyer becomes the tester."),
     blocks="calibrated yardage claims and any fitted garment",

@@ -92,8 +92,8 @@ def test_evidence_classes_are_distinct_and_only_a_full_make_contains_a_partial()
     keys = [c.key for c in rm.EVIDENCE_CLASSES]
     assert keys, "the hierarchy is declared"
     assert len(keys) == len(set(keys)) == 6
-    for held in keys:
-        for need in keys:
+    for held in keys:  # vacuity-ok: keys asserted non-empty and exactly 6 above
+        for need in keys:  # vacuity-ok: same 6 keys, asserted above
             expected = held == need or (held == rm.FULL_PHYSICAL_MAKE
                                         and need == rm.PARTIAL_PHYSICAL)
             assert rm.satisfies(held, need) is expected, (held, need)
@@ -359,6 +359,34 @@ def test_first_customer_tier_requires_the_class_its_risk_needs():
                 "bound_classes": {1: rm.PARTIAL_PHYSICAL},
                 "first_customer": rm.first_customer_requirement(m_c, swatch)}
     assert check_gauge_and_size_claims(cir, twin, physical).state == UNRESOLVED
+
+
+def test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet():
+    """F-071 / F-086: the dormant calibration request names an independent tester, prices the
+    tester (not just yarn), and routes the result through physical.record as a full make."""
+    from brambleloop.launch import readiness as rd
+
+    req = rd.PHYSICAL_SAMPLE
+    assert not req.action.lower().startswith("crochet"), req.action
+    assert "independent tester (not the owner)" in req.action
+    assert "physical.record" in req.action and "full_make" in req.action
+    assert req.max_cost_cad > 8 * rm.TESTER_FEE_CAD_PER_HOUR      # the tester is paid
+    assert req.minutes == rm.OWNER_MINUTES                         # owner time: approval only
+
+
+def test_a_full_make_request_is_never_priced_as_a_swatch():
+    """The owner approves a ceiling; a Class C spec without a make-time estimate must not
+    inherit the swatch's 1.5 hours."""
+    kw = dict(slug="x", version="1.0.0", content_hash="ab" * 32, effective_class="C")
+    full = rm.owner_action_spec(required=rm.FULL_PHYSICAL_MAKE, make_hours=None,
+                                yarn_metres=None, **kw)
+    swatch = rm.owner_action_spec(required=rm.PARTIAL_PHYSICAL, make_hours=None,
+                                  yarn_metres=None, **kw)
+    assert full["tester_hours"] == rm.FULL_MAKE_FALLBACK_HOURS
+    assert full["max_cost_cad"] > swatch["max_cost_cad"]
+    timed = rm.owner_action_spec(required=rm.FULL_PHYSICAL_MAKE, make_hours=6,
+                                 yarn_metres=200, **kw)
+    assert timed["tester_hours"] == 7.8 and "ESTIMATED" in timed["cost_basis"]
 
 
 if __name__ == "__main__":

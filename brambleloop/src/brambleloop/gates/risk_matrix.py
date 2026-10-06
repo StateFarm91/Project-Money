@@ -331,6 +331,10 @@ TESTER_FEE_CAD_PER_HOUR = 20.0
 YARN_CAD_PER_METRE = 0.06
 SWATCH_TESTER_HOURS = 1.5
 SWATCH_YARN_METRES = 40.0
+# A full make with no make-time estimate is priced on this conservative ceiling, never on the
+# swatch's hours (which would under-state the approval the owner is asked for).
+FULL_MAKE_FALLBACK_HOURS = 12.0
+FULL_MAKE_FALLBACK_METRES = 300.0
 # What the owner spends: reading the request, approving the ceiling, and nothing physical.
 OWNER_MINUTES = 5
 
@@ -348,8 +352,11 @@ def owner_action_spec(*, slug: str, version: str, content_hash: str | None, requ
     owner's decision; the crocheting is never the owner's labour.
     """
     full = required == FULL_PHYSICAL_MAKE
-    hours = (float(make_hours) * 1.3 if (full and make_hours) else SWATCH_TESTER_HOURS)
-    metres = (float(yarn_metres) * 1.2 if (full and yarn_metres) else SWATCH_YARN_METRES)
+    if full:
+        hours = float(make_hours) * 1.3 if make_hours else FULL_MAKE_FALLBACK_HOURS
+        metres = float(yarn_metres) * 1.2 if yarn_metres else FULL_MAKE_FALLBACK_METRES
+    else:
+        hours, metres = SWATCH_TESTER_HOURS, SWATCH_YARN_METRES
     cost = round(hours * TESTER_FEE_CAD_PER_HOUR + metres * YARN_CAD_PER_METRE, 2)
     scope = ("make the whole object" if full else
              "work a 15 x 15 cm gauge/yardage swatch (or the named component)")
@@ -531,10 +538,21 @@ def catalogue_status(db) -> dict:
                "why": status["why"], "matrix_source": source,
                "content_hash": (content or "")[:12]}
         if not status["met"] and status["required"] != DETERMINISTIC:
+            hours = None
+            if status["required"] == FULL_PHYSICAL_MAKE:
+                # A full make is priced on the product's own make time, never the swatch's.
+                try:
+                    from ..cir.compiler import compile_cir
+                    from ..seasonal.leadtime import estimate_for
+
+                    _cir = CIR.from_dict(cir_json)
+                    hours = estimate_for(_cir, compile_cir(_cir)).hours
+                except Exception:  # noqa: BLE001 - no estimate: the fallback ceiling stands
+                    hours = None
             row["owner_action_spec"] = owner_action_spec(
                 slug=slug, version=version, content_hash=content,
                 required=status["required"], effective_class=matrix.get("effective", "C"),
-                make_hours=None,
+                make_hours=hours,
                 yarn_metres=sum((twin.get("yarn_metres") or {}).values()) or None,
                 retest=bool(status.get("retest_required")))
         rows.append(row)
