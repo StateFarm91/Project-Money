@@ -26,7 +26,10 @@ source (`transactions_r`) is connected. While it is not connected -- today -- th
 used to report CA$0.00 gross sales and 0 orders with `all_figures_observed: true`, which is
 a measured zero nobody measured. Now the sales side has a reading:
 
-* `measured` -- the source is connected and has been read (`orders_ingest.source_state`);
+* `measured` -- the source is connected and has been read (`orders_ingest.source_state`)
+  within the orders freshness bound (`accounting.health.FRESHNESS`);
+* `STALE` -- connected and read, but the last read is older than that bound: figures are
+  as of then, never labelled measured (R2-FIN, audit M4);
 * `INCOMPLETE` -- sales are recorded but the source is not currently read, so the figures
   are a lower bound and are labelled one;
 * `UNMEASURED` -- nothing recorded and the source is not read: every sales-derived figure
@@ -150,8 +153,13 @@ class ProfitAndLoss:
 
     @property
     def cash_cad(self) -> float | None:
-        """Derived cash proxy only when all inputs are observed; otherwise UNKNOWN."""
-        return self.net_profit_cad if self.all_observed else None
+        """Always UNKNOWN here (R2-FIN, audit M10).
+
+        Net profit is not cash: it ignores payout timing, reserves, owner contributions and
+        everything that moved through a bank. The books read no bank, so cash is None; the
+        bank-measured figure is `finance.accounting.cash.position` (account 1000, reconciled
+        statements only)."""
+        return None
 
     @property
     def all_observed(self):
@@ -178,7 +186,9 @@ class ProfitAndLoss:
             "unresolved_listing_exposure_cad": round(self.unresolved_listing_exposure_cad, 4),
             "operating_cost_reading": "conservative exposure plus ledger expenses; unresolved reservations may overlap fees" if self.unresolved_listing_exposure_cad else "basis-labelled costs",
             "profit_basis": "measured" if observed else "mixed_or_unknown",
-            "cash_reading": "derived_cash_proxy" if observed else "UNKNOWN",
+            "cash_reading": "UNKNOWN",
+            "cash_why": ("the books read no bank statement; net profit is not cash. Cash is "
+                         "finance.accounting.cash.position (bank-measured, reconciled)"),
             "held_orders": [dict(h) for h in self.held_orders],
         }
         if self.sales_unmeasured:
@@ -306,7 +316,22 @@ class Books:
                         + ", ".join(f"{h['ref']} {h.get('amount_original')} {h.get('currency')}"
                                     for h in held[:5])
                         + "); the recorded figures are a lower bound")
-        if state["measured"] and held:
+        stale_why = ""
+        if state["measured"] and state.get("last_read_at"):
+            # R2-FIN (audit M4): a read older than the orders freshness bound is STALE, not
+            # measured -- the same bound `finance.accounting.health` applies.
+            from .accounting.health import FRESHNESS
+
+            last = datetime.fromisoformat(state["last_read_at"])
+            last = last if last.tzinfo else last.replace(tzinfo=timezone.utc)
+            ref = until if until.tzinfo else until.replace(tzinfo=timezone.utc)
+            if ref - last > FRESHNESS["orders"]:
+                stale_why = (f"the last completed receipt read was {last.isoformat()}, older "
+                             f"than {FRESHNESS['orders']}; sales since then are not observed")
+        if stale_why:
+            pl.sales_reading = "STALE"
+            pl.sales_why = stale_why + ("; " + held_why if held_why else "")
+        elif state["measured"] and held:
             pl.sales_reading = "INCOMPLETE"
             pl.sales_why = held_why
         elif state["measured"]:

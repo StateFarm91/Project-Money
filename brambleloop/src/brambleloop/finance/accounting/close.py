@@ -6,8 +6,10 @@ hash so the closed figures can be re-verified later. There is no unlock: after a
 locked, a correction is booked in the first open period as a labelled late adjustment
 (`ledger.post_in`), so a closed month's figures never move.
 
-Blocking steps: the month has ended; the order source was measured (revenue is not
-UNKNOWN); every source row is posted; the journal chain verifies; the trial balance
+Blocking steps: posting, statement matching and anomaly detection ran just before the
+checklist (`refresh`, audit H1); the month has ended; the order source is measured *and
+fresh* (STALE blocks, audit M4); every statement line dated in the period is matched;
+every source row is posted; the journal chain verifies; the trial balance
 balances; no held/unreconciled orders, unmatched statement lines, duplicates or anomalies
 remain open for the period. Warnings (closable, but said in the owner summary): modelled or
 unverified fees, operating costs of non-measured basis, no bank source (cash basis cannot
@@ -24,7 +26,7 @@ from sqlalchemy import select
 from . import exceptions as X
 from . import health as H
 from .ledger import period_of, verify_chain
-from .models import AcctPeriodLock
+from .models import AcctException, AcctPeriodLock, AcctStatementLine
 from .schema import ensure
 
 
@@ -36,12 +38,54 @@ def _tb_hash(tb: dict) -> str:
     return hashlib.sha256(json.dumps(tb["rows"], sort_keys=True).encode()).hexdigest()
 
 
-def checklist(db, period: str, *, now: datetime | None = None) -> dict:
+def _period_bounds(period: str) -> tuple[datetime, datetime]:
+    y, m = (int(x) for x in period.split("-"))
+    return (datetime(y, m, 1, tzinfo=timezone.utc),
+            datetime(y + (m == 12), (m % 12) + 1, 1, tzinfo=timezone.utc))
+
+
+def _open_statement_lines(s, period: str) -> list:
+    """Statement lines dated in `period` that are not matched (and not a refused duplicate)."""
+    start, end = _period_bounds(period)
+    return list(s.scalars(select(AcctStatementLine).where(
+        AcctStatementLine.at >= start, AcctStatementLine.at < end,
+        AcctStatementLine.state.notin_(("matched", "duplicate")))))
+
+
+def refresh_books(db, *, now: datetime | None = None) -> dict:
+    """Bring the books to the sources' truth before a close decision (audit H1): post,
+    match statements, post what matching settled, and run every anomaly detector, so an
+    unmatched line or an anomaly is an open exception *before* the checklist reads them."""
+    from . import anomalies, posting_rules, reconciliation
+
+    db = ensure(db)
+    now = now or datetime.now(timezone.utc)
+    posted = posting_rules.post_all(db, now=now)
+    matched = reconciliation.match(db, now=now)
+    posted2 = posting_rules.post_all(db, now=now)
+    found = anomalies.detect(db, now=now)
+    return {"posting": posted, "matching": matched, "posting_after_match": posted2,
+            "anomalies": {"findings": len(found["findings"]), "opened": found["opened"]}}
+
+
+def checklist(db, period: str, *, now: datetime | None = None,
+              refresh: bool = True) -> dict:
+    """Every close step for `period`. With `refresh` (the default) the checklist first runs
+    posting, statement matching and anomaly detection itself (`refresh_books`), so it never
+    reads a stale exception list; `refresh=False` is for a caller that has just done so
+    (the Accountant cycle). Either way, statement lines in the period that are not matched
+    block, read straight from `acct_statement_lines`."""
     from . import posting_rules, views
 
     db = ensure(db)
     now = now or datetime.now(timezone.utc)
     steps: list[dict] = []
+    refreshed = None
+    if refresh:
+        try:
+            refreshed = refresh_books(db, now=now)
+        except Exception as exc:  # noqa: BLE001 - a failed refresh blocks; never assumed clean
+            refreshed = {"error": f"{type(exc).__name__}: {exc}"[:300]}
 
     def step(name, outcome, why, evidence=None):
         steps.append({"step": name, "outcome": outcome, "why": why,
@@ -56,7 +100,15 @@ def checklist(db, period: str, *, now: datetime | None = None) -> dict:
          f"{period} has not ended (now {period_of(now)})")
     hl = H.reading(db, now=now)
     o = hl["sources"]["orders"]
-    step("source_completeness", "pass" if o["state"] in (H.MEASURED, H.STALE) else "block",
+    if refreshed is not None and "error" in refreshed:
+        step("refresh", "block", "posting / matching / anomaly detection failed: "
+             + refreshed["error"])
+    elif refreshed is not None:
+        step("refresh", "pass", "posted, matched and scanned for anomalies just now",
+             refreshed)
+    # A STALE order source is not a complete one (audit M4): orders read days ago say
+    # nothing about the sales since, so the month cannot be closed on them.
+    step("source_completeness", "pass" if o["state"] == H.MEASURED else "block",
          "order source measured" if o["state"] == H.MEASURED else
          f"order source {o['state']}: {o['why']}", o)
     b = hl["sources"]["bank"]
@@ -74,6 +126,14 @@ def checklist(db, period: str, *, now: datetime | None = None) -> dict:
     step("trial_balance", "pass" if tb["balanced"] else "block",
          f"debits {tb['total_debit_cad']} = credits {tb['total_credit_cad']}"
          if tb["balanced"] else "trial balance does not balance")
+    with db.session() as s:
+        lines = _open_statement_lines(s, period)
+        open_lines = [{"id": l.id, "source": l.source, "kind": l.kind,
+                       "external_id": l.external_id, "state": l.state} for l in lines]
+    step("statement_lines", "pass" if not open_lines else "block",
+         "every statement line in the period is matched" if not open_lines else
+         f"{len(open_lines)} statement line(s) in {period} are not matched",
+         {"lines": open_lines[:20]})
     open_x = X.listing(db, period=period)
     blocking = [x for x in open_x if not x["kind"].startswith("anomaly:")]
     anomalies = [x for x in open_x if x["kind"].startswith("anomaly:")]
@@ -117,20 +177,41 @@ def checklist(db, period: str, *, now: datetime | None = None) -> dict:
 
 
 def lock_period(db, period: str, *, by: str, now: datetime | None = None) -> dict:
-    cl = checklist(db, period, now=now)
+    """Lock `period` -- irreversibly -- only when a *refreshed* checklist passes.
+
+    The checklist runs posting, matching and anomaly detection first (audit H1). The lock
+    row is then written inside the journal lock, after re-reading in that same transaction
+    that nothing moved since the checklist: no unmatched statement line, no open exception
+    for the period, no unposted source row, and the trial balance hash the checklist saw.
+    """
+    from . import posting_rules, views
+    from .ledger import locked
+
+    cl = checklist(db, period, now=now, refresh=True)
     if not cl["closable"]:
         raise CloseRefused(cl["owner_summary"])
     db = ensure(db)
-    from . import views
-
+    if posting_rules.unposted(db)["count"]:
+        raise CloseRefused(f"{period}: source rows changed after the checklist; re-run it")
     tb = views.trial_balance(db, period=period)
-    with db.session() as s:
+    want = _tb_hash(tb)
+    if want != cl["trial_balance_hash"]:
+        raise CloseRefused(f"{period}: the trial balance moved after the checklist; re-run it")
+    with locked(db) as s:
+        if s.scalar(select(AcctPeriodLock).where(AcctPeriodLock.period == period)):
+            raise CloseRefused(f"{period} is already locked")
+        if _open_statement_lines(s, period):
+            raise CloseRefused(f"{period}: a statement line arrived after the checklist")
+        if s.scalar(select(AcctException.id).where(
+                AcctException.period == period,
+                AcctException.resolved == False)) is not None:  # noqa: E712
+            raise CloseRefused(f"{period}: an exception opened after the checklist")
         s.add(AcctPeriodLock(period=period, locked_by=by[:64],
-                             trial_balance_hash=_tb_hash(tb),
+                             trial_balance_hash=want,
                              checklist={"steps": cl["steps"],
                                         "owner_summary": cl["owner_summary"]},
                              locked_at=now or datetime.now(timezone.utc)))
-    return {"period": period, "locked": True, "trial_balance_hash": _tb_hash(tb),
+    return {"period": period, "locked": True, "trial_balance_hash": want,
             "owner_summary": cl["owner_summary"]}
 
 

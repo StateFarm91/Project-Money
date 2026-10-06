@@ -38,6 +38,36 @@ from .schema import ensure
 
 MIN_PRODUCT_CONTRIBUTION_MARGIN = 0.40
 EXTERNAL_KINDS = ("ads", "benchmark", "software", "contractor", "physical_test", "other")
+# R2-FIN (audit M11): `kind` is normalised and validated against this closed set. Spellings
+# of advertising map to "ads" so the ads caps, margin and evidence rules apply to them; any
+# other unknown kind is refused (fail closed), never waved through as "not ads".
+KIND_ALIASES = {"ad": "ads", "advert": "ads", "advertising": "ads", "adverts": "ads",
+                "etsy_ads": "ads", "etsy_ad": "ads", "offsite_ads": "ads",
+                "promoted_listings": "ads", "promoted_listing": "ads", "paid_media": "ads",
+                "marketing": "ads", "paid_ads": "ads"}
+
+
+def normalise_kind(raw) -> str | None:
+    """The canonical spend kind, or None when it is not one Finance knows."""
+    import re
+
+    k = re.sub(r"[\s\-]+", "_", str("ads" if raw is None or raw == "" else raw)
+               .strip().lower())
+    k = KIND_ALIASES.get(k, k)
+    return k if k in EXTERNAL_KINDS else None
+
+
+def _finite(v) -> float | None:
+    """`v` as a finite float; NaN, inf, text, bool and None are None."""
+    import math
+
+    if isinstance(v, bool) or v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
 
 
 def _authority(s, proposal: dict) -> tuple[bool, str]:
@@ -76,20 +106,24 @@ def check_spend(db, proposal: dict, *, now: datetime | None = None) -> dict:
     def add(rule: str, outcome: str, why: str):
         checks.append({"rule": rule, "outcome": outcome, "why": why})
 
-    try:
-        amount = float(proposal.get("amount_cad"))
-    except (TypeError, ValueError):
-        amount = -1.0
-    kind = str(proposal.get("kind") or "ads").lower()
+    amount = _finite(proposal.get("amount_cad"))
+    amount = -1.0 if amount is None else amount
+    raw_kind = proposal.get("kind")
+    kind = normalise_kind(raw_kind)
     if amount <= 0:
-        add("amount", "block", "amount_cad must be a positive number")
+        add("amount", "block", "amount_cad must be a positive, finite number")
+    if kind is None:
+        add("kind", "block", f"spend kind {str(raw_kind)[:40]!r} is not one Finance knows "
+            f"({', '.join(EXTERNAL_KINDS)}); refused rather than guessed")
+        kind = "unknown"
     if len(str(proposal.get("purpose") or "").strip()) < 10:
         add("purpose", "block", "a spend names what it buys; 'growth' is not a purpose")
     try:
         ph = phase_mod.effective(db, record_incident=False)
     except Exception:  # noqa: BLE001 - fail closed
         ph = "shadow"
-    if ph == "shadow" and kind in EXTERNAL_KINDS:
+    if ph == "shadow":
+        # Every spend kind here is external (the set is closed); SHADOW blocks them all.
         add("phase", "block", "the company is in SHADOW phase: no external spend executes")
     health = H.reading(db, now=now)
     pos = cash_mod.position(db, now=now, health=health)
@@ -108,7 +142,9 @@ def check_spend(db, proposal: dict, *, now: datetime | None = None) -> dict:
             add("evidence", "block", "sales are UNMEASURED; advertising needs measured "
                 "attributable orders (section 11)")
         exp = proposal.get("expected_contribution_cad")
-        if exp is None:
+        if exp is not None and _finite(exp) is None:
+            add("margin", "block", "expected_contribution_cad is not a finite number")
+        elif exp is None:
             add("margin", "escalate", "no expected contribution was stated, so the margin "
                 "policy cannot be checked")
         elif amount > 0 and float(exp) / amount < CONSERVATIVE_CAPS.target_contribution_ratio:

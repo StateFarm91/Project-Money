@@ -51,14 +51,18 @@ def forecast(db, *, horizon_days: int = 30, now: datetime | None = None) -> dict
             .join(AcctPosting, AcctPosting.entry_id == AcctJournalEntry.id)
             .where(AcctJournalEntry.rule == "ledger_row", AcctJournalEntry.kind == "original",
                    AcctPosting.account == A.SALES, AcctJournalEntry.at >= since)) if r})
-    cost_days = max(1, min(LOOKBACK_DAYS, (now - since).days))
+    # R2-FIN (audit L7): average over the history that exists, not a fixed 60 days -- a
+    # company 10 days old divided by 60 understates its daily spend six-fold.
+    first = min(costs) if costs else None
+    history = ((now.date() - datetime.fromisoformat(first).date()).days + 1) if first else 1
+    cost_days = max(1, min(LOOKBACK_DAYS, history))
     total_cost = sum(costs.values())
     recent = sum(v for d, v in costs.items() if d >= (now - timedelta(days=7)).date().isoformat())
-    per_day = [total_cost / cost_days, recent / 7]
+    per_day = [total_cost / cost_days, recent / min(7, cost_days)]
     cost = ({"low_cad": to_cad(min(per_day) * horizon_days),
              "high_cad": to_cad(max(per_day) * horizon_days * 1.25),
-             "assumptions": [f"daily operating spend between the {LOOKBACK_DAYS}-day and "
-                             "7-day averages", "high end +25% for unplanned work",
+             "assumptions": [f"daily operating spend between the {cost_days}-day "
+                             f"(history, max {LOOKBACK_DAYS}) and 7-day averages", "high end +25% for unplanned work",
                              "the monthly model ceiling caps the true maximum"],
              "confidence": "medium" if len(costs) >= 14 else "low",
              "sample_days_with_spend": len(costs)} if total_cost else None)

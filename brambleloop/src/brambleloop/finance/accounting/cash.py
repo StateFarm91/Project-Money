@@ -29,6 +29,31 @@ def _ytd_start(now: datetime) -> datetime:
     return datetime(now.year, 1, 1, tzinfo=timezone.utc)
 
 
+def _unreconciled_bank(db) -> dict:
+    """Bank lines that move money but matched nothing, and balance-snapshot drift."""
+    from sqlalchemy import select
+
+    from .ledger import balances as _bal
+    from .models import AcctStatementLine
+
+    with db.session() as s:
+        lines = [f"{l.kind}:{l.external_id}" for l in s.scalars(select(AcctStatementLine).where(
+            AcctStatementLine.source == "bank", AcctStatementLine.kind != "balance",
+            AcctStatementLine.state.notin_(("matched", "duplicate"))))]
+        snap = s.scalar(select(AcctStatementLine).where(
+            AcctStatementLine.source == "bank", AcctStatementLine.kind == "balance",
+            AcctStatementLine.state != "duplicate")
+            .order_by(AcctStatementLine.at.desc()).limit(1))
+        drift = None
+        if snap is not None:
+            at = snap.at if snap.at.tzinfo else snap.at.replace(tzinfo=timezone.utc)
+            led = int((_bal(s, until=at).get(A.BANK) or {}).get("balance", 0))
+            if abs(led - snap.amount_micros) > 5_000:
+                drift = (f"bank balance snapshot {to_cad(snap.amount_micros)} CAD on "
+                         f"{at.date().isoformat()} vs ledger bank account {to_cad(led)} CAD")
+    return {"lines": lines, "drift": drift}
+
+
 def position(db, *, now: datetime | None = None, health: dict | None = None) -> dict:
     from .. import reinvestment, reservations, spend_policy
     from . import views
@@ -44,7 +69,31 @@ def position(db, *, now: datetime | None = None, health: dict | None = None) -> 
         return int((b.get(code) or {}).get("balance", 0))
 
     cash_known = health["cash_known"]
-    cash_micros = bal(A.BANK) if cash_known else None
+    bank_state = health["sources"]["bank"]["state"]
+    # R2-FIN (audit M2): only matched bank lines are posted to account 1000, so an imported
+    # line that matched nothing (a deposit with no payout, an unknown charge) -- or a bank
+    # balance snapshot that disagrees with account 1000 -- means the ledger's bank balance
+    # is not the bank's. Cash is then UNKNOWN (unreconciled), never a CA$0.00 "measured".
+    unrec = _unreconciled_bank(db) if cash_known else {"lines": [], "drift": None}
+    if not cash_known:
+        cash_reading, cash_why = "UNKNOWN", health["sources"]["bank"]["why"]
+    elif unrec["lines"] or unrec["drift"]:
+        cash_reading = "UNKNOWN"
+        cash_why = ("UNKNOWN (unreconciled): "
+                    + (f"{len(unrec['lines'])} bank statement line(s) match nothing in the "
+                       f"books ({', '.join(unrec['lines'][:5])})" if unrec["lines"] else "")
+                    + ("; " if unrec["lines"] and unrec["drift"] else "")
+                    + (unrec["drift"] or "")
+                    + "; the ledger's bank balance is not the bank's until they reconcile")
+    elif bank_state == H.STALE:
+        # R2-FIN (audit M1): a bank balance older than its freshness bound is STALE -- shown
+        # as of its date, labelled stale, and never used to compute a safe budget or runway.
+        cash_reading = "stale"
+        cash_why = ("STALE: " + health["sources"]["bank"]["why"] + "; the balance is as of "
+                    "that import and nothing is computed from it")
+    else:
+        cash_reading, cash_why = "measured", ""
+    cash_micros = bal(A.BANK) if cash_reading in ("measured", "stale") else None
     receivable = bal(A.ETSY_RECEIVABLE)
     owner_payable = bal(A.OWNER_PAYABLE)
     accrued_listing = bal(A.ACCRUED_LISTING)
@@ -70,12 +119,14 @@ def position(db, *, now: datetime | None = None, health: dict | None = None) -> 
         {"name": "model/API spend ceiling", "amount_cad": spend_policy.ceiling_cad(),
          "cadence": "monthly", "basis": "policy ceiling (maximum, not a forecast)"},
     ]
-    if cash_micros is None:
+    if cash_micros is None or cash_reading != "measured":
         safe = None
-        safe_why = ("UNKNOWN: no bank source, so cash is unknown and nothing is safe to spend "
-                    "on the strength of it. " + health["sources"]["bank"]["why"])
+        safe_why = ("UNKNOWN: cash is not a fresh, reconciled measurement, so nothing is safe "
+                    "to spend on the strength of it. " + (cash_why or
+                                                          health["sources"]["bank"]["why"]))
         runway = None
-        runway_why = "UNKNOWN: cash is unknown. Operating spend is owner-funded today."
+        runway_why = ("UNKNOWN: cash is " + ("stale" if cash_reading == "stale" else "unknown")
+                      + ". Operating spend is owner-funded today.")
     else:
         deductions = (owner_payable + accrued_listing + int(round((committed or 0) * 1e6))
                       + (sales_reserve or 0) + (income_reserve or 0) + operating_reserve)
@@ -96,8 +147,10 @@ def position(db, *, now: datetime | None = None, health: dict | None = None) -> 
     return {
         "as_of": now.isoformat(), "currency": "CAD",
         "cash_on_hand_cad": to_cad(cash_micros) if cash_micros is not None else None,
-        "cash_reading": "measured" if cash_known else "UNKNOWN",
-        "cash_why": health["sources"]["bank"]["why"],
+        "cash_reading": cash_reading,
+        "cash_why": cash_why,
+        "cash_as_of": health["sources"]["bank"]["last_read_at"],
+        "cash_unreconciled_lines": unrec["lines"],
         # health.figure_reading: a disconnected/never-read order source with no recorded
         # receivable reads UNKNOWN, and an UNKNOWN figure is None -- never CA$0.00 (F-898).
         "expected_payout_cad": (None if H.figure_reading(health["sources"]["orders"]["state"],

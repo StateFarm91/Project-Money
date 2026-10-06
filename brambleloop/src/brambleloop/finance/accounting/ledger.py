@@ -86,6 +86,7 @@ def booking_period(session, at: datetime, locks: set[str] | None = None) -> str:
 
 
 def _canon(entry: dict, lines: list[dict], prev_hash: str) -> str:
+    """Seal v1 (legacy): the fields sealed before R2-FIN. Kept only to verify old rows."""
     body = {k: entry.get(k) for k in ("entry_key", "at", "period", "rule", "source_key",
                                       "source_table", "source_id", "source_ref",
                                       "fingerprint", "kind", "reverses_key", "memo")}
@@ -95,6 +96,39 @@ def _canon(entry: dict, lines: list[dict], prev_hash: str) -> str:
     body["prev"] = prev_hash
     return hashlib.sha256(json.dumps(body, sort_keys=True, default=str)
                           .encode()).hexdigest()
+
+
+# R2-FIN (audit M9): seal v2 covers every economically meaningful field -- including
+# `reverses_id` (drives `active_entries`), the profitability dimensions (product_slug,
+# release, family, channel, department), `detail`, `source_period`, `posted_at`, and every
+# posting's currency, amount_original and memo. An entry records its seal version inside
+# `detail["seal"]`; rows written before v2 carry none and are verified under v1 (honestly
+# reported as `legacy_v1_entries`). Stripping the marker from a v2 row does not downgrade
+# it: the stored digest is a v2 digest, so the v1 recomputation mismatches.
+SEAL_VERSION = 2
+ENTRY_FIELDS_V2 = ("entry_key", "at", "period", "source_period", "posted_at", "rule",
+                   "source_key", "source_table", "source_id", "source_ref", "fingerprint",
+                   "kind", "reverses_id", "reverses_key", "memo", "product_slug", "release",
+                   "family", "channel", "department", "detail")
+
+
+def _canon_v2(entry: dict, lines: list[dict], prev_hash: str) -> str:
+    body = {k: entry.get(k) for k in ENTRY_FIELDS_V2}
+    body["seal"] = SEAL_VERSION
+    body["lines"] = [[int(l.get("line", i)), l["account"], int(l.get("debit_micros", 0)),
+                      int(l.get("credit_micros", 0)), l.get("basis", "unknown"),
+                      l.get("currency", "CAD") or "CAD",
+                      None if l.get("amount_original") is None
+                      else repr(float(l["amount_original"])),
+                      (l.get("memo") or "")[:200]]
+                     for i, l in enumerate(lines)]
+    body["prev"] = prev_hash
+    return hashlib.sha256(json.dumps(body, sort_keys=True, default=str)
+                          .encode()).hexdigest()
+
+
+def _iso(at) -> str:
+    return _aware(at).astimezone(timezone.utc).isoformat() if at is not None else ""
 
 
 def validate(lines: list[dict]) -> None:
@@ -137,33 +171,48 @@ def post_in(session, entry: dict, lines: list[dict], *, locks: set[str] | None =
         memo = (f"LATE ADJUSTMENT to locked period {src_period}, booked in {period}. "
                 + memo)
     prev = _last_hash(session)
-    rec = {**entry, "at": at.isoformat(), "period": period, "memo": memo,
-           "source_id": str(entry.get("source_id", "")),
+    posted_at = datetime.now(timezone.utc)
+    reverses_key = entry.get("reverses_key", "")
+    detail = {**(entry.get("detail") or {}), "reverses_key": reverses_key,
+              "seal": SEAL_VERSION}
+    rec = {"entry_key": entry["entry_key"], "at": _iso(at), "period": period,
+           "source_period": src_period, "posted_at": _iso(posted_at),
+           "rule": entry["rule"], "source_key": entry["source_key"],
            "source_table": entry.get("source_table", ""),
+           "source_id": str(entry.get("source_id", "")),
            "source_ref": entry.get("source_ref", "") or "",
-           "fingerprint": entry.get("fingerprint", ""), "kind": entry.get("kind", "original"),
-           "reverses_key": entry.get("reverses_key", "")}
-    digest = _canon(rec, lines, prev)
+           "fingerprint": entry.get("fingerprint", ""),
+           "kind": entry.get("kind", "original"), "reverses_id": entry.get("reverses_id"),
+           "reverses_key": reverses_key, "memo": memo,
+           "product_slug": entry.get("product_slug", "") or "",
+           "release": entry.get("release", "") or "", "family": entry.get("family", "") or "",
+           "channel": entry.get("channel", "") or "",
+           "department": entry.get("department", "") or "",
+           # JSON round trip: the digest is of the detail exactly as the column stores it.
+           "detail": json.loads(json.dumps(detail, default=str))}
+    plines = [{"line": i, "account": l["account"],
+               "debit_micros": int(l.get("debit_micros", 0)),
+               "credit_micros": int(l.get("credit_micros", 0)),
+               "basis": l.get("basis", "unknown"), "currency": l.get("currency", "CAD") or "CAD",
+               "amount_original": l.get("amount_original"),
+               "memo": (l.get("memo") or "")[:200]} for i, l in enumerate(lines)]
+    digest = _canon_v2(rec, plines, prev)
     row = AcctJournalEntry(
-        entry_key=entry["entry_key"], at=at, period=period, source_period=src_period,
-        rule=entry["rule"], source_key=entry["source_key"],
-        source_table=entry.get("source_table", ""), source_id=str(entry.get("source_id", "")),
-        source_ref=entry.get("source_ref", "") or "", fingerprint=entry.get("fingerprint", ""),
-        kind=entry.get("kind", "original"), reverses_id=entry.get("reverses_id"),
-        memo=memo, product_slug=entry.get("product_slug", "") or "",
-        release=entry.get("release", "") or "", family=entry.get("family", "") or "",
-        channel=entry.get("channel", "") or "", department=entry.get("department", "") or "",
-        detail={**(entry.get("detail") or {}), "reverses_key": rec["reverses_key"]},
-        prev_hash=prev, hash=digest)
+        entry_key=rec["entry_key"], at=at, period=period, source_period=src_period,
+        posted_at=posted_at, rule=rec["rule"], source_key=rec["source_key"],
+        source_table=rec["source_table"], source_id=rec["source_id"],
+        source_ref=rec["source_ref"], fingerprint=rec["fingerprint"], kind=rec["kind"],
+        reverses_id=rec["reverses_id"], memo=memo, product_slug=rec["product_slug"],
+        release=rec["release"], family=rec["family"], channel=rec["channel"],
+        department=rec["department"], detail=rec["detail"], prev_hash=prev, hash=digest)
     session.add(row)
     session.flush()
-    for i, l in enumerate(lines):
+    for l in plines:
         session.add(AcctPosting(
-            entry_id=row.id, line=i, account=l["account"],
-            debit_micros=int(l.get("debit_micros", 0)),
-            credit_micros=int(l.get("credit_micros", 0)), basis=l.get("basis", "unknown"),
-            currency=l.get("currency", "CAD") or "CAD",
-            amount_original=l.get("amount_original"), memo=(l.get("memo") or "")[:200]))
+            entry_id=row.id, line=l["line"], account=l["account"],
+            debit_micros=l["debit_micros"], credit_micros=l["credit_micros"],
+            basis=l["basis"], currency=l["currency"],
+            amount_original=l["amount_original"], memo=l["memo"]))
     session.flush()
     return row
 
@@ -213,11 +262,30 @@ def active_entries(session, source_key: str) -> list[AcctJournalEntry]:
     return [r for r in rows if r.kind == "original" and r.id not in reversed_ids]
 
 
-def verify_chain(db) -> dict:
-    """Recompute every seal and every balance. A raw-SQL edit or delete breaks it."""
+def _entry_rec(e: AcctJournalEntry) -> dict:
+    d = e.detail or {}
+    return {"entry_key": e.entry_key, "at": _iso(e.at), "period": e.period,
+            "source_period": e.source_period, "posted_at": _iso(e.posted_at),
+            "rule": e.rule, "source_key": e.source_key, "source_table": e.source_table,
+            "source_id": e.source_id, "source_ref": e.source_ref,
+            "fingerprint": e.fingerprint, "kind": e.kind, "reverses_id": e.reverses_id,
+            "reverses_key": d.get("reverses_key", ""), "memo": e.memo,
+            "product_slug": e.product_slug, "release": e.release, "family": e.family,
+            "channel": e.channel, "department": e.department, "detail": d}
+
+
+def verify_chain(db, *, anchors: bool = True) -> dict:
+    """Recompute every seal and every balance. A raw-SQL edit or delete breaks it.
+
+    v2 rows are verified under the v2 seal (every economically meaningful field); rows
+    written before v2 under the v1 seal they were written with (`legacy_v1_entries`). With
+    `anchors`, the chain heads recorded by past Accountant cycles must still be in the
+    chain, so deleting entries from the tail is detected too (audit M9).
+    """
     db = ensure(db)
     problems: list[dict] = []
-    n = 0
+    n = legacy = 0
+    hashes: set[str] = set()
     with db.session() as s:
         prev = GENESIS
         entries = list(s.scalars(select(AcctJournalEntry).order_by(AcctJournalEntry.id)))
@@ -227,27 +295,82 @@ def verify_chain(db) -> dict:
             by_entry.setdefault(p.entry_id, []).append(p)
         for e in entries:
             n += 1
-            lines = [{"account": p.account, "debit_micros": p.debit_micros,
-                      "credit_micros": p.credit_micros, "basis": p.basis}
-                     for p in by_entry.get(e.id, [])]
-            rec = {"entry_key": e.entry_key, "at": _aware(e.at).isoformat(),
-                   "period": e.period, "rule": e.rule, "source_key": e.source_key,
-                   "source_table": e.source_table, "source_id": e.source_id,
-                   "source_ref": e.source_ref, "fingerprint": e.fingerprint, "kind": e.kind,
-                   "reverses_key": (e.detail or {}).get("reverses_key", ""), "memo": e.memo}
+            posts = by_entry.get(e.id, [])
+            lines = [{"line": p.line, "account": p.account, "debit_micros": p.debit_micros,
+                      "credit_micros": p.credit_micros, "basis": p.basis,
+                      "currency": p.currency, "amount_original": p.amount_original,
+                      "memo": p.memo} for p in posts]
+            rec = _entry_rec(e)
             if e.prev_hash != prev:
                 problems.append({"entry_id": e.id, "problem": "chain link broken "
                                  "(an entry was deleted or reordered)"})
-            if _canon(rec, lines, e.prev_hash) != e.hash:
+            if (e.detail or {}).get("seal") == SEAL_VERSION:
+                want = _canon_v2(rec, lines, e.prev_hash)
+            else:
+                legacy += 1
+                want = _canon(rec, lines, e.prev_hash)
+            if want != e.hash:
                 problems.append({"entry_id": e.id, "problem": "seal mismatch (entry or "
                                  "its postings were edited after posting)"})
             dr = sum(l["debit_micros"] for l in lines)
             cr = sum(l["credit_micros"] for l in lines)
             if dr != cr or len(lines) < 2:
                 problems.append({"entry_id": e.id, "problem": f"unbalanced {dr} != {cr}"})
+            hashes.add(e.hash)
             prev = e.hash
+        if anchors:
+            for a in _anchors(s):
+                if a["head"] != GENESIS and a["head"] not in hashes:
+                    problems.append({"entry_id": None, "problem": (
+                        f"chain truncated: head {a['head'][:16]} recorded with "
+                        f"{a['entries']} entries at {a['at']} is no longer in the journal")})
+                elif a["entries"] and n < a["entries"]:
+                    problems.append({"entry_id": None, "problem": (
+                        f"chain truncated: {n} entries < {a['entries']} recorded at "
+                        f"{a['at']}")})
     return {"ok": not problems, "entries": n, "problems": problems,
-            "head": prev}
+            "head": prev, "seal_version": SEAL_VERSION, "legacy_v1_entries": legacy}
+
+
+ANCHOR_KIND = "finance.accounting.chain_anchor"
+
+
+def _anchors(session) -> list[dict]:
+    from ...core.models import OperatingReading
+
+    try:
+        rows = list(session.scalars(select(OperatingReading).where(
+            OperatingReading.kind == ANCHOR_KIND).order_by(OperatingReading.id.desc())
+            .limit(20)))
+    except Exception:  # noqa: BLE001 - no readings table: no anchors to check
+        return []
+    out = []
+    for r in rows:
+        p = r.payload or {}
+        if p.get("head"):
+            out.append({"head": str(p["head"]), "entries": int(p.get("entries") or 0),
+                        "at": r.at.isoformat() if r.at else None})
+    return out
+
+
+def record_anchor(db, *, now: datetime | None = None) -> dict:
+    """Record the verified chain head (an external witness for tail deletion)."""
+    from ...core.models import OperatingReading
+
+    db = ensure(db)
+    now = now or datetime.now(timezone.utc)
+    ch = verify_chain(db)
+    if not ch["ok"]:
+        return {"recorded": False, "why": "chain does not verify; no anchor written"}
+    key = f"{ch['entries']}:{ch['head'][:12]}"[:20]
+    with db.session() as s:
+        last = _anchors(s)
+        if (last and last[0]["head"] == ch["head"]) or s.scalar(select(OperatingReading).where(
+                OperatingReading.kind == ANCHOR_KIND, OperatingReading.period_key == key)):
+            return {"recorded": False, "why": "head unchanged", "head": ch["head"]}
+        s.add(OperatingReading(kind=ANCHOR_KIND, period_key=key, at=now,
+                               payload={"head": ch["head"], "entries": ch["entries"]}))
+    return {"recorded": True, "head": ch["head"], "entries": ch["entries"]}
 
 
 def balances(session, *, period: str | None = None, periods: set[str] | None = None,

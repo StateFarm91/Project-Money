@@ -90,13 +90,18 @@ def _ledger_desired(s, held: frozenset, now: datetime) -> tuple[dict, list[dict]
     for e in s.scalars(select(LedgerEntry).order_by(LedgerEntry.id)):
         key = f"ledger:{e.id}"
         present.add(key)
-        ident = None
+        idents = []
         if e.source and e.external_id:
-            ident = (e.category, e.source, e.external_id)
-        elif e.evidence_ref:
-            ident = (e.category, "evidence", e.evidence_ref)
+            idents.append((e.category, e.source, e.external_id))
+        if e.evidence_ref and (e.category == "sale" or not idents):
+            # R2-FIN (audit M8): a sale is one receipt line, and orders_ingest writes exactly
+            # one ledger row per evidence_ref. A second sale row for the same receipt is a
+            # duplicate even when it carries a different external_id.
+            idents.append((e.category, "evidence", e.evidence_ref))
+        hit = next((i for i in idents if i in seen), None)
+        ident = hit or (idents[0] if idents else None)
         if ident is not None:
-            if ident in seen:
+            if hit is not None:
                 issues.append({"kind": "duplicate_source_row", "source_key": key,
                                "key": f"dup:ledger:{e.id}",
                                "summary": (f"ledger row {e.id} repeats ledger row "
@@ -109,7 +114,8 @@ def _ledger_desired(s, held: frozenset, now: datetime) -> tuple[dict, list[dict]
                                             "expense_cad": e.expense_cad},
                                "period": period_of(e.at), "severity": "high"})
                 continue
-            seen[ident] = e.id
+            for i in idents:
+                seen.setdefault(i, e.id)
         order = orders.get(e.evidence_ref) or orders.get(e.external_id)
         if e.category == "sale" and (e.evidence_ref in held or e.external_id in held):
             issues.append({"kind": "held_order", "source_key": key,
@@ -304,10 +310,10 @@ def post_all(db, *, now: datetime | None = None) -> dict:
                 if not active:
                     continue
                 if source_key in excluded:
-                    for a in active:
-                        reverse_in(s, a, why="source row no longer qualifies (duplicate, "
-                                   "held or unreconciled)", locks=locks)
-                        report["reversed"] += 1
+                    rv = [reverse_in(s, a, why="source row no longer qualifies (duplicate, "
+                                     "held or unreconciled)", locks=locks) for a in active]
+                    report["reversed"] += len(rv)
+                    report["exceptions_opened"] += _late_notice(s, source_key, rv, now)
                 elif source_key not in present:
                     _, created = X.open_in(
                         s, key=f"missing:{source_key}", kind="source_row_missing",
@@ -319,9 +325,10 @@ def post_all(db, *, now: datetime | None = None) -> dict:
                     report["exceptions_opened"] += int(created)
                 else:
                     # Present but now produces no entry (e.g. amounts went to zero).
-                    for a in active:
-                        reverse_in(s, a, why="source row now produces no amount", locks=locks)
-                        report["reversed"] += 1
+                    rv = [reverse_in(s, a, why="source row now produces no amount",
+                                     locks=locks) for a in active]
+                    report["reversed"] += len(rv)
+                    report["exceptions_opened"] += _late_notice(s, source_key, rv, now)
                 continue
             entry, lines = want
             dims = {k: entry.get(k, "") for k in ("product_slug", "release", "family",
@@ -332,17 +339,39 @@ def post_all(db, *, now: datetime | None = None) -> dict:
             if len(active) == 1 and active[0].fingerprint == fp:
                 report["unchanged"] += 1
                 continue
+            written = []
             for a in active:
-                reverse_in(s, a, why="source row changed; superseded by a new version",
-                           locks=locks)
+                written.append(reverse_in(s, a, why="source row changed; superseded by a "
+                                          "new version", locks=locks))
                 report["reversed"] += 1
             n = len([1 for _ in s.scalars(select(AcctJournalEntry.id).where(
                 AcctJournalEntry.source_key == source_key,
                 AcctJournalEntry.kind == "original"))]) + 1
-            post_in(s, {**entry, "entry_key": f"{source_key}:v{n}", "fingerprint": fp,
-                        "kind": "original"}, lines, locks=locks)
+            written.append(post_in(s, {**entry, "entry_key": f"{source_key}:v{n}",
+                                       "fingerprint": fp, "kind": "original"}, lines,
+                                   locks=locks))
             report["posted"] += 1
+            report["exceptions_opened"] += _late_notice(s, source_key, written, now)
     return report
+
+
+def _late_notice(s, source_key: str, written: list, now: datetime) -> int:
+    """R2-FIN (audit L6): a change to a row whose month is locked is booked as a late
+    adjustment in the first open period -- correctly -- but never silently: an exception
+    in the booking period tells the owner a closed month's source moved."""
+    late = [w for w in written if w is not None and w.period != w.source_period]
+    if not late:
+        return 0
+    _, created = X.open_in(
+        s, key=f"late:{late[-1].entry_key}"[:200], kind="late_adjustment",
+        summary=(f"{source_key} changed after {late[-1].source_period} was locked; the "
+                 f"correction is booked in {late[-1].period} as a late adjustment "
+                 f"(entries {', '.join(str(w.id) for w in late)}); review it"),
+        evidence={"entries": [w.id for w in late], "source_key": source_key,
+                  "locked_period": late[-1].source_period,
+                  "booked_in": late[-1].period},
+        period=late[-1].period, severity="medium", now=now)
+    return int(created)
 
 
 def _order_key(k: str):

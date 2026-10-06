@@ -111,8 +111,12 @@ def pack(db, spec: str, *, now: datetime | None = None) -> dict:
             "refunds": to_cad(r) if sales_known else None,
             "discounts": to_cad(d) if sales_known else None,
             "net_sales": to_cad(net) if sales_known else None,
-            "marketplace_fees": to_cad(totals.get(A.MARKETPLACE_FEES, 0)),
-            "listing_fees": to_cad(totals.get(A.LISTING_FEES, 0)),
+            # R2-FIN (audit M7): fees come from the same Etsy source as sales. With that
+            # source UNKNOWN and nothing recorded, the fees are UNKNOWN (None), not 0.0.
+            "marketplace_fees": (to_cad(totals.get(A.MARKETPLACE_FEES, 0))
+                                 if sales_known or totals.get(A.MARKETPLACE_FEES) else None),
+            "listing_fees": (to_cad(totals.get(A.LISTING_FEES, 0))
+                             if sales_known or totals.get(A.LISTING_FEES) else None),
             "operating_expenses_by_account": {A.BY_CODE[c].name: to_cad(v, 4)
                                               for c, v in totals.items()
                                               if c in A.OPERATING_ACCOUNTS and v},
