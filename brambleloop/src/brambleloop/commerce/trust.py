@@ -164,21 +164,42 @@ def accelerator(db, *, storefront_problems: list[str] | None = None,
     }
 
 
-def may_scale_ads(db, **checks) -> dict:
+def may_scale_ads(db, search_gate: dict | None = None, **checks) -> dict:
     """Whether paid traffic is worth buying yet, and exactly what is in the way.
 
     Returns rather than raises, because the answer is normally no for months and a refusal
     that reads as an error trains a reader to route around it.
+
+    F-060: the Search Supremacy Gate (`commerce.search_evidence.supremacy_gate`) is read
+    beside the trust rungs -- truthful query coverage, a competitive thumbnail, conversion
+    readiness and no unresolved first-party warning. Its rungs appear in `blocking` prefixed
+    `search:`; an unmeasured search rung blocks exactly as an unmeasured trust rung does.
     """
     state = accelerator(db, **checks)
-    blocking = state["failed"] + state["unmeasured"]
+    if search_gate is None:
+        from .search_evidence import supremacy_gate
+
+        try:
+            search_gate = supremacy_gate(db)
+        except Exception as e:  # noqa: BLE001 - an unreadable gate is not a cleared one
+            search_gate = {"cleared": False, "failed": [], "unmeasured": ["search_evidence"],
+                           "why": f"the search gate could not be read: {str(e)[:200]}"}
+    search_blocking = [f"search:{r}" for r in
+                       list(search_gate.get("failed") or [])
+                       + list(search_gate.get("unmeasured") or [])]
+    if not search_gate.get("cleared") and not search_blocking:
+        search_blocking = ["search:not_cleared"]
+    blocking = state["failed"] + state["unmeasured"] + search_blocking
+    cleared = state["cleared"] and bool(search_gate.get("cleared"))
     return {
-        "may_scale": state["cleared"],
+        "may_scale": cleared,
         "blocking": blocking,
+        "search_gate": {k: search_gate.get(k) for k in ("cleared", "failed", "unmeasured",
+                                                        "why")},
         "detail": state,
         "note": ("nothing is in the way of paid traffic on trust grounds; the spend decision "
                  "itself is a separate owner approval"
-                 if state["cleared"] else
+                 if cleared else
                  f"paid traffic would arrive at a shop that is not finished: {blocking}. "
                  f"The same traffic a month later converts better and costs the same, which "
                  f"is the whole of #17"),

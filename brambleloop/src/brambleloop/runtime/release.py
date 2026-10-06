@@ -382,6 +382,16 @@ def handle_assets_build(ctx: JobContext) -> dict:
                           difficulty=_difficulty(twin, cir), pages=doc.pages,
                           siblings=siblings)
     structural = check_frame_plan(frames)
+    # F-028: hero text/collage restraint is lifted only by a remembered, measured listing
+    # test (`publish.hero_exception`); every other frame-plan finding still blocks.
+    from ..publish import hero_exception as _hero_exc
+
+    restraint = _hero_exc.apply(structural, _hero_exc.measured_exception(ctx.db))
+    structural = restraint["blocking"]
+    if restraint["excepted"]:
+        ctx.audit("assets.hero_restraint_excepted", artifact=f"{slug}@{version}",
+                  detail={"excepted": restraint["excepted"],
+                          "evidence": restraint["exception"]})
     truth = check_assets([f.to_asset(slug) for f in frames], cir, twin)
     # A hero is judged at the size a shopper actually sees it, not in the editor.
     aspect = ((twin.width_cm / twin.height_cm)
@@ -652,6 +662,7 @@ def handle_pricing_position(ctx: JobContext) -> dict:
                                   slug in guard["promotion_do_not_repeat"]})
             i.pop("promotion", None)
     i["sale_allowed"] = sale_allowed
+    _vet_promotion(ctx, i, slug, decision.price_cad)
 
     # The category's standing "50% off" is not available to us; assert that explicitly rather
     # than relying on nobody adding it later.
@@ -676,6 +687,27 @@ def handle_pricing_position(ctx: JobContext) -> dict:
                 idempotency_key=chain_key("seo", slug, i["version"], i.get("release", ""),
                                           i.get("rebuild", "")))
     return decision.to_dict()
+
+
+def _vet_promotion(ctx: JobContext, i: dict, slug: str, full_price_cad: float) -> None:
+    """F-257: a requested sale reaches the listing only through `promotion.propose`.
+
+    Price, sale state and presentation tell one value story: a sale with no end, a was-price
+    never charged, or a cut deep enough to be a new price is dropped here and audited, and the
+    listing is drafted at full price.
+    """
+    from ..commerce import promotion as _promotion
+
+    if not i.get("promotion"):
+        return
+    vetted = _promotion.vet_requested(ctx.db, slug, i.get("promotion"),
+                                      full_price_cad=full_price_cad)
+    if vetted["ok"]:
+        i["promotion"] = vetted["promotion"]
+        return
+    ctx.audit("pricing.promotion_refused", artifact=slug,
+              detail={"promotion": i["promotion"], "rule": "F-257", "why": vetted["why"]})
+    i.pop("promotion", None)
 
 
 def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
@@ -710,6 +742,7 @@ def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
         i.pop("promotion", None)
     i["sale_allowed"] = sale_allowed
     price = float(launch["price_cad"])
+    _vet_promotion(ctx, i, slug, price)
     pricing_mod.check_no_fake_discount(price, None, ever_charged=False)
     price_point = elasticity.record_price_set(
         ctx.db, product_slug=slug, category=record["category"], price_cad=price,
@@ -898,6 +931,9 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                          if not search_mod.tag_truth(q.phrase, difficulty=difficulty)]
     title = seo_mod.build_title(cir.title, category, motifs, season,
                                 sizes=len(i.get("sizes") or []) or 1)
+    # F-022: the differentiator build_title placed first, checked by the copy gate below.
+    differentiator = seo_mod.title_differentiator(cir.title, category, motifs, season,
+                                                  sizes=len(i.get("sizes") or []) or 1)
     # #97: Listings read their lesson inbox. A search-language or construction lesson whose
     # words match one of this product's candidate queries puts that query in a tag slot --
     # the listing surfaces what the company learned buyers look for -- and the lesson is
@@ -963,7 +999,12 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             collapsed_repeats=collapses_rows(cir), childrens=childrens,
             key_phrases=_opening_phrases(tags, queries),
             # F-808: approved lessons only, and only once an owned HTTPS Learn origin is set.
-            lesson_links=_learn_service.listing_help_links(ctx.db, cir.to_dict())),
+            lesson_links=_learn_service.listing_help_links(ctx.db, cir.to_dict()),
+            # F-255: the value lead and the yarn/fibre lines, from the pattern's own facts.
+            why_it_matters=seo_mod.value_proposition(
+                sizes=len(i.get("sizes") or []) or 1, difficulty=difficulty,
+                colours=len(colors)),
+            yarn_lines=seo_mod.yarn_lines(list(cir.materials))),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],
@@ -1046,8 +1087,21 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     copy_gate = seo_mod.check_search_copy(
         copy, phrases=[q.phrase for q in queries],
         tag_limitation=i.get("tag_slot_limitation"),
-        translation_record=i.get("translation_record"))
-    tag_problems = search_mod.tags_truth(copy.tags, difficulty=difficulty)
+        translation_record=i.get("translation_record"),
+        front_scan_differentiator=differentiator, check_front_scan=True)
+    # F-255: every decision-critical part this product has facts for, in buyer order.
+    expect = {"what_is_sold", "why_it_matters", "difficulty", "inclusions", "delivery",
+              "support"}
+    expect |= {"size"} if size_label else set()
+    expect |= {"yarn", "fibre"} if cir.materials else set()
+    expect |= {"gauge_hook"} if (cir.gauge and cir.gauge.hook_mm) else set()
+    architecture = seo_mod.description_architecture(copy.description, expect=expect)
+    copy_gate["blocking"] = list(copy_gate["blocking"]) + architecture
+    copy_gate["ok"] = not copy_gate["blocking"]
+    # F-013: semantically duplicate tags block like lexical ones; intent coverage is read.
+    tag_problems = (search_mod.tags_truth(copy.tags, difficulty=difficulty)
+                    + search_mod.tag_diversity_problems(copy.tags))
+    intent_reading = search_mod.intent_coverage(copy.tags, queries)
     attribute_problems = search_mod.attribute_truth(attributes, difficulty=difficulty,
                                                     colors=colors, season=season)
     # PT-01: the title and tags name the product the CIR makes, and no fabric it cannot make.
@@ -1079,6 +1133,11 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         tag_problems=tag_problems + [f"TAG_REPEATS_STRUCTURED_FIELD: {t!r}"
                                      for t in duplicates],
         description_problems=description_problems)
+    # F-242: the certificate is bound to the search guidance it was issued under; a material
+    # change to that reading invalidates it (`search.stored_pass_problems`).
+    from ..commerce import search_policy as _search_policy
+
+    certificate["search_policy"] = _search_policy.stamp(ctx.db)
     tag_sources = search_mod.tag_provenance(copy.tags, queries, observed_tags=buyer["tags"])
     _persist_search_profile(ctx, slug, version, copy=copy, choice=choice, props=props,
                             attributes=attributes, coverage=coverage, tag_sources=tag_sources,
@@ -1105,6 +1164,10 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                                              ("verdict", "failed", "pending")},
                       "tag_provenance": tag_sources,
                       "coverage_matrix": coverage.matrix,
+                      "search_stages": {"match": coverage.match_stage,
+                                        "rank": coverage.rank_stage},
+                      "intent_coverage": intent_reading,
+                      "front_scan": copy_gate.get("front_scan"),
                       "buyer_language": {k: v for k, v in buyer.items() if k != "queries"},
                       "disclosures_owed": (classification.disclosures
                                            if classification else None),

@@ -127,6 +127,78 @@ def relocate_subjective(text: str) -> tuple[str, list[str]]:
     return clean, moved
 
 
+# F-022: the characters a phone's search grid and a truncated result reliably show. The
+# item-defining phrase and the strongest differentiator must both land inside them.
+FRONT_SCAN_CHARS = 60
+
+
+def _title_candidates(category: str, motifs: list[str], season: str | None,
+                      sizes: int) -> list[tuple[int, int, str]]:
+    """(priority, canonical position, text) for every qualifying title segment."""
+    candidates: list[tuple[int, int, str]] = []
+    if motifs:
+        # "Pet Snuggle Mat | ... | Pet Pet | ..." shipped to production before this guard.
+        motif = motifs[0].strip().lower()
+        cat_words = category.replace("_", " ").lower().split()
+        descriptor = " ".join(w for w in cat_words if w != motif) or cat_words[-1]
+        segment = (descriptor if motif in cat_words else f"{motif} {descriptor}").title()
+        candidates.append((2, 2, segment))
+    if season:
+        candidates.append((1, 5, season.split(" (")[0]))
+    if sizes > 1:
+        candidates.append((3, 3, f"{sizes} Sizes"))
+    candidates.append((4, 6, "US and UK Terms"))
+    candidates.append((5, 4, "Written Instructions and Chart"))
+    return candidates
+
+
+# Segments every listing carries; never a differentiator, because every listing has them.
+_COMMON_SEGMENTS = frozenset({"US and UK Terms", "Written Instructions and Chart"})
+
+
+def front_scan(title: str, *, differentiator: str | None) -> dict:
+    """Whether the item-defining language and the differentiator are early enough (F-022).
+
+    Item-defining language is "crochet pattern": the phrase that tells a shopper what is sold.
+    The differentiator is the segment `build_title` chose as this product's strongest; when
+    there is none (a plain listing), only the item phrase is required.
+    """
+    head = (title or "")[:FRONT_SCAN_CHARS].lower()
+    problems: list[str] = []
+    if "crochet pattern" not in head:
+        problems.append(f"TITLE_FRONT_SCAN_ITEM: 'crochet pattern' is not in the first "
+                        f"{FRONT_SCAN_CHARS} characters")
+    # A differentiator is early when it *starts* inside the window: a truncated result shows
+    # its first word, and the first word is the one that differentiates.
+    marks = [w for w in _title_words(differentiator or "") if len(w) > 3 or w.isdigit()]
+    lowered = (title or "").lower()
+    starts = [m.start() for w in marks for m in re.finditer(rf"\b{re.escape(w)}\b", lowered)]
+    if differentiator and marks and not (starts and min(starts) < FRONT_SCAN_CHARS):
+        problems.append(f"TITLE_FRONT_SCAN_DIFFERENTIATOR: {differentiator!r} is not in the "
+                        f"first {FRONT_SCAN_CHARS} characters")
+    return {"ok": not problems, "problems": problems, "head": (title or "")[:FRONT_SCAN_CHARS],
+            "differentiator": differentiator}
+
+
+def title_differentiator(product_title: str, category: str, motifs: list[str],
+                         season: str | None = None, sizes: int = 1) -> str | None:
+    """The strongest segment `build_title` will place directly after the item phrase.
+
+    The highest-priority qualifying segment that adds a word the lead does not already say --
+    a season, else the motif, else the size count. The common deliverable segments are never
+    differentiators.
+    """
+    lead, _moved = relocate_subjective(product_title.strip())
+    used = set(_title_words(lead)) | {"crochet", "pattern", "pdf"}
+    for _prio, _pos, text in sorted(_title_candidates(category, motifs, season, sizes)):
+        if text in _COMMON_SEGMENTS:
+            continue
+        fresh = [t for t in _title_words(text) if t not in used and len(t) > 3]
+        if fresh or (text.endswith("Sizes") and "sizes" not in used):
+            return text
+    return None
+
+
 def build_title(product_title: str, category: str, motifs: list[str],
                 season: str | None = None, sizes: int = 1) -> str:
     """Front-load the phrase a buyer types, then qualify. Never repeat a word.
@@ -157,22 +229,13 @@ def build_title(product_title: str, category: str, motifs: list[str],
                                      for w in kept for t in _title_words(w)) else ""
 
     # (priority, canonical position, text). Lower priority number is kept first.
-    candidates: list[tuple[int, int, str]] = []
-    if motifs:
-        # "Pet Snuggle Mat | ... | Pet Pet | ..." shipped to production before this guard.
-        motif = motifs[0].strip().lower()
-        cat_words = category.replace("_", " ").lower().split()
-        descriptor = " ".join(w for w in cat_words if w != motif) or cat_words[-1]
-        segment = (descriptor if motif in cat_words else f"{motif} {descriptor}").title()
-        candidates.append((2, 2, segment))
-    if season:
-        candidates.append((1, 5, season.split(" (")[0]))
-    if sizes > 1:
-        candidates.append((3, 3, f"{sizes} Sizes"))
-    candidates.append((4, 6, "US and UK Terms"))
-    candidates.append((5, 4, "Written Instructions and Chart"))
+    # F-022: the strongest differentiator moves to the slot directly after the item phrase,
+    # so it survives mobile truncation; everything else keeps its canonical order.
+    strongest = title_differentiator(product_title, category, motifs, season, sizes)
+    candidates = [(prio, (1 if text == strongest else pos), text)
+                  for prio, pos, text in _title_candidates(category, motifs, season, sizes)]
 
-    kept: list[tuple[int, str]] = [(0, lead), (1, " ".join(fmt))]
+    kept: list[tuple[float, str]] = [(0, lead), (0.5, " ".join(fmt))]
     words = len(_title_words(lead)) + len(fmt)
     for _prio, position, text in sorted(candidates):
         segment = fresh(text)
@@ -202,7 +265,9 @@ def build_description(product_title: str, *, size_label: str | None,
                       collapsed_repeats: bool = False,
                       childrens: "ch.RenderedStatements | None" = None,
                       key_phrases: list[str] | None = None,
-                      lesson_links: list[dict] | None = None) -> str:
+                      lesson_links: list[dict] | None = None,
+                      why_it_matters: str | None = None,
+                      yarn_lines: list[str] | None = None) -> str:
     """Assemble the description entirely from verified pattern facts.
 
     `lesson_links` is `learn.service.listing_help_links(db, cir)` (F-808): approved,
@@ -222,8 +287,13 @@ def build_description(product_title: str, *, size_label: str | None,
     facts it is given and does not know which CIR it is describing.
     """
     out: list[str] = []
-    out.append(f"{product_title} — a crochet pattern, not a finished item. You receive an "
-               f"instant digital download.")
+    # F-255: the first line says what is sold and why it matters. The value sentence rides
+    # on the same line so the key-phrase sentence (F-025) stays in the first two lines.
+    lead = (f"{product_title} — a crochet pattern, not a finished item. You receive an "
+            f"instant digital download.")
+    if why_it_matters and why_it_matters.strip():
+        lead = f"{lead} {why_it_matters.strip()}"
+    out.append(lead)
     opening = opening_sentence(key_phrases or [])
     if opening:
         # F-025: the listing's most important phrases, placed naturally in the first lines
@@ -260,9 +330,13 @@ def build_description(product_title: str, *, size_label: str | None,
     out.append("THE DETAILS")
     if size_label:
         out.append(f"- Finished size: {size_label}, worked at the gauge below")
+    out.append(f"- Difficulty: {difficulty}")
+    # F-255: materials before gauge -- the yarn (and its fibre where the pattern states it)
+    # is what a buyer has to go and buy, and the hook is on the gauge line.
+    for line in (yarn_lines or []):
+        out.append(f"- {line}")
     if gauge_line:
         out.append(f"- Gauge: {gauge_line}")
-    out.append(f"- Difficulty: {difficulty}")
     if stitches:
         out.append(f"- Stitches used: {', '.join(stitches)}")
     if colors:
@@ -312,6 +386,90 @@ def build_description(product_title: str, *, size_label: str | None,
     out.append(rendered[0].upper())
     out.extend(rendered[1:])
     return "\n".join(out)
+
+
+def value_proposition(*, sizes: int = 1, difficulty: str | None = None,
+                      colours: int = 0) -> str:
+    """Why this pattern is worth buying, from facts the pattern holds (F-255).
+
+    Every clause is a fact the release already verifies -- the size count, the colour count,
+    the printed difficulty and the written-plus-charted deliverable -- so the value sentence
+    can never promise what the pattern does not do.
+    """
+    parts: list[str] = []
+    if sizes > 1:
+        parts.append(f"{sizes} sizes in one pattern")
+    if colours == 1:
+        parts.append("worked in a single colour")
+    elif colours > 1:
+        parts.append(f"worked in {colours} colours")
+    if difficulty:
+        parts.append(f"written for a {difficulty.lower()} maker")
+    parts.append("every row written out and charted, so you can follow whichever you prefer")
+    return "Why it is worth making: " + ", ".join(parts) + "."
+
+
+def yarn_lines(materials: list) -> list[str]:
+    """The yarn and fibre lines for a description, from the CIR's materials (F-255).
+
+    The fibre is printed only as the pattern states it: `Material.fibre_content` when it is
+    set, otherwise the yarn as named, with the composition said to be unstated rather than
+    read out of the name.
+    """
+    out: list[str] = []
+    for m in materials or []:
+        name = getattr(m, "name", "") or ""
+        weight = getattr(m, "yarn_weight", None)
+        if not name:
+            continue
+        out.append(f"Yarn: {name}" + (f" ({weight} weight)" if weight and weight.lower()
+                                      not in name.lower() else ""))
+        fibre = getattr(m, "fibre_content", ()) or ()
+        if fibre:
+            out.append("Fibre: " + ", ".join(f"{pct}% {f}" for f, pct in fibre))
+    # One line per distinct yarn: a two-colour pattern in one yarn base is one yarn to buy.
+    out = list(dict.fromkeys(out))
+    if out and not any(line.startswith("Fibre:") for line in out):
+        out.append("Fibre: as named above; the pattern does not specify a composition, so "
+                   "choose any yarn of the same weight that meets the gauge")
+    return out
+
+
+# F-255: the parts a description must carry, in the order a buyer decides.
+DESCRIPTION_PARTS: tuple[tuple[str, str], ...] = (
+    ("what_is_sold", r"a crochet pattern, not a finished item"),
+    ("why_it_matters", r"why it is worth making"),
+    ("difficulty", r"^- difficulty:"),
+    ("size", r"^- finished size:"),
+    ("yarn", r"^- yarn:"),
+    ("fibre", r"^- fibre:"),
+    ("gauge_hook", r"^- gauge:.*hook"),
+    ("inclusions", r"^what you get$"),
+    ("delivery", r"instant digital download"),
+    ("support", r"tell us"),
+)
+
+
+def description_architecture(description: str, *, expect: set[str]) -> list[str]:
+    """Blocking findings for a description missing a decision-critical part (F-255).
+
+    `expect` names the parts whose facts exist for this product (a pattern with no stated
+    size cannot print one); only those are required. The first two parts must be on the
+    first line, which is what "lead with what is sold and why it matters" means.
+    """
+    text = description or ""
+    lines = [l.strip().lower() for l in text.splitlines()]
+    problems: list[str] = []
+    for part, pattern in DESCRIPTION_PARTS:
+        if part not in expect:
+            continue
+        rx = re.compile(pattern, re.I | re.M)
+        if part in ("what_is_sold", "why_it_matters"):
+            if not (lines and rx.search(lines[0])):
+                problems.append(f"DESCRIPTION_ARCHITECTURE: {part} is not on the first line")
+        elif not rx.search("\n".join(lines)):
+            problems.append(f"DESCRIPTION_ARCHITECTURE: {part} is missing")
+    return problems
 
 
 def opening_sentence(key_phrases: list[str]) -> str:
@@ -463,6 +621,11 @@ def check_listing_limits(copy: ListingCopy) -> list[str]:
             problems.append(f"LISTING_TAG_TOO_LONG: {t!r} is {len(t)} characters")
     if len(copy.tags) != len(set(copy.tags)):
         problems.append("LISTING_DUPLICATE_TAGS: duplicate tags waste a scarce slot")
+    # Etsy's tag character rules, including "no leading ' or -" (lane I's
+    # `publish.listing_schema.tag_problems`), on the release chain's own drafts too.
+    from ..publish import listing_schema as _schema
+
+    problems.extend(f"LISTING_{p}" for p in _schema.tag_problems(list(copy.tags)))
     if len(copy.description) < DESCRIPTION_MIN:
         problems.append(f"LISTING_DESCRIPTION_THIN: {len(copy.description)} characters")
     hit = _UNSUPPORTABLE.search(copy.title + " " + copy.description)
@@ -487,6 +650,58 @@ DESCRIPTION_LIST_CHUNKS = 4
 # outside this alphabet in a title or tag is a translation, which must be deliberate.
 SHOP_LANGUAGE = "en"
 _NON_ENGLISH = re.compile(r"[^\x00-\x7f\u2014\u2013\u2019\u00d7]")
+# F-251: words that are unmistakably another language even in plain ASCII. Alphabet alone
+# let "patron ganchillo manta" through. Only words with no common English sense are listed
+# ("patron", "manta", "motif", "schema" and "crochet" itself are English too).
+_FOREIGN_ASCII = frozenset({
+    # Spanish
+    "ganchillo", "patrones", "tejido", "tejer", "cobija", "cesta", "para", "bebe", "mantita",
+    # French
+    "couverture", "modele", "tricot", "pour", "avec", "panier", "tuto",
+    # German
+    "hakeln", "haekeln", "anleitung", "haekelanleitung", "hakelanleitung", "decke", "muster",
+    "fuer", "und", "korb",
+    # Dutch
+    "haken", "patroon", "haakpatroon", "deken", "mand",
+    # Portuguese / Italian
+    "croche", "receita", "cesto", "uncinetto", "coperta", "cestino",
+})
+# A translation recorded "for impressions" is the bait F-251 refuses: a translation must be
+# for buyers who read that language, not for reach.
+_BAIT = re.compile(r"\b(impressions?|traffic|reach|more views|visibility|rank(ing)?|"
+                   r"keywords?|seo)\b", re.I)
+
+
+def language_findings(texts: list[str]) -> list[str]:
+    """The title/tag strings that are not in the shop language, by alphabet or by word."""
+    out: list[str] = []
+    for t in texts:
+        if _NON_ENGLISH.search(t) or any(w in _FOREIGN_ASCII
+                                         for w in re.findall(r"[a-z]+", t.lower())):
+            out.append(t)
+    return out
+
+
+def translation_problems(record) -> list[str]:
+    """Why a translation record is not a deliberate one (F-251); empty when it is.
+
+    A record must exist, must name the language or market it serves, and must not give
+    search reach as its reason. A dict record needs `language` and `reason`.
+    """
+    if record is None or (isinstance(record, str) and not record.strip()):
+        return ["no deliberate translation is recorded"]
+    if isinstance(record, dict):
+        lang = str(record.get("language") or "").strip()
+        reason = str(record.get("reason") or "").strip()
+        if not lang or not reason:
+            return ["a translation record needs a language and a reason"]
+        text = f"{lang} {reason}"
+    else:
+        text = str(record)
+    if _BAIT.search(text):
+        return [f"the recorded reason is search reach ({_BAIT.search(text).group(0)!r}); a "
+                f"translation is for buyers who read the language, not impression bait"]
+    return []
 
 
 def keyword_dump(description: str, phrases: list[str]) -> list[str]:
@@ -511,7 +726,9 @@ def keyword_dump(description: str, phrases: list[str]) -> list[str]:
 
 def check_search_copy(copy: ListingCopy, *, phrases: list[str] | None = None,
                       tag_limitation: str | None = None,
-                      translation_record: str | None = None) -> dict:
+                      translation_record: str | dict | None = None,
+                      front_scan_differentiator: str | None = None,
+                      check_front_scan: bool = False) -> dict:
     """The search-quality gate on a drafted listing: blocking findings and soft ones.
 
     Separate from `check_listing_limits`, which asks whether Etsy would accept the listing;
@@ -549,9 +766,15 @@ def check_search_copy(copy: ListingCopy, *, phrases: list[str] | None = None,
         soft.append(f"LISTING_TITLE_LONG: {words} words; the readability target is "
                     f"{TITLE_WORD_TARGET}")
     blocking.extend(keyword_dump(copy.description, list(phrases or []) + list(copy.tags)))
-    foreign = [t for t in [copy.title] + list(copy.tags) if _NON_ENGLISH.search(t)]
-    if foreign and not (translation_record and translation_record.strip()):
+    scan = None
+    if check_front_scan:
+        # F-022: the release chain asks; ad-hoc callers checking someone else's copy do not.
+        scan = front_scan(copy.title, differentiator=front_scan_differentiator)
+        blocking.extend(scan["problems"])
+    foreign = language_findings([copy.title] + list(copy.tags))
+    refused = translation_problems(translation_record) if foreign else []
+    if foreign and refused:
         blocking.append(f"LISTING_LANGUAGE: {foreign[:3]} are not in the shop language "
-                        f"({SHOP_LANGUAGE}) and no deliberate translation is recorded")
+                        f"({SHOP_LANGUAGE}); {refused[0]}")
     return {"blocking": blocking, "soft": soft, "stuffing": stuffed,
-            "title_words": words, "ok": not blocking}
+            "title_words": words, "front_scan": scan, "ok": not blocking}

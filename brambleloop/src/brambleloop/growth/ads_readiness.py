@@ -716,6 +716,14 @@ def propose(db, slug: str, *, daily_budget_cad: float, days: int, funding: str,
                 # contribution rather than invent one (Finance then escalates the margin).
                 "product_slug": slug, "channel": "etsy_ads",
                 "expected_contribution_cad": None}
+    # F-264 / F-265 / F-291: the plan is read against the onsite-ads thresholds held in the
+    # watched advertising reading. Recorded for the owner and Finance, not a spend decision.
+    from ..commerce import search_policy as _sp
+    from ..core.fx import ASSUMED_CAD_PER_USD
+
+    proposal["guidance_findings"] = _sp.ads_plan_findings(
+        daily_usd=daily / ASSUMED_CAD_PER_USD)
+    proposal["guidance_reading"] = _sp.onsite_ads_terms()["reading"]
     key = _key(slug, funding, daily, days, now)
     proposal["key"] = key
     # The authority Finance verifies is the owner's decision on this proposal's own item.
@@ -789,7 +797,8 @@ def propose(db, slug: str, *, daily_budget_cad: float, days: int, funding: str,
                 "reasons": reasons, "checker": finance["checker"],
                 "ceiling": ceiling["ceiling"], "readiness": ready["status"],
                 "owner_action_id": row.owner_action_id, "executed": False,
-                "challenge_id": ch.id}
+                "challenge_id": ch.id,
+                "guidance_findings": list(proposal["guidance_findings"])}
 
 
 def rechallenge(db, proposal_id: int, *, now=None, trust_gate: dict | None = None) -> dict:

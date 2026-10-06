@@ -51,6 +51,15 @@ def make_router(db):
 
         return sv.state(db)
 
+    @router.get("/api/search-evidence")
+    def search_evidence() -> dict:
+        """F-058: match coverage (with the per-listing query -> field matrix, F-002), rank
+        readiness, visibility warnings, CTR, conversion and experiments per listing, and the
+        F-060 search supremacy gate. Aggregate reads only; no customer content."""
+        from ..commerce import search_evidence as se
+
+        return se.summary(db)
+
     @router.get("/api/storefront/preview")
     def storefront_preview() -> dict:
         """The pre-launch storefront preview, measured. Not the live shop (rendered_pages)."""
