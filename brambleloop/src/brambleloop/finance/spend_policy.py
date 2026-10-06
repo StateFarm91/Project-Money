@@ -157,6 +157,9 @@ REFUSED_JUSTIFICATION = "the cheaper option was adequate"
 # path, not a quiet downgrade.
 ALLOCATION: dict[str, float] = {
     "gallery_observation": 0.40,
+    # Optional Laura phrasing (lane F): CA$1.00 of a CA$100 month. Past it the Command Center
+    # shows the deterministic sentence, which is complete on its own.
+    "laura.business_phrase@1": 0.01,
 }
 
 # The same stop, per department. Empty on purpose and enforced anyway: the mechanism exists so

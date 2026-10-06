@@ -191,6 +191,8 @@ def candidates(task_key: str) -> list[str]:
     task, tier = routing.route(task_key)
     base = CAPABILITY_RANK.get(tier.model, 0)
     chain = [tier.model]
+    if not task.stronger_fallback:
+        return chain
     for m in APPROVED_FALLBACKS.get(task.tier, ()):
         if CAPABILITY_RANK.get(m, 0) < base:
             raise ValueError(f"{m!r} is weaker than {tier.model!r}: a fallback may never "

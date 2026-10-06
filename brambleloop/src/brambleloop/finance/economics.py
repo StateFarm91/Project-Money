@@ -50,6 +50,7 @@ PURPOSES: dict[str, tuple[str, str | None]] = {
     "image.reference_probe": (PLATFORM, None),
     "culture.probe": (PLATFORM, None),
     "swarm.lane": (DEVELOPMENT, None),
+    "laura.business_phrase": (SUPPORT, None),
 }
 _KIND_CLASS = {"ads": ADS, "paid_media": ADS, "support": SUPPORT}
 
