@@ -830,8 +830,16 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     billing = {"accepted": False, "agent": agent, "purpose": purpose, "job_id": job_id,
                "spend_detail": spend_detail}
     try:
-        return _generate_reserved(provider, url, headers, payload, size, work_dir, timeout,
-                                  started, budget, db, billing)
+        result = _guarded_render(
+            provider, prompt, reference_urls, size, extra_fields, work_dir, budget,
+            agent, billing,
+            lambda: _generate_reserved(provider, url, headers, payload, size, work_dir,
+                                       timeout, started, budget, db, billing))
+        if result.get("replayed"):
+            # Served from an earlier attempt of this job (F-307): nothing was sent, so the
+            # claim taken above comes back unbilled. The bill is the original attempt's row.
+            release_render(db, budget, billed=False)
+        return result
     except BaseException as exc:
         # RC1 audit B3. Once the provider has accepted the request it has charged for the
         # work, whatever happens next -- a poll that times out, a moderation verdict, a link
@@ -852,6 +860,56 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
         else:
             release_render(db, budget, billed=False)
         raise
+
+
+def _guarded_render(provider: ImageProvider, prompt: str, reference_urls, size: str,
+                    extra_fields, work_dir: str, budget: dict, agent: str, billing: dict,
+                    call) -> dict:
+    """One render through the paid-call guard (F-307/F-339, `gateway.paid_calls`).
+
+    Inside a job a reclaimed or retried attempt asking for the same render gets the picture
+    the earlier attempt paid for -- copied into this attempt's `work_dir` -- instead of a
+    second bill. A render the provider accepted and that then failed is FAILED_BILLED (the
+    failure is replayed, not re-bought); a timeout is UNCERTAIN; a refusal before the
+    provider took the work is DECLINED and may be asked again. Outside a job: a plain call."""
+    from . import paid_calls
+
+    def classify(exc: BaseException) -> str:
+        if billing.get("accepted"):
+            return paid_calls.FAILED_BILLED
+        if isinstance(exc, TimeoutError):
+            return paid_calls.UNCERTAIN
+        return paid_calls.DECLINED
+
+    def decode(stored: dict) -> dict:
+        import shutil
+        from pathlib import Path
+
+        src = Path(str(stored.get("path") or ""))
+        if not stored.get("path") or not src.is_file():
+            raise paid_calls.PaidCallReplayedFailure(
+                f"{provider.key}: this job already paid for this render "
+                f"(cost entry {stored.get('cost_entry_id')}) and its bytes are gone with the "
+                f"earlier attempt's work dir; not bought again (F-307). A new job asks again")
+        root = Path(work_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        dest = root / src.name
+        if dest.resolve() != src.resolve():
+            shutil.copyfile(src, dest)
+        return {**stored, "path": str(dest), "image_ref": str(dest), "replayed": True,
+                "cad": 0.0, "replayed_cad": stored.get("cad"),
+                "reservation_id": budget.get("reservation_id")}
+
+    effect = "image.render"
+    return paid_calls.guarded(
+        effect,
+        paid_calls.fingerprint(effect, provider.key, prompt, list(reference_urls or []), size,
+                               extra_fields or {}),
+        call, encode=lambda r: dict(r), decode=decode, classify=classify,
+        cost_kind="image", provider=provider.key, model=provider.key,
+        agent=agent or DEFAULT_RENDER_AGENT,
+        estimate_cad=float(budget.get("estimate_cad") or provider.cad_per_image),
+        reservation_id=budget.get("reservation_id"))
 
 
 def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload: bytes,
