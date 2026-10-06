@@ -685,12 +685,68 @@ def release_render(db, budget: dict | None, *, billed: bool) -> None:
                            actual_cad=budget["estimate_cad"] if billed else None)
 
 
+def bill_render(db, provider: ImageProvider, budget: dict | None, *, agent: str = "",
+                purpose: str = "", job_id: int | None = None, billing: str = "rendered",
+                error: str = "", spend_detail: dict | None = None) -> int | None:
+    """Write the ledger row for one render the provider billed, then release the claim.
+
+    RC1 audit B2/B3: the single writer for render spend. Before it, `generate` released the
+    reservation with `actual_cad` and wrote no `CostEntry`, so the moment the claim was given
+    back the render vanished from the month, the break-even and the spend report -- and every
+    caller (tournament, portrait repair, reference pack, both photography paths, the
+    reference probe) inherited the hole. One row per billed render, kind
+    `routing.IMAGE_COST_KIND`, priced at `provider.cad_per_image` with `price_basis: assumed`
+    because that is a list price and not this account's invoice.
+
+    `billing` says why it is billed: `rendered`, `accepted_then_failed` (the provider took
+    the request and then the poll, the link or the body failed -- the provider has charged
+    for the work all the same), or `unknown_counted_at_estimate` (the request was sent and
+    the answer never arrived, so whether it billed is UNKNOWN, and UNKNOWN is not zero).
+
+    The row is written *before* the reservation is released, so there is no instant in which
+    neither is counted; the release happens even if the write fails.
+    """
+    try:
+        return record_render(db, provider, budget, agent=agent, purpose=purpose,
+                             job_id=job_id, billing=billing, error=error,
+                             spend_detail=spend_detail)
+    finally:
+        release_render(db, budget, billed=True)
+
+
+def record_render(db, provider: ImageProvider, budget: dict | None, *, agent: str = "",
+                  purpose: str = "", job_id: int | None = None, billing: str = "rendered",
+                  error: str = "", spend_detail: dict | None = None) -> int:
+    """The ledger half of `bill_render`: one `CostEntry` of kind `image`. Never releases."""
+    from ..finance import spend_report
+    from . import routing
+
+    cost = float(provider.cad_per_image)
+    detail = {"price_basis": "assumed", "billing": billing,
+              "reservation_id": (budget or {}).get("reservation_id"),
+              **({"error": str(error)[:300]} if error else {}),
+              **dict(spend_detail or {})}
+    return spend_report.record(
+        _budget_db(db), agent=agent or DEFAULT_RENDER_AGENT, amount_cad=cost,
+        estimated_cad=float((budget or {}).get("estimate_cad") or cost),
+        purpose=purpose or DEFAULT_RENDER_PURPOSE, provider=provider.key,
+        model=provider.key, department="gateway", job_id=job_id,
+        kind=routing.IMAGE_COST_KIND, detail=detail)
+
+
 def generate(prompt: str, *, reference_urls: list[str] | None = None,
              env: dict[str, str] | None = None, size: str = "1024x1024",
              provider_key: str | None = None, work_dir: str | None = None,
              timeout: float = 120.0, extra_fields: dict | None = None,
-             db=None, agent: str = "", purpose: str = "", job_id: int | None = None) -> dict:
+             db=None, agent: str = "", purpose: str = "", job_id: int | None = None,
+             spend_detail: dict | None = None) -> dict:
     """Ask one provider for one image. Raises rather than returning nothing.
+
+    **Every billed render is written to the ledger here** (`bill_render`, RC1 audit B2/B3):
+    one `CostEntry` of kind `image` per render the provider charged for, including renders
+    that failed after the provider accepted them. Callers must not write a second row; the
+    result's `cost_entry_id` is the row this call wrote. `spend_detail` is merged into that
+    row's detail (e.g. `{"attribution": "shared"}`).
 
     **Every render is checked against the ceiling here, before the provider is asked.**
     `reserve_render` claims `provider.cad_per_image` through `anthropic.check_budget_cad` --
@@ -771,22 +827,44 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     # after `_post` would be a report about money already spent.
     budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id)
     started = time.time()
+    billing = {"accepted": False, "agent": agent, "purpose": purpose, "job_id": job_id,
+               "spend_detail": spend_detail}
     try:
         return _generate_reserved(provider, url, headers, payload, size, work_dir, timeout,
-                                  started, budget, db)
-    except BaseException:
-        release_render(db, budget, billed=False)
+                                  started, budget, db, billing)
+    except BaseException as exc:
+        # RC1 audit B3. Once the provider has accepted the request it has charged for the
+        # work, whatever happens next -- a poll that times out, a moderation verdict, a link
+        # that will not fetch, a body with no picture. Those were released as unbilled, so
+        # the month never saw them. A request sent whose answer never arrived (a read
+        # timeout) is UNKNOWN, and counted at the price rather than as zero. Only a request
+        # the provider refused outright (HTTP status, unreachable) is released unbilled.
+        if billing.get("billed"):
+            raise
+        if billing["accepted"]:
+            bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                        billing="accepted_then_failed",
+                        error=f"{type(exc).__name__}: {exc}", spend_detail=spend_detail)
+        elif isinstance(exc, TimeoutError):
+            bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                        billing="unknown_counted_at_estimate",
+                        error=f"{type(exc).__name__}: {exc}", spend_detail=spend_detail)
+        else:
+            release_render(db, budget, billed=False)
         raise
 
 
 def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload: bytes,
                        size: str, work_dir: str, timeout: float, started: float,
-                       budget: dict, db) -> dict:
+                       budget: dict, db, billing: dict | None = None) -> dict:
     """The provider call and everything after it, inside the reservation `generate` took."""
     import base64
     from pathlib import Path
 
+    billing = billing if billing is not None else {"accepted": False}
     body = _post(url, headers, payload, label=provider.key, timeout=timeout)
+    # The provider answered 2xx: from here on the work is billed whatever happens next.
+    billing["accepted"] = True
 
     if provider.dialect == "bfl" and body.get("polling_url"):
         # Submit-then-poll. A job id is not a picture, and returning one as though it were
@@ -843,7 +921,14 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
     path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
     Path(path).write_bytes(raw)
 
-    # The picture exists, so the provider has billed: the claim comes back with the price.
+    # The picture exists, so the provider has billed: the ledger row is written and the
+    # claim comes back with the price (B2).
+    # Written before the release, so there is no instant in which neither is counted.
+    cost_entry_id = record_render(db, provider, budget, agent=billing.get("agent") or "",
+                                  purpose=billing.get("purpose") or "",
+                                  job_id=billing.get("job_id"), billing="rendered",
+                                  spend_detail=billing.get("spend_detail"))
+    billing["billed"] = True
     release_render(db, budget, billed=True)
 
     return {"provider": provider.key, "url": image_url, "path": path,
@@ -853,6 +938,7 @@ def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload
             "mime": mime or "", "size": size,
             "cad": provider.cad_per_image,
             "reservation_id": budget.get("reservation_id"),
+            "cost_entry_id": cost_entry_id,
             "ceiling_headroom_cad": budget.get("headroom_cad"),
             "latency_ms": round((time.time() - started) * 1000, 2)}
 
@@ -882,11 +968,18 @@ def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
     record: dict = {"provider": provider_key, "ok": False, "why": ""}
     try:
         with workspace.work_dir(work_dir, prefix="generated-") as root:
+            # `db` passed through so both renders are reserved and ledgered (B2) in the
+            # database this probe audits into, attributed as shared platform spend.
+            shared = {"attribution": "shared"}
             first = generate("A plain ceramic mug on a white background, product photograph.",
-                             env=env, provider_key=provider_key, work_dir=root)
+                             env=env, provider_key=provider_key, work_dir=root, db=db,
+                             purpose=REFERENCE_PROBE_ACTION,
+                             spend_detail=shared)
             second = generate("The same mug as the reference image, now on a wooden table.",
                               env=env, provider_key=provider_key,
-                              reference_urls=[first["image_ref"]], work_dir=root)
+                              reference_urls=[first["image_ref"]], work_dir=root, db=db,
+                              purpose=REFERENCE_PROBE_ACTION,
+                              spend_detail=shared)
             record.update(ok=True, cad=round(first["cad"] + second["cad"], 6),
                           bytes=second.get("bytes"))
     except Exception as exc:  # noqa: BLE001 - every failure means "do not run the schedule"
@@ -955,9 +1048,12 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
     elif provider is not None:
         record["provider"] = provider.key
         try:
-            got = (generator or generate)(
-                "A plain grey fabric swatch on a white background, product photograph.",
-                env=e, size="1024x1024", provider_key=provider.key)
+            prompt_ = "A plain grey fabric swatch on a white background, product photograph."
+            got = (generator(prompt_, env=e, size="1024x1024", provider_key=provider.key)
+                   if generator is not None else
+                   generate(prompt_, env=e, size="1024x1024", provider_key=provider.key,
+                            db=db, agent="gateway", purpose=PROBE_ACTION, job_id=job_id,
+                            spend_detail={"attribution": "shared"}))
         except (PermanentError, TransientError) as exc:
             record["reason"] = str(exc)[:400]
         else:
@@ -965,12 +1061,16 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
                            "cad": got.get("cad"), "latency_ms": got.get("latency_ms")})
             from ..finance import spend_report
 
-            spend_report.record(
-                db, agent="gateway", amount_cad=float(got.get("cad") or 0.0),
-                estimated_cad=provider.cad_per_image, purpose=PROBE_ACTION,
-                provider=provider.key, model=provider.key, department="gateway",
-                job_id=job_id, kind=routing.COST_KIND,
-                detail={"price_basis": "assumed", "attribution": "shared"})
+            # `generate` ledgers every billed render itself (B2) and says so with
+            # `cost_entry_id`; writing a second row here would count the render twice. An
+            # injected generator that wrote nothing is still ledgered, as an image row.
+            if not got.get("cost_entry_id"):
+                spend_report.record(
+                    db, agent="gateway", amount_cad=float(got.get("cad") or 0.0),
+                    estimated_cad=provider.cad_per_image, purpose=PROBE_ACTION,
+                    provider=provider.key, model=provider.key, department="gateway",
+                    job_id=job_id, kind=routing.IMAGE_COST_KIND,
+                    detail={"price_basis": "assumed", "attribution": "shared"})
 
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action=PROBE_ACTION,

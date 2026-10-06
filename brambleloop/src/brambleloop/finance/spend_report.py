@@ -69,10 +69,15 @@ def job_product(db, job) -> str:
     """The product a job's spend is attributable to, or "" when it is genuinely shared.
 
     Reads the slug wherever job inputs carry it (`slug`, `product_slug`, `cir.slug`). A slug
-    is only a *product* when the job carries the CIR or the catalogue knows the product
-    (a `Product` or `Listing` row); a slug naming anything else -- a lesson, a season, a
-    benchmark -- is not a product and its spend stays shared rather than being mis-charged to
-    a product's break-even.
+    is only a *product* when the catalogue knows the product (a `Product` or `Listing` row);
+    a slug naming anything else -- a lesson, a season, a benchmark -- is not a product and its
+    spend stays shared rather than being mis-charged to a product's break-even.
+
+    RC1 audit F1: a `cir` dict in the job inputs used to be trusted on its own say-so (any
+    job could charge any slug's break-even by carrying `{"cir": {"slug": ...}}`). Job inputs
+    are data, not evidence, so the CIR's slug is now checked against the catalogue like
+    every other slug. Unattributable spend is not lost: it stays in platform spend, where
+    the ceiling and the forecast still count it.
     """
     inputs = getattr(job, "inputs", None)
     inputs = inputs if isinstance(inputs, dict) else {}
@@ -80,8 +85,6 @@ def job_product(db, job) -> str:
     slug = str(inputs.get("slug") or inputs.get("product_slug") or cir.get("slug") or "")
     if not slug:
         return ""
-    if cir.get("slug") == slug:
-        return slug
     try:
         from sqlalchemy import select
 
@@ -97,12 +100,24 @@ def job_product(db, job) -> str:
 
 
 def attribution(product_slug: str, detail: dict | None) -> tuple[str, dict]:
-    """(slug, detail) with the context applied and the attribution labelled."""
+    """(slug, detail) with the context applied and the attribution labelled.
+
+    An explicit `{"attribution": "shared"}` inside a product job is honoured -- some spend
+    in a product job genuinely is platform spend -- but it is no longer silent (RC1 audit
+    F1): the row carries `shared_override_of` naming the product it was *not* charged to,
+    so an override that hides a product's creation cost is visible in the ledger itself.
+    """
     out = dict(detail or {})
+    running = current_product()
     if not product_slug and out.get("attribution") != ATTRIBUTION_SHARED:
-        product_slug = current_product()
+        product_slug = running
+    elif not product_slug and running:
+        out["shared_override_of"] = running
     out["attribution"] = ATTRIBUTION_PRODUCT if product_slug else ATTRIBUTION_SHARED
     return product_slug, out
+
+
+SHARED_OVERRIDE_ACTION = "spend.attribution_shared_override"
 
 # An estimate this far from the bill, consistently, is a pricing fault rather than noise.
 # One call can be anything; a purpose whose estimates average outside this band is a ceiling
@@ -153,15 +168,22 @@ def period_bounds(period: str, now: datetime | None = None) -> tuple[datetime, d
     raise ValueError(f"period must be 'month' or 'week', not {period!r}")
 
 
-def rows(db, *, now: datetime | None = None, kind: str = "llm",
+def rows(db, *, now: datetime | None = None, kind: str | None = None,
          period: str = "month") -> list:
+    """The period's ledger rows. `kind=None` (the default) is every kind the monthly ceiling
+    governs (`routing.counts_against_monthly_ceiling`) -- model, vision *and* image renders --
+    so the report and the provider ceilings read what the ceiling reads. It defaulted to
+    `"llm"`, and image renders (kind `image`, RC1 audit B2) would have been spend the ceiling
+    counted and the report did not show."""
     from sqlalchemy import select
 
     from ..core.models import CostEntry
+    from ..gateway import routing
 
     start, end = period_bounds(period, now)
+    where = routing.ceiling_kind_filter() if kind is None else CostEntry.kind == kind
     with db.session() as s:
-        return [r for r in s.scalars(select(CostEntry).where(CostEntry.kind == kind))
+        return [r for r in s.scalars(select(CostEntry).where(where))
                 if start <= (_aware(r.at) or start) < end]
 
 
@@ -411,6 +433,16 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
     from ..core.models import CostEntry
 
     product_slug, detail = attribution(product_slug, detail)
+    if detail.get("shared_override_of"):
+        # F1: the override is audited as well as labelled, so "how much product-job spend
+        # was declared shared" is a count rather than a scan of JSON details.
+        from ..core.models import AuditLog
+
+        with db.session() as s:
+            s.add(AuditLog(actor=(agent or "gateway")[:64], action=SHARED_OVERRIDE_ACTION,
+                           artifact=str(detail["shared_override_of"])[:200],
+                           detail={"purpose": purpose, "amount_cad": round(float(amount_cad), 8),
+                                   "kind": kind, "provider": provider, "job_id": job_id}))
     with db.session() as s:
         row = CostEntry(
             agent=agent, job_id=job_id, kind=kind,

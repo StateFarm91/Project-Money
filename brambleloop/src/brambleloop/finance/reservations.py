@@ -24,11 +24,13 @@ the month, and Railway replaces this container several times an hour. So a reser
 the caller's own bound on how long its call can take, and one past that bound counts for
 nothing. The failure mode is a bounded over-reservation, never a permanent phantom charge.
 
-**A caller does not reserve against itself.** `outstanding_cad` excludes the holder asking,
-because that caller already accounts for its own in-flight spend through
-`check_budget(uncommitted_cad=...)`. Counting both would charge a batching loop twice for the
-same money and refuse work the ceiling has room for -- and a guard that refuses correct work
-is a guard somebody turns off.
+**Own reservations are reported apart, and the ceiling counts them (RC1 audit B5).**
+`outstanding_cad` excludes the holder asking from `cad` and reports it as `own_holder_cad`.
+`gateway.anthropic.check_budget_cad` used to drop that figure on the theory that a caller
+declares its in-flight spend through `uncommitted_cad`; a caller that did not was granted
+CA$40 ten times against a CA$100 month. The gate now adds the holder's own open reservations
+to what it declares. Callers release each reservation as their call answers, so in practice
+nothing is counted twice; where it would be, the ceiling refuses rather than over-grants.
 """
 from __future__ import annotations
 
@@ -76,19 +78,34 @@ def reserve(db, *, amount_cad: float, holder: str | None = None, agent: str = ""
     Written before the call, which is the entire point: a reservation recorded afterwards is
     the `estimated_cad` column, and that already existed and stopped nothing.
     """
+    with db.session() as s:
+        return reserve_in(s, amount_cad=amount_cad, holder=holder, agent=agent,
+                          purpose=purpose, model=model, job_id=job_id,
+                          ttl_seconds=ttl_seconds, now=now, detail=detail)
+
+
+def reserve_in(session, *, amount_cad: float, holder: str | None = None, agent: str = "",
+               purpose: str = "", model: str = "", job_id: int | None = None,
+               ttl_seconds: int = DEFAULT_TTL_SECONDS, now: datetime | None = None,
+               detail: dict | None = None) -> int:
+    """`reserve`, inside a session the caller already holds (RC1 audit B4).
+
+    `gateway.anthropic.check_budget_cad` takes the budget lock on one session and must write
+    the reservation through that same session, before the lock is released, so the check and
+    the claim are one atomic step. One implementation, two entry points.
+    """
     from ..core.models import SpendReservation
 
     now = now or datetime.now(timezone.utc)
     ttl = max(1, int(ttl_seconds))
-    with db.session() as s:
-        row = SpendReservation(
-            at=now, holder=holder or holder_id(), agent=agent, purpose=purpose, model=model,
-            amount_cad=round(max(0.0, float(amount_cad)), 8),
-            expires_at=now + timedelta(seconds=ttl), job_id=job_id,
-            detail=dict(detail or {}))
-        s.add(row)
-        s.flush()
-        return row.id
+    row = SpendReservation(
+        at=now, holder=holder or holder_id(), agent=agent, purpose=purpose, model=model,
+        amount_cad=round(max(0.0, float(amount_cad)), 8),
+        expires_at=now + timedelta(seconds=ttl), job_id=job_id,
+        detail=dict(detail or {}))
+    session.add(row)
+    session.flush()
+    return row.id
 
 
 def release(db, reservation_id: int | None, *, actual_cad: float | None = None,

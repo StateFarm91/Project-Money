@@ -807,17 +807,34 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         "sustainable_economics",
         "estimated steady-state AI/API cost is sustainable against contribution at opening "
         "prices, with no constant owner top-ups",
-        bool(econ["sustainable"]),
+        # RC1 audit C1: ready only on the documented criterion in
+        # `finance.sustainability` (coverage complete, unit margin positive at recorded
+        # prices with modelled fees; assumed volumes may only block), and the evidence says
+        # the verdict is MODELLED and which figures are ASSUMED.
+        bool(econ["sustainable"]) and econ.get("basis") == "MODELLED",
         {"status": econ["status"], "why": econ["why"],
+         "basis": econ.get("basis"),
+         "criterion": econ.get("criterion"),
+         "checks": econ.get("checks"),
+         "coverage_gaps": (econ.get("coverage") or {}).get("gaps"),
+         "unit_economics": econ.get("unit_economics"),
+         "sales_per_month_needed_to_cover_recurring": econ.get(
+             "sales_per_month_needed_to_cover_recurring"),
+         "measured_orders": econ.get("measured_orders"),
          "problems": econ.get("problems") or [],
          "missing": fc.get("missing") or [],
          "low_case_needs_owner_top_up": econ.get("low_case_needs_owner_top_up"),
-         "scenarios": {k: {"ai_cost_monthly_cad": v["ai_cost_monthly_cad"],
+         "scenarios": {k: {"basis": "MODELLED", "volume_basis": "ASSUMED",
+                           "assumed_sales_per_month": v["assumptions"]["sales_per_month"],
+                           "ai_cost_monthly_cad": v["ai_cost_monthly_cad"],
                            "contribution_monthly_cad": v["contribution_monthly_cad"],
                            "net_monthly_cad": v["net_monthly_cad"]}
                        for k, v in (fc.get("scenarios") or {}).items()},
          "measured": fc.get("measured"),
          "break_even": {slug: {"break_even_sales": r.get("break_even_sales"),
+                               "break_even_sales_is_floor": r.get("break_even_sales_is_floor"),
+                               "reading": r.get("reading"),
+                               "contribution_basis": r.get("contribution_basis"),
                                "creation_cost_cad": r.get("creation_cost_cad"),
                                "contribution_per_sale_cad": r.get("contribution_per_sale_cad")}
                         for slug, r in list(sustainability.break_even(db)["products"]

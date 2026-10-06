@@ -216,31 +216,36 @@ class ModelGateway:
                         model=provider.model, provider=provider.name,
                         product_slug=self.product_slug or "")
                 started = time.time()
+                response = None
                 try:
                     response = breaker.call(
                         lambda: provider.complete(prompt.system, user,
                                                   max_tokens=prompt.max_output_tokens))
                     data = parse_model_json(response.text, required=tuple(needed))
-                except MalformedModelOutput as e:
+                except Exception as e:  # noqa: BLE001 - every failure is billed or not, below
+                    # RC1 audit B1: a provider that answered has billed, whatever the answer
+                    # looked like. This recorded 0 tokens for a malformed reply, so a retry
+                    # loop on bad JSON was real spend the month never saw. `_billing` says
+                    # what each failure cost and on what basis.
+                    last = e
+                    in_tok, out_tok, override, basis = self._billing(
+                        e, response, reservation)
+                    self._record(prompt, provider, agent, in_tok, out_tok, attempt, False,
+                                 str(e), reservation=reservation, cost_override=override,
+                                 billing=basis,
+                                 latency_ms=(time.time() - started) * 1000)
                     # A schema violation is the provider's fault, not the network's: retry
                     # this provider once, then move on rather than looping on bad output.
-                    last = e
-                    self._record(prompt, provider, agent, 0, 0, attempt, False, str(e),
-                                 reservation=reservation)
-                    if attempt >= max_attempts_per_provider:
-                        break
-                    continue
-                except (TransientError, Exception) as e:  # noqa: BLE001
-                    last = e
-                    self._record(prompt, provider, agent, 0, 0, attempt, False, str(e),
-                                 reservation=reservation)
                     if attempt >= max_attempts_per_provider:
                         break
                     continue
                 elapsed_ms = (time.time() - started) * 1000
-                cost = self._record(prompt, provider, agent, response.input_tokens,
-                                    response.output_tokens, attempt, True, "",
-                                    latency_ms=elapsed_ms, reservation=reservation)
+                # A useful answer whose usage block is missing is still a billed call; its
+                # cost is UNKNOWN and counted at the estimate (B1), never as nothing.
+                in_tok, out_tok, override, basis = self._billing(None, response, reservation)
+                cost = self._record(prompt, provider, agent, in_tok, out_tok, attempt, True,
+                                    "", latency_ms=elapsed_ms, reservation=reservation,
+                                    cost_override=override, billing=basis)
                 data["_meta"] = {
                     "prompt": prompt.ref, "prompt_sha256": prompt.sha256,
                     "provider": provider.name, "model": provider.model,
@@ -290,25 +295,57 @@ class ModelGateway:
             cad = in_tok / 1000 * rate_in + out_tok / 1000 * rate_out
             return round(cad * gw.ESTIMATE_PADDING, 6)
 
+    @staticmethod
+    def _billing(exc: BaseException, response, reservation: dict | None
+                 ) -> tuple[int, int, float | None, str]:
+        """(input tokens, output tokens, cost override, basis) for one failed attempt.
+
+        * The provider answered (`response` exists): it billed. Usage from the response; if
+          the response reports no usage at all the bill is UNKNOWN, and UNKNOWN is counted at
+          the reservation's estimate rather than as zero.
+        * The exception carries `billed_usage` (input, output): that usage.
+        * A timeout waiting for the answer, or a failure that is neither a transient fault
+          nor a refusal (a body that would not parse after a 200, say): the request reached
+          the provider and whether it billed is UNKNOWN -- counted at the estimate.
+        * A transient fault or a refusal raised before any answer (HTTP 429/5xx, 4xx,
+          unreachable, open circuit): the provider declined the work and did not bill.
+        """
+        estimate = float((reservation or {}).get("estimate_cad") or 0.0)
+        if response is not None:
+            in_tok = int(getattr(response, "input_tokens", 0) or 0)
+            out_tok = int(getattr(response, "output_tokens", 0) or 0)
+            if in_tok or out_tok:
+                return in_tok, out_tok, None, "response_usage"
+            return 0, 0, estimate, "unknown_usage_counted_at_estimate"
+        usage = getattr(exc, "billed_usage", None)
+        if usage:
+            return int(usage[0] or 0), int(usage[1] or 0), None, "exception_usage"
+        if isinstance(exc, TimeoutError) or not isinstance(
+                exc, (TransientError, PermanentError, BudgetExceeded)):
+            return 0, 0, estimate, "unknown_counted_at_estimate"
+        return 0, 0, None, "not_billed"
+
     def _record(self, prompt, provider, agent: str, in_tok: int, out_tok: int,
                 attempt: int, ok: bool, error: str, latency_ms: float = 0.0,
-                reservation: dict | None = None) -> float:
+                reservation: dict | None = None, cost_override: float | None = None,
+                billing: str = "response_usage") -> float:
         cost = (in_tok / 1000 * provider.cost_per_1k_input_cad
                 + out_tok / 1000 * provider.cost_per_1k_output_cad)
-        if reservation is not None and self.registry is not None:
-            # The claim comes back with the bill when there is one, and without one when the
-            # attempt failed, so a failed attempt never reads as a charge. Released before
-            # `record_cost` because that call can itself raise on the daily ceiling, and a
-            # reservation left behind by a refusal would hold budget for its whole TTL.
-            from . import anthropic as gw
-
-            gw.release_reservation(self.registry.db, reservation.get("reservation_id"),
-                                   actual_cad=cost if ok else None)
+        if cost_override is not None:
+            cost = max(cost, float(cost_override))
+        billed = ok or billing != "not_billed"
         self.calls.append(CallRecord(
             prompt_ref=prompt.ref, prompt_sha256=prompt.sha256, provider=provider.name,
             model=provider.model, agent=agent, input_tokens=in_tok, output_tokens=out_tok,
             cost_cad=cost, attempts=attempt, ok=ok, error=error))
-        if self.registry is not None and (cost > 0 or in_tok or out_tok):
+        if self.registry is not None and not (billed and (cost > 0 or in_tok or out_tok)):
+            # Nothing billed: the claim comes back without a bill, so a declined attempt
+            # never reads as a charge.
+            if reservation is not None:
+                from . import anthropic as gw
+
+                gw.release_reservation(self.registry.db, reservation.get("reservation_id"))
+        elif self.registry is not None:
             # Recorded even on the failed attempts that cost money, because a retry storm
             # that bills is exactly what the daily ceiling exists to catch.
             # `routing.COST_KIND`, not "model". These rows are what the monthly ceiling
@@ -335,7 +372,12 @@ class ModelGateway:
             product_slug, attributed = spend_report.attribution(self.product_slug or "", {
                 "prompt": prompt.ref, "provider": provider.name,
                 "latency_ms": round(latency_ms, 1),
-                "reservation_id": (reservation or {}).get("reservation_id")})
+                "reservation_id": (reservation or {}).get("reservation_id"),
+                "ok": bool(ok), "billing": billing,
+                "price_basis": "assumed",
+                **({"cost_basis_note": "provider billing UNKNOWN; counted at the "
+                                       "reservation estimate, never as zero"}
+                   if cost_override is not None else {})})
             with self.registry.db.session() as s:
                 s.add(CostEntry(
                     agent=agent, amount_cad=cost, kind=routing.COST_KIND, job_id=self.job_id,
@@ -347,6 +389,15 @@ class ModelGateway:
                     # minutes half of that requirement a query rather than a number nobody
                     # kept.
                     detail=attributed))
+            # Released *after* the cost row exists (RC1 audit B4): released first, there was
+            # an instant in which neither the claim nor the bill was counted, and a
+            # concurrent check could spend the same money. Before the daily-ceiling refusal
+            # below, so a refusal never leaves the claim holding budget for its TTL.
+            if reservation is not None:
+                from . import anthropic as gw
+
+                gw.release_reservation(self.registry.db, reservation.get("reservation_id"),
+                                       actual_cad=cost)
             ceiling = self.registry.get(agent).daily_cost_ceiling_cad
             if self.registry.spend_today(agent) > ceiling:
                 raise BudgetExceeded(
