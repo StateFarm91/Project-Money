@@ -1,5 +1,5 @@
 """Tab aggregators: each tab reads the department providers (tolerating absence) and the
-production database directly. No fixtures; UNKNOWN is never coerced to zero (F-898)."""
+production database directly. No canned data; UNKNOWN is never coerced to zero (F-898)."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -167,7 +167,7 @@ def home(db) -> dict:
 
 def mark_seen(db) -> dict:
     ensure_tables(db)
-    at = now_iso()
+    at = datetime.now(timezone.utc).isoformat()  # full precision: "since" must be exact
     with db.session() as s:
         kv_set(s, HOME_SEEN_KEY, {"at": at})
     return {"seen_at": at}

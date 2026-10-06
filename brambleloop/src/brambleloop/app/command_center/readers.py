@@ -2,7 +2,7 @@
 
 Every function returns a provider-contract envelope (`providers.envelope`) whose `sources`
 name the rows it read (`table:id`). Nothing here writes, renders, enqueues or calls a model,
-and nothing here has a fixture path: an empty table is an empty list, an unreadable one is
+and nothing here has a canned path: an empty table is an empty list, an unreadable one is
 UNKNOWN.
 """
 from __future__ import annotations

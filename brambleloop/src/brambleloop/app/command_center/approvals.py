@@ -233,7 +233,7 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 ev = pub.evidence(db, body.get("slug"), body.get("version"),
                                   body.get("release", ""))
                 out["display"] = pub.display(ev)
-            return out
+            return {"result": out, "audit_id": None}  # a read: nothing to audit
         if action in ("publication.approve", "activation.approve"):
             mod = pub if action.startswith("publication") else act
             if not reason:
