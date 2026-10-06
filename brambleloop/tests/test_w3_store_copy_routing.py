@@ -89,6 +89,23 @@ def test_shop_package_renders_from_copy_v2_and_keeps_its_checks():
     assert verdict["consistent"], verdict["divergences"]
 
 
+def test_licence_lives_in_faq_not_the_eu_only_field():
+    from brambleloop.commerce import shop_package as P
+    from brambleloop.commerce import terms as T
+
+    assert P.shop_text()["policy_additional"] == ""
+    assert "policy_additional" not in P.api_shop_fields()
+    assert T.AXES
+    faq_doc = P.faq_text()
+    for axis in T.AXES:
+        assert T.BRAMBLELOOP_TERMS.sentence(axis) in faq_doc, axis
+    s = content.build()
+    assert "policy_additional" not in {r["key"] for r in s["settings_checklist"].value}
+    assert "licence_in_faq" in {r["key"] for r in s["settings_checklist"].value}
+    assert "EU-only" in s["policy_licence"].etsy_location
+    assert "FAQ" in V.ABOUT_PARAGRAPHS[-1]
+
+
 def test_storefront_tagline_and_seo_check_pass():
     from brambleloop.brand import storefront
 

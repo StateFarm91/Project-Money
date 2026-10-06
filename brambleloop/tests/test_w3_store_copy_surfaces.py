@@ -105,7 +105,22 @@ def test_lengths_within_recorded_constraints():
         assert not [f for f in limits.check_length(key, text)
                     if f["code"] == "LIMIT_EXCEEDED"], key
     for c_ in c.values():
-        assert c_.basis in (V.SECONDARY, V.REPO_ASSERTED) and c_.source
+        assert c_.basis in (V.SECONDARY, V.REPO_ASSERTED, V.VERIFIED_ETSY) and c_.source
+    # Lane I's verified Etsy limits are used when present (Etsy help articles, 2026-10-06).
+    try:
+        from brambleloop.integrations import etsy_constraints as ec
+    except ImportError:
+        ec = None
+    if ec is not None:
+        for key, ekey in (("shop_title", "shop_title_max_chars"), ("about", "about_max_chars"),
+                          ("section_name", "section_name_max_chars")):
+            assert c[key].basis == V.VERIFIED_ETSY, key
+            assert c[key].max_chars == ec.value(ekey), key
+            assert not ec.text_problems(key, {"shop_title": V.TAGLINE, "about": V.ABOUT,
+                                              "section_name": V.SECTIONS[0].name}[key]), key
+        for s in V.SECTIONS:
+            assert not ec.text_problems("section_name", s.name), s.name
+        assert len(V.SECTIONS) <= ec.value("sections_max")
 
 
 def test_banned_technical_terms_absent_above_the_fold():
@@ -158,6 +173,15 @@ def test_no_laura_human_claims_anywhere():
                              text, re.I), text
     assert "human account holder" in V.store_disclosure()
     assert "human" in V.ABOUT_PARAGRAPHS[-1]
+
+
+def test_laura_is_brand_face_not_account_holder():
+    p = V.LAURA_PLACEMENT
+    assert p
+    assert p["account_profile_photo"].startswith("no")
+    assert p["shop_team_owner_role"].startswith("no")
+    for k in ("banner", "about_story", "seasonal"):
+        assert p[k].startswith("yes"), k
 
 
 def test_the_lint_still_refuses_human_laura_copy():

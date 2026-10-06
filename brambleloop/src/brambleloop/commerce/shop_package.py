@@ -376,13 +376,21 @@ SHOP_TEXT_FIELDS: tuple[str, ...] = ("title", "announcement", "sale_message",
 DIGITAL_SALE_MESSAGE = copy_v2.DIGITAL_SALE_MESSAGE
 
 
+# Etsy's OpenAPI document (read by lane I, `integrations.etsy_constraints`, 2026-10-06):
+# "the policy_additional field should only be set for shops located in the EU. Passing a
+# value for this field for shops outside of the EU, will result in an error." Brambleloop is
+# Canadian. The licence therefore lives in the FAQ answers (every axis of `commerce.terms`,
+# quoted verbatim) and never in policy_additional; Etsy's own policies article suggests the
+# FAQ for licensing information.
+SHOP_LOCATED_IN_EU = False
+
+
 def shop_text(terms: customer_terms.Terms | None = None) -> dict[str, str]:
-    """The five shop fields Etsy's API can actually write, ready to send.
+    """The five updateShop text fields, ready to send (policy_additional only for EU shops).
 
     Assembled here so that the day the phase moves, setting them is a call rather than a
-    writing session. `policy_additional` carries the licence and the disclosures because it
-    is the only policy text with a write endpoint -- the rest of the policy page is typed by
-    a person, and this is what stops the two halves saying different things.
+    writing session. For a shop outside the EU `policy_additional` is empty and must not be
+    sent at all (`api_shop_fields`); the licence a buyer reads is in the FAQ.
     """
     decided = terms or customer_terms.BRAMBLELOOP_TERMS
     return {
@@ -390,8 +398,16 @@ def shop_text(terms: customer_terms.Terms | None = None) -> dict[str, str]:
         "announcement": "",     # seasonal; `brand.storefront` owns which one is current
         "sale_message": copy_v2.digital_sale_message(decided),
         "digital_sale_message": copy_v2.digital_sale_message(decided),
-        "policy_additional": "\n\n".join([licence_text(decided), ai_disclosure()]),
+        "policy_additional": ("\n\n".join([licence_text(decided), ai_disclosure()])
+                              if SHOP_LOCATED_IN_EU else ""),
     }
+
+
+def api_shop_fields(terms: customer_terms.Terms | None = None) -> dict[str, str]:
+    """What may actually be sent to updateShop: blank fields and EU-only fields left out."""
+    text = shop_text(terms)
+    return {k: v for k, v in text.items()
+            if v.strip() and (k != "policy_additional" or SHOP_LOCATED_IN_EU)}
 
 
 # What no endpoint can set. Listed so the owner action is a list of fields to fill rather
@@ -516,11 +532,19 @@ def check_package(terms: customer_terms.Terms | None = None) -> list[str]:
             "PACKAGE_NO_DIGITAL_SALE_MESSAGE: the message Etsy sends the instant a digital "
             "item is bought is the one surface that reaches every customer, and a blank one "
             "sends nothing at the only moment they are certainly reading")
-    if sell not in text["policy_additional"]:
+    if not SHOP_LOCATED_IN_EU and text["policy_additional"].strip():
         problems.append(
-            "PACKAGE_ADDITIONAL_POLICY_DIVERGES: policy_additional is the only policy text "
-            "with a write endpoint, so it is the half that drifts from the half a person "
-            "typed")
+            "PACKAGE_POLICY_ADDITIONAL_EU_ONLY: policy_additional may only be set by EU shops "
+            "(Etsy OpenAPI); a Canadian shop's write errors")
+    if "policy_additional" in api_shop_fields(decided) and not SHOP_LOCATED_IN_EU:
+        problems.append("PACKAGE_POLICY_ADDITIONAL_SENT: the API payload carries an EU-only "
+                        "field")
+    faq_doc = faq_text(decided)
+    for axis in customer_terms.AXES:
+        if decided.sentence(axis) not in faq_doc:
+            problems.append(
+                f"PACKAGE_LICENCE_NOT_IN_FAQ: {axis} is not stated in the FAQ, which is where "
+                f"a non-EU shop's licence lives")
 
     return problems
 

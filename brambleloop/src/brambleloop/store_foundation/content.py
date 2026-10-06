@@ -143,8 +143,11 @@ def settings_checklist() -> list[dict]:
         ("policy_privacy", "Paste the privacy policy (after legal review)",
          where["shop_policies_privacy"], 3),
         ("faq", "Enter the FAQ entries", where["shop_policies_faq"], 10),
-        ("policy_additional", "Paste the licence and disclosures as additional terms",
-         "Shop Manager > Settings > Policies: additional policies", 3),
+        ("licence_in_faq", "Enter the licence as the FAQ answers (sell, print, teach, "
+                           "share, corrections). Leave 'additional policies' empty: Etsy "
+                           "accepts that field only from EU shops (OpenAPI, verified by "
+                           "integrations.etsy_constraints)",
+         where["shop_policies_faq"], 3),
         ("digital_sale_message", "Paste the message to buyers of digital items",
          "Shop Manager > Settings > Info & appearance > Message to buyers", 2),
         ("sections", "Create the populated shop sections", "Shop Manager > Listings > "
@@ -341,7 +344,8 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
           "policy_text"),
         S("policy_licence", "Pattern licence and customer use", "policy", pol["licence"],
           "commerce.terms via commerce.shop_package.licence_text",
-          "Shop Manager > Settings > Policies: additional (policy_additional)", API_WRITABLE,
+          "Shop Manager > Settings > Policies: FAQ (licence answers; policy_additional is "
+          "EU-only and not used)", OWNER_MANUAL,
           "policy_text"),
         S("policy_privacy", "Privacy", "policy", pol["privacy"] + "\n\n" + PRIVACY_ADDENDUM,
           "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
@@ -351,8 +355,8 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
           "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES "
           "(digital_download, ai_assisted_design, deterministic_render, disclosed_render) "
           "verbatim + Laura and account-holder lines",
-          "Shop Manager > Settings > Policies: additional (policy_additional) and every "
-          "listing description", API_WRITABLE, "policy_text"),
+          "every listing description (Etsy: 'Seller-prompted AI creations must disclose the "
+          "use of AI.') and the shop FAQ/About", OWNER_MANUAL, "policy_text"),
         S("faq", "Frequently asked questions", "help",
           [dict(f) for f in shop_package.faq()] + _extra_faq(),
           "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
