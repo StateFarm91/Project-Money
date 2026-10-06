@@ -29,7 +29,9 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -163,7 +165,13 @@ def monthly_ceiling_cad() -> float:
 
 
 def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
-    """Model spend for the calendar month, counted from ledger rows."""
+    """Ceiling-governed spend for the calendar month, counted from ledger rows.
+
+    Every kind the monthly ceiling governs (`routing.counts_against_monthly_ceiling`): model,
+    vision and image renders alike, plus any kind not explicitly assigned to another ceiling.
+    It read only `routing.COST_KIND` rows, so image renders -- which the policy puts inside this same
+    CA$ month -- were invisible to it (RC1 audit B2).
+    """
     from sqlalchemy import select
 
     from ..core.models import CostEntry
@@ -171,8 +179,7 @@ def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
-        rows = list(s.scalars(select(CostEntry).where(
-            CostEntry.kind == routing.COST_KIND)))
+        rows = list(s.scalars(select(CostEntry).where(routing.ceiling_kind_filter())))
     total = 0.0
     for row in rows:
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
@@ -298,20 +305,113 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     3. this agent's daily permission;
     4. a reservation written down before the call.
 
+    **Atomic (RC1 audit B4).** Steps 1-4 run under `budget_lock` -- a process lock plus a
+    Postgres advisory transaction lock or the SQLite write lock -- and the reservation is
+    inserted through the locked session, so no two holders can both read room that only one
+    of them fits in. **Own reservations count (B5):** the holder's own open reservations are
+    added to `uncommitted_cad`.
+
     **Every refusal leaves a row.** Each raise path writes `spend.refused` to the audit log
     with the ceiling, the estimate and what was committed, because a guard whose refusals
     cannot be counted is a guard nobody can tell from one that never fires.
+    """
+    from ..finance import reservations
+
+    me = holder or reservations.holder_id()
+    decided: dict = {}
+    # RC1 audit B4: the read of what is committed and the write of this call's claim are one
+    # atomic step under `budget_lock`. They were two -- `outstanding()` then `reserve()` --
+    # and two holders that both read CA$40 committed of a CA$100 month both reserved CA$60.
+    # The lock is never held across a provider call: only across this arithmetic and one
+    # INSERT. A refusal is *recorded* after the lock is released (its audit row is a write,
+    # and on SQLite a second writer inside the lock would wait on the lock itself).
+    with budget_lock(db) as locked_session:
+        decided = _decide_and_reserve(
+            db, locked_session, me=me, estimate_cad=estimate_cad, agent=agent,
+            purpose=purpose, job_id=job_id, uncommitted_cad=uncommitted_cad,
+            ttl_seconds=ttl_seconds, now=now, reserve=reserve, model=model,
+            provider=provider, product_slug=product_slug)
+    refusal = decided.pop("_refusal", None)
+    if refusal is not None:
+        from ..finance import spend_report
+
+        exc_type, record = refusal
+        spend_report.record_refusal(db, now=now, **record)
+        raise exc_type(record["why"])
+    return decided
+
+
+# The budget lock (RC1 audit B4). One process-wide re-entrant lock serialises threads of this
+# process, and a database lock serialises processes: a transaction-scoped Postgres advisory
+# lock, or SQLite's write lock (`BEGIN IMMEDIATE`) on a file database. An in-memory SQLite
+# database is private to this process, so the process lock is the whole of it there. A
+# dialect with neither is refused rather than checked without a lock: an unserialised
+# ceiling is the defect this exists to close.
+BUDGET_LOCK_KEY = 734543611
+_PROCESS_BUDGET_LOCK = threading.RLock()
+
+
+def _sqlite_in_memory(engine) -> bool:
+    database = str(engine.url.database or "")
+    return database in ("", ":memory:") or "mode=memory" in str(engine.url)
+
+
+@contextmanager
+def budget_lock(db):
+    """Hold the spend ceiling's lock for one check-and-reserve. Yields the locked session."""
+    from sqlalchemy import text
+
+    with _PROCESS_BUDGET_LOCK:
+        with db.session() as session:
+            engine = session.get_bind()
+            dialect = engine.dialect.name
+            if dialect == "postgresql":
+                session.execute(text("SELECT pg_advisory_xact_lock(:key)"),
+                                {"key": BUDGET_LOCK_KEY})
+            elif dialect == "sqlite":
+                if not _sqlite_in_memory(engine):
+                    session.execute(text("BEGIN IMMEDIATE"))
+            else:
+                raise BudgetExceeded(
+                    f"the spend ceiling has no lock for the {dialect!r} dialect, so a check "
+                    f"and its reservation cannot be made atomic. Refused rather than checked "
+                    f"without one")
+            yield session
+
+
+def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str,
+                        purpose: str, job_id, uncommitted_cad, ttl_seconds, now, reserve: bool,
+                        model: str, provider: str, product_slug: str) -> dict:
+    """The four checks and the reservation, run while `budget_lock` is held.
+
+    Returns the budget dict, or a dict carrying `_refusal` -- (exception type, record) --
+    that the caller records and raises once the lock is released.
     """
     from ..finance import reservations, spend_policy, spend_report
 
     import math
 
-    me = holder or reservations.holder_id()
     spent = spent_this_month_cad(db, now=now)
-    mine = max(0.0, float(uncommitted_cad or 0.0))
-    others = reservations.outstanding(db, exclude_holder=me, now=now)
+    held = reservations.outstanding(db, exclude_holder=me, now=now)
+    # RC1 audit B5: this holder's *own* live reservations count too. They were excluded on
+    # the theory that a caller declares its in-flight spend through `uncommitted_cad`, so a
+    # caller that did not -- a loop that reserved and released late -- was granted
+    # CA$40 ten times against a CA$100 month. Counting them can only refuse more, never less.
+    own_open = float(held.get("own_holder_cad") or 0.0)
+    mine = round(max(0.0, float(uncommitted_cad or 0.0)) + own_open, 6)
+    others = held
     committed = round(spent + mine + others["cad"], 6)
     ceiling = monthly_ceiling_cad()
+
+    def _refusal(exc_type, which: str, message: str, *, estimate: float, **extra) -> dict:
+        record = {"agent": agent, "ceiling_cad": extra.pop("ceiling", ceiling),
+                  "estimate_cad": estimate,
+                  "committed_cad": extra.pop("committed", committed),
+                  "which": which, "why": message, "purpose": purpose,
+                  "detail": {"model": model, "provider": provider, "job_id": job_id,
+                             **extra}}
+        return {"_refusal": (exc_type, record)}
+
     try:
         raw_estimate = float(estimate_cad)
     except (TypeError, ValueError):
@@ -323,12 +423,8 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
         message = (f"the estimate {estimate_cad!r} is not a finite, non-negative amount, so "
                    f"it cannot be checked against any ceiling. Refused rather than read as "
                    f"free")
-        spend_report.record_refusal(
-            db, agent=agent, ceiling_cad=ceiling, estimate_cad=0.0, committed_cad=committed,
-            which="invalid_estimate", why=message, purpose=purpose, now=now,
-            detail={"model": model, "provider": provider, "job_id": job_id,
-                    "raw_estimate": repr(estimate_cad)[:40]})
-        raise BudgetExceeded(message)
+        return _refusal(BudgetExceeded, "invalid_estimate", message, estimate=0.0,
+                        raw_estimate=repr(estimate_cad)[:40])
     estimate = round(raw_estimate, 6)
     # Other holders' live claims, by the dimension each ceiling is about (C-32/C-33). The
     # monthly step already counted them; the agent and provider steps read only billed rows
@@ -338,24 +434,18 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     others_provider_cad = round(sum(r["amount_cad"] for r in others["reservations"]
                                     if provider and r.get("provider") == provider), 6)
 
-    def _refuse(exc_type, which: str, message: str, **extra):
-        spend_report.record_refusal(
-            db, agent=agent, ceiling_cad=extra.pop("ceiling", ceiling), estimate_cad=estimate,
-            committed_cad=extra.pop("committed", committed), which=which, why=message,
-            purpose=purpose, now=now,
-            detail={"model": model, "provider": provider, "job_id": job_id, **extra})
-        raise exc_type(message)
-
     # 1. The authorised month. This is the budget, and it is the one that stops the company.
     if committed + estimate > ceiling:
-        _refuse(BudgetExceeded, "monthly_ceiling",
-                f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
-                f"already committed this month (CA${spent:.4f} billed, "
-                f"CA${mine:.4f} spent by this run and not yet billed, "
-                f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
-                f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
-                f"than found on the invoice. The way past this is the owner raising the ceiling "
-                f"with measured usage attached, not a cheaper model")
+        return _refusal(
+            BudgetExceeded, "monthly_ceiling",
+            f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
+            f"already committed this month (CA${spent:.4f} billed, "
+            f"CA${mine:.4f} spent or reserved by this caller and not yet billed "
+            f"(CA${own_open:.4f} of it in this holder's own open reservations), "
+            f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
+            f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
+            f"than found on the invoice. The way past this is the owner raising the ceiling "
+            f"with measured usage attached, not a cheaper model", estimate=estimate)
 
     # 2. A provider's own ceiling, if the owner has set one. Read from this month's ledger by
     #    provider; an empty table is no cap rather than a cap of zero.
@@ -365,17 +455,18 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
         by_provider = spend_report.what_it_bought(db, now=now)["by_provider"]
         provider_spent = float((by_provider.get(provider) or {}).get("cad") or 0.0)
         if provider_spent + mine + others_provider_cad + estimate > provider_ceiling:
-            _refuse(BudgetExceeded, "provider_ceiling",
-                    f"provider {provider!r} has spent CA${provider_spent:.4f} of its "
-                    f"CA${provider_ceiling:.2f} monthly ceiling (spend_policy."
-                    f"PROVIDER_CEILINGS_CAD), other callers hold CA${others_provider_cad:.4f} "
-                    f"in live reservations against it, and this call is estimated at "
-                    f"CA${estimate:.4f}. "
-                    f"Refused before the call. The monthly ceiling still has "
-                    f"CA${round(ceiling - committed, 2):.2f}; this is the owner's cap on this "
-                    f"provider, not the budget",
-                    ceiling=provider_ceiling,
-                    committed=round(provider_spent + mine + others_provider_cad, 6))
+            return _refusal(
+                BudgetExceeded, "provider_ceiling",
+                f"provider {provider!r} has spent CA${provider_spent:.4f} of its "
+                f"CA${provider_ceiling:.2f} monthly ceiling (spend_policy."
+                f"PROVIDER_CEILINGS_CAD), other callers hold CA${others_provider_cad:.4f} "
+                f"in live reservations against it, and this call is estimated at "
+                f"CA${estimate:.4f}. "
+                f"Refused before the call. The monthly ceiling still has "
+                f"CA${round(ceiling - committed, 2):.2f}; this is the owner's cap on this "
+                f"provider, not the budget", estimate=estimate,
+                ceiling=provider_ceiling,
+                committed=round(provider_spent + mine + others_provider_cad, 6))
 
     # 3. This agent's daily permission. After the month, because the month is authoritative
     #    and a per-agent ceiling is a permission rather than a slice of it.
@@ -384,21 +475,23 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
         today = permission["spent_today_cad"]
         allowed = permission["daily_ceiling_cad"]
         if today + mine + others_agent_cad + estimate > allowed:
-            _refuse(AgentCeilingExceeded, "agent_daily_ceiling",
-                    f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
-                    f"CA${today + mine + others_agent_cad:.4f} of it; this call is estimated "
-                    f"at CA${estimate:.4f}. Refused before the call (CA${today:.4f} billed, "
-                    f"CA${mine:.4f} unbilled in this run, CA${others_agent_cad:.4f} reserved "
-                    f"by other callers for this agent). This is a daily permission, not the "
-                    f"budget -- the month still "
-                    f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
-                    f"work resumes at the next UTC day. To do more today, either lower the work "
-                    f"this agent asks for (the cadence is derived from this ceiling, so it will "
-                    f"follow) or have the owner raise the agent's ceiling in "
-                    f"`agents.registry.DEFAULT_AGENTS`",
-                    ceiling=allowed, committed=round(today + mine + others_agent_cad, 6))
+            return _refusal(
+                AgentCeilingExceeded, "agent_daily_ceiling",
+                f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
+                f"CA${today + mine + others_agent_cad:.4f} of it; this call is estimated "
+                f"at CA${estimate:.4f}. Refused before the call (CA${today:.4f} billed, "
+                f"CA${mine:.4f} unbilled in this run, CA${others_agent_cad:.4f} reserved "
+                f"by other callers for this agent). This is a daily permission, not the "
+                f"budget -- the month still "
+                f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
+                f"work resumes at the next UTC day. To do more today, either lower the work "
+                f"this agent asks for (the cadence is derived from this ceiling, so it will "
+                f"follow) or have the owner raise the agent's ceiling in "
+                f"`agents.registry.DEFAULT_AGENTS`", estimate=estimate,
+                ceiling=allowed, committed=round(today + mine + others_agent_cad, 6))
 
-    # 4. Written down before the call, so another process reading the same month sees it.
+    # 4. Written down before the call -- and before the lock is released -- so the next
+    #    holder to take the lock reads it.
     reservation_id = None
     if reserve:
         # `now` is threaded through deliberately. Without it the row's expiry is stamped from
@@ -409,14 +502,12 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
         # The product this reservation is held for (F-321): the caller's slug, else the
         # running job's (`spend_report.attributed_to`), else shared. `SpendReservation` has no
         # product column, so it rides in the detail beside the provider.
-        from ..finance import spend_report as _attr
-
-        held_for, held_detail = _attr.attribution(
+        held_for, held_detail = spend_report.attribution(
             product_slug, {"provider": provider} if provider else None)
         held_detail["product_slug"] = held_for
-        reservation_id = reservations.reserve(
-            db, amount_cad=estimate, holder=me, agent=agent, purpose=purpose, model=model,
-            job_id=job_id, now=now, detail=held_detail,
+        reservation_id = reservations.reserve_in(
+            locked_session, amount_cad=estimate, holder=me, agent=agent, purpose=purpose,
+            model=model, job_id=job_id, now=now, detail=held_detail,
             ttl_seconds=(reservations.DEFAULT_TTL_SECONDS if ttl_seconds is None
                          else ttl_seconds))
 
@@ -424,6 +515,7 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
             "estimate_cad": estimate,
             "headroom_cad": round(ceiling - committed - estimate, 6),
             "uncommitted_cad": round(mine, 6),
+            "own_open_reservations_cad": round(own_open, 6),
             "reserved_by_others_cad": others["cad"],
             "reserved_by_others_count": others["count"],
             "expired_unreleased_cad": others["expired_unreleased_cad"],

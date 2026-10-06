@@ -286,9 +286,43 @@ class BudgetState:
 # never bit only because nothing had ever constructed a ModelGateway.
 COST_KIND = "llm"
 
+# The kind an image render's ledger row carries (RC1 audit B2). `images.generate` writes one
+# for every render the provider billed; before it did, render spend lived only in a released
+# reservation and vanished from the month the moment the reservation was given back.
+IMAGE_COST_KIND = "image"
+
+# Spend kinds governed by a ceiling *other* than the model/vision/image month, and only those,
+# are left out of it. Everything else counts -- including a kind nobody has invented yet -- so
+# the monthly ceiling fails closed: a new way to spend money is inside the ceiling until
+# somebody decides, in this tuple, which other ceiling governs it.
+#   * etsy_listing_fee(_actual): serialised and capped by `finance.listing_costs.reserve`;
+#   * hosting / software: the separate infrastructure ceiling (`spend_policy.INFRA_CEILING_CAD`).
+SEPARATELY_GOVERNED_KINDS = ("etsy_listing_fee", "etsy_listing_fee_actual",
+                             "hosting", "software")
+
+
+def counts_against_monthly_ceiling(kind: str | None) -> bool:
+    """Whether a ledger row of this kind is spend the CA$ monthly model ceiling governs."""
+    return (kind or "") not in SEPARATELY_GOVERNED_KINDS
+
+
+def ceiling_kind_filter():
+    """SQL predicate for `counts_against_monthly_ceiling` (NULL kind counts: unknown is not
+    exempt)."""
+    from sqlalchemy import or_
+
+    from ..core.models import CostEntry
+
+    return or_(CostEntry.kind.is_(None),
+               CostEntry.kind.notin_(SEPARATELY_GOVERNED_KINDS))
+
 
 def spent_this_month(db, now: datetime | None = None) -> float:
-    """What the month's model calls have actually cost, from the ledger that records them."""
+    """What the month's ceiling-governed spend has cost, from the ledger that records it.
+
+    Every kind the monthly ceiling governs (`counts_against_monthly_ceiling`), not only
+    `llm`: image renders are recorded as `image` and are inside the same CA$ month.
+    """
     from sqlalchemy import func, select
 
     from ..core.models import CostEntry
@@ -298,7 +332,7 @@ def spent_this_month(db, now: datetime | None = None) -> float:
     with db.session() as s:
         total = s.scalar(
             select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
-            .where(CostEntry.kind == COST_KIND, CostEntry.at >= start))
+            .where(ceiling_kind_filter(), CostEntry.at >= start))
     return float(total or 0.0)
 
 
