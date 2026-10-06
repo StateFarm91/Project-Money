@@ -152,9 +152,18 @@ class ModelGateway:
         self.registry = registry
         self.job_id = job_id
         self.product_slug = product_slug
+        # F-921: keyed by provider *and model* when two providers share a name, so the
+        # approved fallback (another model on the same provider) has its own circuit rather
+        # than inheriting the one its failed sibling opened. A lone name keeps its old key.
+        names = [p.name for p in self.providers]
+        self._breaker_keys = {
+            id(p): (p.name if names.count(p.name) == 1 else f"{p.name}:{p.model}")
+            for p in self.providers
+        }
         self.breakers = {
-            p.name: CircuitBreaker(name=p.name, threshold=breaker_threshold,
-                                   reset_after_seconds=breaker_reset_seconds)
+            self._breaker_keys[id(p)]: CircuitBreaker(
+                name=self._breaker_keys[id(p)], threshold=breaker_threshold,
+                reset_after_seconds=breaker_reset_seconds)
             for p in self.providers
         }
         self.calls: list[CallRecord] = []
@@ -193,7 +202,7 @@ class ModelGateway:
 
         last: Exception | None = None
         for provider in self.providers:
-            breaker = self.breakers[provider.name]
+            breaker = self.breakers[self._breaker_keys[id(provider)]]
             if breaker.is_open:
                 continue
             for attempt in range(1, max_attempts_per_provider + 1):
@@ -228,6 +237,7 @@ class ModelGateway:
                     # loop on bad JSON was real spend the month never saw. `_billing` says
                     # what each failure cost and on what basis.
                     last = e
+                    self._note_attempt(provider, agent, prompt.ref, ok=False, error=e)
                     in_tok, out_tok, override, basis = self._billing(
                         e, response, reservation)
                     self._record(prompt, provider, agent, in_tok, out_tok, attempt, False,
@@ -240,6 +250,7 @@ class ModelGateway:
                         break
                     continue
                 elapsed_ms = (time.time() - started) * 1000
+                self._note_attempt(provider, agent, prompt.ref, ok=True)
                 # A useful answer whose usage block is missing is still a billed call; its
                 # cost is UNKNOWN and counted at the estimate (B1), never as nothing.
                 in_tok, out_tok, override, basis = self._billing(None, response, reservation)
@@ -256,6 +267,25 @@ class ModelGateway:
 
         assert last is not None
         raise last
+
+    def _note_attempt(self, provider, agent: str, purpose: str, *, ok: bool,
+                      error: BaseException | None = None) -> None:
+        """F-921: a durable availability record of this attempt (`failover.health` reads it).
+
+        Not a spend record -- `_record` below is the only path that bills -- and never allowed
+        to break the call: health is evidence about the provider, and losing one reading is
+        better than failing a call that worked. Only with a registry, like billing.
+        """
+        if self.registry is None:
+            return
+        try:
+            from . import failover
+
+            failover.record_attempt(self.registry.db, provider=provider.name,
+                                    model=str(provider.model or ""), ok=ok, agent=agent,
+                                    purpose=purpose, error=error)
+        except Exception:  # noqa: BLE001 - see docstring
+            pass
 
     def _estimate_cad(self, prompt, provider, user: str) -> float:
         """What this call may cost, padded, assuming the model writes its whole allowance.
