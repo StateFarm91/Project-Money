@@ -284,10 +284,17 @@ def physical_binding(db, cir, result=None) -> dict:
     from ..runtime.pipeline import physical_evidence_rows
     from .certificate import _release_hash, bind_physical_evidence
 
+    from ..runtime.pipeline import calibrated_primitives
+    from .risk_matrix import first_customer_requirement, matrix_for
+
     result = result if result is not None else compile_cir(cir)
     content = _release_hash(cir, write_pattern(cir, result, "US"))
-    return bind_physical_evidence(physical_evidence_rows(db, cir.slug), slug=cir.slug,
-                                  version=cir.version, content_hash=content)
+    binding = bind_physical_evidence(physical_evidence_rows(db, cir.slug), slug=cir.slug,
+                                     version=cir.version, content_hash=content)
+    # F-073/F-081: which physical evidence class this product's risk tier needs here.
+    matrix = matrix_for(cir, result, calibrated_primitives=calibrated_primitives(db))
+    return {**binding, "risk_matrix": matrix,
+            "first_customer": first_customer_requirement(matrix, binding)}
 
 
 def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Check:
@@ -313,6 +320,13 @@ def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Chec
                          + ". Every finished dimension is arithmetic from the stated gauge "
                            "until somebody works this text",
                          "gates.certificate.bind_physical_evidence on stored PhysicalTest rows")
+        tier = physical.get("first_customer")
+        if tier is not None and not tier.get("met"):
+            # F-072/F-081: a bound sample of the wrong class (a swatch where the risk tier
+            # needs a full make) is not the evidence this product needs.
+            return Check("gauge_and_size_claims", UNRESOLVED, tier["why"],
+                         "gates.risk_matrix.first_customer_requirement on bound PhysicalTest "
+                         "rows")
         if twin.width_caveat:
             return Check("gauge_and_size_claims", FAIL,
                          f"a width rests on an assumed chain gauge: {twin.width_caveat}",
@@ -691,7 +705,9 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
         disclosed = disclosed_imagery(db, cir.slug, version or cir.version)
     else:
         twin = build_twin(cir, result)
-    evidenced = None if physical is None else bool(physical.get("passed"))
+    # "Made by a tester" needs a full make bound to this content, not a swatch (F-072).
+    evidenced = None if physical is None else any(
+        c == "full_physical_make" for c in (physical.get("bound_classes") or {}).values())
     docs, refusals = _documents(cir, twin, result)
     assignment = l0.childrens_assignment(cir.slug)
 

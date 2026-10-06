@@ -339,6 +339,12 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
         exc_type, record = refusal
         spend_report.record_refusal(db, now=now, **record)
         raise exc_type(record["why"])
+    if reserve:
+        # F-307: the next paid call in this job scope was allowed on this estimate; if its
+        # worker dies mid-call, that is what the orphan is counted at (never zero).
+        from . import paid_calls
+
+        paid_calls.note_reservation(decided)
     return decided
 
 
@@ -587,9 +593,6 @@ class AnthropicProvider:
         return (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
 
     def complete(self, system: str, user: str, *, max_tokens: int) -> ModelResponse:
-        import urllib.error
-        import urllib.request
-
         key = self.key()
         if not key:
             raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
@@ -599,26 +602,7 @@ class AnthropicProvider:
             **({"system": system} if system else {}),
             "messages": [{"role": "user", "content": user}],
         }).encode()
-        request = urllib.request.Request(API_URL, data=payload, method="POST")
-        request.add_header("x-api-key", key)
-        request.add_header("anthropic-version", API_VERSION)
-        request.add_header("content-type", "application/json")
-
-        started = time.time()
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
-                body = json.loads(response.read().decode())
-        except urllib.error.HTTPError as exc:  # noqa: PERF203 - each status means something
-            detail = exc.read().decode(errors="replace")[:400]
-            if exc.code in (429, 500, 502, 503, 529):
-                raise TransientError(f"anthropic {exc.code}: {detail}") from exc
-            # 400 with a billing message is the state this account is actually in, and it is
-            # permanent until somebody buys credits. Retrying it is spend on nothing.
-            raise ProviderUnusable(f"anthropic {exc.code}: {detail}") from exc
-        except urllib.error.URLError as exc:
-            raise TransientError(f"anthropic unreachable: {exc.reason}") from exc
-
-        return self._read(body, started)
+        return self._guarded(payload, key, "anthropic.messages")
 
     def see(self, system: str, prompt: str, image_urls: list[str], *,
             max_tokens: int) -> ModelResponse:
@@ -635,9 +619,6 @@ class AnthropicProvider:
         the observation is stored and the picture is not, which is also what keeps this on
         the right side of "never copy a competitor's expression".
         """
-        import urllib.error
-        import urllib.request
-
         key = self.key()
         if not key:
             raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
@@ -659,6 +640,27 @@ class AnthropicProvider:
             **({"system": system} if system else {}),
             "messages": [{"role": "user", "content": content}],
         }).encode()
+        return self._guarded(payload, key, "anthropic.vision")
+
+    def _guarded(self, payload: bytes, key: str, effect: str) -> ModelResponse:
+        """The one place a paid model request leaves the process (F-307/F-339).
+
+        Inside a job, `paid_calls.guarded` keys the request by job + request bytes +
+        occurrence, so a reclaimed or retried attempt replays the answer it already paid for
+        instead of paying again; outside a job it is a plain call."""
+        from . import paid_calls
+
+        return paid_calls.guarded(
+            effect, paid_calls.fingerprint(effect, payload.decode("utf-8", "replace")),
+            lambda: self._send(payload, key),
+            encode=_encode_response, decode=_decode_response, classify=_classify_failure,
+            cost_kind="llm", provider=self.name, model=self.model)
+
+    def _send(self, payload: bytes, key: str) -> ModelResponse:
+        """The HTTP request itself. Tests replace this; no test reaches the network."""
+        import urllib.error
+        import urllib.request
+
         request = urllib.request.Request(API_URL, data=payload, method="POST")
         request.add_header("x-api-key", key)
         request.add_header("anthropic-version", API_VERSION)
@@ -668,10 +670,12 @@ class AnthropicProvider:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                 body = json.loads(response.read().decode())
-        except urllib.error.HTTPError as exc:
+        except urllib.error.HTTPError as exc:  # noqa: PERF203 - each status means something
             detail = exc.read().decode(errors="replace")[:400]
             if exc.code in (429, 500, 502, 503, 529):
                 raise TransientError(f"anthropic {exc.code}: {detail}") from exc
+            # 400 with a billing message is the state this account is actually in, and it is
+            # permanent until somebody buys credits. Retrying it is spend on nothing.
             raise ProviderUnusable(f"anthropic {exc.code}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise TransientError(f"anthropic unreachable: {exc.reason}") from exc
@@ -687,6 +691,32 @@ class AnthropicProvider:
             input_tokens=int(usage.get("input_tokens", 0)),
             output_tokens=int(usage.get("output_tokens", 0)),
             latency_ms=round((time.time() - started) * 1000, 2))
+
+
+def _encode_response(r: ModelResponse) -> dict:
+    return {"text": r.text, "provider": r.provider, "model": r.model,
+            "input_tokens": int(r.input_tokens), "output_tokens": int(r.output_tokens),
+            "latency_ms": float(r.latency_ms)}
+
+
+def _decode_response(d: dict) -> ModelResponse:
+    """A replayed answer: the text already paid for, with zero tokens because nothing was
+    sent. `replayed=True` is what keeps it from being billed or counted at an estimate."""
+    return ModelResponse(text=str(d.get("text") or ""), provider=str(d.get("provider") or ""),
+                         model=str(d.get("model") or ""), input_tokens=0, output_tokens=0,
+                         latency_ms=0.0, replayed=True)
+
+
+def _classify_failure(exc: BaseException) -> str:
+    """DECLINED when the provider refused before doing work (it did not bill: HTTP status,
+    unreachable); UNCERTAIN for a timeout or an unreadable 200 (whether it billed is
+    unknown). The same split `ModelGateway._billing` bills on."""
+    from . import paid_calls
+
+    if isinstance(exc, (TransientError, PermanentError)) and not isinstance(
+            exc, TimeoutError) and not getattr(exc, "billed_usage", None):
+        return paid_calls.DECLINED
+    return paid_calls.UNCERTAIN
 
 
 # ---------------------------------------------------------------------------

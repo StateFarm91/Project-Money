@@ -28,6 +28,7 @@ from .asset_truth import (
 )
 from .confidence import assess
 from . import originality as _originality
+from . import risk_matrix as _risk_matrix
 from .policy import (
     POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
 )
@@ -75,6 +76,9 @@ class ReleaseCertificate:
     gauge_standard: str | None = None
     # Per-primitive calibration status of every stitch this pattern uses (F-074).
     primitives: dict | None = None
+    # The risk-based evidence matrix (F-073/F-080/F-081): derived and effective class, the
+    # minimum evidence it requires, the automated threshold, and whether it is held.
+    risk_matrix: dict | None = None
 
     @property
     def errors(self) -> list[Finding]:
@@ -102,6 +106,7 @@ class ReleaseCertificate:
             "physical_evidence": self.physical_evidence,
             "gauge_standard": self.gauge_standard,
             "primitives": self.primitives,
+            "risk_matrix": self.risk_matrix,
             "findings": [
                 {"severity": f.severity, "code": f.code, "message": f.message,
                  "component": f.component, "row": f.row}
@@ -192,6 +197,9 @@ def certify(
         comp.name: build_twin(cir, result, component=comp.name, calibration=calibration)
         for comp in cir.components}
     twin: TwinModel = twins[cir.components[0].name]
+    # 2a. Twin plausibility (F-117): compilation alone cannot certify. Every finished
+    #     dimension the pattern states must sit inside tolerance of what the twin computes.
+    findings.extend(_risk_matrix.plausibility_findings(cir, twins))
     stages.append("twin")
 
     # 2b. Assembly: every piece placed and every join measured on both sides. A garment
@@ -217,6 +225,11 @@ def certify(
     content = _release_hash(cir, pattern_text)
     binding = bind_physical_evidence(physical_evidence or [], slug=cir.slug,
                                      version=cir.version, content_hash=content)
+    # F-072: which physical evidence class is bound. The hand-constructed assertion is the
+    # old whole-product sample and reads as a full make; a stored row carries its class.
+    full_make_bound = bool(physical_test_passed) or any(
+        _risk_matrix.satisfies(c, _risk_matrix.FULL_PHYSICAL_MAKE)
+        for c in _risk_matrix.bound_classes(binding))
     physical_test_passed = bool(physical_test_passed) or binding["passed"]
     reverse_findings = reverse_compare(cir, pattern_text, terminology)
     findings.extend(reverse_findings)
@@ -277,7 +290,8 @@ def certify(
         "deterministic_validation": result.ok,
         "independent_reverse_compilation": (
             result.ok and not any(f.severity == ERROR for f in reverse_findings)),
-        "physical_tester_example": bool(physical_test_passed),
+        # "Made by a tester" needs a full make; a swatch does not license it (F-072).
+        "physical_tester_example": full_make_bound,
         "customer_project": False,
         "repeat_purchase": False,
     }
@@ -289,12 +303,30 @@ def certify(
 
     # 6. Physical testing. Class C (fitted garments, complex structures) does not ship on
     #    computation alone -- section 3 is explicit that it normally requires a real sample.
-    physical_required = cir.risk_class == "C"
-    if physical_required and not physical_test_passed:
+    #    The class is the effective one from the risk matrix (F-073): the declared class or
+    #    the floor the product's own features set, whichever is higher -- and C needs a full
+    #    physical make of this content, not a swatch (F-072, F-081).
+    twin_block = twin_summary(cir, twins, geo)
+    primitive_status, primitive_errors = primitive_findings(
+        cir, physically_evidenced=physical_test_passed,
+        calibrated_primitives=calibrated_primitives)
+    matrix = _risk_matrix.assess(cir, twin_summary=twin_block,
+                                 primitive_status=primitive_status,
+                                 calibrated_primitives=calibrated_primitives)
+    if matrix["raised_by_matrix"]:
+        findings.append(Finding(WARNING, "RISK_CLASS_RAISED_BY_MATRIX", (
+            f"declared class {matrix['declared']}, but "
+            f"{[f['key'] for f in matrix['features']]} set a floor of {matrix['derived']}; "
+            f"class {matrix['effective']} evidence applies (F-073)")))
+    physical_required = matrix["effective"] == "C"
+    if physical_required and not full_make_bound:
+        held = _risk_matrix.bound_classes(binding)
         findings.append(Finding(
             ERROR, "PHYSICAL_TEST_REQUIRED",
-            f"risk class {cir.risk_class} requires a physical test before release; "
-            "computation alone cannot confirm fit and drape"))
+            f"risk class {matrix['effective']} requires a physical test before release; "
+            "computation alone cannot confirm fit and drape"
+            + (f" (bound evidence is {held}; a full physical make of this content is "
+               f"required, and a partial test does not stand in for it)" if held else "")))
     # 6b. The gauge against the declared yarn (F-112, F-116). A gauge the declared yarn's
     #     published band cannot hold is a known-implausible assumption, and every finished
     #     size and yardage figure in the document is arithmetic from it. It used to reach the
@@ -304,9 +336,6 @@ def certify(
     findings.extend(gauge_findings(cir, physically_evidenced=physical_test_passed))
     # 6c. New primitives (F-074): a stitch whose real-world height and yarn behaviour no
     #     sample has measured does not carry unrestricted size or yardage claims.
-    primitive_status, primitive_errors = primitive_findings(
-        cir, physically_evidenced=physical_test_passed,
-        calibrated_primitives=calibrated_primitives)
     findings.extend(primitive_errors)
     # 6d. No convenience downgrade (F-090): a lower risk class than this product has held
     #     before needs evidence, and the only evidence that reduces physical testing is a
@@ -319,8 +348,19 @@ def certify(
     #    other stage so it reflects what was actually established rather than what was hoped.
     profile = assess(cir, result, twin, reverse_findings=reverse_findings,
                      asset_findings=asset_findings,
-                     physical_passed=physical_test_passed if physical_required else None)
+                     physical_passed=full_make_bound if physical_required else None)
     stages.append("confidence")
+
+    # F-080: whether deterministic evidence alone meets the threshold, and whether the
+    # evidence this product's effective class requires is held for this exact content.
+    error_codes = {f.code for f in findings if f.severity == ERROR}
+    automated = _risk_matrix.automated_threshold(
+        matrix, compiled=result.ok,
+        reverse_agrees=not any(f.severity == ERROR for f in reverse_findings),
+        error_codes=error_codes)
+    matrix = {**matrix, "automated_threshold": automated,
+              "requirement": _risk_matrix.requirement_status(matrix, binding,
+                                                             automated=automated)}
 
     granted = not any(f.severity == ERROR for f in findings)
     rhash = _release_hash(cir, pattern_text) if granted else None
@@ -335,7 +375,7 @@ def certify(
         platform_policy=platform_policy,
         pattern_text=pattern_text if granted else None,
         confidence=profile.to_dict(),
-        twin_summary=twin_summary(cir, twins, geo),
+        twin_summary=twin_block,
         physical_test_required=physical_required,
         physical_test_passed=physical_test_passed,
         content_hash=content,
@@ -344,6 +384,7 @@ def certify(
         # this stamp predates the check and is legacy (F-111, F-119).
         gauge_standard=GAUGE_STANDARD,
         primitives=primitive_status,
+        risk_matrix=matrix,
     )
 
 
@@ -368,8 +409,15 @@ def bind_physical_evidence(evidence: list[dict], *, slug: str, version: str,
     """
     bound: list = []
     unbound: list[dict] = []
+    classes: dict = {}
+    legacy: list = []
     for ev in evidence:
         ref = ev.get("id")
+        # F-072: the evidence class travels with the row; an unstamped row is the old
+        # whole-product sample and is flagged as such rather than silently promoted.
+        cls = ev.get("evidence_class") or _risk_matrix.FULL_PHYSICAL_MAKE
+        if not ev.get("evidence_class") or ev.get("legacy_unstamped"):
+            legacy.append(ref)
         if ev.get("passed") is not True:
             unbound.append({"id": ref, "why": "did not pass" if ev.get("passed") is False
                             else "no result recorded"})
@@ -388,6 +436,7 @@ def bind_physical_evidence(evidence: list[dict], *, slug: str, version: str,
                     f"{content_hash[:12]} -- a material change needs a re-test")})
             else:
                 bound.append(ref)
+                classes[ref] = cls
             continue
         declared = [v for v in (ev.get("compatible_variants") or [])
                     if isinstance(v, dict) and v.get("slug") == slug
@@ -396,12 +445,14 @@ def bind_physical_evidence(evidence: list[dict], *, slug: str, version: str,
             continue            # evidence for some other product; not ours to report
         if any(v.get("content_hash") == content_hash for v in declared):
             bound.append(ref)
+            classes[ref] = cls
         else:
             unbound.append({"id": ref, "why": (
                 "declared this release a compatible variant, but not at its current content "
                 f"{content_hash[:12]}")})
     return {"content_hash": content_hash, "passed": bool(bound), "bound": bound,
-            "unbound": unbound}
+            "unbound": unbound, "bound_classes": classes,
+            "legacy_unstamped": [r for r in bound if r in legacy]}
 
 
 # ---- gauge evidence (F-112, F-116) -----------------------------------------

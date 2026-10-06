@@ -62,7 +62,7 @@ def _seed(db):
 
 def test_every_cell_has_exactly_one_measurer():
     assert set(measure.MEASURERS) == {c.key for c in cells.CELLS}
-    assert len(measure.MEASURERS) == 12
+    assert len(measure.MEASURERS) == 13  # twelve + learn (F-799)
 
 
 def test_an_empty_source_records_nothing_and_says_which_table_it_needs():
@@ -133,7 +133,7 @@ def test_a_first_measurement_is_a_baseline_never_a_win():
 
 def test_state_names_every_measurer_and_the_rules():
     out = measure.state()
-    assert len(out["measurers"]) == 12
+    assert len(out["measurers"]) == 13
     assert any("baseline, never a win" in r for r in out["rules"])
 
 

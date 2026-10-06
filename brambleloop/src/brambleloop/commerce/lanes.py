@@ -658,7 +658,12 @@ def route_certified(db, *, today=None) -> dict:
             continue
         profile = Profile(
             slug=slug, pod=pod_for(slug, title), make_lane=make_lane_for_hours(seed.maker_hours),
-            risk_class=cir.risk_class, components=len(cir.components),
+            # F-073/F-080 (K6): the effective class from the certificate's risk matrix, so
+            # testing demand and lane eligibility follow the product's derived risk; a
+            # certificate issued before the matrix falls back to the declared class.
+            risk_class=(((cert or {}).get("risk_matrix") or {}).get("effective")
+                        or cir.risk_class),
+            components=len(cir.components),
             colours=max(1, len(cir.colors)), new_techniques=new_by_slug.get(slug, 0),
             sizes=_sizes_of(latest_json.get(slug) or {}, latest_json),
             pattern_count=max(1, family_members.get(seed.family or "", 0)),

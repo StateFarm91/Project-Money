@@ -191,6 +191,8 @@ def candidates(task_key: str) -> list[str]:
     task, tier = routing.route(task_key)
     base = CAPABILITY_RANK.get(tier.model, 0)
     chain = [tier.model]
+    if not task.stronger_fallback:
+        return chain
     for m in APPROVED_FALLBACKS.get(task.tier, ()):
         if CAPABILITY_RANK.get(m, 0) < base:
             raise ValueError(f"{m!r} is weaker than {tier.model!r}: a fallback may never "
@@ -328,6 +330,40 @@ def gateway_for(db, task_key: str, *, registry, agent: str, job_id: int | None =
             return AnthropicProvider(model=model)
     providers = [provider_factory(m) for m in decision.order]
     return ModelGateway(providers, registry=registry, job_id=job_id), decision
+
+
+def job_gateway(db, task_key: str, *, registry, agent: str, job_id: int | None = None,
+                provider_factory: Callable[[str], object] | None = None):
+    """W-8: the gateway a multi-call job handler uses -- `gateway_for`, never `None`.
+
+    The release-chain handlers (blinded panel, tournament, expedition, seasonal cycle) hand
+    one gateway to code that makes many different calls, so a single cached answer cannot
+    stand in for it. They therefore ask with no payload, which never yields CACHED; should a
+    CACHED decision arrive anyway, it is not handed on as a `None` gateway but replaced by
+    the declared tier's model alone (the pre-W-8 behaviour), with the decision saying so.
+    PARK raises `Parked` (a TransientError: the worker retries with backoff); REFUSED raises.
+
+    Spend recording is unchanged and single-path: the result is an ordinary `ModelGateway`,
+    whose `_record` is the only billing writer, and every call it makes still passes
+    `anthropic.check_budget_cad` and the paid-call guard (`paid_calls`)."""
+    from .model_gateway import ModelGateway
+
+    gateway, decision = gateway_for(db, task_key, registry=registry, agent=agent,
+                                    job_id=job_id, payload=None,
+                                    provider_factory=provider_factory)
+    if gateway is None:
+        if provider_factory is None:
+            from .anthropic import AnthropicProvider
+
+            def provider_factory(model: str):
+                return AnthropicProvider(model=model)
+        _task, tier = routing.route(task_key)
+        decision.reason = (f"{decision.reason}; a multi-call handler cannot use one cached "
+                           f"answer, so it runs on the declared tier {tier.model}")
+        gateway = ModelGateway([provider_factory(tier.model)], registry=registry,
+                               job_id=job_id)
+    gateway.decision = decision
+    return gateway
 
 
 def status(db, *, now: datetime | None = None) -> dict:

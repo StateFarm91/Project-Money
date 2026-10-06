@@ -196,18 +196,27 @@ def listing_fees_request(listings: int) -> OwnerRequest:
         blocks="publishing",
     )
 
+from ..gates import risk_matrix as _rm  # noqa: E402  (pure module: re + dataclasses)
+
 PHYSICAL_SAMPLE = OwnerRequest(
     key="physical_calibration",
-    action=("Crochet one sample -- the 20 cm storage basket is the best candidate, about "
-            "6-8 hours -- weigh the yarn used, and measure the finished piece across and "
-            "tall. Report: grams per colour, finished measurements, hook used, and anything "
-            "the written instructions got wrong."),
+    # F-071 / F-086 (K6): reworded from "Crochet one sample" to the risk-based evidence
+    # requirement. The truth objective is unchanged (a real, measured sample of this exact
+    # content); what the owner is asked for is the spend decision, never the crocheting.
+    action=("Approve commissioning one independent tester (not the owner) to make one "
+            "sample -- the 20 cm storage basket is the best candidate, about 6-8 hours -- "
+            "from the customer PDF, then record it through the physical.record job with "
+            "scope full_make: grams per colour, ball band, hook, finished measurements, and "
+            "anything the written instructions got wrong."),
     reason=("Yardage is an uncalibrated estimate carrying an explicit plus or minus 20%, and "
             "nothing but a real sample replaces that. It also calibrates every future "
-            "estimate at that gauge, and it is the gate Class C products cannot pass at all. "
-            "This cannot be automated: it requires hands, yarn and a hook."),
-    max_cost_cad=25.0,
-    minutes=420,
+            "estimate at that gauge, and gates.risk_matrix requires a full physical make of "
+            "this exact content before any Class C product can sell. This cannot be "
+            "automated: it requires hands, yarn and a hook -- a tester's, not the owner's."),
+    # ESTIMATED ceiling, not a sourced rate: 8 tester hours at the risk matrix's assumed fee
+    # plus the CA$25 of yarn the old owner-made sample budgeted (no tester has been paid yet).
+    max_cost_cad=round(8 * _rm.TESTER_FEE_CAD_PER_HOUR + 25.0, 2),
+    minutes=_rm.OWNER_MINUTES,
     consequence_of_delay=("Yardage stays a tolerance rather than a figure, Class C products "
                           "stay unshippable, and the first buyer becomes the tester."),
     blocks="calibrated yardage claims and any fitted garment",
@@ -671,6 +680,24 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         # Never the owner's ask any more, only ever unmet. See PHYSICAL_SAMPLE_PARKED.
         owner_request=None))
 
+    # F-073 / F-080 / F-081 / F-086: the risk-based evidence requirement that replaces "the
+    # owner must crochet a sample". Each certified release needs the evidence its effective
+    # risk tier names -- deterministic at the automated threshold for Class A, a partial
+    # physical test for B, a full make for C -- bound to its exact content. The calibration
+    # requirement above stays: the underlying truth objective is not deleted.
+    from ..gates.risk_matrix import catalogue_status
+
+    tiers = catalogue_status(db)
+    out.append(Requirement(
+        key="risk_based_physical_evidence",
+        description=("every certified release holds the physical evidence its risk tier "
+                     "requires, bound to its exact content"),
+        ready=tiers["ready"], blocked_by=None if tiers["ready"] else BLOCKED_TESTER,
+        evidence=tiers,
+        # Waiting on an independent tester (the `tester_roster` gate), never on the owner's
+        # hands; each unmet row carries the spend request the owner would approve.
+        owner_request=None))
+
     out.append(Requirement(
         key="brand_clearance",
         description="the shop name has been through a trademark knock-out search",
@@ -855,6 +882,27 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                                "contribution_per_sale_cad": r.get("contribution_per_sale_cad")}
                         for slug, r in list(sustainability.break_even(db)["products"]
                                             .items())[:20]}}))
+
+    # F-400 / F-879 / F-136: launch is driven by the Final Master launch-critical set, computed
+    # (not summarised) by build2.final_master from the adjudicated closure snapshot that ships
+    # in the image. Post-launch rows never block; only OPEN launch-critical rows and integrity
+    # violations do. GATED rows wait on owner/data/external gates presented elsewhere.
+    from ..build2 import final_master
+
+    fm = final_master.summary(db)
+    out.append(_build(
+        "final_master_closure",
+        "every launch-critical Final Master requirement is complete or explicitly gated, and "
+        "the closure snapshot passes its integrity checks",
+        bool(fm.get("launch_ready")),
+        {"status": fm["status"], "launch_critical": fm.get("launch_critical"),
+         "launch_critical_open": fm.get("launch_critical_open"),
+         "gated_by_kind": fm.get("gated_by_kind"),
+         "post_launch_excluded": fm.get("post_launch_excluded"),
+         "integrity_violations": (fm.get("integrity_violations") or [])[:10],
+         "open_sample": [r["uid"] for r in (fm.get("items") or [])[:25]],
+         "mapping_basis": fm.get("mapping_basis"), "rule": fm.get("rule"),
+         "reason": fm.get("reason")}))
 
     out.append(Requirement(
         key="phase",

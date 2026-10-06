@@ -792,6 +792,11 @@ def handle_certify(ctx: JobContext) -> dict:
                       "physical_test_required": cert.physical_test_required,
                       "physical_evidence": cert.physical_evidence})
 
+    # F-078: a material change invalidated physical evidence this product's class requires.
+    # The re-test is requested here, as an owner spend approval for an independent tester
+    # (never the owner's labour, F-071), instead of the block only saying "needs a re-test".
+    _request_physical_retest(ctx, cir, cert)
+
     if cert.granted:
         previous_hash = _stored_release_hash(ctx, cir)
         _persist_release(ctx, cir, cert.to_dict(), cert.release_hash)
@@ -885,6 +890,57 @@ def handle_certify(ctx: JobContext) -> dict:
 CERTIFY_ACTIONS: tuple[str, ...] = ("gate.certified", "gate.blocked")
 
 
+def _request_physical_retest(ctx: JobContext, cir: CIR, cert) -> dict | None:
+    """Queue one owner action when required physical evidence was invalidated (F-078).
+
+    Only an *invalidated* binding raises it: that is the case where a tester has already
+    worked this product and a material change made their evidence stale, so the request is
+    for a specific, known re-test. A product that never had evidence is reported by launch
+    readiness and the tester plan instead of being pushed into the owner queue ahead of a
+    tester roster existing. Keyed on slug@version and the new content hash, so one change is
+    one request however many times certification re-runs.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+    from ..gates import risk_matrix
+
+    matrix = cert.risk_matrix or {}
+    status = matrix.get("requirement") or {}
+    if not status.get("retest_required"):
+        return None
+    twin = cert.twin_summary or {}
+    try:
+        from ..seasonal.leadtime import estimate_for
+
+        hours = estimate_for(cir, compile_cir(cir)).hours
+    except Exception:  # noqa: BLE001 - an estimate we cannot make widens nothing; swatch scope
+        hours = None
+    spec = risk_matrix.owner_action_spec(
+        slug=cir.slug, version=cir.version, content_hash=cert.content_hash,
+        required=status["required"], effective_class=matrix.get("effective", "C"),
+        make_hours=hours, yarn_metres=sum((twin.get("yarn_metres") or {}).values()) or None,
+        retest=True)
+    fields = {k: spec[k] for k in ("action", "reason", "max_cost_cad", "minutes",
+                                   "consequence_of_delay", "blocks")}
+    with ctx.db.session() as s:
+        existing = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == spec["requirement_key"]))
+        if existing is None:
+            s.add(OwnerAction(requirement_key=spec["requirement_key"], **fields))
+            state = "queued"
+        else:
+            state = "already_decided" if existing.done else "restated"
+            if not existing.done:
+                for name, value in fields.items():
+                    setattr(existing, name, value)
+    ctx.audit("physical.retest_requested", artifact=f"{cir.slug}@{cir.version}",
+              detail={"owner_action": state, "requirement_key": spec["requirement_key"],
+                      "required": status["required"], "cost_basis": spec["cost_basis"],
+                      "why": status.get("why")})
+    return {"state": state, **spec}
+
+
 def _naive_utc(dt):
     """SQLite hands datetimes back naive; everything here is UTC, so compare naive."""
     if dt is None:
@@ -940,9 +996,14 @@ def physical_evidence_rows(db, slug: str) -> list[dict]:
                        or (_content_certified_at(s, t.product_slug, t.version,
                                                  t.completed_at)
                            if t.completed_at is not None else None))
+            # F-072: the evidence class the sample was recorded as (partial or full make).
+            from ..gates.risk_matrix import physical_class_of
+
+            cls, legacy = physical_class_of(measured)
             out.append({"id": t.id, "slug": t.product_slug, "version": t.version,
                         "passed": t.passed, "completed_at": t.completed_at,
-                        "content_hash": content, "compatible_variants": variants})
+                        "content_hash": content, "compatible_variants": variants,
+                        "evidence_class": cls, "legacy_unstamped": legacy})
     return out
 
 

@@ -11,7 +11,7 @@ parameter a proposal would change:
    in. The list is hard-coded on purpose: a list the loop could edit is a list the loop
    would eventually edit.
 2. **Every protected constant the governance scan finds is refused too** (UPPERCASE
-   constants of the gates, cir, publish, quality, visual and improve packages) -- including
+   constants of the gates, cir, publish, quality, visual, learn and improve packages) -- including
    this engine's own evidence floors, so the loop cannot lower the sample size it is judged
    on.
 3. **Anything not declared tunable by a loop is refused.** An unknown parameter is treated
@@ -187,7 +187,7 @@ def check_payload(params: dict, *, tunable: dict) -> list[Verdict]:
 def describe() -> dict:
     return {"invariants": [{"key": i.key, "protects": i.protects,
                             "vocabulary": list(i.vocabulary)} for i in PROTECTED_INVARIANTS],
-            "also_protected": ("every UPPERCASE constant of the gates, cir, publish, quality, "
+            "also_protected": ("every UPPERCASE constant of the gates, cir, publish, quality, learn, "
                                "visual and improve packages (improve.governance scan), and "
                                "every parameter no policy loop declares tunable"),
             "enforced_at": ["proposal (submit/cycle)", "cross-agent challenge",

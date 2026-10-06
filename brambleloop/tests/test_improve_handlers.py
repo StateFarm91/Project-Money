@@ -99,7 +99,7 @@ def test_improve_measure_records_capability_points_through_the_handler():
     db = _db()
     empty = _run(db, "improve.measure")
     # The only row an empty company has is this job itself, which the runtime cell counts.
-    assert empty["cells"] == ["runtime"] and len(empty["skipped"]) == 11
+    assert empty["cells"] == ["runtime"] and len(empty["skipped"]) == 12  # thirteen cells (learn, F-799) less runtime
     _seed(db)
     out = _run(db, "improve.measure")
     assert out["measured"] >= 6 and "pattern_engineering" in out["cells"]
@@ -139,7 +139,7 @@ def test_the_nightly_sweep_ingests_mines_and_queues_for_real():
     assert stages["mine_failures"]["outcome"] == "ran_and_found"
     assert stages["update_lessons"]["outcome"] == "ran_and_found"
     assert stages["run_challengers"]["outcome"] in ("ran_and_found", "ran_and_found_nothing")
-    assert stages["queue_safe_improvements"]["read"] == 12
+    assert stages["queue_safe_improvements"]["read"] == 13  # thirteen cells incl. learn (F-799)
     # The never-measured proposals for cells measured tonight close as done, not failed.
     assert stages["queue_safe_improvements"]["detail"]["resolved_by_measurement"] >= 6
     assert _count(db, Improvement, state="promoted") == 0     # the sweep never promotes

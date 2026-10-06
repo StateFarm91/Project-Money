@@ -16,7 +16,12 @@ WHAT IS SCANNED
     brambleloop/reports/shadow_release/_store/, and every research/**/evidence directory.
 Binary files (a NUL byte in the first 8 KiB) are skipped, as are files over 20 MB; both limits
 are stated because a scan that silently skips is the failure this file exists to prevent.
-A compressed PDF stream is not decoded -- a named limit, not a pass.
+PDFs are the exception to the binary skip (wave 3, lane TOOLS): a file starting `%PDF` is
+scanned as its raw text plus every FlateDecode stream decompressed (`pdf_text`), because a
+rendered pattern or report PDF is exactly where a credential pasted into a template would hide.
+A stream that is not Flate (or fails to inflate) is scanned raw and counted in
+`pdf_streams_undecoded` -- still a named limit, now a measured one. Production/Railway logs are
+outside the repository and are not scanned here (that needs production log access: GATED).
 
 WHAT A HIT LOOKS LIKE. A finding names the file, the line, the pattern and a 12-hex fingerprint
 (sha256 of the matched text). It NEVER contains the matched text: a secret scanner whose failure
@@ -132,10 +137,32 @@ def candidate_files() -> list[Path]:
     return out
 
 
+_STREAM = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.S)
+PDF_STATS = {"pdfs": 0, "streams_decoded": 0, "streams_undecoded": 0}
+
+
+def pdf_text(raw: bytes) -> str:
+    """The PDF's raw bytes as text, followed by every Flate stream inflated (F-159)."""
+    import zlib
+
+    parts = [raw.decode("latin-1")]
+    for m in _STREAM.finditer(raw):
+        body = m.group(1)
+        try:
+            parts.append(zlib.decompress(body).decode("latin-1"))
+            PDF_STATS["streams_decoded"] += 1
+        except zlib.error:
+            PDF_STATS["streams_undecoded"] += 1
+    return "\n".join(parts)
+
+
 def _read_text(p: Path) -> str | None:
     if p.stat().st_size > MAX_BYTES:
         return None
     raw = p.read_bytes()
+    if raw[:5] == b"%PDF-":
+        PDF_STATS["pdfs"] += 1
+        return pdf_text(raw)
     if b"\0" in raw[:8192]:
         return None
     return raw.decode("utf-8", errors="replace")
@@ -159,8 +186,13 @@ def scan_repository() -> tuple[list[str], int, list[str]]:
 
 # --- the gate ------------------------------------------------------------------------------------
 def test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts():
-    findings, scanned, _ = scan_repository()
+    findings, scanned, skipped = scan_repository()
     assert scanned > 500, f"only {scanned} files scanned; the scan is not seeing the repository"
+    # Every PDF the repository carries is scanned, streams inflated -- none is skipped as binary.
+    pdfs = [p for p in candidate_files() if p.suffix.lower() == ".pdf"]
+    assert pdfs and PDF_STATS["pdfs"] >= len(pdfs), (len(pdfs), PDF_STATS)
+    assert not [s for s in skipped if s.lower().endswith(".pdf")]
+    assert PDF_STATS["streams_decoded"] > 0, PDF_STATS
     assert not findings, ("credential-shaped strings found (values withheld):\n  "
                           + "\n  ".join(findings))
 
@@ -218,6 +250,24 @@ def test_placeholders_and_templated_headers_are_not_findings():
         "x-api-key: {keystring}",
     ])
     assert scan_text(benign) == [], scan_text(benign)
+
+
+def test_a_credential_inside_a_compressed_pdf_stream_is_found():
+    """F-159: the compressed-stream skip is closed for Flate streams."""
+    import zlib
+
+    secret = _fake("AKIA", "Q" * 16)
+    body = zlib.compress(f"BT /F1 12 Tf ({secret}) Tj ET".encode())
+    raw = (b"%PDF-1.4\n1 0 obj << /Filter /FlateDecode /Length " + str(len(body)).encode()
+           + b" >>\nstream\n" + body + b"\nendstream\nendobj\n%%EOF\n")
+    assert b"AKIA" not in raw                     # invisible to a raw byte scan
+    hits = scan_text(pdf_text(raw))
+    assert [h[1] for h in hits] == ["aws_access_key_id"], hits
+    assert all(secret not in str(h) for h in hits)
+    import tempfile
+    f = Path(tempfile.mkdtemp()) / "x.pdf"
+    f.write_bytes(raw)
+    assert _read_text(f) is not None              # a PDF is not skipped as binary
 
 
 def test_a_finding_never_contains_the_matched_value():

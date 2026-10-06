@@ -50,10 +50,17 @@ POLICY_SUSPECTED = "policy_violation_suspected:"
 UNEXPECTED_LISTING = "etsy.unexpected_listing:"
 LISTING_DRIFT = "etsy.listing_drift:"
 SHOP_INCIDENTS = "etsy.shop:"
+SECURITY_INCIDENT = "etsy.security:"
+#: K8 F-250: a listing of ours renewed for recency (the rule refuses it), and an expired
+#: listing of ours whose renewal the rule allows (proposed to the owner, never executed).
+RENEWAL_REFUSED = "etsy.renewal_refused:"
+LISTING_EXPIRED = "etsy.listing_expired:"
 
 SHOP_READING = "etsy.shop_snapshot"
 CENSUS_READING = "etsy.listing_census"
 CREDENTIAL_READING = "etsy.credential_health"
+INVENTORY_READING = "etsy.surface_inventory"
+LIFECYCLE_READING = "etsy.listing_lifecycle"
 
 #: The scopes the publish, read-back and census paths use. A stored credential missing any
 #: of them is scope drift (F-540/F-541): the next write or read would be refused.
@@ -800,10 +807,49 @@ def handle_credential_health(ctx: JobContext) -> dict:
     reading = {"observed_at": time.time(), "status": status, "stored": health["stored"],
                "openable": health["openable"], "scopes": sorted(scopes),
                "missing_scopes": missing, "rotations": health.get("rotations"),
-               "updated_at": health.get("updated_at"), "live": live, "findings": findings}
+               "updated_at": health.get("updated_at"), "live": live, "findings": findings,
+               # A masked fingerprint ("***abcd"), never the token: F-592 compares it day
+               # to day to see a credential replaced outside this system's refresh.
+               "token_fingerprint": health.get("token_fingerprint")}
+    reading["security_posture"] = _security_posture(ctx.db, reading)
     store_reading(ctx.db, CREDENTIAL_READING, reading)
     ctx.audit("etsy.credential_health", detail={**reading, "auth": auth})
     return {"status": status, "findings": findings, "live_ok": live.get("ok")}
+
+
+def _security_posture(db, reading: dict) -> dict:
+    """K8 F-592: the day's posture (commerce.shop_security), and its incident."""
+    from ..commerce import shop_observations, shop_security
+    from ..ops import incident_lifecycle as lifecycle
+
+    try:
+        from ..integrations import etsy_authorise
+
+        callback = etsy_authorise.configuration()
+        callback = {"problems": callback.get("problems") or [],
+                    "redirect_uri": bool(callback.get("redirect_uri"))}
+    except Exception as e:  # noqa: BLE001 - an unreadable configuration is a finding
+        callback = {"problems": [f"REDIRECT configuration unreadable: {type(e).__name__}"]}
+    previous = latest_reading(db, CREDENTIAL_READING)
+    posture = shop_security.posture(
+        reading, previous if previous and previous.get("observed_at") != reading.get(
+            "observed_at") else None,
+        observations={p: shop_observations.latest(db, p) for p in ("apps", "shared_access")},
+        callback=callback)
+    signature = f"{SECURITY_INCIDENT}posture"
+    with db.session() as s:
+        if posture["findings"]:
+            suspicious = any(f.get("suspicious") for f in posture["findings"])
+            lifecycle.open_or_restate(
+                s, signature=signature, severity="P1" if suspicious else "P2",
+                summary=("Etsy shop security posture: "
+                         + "; ".join(f["detail"] for f in posture["findings"][:3])),
+                detail={"findings": posture["findings"], "checks": posture["checks"]})
+        elif posture["status"] == "OK":
+            lifecycle.resolve_signatures(
+                s, [signature], resolution=f"posture OK at {_now().isoformat()}: scopes, "
+                                           f"rotation, callback, apps and shared access clear")
+    return posture
 
 
 # ---- F-515 / F-577 / F-585: the shop snapshot ----------------------------------------
@@ -844,7 +890,20 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
     previous = latest_reading(ctx.db, SHOP_READING)
     snapshot = {"observed_at": now, "shop": body}
     status = etsy_surfaces.assess_shop(snapshot, now=now)
-    store_reading(ctx.db, SHOP_READING, {**snapshot, "status": status.to_dict()})
+    # K8: F-537 live policy text vs its canonical sources; F-585 the Options registry;
+    # F-514 the surface inventory re-verified against what is held today.
+    from ..commerce import policy_consistency, shop_observations, shop_options, \
+        surface_inventory
+
+    policy = policy_consistency.check(body)
+    options = shop_options.evaluate(
+        body, (previous or {}).get("shop"),
+        shop_observations.latest(ctx.db, "options").get("observation"))
+    store_reading(ctx.db, SHOP_READING, {**snapshot, "status": status.to_dict(),
+                                         "policy_consistency": policy,
+                                         "options_registry": options})
+    inventory = surface_inventory.reverify(ctx.db, now=now)
+    store_reading(ctx.db, INVENTORY_READING, inventory)
     checks = {c.key: c for c in status.checks}
 
     def failed(key: str) -> bool:
@@ -880,6 +939,34 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
                 resolved += lifecycle.resolve_signatures(
                     s, [signature], resolution=f"getShop read at {_now().isoformat()} no "
                                                f"longer shows this condition")
+        k8 = {
+            f"{SHOP_INCIDENTS}policy_inconsistent": (
+                not policy["consistent"],
+                "P1" if policy["contradictions"] else "P2",
+                "the live shop's policy text disagrees with its canonical source: "
+                + "; ".join([f"{c['field']} contradicts {c['fact']} ({c['found']!r})"
+                             for c in policy["contradictions"]][:3]
+                            + [f"{f} differs from canonical" for f in policy["differs"]][:3]
+                            + policy["internal_problems"][:2]),
+                {"policy_consistency": policy}),
+            f"{SHOP_INCIDENTS}options_drift": (
+                bool(options["drift"]), "P2",
+                f"Settings > Options drifted: {options['drift']}",
+                {"options": [c for c in options["controls"]
+                             if c["status"] in ("DRIFT", "CHANGED")],
+                 "ui_change": options["ui_change"]}),
+        }
+        for signature, (holds, severity, summary, detail) in k8.items():
+            if holds:
+                _, new = lifecycle.open_or_restate(
+                    s, signature=signature, severity=severity, summary=summary,
+                    detail={"observed_at": now, **detail})
+                if new:
+                    opened.append(signature)
+            else:
+                resolved += lifecycle.resolve_signatures(
+                    s, [signature], resolution=f"getShop read at {_now().isoformat()} no "
+                                               f"longer shows this condition")
         closed, reopened = [], []
         if status.evidence_state == etsy_surfaces.FRESH:
             for key, needed in CLOSES_ON_SHOP_CHECKS.items():
@@ -899,7 +986,9 @@ def handle_shop_snapshot(ctx: JobContext) -> dict:
         "incidents_opened": opened, "incidents_resolved": resolved,
         "owner_actions_closed": closed, "owner_actions_reopened": reopened})
     return {"evidence": status.evidence_state, "green": status.green,
-            "failures": [c.key for c in status.failures], "incidents_opened": opened}
+            "failures": [c.key for c in status.failures], "incidents_opened": opened,
+            "policy_consistent": policy["consistent"], "options_drift": options["drift"],
+            "inventory_problems": len(inventory["problems"])}
 
 
 # ---- F-553 / F-544 / F-568: the listing census ---------------------------------------
@@ -983,7 +1072,12 @@ def handle_listing_census(ctx: JobContext) -> dict:
         {lid: k["state"] for lid, k in known.items()}, observed, observed_at=now, now=now)
     by_id = {str(r.get("listing_id")): r for r in observed}
 
+    from ..commerce import listing_estate, listing_lifecycle, listing_rollback
+
     drift: dict[str, list[str]] = {}
+    fulls: dict[str, dict] = {}
+    assets: dict[str, dict] = {}
+    plans: dict[str, dict] = {}
     for lid, k in known.items():
         remote = by_id.get(lid)
         if remote is not None and k.get("slug"):
@@ -991,20 +1085,52 @@ def handle_listing_census(ctx: JobContext) -> dict:
                 full = with_properties(client, lid, client.get_listing(lid))
             except Exception:  # noqa: BLE001 - fall back to the census row
                 full = remote
+            fulls[lid] = full
             found = _field_drift(ctx.db, k, full)
+            # K8 F-544/F-559: images and the exact customer files, re-read every day.
+            try:
+                assets[lid] = listing_estate.asset_audit(ctx.db, client, lid, k)
+                found = found + assets[lid]["drift"]
+            except EtsyAuthNeedsOwner as e:
+                auth = record_auth_needs_owner(ctx.db, e, where="etsy.listing_census")
+                ctx.audit("etsy.listing_census", detail={"evidence": "NO_EVIDENCE",
+                                                         "auth": auth})
+                return {"evidence": "NO_EVIDENCE", "reason": "credential needs the owner"}
+            except Exception as e:  # noqa: BLE001 - an unread asset is unverified
+                assets[lid] = None
+                found = found + [f"assets: read failed ({type(e).__name__}); delivery "
+                                 f"UNVERIFIED"]
             if found:
                 drift[lid] = found
+                # K8 F-518: the defined restore and its stop conditions, never executed here.
+                try:
+                    plans[lid] = listing_rollback.plan(
+                        listing_id=lid, slug=k.get("slug"), version=k.get("version"),
+                        certified=sent_fields(certified_payload(ctx.db, k["slug"],
+                                                                k["version"])),
+                        remote=full)
+                except Exception as e:  # noqa: BLE001 - no plan is stated, not hidden
+                    plans[lid] = {"listing_id": lid, "restore": {}, "owner_steps": [
+                        f"no rollback plan: {type(e).__name__}: {str(e)[:160]}"]}
 
-    estate = [{"listing_id": str(r.get("listing_id")), "state": r.get("state"),
-               "title": r.get("title"), "taxonomy_id": r.get("taxonomy_id"),
-               "price": r.get("price"), "quantity": r.get("quantity"),
-               "ending_timestamp": r.get("ending_timestamp"),
-               "should_auto_renew": r.get("should_auto_renew"),
-               "ours": str(r.get("listing_id")) in known,
-               "slug": (known.get(str(r.get("listing_id"))) or {}).get("slug")}
-              for r in observed]
+    # K8 F-553: the estate row carries assets, files, properties, expiry, renewal and fee.
+    estate = [listing_estate.estate_row(
+        r, known.get(str(r.get("listing_id"))), now=now,
+        assets=assets.get(str(r.get("listing_id"))),
+        properties=(fulls.get(str(r.get("listing_id"))) or {}).get("properties"))
+        for r in observed]
+    previous_census = latest_reading(ctx.db, CENSUS_READING)
+    # K8 F-250: the renewal rule (publish.release_gates.renewal_decision) on every census.
+    renewals = listing_estate.renewal_review(
+        (previous_census or {}).get("estate"), estate,
+        material_changes=listing_estate.material_changes(ctx.db))
+    delivery = {lid: (a or {}).get("delivery", {}).get("status",
+                                                       listing_estate.DELIVERY_UNVERIFIED)
+                for lid, a in assets.items()}
     store_reading(ctx.db, CENSUS_READING, {"observed_at": now, "estate": estate,
-                                           "status": status.to_dict(), "drift": drift})
+                                           "status": status.to_dict(), "drift": drift,
+                                           "delivery": delivery, "renewals": renewals,
+                                           "rollback_plans": plans})
 
     deadline = (_now() + timedelta(days=POLICY_DEADLINE_DAYS)).isoformat()
     suspected, unexpected = {}, {}
@@ -1038,6 +1164,7 @@ def handle_listing_census(ctx: JobContext) -> dict:
                 detail={"listing_id": lid})
             if new:
                 opened.append(f"{UNEXPECTED_LISTING}{lid}")
+        drift_opened: list[str] = []
         for lid, found in drift.items():
             k = known.get(lid) or {}
             _, new = lifecycle.open_or_restate(
@@ -1046,23 +1173,65 @@ def handle_listing_census(ctx: JobContext) -> dict:
                 summary=(f"Etsy listing {lid} ({k.get('slug')}@{k.get('version')}) no longer "
                          f"matches its certified listing: {'; '.join(found[:3])}. Reconcile "
                          f"deliberately; nothing here overwrites it."),
-                detail={"listing_id": lid, "drift": found[:10]})
+                detail={"listing_id": lid, "drift": found[:10],
+                        "rollback_plan": plans.get(lid)})
             if new:
                 opened.append(f"{LISTING_DRIFT}{lid}")
+                drift_opened.append(lid)
+        for item in renewals["refused_renewals"]:
+            _, new = lifecycle.open_or_restate(
+                s, signature=f"{RENEWAL_REFUSED}{item['listing_id']}", severity="P2",
+                product_slug=item.get("slug"),
+                summary=(f"Etsy listing {item['listing_id']} was renewed while "
+                         f"{item.get('was_state')} (expiry moved {item['expiry_moved_days']} "
+                         f"days) with no material change: {item['why']}"),
+                detail=item)
+            if new:
+                opened.append(f"{RENEWAL_REFUSED}{item['listing_id']}")
+        for item in renewals["proposals"]:
+            _, new = lifecycle.open_or_restate(
+                s, signature=f"{LISTING_EXPIRED}{item['listing_id']}", severity="P2",
+                product_slug=item.get("slug"),
+                summary=(f"Etsy listing {item['listing_id']} ({item.get('slug')}) has expired. "
+                         f"Renewal is allowed by the rule ({item['why']}); proposed to the "
+                         f"owner, not executed."),
+                detail=item)
+            if new:
+                opened.append(f"{LISTING_EXPIRED}{item['listing_id']}")
         # Only a census that was actually read may close anything.
         resolved = []
+        expired_ids = {p["listing_id"] for p in renewals["proposals"]}
         for prefix, still in ((POLICY_SUSPECTED, suspected), (UNEXPECTED_LISTING, unexpected),
-                              (LISTING_DRIFT, drift)):
+                              (LISTING_DRIFT, drift), (LISTING_EXPIRED, expired_ids)):
             life = lifecycle.reconcile(
                 s, prefix, lambda row, p=prefix, st=still: row.signature[len(p):] in st,
                 resolution=f"the census at {_now().isoformat()} observed the listing as "
                            f"expected")
             resolved += life["resolved"]
+    # K8 F-568: an owner-recorded violation past its deadline is restated OVERDUE daily.
+    from ..commerce import policy_violations
+
+    violations = policy_violations.escalate_overdue(ctx.db)
+    # K8 F-545: the unified lifecycle (incl. stranded test listings) beside the census.
+    store_reading(ctx.db, LIFECYCLE_READING, listing_lifecycle.summary(ctx.db))
+    for lid in drift_opened:
+        k = known.get(lid) or {}
+        listing_lifecycle.record(
+            ctx.db, action="observe_drift", listing_id=lid, actor="etsy.listing_census",
+            evidence="getListing + getAllListingFiles + getListingImages read-back",
+            before={"certified_restore": (plans.get(lid) or {}).get("restore")},
+            after={"drift": drift[lid][:10]}, result="reconcile incident opened",
+            slug=k.get("slug"), version=k.get("version"))
     ctx.audit("etsy.listing_census", detail={
         "evidence": status.evidence_state, "observed": len(observed), "known": len(known),
+        "delivery": delivery, "refused_renewals": len(renewals["refused_renewals"]),
+        "overdue_violations": violations["overdue"],
+        "expired_proposals": len(renewals["proposals"]),
         "suspected_policy": sorted(suspected), "unexpected": sorted(unexpected),
         "field_drift": sorted(drift), "incidents_opened": opened,
         "incidents_resolved": resolved})
     return {"evidence": status.evidence_state, "observed": len(observed),
             "suspected_policy": sorted(suspected), "unexpected": sorted(unexpected),
-            "field_drift": sorted(drift)}
+            "field_drift": sorted(drift), "delivery": delivery,
+            "refused_renewals": [r["listing_id"] for r in renewals["refused_renewals"]],
+            "expired": sorted({p["listing_id"] for p in renewals["proposals"]})}

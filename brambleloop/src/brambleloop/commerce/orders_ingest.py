@@ -438,6 +438,16 @@ def lines(receipt: dict) -> list[dict]:
         refunds = {k: 0.0 for k in amounts}
     if problems:
         state, why = UNRECONCILED, "; ".join(problems)
+    # K8 F-535: what Etsy's refund rows say about why (reason / note_from_issuer), per line
+    # when the refund names the transaction, else the receipt's. Text only, no buyer data.
+    reasons: dict[str, list[str]] = {}
+    for r in receipt.get("refunds") or []:
+        if not isinstance(r, dict):
+            continue
+        said = [str(r.get(k)).strip()[:300] for k in ("reason", "note_from_issuer")
+                if str(r.get(k) or "").strip()]
+        if said:
+            reasons.setdefault(str(r.get("transaction_id") or "*"), []).extend(said)
     out = []
     for t, amount, currency, qty in priced:
         tid = str(t.get("transaction_id"))
@@ -453,6 +463,7 @@ def lines(receipt: dict) -> list[dict]:
             "refund": refund, "state": line_state, "state_why": why,
             "at": at, "paid_at": _ts(t.get("paid_timestamp")) or at,
             "revision": rev, "status": str(receipt.get("status") or "").strip().lower(),
+            "refund_reasons": reasons.get(tid, []) + reasons.get("*", []),
             # Kept for readers of the old shape; the state is the truth.
             "refunded": line_state == FULLY_REFUNDED,
         })
@@ -633,7 +644,8 @@ def _reconcile_existing(s, order, line: dict, money: dict, ledger) -> list[str]:
                     # What the RECEIPT says was refunded; a larger refund Etsy's ledger
                     # showed is `ledger_refund_cad`, and revenue follows the larger.
                     "refund": {"amount_original": line["refund"], "cad": receipt_refund_cad,
-                               "currency": line["currency"]},
+                               "currency": line["currency"],
+                               "reasons": list(line.get("refund_reasons") or [])},
                     "money": {"fx": money["fx"],
                               "fees": (prior_money.get("fees") or money["fees"]) if measured
                               else money["fees"],
@@ -921,7 +933,8 @@ def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
                                  "unmodelled)"),
                   "source_revision": line["revision"],
                   "refund": {"amount_original": line["refund"], "cad": money["refund_cad"],
-                             "currency": line["currency"]},
+                             "currency": line["currency"],
+                             "reasons": list(line.get("refund_reasons") or [])},
                   "attribution": {"basis": ATTRIBUTION_BASIS, "marketplace": "etsy",
                                   "channel": "unknown", "confidence": "none",
                                   "why": ("an Etsy receipt carries no acquisition channel: "

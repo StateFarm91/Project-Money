@@ -116,7 +116,12 @@ import board as B                                                      # noqa: E
 
 # Beside `ops/LOCK`, and untracked for the same reason: it names machine-local paths. It
 # survives a container restart because the checkout does; that is the whole requirement.
-REGISTRY = _HERE / "JOBS.json"
+REGISTRY = Path(os.environ.get("BRAMBLELOOP_JOB_REGISTRY") or (_HERE / "JOBS.json"))
+# F-342: every enrolled job says whether it IS the workload or merely WATCHES one. A query for
+# the workload (`workloads`) never returns an observer, and an observer's marker must differ
+# from the workload's, so neither the observer nor its shell can satisfy a liveness probe for
+# the work it watches.
+ROLES = ("work", "observer")
 
 # The branch every lane is integrated into. Recorded per job so it cannot silently change
 # underneath an old record.
@@ -324,16 +329,28 @@ class Registry:
 
     # -- writing ------------------------------------------------------------------------
     def enrol(self, job: B.Job, *, lane: str = "", branch: str | None = None,
-              integration_ref: str = INTEGRATION_REF) -> dict:
+              integration_ref: str = INTEGRATION_REF, role: str = "work",
+              watches: str | None = None) -> dict:
         """Record where this job's evidence will be, before it is needed.
 
         Enrolment is the only moment at which the host identity is truthful, which is why it
         is captured here and not at read time.
         """
+        if role not in ROLES:
+            raise ValueError(f"role must be one of {ROLES}, not {role!r}")
         data = self.load()
+        if role == "observer":
+            target = data["jobs"].get(watches or "")
+            if target is None:
+                raise ValueError("an observer must name the enrolled job it watches")
+            if job.marker and job.marker == target.get("marker"):
+                raise ValueError("an observer cannot carry its workload's marker: a liveness "
+                                 "probe for the work would then be satisfied by the observer")
         prior = data["jobs"].get(job.name, {})
         rec = {
             "name": job.name,
+            "role": role,
+            "watches": watches if role == "observer" else None,
             "lane": lane or prior.get("lane", ""),
             "log": str(job.log),
             "terminal": job.terminal.pattern,
@@ -357,6 +374,11 @@ class Registry:
         data["jobs"][job.name] = rec
         self._save(data)
         return rec
+
+    def workloads(self) -> list[str]:
+        """Names of jobs that ARE work. Records written before roles existed count as work."""
+        return sorted(n for n, r in self.load()["jobs"].items()
+                      if r.get("role", "work") == "work")
 
     def forget(self, name: str) -> bool:
         data = self.load()
@@ -514,6 +536,7 @@ class Registry:
         base = {
             "job": rec["name"],
             "lane": rec.get("lane", ""),
+            "role": rec.get("role", "work"),
             "evidence_path": rec["log"],
             "evidence_present": job.log.exists(),
             "same_host": here,
@@ -643,8 +666,18 @@ def reliability_lines(*, ledger=None, waste: dict | None = None) -> list[str]:
 
 def _cli(argv: list[str]) -> int:
     """Read and write the file. No scheduling, no supervision, no daemon -- on purpose."""
+    argv = list(argv)
+    opts = {}
+    for flag in ("--role", "--watches"):
+        if flag in argv:
+            i = argv.index(flag)
+            if i + 1 >= len(argv):
+                print(f"{flag} needs a value")
+                return 2
+            opts[flag[2:]] = argv[i + 1]
+            del argv[i:i + 2]
     cmd = argv[1] if len(argv) > 1 else "survey"
-    reg = Registry()
+    reg = Registry(Path(os.environ.get("BRAMBLELOOP_JOB_REGISTRY") or REGISTRY))
     if cmd == "survey":
         out = reg.survey()
         out["reliability"] = reliability_lines()
@@ -655,8 +688,13 @@ def _cli(argv: list[str]) -> int:
         lane = argv[4] if len(argv) > 4 else ""
         branch = argv[5] if len(argv) > 5 else None
         marker = argv[6] if len(argv) > 6 else ""
-        rec = reg.enrol(B.Job(name=name, log=Path(log), marker=marker), lane=lane,
-                        branch=branch)
+        try:
+            rec = reg.enrol(B.Job(name=name, log=Path(log), marker=marker), lane=lane,
+                            branch=branch, role=opts.get("role", "work"),
+                            watches=opts.get("watches"))
+        except ValueError as exc:
+            print(f"refused: {exc}")
+            return 2
         print(json.dumps(rec, indent=2, sort_keys=True))
         return 0
     if cmd == "ack" and len(argv) >= 3:
@@ -672,7 +710,11 @@ def _cli(argv: list[str]) -> int:
         print("forgotten" if reg.forget(argv[2]) else "not enrolled")
         return 0
     print(__doc__.strip().splitlines()[0])
-    print("usage: registry.py [survey | enrol <name> <log> [lane] [branch] [marker] | "
+    if cmd == "workloads":
+        print(json.dumps(reg.workloads(), indent=2))
+        return 0
+    print("usage: registry.py [survey | workloads | enrol <name> <log> [lane] [branch] "
+          "[marker] [--role work|observer] [--watches <job>] | "
           "ack <name> | integrate <name> <commit> | forget <name>]")
     return 2
 

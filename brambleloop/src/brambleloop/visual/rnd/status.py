@@ -19,7 +19,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 SOURCES = ["visual_rnd_pipelines", "visual_rnd_experiments", "visual_rnd_judgements",
-           "visual_rnd_market", "visual_rnd_lessons",
+           "visual_rnd_market", "visual_rnd_lessons", "visual_rnd_identity_reviews",
            "src/brambleloop/visual/rnd/loop.py", "src/brambleloop/visual/rnd/gates.py",
            "src/brambleloop/visual/rnd/pipeline.py",
            "src/brambleloop/visual/render_verification.py",
@@ -218,9 +218,31 @@ def _summary(db) -> dict:
         "gates": list(P.GATES), "advisory_gates": sorted(P.ADVISORY_GATES),
         "tunables": [t.to_dict() for t in P.TUNABLES.values()],
         "lessons": lessons(db, limit=10),
-        "spend": {"paid_execution": paid_execution_gate()},
+        "spend": {"paid_execution": paid_execution_gate(),
+                  # F-877: every queued paid challenger carries a plan; incomplete ones listed.
+                  "paid_plans_incomplete": [e.id for e in experiments
+                                            if e.state == "GATED_SPEND"
+                                            and _plan_problems(e.result)]},
+        # F-219: borderline identity results held for a human (open queue, newest first).
+        "identity_review": _identity_review(db),
         "sources": SOURCES,
     }
+
+
+def _plan_problems(result) -> list[str]:
+    from ..spend_plan import problems
+    return problems((result or {}).get("paid_plan"))
+
+
+def _identity_review(db) -> dict:
+    try:
+        from ..identity_gate import queue
+        open_items = queue(db, state="open", limit=20)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never zero
+        return {"reading": "UNKNOWN", "why": f"{type(exc).__name__}", "open_listed": None}
+    return {"reading": "MEASURED", "open_listed": len(open_items), "limit": 20,
+            "items": open_items,
+            "publication_approved_by_review": False}
 
 
 # ---- next_work -------------------------------------------------------------------------------
