@@ -153,7 +153,10 @@ def test_preview_shows_every_surface():
                    "Announcement", "About Brambleloop Studio", "Delivery (digital)",
                    "Returns and refunds", "Pattern licence and customer use", "Privacy",
                    "AI-use, digital-item and image disclosures", "Frequently asked questions",
-                   "Questions and support", "Home &amp; Table", "Baby &amp; Nursery",
+                   "Questions and support",
+                   # Section names are copy_v2's owner-nav names (wave 3, lane C).
+                   f"<li>{copy_v2.section_name('home')}<span",
+                   f"<li>{copy_v2.section_name('baby')}<span",
                    "CA$6.50", "CA$7.50", "CA$4.00", "3 sizes in one pattern",
                    "Owner readiness", "Settings that need the owner signed in"):
         assert needle in html, needle

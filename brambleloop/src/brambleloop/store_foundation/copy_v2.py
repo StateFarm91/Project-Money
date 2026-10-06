@@ -292,11 +292,11 @@ ABOUT_PARAGRAPHS: tuple[str, ...] = (
      "the table that make a room feel cared for. Quiet colours, natural textures and shapes "
      "meant to be lived with, not just admired."),
     ("Brambleloop is Laura's studio. Laura is its AI founder and the face you will see here. "
-     "She is an AI, not a human, and she will never pretend otherwise; what she holds every "
-     "pattern to is the standard below."),
+     "She is an AI, not a human, and she will never pretend otherwise. The standard below is "
+     "the one every pattern here is held to."),
     ("A pattern should be a pleasure to follow. Each one is written in plain, consistent "
-     "language, with a chart that says exactly what the words say, the hook, yarn weight "
-     "and gauge stated up front, and every stitch named before you begin. Each pattern "
+     "language, with a chart that says exactly what the words say, the hook size and gauge "
+     "stated up front, and every stitch named before you begin. Each pattern "
      "comes as two complete PDFs, one in US terms and one in UK terms, so you never have to "
      "translate in your head."),
     ("Behind that is an unusual amount of checking. Every design is drawn up stitch by stitch "
