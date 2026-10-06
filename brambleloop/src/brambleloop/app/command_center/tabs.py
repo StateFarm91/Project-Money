@@ -394,21 +394,32 @@ def timeline(db, limit: int = 50) -> dict:
     sources = ["audit_log"]
     a_events, why = providers.call_raw("timeline", db, limit=limit)
     a_status = "UNKNOWN"
+    a_sources: list = []
     if isinstance(a_events, dict):
-        a_status = a_events.get("status", "UNKNOWN")
+        # The real lane A provider is an envelope: its own status stands (an UNKNOWN
+        # envelope with no rows is UNKNOWN, never promoted to OK), as do its reason and
+        # sources.
+        a_status = str(a_events.get("status") or "UNKNOWN")
+        why = why or a_events.get("reason")
+        a_sources = [str(x) for x in (a_events.get("sources") or [])]
         a_events = a_events.get("items")
+        if not isinstance(a_events, list):
+            a_events = None
+    elif isinstance(a_events, list):
+        a_status = "OK"           # a bare list (older contract): rows were returned
     if isinstance(a_events, list):
-        a_status = "OK" if a_status == "UNKNOWN" else a_status
         for e in a_events:
             if isinstance(e, dict):
                 events.append({**e, "origin": "autonomy.status.timeline"})
         sources.append("brambleloop.autonomy.status.timeline")
+        sources.extend(x for x in a_sources if x not in sources)
     for e in readers.audit_events(db, limit=limit):
         events.append({**e, "origin": "audit_log"})
     events.sort(key=lambda e: str(e.get("at") or ""), reverse=True)
     return _tab("TIMELINE", {}, events=events[:limit], sources=sources,
                 autonomy_timeline={"status": a_status,
-                                   "reason": why if a_events is None else None})
+                                   "reason": why if (a_events is None or
+                                                     a_status != "OK") else None})
 
 
 def notifications_tab(db) -> dict:

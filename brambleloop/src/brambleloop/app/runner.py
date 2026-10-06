@@ -57,6 +57,7 @@ class RunnerState:
     worker_last_tick: datetime | None = None
     worker_restarts: int = 0
     scheduler_last_tick: datetime | None = None
+    scheduler_started_at: datetime | None = None
     scheduler_last_enqueued: list[str] = field(default_factory=list)
     last_error: str = ""
     worker_pool: int = 1
@@ -83,6 +84,7 @@ class RunnerState:
             "worker_last_tick": iso(self.worker_last_tick),
             "worker_restarts": self.worker_restarts,
             "scheduler_last_tick": iso(self.scheduler_last_tick),
+            "scheduler_started_at": iso(self.scheduler_started_at),
             "scheduler_last_enqueued": list(self.scheduler_last_enqueued),
             "last_error": self.last_error,
             "worker_pool": self.worker_pool,
@@ -198,6 +200,8 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
                     continue
                 did_work = worker.run_once()
                 STATE.worker_last_tick = _now()
+                if index == 0:
+                    _worker_heartbeat(db, name)
                 if not did_work:
                     stop.wait(_IDLE_SLEEP)
         except Exception as e:  # noqa: BLE001
@@ -230,7 +234,37 @@ def _lane_loop(db: Database, name: str, phase: Phase, stop: threading.Event, lan
             stop.wait(min(60.0, 2.0 * info["restarts"]))
 
 
+# v1.1 lane I W-2: the worker's durable liveness row, at most once a minute.
+_WORKER_HEARTBEAT_EVERY_S = 60.0
+_last_worker_heartbeat = 0.0
+
+
+def _worker_heartbeat(db: Database, name: str) -> None:
+    global _last_worker_heartbeat
+    if time.monotonic() - _last_worker_heartbeat < _WORKER_HEARTBEAT_EVERY_S:
+        return
+    _last_worker_heartbeat = time.monotonic()
+    try:
+        from ..ops import slo as _slo
+
+        _slo.record_heartbeat(db, "worker", instance=name)
+    except Exception:  # noqa: BLE001 - liveness evidence must never stop the worker
+        log.exception("worker heartbeat row not written")
+
+
+def _scheduler_heartbeat(db: Database, enqueued: list[str]) -> None:
+    """v1.1 lane I W-1: the scheduler's durable liveness row after every successful tick."""
+    try:
+        from ..ops import slo as _slo
+
+        _slo.record_heartbeat(db, "scheduler", instance=f"web-{os.getpid()}",
+                              detail={"enqueued": len(enqueued)})
+    except Exception:  # noqa: BLE001 - liveness evidence must never stop scheduling
+        log.exception("scheduler heartbeat row not written")
+
+
 def _scheduler_loop(db: Database, stop: threading.Event) -> None:
+    STATE.scheduler_started_at = _now()
     if _START_DELAY > 0 and stop.wait(_START_DELAY):
         return
     while not stop.is_set():
@@ -238,12 +272,77 @@ def _scheduler_loop(db: Database, stop: threading.Event) -> None:
             enqueued = Scheduler(db).tick()
             STATE.scheduler_last_tick = _now()
             STATE.scheduler_last_enqueued = list(enqueued)
+            _scheduler_heartbeat(db, list(enqueued))
             if enqueued:
                 log.info("enqueued cadences: %s", ", ".join(enqueued))
         except Exception as e:  # noqa: BLE001
             STATE.last_error = f"scheduler: {type(e).__name__}: {e}"
             log.exception("embedded scheduler tick failed")
         stop.wait(_SCHEDULER_INTERVAL)
+
+
+# ---------------------------------------------------------------------------
+# v1.1 lane I W-3: stale-scheduler self-exit. A scheduler thread that has stopped ticking
+# while the web thread still answers /health is the failure where the container looks alive
+# and the company has stopped. The supervisor exits the process so the platform's restart
+# policy replaces it. Deliberately conservative:
+#   * only when this process runs the embedded scheduler (start() launched it);
+#   * the threshold is generous (15 min against a 60 s interval) and must be observed on two
+#     consecutive checks, so one slow tick never kills a working container;
+#   * a scheduler that has never ticked is judged from its own start plus the start delay;
+#   * opt out with BRAMBLELOOP_SELF_EXIT_ON_STALE=0.
+SELF_EXIT_STALE_S = float(os.environ.get("BRAMBLELOOP_SELF_EXIT_STALE_S", str(15 * 60)))
+_SUPERVISOR_INTERVAL = float(os.environ.get("BRAMBLELOOP_SUPERVISOR_INTERVAL", "60"))
+_exit = os._exit          # replaced in tests
+
+
+def self_exit_enabled() -> bool:
+    return os.environ.get("BRAMBLELOOP_SELF_EXIT_ON_STALE", "1") != "0"
+
+
+def scheduler_stale(state: RunnerState, now: datetime | None = None,
+                    threshold_s: float | None = None) -> tuple[bool, str]:
+    """Pure check: is the embedded scheduler stale enough to restart the container?"""
+    now = now or _now()
+    threshold = SELF_EXIT_STALE_S if threshold_s is None else float(threshold_s)
+    if not state.enabled or state.scheduler_started_at is None:
+        return False, "no embedded scheduler runs in this process"
+    # A tick from before this scheduler started (a previous start() in the same process)
+    # is not evidence about this one.
+    if state.scheduler_last_tick is None or \
+            state.scheduler_last_tick < state.scheduler_started_at:
+        age = (now - state.scheduler_started_at).total_seconds()
+        if age <= threshold + _START_DELAY:
+            return False, f"scheduler started {age:.0f}s ago and has not ticked yet"
+        return True, f"scheduler started {age:.0f}s ago and has never ticked"
+    age = (now - state.scheduler_last_tick).total_seconds()
+    if age <= threshold:
+        return False, f"last scheduler tick {age:.0f}s ago"
+    return True, f"last scheduler tick {age:.0f}s ago (threshold {threshold:.0f}s)"
+
+
+def supervise_once(strikes: int, *, now: datetime | None = None) -> int:
+    """One supervisor check. Returns the new strike count; exits on the second strike."""
+    stale, why = scheduler_stale(STATE, now)
+    if not stale:
+        return 0
+    strikes += 1
+    if strikes < 2:
+        log.error("scheduler looks stale (%s); exiting if still stale at the next check", why)
+        return strikes
+    log.critical("embedded scheduler stale (%s); exiting so the platform restarts the "
+                 "container", why)
+    _exit(1)
+    return strikes
+
+
+def _supervisor_loop(stop: threading.Event) -> None:
+    strikes = 0
+    while not stop.wait(_SUPERVISOR_INTERVAL):
+        try:
+            strikes = supervise_once(strikes)
+        except Exception:  # noqa: BLE001 - the supervisor never crashes the runner
+            log.exception("runner supervisor check failed")
 
 
 _stop = threading.Event()
@@ -282,7 +381,10 @@ def start(db: Database) -> RunnerState:
         if lane == "company" or not types:
             continue
         loops.append((_lane_loop, (db, f"{name}-{lane}", phase, _stop, lane, types)))
-    for i, (target, args) in enumerate(loops + [(_scheduler_loop, (db, _stop))]):
+    extra = [(_scheduler_loop, (db, _stop))]
+    if self_exit_enabled():
+        extra.append((_supervisor_loop, (_stop,)))
+    for i, (target, args) in enumerate(loops + extra):
         t = threading.Thread(target=target, args=args, daemon=True,
                              name=f"brambleloop-{target.__name__}-{i}")
         t.start()

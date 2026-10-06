@@ -906,7 +906,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
 
     listing_text = " ".join([cir.title, category, " ".join(motifs)]
                             + [q.phrase for q in queries])
-    seo_lessons = [l for l in consume.matching(ctx.db, "seo_search", listing_text)
+    seo_lessons = [l for l in consume.matching(ctx.db, "seo_search", listing_text,
+                                               subject=slug)
                    if l["direction"] >= 0]
     # #293's observed buyer language takes its slots first; a lesson-matched query may take
     # up to two more.
@@ -2223,7 +2224,10 @@ def handle_support_triage(ctx: JobContext) -> dict:
                  for c in s.scalars(_select(_Case).where(_Case.resolved.is_(False)))]
     for case_id, question, have in cases:
         hits = [l for l in consume.matching(ctx.db, "customer_experience", question,
-                                            min_shared=1)
+                                            min_shared=1,
+                                            # W-B1: log the decision so its outcome can
+                                            # be attributed (lane B policy loops).
+                                            subject=f"support_case:{case_id}")
                 if l["id"] not in have]
         if not hits:
             continue

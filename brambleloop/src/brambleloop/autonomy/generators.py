@@ -207,11 +207,111 @@ def executive_candidates(db, charter: charters.Charter, snap: Snapshot) -> list[
                       fingerprint=f"brief:{day}", evidence=[f"company_memory:brief:{day} absent"])]
 
 
+# ---------------------------------------------------------------------------
+# v1.1 integrator wiring: the departments' own `next_work` providers (lanes B, E, G, H).
+#
+# Each provider lists the work its department believes is due, in its own shape. Only items
+# that are (a) internal -- no owner, no external effect, no spend, not blocked -- and (b) map
+# to an existing GREEN job type in the department's `generatable` allowlist become runnable
+# candidates. Everything else (owner actions, gated items, spend, items with no handler) is
+# never turned into a job here: the provider's own module already raises its owner actions
+# (ads refresh, disconnected finance sources), and the orchestrator's enqueue boundary would
+# refuse a protected type regardless.
+PROVIDER_VALUE = 60                # below a durable handoff (70+), above an overdue cadence
+PROVIDER_MIN_GAP_S = 60 * 60       # a provider never re-asks for a job that succeeded <1 h ago
+
+
+def _learn_item(item: dict) -> tuple[str, str] | None:
+    jt = item.get("job_type")
+    if jt in ("improve.sandbox", "improve.monitor", "learn.scan"):
+        return jt, str(item.get("key") or item.get("kind"))
+    return None
+
+
+def _finance_item(item: dict) -> tuple[str, str] | None:
+    # The Accountant cycle posts, reconciles, detects anomalies and checks the close; it is
+    # the job that does each of these three kinds. Investigations and month-end locks are
+    # decisions, and connect_source is an owner action -- none of them is queued.
+    if item.get("kind") in ("run_cycle", "post_rows", "reconcile") and item.get("ready") \
+            and not item.get("blocked_by"):
+        return "finance.accounting.cycle", str(item.get("id"))
+    return None
+
+
+def _seo_item(item: dict) -> tuple[str, str] | None:
+    if item.get("kind") != "internal" or item.get("external_effect") or item.get("gated_by"):
+        return None
+    key = str(item.get("key") or "")
+    if key == "seo.run_cycle" or key.startswith("seo.review:"):
+        return "seo.cycle", key
+    return None
+
+
+def _ads_item(item: dict) -> tuple[str, str] | None:
+    if item.get("kind") != "internal" or item.get("blocked_by") or \
+            float(item.get("spend_cad") or 0.0) != 0.0:
+        return None
+    if item.get("key") == "ads.eligibility_tick":
+        return "marketing.ads_readiness", "ads.eligibility_tick"
+    return None
+
+
+# department -> [(provider label, module, function, adapter)]
+PROVIDERS: dict[str, tuple[tuple[str, str, str, object], ...]] = {
+    "learn": (("learn", "brambleloop.learn.improvement_status", "next_work", _learn_item),),
+    "finance": (("finance", "brambleloop.finance.accounting.dashboard", "next_work",
+                 _finance_item),),
+    "store_commerce": (("seo", "brambleloop.seo.status", "next_work", _seo_item),),
+    "growth": (("ads", "brambleloop.growth.ads_readiness", "next_work", _ads_item),),
+}
+
+
+def provider_candidates(db, charter: charters.Charter, snap: Snapshot) -> list[Candidate]:
+    """Runnable candidates from the department's own next_work provider(s). Never raises: a
+    broken provider costs only its own candidates."""
+    import importlib
+
+    out: list[Candidate] = []
+    seen: set[str] = set()
+    for label, module, fn, adapt in PROVIDERS.get(charter.key, ()):
+        try:
+            items = getattr(importlib.import_module(module), fn)(db) or []
+        except Exception:  # noqa: BLE001 - a provider failure never stops the department
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            mapped = adapt(item)
+            if mapped is None:
+                continue
+            jt, item_key = mapped
+            if jt in charters.PROTECTED_JOB_TYPES or jt not in charter.generatable \
+                    or jt in seen or snap.open_by_type.get(jt):
+                continue
+            last = snap.last_done.get(jt)
+            if last is not None and (snap.now - last[0]).total_seconds() < PROVIDER_MIN_GAP_S:
+                continue
+            seen.add(jt)
+            reason = str(item.get("reason") or item.get("why") or item.get("title")
+                         or item_key)[:200]
+            out.append(Candidate(
+                department=charter.key, job_type=jt, value=PROVIDER_VALUE, source="provider",
+                reason=f"{label}.next_work: {reason}",
+                # One mission per run of the job: the same indication after the job ran
+                # again is new evidence; the same indication before it is not.
+                fingerprint=f"provider:{label}:{item_key}:{last[1] if last else 'never'}",
+                evidence=[f"{module}.{fn}:{item_key}",
+                          f"jobs:{last[1]}" if last else f"jobs:none done for {jt}"],
+                inputs={"provider": {"name": label, "item": item_key}}))
+    return out
+
+
 def candidates(db, charter: charters.Charter, snap: Snapshot) -> list[Candidate]:
     """Every candidate for one department, best first. Raises on a read failure: the caller
     isolates one department's failure from the others."""
     cands = executive_candidates(db, charter, snap)
     cands += handoff_candidates(db, charter, snap) + overdue_candidates(charter, snap)
+    cands += provider_candidates(db, charter, snap)
     cands += approval_candidates(db, charter, snap)
     cands.append(review_candidate(charter, snap))
     cands.sort(key=lambda c: -c.value)

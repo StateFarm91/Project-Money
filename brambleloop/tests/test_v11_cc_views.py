@@ -459,7 +459,27 @@ def test_timeline_and_drill_down_carry_provenance():
     assert stamps == sorted(stamps, reverse=True)
     assert all(e["source"].startswith("audit_log:") for e in t["events"]
                if e["origin"] == "audit_log")
-    assert t["autonomy_timeline"]["status"] == "UNKNOWN"
+    # Absent lane A provider: UNKNOWN, "not built" (forced, so it holds on a merged head).
+    with AbsentProvider("timeline"):
+        ta = c.get("/api/cc/timeline?limit=20").json()
+    assert ta["autonomy_timeline"]["status"] == "UNKNOWN", ta["autonomy_timeline"]
+    assert ta["autonomy_timeline"]["reason"], ta["autonomy_timeline"]
+    assert all(e["origin"] == "audit_log" for e in ta["events"]), ta["events"][:3]
+    # The real brambleloop.autonomy.status.timeline passes through with provenance.
+    from brambleloop.autonomy import memory as a_memory
+
+    a_memory.record_event(DB, "cc-views:real-timeline", kind="mission.created",
+                          department="platform", actor="coo",
+                          summary="real lane A timeline event", refs=["jobs:1"],
+                          at=NOW + timedelta(minutes=1))
+    tr = c.get("/api/cc/timeline?limit=200").json()
+    assert tr["autonomy_timeline"]["status"] == "OK", tr["autonomy_timeline"]
+    real = [e for e in tr["events"] if e["origin"] == "autonomy.status.timeline"]
+    assert real, tr["events"][:5]
+    assert all(e.get("source") for e in real), real[:3]
+    mine = [e for e in real if e.get("summary") == "real lane A timeline event"]
+    assert mine and mine[0]["source"] == "company_timeline" and mine[0]["refs"] == ["jobs:1"]
+    assert "brambleloop.autonomy.status.timeline" in tr["sources"], tr["sources"]
 
     def a_timeline(db, limit=50):
         return [{"at": (NOW + timedelta(minutes=5)).isoformat(), "kind": "handoff",

@@ -46,7 +46,7 @@ def reserve(db, *, listing_id, amount, agent, ceiling, job_id=None):
                         amount_cad=amount, estimated_cad=amount,
                         detail={'listing_id': str(listing_id), 'basis': 'modelled',
                                 'state': 'reserved_unreconciled', 'usd': 0.20,
-                                'conversion': 'assumed CAD/USD 1.37; not payment evidence'})
+                                'conversion': 'assumed 0.715 USD/CAD (core.fx); not payment evidence'})
         s.add(row);s.flush();return row.id
 
 

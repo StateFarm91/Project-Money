@@ -32,7 +32,7 @@ PAYMENT_PROCESSING_RATE = 0.030
 PAYMENT_PROCESSING_FLAT_CAD = 0.25
 # Etsy charges the shop in USD while the owner banks in CAD. The rate is an assumption and is
 # labelled one everywhere it is used.
-USD_PER_CAD = 0.715
+from ..core.fx import ASSUMED_USD_PER_CAD as USD_PER_CAD  # noqa: E402 - single source
 
 # A digital pattern has no cost of goods, so contribution is revenue minus platform fees and
 # whatever acquisition costs. That is the whole model, which is why it is worth stating.

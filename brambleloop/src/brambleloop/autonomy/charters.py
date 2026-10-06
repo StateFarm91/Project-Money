@@ -55,6 +55,19 @@ SAFE_GENERATED: dict[str, str] = {
     "improve.measure": "one deterministic query per capability cell",
     "ops.queue_check": "re-drives fixed dead letters once per deploy; reads the queue",
     "ops.maturity_disagreements": "completion claims vs maturity measurement (read-only)",
+    # v1.1 integrator wiring: the lane cycles, each GREEN by its handler's docstring.
+    "seo.cycle": "seo.handler: 'No external effect: reads the database and writes only seo_* "
+                 "rows and one audit row'",
+    "finance.accounting.cycle": "finance.accounting.job: 'GREEN: reads and writes rows only, "
+                                "spends nothing, messages nobody, makes no network call'",
+    "marketing.ads_readiness": "runtime.v11_wiring: eligibility re-evaluated; spends and "
+                               "activates nothing (refuses if it ever reports either)",
+    "ops.slo": "ops.slo.check: 'The only side effect is incident rows'",
+    "improve.sandbox": "docstring: 'Spends nothing and calls no model'; promotes only a "
+                       "pre-authorised tier, every other tier goes to the owner queue",
+    "improve.monitor": "docstring: 'GREEN: reads capability points, may revert an "
+                       "improvement row, writes an audit record'",
+    "learn.scan": "learn agent: 'no publication/spend', CA$0 ceiling",
 }
 
 
@@ -226,10 +239,10 @@ CHARTERS: tuple[Charter, ...] = (
                "and prepare (never perform) publication for owner approval.",
        agents=("listing", "store_operator", "pricing"),
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
-                 "etsy.listing"),
+                 "etsy.listing", "seo."),
        job_types={"chain.rebuild", "seasonal.remerchandising", "etsy.credential_health",
                   "etsy.shop_snapshot", "etsy.listing_census"},
-       generatable=("seasonal.remerchandising", "autonomy.department_review"),
+       generatable=("seasonal.remerchandising", "seo.cycle", "autonomy.department_review"),
        forbidden=("publish or activate a listing without owner authority",
                   "change a live price"),
        inputs=("pattern_versions", "listings", "etsy snapshots"),
@@ -265,7 +278,8 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("finance.", "commerce."),
        job_types=set(),
        generatable=("finance.reconcile", "commerce.order_readings", "commerce.readings",
-                    "finance.escalation_check", "autonomy.department_review"),
+                    "finance.escalation_check", "finance.accounting.cycle",
+                    "autonomy.department_review"),
        forbidden=("move money, file tax, borrow, sign contracts or change bank details",
                   "present an estimate as an actual"),
        inputs=("cost_entries", "ledger", "orders", "spend_reservations"),
@@ -286,7 +300,7 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("growth.", "ads.", "marketing."),
        job_types={"content.draft"},
        generatable=("growth.journey", "growth.distribution", "growth.conclude",
-                    "autonomy.department_review"),
+                    "marketing.ads_readiness", "autonomy.department_review"),
        forbidden=("spend on ads without owner authority and Finance clearance",
                   "fake reviews, engagement or deceptive discounts"),
        inputs=("listings", "experiments", "cohorts"),
@@ -308,6 +322,7 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("improve.", "learn."),
        job_types=set(),
        generatable=("improve.mine", "improve.retrospective", "improve.measure",
+                    "improve.sandbox", "improve.monitor", "learn.scan",
                     "autonomy.department_review"),
        forbidden=("promote a change without evaluation and rollback",
                   "weaken Product Truth, accounting truth, authorization or spend controls"),
@@ -333,7 +348,7 @@ CHARTERS: tuple[Charter, ...] = (
                   "ops.offsite_archive", "ops.retention", "ops.dependencies",
                   "ops.capability_probes", "ops.thrash", "ops.policy_watch",
                   "ops.maturity_disagreements", "model.probe"},
-       generatable=("ops.queue_check", "ops.maturity_disagreements",
+       generatable=("ops.queue_check", "ops.maturity_disagreements", "ops.slo",
                     "autonomy.department_review"),
        forbidden=("deploy, merge or mutate hosting", "delete evidence a gate reads"),
        inputs=("jobs", "incidents", "audit_log"),

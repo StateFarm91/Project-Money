@@ -676,6 +676,18 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # actions become owner approval items, never jobs. `Scheduler.tick` also wakes it at once
     # when the whole queue is empty, so an empty queue never means an idle company.
     ("executive_orchestrator", "coo", "autonomy.orchestrate", 15 * 60),
+    # v1.1 wiring (integrator). Each handler is registered in runtime.v11_wiring.
+    # Lane I (F-924): SLOs evaluated and slo.* incidents raised/closed. Stored notifications
+    # only; a watchdog, so it is never thrash-suspended (swarm LIVENESS_JOB_TYPES).
+    ("slo_check", "orchestrator", "ops.slo", 15 * 60),
+    # Lane G (directive §11): continuous SEO; idempotent, proposals only, no Etsy write.
+    ("seo_cycle", "listing", "seo.cycle", 6 * 60 * 60),
+    # Lane E (F-901): the Accountant cycle -- post, reconcile, anomalies, close check. Rows
+    # only; moves no money, files nothing.
+    ("accounting_cycle", "cfo", "finance.accounting.cycle", 6 * 60 * 60),
+    # Lane H (F-686): Etsy Ads eligibility evidence re-evaluated hourly. Spends nothing and
+    # activates nothing; a due refresh becomes an owner action.
+    ("ads_readiness", "growth", "marketing.ads_readiness", 60 * 60),
 ]
 
 

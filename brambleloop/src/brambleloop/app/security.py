@@ -202,8 +202,13 @@ def register_owner_session_gate(fn: Callable | None) -> None:
     _owner_session_gate = fn
 
 
+# Owner-facing pages outside the JSON prefix that must carry the same owner-session gate.
+# `/cc/` itself is the public static PWA shell (it holds no data); these are not.
+OWNER_SESSION_PAGES: frozenset[str] = frozenset({"/cc/store-preview"})
+
+
 def owner_session_route(route_path: str) -> bool:
-    return route_path.startswith(OWNER_SESSION_PREFIX)
+    return route_path.startswith(OWNER_SESSION_PREFIX) or route_path in OWNER_SESSION_PAGES
 
 
 def operator_gate(request: Request) -> None:

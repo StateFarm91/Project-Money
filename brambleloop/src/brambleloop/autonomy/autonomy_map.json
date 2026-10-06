@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-06T07:01:44.752552+00:00",
+ "generated_at": "2026-10-06T07:21:17.956681+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 103,
-  "handlers": 121,
+  "cadences": 107,
+  "handlers": 125,
   "agents": 28,
   "follow_on_edges": 53
  },
@@ -1076,10 +1076,12 @@
    "authority": {
     "generatable": [
      "seasonal.remerchandising",
+     "seo.cycle",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "seasonal.remerchandising": "listing",
+     "seo.cycle": "listing",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1140,6 +1142,12 @@
       "agent": "orchestrator",
       "job_type": "etsy.listing_census",
       "period_seconds": 86400
+     },
+     {
+      "name": "seo_cycle",
+      "agent": "listing",
+      "job_type": "seo.cycle",
+      "period_seconds": 21600
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -1159,6 +1167,7 @@
    },
    "cadence": [
     3600,
+    21600,
     86400,
     604800
    ],
@@ -1177,7 +1186,8 @@
      }
     ],
     "overdue_cadence_catch_up": [
-     "seasonal.remerchandising"
+     "seasonal.remerchandising",
+     "seo.cycle"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": [
@@ -1190,7 +1200,8 @@
      "brambleloop.runtime.etsy_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
-     "brambleloop.runtime.storefront_watch"
+     "brambleloop.runtime.storefront_watch",
+     "brambleloop.seo.handler"
     ],
     "executable_job_types": [
      "chain.rebuild",
@@ -1203,6 +1214,7 @@
      "listing.taxonomy_refresh",
      "pricing.position",
      "seasonal.remerchandising",
+     "seo.cycle",
      "store.activate",
      "store.publish"
     ],
@@ -1385,6 +1397,7 @@
      "commerce.order_readings",
      "commerce.readings",
      "finance.escalation_check",
+     "finance.accounting.cycle",
      "autonomy.department_review"
     ],
     "generatable_agents": {
@@ -1392,6 +1405,7 @@
      "commerce.order_readings": "cfo",
      "commerce.readings": "cfo",
      "finance.escalation_check": "cfo",
+     "finance.accounting.cycle": "cfo",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1446,6 +1460,12 @@
       "agent": "cfo",
       "job_type": "finance.escalation_check",
       "period_seconds": 21600
+     },
+     {
+      "name": "accounting_cycle",
+      "agent": "cfo",
+      "job_type": "finance.accounting.cycle",
+      "period_seconds": 21600
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -1483,7 +1503,8 @@
      "finance.reconcile",
      "commerce.order_readings",
      "commerce.readings",
-     "finance.escalation_check"
+     "finance.escalation_check",
+     "finance.accounting.cycle"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -1491,6 +1512,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:finance:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.finance.accounting.job",
      "brambleloop.runtime.commerce_readings",
      "brambleloop.runtime.orders",
      "brambleloop.runtime.pipeline",
@@ -1500,6 +1522,7 @@
      "commerce.order_readings",
      "commerce.orders_ingest",
      "commerce.readings",
+     "finance.accounting.cycle",
      "finance.challenge",
      "finance.escalation_check",
      "finance.governor",
@@ -1556,12 +1579,14 @@
      "growth.journey",
      "growth.distribution",
      "growth.conclude",
+     "marketing.ads_readiness",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "growth.journey": "growth",
      "growth.distribution": "growth",
      "growth.conclude": "experiment_steward",
+     "marketing.ads_readiness": "growth",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1622,6 +1647,12 @@
       "agent": "experiment_steward",
       "job_type": "growth.experiments",
       "period_seconds": 86400
+     },
+     {
+      "name": "ads_readiness",
+      "agent": "growth",
+      "job_type": "marketing.ads_readiness",
+      "period_seconds": 3600
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -1657,7 +1688,8 @@
     "overdue_cadence_catch_up": [
      "growth.journey",
      "growth.distribution",
-     "growth.conclude"
+     "growth.conclude",
+     "marketing.ads_readiness"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -1666,7 +1698,8 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.growth_ops",
-     "brambleloop.runtime.release"
+     "brambleloop.runtime.release",
+     "brambleloop.runtime.v11_wiring"
     ],
     "executable_job_types": [
      "ads.adjust",
@@ -1677,6 +1710,7 @@
      "growth.journey",
      "growth.preproduction",
      "growth.steer",
+     "marketing.ads_readiness",
      "marketing.schedule"
     ],
     "permitted_without_handler": [
@@ -1753,12 +1787,18 @@
      "improve.mine",
      "improve.retrospective",
      "improve.measure",
+     "improve.sandbox",
+     "improve.monitor",
+     "learn.scan",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "improve.mine": "orchestrator",
      "improve.retrospective": "orchestrator",
      "improve.measure": "orchestrator",
+     "improve.sandbox": "orchestrator",
+     "improve.monitor": "orchestrator",
+     "learn.scan": "learn",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1926,7 +1966,10 @@
     "overdue_cadence_catch_up": [
      "improve.mine",
      "improve.retrospective",
-     "improve.measure"
+     "improve.measure",
+     "improve.sandbox",
+     "improve.monitor",
+     "learn.scan"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -1987,11 +2030,13 @@
     "generatable": [
      "ops.queue_check",
      "ops.maturity_disagreements",
+     "ops.slo",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "ops.queue_check": "orchestrator",
      "ops.maturity_disagreements": "orchestrator",
+     "ops.slo": "orchestrator",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -2082,6 +2127,12 @@
       "agent": "orchestrator",
       "job_type": "ops.dependencies",
       "period_seconds": 86400
+     },
+     {
+      "name": "slo_check",
+      "agent": "orchestrator",
+      "job_type": "ops.slo",
+      "period_seconds": 900
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -2113,7 +2164,8 @@
     ],
     "overdue_cadence_catch_up": [
      "ops.queue_check",
-     "ops.maturity_disagreements"
+     "ops.maturity_disagreements",
+     "ops.slo"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -2123,7 +2175,8 @@
     "handler_modules": [
      "brambleloop.runtime.ops_watch",
      "brambleloop.runtime.pipeline",
-     "brambleloop.runtime.release"
+     "brambleloop.runtime.release",
+     "brambleloop.runtime.v11_wiring"
     ],
     "executable_job_types": [
      "model.probe",
@@ -2137,6 +2190,7 @@
      "ops.policy_watch",
      "ops.queue_check",
      "ops.retention",
+     "ops.slo",
      "ops.thrash"
     ],
     "permitted_without_handler": []
@@ -2369,8 +2423,8 @@
    "departments": "product_truth",
    "link": "execution",
    "finding": "Registry permissions with no handler: gate.quality, gate.policy, gate.asset_truth, cir.twin, cir.reverse (and cir.revise, assets.render, content.draft, store.update, pricing.experiment, radar.competitor_snapshot). Agents asset_truth and policy hold only unhandled job types, so they can never run anything.",
-   "status": "OPEN",
-   "repair": "outside lane A's files (gates/, cir/ handlers); reported"
+   "status": "DECIDED (v1.1 wiring): kept as declared-but-unbuilt",
+   "repair": "gate.quality/gate.policy/gate.asset_truth/cir.twin/cir.reverse already execute in-process inside gate.certify (gates.certificate.certify: build_twin, reverse_compare, check_assets, check_listing), so standalone handlers would be a second, uncertified verdict path; the rest are unbuilt capabilities (store.update and pricing.experiment are protected). The set is pinned by tests/test_roles.py DECLARED_BUT_UNBUILT (recorded decision). See research/final_build/v1_1/WIRING_REPORT.md"
   },
   {
    "id": "AM-11",

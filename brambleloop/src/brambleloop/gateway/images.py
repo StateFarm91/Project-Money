@@ -47,7 +47,7 @@ PROBE_ACTION = "image.probe"
 # published pricing pages. An assumption and labelled one on every row this produces, exactly
 # as the text gateway labels its per-token figures: these are not a measurement of this
 # account's billing.
-USD_TO_CAD = 1.37
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402 - single source
 
 
 @dataclass(frozen=True)

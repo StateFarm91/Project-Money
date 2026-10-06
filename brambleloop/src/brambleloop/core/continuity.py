@@ -119,10 +119,35 @@ NON_REDERIVABLE = (
     # from nothing: the runs that justified the switches are gone with the rows.
     "config_versions",
     "cost_entries",
-    "ledger_entries",
+    "ledger",            # was "ledger_entries", a name no table has: it labelled nothing
     "spend_limits",
     "support_cases",
     "agents",
+    # v1.1 lane A: the company's memory (missions and their measured outcomes, KPI snapshots,
+    # lessons, briefs, blocks, approvals) and its timeline are records of what happened and
+    # when; nothing else holds them.
+    "company_memory",
+    "company_timeline",
+    # v1.1 lane E: the double-entry ledger. Postings are *made from* source rows, but the
+    # journal is not re-derivable from them: corrections are reversals plus new versions,
+    # a change after a period lock is booked in the next open period, and the SHA-256 chain
+    # covers that history. Re-posting from today's sources would produce a different ledger
+    # (no reversals, no lock-era bookings, a new chain) -- an accountant's books must be the
+    # ones that were kept, not a recomputation. Statement lines are imported files that are
+    # not kept anywhere else; locks, exception resolutions and Finance challenge verdicts
+    # are decisions taken on a day.
+    "acct_journal_entries",
+    "acct_postings",
+    "acct_period_locks",
+    "acct_statement_lines",
+    "acct_exceptions",
+    "acct_challenges",
+    # v1.1 lane H: a spend proposal and Finance's challenge of it are what was proposed and
+    # decided on the day, with the evidence of that day.
+    "ads_spend_proposals",
+    "ads_finance_challenges",
+    # v1.1 lane C: the owner command center's security audit trail.
+    "cc_security_events",
 )
 
 # An export does not contain the previous exports. Retained archives are copies of this
@@ -151,6 +176,12 @@ EXCLUDED_TABLES = (
     # be meaningful in a restore -- the browser it belonged to is long gone -- and the
     # verifier in it is sealed with the same key. Nothing is lost by leaving it out.
     "oauth_handshakes",
+    # v1.1 lane C: live owner sessions and their replay nonces. Same reasoning as the OAuth
+    # rows: a restored copy must not accept the production owner's live session cookies
+    # (a restore authenticates its owner again, deliberately), and a nonce window is minutes
+    # of state that means nothing after a restore.
+    "cc_owner_sessions",
+    "cc_nonces",
 )
 
 

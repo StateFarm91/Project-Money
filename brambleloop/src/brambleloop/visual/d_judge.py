@@ -80,7 +80,7 @@ SYSTEM = (
 # the provider's own usage report, so the cost is arithmetic on a stated basis.
 MODEL = "gpt-5-2025-08-07"
 PRICE_USD_PER_M = {"input": 1.25, "output": 10.00}
-USD_TO_CAD = 1.37       # the same assumed rate the gateway's ledger uses
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402 - the gateway's rate
 MAX_OUTPUT_TOKENS = 4000     # gpt-5 reasons inside this budget; 1500 left one view with no answer
 
 

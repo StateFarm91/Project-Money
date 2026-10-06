@@ -358,6 +358,8 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     "ops.heartbeat", "ops.health", "ops.queue_check", "ops.thrash", "build.tick",
     "swarm.allocate", "swarm.orphans", "swarm.backlog", "swarm.review", "ops.sentinel",
     "finance.governor", "finance.escalation_check", "ops.retention", "support.triage",
+    # v1.1 lane I W-4: the SLO watchdog must never be backed off.
+    "ops.slo",
 })
 _VOLATILE_KEYS = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
                   "allocation_id", "reading_id", "job_id", "audit_id", "id")
@@ -806,6 +808,17 @@ JOB_BANDS: dict[str, str] = {
     "swarm.allocate": "housekeeping",
     "swarm.orphans": "housekeeping",
     "swarm.backlog": "housekeeping",
+    # v1.1 wiring (integrator). The company loop is liveness -- "is the company actually
+    # working" is the system's claim about itself, the band of ops.heartbeat / ops.health --
+    # and so is the SLO watchdog. Reviews, the brief, SEO, the accountant cycle and the ads
+    # eligibility re-check keep the system honest and are urgent to nobody.
+    "autonomy.orchestrate": "truth_defect",
+    "autonomy.department_review": "housekeeping",
+    "autonomy.morning_handoff": "housekeeping",
+    "ops.slo": "truth_defect",
+    "seo.cycle": "housekeeping",
+    "finance.accounting.cycle": "housekeeping",
+    "marketing.ads_readiness": "housekeeping",
 }
 
 UNMAPPED_KIND = "housekeeping"

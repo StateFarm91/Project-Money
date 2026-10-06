@@ -139,6 +139,14 @@ class Database:
         from ..learn import models as learn_models  # noqa: F401; additive Learn tables
         from ..publish import draft_intent  # noqa: F401; additive remote-create intent
         from ..commerce import search_visibility  # noqa: F401; F-248 owner readings
+        # v1.1 lanes, registered here so a worker-only or scheduler-only process creates
+        # them too (each also creates its tables lazily, so nothing broke before this).
+        from ..autonomy import models as autonomy_models  # noqa: F401; memory/timeline (A)
+        from ..seo import models as seo_models  # noqa: F401; SEO evidence/proposals (G)
+        from ..finance.accounting import models as acct_models  # noqa: F401; ledger (E)
+        from ..growth import ads_readiness  # noqa: F401; ads readiness tables (H)
+        from ..ops import slo as _slo_tables  # noqa: F401; SLO samples + leases (I)
+        from ..app.command_center import models as cc_models  # noqa: F401; owner CC (C)
         from .migrate import apply as apply_migrations
 
         Base.metadata.create_all(self.engine)

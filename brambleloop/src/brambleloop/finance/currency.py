@@ -38,7 +38,7 @@ REPORTING_CURRENCY = "CAD"
 # The rate this company reports at until a settlement statement gives a real one. Stated as
 # an assumption everywhere it is used, because a converted figure whose rate is invisible is
 # indistinguishable from a measured one.
-ASSUMED_USD_PER_CAD = 0.715
+from ..core.fx import ASSUMED_USD_PER_CAD  # noqa: E402 - the single assumed rate
 
 # Fee classes #269 names. Each is a rate on the gross unless stated, and each defaults to
 # zero with its basis recorded -- a margin computed without a fee should say it was computed

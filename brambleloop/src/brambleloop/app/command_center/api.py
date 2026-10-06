@@ -267,6 +267,120 @@ def make_router(db) -> APIRouter:
     async def emergency_kill(request: Request):
         return await _emergency(request, emergency.kill_to_shadow, stepup=False)
 
+    # ---- v1.1 integrator wiring: operations recovery and department blocks --------------
+    # All of these sit under /api/cc/, so `security.operator_gate` -> `auth.gate` has
+    # already required a live owner session (and CSRF + freshness for every POST) before a
+    # handler runs. Step-up is added for the actions that *restore* activity or re-run work;
+    # blocking a department only makes the company more restrictive, so it does not need it.
+
+    def _str(body: dict, key: str, limit: int = 200) -> str:
+        return str(body.get(key) or "").strip()[:limit]
+
+    async def _recovery(request: Request, action: str, call):
+        from ...ops import recovery
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, f"recovery.{action}")
+        try:
+            out = await run_in_threadpool(call, recovery, body, actor(request))
+        except recovery.RecoveryRefused as exc:
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc),
+                              kind="action",
+                              session_public_id=auth.current_public_id(request)) from None
+        if isinstance(out, dict) and out.get("refused"):
+            # ops.recovery audits a refusal and returns it; the owner sees it as a refusal.
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(out["refused"]),
+                              kind="action",
+                              session_public_id=auth.current_public_id(request))
+        return ok({"ok": True, "action": action, "result": out})
+
+    @router.get("/operations/recovery")
+    def recovery_recent(request: Request, limit: int = 50):
+        from ...ops import recovery
+
+        return ok({"recent": recovery.recent(db, limit=max(1, min(int(limit), 200)))})
+
+    @router.post("/operations/recovery/restart-job")
+    async def recovery_restart_job(request: Request):
+        def call(rec, body, who):
+            try:
+                job_id = int(body.get("job_id"))
+            except (TypeError, ValueError):
+                raise rec.RecoveryRefused("job_id must be an integer") from None
+            return rec.restart_stuck_job(db, job_id, actor=who,
+                                         request_id=_str(body, "request_id", 120),
+                                         reason=_str(body, "reason"))
+        return await _recovery(request, "restart_stuck_job", call)
+
+    @router.post("/operations/recovery/release-lease")
+    async def recovery_release_lease(request: Request):
+        def call(rec, body, who):
+            return rec.release_stale_lease(db, _str(body, "name", 120), actor=who,
+                                           request_id=_str(body, "request_id", 120))
+        return await _recovery(request, "release_stale_lease", call)
+
+    @router.post("/operations/recovery/rerun-cycle")
+    async def recovery_rerun_cycle(request: Request):
+        def call(rec, body, who):
+            return rec.rerun_department_cycle(db, _str(body, "cadence", 120), actor=who,
+                                              request_id=_str(body, "request_id", 120))
+        return await _recovery(request, "rerun_department_cycle", call)
+
+    @router.get("/operations/soak")
+    def operations_soak(request: Request, start: str = ""):
+        from datetime import datetime, timezone
+
+        from ...ops import slo
+
+        try:
+            when = datetime.fromisoformat(start)
+        except ValueError:
+            return ok({"error": "start must be an ISO 8601 timestamp", "code": "BAD_REQUEST"},
+                      400)
+        when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+        return ok(slo.soak_report(db, start=when))
+
+    def _department(request, department: str) -> str:
+        from ...autonomy import charters
+
+        if department not in charters.BY_KEY:
+            raise auth.refuse(db, request, 404, "NOT_FOUND",
+                              f"unknown department {department!r}", kind="action",
+                              session_public_id=auth.current_public_id(request))
+        return department
+
+    def _audit_department(who: str, action: str, department: str, detail: dict) -> None:
+        from ...core.models import AuditLog
+
+        with db.session() as s:
+            s.add(AuditLog(actor=who[:64], action=action, artifact=f"department:{department}",
+                           detail=detail))
+
+    @router.post("/departments/{department}/block")
+    async def department_block(department: str, request: Request):
+        from ...autonomy import memory
+
+        dept = _department(request, department)
+        body = await body_of(request)
+        reason = _str(body, "reason") or "blocked by the owner from the command center"
+        who = actor(request)
+        await run_in_threadpool(lambda: memory.block_department(db, dept,
+                                                                reason=f"{reason} ({who})"))
+        _audit_department(who, "cc.department.block", dept, {"reason": reason})
+        return ok({"ok": True, "department": dept, "blocked": True})
+
+    @router.post("/departments/{department}/unblock")
+    async def department_unblock(department: str, request: Request):
+        from ...autonomy import memory
+
+        dept = _department(request, department)
+        await body_of(request)
+        auth.require_stepup(db, request, "department.unblock")
+        who = actor(request)
+        await run_in_threadpool(lambda: memory.unblock_department(db, dept))
+        _audit_department(who, "cc.department.unblock", dept, {})
+        return ok({"ok": True, "department": dept, "blocked": False})
+
     # ---- ask -------------------------------------------------------------------------
 
     @router.post("/ask")
@@ -275,3 +389,25 @@ def make_router(db) -> APIRouter:
         return ok(await run_in_threadpool(ask_mod.ask, db, str(body.get("question") or "")))
 
     return router
+
+
+STORE_PREVIEW_PATH = "/cc/store-preview"
+
+
+def store_preview_handler(db):
+    """F-926 Owner Store Preview (lane F): a not-live, script-free rendering of the whole shop.
+
+    Mounted by `install` at `/cc/store-preview` (the path lane F's summary links to), ahead of
+    the public `/cc/` static shell. `security.owner_session_route` names this exact path, so
+    `operator_gate` -> `auth.gate` requires a live owner session before it renders.
+    """
+    from fastapi.responses import HTMLResponse
+
+    def owner_store_preview(request: Request, viewport: str = "mobile"):
+        from ...store_foundation import preview as store_preview_mod
+
+        return HTMLResponse(store_preview_mod.render_preview(db, viewport),
+                            headers={"Cache-Control": "no-store",
+                                     "X-Robots-Tag": "noindex, nofollow"})
+
+    return owner_store_preview
