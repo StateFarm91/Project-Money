@@ -73,3 +73,33 @@ applies. Server-side protection (below) is the real control.
   SHADOW. Optional; SHADOW + P1 is the safe default.
 - **Maximum cost:** CA$0. **Minutes:** 2.
 - **Consequence of waiting:** none beyond the default (unproven builds run as SHADOW + P1).
+
+## Supply chain on the deploy path (wave 3 TOOLS, F-158 / F-416)
+
+What the repository enforces now: `python3 brambleloop/scripts/supply_chain.py verify` refuses a
+lock line that is not `==`-pinned with a sha256 hash, a duplicate, a requirements.txt name missing
+from the lock, and any Dockerfile pip install other than `--require-hashes --no-deps -r
+requirements.lock`; `ops/deploy_guard.py record` embeds `supply_chain.py evidence` (verify result,
+CycloneDX-shaped SBOM, and the lock change record against the last deployed SHA) and refuses the
+record when the lock does not verify.
+
+Still open, and named as `findings` by `verify` (`--strict` fails on them): the base image is a tag
+(`python:3.11-slim`), not a digest, and the apt package (`fonts-dejavu-core`) is unpinned. Pinning
+them changes the Dockerfile, which is a deploy decision: do it in the next owner-approved deploy
+window, replacing `FROM python:3.11-slim` with `FROM python:3.11-slim@sha256:<digest>` (digest from
+`docker buildx imagetools inspect python:3.11-slim` on the day) and pinning the apt version, then run
+`supply_chain.py verify --strict`. No cost; about 10 minutes; the consequence of waiting is that a
+rebuild can pick up a different base layer than the one the suite ran beside.
+
+### 5. Make the host refuse a deploy the guard has not passed (F-461, deploy_trigger_config)
+- **Exact action:** after actions 1 and 2, Railway -> each service (web, worker, scheduler) ->
+  Settings -> Source -> enable "Wait for CI" (deploy only after GitHub checks pass) once a GitHub
+  check runs `ops/deploy_guard.py check` on the production branch; until such a check exists,
+  actions 1 and 2 are the enforcement. Nothing in this repository changes `railway.json` or
+  triggers a deploy.
+- **Why:** the pre-push hook and `ops/deploy.sh` are client-side and skippable; only a host or
+  GitHub setting can refuse a deploy server-side.
+- **Maximum cost:** CA$0 (GitHub Actions minutes on a private repo are within the free tier for
+  a check this size). **Minutes:** 10.
+- **Consequence of waiting:** a push that skips the hook still deploys; the boot guard limits it
+  to SHADOW + P1.

@@ -47,6 +47,7 @@ release tree digest) and is read by `brambleloop.build2.final_master` -- the liv
 the launch readiness gate and the executor report call. Regenerated on every run.
 
 Run: python3 research/final_build/aggregate.py
+     python3 research/final_build/aggregate.py --overrides w3/OVERRIDES_PROPOSED.json --dry-run
 """
 import ast
 import json
@@ -71,7 +72,9 @@ PRODUCTION = "fcb982d57e291c88d9f78eaa091e90904b6c2cc9"
 # Completion target per launch class (F-178). Only launch-critical rows have a launch target.
 TARGET = {"LAUNCH-CRITICAL": "INTEGRATED", "MATURE": None, "NA": None}
 # Override keys that correct the mapping's evidence; cap() adjudicates them like any claim.
-EVIDENCE_OVERRIDE_KEYS = ("producer", "tests", "evidence", "consumer", "durable_state")
+# `maturity` is among them: an override that set it AFTER cap() would be a claim no evidence rule
+# ever saw (F-867), so a maturity override is a claim like the mapping's and is capped the same way.
+EVIDENCE_OVERRIDE_KEYS = ("producer", "tests", "evidence", "consumer", "durable_state", "maturity")
 # Modules under src/ that are offline-by-design adjudicators (a CLI run by the integrator over
 # evidence packets, never by the runtime). Their rows are structural like operator tooling.
 OFFLINE_ADJUDICATORS = frozenset({"build2/final_proof.py"})
@@ -435,12 +438,33 @@ def cap(row, reach):
     return LEVELS[i], notes
 
 
-def main():
+def load_overrides(path):
+    """overrides.json is {uid: entry}. A proposal file (w3/OVERRIDES_PROPOSED.json) wraps the same
+    map as {"_meta": ..., "overrides": {uid: entry}}; both shapes are read."""
+    data = json.loads(Path(path).read_text()) if Path(path).exists() else {}
+    return data.get("overrides", data) if isinstance(data.get("overrides"), dict) else data
+
+
+def main(argv=None):
+    """Adjudicate and write the matrix. `--overrides PATH --dry-run` adjudicates a PROPOSED
+    override file instead of overrides.json and writes nothing: it prints, per proposed uid, the
+    verdict the proposal would produce and every problem it raises. In a dry run an entry with
+    no `accepted_by` is evaluated as if accepted (marked DRY-RUN) -- the dry run answers "what
+    would this do", it never certifies (F-867); only overrides.json is ever applied."""
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--overrides", default=str(HERE / "overrides.json"))
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args(argv or [])
+    if not args.dry_run and Path(args.overrides).resolve() != (HERE / "overrides.json").resolve():
+        ap.error("--overrides other than overrides.json is only allowed with --dry-run")
     reg = json.loads((HERE / "master_registry.json").read_text())
     reqs = {r["uid"]: r for r in reg["requirements"]}
     reach = json.loads((HERE / "module_reachability.json").read_text())["modules"]
-    overrides_p = HERE / "overrides.json"
-    overrides = json.loads(overrides_p.read_text()) if overrides_p.exists() else {}
+    overrides = load_overrides(args.overrides)
+    if args.dry_run:
+        overrides = {u: {**e, "accepted_by": e.get("accepted_by") or "DRY-RUN (not accepted)"}
+                     for u, e in overrides.items()}
     remapped, remapped_classes = {}, {}
     for sha7, full in REMAP_SHAS.items():
         for f in sorted((HERE / "mapping" / f"remap_{sha7}").glob("*.json")):
@@ -522,6 +546,12 @@ def main():
             continue
         for item in json.loads(rep.read_text())["requirements"]:
             row = by_uid.get(item["uid"])
+            if row is None:
+                # F-847: wave work that names no registry row is unclassified scope -- drift.
+                # It must enter as a registry row (and so be classified in LAUNCH_SCOPE) first.
+                problems.append(f"{rep.name}: wave item {item.get('uid')!r} is not a registry "
+                                "row, so it is unclassified scope (F-847)")
+                continue
             if row is not None:
                 row.setdefault("wave", []).append({
                     "cluster": cluster, "merge": meta["merge"], "status": item["status"],
@@ -570,6 +600,18 @@ def main():
                      "reachability": reach_basis,
                      "production": PRODUCTION, "registry": "master_registry.json"},
            "levels": LEVELS, "summary": summary, "matrix": matrix}
+    if args.dry_run:
+        by_uid = {r["uid"]: r for r in matrix}
+        report = {"dry_run": True, "overrides": args.overrides,
+                  "problems": [p for p in problems if p.split(":")[0] in overrides],
+                  "launch_critical_open": summary["launch_critical_open"],
+                  "rows": {u: {"completion": by_uid[u]["completion"],
+                               "reasons": by_uid[u]["completion_reasons"],
+                               "maturity": by_uid[u]["maturity"],
+                               "completion_target": by_uid[u].get("completion_target")}
+                           for u in sorted(overrides) if u in by_uid}}
+        print(json.dumps(report, indent=1))
+        return report
     (HERE / "closure_matrix.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     scope = launch_scope(matrix, remapped_classes, overrides, out["basis"])
     (HERE / "LAUNCH_SCOPE.json").write_text(json.dumps(scope, indent=1, ensure_ascii=False) + "\n")
@@ -579,4 +621,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main(sys.argv[1:])
