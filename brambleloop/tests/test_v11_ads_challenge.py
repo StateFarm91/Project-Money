@@ -81,12 +81,63 @@ class FakeAccounting:
             fin.accounting = self.had
 
 
-def test_s95_growth_spend_violating_finance_margin_policy_is_blocked():
+class ForceFallback:
+    """Makes `finance.accounting.policy` unimportable, so the fallback rules are exercised."""
+
+    NAME = "brambleloop.finance.accounting.policy"
+
+    def __enter__(self):
+        self.saved = sys.modules.get(self.NAME, "absent")
+        sys.modules[self.NAME] = None  # import raises ImportError
+        return self
+
+    def __exit__(self, *exc):
+        if self.saved == "absent":
+            sys.modules.pop(self.NAME, None)
+        else:
+            sys.modules[self.NAME] = self.saved
+
+
+def e_answer(verdict, reasons, **extra):
+    """An answer in lane E's documented shape (finance/accounting/policy.py)."""
+    return {"allow": verdict == "cleared", "verdict": verdict, "reasons": reasons,
+            "challenge_id": "fin-testfixture0001",
+            "escalate_to": None if verdict == "cleared" else "owner", "checks": [], **extra}
+
+
+def test_s95_real_lane_e_check_spend_blocks_growth_spend_unmocked():
+    from brambleloop.finance.accounting import policy
+
     db = ready_db()
-    # Growth asks for a max CAC far above what one order contributes: margin policy violation.
-    got = ads.propose(db, "p", daily_budget_cad=2.0, days=3, funding="etsy_plus_credit",
+    got = ads.propose(db, "p", daily_budget_cad=2.0, days=3, funding="owner_cash",
                       hypothesis=HYP, stop_condition=STOP, max_cac_cad=40.0, now=NOW,
                       trust_gate=TRUST_PASS)
+    assert got["checker"] == ads.FINANCE_CHECK
+    assert got["verdict"] == "BLOCK" and got["status"] == "FINANCE_BLOCKED", got
+    # Lane E's own reasons are preserved verbatim (shadow phase, unknown cash).
+    assert any(r.startswith("[cash]") for r in got["reasons"]), got["reasons"]
+    assert any(r.startswith("[phase]") for r in got["reasons"]), got["reasons"]
+    # kind="ads" reaches E's advertising rules: unmeasured sales block it too.
+    assert any(r.startswith("[evidence]") for r in got["reasons"]), got["reasons"]
+    assert owner_actions(db) == [] and got["executed"] is False
+    recorded = policy.challenges(db)
+    assert len(recorded) == 1 and recorded[0]["verdict"] == "blocked"
+    assert recorded[0]["proposer"] == "growth.ads"
+    from brambleloop.growth.ads_readiness import AdFinanceChallenge
+    with db.session() as s:
+        ch = s.get(AdFinanceChallenge, got["challenge_id"])
+        assert ch.evidence["finance_challenge_id"] == recorded[0]["challenge_id"]
+        assert ch.evidence["finance_raw"]["allow"] is False
+
+
+def test_s95_fallback_margin_policy_blocks_growth_spend():
+    db = ready_db()
+    # Growth asks for a max CAC far above what one order contributes: margin policy violation.
+    with ForceFallback():
+        got = ads.propose(db, "p", daily_budget_cad=2.0, days=3, funding="etsy_plus_credit",
+                          hypothesis=HYP, stop_condition=STOP, max_cac_cad=40.0, now=NOW,
+                          trust_gate=TRUST_PASS)
+    assert got["checker"].startswith("fallback:")
     assert got["verdict"] == "BLOCK" and got["status"] == "FINANCE_BLOCKED", got
     assert any("max CAC" in r for r in got["reasons"])
     # Inside every ceiling: Finance's margin policy alone is what blocks it.
@@ -106,20 +157,30 @@ def test_s95_lane_e_check_spend_block_is_obeyed():
 
     def check_spend(_db, proposal):
         seen.append(proposal)
-        return {"verdict": "BLOCK", "reasons": ["cash runway below policy floor"]}
+        return e_answer("blocked", ["[cash] cash runway below policy floor"])
 
     with FakeAccounting(check_spend):
         got = ads.propose(db, "p", daily_budget_cad=1.0, days=3, funding="etsy_plus_credit",
                           hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
-    assert seen and seen[0]["kind"] == "ads_spend" and seen[0]["amount_cad"] == 3.0
+    assert seen and seen[0]["kind"] == "ads" and seen[0]["amount_cad"] == 3.0
+    assert seen[0]["authority"] == {"type": "owner_action", "ref": f"ads.proposal:{got['key']}"}
+    assert seen[0]["product_slug"] == "p" and len(seen[0]["purpose"]) >= 10
     assert got["checker"] == ads.FINANCE_CHECK
     assert got["status"] == "FINANCE_BLOCKED"
-    assert "cash runway below policy floor" in got["reasons"]
+    assert "[cash] cash runway below policy floor" in got["reasons"]
     assert owner_actions(db) == []
 
 
 def test_finance_errors_and_unrecognised_answers_fail_closed():
-    for fn in (lambda db, p: 1 / 0, lambda db, p: "sure", lambda db, p: {"hmm": 1}):
+    malformed = (lambda db, p: 1 / 0, lambda db, p: "sure", lambda db, p: {"hmm": 1},
+                 lambda db, p: True,
+                 lambda db, p: {"allow": True, "verdict": "blocked", "reasons": []},
+                 lambda db, p: {"allow": False, "verdict": "cleared", "reasons": []},
+                 lambda db, p: {"allow": "yes", "reasons": []},
+                 lambda db, p: {"verdict": "maybe", "reasons": []},
+                 lambda db, p: {"allow": True, "reasons": 3})
+    assert len(malformed) == 9
+    for fn in malformed:
         db = ready_db()
         with FakeAccounting(fn):
             got = ads.propose(db, "p", daily_budget_cad=1.0, days=3,
@@ -130,7 +191,7 @@ def test_finance_errors_and_unrecognised_answers_fail_closed():
 
 def test_finance_allow_cannot_lift_the_hard_ceiling():
     db = ready_db()
-    with FakeAccounting(lambda db, p: {"verdict": "ALLOW", "reasons": ["fine"]}):
+    with FakeAccounting(lambda db, p: e_answer("cleared", ["fine"])):
         got = ads.propose(db, "p", daily_budget_cad=50.0, days=10, funding="owner_cash",
                           hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
     assert got["status"] == "FINANCE_BLOCKED"
@@ -141,14 +202,18 @@ def test_ceiling_enforced_even_with_owner_authority():
     db = ready_db()
     grant_authority(db, daily=3.0, lifetime=30.0)
     assert ads._ad_authority(db)["granted"] is True
-    over_daily = ads.propose(db, "p", daily_budget_cad=5.0, days=2, funding="owner_cash",
-                             hypothesis=HYP, stop_condition=STOP, now=NOW,
-                             trust_gate=TRUST_PASS)
+    cleared = FakeAccounting(lambda db, p: e_answer("cleared", ["owner authority verified"]))
+    with cleared:  # Finance clears it: only the ceiling stands in the way
+        over_daily = ads.propose(db, "p", daily_budget_cad=5.0, days=2, funding="owner_cash",
+                                 hypothesis=HYP, stop_condition=STOP, now=NOW,
+                                 trust_gate=TRUST_PASS)
     assert over_daily["status"] == "FINANCE_BLOCKED"
     assert over_daily["ceiling"]["daily_cad"] == 3.0
-    over_total = ads.propose(db, "p", daily_budget_cad=3.0, days=20, funding="owner_cash",
-                             hypothesis=HYP, stop_condition=STOP, now=NOW,
-                             trust_gate=TRUST_PASS)
+    assert any(r.startswith("hard ceiling: daily") for r in over_daily["reasons"])
+    with cleared:
+        over_total = ads.propose(db, "p", daily_budget_cad=3.0, days=20, funding="owner_cash",
+                                 hypothesis=HYP, stop_condition=STOP, now=NOW,
+                                 trust_gate=TRUST_PASS)
     assert over_total["status"] == "FINANCE_BLOCKED"
     assert any("total CA$60.00 exceeds the CA$30.00" in r for r in over_total["reasons"])
     assert owner_actions(db) == []
@@ -156,8 +221,9 @@ def test_ceiling_enforced_even_with_owner_authority():
 
 def test_finance_cleared_proposal_becomes_gated_owner_item_not_spend():
     db = ready_db()
-    got = ads.propose(db, "p", daily_budget_cad=1.0, days=5, funding="etsy_plus_credit",
-                      hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
+    with ForceFallback():
+        got = ads.propose(db, "p", daily_budget_cad=1.0, days=5, funding="etsy_plus_credit",
+                          hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
     # Fallback Finance cannot verify the Plus credit balance, so it escalates (never ALLOW).
     assert got["verdict"] == "ESCALATE" and got["status"] == "AWAITING_OWNER", got
     assert any("credit balance" in r for r in got["reasons"])
@@ -167,23 +233,35 @@ def test_finance_cleared_proposal_becomes_gated_owner_item_not_spend():
     assert "no ads executor" in acts[0].action
     assert got["executed"] is False
     # Proposing the same thing again does not duplicate the owner item.
-    ads.propose(db, "p", daily_budget_cad=1.0, days=5, funding="etsy_plus_credit",
-                hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
+    with ForceFallback():
+        ads.propose(db, "p", daily_budget_cad=1.0, days=5, funding="etsy_plus_credit",
+                    hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
     assert len(owner_actions(db)) == 1
 
 
 def test_lane_e_allow_routes_to_owner_with_its_checker_recorded():
     db = ready_db()
-    with FakeAccounting(lambda db, p: {"verdict": "ALLOW", "reasons": ["inside policy"]}):
+    with FakeAccounting(lambda db, p: e_answer("cleared", ["inside policy"])):
         got = ads.propose(db, "p", daily_budget_cad=1.0, days=5, funding="etsy_plus_credit",
                           hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
     assert got["verdict"] == "ALLOW" and got["status"] == "AWAITING_OWNER", got
     assert got["checker"] == ads.FINANCE_CHECK and len(owner_actions(db)) == 1
 
 
+def test_lane_e_escalated_routes_to_owner_with_reasons_preserved():
+    db = ready_db()
+    why = ["[authority] no owner or policy authority attached"]
+    with FakeAccounting(lambda db, p: e_answer("escalated", why)):
+        got = ads.propose(db, "p", daily_budget_cad=1.0, days=5, funding="etsy_plus_credit",
+                          hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
+    assert got["verdict"] == "ESCALATE" and got["status"] == "AWAITING_OWNER", got
+    assert why[0] in got["reasons"] and len(owner_actions(db)) == 1
+
+
 def test_owner_cash_on_modelled_economics_escalates_with_uncertainty():
     db = ready_db()
-    got = ads.propose(db, "p", daily_budget_cad=2.0, days=5, funding="owner_cash",
+    with ForceFallback():
+        got = ads.propose(db, "p", daily_budget_cad=2.0, days=5, funding="owner_cash",
                       hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
     assert got["verdict"] == "ESCALATE" and got["status"] == "AWAITING_OWNER", got
     assert any("refund rate UNMEASURED" in r for r in got["reasons"])
@@ -191,9 +269,10 @@ def test_owner_cash_on_modelled_economics_escalates_with_uncertainty():
 
 def test_unknown_economics_proposal_is_blocked():
     db = ready_db(price=0.0)
-    got = ads.propose(db, "p", daily_budget_cad=1.0, days=2, funding="etsy_plus_credit",
-                      hypothesis=HYP, stop_condition=STOP, max_cac_cad=1.0, now=NOW,
-                      trust_gate=TRUST_PASS)
+    with ForceFallback():
+        got = ads.propose(db, "p", daily_budget_cad=1.0, days=2, funding="etsy_plus_credit",
+                          hypothesis=HYP, stop_condition=STOP, max_cac_cad=1.0, now=NOW,
+                          trust_gate=TRUST_PASS)
     assert got["status"] == "FINANCE_BLOCKED"
     assert any("UNKNOWN" in r for r in got["reasons"])
 
@@ -202,8 +281,9 @@ def test_governor_anomaly_hold_blocks_spend_proposal():
     db = ready_db()
     with db.session() as s:
         s.add(Incident(severity="P2", signature="spend-anomaly:ads", summary="TEST FIXTURE"))
-    got = ads.propose(db, "p", daily_budget_cad=1.0, days=2, funding="etsy_plus_credit",
-                      hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
+    with ForceFallback():
+        got = ads.propose(db, "p", daily_budget_cad=1.0, days=2, funding="etsy_plus_credit",
+                          hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
     assert got["status"] == "FINANCE_BLOCKED"
     assert any("anomaly hold" in r for r in got["reasons"])
 
@@ -211,24 +291,30 @@ def test_governor_anomaly_hold_blocks_spend_proposal():
 def test_not_ready_listing_never_reaches_owner_even_if_finance_allows():
     db = fresh_db()
     add_listing(db, "p", organic=False)
-    got = ads.propose(db, "p", daily_budget_cad=1.0, days=2, funding="etsy_plus_credit",
-                      hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
-    assert got["status"] == "NOT_READY" and got["owner_action_id"] is None
+    with FakeAccounting(lambda db, p: e_answer("cleared", ["inside policy"])):
+        got = ads.propose(db, "p", daily_budget_cad=1.0, days=2, funding="etsy_plus_credit",
+                          hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
+    assert got["verdict"] == "ALLOW" and got["status"] == "NOT_READY" and got["owner_action_id"] is None
     assert owner_actions(db) == []
 
 
 def test_revoked_authority_refuses_on_rechallenge():
     db = ready_db()
     grant_authority(db, daily=3.0, lifetime=30.0)
-    first = ads.propose(db, "p", daily_budget_cad=2.0, days=5, funding="owner_cash",
-                        hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
+    with ForceFallback():
+        first = ads.propose(db, "p", daily_budget_cad=2.0, days=5, funding="owner_cash",
+                            hypothesis=HYP, stop_condition=STOP, now=NOW, trust_gate=TRUST_PASS)
     assert first["status"] == "AWAITING_OWNER"
+    assert len(owner_actions(db)) == 1
     with db.session() as s:
         lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == "ads"))
         lim.daily_cap_cad, lim.lifetime_cap_cad = 1.0, 5.0  # owner lowers/revokes
-    again = ads.rechallenge(db, first["proposal_id"], now=NOW, trust_gate=TRUST_PASS)
+    with ForceFallback():
+        again = ads.rechallenge(db, first["proposal_id"], now=NOW, trust_gate=TRUST_PASS)
     assert again["status"] == "FINANCE_BLOCKED", again
-    assert all(a.done for a in owner_actions(db))  # stale approval item withdrawn
+    assert any(r.startswith("hard ceiling:") for r in again["reasons"])
+    # The unacted owner item is withdrawn: nothing left in the queue to approve.
+    assert owner_actions(db) == [] and again["owner_action_id"] is None
 
 
 def test_proposal_requires_hypothesis_and_stop_condition():
