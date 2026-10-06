@@ -62,6 +62,50 @@ def key_for(case_id: int) -> str:
     return f"{KEY_PREFIX}case:{case_id}"
 
 
+# How long an identical message with no stated receipt time is treated as the same message.
+# With `received_at` stated the key is exact and there is no window.
+DUPLICATE_WINDOW_HOURS = 24.0
+
+
+def intake_key(customer_ref: str, message: str, received_at: datetime | None) -> str:
+    """The idempotency key of one recorded buyer message: who, when, and a hash of what."""
+    import hashlib
+
+    content = hashlib.sha256(" ".join(str(message).split()).encode("utf-8")).hexdigest()
+    when = received_at.astimezone(timezone.utc).isoformat() if received_at else "-"
+    return hashlib.sha256(f"{customer_ref}\x1f{when}\x1f{content}".encode("utf-8")).hexdigest()
+
+
+def _existing_case(db, customer_ref: str, key: str, *, explicit_time: bool, now: datetime):
+    """The case this exact message was already recorded as, if any.
+
+    With a stated receipt time the key is exact. Without one, the same words from the same
+    buyer are the same message while that case is unanswered and under a day old -- after
+    that, the buyer saying it again is a new message.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import SupportCase
+
+    with db.session() as s:
+        for case in s.scalars(select(SupportCase).where(SupportCase.customer_ref == customer_ref)
+                              .order_by(SupportCase.id.desc())):
+            detail = case.detail or {}
+            if detail.get("intake_key") != key:
+                continue
+            if not explicit_time:
+                try:
+                    recorded = _aware(datetime.fromisoformat(str(detail.get("recorded_at"))))
+                except ValueError:
+                    continue
+                if (_answered(case) or (now - recorded).total_seconds() / 3600.0
+                        > DUPLICATE_WINDOW_HOURS):
+                    continue
+            s.expunge(case)
+            return case
+    return None
+
+
 def record_buyer_message(db, *, customer_ref: str, message: str, received_at=None,
                          product_slug: str | None = None, version: str | None = None,
                          channel: str = "etsy_messages", now: datetime | None = None) -> dict:
@@ -77,6 +121,17 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
     if not str(customer_ref or "").strip() or not str(message or "").strip():
         raise MessageRefused("customer_ref and message are required")
     at = _parse(received_at, now=now)
+    ref = str(customer_ref)[:80]
+    key = intake_key(ref, str(message), at if received_at not in (None, "") else None)
+    existing = _existing_case(db, ref, key, explicit_time=received_at not in (None, ""),
+                              now=now)
+    if existing is not None:
+        # A3-13: the same message recorded twice (a retry, a double tap) is one case and one
+        # first-response card, not two. The caller is told it was a duplicate.
+        return {"case_id": existing.id, "duplicate": True,
+                "received_at": _aware(existing.at).isoformat() if existing.at else None,
+                "hours_waiting": (round((now - _aware(existing.at)).total_seconds() / 3600.0, 2)
+                                  if existing.at else None)}
     case_id = CustomerExperience(db).intake(customer_ref=str(customer_ref)[:80],
                                             message=str(message), product_slug=product_slug,
                                             version=version, source=OWNER_SOURCE)
@@ -84,8 +139,9 @@ def record_buyer_message(db, *, customer_ref: str, message: str, received_at=Non
         case = s.get(SupportCase, case_id)
         case.at = at
         case.detail = {**dict(case.detail or {}), "channel": channel,
-                       "received_at": at.isoformat(), "recorded_at": now.isoformat()}
-    return {"case_id": case_id, "received_at": at.isoformat(),
+                       "received_at": at.isoformat(), "recorded_at": now.isoformat(),
+                       "intake_key": key}
+    return {"case_id": case_id, "duplicate": False, "received_at": at.isoformat(),
             "hours_waiting": round((now - at).total_seconds() / 3600.0, 2)}
 
 
@@ -154,7 +210,11 @@ def watch(db, *, now: datetime | None = None) -> dict:
             stage = ("breached" if left <= 0 else
                      "escalated" if hours >= ESCALATE_HOURS else "warning")
             severity = "P2" if stage == "warning" else "P1"
-            text = (f"Reply to buyer message (support case {case.id}, {case.customer_ref}) "
+            # A3-04: the case id only. Owner-queue text is rendered on the dashboard, the
+            # console, the war room and /api/owner-actions; a buyer identifier in it is a
+            # buyer identifier on all of them. The operator opens the case (GET /api/support,
+            # credentialed) to see who it is.
+            text = (f"Reply to buyer message (support case {case.id}) "
                     f"in Etsy Messages now: it has waited {hours:.1f}h of Etsy's "
                     f"{STANDARD_HOURS:.0f}h first-response standard"
                     + (f" ({left:.1f}h left)." if left > 0 else " -- the standard is "

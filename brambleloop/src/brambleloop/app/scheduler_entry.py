@@ -2,6 +2,10 @@
 
 Enqueues due cadences. Idempotent per window, so overlapping cron firings cannot flood the
 queue (Master Plan section 13).
+
+This is the cron path: it needs no HTTP credential because it never goes through the web
+edge. The HTTP equivalent, `POST /api/scheduler/tick`, is operator-authenticated like every
+other mutating route (audit A3-02); a cron that uses it must send the operator bearer token.
 """
 from __future__ import annotations
 

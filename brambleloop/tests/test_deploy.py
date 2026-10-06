@@ -36,6 +36,25 @@ def _client() -> TestClient:
     return TestClient(app_main.app)
 
 
+_OPS_TOKEN = "deploy-test-operator-" + "k" * 24
+
+
+class _operator:
+    """The operator credential, configured and presented (A3-02: every mutating route is
+    default-deny). Restores whatever the environment held before."""
+
+    def __enter__(self) -> dict:
+        self._old = os.environ.get("BRAMBLELOOP_OPS_TOKEN")
+        os.environ["BRAMBLELOOP_OPS_TOKEN"] = _OPS_TOKEN
+        return {"Authorization": f"Bearer {_OPS_TOKEN}"}
+
+    def __exit__(self, *_exc) -> None:
+        if self._old is None:
+            os.environ.pop("BRAMBLELOOP_OPS_TOKEN", None)
+        else:
+            os.environ["BRAMBLELOOP_OPS_TOKEN"] = self._old
+
+
 def test_health_reports_a_real_database_check():
     with _client() as c:
         r = c.get("/health")
@@ -114,9 +133,10 @@ def test_the_container_runs_the_company_by_itself():
 
 
 def test_a_planning_cycle_can_be_started_on_demand_and_is_idempotent_per_date():
-    with _client() as c:
-        first = c.post("/api/plan-cycle?as_of=2027-01-20").json()
-        second = c.post("/api/plan-cycle?as_of=2027-01-20").json()
+    with _client() as c, _operator() as h:
+        assert c.post("/api/plan-cycle?as_of=2027-01-20").status_code == 401
+        first = c.post("/api/plan-cycle?as_of=2027-01-20", headers=h).json()
+        second = c.post("/api/plan-cycle?as_of=2027-01-20", headers=h).json()
     assert first["enqueued"] is True and first["job_id"]
     assert second["enqueued"] is False, "the same date enqueued twice"
 
@@ -166,9 +186,10 @@ def test_the_support_endpoint_shows_that_nothing_was_sent():
 
 def test_a_chain_rebuild_can_be_started_on_demand():
     """The cadence is hourly, which is slow when a deploy has just landed a fix."""
-    with _client() as c:
-        first = c.post("/api/chain-rebuild").json()
-        second = c.post("/api/chain-rebuild").json()
+    with _client() as c, _operator() as h:
+        assert c.post("/api/chain-rebuild").status_code == 401
+        first = c.post("/api/chain-rebuild", headers=h).json()
+        second = c.post("/api/chain-rebuild", headers=h).json()
     assert first["enqueued"] is True
     assert second["enqueued"] is False, "two rebuilds queued at once"
 
@@ -367,10 +388,11 @@ def test_scheduler_tick_endpoint_is_idempotent_within_a_window():
     from brambleloop.runtime.worker import CADENCES
 
     periods = {name: period for name, _agent, _job, period in CADENCES}
-    with _client() as c:
+    with _client() as c, _operator() as h:
+        assert c.post("/api/scheduler/tick").status_code == 401
         t0 = _time.time()
-        first = c.post("/api/scheduler/tick").json()["enqueued"]
-        second = c.post("/api/scheduler/tick").json()["enqueued"]
+        first = c.post("/api/scheduler/tick", headers=h).json()["enqueued"]
+        second = c.post("/api/scheduler/tick", headers=h).json()["enqueued"]
         t1 = _time.time()
     advanced = {n for n, p in periods.items() if int(t0 // p) != int(t1 // p)}
     unexpected = [n for n in second if n not in advanced]
@@ -466,8 +488,8 @@ def test_the_owner_queue_is_written_by_the_system_not_by_hand():
             if not worker.run_once():
                 break
 
-    with _client() as c:
-        c.post("/api/scheduler/tick")
+    with _client() as c, _operator() as h:
+        c.post("/api/scheduler/tick", headers=h)
         JobQueue(app_main.db).enqueue("orchestrator", "launch.readiness", {},
                                       idempotency_key="test:launch-readiness")
         drain()
@@ -674,9 +696,9 @@ def test_a_readiness_assessment_can_be_started_on_demand_and_is_idempotent_per_m
     for _ in range(3):
         _clear_this_minute()
         started = datetime.now(timezone.utc).minute
-        with _client() as c:
-            first = c.post("/api/launch-readiness").json()
-            second = c.post("/api/launch-readiness").json()
+        with _client() as c, _operator() as h:
+            first = c.post("/api/launch-readiness", headers=h).json()
+            second = c.post("/api/launch-readiness", headers=h).json()
         if datetime.now(timezone.utc).minute == started:
             break
     else:  # pragma: no cover - three consecutive boundary crossings

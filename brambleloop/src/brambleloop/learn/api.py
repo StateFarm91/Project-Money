@@ -28,12 +28,14 @@ def _reviewer(authorization):
     identity = os.environ.get("BRAMBLELOOP_LEARN_REVIEWER_ID", "").strip()
     editor_token = os.environ.get(opsauth.TOKEN_VAR, "").strip()
     if (len(expected) < opsauth.MIN_TOKEN_LENGTH or not identity or identity == EDITOR
-            or hmac.compare_digest(expected, editor_token)):
+            or hmac.compare_digest(expected.encode("utf-8"), editor_token.encode("utf-8"))):
         raise HTTPException(503, "Distinct Learn reviewer credential and identity required")
     supplied = (authorization or "").strip()
     if supplied.lower().startswith("bearer "):
         supplied = supplied[7:].strip()
-    if not hmac.compare_digest(supplied, expected):
+    # Bytes: a non-ASCII header must be a refusal, not a 500 (A3-11).
+    if not supplied or not hmac.compare_digest(supplied.encode("utf-8", "surrogatepass"),
+                                               expected.encode("utf-8")):
         raise HTTPException(401, "Learn reviewer credential refused")
     return identity
 
