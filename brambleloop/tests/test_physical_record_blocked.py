@@ -110,7 +110,11 @@ def test_a_class_c_release_blocked_on_physical_evidence_takes_its_sample_and_cer
     content = detail["content_hash"]
     assert not _certified(db, cir.slug)
 
-    job = _run(db, "quality_director", "physical.record", _sample_inputs(cir))
+    # F-072/F-081 (K6): Class C needs a *full make* of this content, so the tester reports
+    # the scope and the finished measurement a full make records (F-076). The sphere's twin
+    # refuses a flat width, so the measurement is recorded without a size comparison.
+    job = _run(db, "quality_director", "physical.record",
+               _sample_inputs(cir, scope="full_make", measured_width_cm=9.5))
     assert job.status is JobStatus.DONE, job.last_error
     assert job.outputs["content_hash"] == content, job.outputs
     assert job.outputs["release_certified"] is False

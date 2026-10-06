@@ -671,6 +671,24 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         # Never the owner's ask any more, only ever unmet. See PHYSICAL_SAMPLE_PARKED.
         owner_request=None))
 
+    # F-073 / F-080 / F-081 / F-086: the risk-based evidence requirement that replaces "the
+    # owner must crochet a sample". Each certified release needs the evidence its effective
+    # risk tier names -- deterministic at the automated threshold for Class A, a partial
+    # physical test for B, a full make for C -- bound to its exact content. The calibration
+    # requirement above stays: the underlying truth objective is not deleted.
+    from ..gates.risk_matrix import catalogue_status
+
+    tiers = catalogue_status(db)
+    out.append(Requirement(
+        key="risk_based_physical_evidence",
+        description=("every certified release holds the physical evidence its risk tier "
+                     "requires, bound to its exact content"),
+        ready=tiers["ready"], blocked_by=None if tiers["ready"] else BLOCKED_TESTER,
+        evidence=tiers,
+        # Waiting on an independent tester (the `tester_roster` gate), never on the owner's
+        # hands; each unmet row carries the spend request the owner would approve.
+        owner_request=None))
+
     out.append(Requirement(
         key="brand_clearance",
         description="the shop name has been through a trademark knock-out search",
