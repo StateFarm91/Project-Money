@@ -55,6 +55,13 @@ POLICY_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
     # written for it, not at the listing.
     "children_and_baby": ("https://www.etsy.com/legal/prohibited-items/children/",
                           ("publishing", "product_creation")),
+    # F-242 / F-291: Etsy's search and search-visibility guidance -- the tag/title limits,
+    # the tag character rule, attributes-as-tags and the Search Visibility page. Watched like
+    # any other policy: a material change raises the publishing incident and invalidates the
+    # search certificates issued under the earlier reading (`commerce.search_policy`).
+    "search_guidance": ("https://help.etsy.com/hc/en-us/articles/"
+                        "360000336307-How-to-Use-Tags-to-Get-Found-in-Search",
+                        ("listing", "publishing", "search")),
 }
 
 # Beyond this, a snapshot is a historical document rather than a current policy.

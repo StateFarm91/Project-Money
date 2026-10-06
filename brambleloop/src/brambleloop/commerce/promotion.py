@@ -288,3 +288,51 @@ def window(promotion: Promotion, today: date) -> dict:
     return {"state": "running",
             "days_remaining": (promotion.ends - today).days,
             "why": f"ends {promotion.ends.isoformat()}"}
+
+
+# ---- the requested sale, vetted where the release chain sets the price (F-257) -----------
+
+def ever_charged_full(db, slug: str, full_price_cad: float) -> bool:
+    """Whether this shop has actually charged the full price for this product.
+
+    Read from non-refunded orders: a price on a listing nobody bought at is a price that was
+    displayed, not one that was charged, and the was-price of a sale must be the second.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Order
+
+    with db.session() as s:
+        return s.scalar(select(Order.id).where(
+            Order.product_slug == slug, Order.refunded.is_(False),
+            Order.price_cad >= float(full_price_cad) - 0.005).limit(1)) is not None
+
+
+def vet_requested(db, slug: str, request: dict | None, *, full_price_cad: float) -> dict:
+    """Run a requested sale (`inputs.promotion`) through `propose`, or say why not.
+
+    The release chain used to carry a requested promo price and window straight to the
+    listing; the rules here -- a stated reason, a real end date within MAX_PROMOTION_DAYS (no
+    permanent sale), a depth that is a promotion and not a repricing, and a was-price this
+    shop has actually charged -- were enforced only by callers that remembered to call them.
+    """
+    if not request:
+        return {"requested": False, "ok": True}
+    try:
+        starts = date.fromisoformat(str(request.get("starts") or ""))
+        ends_raw = request.get("ends")
+        if not ends_raw:
+            raise PromotionRefused(
+                "a sale with no end date is a price, and a price shown as a sale is a "
+                "permanent discount (F-257)")
+        promo = propose(slug, full_price_cad=float(full_price_cad),
+                        promo_price_cad=float(request.get("promo_price_cad")),
+                        starts=starts, ends=date.fromisoformat(str(ends_raw)),
+                        reason=str(request.get("reason") or ""),
+                        ever_charged_full=ever_charged_full(db, slug, full_price_cad))
+    except PromotionRefused as e:
+        return {"requested": True, "ok": False, "why": str(e)[:400]}
+    except (TypeError, ValueError) as e:
+        return {"requested": True, "ok": False,
+                "why": f"the requested sale is malformed: {str(e)[:200]}"}
+    return {"requested": True, "ok": True, "promotion": promo.to_dict()}

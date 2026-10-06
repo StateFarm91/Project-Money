@@ -95,9 +95,12 @@ def test_an_invented_purpose_is_refused():
 
 def test_every_job_the_requirement_names_exists():
     for job in ("DESIRE", "SCALE", "DETAIL", "CONTENTS", "DIFFICULTY", "MATERIALS",
-                "SIZING", "PATTERN_PREVIEW", "PROOF", "CROSS_SELL"):
+                "SIZING", "PATTERN_PREVIEW", "PROOF", "CROSS_SELL",
+                # F-254: alternate angle, construction detail, colour context, fit/worn view,
+                # and F-030's lifestyle/use frame.
+                "ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "FIT", "LIFESTYLE"):
         assert job in E.JOBS
-    assert len(E.JOBS) == 10
+    assert len(E.JOBS) == 15
 
 
 def test_two_frames_doing_one_job_is_the_defect_not_two_similar_images():
@@ -151,7 +154,7 @@ def test_missing_jobs_are_listed_rather_than_refused():
     """A shop adding a frame per uncovered job is padding the gallery for a checklist."""
     out = E.check_set([_cand()])
     assert out["ok"] is True
-    assert len(out["jobs_missing"]) == 9
+    assert len(out["jobs_missing"]) == len(E.JOBS) - 1
     assert "padding the gallery" in out["note"]
 
 
