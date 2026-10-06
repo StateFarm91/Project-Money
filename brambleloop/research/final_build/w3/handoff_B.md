@@ -1,8 +1,9 @@
 # Wave 3 lane B handoff: store UX / art direction (Owner Store Preview v2) and K2 trust gate
 
 Branch `claude/w3-B` (base `claude/v11-CANON` f0c2d12). It merges lane C (`claude/w3-C`,
-copy_v2), lane I (`claude/w3-I`, etsy_constraints) and lane A (`claude/w3-A`,
-identity_system) as they stood when merged. No peer file was edited. Nothing was pushed or
+copy_v2), lane I (`claude/w3-I`, etsy_constraints), lane A (`claude/w3-A`, identity_system)
+and then `claude/visual-investigation` (the integrator's head with A's D1 "Briar Monogram"
+and I's verified constraints) as they stood when merged. No peer file was edited. Nothing was pushed or
 published, and no paid call was made.
 
 ## What was built
@@ -31,15 +32,51 @@ published, and no paid call was made.
 | F-233 Storefront completion | FAIL (honest) | `STORE_BANNER_NOT_EXPORTED`: no 1600x400 raster banner exists for upload. Icon passes at 40 and 70 px on lane A's raster: contrast 3.58 and 4.16, coverage about 0.3, stroke at least 16 px. Lockup measures about 141 px tall on a 390 px phone. Copy is from lane C. |
 | F-234 Shop trust architecture | PASS | Every one of these is present: what is sold, the PDF, delivery, skill, the support path and returns. The render disclosure is present and the copy states no social-proof figures. |
 | F-235 About / process | PASS | 400 characters or more, truth-lint clean, and Laura is disclosed as an AI. |
-| F-237 Section architecture | PASS | Buyer-facing names. No empty section is shown. |
+| F-237 Section architecture | PASS | Buyer-facing names, each at most 24 characters (Etsy's limit, read from lane I's constraints). No empty section is shown. |
 | F-263 Ads readiness | FAIL | Inherits every storefront finding: traffic may not be bought to an unfinished shop. |
 | F-279 Storefront-to-listing continuity | PASS | Every product the announcement names is in the grid. The banner line is the shop's own copy. The seasonal banner stays preview-only until seasonal listings exist. |
 
 If a peer is missing, the gate fails closed (`STORE_ICON_NOT_RENDERED`, `STORE_BANNER_NOT_RENDERED`, `STORE_COPY_INTERIM`).
 
-## Measured improvement (Chromium/Playwright, `research/final_build/w3/evidence/B_metrics.json`)
+## Runtime proof: measured improvement (Chromium/Playwright, 2026-10-06T14:45:38Z, `evidence/B_metrics.json`)
 
-See the table in "Runtime proof" below. Every number comes from the committed JSON.
+The first screen is measured below the preview bar: 390×844 on a phone, 1280×800 on desktop. Preview labels are excluded from the word count.
+
+| Metric | v1 phone | v2 phone | v1 desktop | v2 desktop |
+|---|---|---|---|---|
+| Technical terms on the first screen | 7 | **0** | 7 | **0** |
+| Words on the first screen | 94 | **74** | 105 | **61** |
+| Image share of the first screen (%) | 20.2 | **28.6** | 15.2 | **34.4** |
+| Tap targets under 44 px | 23 of 23 | **0 of 25** | 23 of 23 | **0 of 25** |
+| Shop name size / body size | 1.63 | **2.0** | 2.24 | **2.57** |
+| Distinct text sizes | 8 | **5** | 7 | 9 (banner art) |
+| Lowest text contrast | 5.6:1 | **6.31:1** | 5.6:1 | **6.31:1** |
+| Horizontal overflow | 0 | 0 | 0 | 0 |
+
+Static metrics (computed on each load of the compare page): technical terms on the whole shop page fall from 18 to 7. The remaining 7 are lane C's own words deep in About and FAQ ("verified before release", "checked row by row"), which the owner directive allows below the fold.
+
+Evidence images in `research/final_build/w3/evidence/` (8 JPEGs, 37-181 KB each):
+- B_v1_mobile_top and B_v2_mobile_top
+- B_v1_desktop_top and B_v2_desktop_top
+- B_v2_mobile_about and B_v2_desktop_about
+- B_v2_desktop_board
+- B_compare_desktop
+
+Regenerate with `PYTHONPATH=src .venv/bin/python scripts/w3_store_preview_evidence.py`.
+
+## Tests (focused; run with /home/user/Project-Money/brambleloop/.venv/bin/python, PYTHONPATH=src)
+
+| Test | OK | FAIL |
+|---|---|---|
+| tests/test_w3_store_ux_structure.py (new) | 16 | 0 |
+| tests/test_w3_store_ux_mobile.py (new) | 8 | 0 |
+| tests/test_w3_store_ux_gate.py (new) | 9 | 0 |
+| tests/test_v11_store_preview.py | 13 | 0 |
+| tests/test_v11_store_foundation.py | 20 | 0 |
+| tests/test_canon_store_brand_face.py | 11 | 0 |
+| tests/test_w3_etsy_constraints.py (lane I, after merge) | 17 | 0 |
+
+I did not run the full suite, per the machine limits. Rendering takes about 13 s per process because the Launch-0 hero frames are rendered and verified.
 
 ## Files
 
@@ -51,7 +88,10 @@ New (lane B):
 - `tests/test_w3_store_ux_structure.py`, `tests/test_w3_store_ux_mobile.py`, `tests/test_w3_store_ux_gate.py`
 - `research/final_build/w3/evidence/B_*` (8 JPEGs, each 300 KB or less, plus B_metrics.json)
 
-Modified (lane B owned): `src/brambleloop/store_foundation/preview.py`. It adds the `v2` and `compare` variants and a dispatch. The v1 `standard` and `brand_face` output is unchanged and still the default.
+Modified:
+- `src/brambleloop/store_foundation/preview.py` (lane B). Adds the `v2` and `compare` variants and a dispatch. The v1 `standard` layout is unchanged and still the default.
+- `src/brambleloop/store_foundation/assets.py`, done at the integrator's request on lane A's behalf. `icon_svg()` is now `identity_system.icon_svg()`. `banner_svg()` is A's horizontal lockup in `WORDMARK_BOX` on paper, with motif wings and no Laura. The palette check is widened to `identity_system.PALETTE`. The legacy drawings remain as fallbacks. Consequence: the v1 baseline page now shows the D1 icon and banner, so the compare page's "v1" is v1's *layout and copy* with today's mark.
+- `tests/test_v11_store_foundation.py`, at the integrator's request with the intent unchanged. In the off-palette probe, `#244A3A` becomes `#2F3E33`, and the palette assertion is widened to include `assets.palette_hexes()`.
 
 ## WIRING REQUESTS
 
@@ -62,7 +102,7 @@ Modified (lane B owned): `src/brambleloop/store_foundation/preview.py`. It adds 
        problems.extend(storefront_gate.problems())
    ```
    Expect `shop_complete` / launch readiness to FAIL on `STORE_BANNER_NOT_EXPORTED` until item 2 lands. That failure is intended.
-2. **Lane A, `brand/identity_system.py`**: add `banner_png(width=1600, height=400, tagline=None) -> bytes`. It should be the stacked lockup on paper with motif wings and no Laura (Laura is not publication-approved). The gate already looks for `identity_system.banner_png`.
+2. **Lane A, `brand/identity_system.py`** (or whoever owns raster export): add `banner_png(width=1600, height=400, tagline=None) -> bytes`. It should be the stacked lockup on paper with motif wings and no Laura (Laura is not publication-approved). The gate already looks for `identity_system.banner_png`.
 3. **Lane F, `app/command_center/api.py::store_preview_handler`**: pass the variant through:
    ```python
    def owner_store_preview(request: Request, viewport: str = "mobile", variant: str = "v2"):

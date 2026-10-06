@@ -39,6 +39,7 @@ ICON_COVERAGE = (0.08, 0.70)
 ICON_MIN_STROKE_PX = 2
 PHONE_WIDTH = 390
 LOCKUP_MIN_PHONE_PX = 96          # the wordmark is about a sixth of the stacked lockup: >= 16 px
+SECTION_NAME_MAX = 24            # Etsy help centre via lane I (integrations.etsy_constraints)
 ABOUT_MIN = 400                   # brand.storefront.ABOUT_MIN
 PRODUCT_NOUNS = ("basket", "blanket", "coaster", "cardigan", "sweater", "jumper", "hat",
                  "beanie", "scarf", "shawl", "bag", "tote", "amigurumi", "toy", "pillow",
@@ -260,12 +261,21 @@ def check_sections(db=None) -> tuple[list[dict], dict]:
     out: list[dict] = []
     secs = s["sections"].value
     shown = [x for x in secs if x["shown"]]
+    limit, basis = SECTION_NAME_MAX, "fallback"
+    cons = getattr(S._import("brambleloop.integrations.etsy_constraints"), "CONSTRAINTS", None)
+    if isinstance(cons, dict) and "section_name_max_chars" in cons:
+        limit = int(cons["section_name_max_chars"].value)
+        basis = cons["section_name_max_chars"].basis
     if not shown:
         out.append(_f("F-237", "STORE_NO_SECTIONS_SHOWN", "no section is shown"))
     for x in secs:
-        if INTERNAL_SECTION.search(x["name"]) or x["name"].isupper() or len(x["name"]) > 30:
+        if INTERNAL_SECTION.search(x["name"]) or x["name"].isupper():
             out.append(_f("F-237", "STORE_SECTION_NAME_INTERNAL",
                           f"section {x['name']!r} does not read as a buyer browses"))
+        if len(x["name"]) > limit:
+            out.append(_f("F-237", "STORE_SECTION_NAME_TOO_LONG",
+                          f"section {x['name']!r} is {len(x['name'])} characters; Etsy allows "
+                          f"{limit} ({basis})"))
         if x["shown"] and not x["listings"]:
             out.append(_f("F-237", "STORE_SECTION_EMPTY_SHOWN", f"{x['name']!r} is shown empty"))
     return out, {"sections": [x["name"] for x in shown]}

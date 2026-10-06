@@ -598,7 +598,7 @@ def _board(ctx: dict, now: datetime) -> str:
         f'<figure class="bnwrap" style="width:640px">{_banner(ctx, mode="desktop")}Desktop: '
         f'whole canvas {gw[0]}×{gw[1]}</figure>'
         f'<figure class="bnwrap" style="width:390px">{_banner(ctx, mode="phone")}Phone 390 px: '
-        f'centre crop {g["phone"]:.2f}:1</figure>'
+        f'centre crop {g["phone"]:.2f}:1 (UNVERIFIED assumption)</figure>'
         f'<figure class="bnwrap" style="width:320px">{_banner(ctx, mode="phone")}Small phone '
         f'320 px (awkward crop check)</figure>')
     seasonal = (
@@ -627,8 +627,8 @@ def _board(ctx: dict, now: datetime) -> str:
             f'var(--r-{first})" role="img" aria-label="Digital rendering, {r} crop"></div>{r} '
             f'({why})</figure>'
             for w, h, r, why in ((140, 140, "square", "shop grid"),
-                                 (140, 105, "landscape 4:3", "Etsy ratio UNKNOWN"),
-                                 (112, 140, "portrait 4:5", "Etsy ratio UNKNOWN")))
+                                 (140, 105, "landscape 4:3", "ratio UNVERIFIED assumption: Etsy does not publish it"),
+                                 (112, 140, "portrait 4:5", "ratio UNVERIFIED assumption: Etsy does not publish it")))
     gates = "".join(f'<tr><td>{_esc(x["gate"])}</td><td class="{"ok" if x["status"] == "PASS" else "bad"}">'
                     f'{_esc(x["status"])}</td><td>{_esc(x["why"])}</td></tr>'
                     for x in brand_face.gate_chain())
@@ -652,12 +652,12 @@ def _board(ctx: dict, now: datetime) -> str:
         f'banner concept guided the direction; it is not embedded (its woman is not verified '
         f'as Laura).</p>'
         f'<h3>Sources</h3><table><tbody>{srcs}</tbody></table>'
-        f'<h3>Logo and icon at real sizes</h3><div class="row">{icons}</div>'
+        f'<h3>Logo and icon at real sizes</h3><p>Upload: a 500×500 square PNG (Etsy: logo at least 500×500, recommended 500×500; VERIFIED by lane I). The mark sits inside the central circle, so a circular crop loses nothing.</p><div class="row">{icons}</div>'
         f'<div class="row dark">{icons}<span>Dark surround (app dark mode)</span></div>'
         f'<h3>Banner: desktop and phone crops</h3><div class="row">{banners}</div>'
         f'<p>{_esc(ctx["spec_src"].value["basis"])}. Laura and the lockup sit inside the phone '
         f'window; the product renders sit in the desktop-only wings.</p>'
-        f'<h3>Laura portrait crops (brand face; seller-photo use is owner-gated)</h3><div class="row">{seller}</div>'
+        f'<h3>Laura brand-face crops (banner/About). Not proposed for Etsy\'s profile photo, which belongs to the account holder (lane I checklist B3)</h3><div class="row">{seller}</div>'
         f'<h3>Listing cards at grid size, light and dark</h3><div class="row">{dark_cards}</div>'
         f'<div class="row dark">{dark_cards}</div>'
         f'<h3>Awkward crops of a listing image</h3><div class="row">{crops}</div>'

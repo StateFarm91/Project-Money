@@ -23,6 +23,34 @@ import re
 from ..brand import bible, storefront
 
 P = bible.PALETTE
+
+
+def _identity():
+    """Lane A's identity system (`brand.identity_system`), or None before it exists."""
+    try:
+        from ..brand import identity_system
+    except Exception:  # noqa: BLE001 - absent identity: the legacy drawing below is used
+        return None
+    return identity_system
+
+
+def palette_hexes() -> set[str]:
+    """Every colour the shop's assets may use: the bible plus the identity system's palette."""
+    out = {v.upper() for v in P.values()}
+    ident = _identity()
+    if ident is not None:
+        out |= {str(v).upper() for v in getattr(ident, "PALETTE", {}).values()}
+    return out
+
+
+def _mark_ground() -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    ident = _identity()
+    if ident is not None:
+        def rgb(h):
+            h = h.lstrip("#")
+            return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+        return rgb(ident.PALETTE["forest"]), rgb(ident.PALETTE["paper"])
+    return bible.rgb255("pine"), bible.rgb255("cream")
 ICON_W, ICON_H = storefront.ICON_SIZE
 BANNER_W, BANNER_H = storefront.BANNER_SIZE
 WORDMARK_BOX = storefront.BANNER_WORDMARK_BOX
@@ -72,7 +100,16 @@ def _sprig(cx: float, cy: float, scale: float, angle_deg: float) -> str:
 
 
 def icon_svg() -> str:
-    """The shop icon: a closed loop of yarn holding one stitch, a bramble sprig growing from
+    """The shop icon: lane A's chosen mark (`identity_system.icon_svg()`, outlined, no live
+    text) when the identity system exists; otherwise the legacy loop-and-bramble drawing."""
+    ident = _identity()
+    if ident is not None:
+        return ident.icon_svg()
+    return _legacy_icon_svg()
+
+
+def _legacy_icon_svg() -> str:
+    """The v1 icon: a closed loop of yarn holding one stitch, a bramble sprig growing from
     its lower right. No text."""
     pine, gold, cream = P["pine"], P["gold"], P["cream"]
     ring = (f'<circle cx="250" cy="236" r="148" fill="none" stroke="{pine}" '
@@ -104,8 +141,41 @@ def _stitch_rows(y0: float, rows: int, colours: list[str], pitch: float = 18.0,
     return "".join(paths)
 
 
+def _inner(svg: str, x: float, y: float, w: float, h: float) -> str:
+    """Place a standalone SVG inside another at (x, y, w, h), keeping its viewBox."""
+    m = re.search(r"<svg\b([^>]*)>", svg)
+    vb = re.search(r'viewBox="([^"]+)"', m.group(1)).group(1)
+    body = svg[m.end():svg.rindex("</svg>")]
+    return (f'<svg x="{_f(x)}" y="{_f(y)}" width="{_f(w)}" height="{_f(h)}" viewBox="{vb}" '
+            f'preserveAspectRatio="xMidYMid meet">{body}</svg>')
+
+
 def banner_svg() -> str:
-    """The shop banner: crochet fabric bands top and bottom, the wordmark centred in its box."""
+    """The shop banner. With lane A's identity system: the horizontal lockup centred in
+    `WORDMARK_BOX` on paper, the bramble motif in the wings only (outside the phone crop),
+    no Laura (her imagery is not publication-approved). Otherwise the legacy drawing."""
+    ident = _identity()
+    if ident is None:
+        return _legacy_banner_svg()
+    x0, y0, x1, y1 = WORDMARK_BOX
+    lock = ident.lockup_horizontal_svg(transparent=True)
+    vb = [float(v) for v in re.search(r'viewBox="([^"]+)"', lock).group(1).split()]
+    lw = x1 - x0
+    lh = lw * vb[3] / vb[2]
+    ly = (y0 + y1) / 2 - lh / 2
+    motif = ident.motif_svg(transparent=True)
+    wings = "".join(_inner(motif, x, 40 + (i % 2) * 120, 160, 160)
+                    for i, x in enumerate((20, 200, BANNER_W - 380, BANNER_W - 200)))
+    ground = ident.PALETTE["paper"]
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{BANNER_W}" height="{BANNER_H}" '
+            f'viewBox="0 0 {BANNER_W} {BANNER_H}" role="img" '
+            f'aria-label="{WORDMARK} · Brambleloop Studio banner">'
+            f'<rect width="{BANNER_W}" height="{BANNER_H}" fill="{ground}"/>'
+            f'{wings}{_inner(lock, x0, ly, lw, lh)}</svg>')
+
+
+def _legacy_banner_svg() -> str:
+    """The v1 banner: crochet fabric bands top and bottom, the wordmark centred in its box."""
     x0, y0, x1, y1 = WORDMARK_BOX
     mid = (x0 + x1) / 2
     word_w = (x1 - x0) - 40
@@ -142,7 +212,7 @@ def colours_used(svg: str) -> set[str]:
 def check_icon(svg: str | None = None) -> list[dict]:
     svg = svg if svg is not None else icon_svg()
     out: list[dict] = []
-    off = colours_used(svg) - {v.upper() for v in P.values()}
+    off = colours_used(svg) - palette_hexes()
     if off:
         out.append({"code": "ASSET_OFF_PALETTE", "severity": "fail",
                     "detail": f"icon uses colours outside the brand palette: {sorted(off)}"})
@@ -151,8 +221,7 @@ def check_icon(svg: str | None = None) -> list[dict]:
                     "detail": "the icon brief forbids text: it is illegible at 40 px"})
     if (ICON_W, ICON_H) != storefront.ICON_SIZE or ICON_W != ICON_H:
         out.append({"code": "ICON_NOT_SQUARE", "severity": "fail", "detail": "icon not square"})
-    contrast = bible.contrast_ratio(*(tuple(c / 255 for c in bible.rgb255(n))
-                                      for n in ("pine", "cream")))
+    contrast = bible.contrast_ratio(*(tuple(c / 255 for c in rgb) for rgb in _mark_ground()))
     if contrast < 3.0:
         out.append({"code": "ICON_LOW_CONTRAST", "severity": "fail",
                     "detail": f"mark/ground contrast {contrast:.2f}:1 under 3:1"})
@@ -172,7 +241,7 @@ def check_banner(svg: str | None = None) -> list[dict]:
 
     svg = svg if svg is not None else banner_svg()
     out: list[dict] = []
-    off = colours_used(svg) - {v.upper() for v in P.values()}
+    off = colours_used(svg) - palette_hexes()
     if off:
         out.append({"code": "ASSET_OFF_PALETTE", "severity": "fail",
                     "detail": f"banner uses colours outside the brand palette: {sorted(off)}"})
@@ -180,8 +249,7 @@ def check_banner(svg: str | None = None) -> list[dict]:
     for name, c in crops.items():
         for p in c["problems"]:
             out.append({"code": "BANNER_CROP", "severity": "fail", "detail": p})
-    contrast = bible.contrast_ratio(*(tuple(c / 255 for c in bible.rgb255(n))
-                                      for n in ("pine", "cream")))
+    contrast = bible.contrast_ratio(*(tuple(c / 255 for c in rgb) for rgb in _mark_ground()))
     if contrast < bible.MIN_TEXT_CONTRAST:
         out.append({"code": "BANNER_WORDMARK_CONTRAST", "severity": "fail",
                     "detail": f"wordmark contrast {contrast:.2f}:1"})
@@ -206,5 +274,6 @@ def describe() -> dict:
                    "bytes": len(banner), "size": [BANNER_W, BANNER_H],
                    "colours": sorted(colours_used(banner)),
                    "crops": sp.banner_crops(box=WORDMARK_BOX, size=(BANNER_W, BANNER_H))},
-        "basis": "deterministic SVG from brand.bible.PALETTE; no image model, no spend",
+        "basis": ("deterministic SVG from brand.identity_system (lane A) when present, else "
+                  "brand.bible.PALETTE; no image model, no spend"),
     }

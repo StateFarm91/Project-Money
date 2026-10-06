@@ -139,6 +139,23 @@ def test_sections_read_as_a_buyer_browses():
     assert G.INTERNAL_SECTION.search("Misc")
     assert not G.INTERNAL_SECTION.search("Home & Table")
     assert not G.INTERNAL_SECTION.search("Baby & Nursery")
+    assert G.SECTION_NAME_MAX == 24                 # Etsy: "up to 24 characters"
+    from brambleloop.store_foundation import content as C
+
+    real = C.build
+
+    def long_names(db=None, **kw):
+        out = real(db, **kw)
+        out["sections"].value[0] = dict(out["sections"].value[0],
+                                        name="Blankets, Throws and Cosy Afghans")
+        return out
+
+    C.build = long_names
+    try:
+        f, _ = G.check_sections()
+    finally:
+        C.build = real
+    assert "STORE_SECTION_NAME_TOO_LONG" in {x["code"] for x in f}, f
     f, info = G.check_sections()
     assert info["sections"]
     assert not [x for x in f if x["code"] == "STORE_SECTION_NAME_INTERNAL"], f
