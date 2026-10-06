@@ -815,6 +815,8 @@ JOB_BANDS: dict[str, str] = {
     "autonomy.orchestrate": "truth_defect",
     "autonomy.department_review": "housekeeping",
     "autonomy.morning_handoff": "housekeeping",
+    # W3-D: Laura's executive tick sits above the COO; same band as the company loop.
+    "laura.executive_tick": "truth_defect",
     "ops.slo": "truth_defect",
     "seo.cycle": "housekeeping",
     "finance.accounting.cycle": "housekeeping",

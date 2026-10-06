@@ -147,6 +147,7 @@ class Database:
         from ..growth import ads_readiness  # noqa: F401; ads readiness tables (H)
         from ..ops import slo as _slo_tables  # noqa: F401; SLO samples + leases (I)
         from ..app.command_center import models as cc_models  # noqa: F401; owner CC (C)
+        from ..laura.core import models as laura_core_models  # noqa: F401; Laura (W3-D)
         from .migrate import apply as apply_migrations
 
         Base.metadata.create_all(self.engine)

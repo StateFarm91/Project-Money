@@ -706,6 +706,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # actions become owner approval items, never jobs. `Scheduler.tick` also wakes it at once
     # when the whole queue is empty, so an empty queue never means an idle company.
     ("executive_orchestrator", "coo", "autonomy.orchestrate", 15 * 60),
+    # Wave 3 lane D (D-FB-13): Laura's executive tick -- Laura -> COO -> departments ->
+    # results -> Laura. Deterministic, GREEN, CA$0; she is also woken by the COO when a
+    # mission she delegated closes (laura.executive.results_wake).
+    ("laura_executive", "laura", "laura.executive_tick", 10 * 60),
     # v1.1 wiring (integrator). Each handler is registered in runtime.v11_wiring.
     # Lane I (F-924): SLOs evaluated and slo.* incidents raised/closed. Stored notifications
     # only; a watchdog, so it is never thrash-suspended (swarm LIVENESS_JOB_TYPES).

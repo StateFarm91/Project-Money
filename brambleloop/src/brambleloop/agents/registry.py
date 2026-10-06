@@ -733,3 +733,28 @@ DECLARED_IO["coo"] = {"inputs": ["jobs", "company_memory", "owner_actions", "gat
                                   "owner_actions", "lessons"],
                       "function_metric": "useful_output_rate",
                       "function_reads": "done jobs whose outputs report work done"}
+
+
+# ---------------------------------------------------------------------------
+# Wave 3 lane D (D-FB-13): Laura, Founder/CEO. Her only job type is her executive tick; she
+# delegates through the COO's mission boundary (`autonomy.orchestrator._enqueue_mission`), so
+# every job she causes runs under the department agent that already holds it. GREEN,
+# zero-ceiling, and structurally forbidden every protected or truth-changing job type -- she
+# cannot expand her own authority (the identity record is owner-controlled).
+DEFAULT_AGENTS.append(dict(
+    name="laura",
+    description=("Laura, Founder/CEO (AI person, D-FB-13): observes company state, sets "
+                 "priorities, delegates through the COO, reviews and challenges results. "
+                 "Publishes, activates, spends and messages nothing."),
+    allowed_job_types=["laura.executive_tick"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["laura"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "finance.accounting.cycle", "finance.reconcile", "ops.publication_authority",
+    "ops.activation_authority"}
+DECLARED_IO["laura"] = {"inputs": ["autonomy.status", "company_memory", "owner_actions",
+                                   "incidents", "jobs", "department providers"],
+                        "outputs": ["laura_priorities", "laura_decisions", "jobs (missions via "
+                                    "COO)", "owner_actions", "company_timeline", "lessons"],
+                        "function_metric": "useful_output_rate",
+                        "function_reads": "executive ticks whose work_done > 0"}
+

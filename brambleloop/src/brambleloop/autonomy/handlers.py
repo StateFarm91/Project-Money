@@ -34,11 +34,19 @@ def _now(ctx: JobContext) -> datetime:
 @handlers.register(orchestrator.ORCHESTRATE_JOB)
 def handle_orchestrate(ctx: JobContext) -> dict:
     report = orchestrator.tick(ctx.db, ctx.queue, now=_now(ctx))
+    # Results -> Laura (W3-D): a mission she delegated just closed; wake her review now.
+    try:
+        from ..laura.executive.loop import results_wake
+
+        report["laura_woken"] = results_wake(ctx.db, ctx.queue, now=_now(ctx))
+    except Exception:  # noqa: BLE001 - a failed wake never stops the company loop
+        report["laura_woken"] = False
     return {"ran": True, "enqueued": report["created"],
             "missions": [m["key"] for m in report["missions"]],
             "approvals": [a["requirement_key"] for a in report["approvals"]],
             "states": {k: v.get("state") for k, v in report["departments"].items()},
-            "errors": report["errors"], "reconciled": report["reconciled"]}
+            "errors": report["errors"], "reconciled": report["reconciled"],
+            "laura_woken": report.get("laura_woken", False)}
 
 
 def _lesson(ctx: JobContext, dept: str, subject: str, statement: str, evidence_ref: str,
@@ -203,3 +211,9 @@ def handle_morning_handoff(ctx: JobContext) -> dict:
                         refs=[f"company_memory:{key}"], at=now)
     return {"ran": True, "brief": key, "new_brief": new_brief, "content_hash": content,
             "completed_total": brief["completed_total"]}
+
+
+# W3-D: Laura's executive tick handler registers with the runtime here, because this module is
+# the one the runtime already imports for the company loop.
+from ..laura.executive import handlers as _laura_handlers  # noqa: E402,F401
+
