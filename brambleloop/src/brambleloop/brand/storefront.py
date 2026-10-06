@@ -81,6 +81,21 @@ If something in one of our patterns does not add up, tell us. We fix the pattern
 out a corrected version, and send it to everyone who bought it — rather than answering your
 question and leaving the next person to find the same problem."""
 
+
+def unwrap_paragraphs(text: str) -> str:
+    """Source-wrapped prose as paste-ready text: one line per paragraph.
+
+    Etsy's About and policy fields keep every newline they are given, so a paragraph wrapped
+    at 95 columns for this file would reach the shop as ragged mid-sentence line breaks on a
+    phone (found by the v1.1 Owner Store Preview). Blank lines between paragraphs are kept.
+    """
+    paras = [" ".join(line.strip() for line in p.splitlines() if line.strip())
+             for p in (text or "").split("\n\n")]
+    return "\n\n".join(p for p in paras if p)
+
+
+ABOUT = unwrap_paragraphs(ABOUT)
+
 # The policies are not written here any more.
 #
 # They were, and all five of them were prose somebody typed once. The licence was the one
