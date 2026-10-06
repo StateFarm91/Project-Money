@@ -307,7 +307,11 @@ def verdict() -> dict:
             "basis": {"measured": "raster of the shipped geometry at 40/70/160 px",
                       "judged": "lane-A builder's rubric; opinion, labelled; lane J and the "
                                 "owner are the independent judges"},
-            "benchmarks": BENCHMARKS}
+            "benchmarks": BENCHMARKS,
+            # D-FB-17: this ranks research directions; it never selects the hero. The owner's
+            # artwork holds the hero role whatever these scores say.
+            "may_replace_canonical": False,
+            "canonical_hero": "brand.canonical_assets.HERO_LOGO (D-FB-17)"}
 
 
 @lru_cache(maxsize=1)

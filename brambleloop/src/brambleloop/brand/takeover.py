@@ -26,7 +26,7 @@ and the invariants are listed rather than trusted to taste.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from ..seasonal.calendar import MILESTONES
@@ -88,6 +88,10 @@ CONTINUITY_INVARIANTS: dict[str, str] = {
              "with",
     "policy_text": "delivery, returns, licence, support and privacy, which are promises "
                    "rather than decoration",
+    "canonical_logo": "the owner's hero artwork (D-FB-17), used exactly as supplied; replacing "
+                      "it needs a new owner decision, never a seasonal plan",
+    "canonical_banner": "the owner's banner composition (D-FB-17); a seasonal look may not "
+                        "replace it without an owner decision naming the new file",
 }
 
 
@@ -102,6 +106,10 @@ class Takeover:
     surfaces: tuple[str, ...]
     changes: dict[str, str]          # surface -> what it becomes
     changes_invariants: tuple[str, ...] = ()
+    # D-FB-17: canonical brand role ("hero_logo" | "storefront_banner") -> sha256 of the file a
+    # takeover would put in its place. Refused unless an owner decision names those bytes.
+    replaces_assets: dict[str, str] = field(default_factory=dict)
+    approval: dict | None = None
 
 
 def schedule(event: str, event_date: date, *, today: date | None = None,
@@ -177,15 +185,27 @@ def check(takeover: Takeover) -> list[str]:
             if why else
             f"TAKEOVER_BREAKS_CONTINUITY: {invariant}")
 
+    from . import canonical_assets as CA
+
+    for role, sha in (takeover.replaces_assets or {}).items():
+        try:
+            CA.require_brand_change_authorised(role, sha, takeover.approval,
+                                               action=f"takeover {takeover.event!r}")
+        except CA.BrandChangeRefused as exc:
+            problems.append(f"TAKEOVER_REPLACES_CANONICAL_ASSET: {role} -- {exc}")
+
     return problems
 
 
 def plan(event: str, event_date: date, changes: dict[str, str], *,
-         today: date | None = None, changes_invariants: tuple[str, ...] = ()) -> dict:
+         today: date | None = None, changes_invariants: tuple[str, ...] = (),
+         replaces_assets: dict[str, str] | None = None,
+         approval: dict | None = None) -> dict:
     """A scheduled, checked takeover, refused rather than flagged if it breaks continuity."""
     takeover = Takeover(event=event, event_date=event_date,
                         surfaces=tuple(changes), changes=dict(changes),
-                        changes_invariants=changes_invariants)
+                        changes_invariants=changes_invariants,
+                        replaces_assets=dict(replaces_assets or {}), approval=approval)
     problems = check(takeover)
     if problems:
         raise TakeoverRefused("; ".join(problems))

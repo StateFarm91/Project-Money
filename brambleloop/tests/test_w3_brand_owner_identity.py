@@ -55,7 +55,10 @@ def _check_svg(svg: str, tag: str) -> None:
 
 def test_primary_is_owner_concept():
     assert I.DIRECTION_ID == O.DIRECTION_ID == "O1-owner-bramble-b"
-    assert I.STATUS["decision"] == "D-FB-16" and I.STATUS["state"] == "OWNER_DIRECTED_PRIMARY"
+    assert I.STATUS["decision"] == "D-FB-16"
+    # D-FB-17: the owner's exact artwork is the hero; this vector system supports it
+    assert I.STATUS["state"] == "SUPPORTING_PRODUCTION_SYSTEM"
+    assert I.STATUS["superseded_by"] == "D-FB-17"
     assert I.RESEARCH_DIRECTION_ID == "D1-briar-monogram"
     assert I.direction() is O.O1
     d = I.to_dict()

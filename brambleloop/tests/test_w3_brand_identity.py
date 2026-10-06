@@ -50,9 +50,11 @@ def test_interface_shape():
     for key in ("direction_id", "palette", "roles", "typography", "usage_rules", "svgs",
                 "alternatives", "status", "descriptor"):
         assert key in d, key
-    # D-FB-16: the owner chose their own concept; it is the primary, not a recommendation
-    assert d["status"]["state"] == "OWNER_DIRECTED_PRIMARY"
-    assert d["status"]["decision"] == "D-FB-16"
+    # D-FB-16 built this vector system; D-FB-17 made the owner's exact artwork the hero and
+    # this system its supporting production system
+    assert d["status"]["state"] == "SUPPORTING_PRODUCTION_SYSTEM"
+    assert d["status"]["decision"] == "D-FB-16" and d["status"]["superseded_by"] == "D-FB-17"
+    assert d["canonical"]["decision"] == "D-FB-17"
     assert len(d["usage_rules"]) >= 8
     assert d["palette"]
     for name, hexv in d["palette"].items():

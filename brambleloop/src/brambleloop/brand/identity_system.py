@@ -3,10 +3,15 @@
 Lane A owns this. Store layout (lane B), copy (lane C), Command Center and any future renderer
 read the chosen direction from here and never hard-code a colour, a font or a mark.
 
-PRIMARY DIRECTION (owner decision D-FB-16, 2026-10-06): "O1-owner-bramble-b", the owner's own
-concept professionalised into a production vector identity (`brand.owner_identity`). D1
-"Briar Monogram" and D2-D4 (`brand.directions`) remain available as design research only
-(`RESEARCH_DIRECTION_ID`, `alternatives()`, `mark_svg(..., direction_id=...)`).
+HIERARCHY (owner decision D-FB-17, 2026-10-06, supersedes D-FB-16 items 1-2): the owner's own
+files are the identity. `hero_artwork_png()` / `owner_logo_path()` give the canonical hero
+artwork EXACTLY as supplied (`brand.canonical_assets`); it is what every hero / large-format
+lockup uses. The vector system below ("O1-owner-bramble-b", `brand.owner_identity`) is a
+SUPPORTING production system: palette, type guidance, clear space, mono / reversed variants,
+small-size engineering and SVG where a vector is genuinely needed. Its micro-mark is a
+small-size utility derivative, used only where the exact artwork is measured illegible
+(`canonical_assets.shop_icon_choice`). `asset_for(use)` answers which one a use gets.
+D1 "Briar Monogram" and D2-D4 (`brand.directions`) remain design research only.
 
 What it gives you
   DIRECTION_ID, STATUS            the chosen direction and how final it is
@@ -37,13 +42,15 @@ from .vector import rasterize, to_png_bytes, to_svg
 DIRECTION_ID = _O.DIRECTION_ID
 RESEARCH_DIRECTION_ID = "D1-briar-monogram"
 STATUS = {
-    "state": "OWNER_DIRECTED_PRIMARY",
-    "basis": ("the owner chose their own concept as the primary brand direction (D-FB-16); "
-              "this system professionalises it into production vector masters. The owner has "
-              "not yet approved these final drawings; nothing is uploaded to Etsy; not "
-              "certified by the independent brand certifier"),
+    "state": "SUPPORTING_PRODUCTION_SYSTEM",
+    "basis": ("the owner's supplied artwork is the canonical hero identity (D-FB-17); this "
+              "vector system, built under D-FB-16, supports it (palette, type, clear space, "
+              "mono/reversed, small sizes, SVG) and never replaces it. Nothing is uploaded to "
+              "Etsy; not certified by the independent brand certifier"),
     "decided_at": "2026-10-06",
     "decision": "D-FB-16",
+    "superseded_by": "D-FB-17",
+    "hero": "owner raster (brand.canonical_assets.HERO_LOGO), exact",
     "research_only": sorted(_D.DIRECTIONS),
 }
 
@@ -141,15 +148,18 @@ MIN_SIZE: dict[str, dict] = {
 }
 
 USAGE_RULES: list[str] = [
-    "Primary identity = the owner's concept (D-FB-16): serif B + bramble growth + yarn loop "
-    "and ball; BRAMBLELOOP; CROCHET PATTERNS between hairlines; the script tagline; the heart.",
-    "Etsy shop icon (40-70 px on screen): ONLY the micro-mark, icon_svg('colour') exported with "
-    "icon_png(500). It is the same B, simplified -- never shrink the full monogram into the "
-    "icon slot. It sits inside the central circle, so a circular crop loses nothing.",
-    "Full monogram (B with sprig, blossoms, berries, figure-of-eight and ball): 160 px wide or "
-    "larger -- banner, About, packaging, PDF covers.",
-    "Hero lockup (monogram + wordmark + descriptor + script tagline + heart): banner centre, "
-    "About header, pattern PDF cover; at least 320 px wide so the script reads.",
+    "Canonical identity = the owner's supplied artwork (D-FB-17), used exactly as supplied: "
+    "never redraw the B, redesign the flowers, simplify the yarn on large-format uses, change "
+    "the typography or recompose. hero_artwork_png() / owner_logo_path().",
+    "Hero lockup (banner centre, About header, pattern PDF cover, any large-format use): the "
+    "owner raster, exact (resampled only to fit the space). The A3 vector hero lockup is a "
+    "supporting SVG, used only where a vector is genuinely required, labelled as such.",
+    "Etsy shop icon: the exact owner artwork (monogram crop) wherever it is measured legible at "
+    "every display size; where it is measured illegible (canonical_assets.shop_icon_choice -- "
+    "today 40 px fails at 2.6:1 contrast) the A3 micro-mark is used, labelled a small-size "
+    "derivative. It sits inside the central circle, so a circular crop loses nothing.",
+    "A3 full monogram (vector): 160 px wide or larger where SVG is needed -- packaging dielines, "
+    "embossing, one-ink print. Large raster uses take the owner artwork.",
     "Phone header / email footer: lockup_horizontal_svg() at 28-40 px tall (micro-mark + "
     "wordmark + descriptor). Never the hero lockup in a phone header.",
     "Clear space: hero lockup 0.5 B, horizontal lockup 1 cap height, monogram 0.25 B, "
@@ -175,6 +185,42 @@ USAGE_RULES: list[str] = [
     "Slogan props from the concept images (mugs, signs, the category line) are merchandising "
     "and copy (lane C), not part of the identity.",
 ]
+
+
+# ---- the canonical owner artwork (D-FB-17) -----------------------------------------------------
+
+from . import canonical_assets as _CA  # noqa: E402
+
+CANONICAL_DECISION = _CA.DECISION_ID
+HIERARCHY = _CA.HIERARCHY
+
+
+def owner_logo_path():
+    """The canonical hero artwork file, re-hashed (raises CanonicalAssetError if altered)."""
+    return _CA.verified_path(_CA.HERO_LOGO)
+
+
+def hero_artwork_png(max_w: int | None = None) -> bytes:
+    """The canonical hero artwork: the owner's exact bytes, or (with `max_w`) a LANCZOS
+    resample of them for a smaller space. Never a redraw."""
+    if max_w is None:
+        return _CA.verified_bytes(_CA.HERO_LOGO)
+    return _CA.display_bytes(_CA.HERO_LOGO, max_w, fmt="PNG")
+
+
+def asset_for(use: str) -> dict:
+    """Which asset a use gets under the D-FB-17 hierarchy, with its label."""
+    h = _CA.HIERARCHY_BY_USE.get(use)
+    if h is None:
+        raise KeyError(f"unknown use {use!r}: {sorted(_CA.HIERARCHY_BY_USE)}")
+    out = dict(h)
+    if use == "shop_icon":
+        c = _CA.shop_icon_choice()
+        out.update({"asset": c["asset"], "derivative": c["derivative"], "label": c["label"],
+                    "why": c["why"]})
+    else:
+        out["derivative"] = h["asset"] == "a3_vector"
+    return out
 
 
 # ---- marks -----------------------------------------------------------------------------------
@@ -320,6 +366,10 @@ def to_dict(include_svgs: bool = True) -> dict:
         "usage_rules": list(USAGE_RULES), "variants": list(VARIANTS),
         "alternatives": [a["id"] for a in alternatives()],
         "research_direction_id": RESEARCH_DIRECTION_ID, "tagline": TAGLINE,
+        "canonical": {"decision": CANONICAL_DECISION,
+                      "assets": {r: a.to_dict() for r, a in _CA.ASSETS.items()},
+                      "hierarchy": [dict(h) for h in HIERARCHY],
+                      "vectors_are": "supporting production system (A3), not the hero"},
         "clear_space": dict(CLEAR_SPACE), "min_size": MIN_SIZE,
         "basis": "deterministic SVG geometry + outlined OFL type; no image model, no spend",
     }

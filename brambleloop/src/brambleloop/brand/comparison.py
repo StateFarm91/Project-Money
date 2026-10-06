@@ -71,12 +71,14 @@ class Candidate:
 
 
 def owner_path() -> Path | None:
-    """The owner raster, if present and byte-identical to what the owner supplied."""
+    """The owner raster, if present and byte-identical to what the owner supplied: the
+    repository copy (`canonical_assets`, D-FB-17), or `BRAMBLELOOP_OWNER_LOGO_CONCEPT` when it
+    hashes to the same bytes."""
+    from . import canonical_assets as CA
+
     env = os.environ.get(OWNER_ENV)
     cands = [Path(env)] if env else []
-    cands.append(Path("/tmp/claude-0/-home-user-Project-Money/"
-                      "0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/owner_brand/"
-                      "owner_logo_concept.png"))
+    cands.append(CA.path(CA.HERO_LOGO))
     for p in cands:
         if p.is_file() and hashlib.sha256(p.read_bytes()).hexdigest() == OWNER_SHA256:
             return p

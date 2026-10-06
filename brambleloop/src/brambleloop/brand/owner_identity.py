@@ -79,20 +79,28 @@ CONCEPT_SAMPLES: dict[str, tuple] = {
 
 
 def concept_paths() -> dict[str, "object"]:
-    """The owner's concept files, if present and byte-identical to what the owner supplied."""
+    """The owner's files, if present and byte-identical to what the owner supplied.
+
+    Read from the repository copies (`canonical_assets`, D-FB-17), so this runs on any
+    machine. `BRAMBLELOOP_OWNER_BRAND_DIR` may point at another copy; it is used only when its
+    bytes hash to the owner's."""
     import hashlib
     import os
     from pathlib import Path as P
 
-    base = P(os.environ.get("BRAMBLELOOP_OWNER_BRAND_DIR",
-                            "/tmp/claude-0/-home-user-Project-Money/"
-                            "0aa334b9-5ba9-5fd2-9058-e50b4b8604ea/scratchpad/owner_brand"))
+    from . import canonical_assets as CA
+
     out = {}
-    for key, name, sha in (("logo", "owner_logo_concept.png", OWNER_LOGO_SHA256),
-                           ("banner", "owner_banner_concept.png", OWNER_BANNER_SHA256)):
-        f = base / name
-        if f.is_file() and hashlib.sha256(f.read_bytes()).hexdigest() == sha:
-            out[key] = f
+    env = os.environ.get("BRAMBLELOOP_OWNER_BRAND_DIR")
+    for key, role, sha in (("logo", CA.HERO_LOGO, OWNER_LOGO_SHA256),
+                           ("banner", CA.STOREFRONT_BANNER, OWNER_BANNER_SHA256)):
+        cands = [CA.path(role)]
+        if env:
+            cands.insert(0, P(env) / CA.ASSETS[role].file)
+        for f in cands:
+            if f.is_file() and hashlib.sha256(f.read_bytes()).hexdigest() == sha:
+                out[key] = f
+                break
     return out
 
 
