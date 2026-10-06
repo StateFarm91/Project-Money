@@ -1533,3 +1533,18 @@ authorise exactly one change (its revision's predecessor → that revision, with
 D-FB-14 is spent once applied; any future replacement or alteration of Laura needs a new owner
 decision recorded here and in code. Publication readiness is unchanged: no image is
 publication-approved; photorealism, anatomy, identity and Product Truth gates still apply.
+
+## D-FB-15 — Owner brand decisions: tagline retained, logo not locked (2026-10-06)
+- **Tagline:** retain "Patterns for a More Handmade Life" as the owner-preferred tagline. Owner reading: it describes
+  what Brambleloop's digital patterns enable customers to do (make things by hand), not a claim that Brambleloop sells
+  handmade finished goods. The store truth lint is to be evaluated on the actual semantic claim (enabling/aspirational
+  customer-making language passes; claims that Brambleloop's items are handmade still fail). If authoritative Etsy
+  policy or a reasonable customer-interpretation test shows it misleading, the evidence and alternatives go to the
+  owner before any change.
+- **Logo:** D1 "Briar Monogram" is a finalist, NOT locked. The owner decides from a contextual comparison (D1, the
+  owner-supplied B/bramble/yarn concept, strongest other finalist(s); at 40 px icon, header scale, mobile and desktop
+  storefront/banner, monochrome).
+- **Private Laura layer:** remains a required Final Master component; completion of business memory/Talk-to-Laura does
+  not close it; the private conversation register stays GATED until implementable within execution constraints.
+- **Pushes:** owner authorised non-force pushes of claude/w3-* worker branches (no force, no history rewrite, no
+  deletion, no production/default-branch pushes, no deploy).
