@@ -86,7 +86,9 @@ def check(shop: dict | None) -> dict:
         if shop is None or field not in shop:
             status = NOT_RETURNED
         elif not str(shop.get(field) or "").strip():
-            status = BLANK
+            # An intentionally empty canonical value (e.g. policy_additional, EU-only) is
+            # consistent when the live field is empty too; otherwise an empty field is a gap.
+            status = MATCH if not str(want.get(field) or "").strip() else BLANK
         elif _norm(str(shop.get(field))) == _norm(want[field]):
             status = MATCH
         else:

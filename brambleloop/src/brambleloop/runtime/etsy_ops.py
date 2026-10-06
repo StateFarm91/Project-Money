@@ -86,13 +86,13 @@ CLOSES_ON_SHOP_CHECKS: dict[str, tuple[str, ...]] = {
     "payment_settings_setup": ("etsy_payments_onboarded",),
     "policy_settings_paste": ("policy_payment_set", "policy_shipping_set",
                               "policy_refunds_set", "policy_privacy_set",
-                              "policy_additional_set"),
+                              "policy_additional_unset"),
 }
 
 #: The storefront checks whose failure means the shop is missing a trust surface (F-515).
 TRUST_SURFACE_CHECKS = ("icon_set", "banner_set", "title_set", "announcement_set",
                         "policy_payment_set", "policy_shipping_set", "policy_refunds_set",
-                        "policy_privacy_set", "policy_additional_set",
+                        "policy_privacy_set",
                         "digital_sale_message_set")
 
 

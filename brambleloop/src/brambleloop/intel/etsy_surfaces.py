@@ -2085,6 +2085,8 @@ def evidence_state(surface: Surface, record: Mapping | None, *, now: float) -> s
 
 #: Each check is (key, field, kind, why). `kind` decides how the value is judged:
 #:   "nonblank" -- a string that must have content
+#:   "blank"    -- a field that must be empty or absent-valued (e.g. an EU-only field on a
+#:                 Canadian shop)
 #:   "true"     -- a boolean that must be true
 #:   "false"    -- a boolean that must be false
 #:   "equals"   -- compared against the expected value in `expect`
@@ -2110,8 +2112,9 @@ SHOP_CHECKS: tuple[tuple[str, str, str, object, str], ...] = (
      "the most likely first complaint is about a return on a non-returnable item"),
     ("policy_privacy_set", "policy_privacy", "nonblank", None,
      "CASL and buyer trust; buying must not put anybody on a list"),
-    ("policy_additional_set", "policy_additional", "nonblank", None,
-     "the only policy field the API writes: licence and AI disclosure"),
+    ("policy_additional_unset", "policy_additional", "blank", None,
+     "Etsy lets only EU shops set policy_additional (lane I, verified Help Center); a Canadian "
+     "shop must leave it empty -- the licence lives in the FAQ/About copy"),
     ("etsy_payments_onboarded", "is_etsy_payments_onboarded", "true", None,
      "no payout route without it; closes payment_settings_setup"),
     ("not_on_vacation", "is_vacation", "false", None,
@@ -2165,6 +2168,10 @@ def assess_shop(snapshot: Mapping | None, *, now: float,
             ok = isinstance(value, str) and value.strip() != ""
             detail = (f"{field_name} is set" if ok else
                       f"{field_name} is {value!r}: Etsy returned it and it is empty. ({why})")
+        elif kind == "blank":
+            ok = value is None or (isinstance(value, str) and value.strip() == "")
+            detail = (f"{field_name} is empty" if ok else
+                      f"{field_name} is set but must be empty here. ({why})")
         elif kind == "true":
             ok = value is True
             detail = (f"{field_name} is true" if ok else

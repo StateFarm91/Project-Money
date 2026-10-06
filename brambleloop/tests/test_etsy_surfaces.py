@@ -270,7 +270,8 @@ def _good_shop() -> dict:
         "policy_shipping": "Nothing is posted; the file downloads immediately.",
         "policy_refunds": "Digital items cannot be returned. Here is what we do instead.",
         "policy_privacy": "Buying does not put you on a list.",
-        "policy_additional": "Licence and AI disclosure.",
+        # EU-only field (lane I, verified): a correct Canadian shop leaves it empty.
+        "policy_additional": "",
         "is_etsy_payments_onboarded": True,
         "is_vacation": False,
         "currency_code": "CAD",
@@ -307,6 +308,14 @@ def test_injected_defect_a_field_nobody_read_must_not_read_as_a_pass():
     assert unevidenced == {"policy_payment_set", "policy_shipping_set",
                            "policy_refunds_set", "policy_privacy_set"}
     assert not status.failures
+    assert status.green is False
+
+
+def test_an_eu_only_policy_field_set_on_a_canadian_shop_is_a_failure():
+    body = _good_shop()
+    body["policy_additional"] = "Licence and AI disclosure."
+    status = es.assess_shop({"observed_at": NOW, "shop": body}, now=NOW)
+    assert {c.key for c in status.failures} == {"policy_additional_unset"}
     assert status.green is False
 
 

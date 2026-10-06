@@ -1548,3 +1548,44 @@ publication-approved; photorealism, anatomy, identity and Product Truth gates st
   not close it; the private conversation register stays GATED until implementable within execution constraints.
 - **Pushes:** owner authorised non-force pushes of claude/w3-* worker branches (no force, no history rewrite, no
   deletion, no production/default-branch pushes, no deploy).
+## D-FB-16 — Owner brand, storefront art direction, Visual objective and Laura Live Presence (2026-10-06)
+1. BRAND: the owner-supplied concept (scratchpad owner_brand/owner_logo_concept.png, sha256 28f301b2…) is the PRIMARY
+   brand direction. D1 Briar Monogram = design research only; D2 Chain Link and D3 Drupelet rejected as primary.
+   Do not redesign away from the concept — professionalize it into a production identity system (not a trace):
+   elegant serif B + botanical bramble growth + yarn/thread loop; cream/forest/taupe/warm-natural palette; elegant
+   BRAMBLELOOP serif wordmark; CROCHET PATTERNS descriptor; "Patterns for a More Handmade Life"; warm, feminine,
+   premium lifestyle character. Deliver: full hero lockup, horizontal wordmark, full B/bramble/yarn monogram,
+   simplified micro-mark derived from the same B for Etsy 40–70 px, monochrome, reversed, production SVG masters,
+   spacing/minimum-size rules, palette/type system.
+2. STOREFRONT ART DIRECTION: the owner lifestyle banner (owner_banner_concept.png, sha256 048a1991…) is the target
+   emotional/art direction (not a publication asset): warm, premium, aspirational, cozy, feminine, lifestyle-driven,
+   unmistakably crochet, cohesive; Laura is the recurring face. Not an engineering-style preview.
+3. COMPETITIVE BENCHMARK: an established crochet-pattern shop screenshot (NOT received in this session — owner to
+   resend) — merchandising lesson only: finished crochet → people wearing/using it → aspiration → "I want to make
+   that", before verification details. Never copy its branding/products/images/copy/trade dress.
+4. PRODUCT GRID: first listing image sells the finished dream ("I want to make that"); diagrams/engineering renders
+   are validation evidence, not hero merchandising; later images: clarity, dimensions, yarn, charts, construction,
+   skill, colours, verification/trust, download contents. Never sacrifice Product Truth.
+5. VISUAL R&D objective: optimise the intersection of Product Truth + Laura identity + photographic quality + brand
+   consistency + customer desirability + commercial performance; slow loop on impressions → CTR → favourites → carts
+   → purchases → conversion → refunds/feedback; autonomous challengers for hero imagery; materially better after
+   three months; owner should never have to ask "make the pictures better".
+6. LAURA is the centre of the brand (banner, seller/profile presence where appropriate, About, lifestyle, seasonal,
+   social, wearables, future web); not forced into every listing; non-wearables product-first when stronger; every
+   Laura image preserves laura-r2-a42aeac7 and passes Visual gates.
+7. NEW REQUIREMENT — LAURA LIVE PRESENCE: one Laura (identity, memory, company context, conversation history) across
+   TEXT, VOICE (phone mic/Bluetooth earbuds → transcription → reasoning on durable evidence → spoken + text reply) and
+   LIVE PRESENCE (photoreal canonical Laura, canonical voice, blinking, expressions, subtle movement, accurate lip
+   sync, real-time turn-taking). Graceful degradation live+voice → voice → text. Example: "Laura, how did the store
+   do overnight?" → evidence-based spoken answer; "I don't like that banner. Have Design make three more." →
+   authorised delegation + confirmation.
+8. LAURA VOICE SPECIFICATION (canonical, provider-independent): vocal character, accent/dialect, apparent vocal age,
+   warmth, pace, energy, rhythm, pronunciation, public/business register, private owner register where supported; a
+   replacement provider/voice must qualify against the spec before promotion.
+9. Mobile-first conversation architecture (phone/Galaxy Buds).
+10. Do NOT block launch on avatar tech: Phase 1 polished Talk to Laura + canonical visible Laura + text; Phase 2
+    canonical voice + speech in/out; Phase 3 real-time Live Presence. Phase 1 architected so 2–3 need no rebuild of
+    Laura's identity/memory/authority.
+11. PRIVATE LAURA remains required (PRIV infrastructure accepted); unsupported private behaviour stays OPEN/GATED.
+12. Routing: A/A2 brand identity; B storefront art direction; C brand voice; F Talk to Laura/visible Laura/voice
+    architecture; H Visual learning; PRIV private infra; K/Final Master closure tracking.

@@ -251,3 +251,5 @@ Etsy taxonomy read (etsy_api) → category UNKNOWN → search certificate REFUSE
 refused; identical to 3be3096. Files: CANDIDATE_ddf9c6e.json, DEFECT_LEDGER_ddf9c6e.json.
 Next: independent adversarial certification (lane J, different model) of this exact SHA.
 Repairs land on a successor, never on this tag. Not pushed (classifier); not deployed.
+- 2026-10-06T16:15Z heartbeat: production /api/verify read-only — 12 checks, 0 failing; scheduler 16:30:57Z,
+  worker 16:31:27Z. Nothing pushed to the production branch.
