@@ -1,0 +1,2412 @@
+{
+ "generated_at": "2026-10-06T07:01:44.752552+00:00",
+ "generated_by": "brambleloop.autonomy.map",
+ "live_roots": [
+  "runtime.worker.CADENCES",
+  "runtime.worker.handlers",
+  "agents.registry.DEFAULT_AGENTS",
+  "ast enqueue edges",
+  "autonomy.charters"
+ ],
+ "counts": {
+  "departments": 11,
+  "cadences": 103,
+  "handlers": 121,
+  "agents": 28,
+  "follow_on_edges": 53
+ },
+ "departments": [
+  {
+   "department": "executive",
+   "name": "Executive / COO",
+   "mission": "Prioritise company work across departments, keep every department supplied with the next highest-value safe work, and present only genuine owner decisions upward (F-893, F-894).",
+   "agents": [
+    "coo",
+    "growth",
+    "orchestrator",
+    "swarm_steward"
+   ],
+   "charter_agents": [
+    "coo",
+    "orchestrator",
+    "swarm_steward"
+   ],
+   "authority": {
+    "generatable": [
+     "autonomy.morning_handoff",
+     "scale.trajectory",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "autonomy.morning_handoff": "coo",
+     "scale.trajectory": "orchestrator",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "publish, activate, spend, message a customer or change a live price",
+     "approve its own proposals"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "protected actions and owner-gated capabilities become owner_actions"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "daily_review",
+      "agent": "orchestrator",
+      "job_type": "plan.cycle",
+      "period_seconds": 86400
+     },
+     {
+      "name": "portfolio_review",
+      "agent": "orchestrator",
+      "job_type": "portfolio.review",
+      "period_seconds": 604800
+     },
+     {
+      "name": "strategy_review",
+      "agent": "orchestrator",
+      "job_type": "plan.strategy",
+      "period_seconds": 2592000
+     },
+     {
+      "name": "trajectory_nightly",
+      "agent": "orchestrator",
+      "job_type": "scale.trajectory",
+      "period_seconds": 86400
+     },
+     {
+      "name": "swarm_review",
+      "agent": "swarm_steward",
+      "job_type": "swarm.review",
+      "period_seconds": 86400
+     },
+     {
+      "name": "swarm_allocate",
+      "agent": "swarm_steward",
+      "job_type": "swarm.allocate",
+      "period_seconds": 3600
+     },
+     {
+      "name": "swarm_orphans",
+      "agent": "swarm_steward",
+      "job_type": "swarm.orphans",
+      "period_seconds": 3600
+     },
+     {
+      "name": "swarm_backlog",
+      "agent": "swarm_steward",
+      "job_type": "swarm.backlog",
+      "period_seconds": 3600
+     },
+     {
+      "name": "launch_readiness",
+      "agent": "orchestrator",
+      "job_type": "launch.readiness",
+      "period_seconds": 86400
+     },
+     {
+      "name": "build_tick",
+      "agent": "orchestrator",
+      "job_type": "build.tick",
+      "period_seconds": 3600
+     },
+     {
+      "name": "capacity_review",
+      "agent": "orchestrator",
+      "job_type": "ops.capacity",
+      "period_seconds": 604800
+     },
+     {
+      "name": "executive_orchestrator",
+      "agent": "coo",
+      "job_type": "autonomy.orchestrate",
+      "period_seconds": 900
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "listing.seo",
+     "owner/API route api_launch_readiness",
+     "owner/API route api_plan_cycle",
+     "plan.strategy",
+     "runtime/orders.py:handle_trajectory"
+    ]
+   },
+   "cadence": [
+    900,
+    3600,
+    86400,
+    604800,
+    2592000
+   ],
+   "evidence_inputs": [
+    "jobs",
+    "company_memory",
+    "owner_actions",
+    "build2 gate states"
+   ],
+   "work_generation": {
+    "handoff": [],
+    "overdue_cadence_catch_up": [
+     "scale.trajectory"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:executive:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.autonomy.handlers",
+     "brambleloop.runtime.orders",
+     "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "autonomy.department_review",
+     "autonomy.morning_handoff",
+     "autonomy.orchestrate",
+     "build.tick",
+     "launch.plan",
+     "launch.readiness",
+     "ops.capacity",
+     "plan.cycle",
+     "plan.strategy",
+     "portfolio.review",
+     "scale.trajectory",
+     "swarm.allocate",
+     "swarm.backlog",
+     "swarm.orphans",
+     "swarm.review"
+    ],
+    "permitted_without_handler": []
+   },
+   "durable_output": [
+    "jobs (missions)",
+    "company_memory mission/brief",
+    "company_timeline",
+    "owner_actions (approval items)"
+   ],
+   "downstream_consumers": [
+    "intelligence",
+    "product_design",
+    "product_truth",
+    "visual",
+    "store_commerce",
+    "support",
+    "finance",
+    "growth",
+    "learn",
+    "platform"
+   ],
+   "follow_on": [
+    {
+     "from": "launch.plan",
+     "to": "listing.seo"
+    },
+    {
+     "from": "launch.plan",
+     "to": "marketing.schedule"
+    },
+    {
+     "from": "launch.plan",
+     "to": "store.publish"
+    },
+    {
+     "from": "plan.cycle",
+     "to": "radar.scan"
+    },
+    {
+     "from": "portfolio.review",
+     "to": "radar.score"
+    }
+   ],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "intelligence",
+   "name": "Intelligence",
+   "mission": "Observe demand, benchmarks, trends and seasonality from sanctioned sources and turn them into scored opportunities.",
+   "agents": [
+    "market_radar",
+    "orchestrator"
+   ],
+   "charter_agents": [
+    "market_radar"
+   ],
+   "authority": {
+    "generatable": [
+     "radar.score",
+     "intel.benchmark_refresh",
+     "intel.pod_learning",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "radar.score": "market_radar",
+     "intel.benchmark_refresh": "market_radar",
+     "intel.pod_learning": "market_radar",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "copy competitor instructions, charts or photography",
+     "buy benchmarks or spend beyond its ceiling"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "benchmark purchases and new paid sources are owner decisions"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "signal_review",
+      "agent": "market_radar",
+      "job_type": "radar.scan",
+      "period_seconds": 21600
+     },
+     {
+      "name": "intel_acceptance",
+      "agent": "market_radar",
+      "job_type": "intel.acceptance",
+      "period_seconds": 86400
+     },
+     {
+      "name": "etsy_probe",
+      "agent": "market_radar",
+      "job_type": "etsy.probe",
+      "period_seconds": 21600
+     },
+     {
+      "name": "mjs_scan",
+      "agent": "market_radar",
+      "job_type": "mjs.scan",
+      "period_seconds": 7200
+     },
+     {
+      "name": "serp_capture",
+      "agent": "market_radar",
+      "job_type": "intel.serp_capture",
+      "period_seconds": 86400
+     },
+     {
+      "name": "mjs_benchmark_health",
+      "agent": "market_radar",
+      "job_type": "intel.benchmark_health",
+      "period_seconds": 86400
+     },
+     {
+      "name": "mjs_pod_learning",
+      "agent": "market_radar",
+      "job_type": "intel.pod_learning",
+      "period_seconds": 86400
+     },
+     {
+      "name": "mjs_seasonal_sentinel",
+      "agent": "market_radar",
+      "job_type": "mjs.seasonal_sentinel",
+      "period_seconds": 86400
+     },
+     {
+      "name": "panel_discovery",
+      "agent": "market_radar",
+      "job_type": "intel.panel_discovery",
+      "period_seconds": 604800
+     },
+     {
+      "name": "benchmark_refresh",
+      "agent": "market_radar",
+      "job_type": "intel.benchmark_refresh",
+      "period_seconds": 604800
+     },
+     {
+      "name": "mjs_reviews",
+      "agent": "market_radar",
+      "job_type": "mjs.reviews",
+      "period_seconds": 604800
+     },
+     {
+      "name": "culture_sweep",
+      "agent": "market_radar",
+      "job_type": "culture.sweep",
+      "period_seconds": 86400
+     },
+     {
+      "name": "gallery_analysis",
+      "agent": "market_radar",
+      "job_type": "intel.gallery_analysis",
+      "period_seconds": 7200
+     },
+     {
+      "name": "teardown_enforce",
+      "agent": "orchestrator",
+      "job_type": "teardown.enforce",
+      "period_seconds": 86400
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "owner/API route api_etsy_probe",
+     "owner/API route api_mjs_scan",
+     "plan.cycle",
+     "portfolio.review",
+     "radar.scan"
+    ]
+   },
+   "cadence": [
+    7200,
+    21600,
+    86400,
+    604800
+   ],
+   "evidence_inputs": [
+    "benchmark_listings",
+    "coverage_gaps",
+    "culture_signals",
+    "serp_snapshots",
+    "CoverageGap.updated_at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "CoverageGap",
+      "consumer_job_type": "radar.score",
+      "why": "coverage gaps changed since the last scoring run"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "intel.benchmark_refresh",
+     "intel.pod_learning"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:intelligence:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "culture.sweep",
+     "etsy.probe",
+     "intel.acceptance",
+     "intel.benchmark_health",
+     "intel.benchmark_refresh",
+     "intel.gallery_analysis",
+     "intel.panel_discovery",
+     "intel.pod_learning",
+     "intel.serp_capture",
+     "mjs.reviews",
+     "mjs.scan",
+     "mjs.seasonal_sentinel",
+     "radar.scan",
+     "radar.score",
+     "teardown.enforce"
+    ],
+    "permitted_without_handler": [
+     "radar.competitor_snapshot"
+    ]
+   },
+   "durable_output": [
+    "coverage_gaps scores",
+    "audit radar.*",
+    "jobs cir.draft"
+   ],
+   "downstream_consumers": [
+    "product_design",
+    "growth"
+   ],
+   "follow_on": [
+    {
+     "from": "mjs.seasonal_sentinel",
+     "to": "creative.tournament"
+    },
+    {
+     "from": "radar.score",
+     "to": "cir.draft"
+    }
+   ],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "benchmark_observation"
+    },
+    {
+     "kind": "owner_gate",
+     "gate": "etsy_api"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "product_design",
+   "name": "Product & Design",
+   "mission": "Turn scored opportunities into CIR-first product concepts and keep the seasonal programme on time.",
+   "agents": [
+    "creative_director",
+    "crochet_engineer",
+    "listing",
+    "orchestrator"
+   ],
+   "charter_agents": [
+    "creative_director",
+    "crochet_engineer"
+   ],
+   "authority": {
+    "generatable": [
+     "seasonal.sentinel",
+     "creative.outcome_learning",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "seasonal.sentinel": "orchestrator",
+     "creative.outcome_learning": "creative_director",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "create a beauty image and ask a model to guess instructions",
+     "certify its own pattern"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "spend above the creative ceiling and model-identity decisions go to owner"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "style_learning",
+      "agent": "creative_director",
+      "job_type": "creative.style_learning",
+      "period_seconds": 86400
+     },
+     {
+      "name": "outcome_learning",
+      "agent": "creative_director",
+      "job_type": "creative.outcome_learning",
+      "period_seconds": 86400
+     },
+     {
+      "name": "season_harvest",
+      "agent": "orchestrator",
+      "job_type": "seasonal.harvest",
+      "period_seconds": 86400
+     },
+     {
+      "name": "white_space_discovery",
+      "agent": "creative_director",
+      "job_type": "creative.white_space",
+      "period_seconds": 604800
+     },
+     {
+      "name": "four_season_programme",
+      "agent": "creative_director",
+      "job_type": "creative.four_season",
+      "period_seconds": 604800
+     },
+     {
+      "name": "creative_north_star",
+      "agent": "creative_director",
+      "job_type": "creative.north_star",
+      "period_seconds": 86400
+     },
+     {
+      "name": "seasonal_engine",
+      "agent": "orchestrator",
+      "job_type": "seasonal.engine",
+      "period_seconds": 86400
+     },
+     {
+      "name": "blind_review",
+      "agent": "creative_director",
+      "job_type": "creative.blind_review",
+      "period_seconds": 86400
+     },
+     {
+      "name": "grid_tournament",
+      "agent": "creative_director",
+      "job_type": "creative.grid_tournament",
+      "period_seconds": 604800
+     },
+     {
+      "name": "seasonal_sentinel",
+      "agent": "orchestrator",
+      "job_type": "seasonal.sentinel",
+      "period_seconds": 86400
+     },
+     {
+      "name": "benchmark_memory",
+      "agent": "creative_director",
+      "job_type": "creative.benchmark_memory",
+      "period_seconds": 86400
+     },
+     {
+      "name": "reference_reading",
+      "agent": "creative_director",
+      "job_type": "creative.reference_reading",
+      "period_seconds": 86400
+     },
+     {
+      "name": "blinded_benchmark",
+      "agent": "creative_director",
+      "job_type": "creative.blinded",
+      "period_seconds": 1209600
+     },
+     {
+      "name": "arena_expedition",
+      "agent": "creative_director",
+      "job_type": "creative.expedition",
+      "period_seconds": 604800
+     },
+     {
+      "name": "product_tournament",
+      "agent": "creative_director",
+      "job_type": "creative.tournament",
+      "period_seconds": 604800
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "chain.rebuild",
+     "cir.draft",
+     "creative/intake.py:intake",
+     "creative/intake.py:regate_held",
+     "creative/preengineering.py:record",
+     "mjs.seasonal_sentinel",
+     "owner/API route api_seasonal_recompute",
+     "radar.score",
+     "runtime/release.py:enqueue_member_collections",
+     "seasonal.engine"
+    ]
+   },
+   "cadence": [
+    86400,
+    604800,
+    1209600
+   ],
+   "evidence_inputs": [
+    "coverage_gaps",
+    "pattern_versions",
+    "lessons",
+    "PatternVersion.created_at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "PatternVersion",
+      "consumer_job_type": "seasonal.sentinel",
+      "why": "new pattern versions need launch dates recomputed"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "seasonal.sentinel",
+     "creative.outcome_learning"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:product_design:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.orders",
+     "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "cir.draft",
+     "collection.assemble",
+     "creative.benchmark_memory",
+     "creative.blind_review",
+     "creative.blinded",
+     "creative.expedition",
+     "creative.four_season",
+     "creative.grid_tournament",
+     "creative.north_star",
+     "creative.outcome_learning",
+     "creative.reference_reading",
+     "creative.style_learning",
+     "creative.tournament",
+     "creative.white_space",
+     "seasonal.engine",
+     "seasonal.harvest",
+     "seasonal.sentinel"
+    ],
+    "permitted_without_handler": [
+     "cir.revise"
+    ]
+   },
+   "durable_output": [
+    "CIR drafts",
+    "seasonal plans",
+    "audit creative.*"
+   ],
+   "downstream_consumers": [
+    "product_truth",
+    "visual",
+    "store_commerce"
+   ],
+   "follow_on": [
+    {
+     "from": "cir.draft",
+     "to": "cir.compile"
+    }
+   ],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "model_provider"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "product_truth",
+   "name": "Product Truth / QA",
+   "mission": "Prove every claim a product makes: compile, twin, certify, keep artefacts fresh and block anything that misrepresents the pattern.",
+   "agents": [
+    "asset_truth",
+    "orchestrator",
+    "policy",
+    "quality_director",
+    "validator"
+   ],
+   "charter_agents": [
+    "quality_director",
+    "validator",
+    "asset_truth",
+    "policy"
+   ],
+   "authority": {
+    "generatable": [
+     "ops.sentinel",
+     "physical.upgrade_impact",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "ops.sentinel": "orchestrator",
+     "physical.upgrade_impact": "quality_director",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "weaken a gate",
+     "certify without deterministic validation"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "P0/P1 incidents halt publication and reach the owner"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "production_lanes",
+      "agent": "quality_director",
+      "job_type": "gate.lanes",
+      "period_seconds": 86400
+     },
+     {
+      "name": "provenance_backfill",
+      "agent": "orchestrator",
+      "job_type": "ops.provenance_backfill",
+      "period_seconds": 86400
+     },
+     {
+      "name": "physical_upgrade_impact",
+      "agent": "quality_director",
+      "job_type": "physical.upgrade_impact",
+      "period_seconds": 86400
+     },
+     {
+      "name": "stale_artefact_sentinel",
+      "agent": "orchestrator",
+      "job_type": "ops.sentinel",
+      "period_seconds": 3600
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "cir.compile",
+     "cir.draft",
+     "gate.certify",
+     "owner/API route api_physical_photo",
+     "owner/API route api_physical_test",
+     "runtime/pipeline.py:_draft_creative"
+    ]
+   },
+   "cadence": [
+    3600,
+    86400
+   ],
+   "evidence_inputs": [
+    "pattern_versions",
+    "artefact_provenance",
+    "incidents",
+    "listing_assets",
+    "PatternVersion.created_at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "PatternVersion",
+      "consumer_job_type": "ops.sentinel",
+      "why": "new releases must be swept for stale or unproven artefacts"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "ops.sentinel",
+     "physical.upgrade_impact"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:product_truth:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "cir.compile",
+     "gate.certify",
+     "gate.lanes",
+     "ops.provenance_backfill",
+     "ops.sentinel",
+     "physical.photo",
+     "physical.record",
+     "physical.upgrade_impact"
+    ],
+    "permitted_without_handler": [
+     "cir.reverse",
+     "cir.twin",
+     "gate.asset_truth",
+     "gate.policy",
+     "gate.quality"
+    ]
+   },
+   "durable_output": [
+    "certificates",
+    "incidents",
+    "audit ops.sentinel"
+   ],
+   "downstream_consumers": [
+    "visual",
+    "store_commerce",
+    "learn"
+   ],
+   "follow_on": [
+    {
+     "from": "gate.certify",
+     "to": "listing.draft"
+    },
+    {
+     "from": "physical.record",
+     "to": "assets.build"
+    }
+   ],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "visual",
+   "name": "Visual",
+   "mission": "Produce truthful, disclosed imagery for certified releases and watch the canonical model's identity for drift.",
+   "agents": [
+    "creative_director",
+    "publishing",
+    "quality_director"
+   ],
+   "charter_agents": [
+    "publishing"
+   ],
+   "authority": {
+    "generatable": [
+     "visual.identity_drift",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "visual.identity_drift": "quality_director",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "generate imagery that misrepresents the pattern",
+     "buy renders from idleness (renders stay on their budgeted cadences)"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "identity freezes and provider trials are owner-approved"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "image_benchmark",
+      "agent": "creative_director",
+      "job_type": "creative.image_benchmark",
+      "period_seconds": 3600
+     },
+     {
+      "name": "model_tournament",
+      "agent": "creative_director",
+      "job_type": "creative.model_tournament",
+      "period_seconds": 3600
+     },
+     {
+      "name": "model_reference_pack",
+      "agent": "creative_director",
+      "job_type": "creative.model_reference_pack",
+      "period_seconds": 3600
+     },
+     {
+      "name": "owned_photography",
+      "agent": "publishing",
+      "job_type": "assets.owned_photography",
+      "period_seconds": 86400
+     },
+     {
+      "name": "model_photography",
+      "agent": "publishing",
+      "job_type": "assets.model_photography",
+      "period_seconds": 86400
+     },
+     {
+      "name": "identity_drift",
+      "agent": "quality_director",
+      "job_type": "visual.identity_drift",
+      "period_seconds": 86400
+     },
+     {
+      "name": "seasonal_cycle_proof",
+      "agent": "publishing",
+      "job_type": "seasonal.cycle_proof",
+      "period_seconds": 604800
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "creative.image_benchmark",
+     "listing.draft",
+     "owner/API route _startup",
+     "physical.record",
+     "runtime/pipeline.py:_listing_parity",
+     "runtime/release.py:_intake_photo"
+    ]
+   },
+   "cadence": [
+    3600,
+    86400,
+    604800
+   ],
+   "evidence_inputs": [
+    "pattern_versions",
+    "listing_assets",
+    "model_identities",
+    "ListingAsset.created_at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "ListingAsset",
+      "consumer_job_type": "visual.identity_drift",
+      "why": "new listing assets must be read into the identity series"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "visual.identity_drift"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:visual:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "assets.build",
+     "assets.model_photography",
+     "assets.owned_photography",
+     "assets.physical_upgrade",
+     "creative.image_benchmark",
+     "creative.model_freeze",
+     "creative.model_reference_pack",
+     "creative.model_tournament",
+     "creative.photoreal_calibration",
+     "seasonal.cycle_proof",
+     "visual.identity_drift",
+     "visual.portrait_repair",
+     "visual.provider_trial"
+    ],
+    "permitted_without_handler": [
+     "assets.render"
+    ]
+   },
+   "durable_output": [
+    "listing_assets",
+    "identity drift readings"
+   ],
+   "downstream_consumers": [
+    "store_commerce",
+    "product_truth"
+   ],
+   "follow_on": [
+    {
+     "from": "assets.build",
+     "to": "pricing.position"
+    }
+   ],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "image_generation"
+    },
+    {
+     "kind": "owner_gate",
+     "gate": "canonical_model"
+    },
+    {
+     "kind": "owner_gate",
+     "gate": "image_vision"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {
+    "creative.model_freeze": "freezes the owner-approved model pack (owner approval 2026-09-22)",
+    "creative.photoreal_calibration": "owner-authorised one vision call (2026-09-22)",
+    "visual.portrait_repair": "owner-authorised CA$1.00 repair attempt (2026-09-23)",
+    "visual.provider_trial": "owner-authorised CA$4.00 provider trial (2026-09-23)"
+   }
+  },
+  {
+   "department": "store_commerce",
+   "name": "Store / Commerce",
+   "mission": "Turn certified releases into correct listings, keep the shop's read-back true, and prepare (never perform) publication for owner approval.",
+   "agents": [
+    "listing",
+    "orchestrator",
+    "pricing",
+    "store_operator"
+   ],
+   "charter_agents": [
+    "listing",
+    "store_operator",
+    "pricing"
+   ],
+   "authority": {
+    "generatable": [
+     "seasonal.remerchandising",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "seasonal.remerchandising": "listing",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "publish or activate a listing without owner authority",
+     "change a live price"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "publication/activation is owner-approved per release"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "etsy_taxonomy",
+      "agent": "listing",
+      "job_type": "listing.taxonomy_refresh",
+      "period_seconds": 86400
+     },
+     {
+      "name": "search_visibility_watch",
+      "agent": "listing",
+      "job_type": "listing.search_visibility_watch",
+      "period_seconds": 86400
+     },
+     {
+      "name": "chain_rebuild",
+      "agent": "listing",
+      "job_type": "chain.rebuild",
+      "period_seconds": 3600
+     },
+     {
+      "name": "remerchandising_review",
+      "agent": "listing",
+      "job_type": "seasonal.remerchandising",
+      "period_seconds": 604800
+     },
+     {
+      "name": "etsy_credential_health",
+      "agent": "orchestrator",
+      "job_type": "etsy.credential_health",
+      "period_seconds": 86400
+     },
+     {
+      "name": "etsy_shop_snapshot",
+      "agent": "orchestrator",
+      "job_type": "etsy.shop_snapshot",
+      "period_seconds": 86400
+     },
+     {
+      "name": "etsy_listing_census",
+      "agent": "orchestrator",
+      "job_type": "etsy.listing_census",
+      "period_seconds": 86400
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "assets.build",
+     "chain.rebuild",
+     "gate.certify",
+     "growth.steer",
+     "launch.plan",
+     "ops/rebuild_graph.py:enqueue",
+     "owner/API route api_chain_rebuild",
+     "pricing.position",
+     "runtime/pipeline.py:_publish_and_read_back",
+     "runtime/release.py:_price_launch0",
+     "runtime/release.py:_targeted_rebuild"
+    ]
+   },
+   "cadence": [
+    3600,
+    86400,
+    604800
+   ],
+   "evidence_inputs": [
+    "pattern_versions",
+    "listings",
+    "etsy snapshots",
+    "Listing.created_at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "Listing",
+      "consumer_job_type": "seasonal.remerchandising",
+      "why": "new listing drafts are reviewed for seasonal merchandising"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "seasonal.remerchandising"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": [
+     "store.publish -> owner_actions"
+    ]
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:store_commerce:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.etsy_ops",
+     "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.release",
+     "brambleloop.runtime.storefront_watch"
+    ],
+    "executable_job_types": [
+     "chain.rebuild",
+     "etsy.credential_health",
+     "etsy.listing_census",
+     "etsy.shop_snapshot",
+     "listing.draft",
+     "listing.search_visibility_watch",
+     "listing.seo",
+     "listing.taxonomy_refresh",
+     "pricing.position",
+     "seasonal.remerchandising",
+     "store.activate",
+     "store.publish"
+    ],
+    "permitted_without_handler": [
+     "pricing.experiment",
+     "store.update"
+    ]
+   },
+   "durable_output": [
+    "listings (drafts)",
+    "owner approval items for publication"
+   ],
+   "downstream_consumers": [
+    "growth",
+    "finance",
+    "support"
+   ],
+   "follow_on": [
+    {
+     "from": "chain.rebuild",
+     "to": "cir.draft"
+    },
+    {
+     "from": "chain.rebuild",
+     "to": "collection.assemble"
+    },
+    {
+     "from": "listing.draft",
+     "to": "assets.build"
+    },
+    {
+     "from": "listing.seo",
+     "to": "launch.plan"
+    }
+   ],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "etsy_api"
+    },
+    {
+     "kind": "owner_gate",
+     "gate": "live_listings"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "support",
+   "name": "Customer Support",
+   "mission": "Triage every customer case against the pattern version it concerns and draft truthful answers; mine cases for product defects.",
+   "agents": [
+    "support"
+   ],
+   "charter_agents": [
+    "support"
+   ],
+   "authority": {
+    "generatable": [
+     "support.triage",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "support.triage": "support",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "send a message without authority (CASL)",
+     "silently patch a canonical pattern"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "unanswerable or safety cases escalate to the owner"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "support_triage",
+      "agent": "support",
+      "job_type": "support.triage",
+      "period_seconds": 3600
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "support/department.py:triage_cases"
+    ]
+   },
+   "cadence": [
+    3600
+   ],
+   "evidence_inputs": [
+    "support_cases",
+    "pattern_versions",
+    "lessons",
+    "SupportCase.at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "SupportCase",
+      "consumer_job_type": "support.triage",
+      "why": "cases arrived since the last triage"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "support.triage"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:support:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "support.reply",
+     "support.triage"
+    ],
+    "permitted_without_handler": []
+   },
+   "durable_output": [
+    "support_cases drafts",
+    "defect lessons"
+   ],
+   "downstream_consumers": [
+    "product_truth",
+    "learn"
+   ],
+   "follow_on": [],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "customers"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "finance",
+   "name": "Finance / Accounting",
+   "mission": "Keep the books from observed entries only, reconcile, govern spend and challenge any proposal that breaks margin or cash policy.",
+   "agents": [
+    "cfo"
+   ],
+   "charter_agents": [
+    "cfo"
+   ],
+   "authority": {
+    "generatable": [
+     "finance.reconcile",
+     "commerce.order_readings",
+     "commerce.readings",
+     "finance.escalation_check",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "finance.reconcile": "cfo",
+     "commerce.order_readings": "cfo",
+     "commerce.readings": "cfo",
+     "finance.escalation_check": "cfo",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "move money, file tax, borrow, sign contracts or change bank details",
+     "present an estimate as an actual"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "80% of a ceiling and every anomaly reach the owner"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "finance_reconcile",
+      "agent": "cfo",
+      "job_type": "finance.reconcile",
+      "period_seconds": 86400
+     },
+     {
+      "name": "finance_governor",
+      "agent": "cfo",
+      "job_type": "finance.governor",
+      "period_seconds": 3600
+     },
+     {
+      "name": "commerce_readings",
+      "agent": "cfo",
+      "job_type": "commerce.readings",
+      "period_seconds": 86400
+     },
+     {
+      "name": "orders_ingest",
+      "agent": "cfo",
+      "job_type": "commerce.orders_ingest",
+      "period_seconds": 21600
+     },
+     {
+      "name": "order_readings",
+      "agent": "cfo",
+      "job_type": "commerce.order_readings",
+      "period_seconds": 86400
+     },
+     {
+      "name": "spend_escalation",
+      "agent": "cfo",
+      "job_type": "finance.escalation_check",
+      "period_seconds": 21600
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "finance.reconcile"
+    ]
+   },
+   "cadence": [
+    3600,
+    21600,
+    86400
+   ],
+   "evidence_inputs": [
+    "cost_entries",
+    "ledger",
+    "orders",
+    "spend_reservations",
+    "CostEntry.at",
+    "Order.at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "CostEntry",
+      "consumer_job_type": "finance.reconcile",
+      "why": "new cost entries since the last reconciliation"
+     },
+     {
+      "table": "Order",
+      "consumer_job_type": "commerce.order_readings",
+      "why": "new orders since the last order reading"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "finance.reconcile",
+     "commerce.order_readings",
+     "commerce.readings",
+     "finance.escalation_check"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:finance:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.commerce_readings",
+     "brambleloop.runtime.orders",
+     "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "commerce.order_readings",
+     "commerce.orders_ingest",
+     "commerce.readings",
+     "finance.challenge",
+     "finance.escalation_check",
+     "finance.governor",
+     "finance.reconcile"
+    ],
+    "permitted_without_handler": []
+   },
+   "durable_output": [
+    "P&L readings",
+    "incidents",
+    "spend holds",
+    "owner actions"
+   ],
+   "downstream_consumers": [
+    "executive",
+    "growth"
+   ],
+   "follow_on": [],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "transactions_r"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "growth",
+   "name": "Growth / Marketing",
+   "mission": "Plan distribution and the buyer journey, pre-register experiments and conclude them honestly; propose (never self-approve) spend.",
+   "agents": [
+    "ads",
+    "experiment_steward",
+    "growth",
+    "swarm_steward"
+   ],
+   "charter_agents": [
+    "growth",
+    "ads",
+    "experiment_steward"
+   ],
+   "authority": {
+    "generatable": [
+     "growth.journey",
+     "growth.distribution",
+     "growth.conclude",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "growth.journey": "growth",
+     "growth.distribution": "growth",
+     "growth.conclude": "experiment_steward",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "spend on ads without owner authority and Finance clearance",
+     "fake reviews, engagement or deceptive discounts"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "every spend proposal is challenged by Finance then owner-approved"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "ads_review",
+      "agent": "ads",
+      "job_type": "ads.adjust",
+      "period_seconds": 86400
+     },
+     {
+      "name": "growth_distribution",
+      "agent": "growth",
+      "job_type": "growth.distribution",
+      "period_seconds": 86400
+     },
+     {
+      "name": "growth_journey",
+      "agent": "growth",
+      "job_type": "growth.journey",
+      "period_seconds": 86400
+     },
+     {
+      "name": "growth_steer",
+      "agent": "swarm_steward",
+      "job_type": "growth.steer",
+      "period_seconds": 3600
+     },
+     {
+      "name": "growth_conclude",
+      "agent": "experiment_steward",
+      "job_type": "growth.conclude",
+      "period_seconds": 86400
+     },
+     {
+      "name": "preproduction_validation",
+      "agent": "growth",
+      "job_type": "growth.preproduction",
+      "period_seconds": 86400
+     },
+     {
+      "name": "growth_experiments",
+      "agent": "experiment_steward",
+      "job_type": "growth.experiments",
+      "period_seconds": 86400
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "ads.adjust",
+     "launch.plan"
+    ]
+   },
+   "cadence": [
+    3600,
+    86400
+   ],
+   "evidence_inputs": [
+    "listings",
+    "experiments",
+    "cohorts",
+    "Listing.created_at",
+    "Experiment.created_at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "Listing",
+      "consumer_job_type": "growth.journey",
+      "why": "new listing drafts change the buyer journey"
+     },
+     {
+      "table": "Experiment",
+      "consumer_job_type": "growth.conclude",
+      "why": "experiments registered since the last conclusion run"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "growth.journey",
+     "growth.distribution",
+     "growth.conclude"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:growth:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.growth_ops",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "ads.adjust",
+     "ads.campaign",
+     "growth.conclude",
+     "growth.distribution",
+     "growth.experiments",
+     "growth.journey",
+     "growth.preproduction",
+     "growth.steer",
+     "marketing.schedule"
+    ],
+    "permitted_without_handler": [
+     "content.draft"
+    ]
+   },
+   "durable_output": [
+    "distribution plans",
+    "experiment packs",
+    "spend proposals"
+   ],
+   "downstream_consumers": [
+    "finance",
+    "learn"
+   ],
+   "follow_on": [
+    {
+     "from": "growth.steer",
+     "to": "chain.rebuild"
+    }
+   ],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "ad_authority"
+    },
+    {
+     "kind": "owner_gate",
+     "gate": "owned_surfaces"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "learn",
+   "name": "Learn / Improvement",
+   "mission": "Mine failures and outcomes into routed lessons, propose challengers, and promote only measured improvements with rollback.",
+   "agents": [
+    "cost_optimiser",
+    "creative_critic",
+    "evaluator",
+    "experiment_designer",
+    "failure_miner",
+    "learn",
+    "lesson_router",
+    "orchestrator",
+    "prompt_tool_challenger",
+    "reliability_engineer"
+   ],
+   "charter_agents": [
+    "learn",
+    "orchestrator",
+    "evaluator",
+    "failure_miner",
+    "experiment_designer",
+    "prompt_tool_challenger",
+    "cost_optimiser",
+    "reliability_engineer",
+    "creative_critic",
+    "lesson_router"
+   ],
+   "authority": {
+    "generatable": [
+     "improve.mine",
+     "improve.retrospective",
+     "improve.measure",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "improve.mine": "orchestrator",
+     "improve.retrospective": "orchestrator",
+     "improve.measure": "orchestrator",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "promote a change without evaluation and rollback",
+     "weaken Product Truth, accounting truth, authorization or spend controls"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "tier-3 promotions require the owner"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "learn_gap_scan",
+      "agent": "learn",
+      "job_type": "learn.scan",
+      "period_seconds": 3600
+     },
+     {
+      "name": "nightly_improvement",
+      "agent": "orchestrator",
+      "job_type": "improve.nightly",
+      "period_seconds": 86400
+     },
+     {
+      "name": "weekly_evolution",
+      "agent": "orchestrator",
+      "job_type": "improve.weekly",
+      "period_seconds": 604800
+     },
+     {
+      "name": "capability_measure",
+      "agent": "orchestrator",
+      "job_type": "improve.measure",
+      "period_seconds": 86400
+     },
+     {
+      "name": "failure_mine",
+      "agent": "orchestrator",
+      "job_type": "improve.mine",
+      "period_seconds": 21600
+     },
+     {
+      "name": "promotion_monitor",
+      "agent": "orchestrator",
+      "job_type": "improve.monitor",
+      "period_seconds": 86400
+     },
+     {
+      "name": "improve_sandbox",
+      "agent": "orchestrator",
+      "job_type": "improve.sandbox",
+      "period_seconds": 86400
+     },
+     {
+      "name": "improve_league",
+      "agent": "orchestrator",
+      "job_type": "improve.league",
+      "period_seconds": 86400
+     },
+     {
+      "name": "improvement_retrospective",
+      "agent": "orchestrator",
+      "job_type": "improve.retrospective",
+      "period_seconds": 604800
+     },
+     {
+      "name": "improve_replay",
+      "agent": "orchestrator",
+      "job_type": "improve.replay",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_evaluator",
+      "agent": "evaluator",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_failure_miner",
+      "agent": "failure_miner",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_experiment_designer",
+      "agent": "experiment_designer",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_prompt_tool_challenger",
+      "agent": "prompt_tool_challenger",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_cost_optimiser",
+      "agent": "cost_optimiser",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_reliability_engineer",
+      "agent": "reliability_engineer",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_creative_critic",
+      "agent": "creative_critic",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     },
+     {
+      "name": "role_lesson_router",
+      "agent": "lesson_router",
+      "job_type": "improve.role_work",
+      "period_seconds": 86400
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": []
+   },
+   "cadence": [
+    3600,
+    21600,
+    86400,
+    604800
+   ],
+   "evidence_inputs": [
+    "incidents",
+    "dead letters",
+    "lessons",
+    "company_memory lessons",
+    "Incident.at",
+    "Job.finished_at",
+    "Lesson.at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "Incident",
+      "consumer_job_type": "improve.mine",
+      "why": "incidents raised since the last mining run"
+     },
+     {
+      "table": "Job",
+      "consumer_job_type": "improve.mine",
+      "why": "dead letters since the last mining run"
+     },
+     {
+      "table": "Lesson",
+      "consumer_job_type": "improve.retrospective",
+      "why": "lessons routed since the last retrospective"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "improve.mine",
+     "improve.retrospective",
+     "improve.measure"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:learn:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.learn.runtime",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "improve.league",
+     "improve.measure",
+     "improve.mine",
+     "improve.monitor",
+     "improve.nightly",
+     "improve.replay",
+     "improve.retrospective",
+     "improve.role_work",
+     "improve.sandbox",
+     "improve.weekly",
+     "learn.scan"
+    ],
+    "permitted_without_handler": []
+   },
+   "durable_output": [
+    "lessons",
+    "improvements"
+   ],
+   "downstream_consumers": [
+    "executive"
+   ],
+   "follow_on": [],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  },
+  {
+   "department": "platform",
+   "name": "Platform / Reliability",
+   "mission": "Keep the runtime alive and honest: health, continuity, retention, dependencies, thrash and dead-letter recovery.",
+   "agents": [
+    "orchestrator"
+   ],
+   "charter_agents": [
+    "orchestrator"
+   ],
+   "authority": {
+    "generatable": [
+     "ops.queue_check",
+     "ops.maturity_disagreements",
+     "autonomy.department_review"
+    ],
+    "generatable_agents": {
+     "ops.queue_check": "orchestrator",
+     "ops.maturity_disagreements": "orchestrator",
+     "autonomy.department_review": "coo"
+    },
+    "forbidden": [
+     "deploy, merge or mutate hosting",
+     "delete evidence a gate reads"
+    ],
+    "protected_never_enqueued": [
+     "ads.adjust",
+     "ads.campaign",
+     "pricing.experiment",
+     "store.activate",
+     "store.publish",
+     "store.update",
+     "support.reply"
+    ],
+    "escalation": "sustained outage, failed restore or spend on hosting goes to the owner"
+   },
+   "wake_mechanisms": {
+    "scheduler_cadences": [
+     {
+      "name": "infra_heartbeat",
+      "agent": "orchestrator",
+      "job_type": "ops.heartbeat",
+      "period_seconds": 900
+     },
+     {
+      "name": "queue_check",
+      "agent": "orchestrator",
+      "job_type": "ops.queue_check",
+      "period_seconds": 3600
+     },
+     {
+      "name": "thrash_sweep",
+      "agent": "orchestrator",
+      "job_type": "ops.thrash",
+      "period_seconds": 3600
+     },
+     {
+      "name": "maturity_disagreements",
+      "agent": "orchestrator",
+      "job_type": "ops.maturity_disagreements",
+      "period_seconds": 86400
+     },
+     {
+      "name": "model_probe",
+      "agent": "orchestrator",
+      "job_type": "model.probe",
+      "period_seconds": 21600
+     },
+     {
+      "name": "continuity_proof",
+      "agent": "orchestrator",
+      "job_type": "ops.continuity",
+      "period_seconds": 86400
+     },
+     {
+      "name": "offsite_archive",
+      "agent": "orchestrator",
+      "job_type": "ops.offsite_archive",
+      "period_seconds": 86400
+     },
+     {
+      "name": "policy_watch",
+      "agent": "orchestrator",
+      "job_type": "ops.policy_watch",
+      "period_seconds": 86400
+     },
+     {
+      "name": "health_sweep",
+      "agent": "orchestrator",
+      "job_type": "ops.health",
+      "period_seconds": 900
+     },
+     {
+      "name": "capability_probes",
+      "agent": "orchestrator",
+      "job_type": "ops.capability_probes",
+      "period_seconds": 21600
+     },
+     {
+      "name": "retention_sweep",
+      "agent": "orchestrator",
+      "job_type": "ops.retention",
+      "period_seconds": 86400
+     },
+     {
+      "name": "dependency_sweep",
+      "agent": "orchestrator",
+      "job_type": "ops.dependencies",
+      "period_seconds": 86400
+     }
+    ],
+    "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
+    "follow_on_from": [
+     "owner/API route _startup",
+     "owner/API route api_continuity_verify",
+     "owner/API route api_model_probe"
+    ]
+   },
+   "cadence": [
+    900,
+    3600,
+    21600,
+    86400
+   ],
+   "evidence_inputs": [
+    "jobs",
+    "incidents",
+    "audit_log",
+    "Job.finished_at"
+   ],
+   "work_generation": {
+    "handoff": [
+     {
+      "table": "Job",
+      "consumer_job_type": "ops.queue_check",
+      "why": "dead letters since the last queue check"
+     }
+    ],
+    "overdue_cadence_catch_up": [
+     "ops.queue_check",
+     "ops.maturity_disagreements"
+    ],
+    "self_review": "autonomy.department_review every 6 h when idle",
+    "approval_items": []
+   },
+   "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:platform:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
+   "execution": {
+    "handler_modules": [
+     "brambleloop.runtime.ops_watch",
+     "brambleloop.runtime.pipeline",
+     "brambleloop.runtime.release"
+    ],
+    "executable_job_types": [
+     "model.probe",
+     "ops.capability_probes",
+     "ops.continuity",
+     "ops.dependencies",
+     "ops.health",
+     "ops.heartbeat",
+     "ops.maturity_disagreements",
+     "ops.offsite_archive",
+     "ops.policy_watch",
+     "ops.queue_check",
+     "ops.retention",
+     "ops.thrash"
+    ],
+    "permitted_without_handler": []
+   },
+   "durable_output": [
+    "incidents",
+    "continuity proofs",
+    "health readings"
+   ],
+   "downstream_consumers": [
+    "learn",
+    "executive"
+   ],
+   "follow_on": [],
+   "learning_signal": [
+    "useful_completions_24h",
+    "defect_dead_letters_24h",
+    "cadence_freshness",
+    "company_memory kind=kpi_snapshot",
+    "lessons on regression/guardrail"
+   ],
+   "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> improvements (sandbox/league/promotion monitor)",
+   "next_wake": null,
+   "blockers": [
+    {
+     "kind": "owner_gate",
+     "gate": "offsite_storage"
+    }
+   ],
+   "never_woken_job_types": [],
+   "owner_one_shots": {}
+  }
+ ],
+ "broken_links": [
+  {
+   "kind": "permission_without_handler",
+   "agent": "market_radar",
+   "job_types": [
+    "radar.competitor_snapshot"
+   ],
+   "department": [
+    "intelligence"
+   ]
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "crochet_engineer",
+   "job_types": [
+    "cir.revise"
+   ],
+   "department": [
+    "product_design"
+   ]
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "validator",
+   "job_types": [
+    "cir.reverse",
+    "cir.twin"
+   ],
+   "department": [
+    "product_truth"
+   ]
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "quality_director",
+   "job_types": [
+    "gate.quality"
+   ],
+   "department": [
+    "product_truth"
+   ]
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "asset_truth",
+   "job_types": [
+    "gate.asset_truth"
+   ],
+   "department": [
+    "product_truth"
+   ]
+  },
+  {
+   "kind": "agent_can_run_nothing",
+   "agent": "asset_truth"
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "policy",
+   "job_types": [
+    "gate.policy"
+   ],
+   "department": [
+    "product_truth"
+   ]
+  },
+  {
+   "kind": "agent_can_run_nothing",
+   "agent": "policy"
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "publishing",
+   "job_types": [
+    "assets.render"
+   ],
+   "department": [
+    "visual"
+   ]
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "growth",
+   "job_types": [
+    "content.draft"
+   ],
+   "department": [
+    "growth"
+   ]
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "pricing",
+   "job_types": [
+    "pricing.experiment"
+   ],
+   "department": [
+    "store_commerce"
+   ]
+  },
+  {
+   "kind": "permission_without_handler",
+   "agent": "store_operator",
+   "job_types": [
+    "store.update"
+   ],
+   "department": [
+    "store_commerce"
+   ]
+  }
+ ],
+ "audit_findings": [
+  {
+   "id": "AM-01",
+   "severity": "critical",
+   "departments": "all",
+   "link": "work-generation",
+   "finding": "Idle work generation was company-wide only: swarm.orchestrate.feed_idle feeds the standing backlog only when NO non-swarm job is open anywhere. With 103 cadences the queue is almost never empty, so an individual department with nothing to do was never given work.",
+   "status": "REPAIRED",
+   "repair": "autonomy.orchestrator.tick: per-department idle detection and evidence-driven generation every 15 min"
+  },
+  {
+   "id": "AM-02",
+   "severity": "high",
+   "departments": "product_design, product_truth, visual, store_commerce, support, finance, growth",
+   "link": "work-generation",
+   "finding": "The standing backlog (BACKLOG_JOBS) names work for only intelligence, platform/executive and learn; seven departments had no idle work generator at all.",
+   "status": "REPAIRED",
+   "repair": "charters.generatable + generators for all eleven"
+  },
+  {
+   "id": "AM-03",
+   "severity": "high",
+   "departments": "all",
+   "link": "mission-creation",
+   "finding": "No mission record: a cadence job carries only {'cadence': name}; why work was created and from which evidence was not persisted anywhere queryable.",
+   "status": "REPAIRED",
+   "repair": "company_memory kind=mission with evidence sources"
+  },
+  {
+   "id": "AM-04",
+   "severity": "high",
+   "departments": "all",
+   "link": "learning-signal",
+   "finding": "No department-level KPIs with anti-gaming guardrails (F-918). agent_quality reads per-agent job success, which a no-op run satisfies.",
+   "status": "REPAIRED",
+   "repair": "autonomy.kpis (VOID on guardrail, no-op counts zero, duplicate outputs count once)"
+  },
+  {
+   "id": "AM-05",
+   "severity": "high",
+   "departments": "all",
+   "link": "durable-memory",
+   "finding": "No persistent company memory or company timeline tables (F-920, F-927); the audit_log is append-only machine chatter with no department, mission or outcome linkage.",
+   "status": "REPAIRED",
+   "repair": "company_memory + company_timeline (keyed, idempotent)"
+  },
+  {
+   "id": "AM-06",
+   "severity": "high",
+   "departments": "executive",
+   "link": "morning-handoff",
+   "finding": "Nothing produced a morning handoff (F-896) inside the runtime; the overnight summary existed only as a development-session habit.",
+   "status": "REPAIRED",
+   "repair": "autonomy.morning_handoff (generated daily by the orchestrator after 11:00 UTC)"
+  },
+  {
+   "id": "AM-07",
+   "severity": "high",
+   "departments": "platform",
+   "link": "recovery-fencing",
+   "finding": "The queue fenced stale completions by worker NAME only. The embedded runner named itself web-<pid>; containers in an overlapping deploy can share a PID, so a reclaimed job's original attempt could complete over its successor.",
+   "status": "REPAIRED",
+   "repair": "jobs.lease_token per claim (ported from Codex 8877f05), checked on complete/fail/heartbeat"
+  },
+  {
+   "id": "AM-08",
+   "severity": "medium",
+   "departments": "all",
+   "link": "wake",
+   "finding": "An empty queue waited for the next cadence window (up to 15 min for the fastest, hours for most departments) instead of waking the company.",
+   "status": "REPAIRED",
+   "repair": "Scheduler.tick -> orchestrator.idle_wake"
+  },
+  {
+   "id": "AM-09",
+   "severity": "medium",
+   "departments": "learn",
+   "link": "improvement-path",
+   "finding": "Department outcomes did not feed Learn except through failures: a department whose useful output stopped produced no lesson.",
+   "status": "REPAIRED",
+   "repair": "department_review routes Lesson rows on regression or guardrail breach; Learn's generator consumes lessons"
+  },
+  {
+   "id": "AM-10",
+   "severity": "medium",
+   "departments": "product_truth",
+   "link": "execution",
+   "finding": "Registry permissions with no handler: gate.quality, gate.policy, gate.asset_truth, cir.twin, cir.reverse (and cir.revise, assets.render, content.draft, store.update, pricing.experiment, radar.competitor_snapshot). Agents asset_truth and policy hold only unhandled job types, so they can never run anything.",
+   "status": "OPEN",
+   "repair": "outside lane A's files (gates/, cir/ handlers); reported"
+  },
+  {
+   "id": "AM-11",
+   "severity": "info",
+   "departments": "support",
+   "link": "evidence-inputs",
+   "finding": "Customer Support is woken hourly but the customers gate is closed; its honest state is idle-with-no-cases. KPIs read UNKNOWN, never 0.",
+   "status": "BY DESIGN",
+   "repair": ""
+  },
+  {
+   "id": "AM-12",
+   "severity": "high",
+   "departments": "all",
+   "link": "no-dev-dependency",
+   "finding": "Historical autonomy also depended on the Claude heartbeat routine (ops/HEARTBEAT_PROMPT.md) and an owner-PC Windows watchdog. Nothing in the hosted runtime imports or requires either; the embedded runner + scheduler + orchestrator now carry the loop.",
+   "status": "REPAIRED (runtime side)",
+   "repair": "verified by test_v11_autonomy_overnight: no session, no PC, work generated"
+  },
+  {
+   "id": "AM-13",
+   "severity": "medium",
+   "departments": "executive, platform",
+   "link": "starvation",
+   "finding": "With one active pool worker, a CPU-bound render or planning cycle held the only claimer and the orchestrator / liveness checks waited behind it.",
+   "status": "REPAIRED",
+   "repair": "runtime.lanes control lane (ported/adapted from Codex 8877f05), started by app.runner beside the pool"
+  },
+  {
+   "id": "AM-14",
+   "severity": "info",
+   "departments": "visual",
+   "link": "wake",
+   "finding": "creative.model_freeze, creative.photoreal_calibration, visual.portrait_repair and visual.provider_trial have no runtime wake.",
+   "status": "BY DESIGN",
+   "repair": "owner-authorised one-shots (OWNER_ONE_SHOTS)"
+  }
+ ]
+}

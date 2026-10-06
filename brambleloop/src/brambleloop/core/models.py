@@ -72,6 +72,11 @@ class Job(Base):
 
     run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     leased_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # v1.1 lane A (ported from Codex 8877f05): a fresh token per claim. Completion, failure
+    # and renewal that present a token must present the current one, so a stale attempt is
+    # fenced off even when two workers share a name (two containers with the same PID during
+    # an overlapping deploy). Nullable and additive: `core.migrate` adds it in place.
+    lease_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

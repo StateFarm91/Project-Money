@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import random
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
@@ -328,6 +329,9 @@ class JobQueue:
             update(Job).where(*cond).values(
                 status=JobStatus.RUNNING,
                 leased_by=worker,
+                # A fresh token per claim (v1.1 lane A): the fence below compares it, so two
+                # workers that happen to share a name still cannot complete each other's run.
+                lease_token=uuid.uuid4().hex,
                 lease_expires_at=now + timedelta(seconds=self.lease_seconds),
                 attempts=Job.attempts + 1,
                 started_at=func.coalesce(Job.started_at, now),
@@ -386,11 +390,31 @@ class JobQueue:
     # really means to override a running job passes `administrative=True`, and that override
     # is itself audited.
     def _fenced(self, s: Session, job: Job, worker: str | None, what: str,
-                administrative: bool = False) -> bool:
-        """True when `worker` may write this job's outcome; audits and refuses otherwise."""
+                administrative: bool = False, lease_token: str | None = None) -> bool:
+        """True when `worker` may write this job's outcome; audits and refuses otherwise.
+
+        `lease_token` (v1.1 lane A, ported from Codex 8877f05) is the stronger fence: when a
+        caller presents the token its claim returned, the write is accepted only while the
+        job is still RUNNING on that same claim. Worker names are not unique across
+        containers -- the embedded runner named itself `web-<pid>`, and two containers in an
+        overlapping deploy can share a PID -- so a name match alone could let a stale attempt
+        complete the run that replaced it.
+        """
         from ..core.models import AuditLog
 
         now = utcnow()
+        if lease_token is not None:
+            if job.status == JobStatus.RUNNING and job.lease_token == lease_token:
+                return True
+            s.add(AuditLog(actor="queue", action="queue.stale_lease_refused",
+                           artifact=job.job_type, job_id=job.id,
+                           detail={"attempted_by": worker, "lease_held_by": job.leased_by,
+                                   "attempted": what,
+                                   "status": getattr(job.status, "value", str(job.status)),
+                                   "why": ("the lease token presented is not the job's "
+                                           "current claim: this attempt was reclaimed and "
+                                           "its outcome belongs to the current holder")}))
+            return False
         exp = _aware(job.lease_expires_at)
         live_holder = (job.status == JobStatus.RUNNING and bool(job.leased_by)
                        and exp is not None and exp > now)
@@ -431,18 +455,20 @@ class JobQueue:
         return False
 
     def complete(self, job_id: int, outputs: dict | None = None, cost_cad: float = 0.0,
-                 *, worker: str | None = None, administrative: bool = False) -> bool:
+                 *, worker: str | None = None, administrative: bool = False,
+                 lease_token: str | None = None) -> bool:
         """Mark a job done. Returns False, changing nothing, when the write is fenced off."""
         def _do(s: Session) -> bool:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
-            if not self._fenced(s, job, worker, "complete", administrative):
+            if not self._fenced(s, job, worker, "complete", administrative, lease_token):
                 return False
             job.status = JobStatus.DONE
             job.outputs = outputs or {}
             job.finished_at = utcnow()
             job.leased_by = None
+            job.lease_token = None
             job.lease_expires_at = None
             job.cost_cad = (job.cost_cad or 0.0) + cost_cad
             return True
@@ -450,7 +476,8 @@ class JobQueue:
         return self._txn(_do)
 
     def fail(self, job_id: int, error: str, *, retry: bool = True,
-             worker: str | None = None, administrative: bool = False) -> Job | None:
+             worker: str | None = None, administrative: bool = False,
+             lease_token: str | None = None) -> Job | None:
         """Record a failure and either schedule a backed-off retry or dead-letter the job.
 
         Returns None, changing nothing, when the write is fenced off: a failure reported by a
@@ -461,10 +488,11 @@ class JobQueue:
             job = s.get(Job, job_id)
             if job is None:
                 raise KeyError(f"no job {job_id}")
-            if not self._fenced(s, job, worker, "fail", administrative):
+            if not self._fenced(s, job, worker, "fail", administrative, lease_token):
                 return None
             job.last_error = error[:4000]
             job.leased_by = None
+            job.lease_token = None
             job.lease_expires_at = None
 
             if not retry or job.attempts >= job.max_attempts:
@@ -484,7 +512,8 @@ class JobQueue:
 
         return self._txn(_do)
 
-    def heartbeat(self, job_id: int, *, worker: str | None = None) -> bool:
+    def heartbeat(self, job_id: int, *, worker: str | None = None,
+                  lease_token: str | None = None) -> bool:
         """Extend a lease for a job that is legitimately still running. True when extended.
 
         Fenced like `complete` (C-13): a named worker extends only a lease it holds (or an
@@ -496,6 +525,9 @@ class JobQueue:
         cond = [Job.id == job_id, Job.status == JobStatus.RUNNING]
         if worker is not None:
             cond.append(or_(Job.leased_by.is_(None), Job.leased_by == worker))
+        if lease_token is not None:
+            cond.append(Job.lease_token == lease_token)
+
         def _do(s: Session) -> bool:
             res = s.execute(
                 update(Job).where(*cond)

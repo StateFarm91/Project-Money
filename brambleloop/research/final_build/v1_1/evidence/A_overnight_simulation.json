@@ -1,0 +1,1028 @@
+{
+ "kind": "lane A simulated overnight (clock advanced in 15-min steps; real queue/worker/handlers; NOT a soak)",
+ "commit": "2fdb8d320d3b1fae2c77bf00a17a4f36e0539fd5",
+ "start_simulated": "2026-10-06T03:00:00+00:00",
+ "ticks": 32,
+ "blocked_department": "store_commerce (owner action OA-NIGHT)",
+ "worker_stats": {
+  "claimed": 102,
+  "completed": 102,
+  "failed": 0,
+  "skipped": 0,
+  "denied": 0
+ },
+ "per_tick_states": [
+  {
+   "t": "2026-10-06T03:00:00+00:00",
+   "enqueued": 10,
+   "states": {
+    "GENERATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T03:15:00+00:00",
+   "enqueued": 10,
+   "states": {
+    "GENERATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T03:30:00+00:00",
+   "enqueued": 8,
+   "states": {
+    "SATURATED": 2,
+    "GENERATED": 8,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T03:45:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "SATURATED": 7,
+    "GENERATED": 3,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T04:00:00+00:00",
+   "enqueued": 1,
+   "states": {
+    "SATURATED": 9,
+    "GENERATED": 1,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T04:15:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T04:30:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T04:45:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T05:00:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T05:15:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T05:30:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T05:45:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T06:00:00+00:00",
+   "enqueued": 10,
+   "states": {
+    "GENERATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T06:15:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T06:30:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T06:45:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T07:00:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T07:15:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T07:30:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T07:45:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T08:00:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T08:15:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T08:30:00+00:00",
+   "enqueued": 0,
+   "states": {
+    "SATURATED": 10,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T08:45:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T09:00:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T09:15:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T09:30:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T09:45:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T10:00:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T10:15:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T10:30:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  },
+  {
+   "t": "2026-10-06T10:45:00+00:00",
+   "enqueued": 3,
+   "states": {
+    "GENERATED": 3,
+    "SATURATED": 7,
+    "BLOCKED": 1
+   }
+  }
+ ],
+ "missions_by_department_outcome": {
+  "platform|ops.queue_check|queued": 1,
+  "product_truth|ops.sentinel|queued": 1,
+  "support|support.triage|queued": 1,
+  "platform|ops.queue_check|useful": 9,
+  "product_truth|ops.sentinel|useful": 9,
+  "support|support.triage|useful": 9,
+  "visual|autonomy.department_review|useful": 2,
+  "product_design|autonomy.department_review|useful": 2,
+  "intelligence|autonomy.department_review|useful": 2,
+  "growth|autonomy.department_review|useful": 2,
+  "learn|autonomy.department_review|useful": 2,
+  "executive|autonomy.department_review|useful": 2,
+  "finance|autonomy.department_review|useful": 2,
+  "platform|autonomy.department_review|useful": 2,
+  "product_truth|autonomy.department_review|useful": 2,
+  "support|autonomy.department_review|useful": 2,
+  "finance|finance.escalation_check|useful": 1,
+  "growth|growth.conclude|useful": 1,
+  "learn|improve.retrospective|useful": 1,
+  "finance|commerce.order_readings|useful": 1,
+  "product_design|seasonal.sentinel|useful": 1,
+  "intelligence|intel.benchmark_refresh|useful": 1,
+  "growth|growth.journey|useful": 1,
+  "learn|improve.mine|useful": 1,
+  "executive|scale.trajectory|useful": 1,
+  "finance|commerce.readings|useful": 1,
+  "platform|ops.maturity_disagreements|useful": 1,
+  "visual|visual.identity_drift|useful": 1,
+  "product_design|creative.outcome_learning|useful": 1,
+  "intelligence|intel.pod_learning|useful": 1,
+  "growth|growth.distribution|useful": 1,
+  "learn|improve.measure|useful": 1,
+  "executive|autonomy.morning_handoff|useful": 1,
+  "finance|finance.reconcile|useful": 1,
+  "product_truth|physical.upgrade_impact|useful": 1
+ },
+ "useful_missions_by_department": {
+  "platform": 12,
+  "product_truth": 12,
+  "support": 11,
+  "visual": 3,
+  "product_design": 4,
+  "intelligence": 4,
+  "growth": 5,
+  "learn": 5,
+  "executive": 4,
+  "finance": 6
+ },
+ "jobs_total": 102,
+ "protected_jobs": [],
+ "cost_entries": 0,
+ "lessons_rows": 148,
+ "kpi_snapshots": 20,
+ "morning_briefs": [
+  "brief:2026-10-05"
+ ],
+ "status_summary": {
+  "status": "OK",
+  "as_of": "2026-10-06T11:00:00+00:00",
+  "basis": "measured",
+  "items": [
+   {
+    "department": "executive",
+    "name": "Executive / COO",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 36,
+    "useful_24h": 19,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:18.748051+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "intelligence",
+    "name": "Intelligence",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 4,
+    "useful_24h": 4,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:10.082043+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "benchmark_observation",
+      "what": "read-only Etsy API credentials that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_design",
+    "name": "Product & Design",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 4,
+    "useful_24h": 4,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:10.014372+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "model_provider",
+      "what": "a model provider that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_truth",
+    "name": "Product Truth / QA",
+    "status": "OK",
+    "orchestrator_state": "GENERATED",
+    "open_jobs": 0,
+    "completed_24h": 13,
+    "useful_24h": 13,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:18.824996+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "visual",
+    "name": "Visual",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 3,
+    "useful_24h": 3,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:38:19.597318+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "image_generation",
+      "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "canonical_model",
+      "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "image_vision",
+      "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "store_commerce",
+    "name": "Store / Commerce",
+    "status": "BLOCKED",
+    "orchestrator_state": "BLOCKED",
+    "open_jobs": 0,
+    "completed_24h": 0,
+    "useful_24h": 0,
+    "dead_24h": 0,
+    "last_run": null,
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "department_block",
+      "reason": "awaiting owner approval of Etsy publication policy",
+      "owner_action": "OA-NIGHT"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "live_listings",
+      "what": "a listing that exists on the marketplace, which shadow mode forbids by design",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "support",
+    "name": "Customer Support",
+    "status": "OK",
+    "orchestrator_state": "GENERATED",
+    "open_jobs": 0,
+    "completed_24h": 12,
+    "useful_24h": 12,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:18.774145+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "customers",
+      "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "finance",
+    "name": "Finance / Accounting",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 7,
+    "useful_24h": 7,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:12.185983+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "transactions_r",
+      "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "growth",
+    "name": "Growth / Marketing",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 5,
+    "useful_24h": 5,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:11.417331+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "ad_authority",
+      "what": "an approved advertising budget",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "owned_surfaces",
+      "what": "a site or a Pinterest account this company can publish to, which only the owner can create",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "learn",
+    "name": "Learn / Improvement",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 5,
+    "useful_24h": 5,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:11.586118+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "platform",
+    "name": "Platform / Reliability",
+    "status": "OK",
+    "orchestrator_state": "GENERATED",
+    "open_jobs": 0,
+    "completed_24h": 13,
+    "useful_24h": 13,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T06:39:18.857179+00:00",
+    "next_wake": "2026-10-06T11:15:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "offsite_storage",
+      "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   }
+  ],
+  "orchestrator": {
+   "last_tick": "2026-10-06T10:45:00+00:00",
+   "stale": false,
+   "stale_after_minutes": 45,
+   "last_created": 3
+  },
+  "overnight": {
+   "missions_12h": 69,
+   "by_outcome": {
+    "queued": 3,
+    "useful": 66,
+    "noop": 0,
+    "failed": 0
+   },
+   "latest_brief": {
+    "id": 13,
+    "key": "brief:2026-10-05",
+    "kind": "morning_brief",
+    "department": "executive",
+    "subject": "Morning brief 2026-10-05",
+    "state": "ready",
+    "body": {
+     "window": {
+      "from": "2026-10-05T18:38:20.339156+00:00",
+      "to": "2026-10-06T06:38:20.339156+00:00",
+      "hours": 12
+     },
+     "completed_by_department": {
+      "executive": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 0
+      },
+      "support": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      },
+      "product_truth": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      },
+      "platform": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      },
+      "finance": {
+       "completed": 2,
+       "useful": 2,
+       "generated": 1
+      },
+      "learn": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      },
+      "growth": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      },
+      "intelligence": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      },
+      "product_design": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      },
+      "visual": {
+       "completed": 1,
+       "useful": 1,
+       "generated": 1
+      }
+     },
+     "completed_total": 11,
+     "missions": {
+      "total": 10,
+      "by_outcome": {
+       "queued": 10,
+       "useful": 0,
+       "noop": 0,
+       "failed": 0
+      }
+     },
+     "dead_letters": [],
+     "spend": {
+      "amount_cad": 0.0,
+      "rows": 0,
+      "basis": "unknown",
+      "note": "no cost_entries rows in the window; not rendered as CA$0.00"
+     },
+     "incidents": [],
+     "decisions_needed": {
+      "open_owner_actions": 0,
+      "top": []
+     },
+     "blocked_departments": [
+      {
+       "department": "store_commerce",
+       "reason": "awaiting owner approval of Etsy publication policy"
+      }
+     ],
+     "sources": [
+      "jobs",
+      "cost_entries",
+      "incidents",
+      "owner_actions",
+      "company_memory"
+     ]
+    },
+    "sources": [
+     "jobs",
+     "cost_entries",
+     "incidents",
+     "owner_actions",
+     "company_memory"
+    ],
+    "created_at": "2026-10-06T06:38:20.339156+00:00",
+    "updated_at": "2026-10-06T06:38:20.339156+00:00"
+   }
+  },
+  "timeline": [
+   {
+    "id": 157,
+    "key": "mission.created:autonomy:platform:overdue:ops.queue_check:98",
+    "at": "2026-10-06T10:45:00+00:00",
+    "kind": "mission.created",
+    "department": "platform",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Platform / Reliability: ops.queue_check (overdue) -- cadence queue_check overdue: last success 4.1 h ago, period 1 h",
+    "refs": [
+     "jobs:102",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:98"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 156,
+    "key": "mission.created:autonomy:product_truth:overdue:ops.sentinel:97",
+    "at": "2026-10-06T10:45:00+00:00",
+    "kind": "mission.created",
+    "department": "product_truth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Product Truth / QA: ops.sentinel (overdue) -- cadence stale_artefact_sentinel overdue: last success 4.1 h ago, period 1 h",
+    "refs": [
+     "jobs:101",
+     "company_memory:autonomy:product_truth:overdue:ops.sentinel:97"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 155,
+    "key": "mission.created:autonomy:support:overdue:support.triage:96",
+    "at": "2026-10-06T10:45:00+00:00",
+    "kind": "mission.created",
+    "department": "support",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Customer Support: support.triage (overdue) -- cadence support_triage overdue: last success 4.1 h ago, period 1 h",
+    "refs": [
+     "jobs:100",
+     "company_memory:autonomy:support:overdue:support.triage:96"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 154,
+    "key": "mission.useful:autonomy:support:overdue:support.triage:92",
+    "at": "2026-10-06T10:45:00+00:00",
+    "kind": "mission.useful",
+    "department": "support",
+    "actor": "support",
+    "severity": "info",
+    "summary": "support.triage useful; output is evidence for product_truth, learn",
+    "refs": [
+     "jobs:96",
+     "company_memory:autonomy:support:overdue:support.triage:92"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 153,
+    "key": "mission.useful:autonomy:product_truth:overdue:ops.sentinel:93",
+    "at": "2026-10-06T10:45:00+00:00",
+    "kind": "mission.useful",
+    "department": "product_truth",
+    "actor": "orchestrator",
+    "severity": "info",
+    "summary": "ops.sentinel useful; output is evidence for visual, store_commerce, learn",
+    "refs": [
+     "jobs:97",
+     "company_memory:autonomy:product_truth:overdue:ops.sentinel:93"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 152,
+    "key": "mission.useful:autonomy:platform:overdue:ops.queue_check:94",
+    "at": "2026-10-06T10:45:00+00:00",
+    "kind": "mission.useful",
+    "department": "platform",
+    "actor": "orchestrator",
+    "severity": "info",
+    "summary": "ops.queue_check useful; output is evidence for learn, executive",
+    "refs": [
+     "jobs:98",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:94"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 151,
+    "key": "mission.created:autonomy:platform:overdue:ops.queue_check:94",
+    "at": "2026-10-06T10:30:00+00:00",
+    "kind": "mission.created",
+    "department": "platform",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Platform / Reliability: ops.queue_check (overdue) -- cadence queue_check overdue: last success 3.8 h ago, period 1 h",
+    "refs": [
+     "jobs:98",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:94"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 150,
+    "key": "mission.created:autonomy:product_truth:overdue:ops.sentinel:93",
+    "at": "2026-10-06T10:30:00+00:00",
+    "kind": "mission.created",
+    "department": "product_truth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Product Truth / QA: ops.sentinel (overdue) -- cadence stale_artefact_sentinel overdue: last success 3.8 h ago, period 1 h",
+    "refs": [
+     "jobs:97",
+     "company_memory:autonomy:product_truth:overdue:ops.sentinel:93"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 149,
+    "key": "mission.created:autonomy:support:overdue:support.triage:92",
+    "at": "2026-10-06T10:30:00+00:00",
+    "kind": "mission.created",
+    "department": "support",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Customer Support: support.triage (overdue) -- cadence support_triage overdue: last success 3.8 h ago, period 1 h",
+    "refs": [
+     "jobs:96",
+     "company_memory:autonomy:support:overdue:support.triage:92"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 148,
+    "key": "mission.useful:autonomy:support:overdue:support.triage:88",
+    "at": "2026-10-06T10:30:00+00:00",
+    "kind": "mission.useful",
+    "department": "support",
+    "actor": "support",
+    "severity": "info",
+    "summary": "support.triage useful; output is evidence for product_truth, learn",
+    "refs": [
+     "jobs:92",
+     "company_memory:autonomy:support:overdue:support.triage:88"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 147,
+    "key": "mission.useful:autonomy:product_truth:overdue:ops.sentinel:89",
+    "at": "2026-10-06T10:30:00+00:00",
+    "kind": "mission.useful",
+    "department": "product_truth",
+    "actor": "orchestrator",
+    "severity": "info",
+    "summary": "ops.sentinel useful; output is evidence for visual, store_commerce, learn",
+    "refs": [
+     "jobs:93",
+     "company_memory:autonomy:product_truth:overdue:ops.sentinel:89"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 146,
+    "key": "mission.useful:autonomy:platform:overdue:ops.queue_check:90",
+    "at": "2026-10-06T10:30:00+00:00",
+    "kind": "mission.useful",
+    "department": "platform",
+    "actor": "orchestrator",
+    "severity": "info",
+    "summary": "ops.queue_check useful; output is evidence for learn, executive",
+    "refs": [
+     "jobs:94",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:90"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 145,
+    "key": "mission.created:autonomy:platform:overdue:ops.queue_check:90",
+    "at": "2026-10-06T10:15:00+00:00",
+    "kind": "mission.created",
+    "department": "platform",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Platform / Reliability: ops.queue_check (overdue) -- cadence queue_check overdue: last success 3.6 h ago, period 1 h",
+    "refs": [
+     "jobs:94",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:90"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 144,
+    "key": "mission.created:autonomy:product_truth:overdue:ops.sentinel:89",
+    "at": "2026-10-06T10:15:00+00:00",
+    "kind": "mission.created",
+    "department": "product_truth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Product Truth / QA: ops.sentinel (overdue) -- cadence stale_artefact_sentinel overdue: last success 3.6 h ago, period 1 h",
+    "refs": [
+     "jobs:93",
+     "company_memory:autonomy:product_truth:overdue:ops.sentinel:89"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 143,
+    "key": "mission.created:autonomy:support:overdue:support.triage:88",
+    "at": "2026-10-06T10:15:00+00:00",
+    "kind": "mission.created",
+    "department": "support",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Customer Support: support.triage (overdue) -- cadence support_triage overdue: last success 3.6 h ago, period 1 h",
+    "refs": [
+     "jobs:92",
+     "company_memory:autonomy:support:overdue:support.triage:88"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 142,
+    "key": "mission.useful:autonomy:support:overdue:support.triage:84",
+    "at": "2026-10-06T10:15:00+00:00",
+    "kind": "mission.useful",
+    "department": "support",
+    "actor": "support",
+    "severity": "info",
+    "summary": "support.triage useful; output is evidence for product_truth, learn",
+    "refs": [
+     "jobs:88",
+     "company_memory:autonomy:support:overdue:support.triage:84"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 141,
+    "key": "mission.useful:autonomy:product_truth:overdue:ops.sentinel:85",
+    "at": "2026-10-06T10:15:00+00:00",
+    "kind": "mission.useful",
+    "department": "product_truth",
+    "actor": "orchestrator",
+    "severity": "info",
+    "summary": "ops.sentinel useful; output is evidence for visual, store_commerce, learn",
+    "refs": [
+     "jobs:89",
+     "company_memory:autonomy:product_truth:overdue:ops.sentinel:85"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 140,
+    "key": "mission.useful:autonomy:platform:overdue:ops.queue_check:86",
+    "at": "2026-10-06T10:15:00+00:00",
+    "kind": "mission.useful",
+    "department": "platform",
+    "actor": "orchestrator",
+    "severity": "info",
+    "summary": "ops.queue_check useful; output is evidence for learn, executive",
+    "refs": [
+     "jobs:90",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:86"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 139,
+    "key": "mission.created:autonomy:platform:overdue:ops.queue_check:86",
+    "at": "2026-10-06T10:00:00+00:00",
+    "kind": "mission.created",
+    "department": "platform",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Platform / Reliability: ops.queue_check (overdue) -- cadence queue_check overdue: last success 3.3 h ago, period 1 h",
+    "refs": [
+     "jobs:90",
+     "company_memory:autonomy:platform:overdue:ops.queue_check:86"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 138,
+    "key": "mission.created:autonomy:product_truth:overdue:ops.sentinel:85",
+    "at": "2026-10-06T10:00:00+00:00",
+    "kind": "mission.created",
+    "department": "product_truth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Product Truth / QA: ops.sentinel (overdue) -- cadence stale_artefact_sentinel overdue: last success 3.3 h ago, period 1 h",
+    "refs": [
+     "jobs:89",
+     "company_memory:autonomy:product_truth:overdue:ops.sentinel:85"
+    ],
+    "source": "company_timeline"
+   }
+  ],
+  "sources": [
+   "jobs",
+   "company_memory",
+   "company_timeline",
+   "worker.CADENCES",
+   "build2.executor.gate_states"
+  ]
+ }
+}

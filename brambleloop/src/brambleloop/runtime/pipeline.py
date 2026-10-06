@@ -2751,3 +2751,9 @@ def _benchmark_quality(db, slug: str) -> dict | None:
     return blind_review.current_review(db, slug=slug)
 
 from ..learn import runtime as learn_runtime  # noqa: E402,F401; Learn launch scanner
+
+
+# v1.1 lane A: the company loop's own handlers (autonomy.orchestrate, autonomy.department_review,
+# autonomy.morning_handoff). Imported here because this module is the one every runtime entry
+# point (runner, worker_entry) imports to register handlers.
+from ..autonomy import handlers as _autonomy_handlers  # noqa: E402,F401
