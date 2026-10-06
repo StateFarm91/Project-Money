@@ -92,13 +92,9 @@ def test_continuity_labels_memory_and_ledger_non_rederivable_and_excludes_live_s
 
     Database("sqlite://", scratch=True).create_all()
     real = set(Base.metadata.tables)
-    # (Scoped to the v1.1 additions: `ledger_entries` is a pre-existing label with no table
-    # of that name, reported in WIRING_REPORT.md rather than silently changed here.)
-    added = ("company_memory", "company_timeline", "acct_journal_entries", "acct_postings",
-             "acct_period_locks", "acct_statement_lines", "acct_exceptions",
-             "acct_challenges", "ads_spend_proposals", "ads_finance_challenges",
-             "cc_security_events", "cc_owner_sessions", "cc_nonces")
-    unknown = sorted(t for t in added if t not in real)
+    unknown = sorted(t for t in continuity.NON_REDERIVABLE + continuity.EXCLUDED_TABLES
+                     if t not in real)
+    assert "ledger" in continuity.NON_REDERIVABLE   # the money ledger's real table name
     assert not unknown, unknown
 
 

@@ -119,7 +119,7 @@ NON_REDERIVABLE = (
     # from nothing: the runs that justified the switches are gone with the rows.
     "config_versions",
     "cost_entries",
-    "ledger_entries",
+    "ledger",            # was "ledger_entries", a name no table has: it labelled nothing
     "spend_limits",
     "support_cases",
     "agents",
