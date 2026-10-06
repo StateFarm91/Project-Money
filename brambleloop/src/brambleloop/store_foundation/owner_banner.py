@@ -74,7 +74,8 @@ DECLARED_CONTENT = ("Laura left, warm cozy setting, centred identity, crochet/ya
                     "tagline (DECISION_LOG D-FB-17 item 2)")
 
 CANDIDATE_DIR_REL = "research/final_build/w3/owner_banner_candidates"
-REVIEW_WIDTH = 1600                      # review copies: Etsy's recommended banner width
+REVIEW_WIDTH = 1200                      # review copies: Etsy's minimum banner width
+REVIEW_MAX_BYTES = 300_000               # wave-3 limit for committed images
 
 
 def _gate(gate: str, status: str, evidence: dict, *, basis: str, why: str,
@@ -661,7 +662,7 @@ def candidates() -> list[dict]:
     new_w = h * 4
     pad = new_w - w
     lp, rp = pad // 2, pad - pad // 2
-    k = 31
+    k = 201
     kern = np.ones(k) / k
 
     def edge(cols):
@@ -682,7 +683,8 @@ def candidates() -> list[dict]:
                     "fill": f"per-row mean of the 4 outermost columns, {k}-row box smoothed"},
         "note": (f"every owner pixel kept unchanged at its own size; {lp} px added left and "
                  f"{rp} px right in the image's own edge colours to reach {new_w}x{h} (4:1). "
-                 f"Visible change: plain side bands; the artwork occupies the centre "
+                 f"Visible change: side bands that are a soft vertical gradient of each "
+                 f"edge's own colours (no new imagery); the artwork occupies the centre "
                  f"{w / new_w:.0%} of the width. Under the ASSUMED 2:1 phone window the "
                  f"owner columns {(new_w - 2 * h) // 2 - lp}-{(new_w + 2 * h) // 2 - lp - 1} "
                  f"show")})
@@ -732,8 +734,8 @@ def write_evidence(root: Path, *, now: datetime | None = None) -> dict:
         img = c.pop("image")
         data = _review_png(img)
         width = REVIEW_WIDTH
-        while len(data) >= 1_000_000 and width > 800:
-            width -= 200
+        while len(data) > REVIEW_MAX_BYTES and width > 600:
+            width -= 100
             data = _review_png(img, width)
         name = f"{c['id']}.png"
         (cdir / name).write_bytes(data)
@@ -746,13 +748,17 @@ def write_evidence(root: Path, *, now: datetime | None = None) -> dict:
                                       "owner_banner.candidates()"})
         files.append(c)
     sim, rows = centre_crop_simulation()
-    data = _review_png(sim)
+    width = REVIEW_WIDTH
+    data = _review_png(sim, width)
+    while len(data) > REVIEW_MAX_BYTES and width > 600:
+        width -= 100
+        data = _review_png(sim, width)
     (cdir / "simulation_centre_crop_4x1.png").write_bytes(data)
     record = {"generated_at": now.isoformat(), "assessment": result, "candidates": files,
               "simulation": {"file": f"{CANDIDATE_DIR_REL}/simulation_centre_crop_4x1.png",
-                             "rows": rows, "bytes": len(data),
+                             "rows": rows, "bytes": len(data), "px": [width, width // 4],
                              "what": "a plain 4:1 centre crop of the exact file -- one "
                                      "possible Etsy behaviour, not a candidate"}}
-    (cdir.parent / "owner_banner_assessment.json").write_text(
+    (cdir / "owner_banner_assessment.json").write_text(
         json.dumps(record, indent=1, sort_keys=True, default=str) + "\n")
     return record

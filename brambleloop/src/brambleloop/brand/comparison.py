@@ -349,7 +349,7 @@ def _ctx(c: Candidate, viewport: str):
 
     ctx = V2._context(None, None, viewport)
     icon, lock = _marks(c)
-    ctx["mark_uri"] = icon
+    ctx["mark_uri"] = ctx["icon_uri"] = icon
     ctx["lockups"] = {"evergreen": "__LOCKUP__"}
     return ctx, lock
 

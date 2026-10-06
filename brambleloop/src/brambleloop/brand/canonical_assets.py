@@ -63,7 +63,7 @@ class CanonicalAsset:
     def to_dict(self) -> dict:
         d = asdict(self)
         d["size"] = list(self.size)
-        d["path"] = str(OWNER_SOURCE_DIR / self.file)
+        d["path"] = f"src/brambleloop/brand/owner_source/{self.file}"
         return d
 
 
@@ -338,6 +338,17 @@ def paper_colour() -> tuple[int, int, int]:
     return tuple(int(v) for v in np.median(px, axis=0))
 
 
+def monogram_square_png(px: int) -> bytes:
+    """The owner's monogram (exact pixels, cropped) centred on its own paper colour as a
+    square, resampled to `px`. For the shop icon where it is measured legible."""
+    from PIL import Image
+
+    im = _pad_square(image(HERO_LOGO).crop(LOGO_CROP_MONOGRAM), paper_colour())
+    buf = io.BytesIO()
+    im.resize((px, px), Image.LANCZOS).save(buf, "PNG", optimize=True)
+    return buf.getvalue()
+
+
 def icon_report(sizes: tuple[int, ...] = ICON_REPORT_SIZES) -> dict:
     """Measure the exact owner artwork as a square shop icon at each size, with the same
     procedure the storefront gate uses (`storefront_gate.icon_legibility`).
@@ -381,7 +392,7 @@ def shop_icon_choice(display_sizes: tuple[int, ...] = (40, 70)) -> dict:
                 "legible_from_px": legible_from, "report": rep}
     return {"asset": "a3_micro_mark", "derivative": True,
             "label": "Small-size derivative of the owner artwork (A3 micro-mark)",
-            "why": ("exact owner artwork measured illegible at " + "; ".join(
+            "why": ("Exact owner artwork measured illegible at " + "; ".join(
                 f"{px} px: {', '.join(p)}" for px, p in failing.items())
                     + f". It is legible from {legible_from} px up, where it is used"),
             "legible_from_px": legible_from, "report": rep}

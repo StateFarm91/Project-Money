@@ -4,13 +4,17 @@ The v1 preview (`preview.render_preview(..., variant="standard")`) was rejected 
 as generic and technical. v1 is kept, unchanged, as the baseline; this module draws the
 proposed replacement and a side-by-side comparison against it.
 
-Art direction (owner concept, 2026-10-06): warm, cosy, premium -- cream, sage and dusty rose
-with a deep forest serif wordmark, a centred lockup, the founder at the left of the banner,
-yarn and product in the wings. Translated here into a truthful shop page:
+Art direction (owner decision D-FB-17, 2026-10-06): the shop is rebuilt around the owner's two
+canonical files (`brand.canonical_assets`) -- warm, premium, feminine, cosy, lifestyle-first:
 
-* the banner is one canvas seen two ways -- the whole canvas on desktop and the centre crop
-  on a phone -- so what a phone shows is what the composition actually yields. Laura and the
-  lockup sit inside the phone-safe window; product renders sit in the desktop-only wings;
+* the banner IS the owner's canonical banner, shown as supplied (resampled to fit, never
+  redrawn) with its honest state: `owner_banner.assess` names every publication gate that
+  stops the exact file today, and the woman in it is not verified as Laura, so it carries the
+  internal-preview label. The owner board shows what Etsy's 4:1 canvas and an assumed phone
+  window would do to it, and the minimal reframes that are OWNER_REVIEW_REQUIRED;
+* the hero lockup (About header) is the owner's logo artwork, exact; the shop icon is the
+  owner's monogram where measured legible at every display size, otherwise the A3 micro-mark,
+  labelled a small-size derivative with the measurement;
 * Laura is shown only through her approved canonical portrait (`brand_face.image_for`, bytes
   verified), and every element that shows her carries "Internal preview -- canonical
   reference, not publication-approved" in its accessible name, with a visible tag on every
@@ -127,6 +131,15 @@ text-decoration:none;border-radius:6px}}
 .frame{{background:var(--paper);margin:0 auto;width:100%;max-width:390px;overflow:hidden}}
 .vp-desktop .frame{{max-width:1280px}}
 .serif{{font-family:var(--display)}}
+/* owner canonical banner (D-FB-17), shown as supplied */
+.obn{{background:var(--cream)}}
+.obn .art{{width:100%;aspect-ratio:1983/793;background-image:var(--owner-banner);
+background-size:cover;background-position:center}}
+.herologo{{display:block;width:100%;max-width:520px;height:auto;margin:0 0 18px;border-radius:12px}}
+.board .ob{{background-image:var(--owner-banner);background-repeat:no-repeat;border-radius:6px;
+background-color:var(--linen)}}
+.board .mono img{{display:block}}
+.board .cand img{{display:block;width:100%;height:auto;border-radius:6px}}
 /* banner: one canvas, cropped by the box it sits in */
 .bn{{position:relative;overflow:hidden;background:var(--cream)}}
 .bn .canvas{{position:absolute;top:0;height:100%;container-type:inline-size;
@@ -198,6 +211,15 @@ background:var(--paper)}}
 background-color:var(--linen);background-size:cover;background-position:center}}
 .card .ph .badge{{position:absolute;left:8px;top:8px;background:rgba(251,248,242,.94);
 color:var(--forest);font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:99px}}
+.card .ph.lead{{background-color:var(--cream);background-image:var(--owner-mono);
+background-repeat:no-repeat;background-position:50% 30%;background-size:34%}}
+.card .ph-note{{position:absolute;left:8px;right:44%;bottom:10px;font-size:11.5px;
+line-height:1.3;color:var(--muted)}}
+.card .ev{{position:absolute;right:8px;bottom:8px;width:40%;aspect-ratio:1/1;border-radius:8px;
+border:2px solid var(--paper);background-size:cover;background-position:center;
+box-shadow:0 1px 4px rgba(42,39,36,.18)}}
+.card .evl{{position:absolute;left:0;right:0;bottom:0;background:rgba(251,248,242,.94);
+color:var(--ink);font-size:10px;text-align:center;padding:1px 0;border-radius:0 0 6px 6px}}
 .card .withheld{{display:flex;align-items:center;justify-content:center;text-align:center;
 height:100%;padding:12px;font-size:12px;color:var(--berry);border:1px dashed var(--berry);
 border-radius:12px}}
@@ -397,12 +419,81 @@ def _banner(ctx: dict, *, mode: str, season: str = "evergreen", width: str | Non
     return strip + out if strip else out
 
 
+_OWNER_CACHE: dict = {}
+
+
+def _owner_assets() -> dict:
+    """The owner's canonical files for the page (D-FB-17), verified by their bytes, plus the
+    banner's gate assessment, the measured icon choice and the owner-review candidates.
+    Cached for the process (the files are immutable; a failed verification is not cached)."""
+    if _OWNER_CACHE:
+        return _OWNER_CACHE
+    from ..brand import canonical_assets as CA
+    from . import owner_banner as OB
+
+    def uri(data: bytes, kind: str) -> str:
+        return f"data:image/{kind};base64," + base64.b64encode(data).decode("ascii")
+
+    try:
+        CA.require_verified()
+        out = {
+            "ok": True,
+            "banner_uri": uri(CA.display_bytes(CA.STOREFRONT_BANNER, 1600, quality=82),
+                              "jpeg"),
+            "logo_uri": uri(CA.display_bytes(CA.HERO_LOGO, 900, quality=84), "jpeg"),
+            "mono_uri": uri(CA.monogram_square_png(140), "png"),
+            "icon": CA.shop_icon_choice(),
+            "assessment": OB.assess(),
+            "hierarchy": [dict(h) for h in CA.HIERARCHY],
+            "logo": CA.ASSETS[CA.HERO_LOGO].to_dict(),
+            "banner": CA.ASSETS[CA.STOREFRONT_BANNER].to_dict(),
+        }
+        import io
+
+        cands = []
+        for c in OB.candidates():
+            img = c.pop("image")
+            w, h = img.size
+            buf = io.BytesIO()
+            img.resize((640, round(h * 640 / w))).save(buf, "JPEG", quality=80)
+            cands.append({**c, "uri": uri(buf.getvalue(), "jpeg")})
+        out["candidates"] = cands
+    except Exception as exc:  # noqa: BLE001 - shown as an honest missing state
+        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    _OWNER_CACHE.update(out)
+    return out
+
+
+def _owner_banner(ctx: dict, *, mode: str) -> str:
+    """The shop banner: the owner's canonical file as supplied, with its honest state."""
+    o = ctx["owner"]
+    if not o.get("ok"):
+        return (f'<div class="pvs" role="note">Owner banner unavailable: {_esc(o.get("error"))}'
+                f'</div><div class="bn obn" role="group" aria-label="Shop banner, {mode} view">'
+                f'</div>')
+    a = o["assessment"]
+    label = (f"Canonical owner banner (D-FB-17), as supplied. {ctx['laura_label']}: the woman "
+             f"shown is not verified as Laura.")
+    strip = (f'<div class="pvs" role="note">Owner banner, as supplied (D-FB-17). Internal '
+             f'preview, not yet publishable: {len(a["failed"])} checks fail and '
+             f'{len(a["unknown"])} await review (owner board). The woman shown is not '
+             f'verified as Laura.</div>')
+    return (strip + f'<div class="bn obn" role="group" aria-label="{_esc(f"Shop banner, {mode} view")}">'
+            f'<div class="art" role="img" aria-label="{_esc(label)}"></div></div>')
+
+
 def _card(ctx: dict, prod: dict, frame: dict | None, cls: str = "card") -> str:
     from .preview import _price
 
+    # Lifestyle-first (D-FB-16 item 4, D-FB-17 item 5): the lead tile is the finished piece in
+    # use. None has been made for any pattern, so the lead is an honest placeholder -- never a
+    # generated or borrowed picture -- and the verified rendering sits in it as the evidence
+    # frame it is.
+    lead = '<div class="ph lead"><span class="ph-note">No picture of the finished piece yet</span>'
     if frame is not None and frame["status"] == "VERIFIED" and frame.get("png"):
-        img = (f'<div class="ph" style="background-image:var(--r-{_esc(frame["build"])})" '
-               f'role="img" aria-label="{_esc(frame.get("alt_text", ""))}">')
+        img = (lead + f'<div class="ev" style="background-image:var(--r-{_esc(frame["build"])})" '
+               f'role="img" aria-label="{_esc(frame.get("alt_text", ""))}"><span class="evl">'
+               f'Rendering</span></div>')
     else:
         img = ('<div class="ph"><div class="withheld">Image withheld: the rendering did not pass '
                'its checks, and a label cannot make an inaccurate image acceptable (D-FB-7).'
@@ -446,13 +537,16 @@ def _context(db, today, viewport):
             lockups[season] = svg
     renders = {f["build"]: f["build"] for f in frames
                if f["status"] == "VERIFIED" and f.get("png")}
+    owner = _owner_assets()
     return {"surfaces": surfaces, "rows": rows, "roll": roll, "products": products,
             "frames": frames, "by_build": {f["build"]: f for f in frames},
             "ident": ident, "copy_src": cp, "spec_src": bspec, "p": p, "t": t,
             "copy": cp.value, "geo": _geometry(bspec.value), "laura": laura,
             "laura_err": laura_err, "laura_label": PREVIEW_IMAGE_LABEL, "renders": renders,
             "mark_uri": _svg_uri(ident.value["mark_svg"]), "viewport": viewport,
-            "lockups": lockups}
+            "lockups": lockups, "owner": owner,
+            "icon_uri": (owner["mono_uri"] if owner.get("icon", {}).get("asset")
+                         == "owner_monogram_crop" else _svg_uri(ident.value["mark_svg"]))}
 
 
 def _vars_css(ctx: dict) -> str:
@@ -460,6 +554,9 @@ def _vars_css(ctx: dict) -> str:
     out = []
     if ctx["laura"]:
         out.append(f'--laura:url("{ctx["laura"]["data_uri"]}")')
+    if ctx.get("owner", {}).get("banner_uri"):
+        out.append(f'--owner-banner:url("{ctx["owner"]["banner_uri"]}")')
+        out.append(f'--owner-mono:url("{ctx["owner"]["mono_uri"]}")')
     for f in ctx["frames"]:
         if f["build"] in ctx["renders"]:
             uri = "data:image/png;base64," + base64.b64encode(f["png"]).decode("ascii")
@@ -518,6 +615,9 @@ def _shop(ctx: dict) -> str:
                     for pr in products)
     caption = cp.get("seller_caption") or "Laura · Brambleloop's AI founder"
     role = caption.split("·", 1)[1].strip() if "·" in caption else "Brambleloop's AI founder"
+    ic = ctx["owner"].get("icon") or {}
+    icon_note = (" (small-size derivative of the owner artwork)" if ic.get("derivative")
+                 else " (owner artwork)")
     owner = ""
     if ctx["laura"]:
         owner = (f'<div class="owner-card"><div class="av laura" role="img" aria-label="'
@@ -525,9 +625,9 @@ def _shop(ctx: dict) -> str:
                  f'<span>{_esc(role)}</span><small>{_esc(label)}</small></div></div>')
     fold = (
         f'<div class="fold" data-fold="first-screen">'
-        f'{_banner(ctx, mode="phone" if ctx["viewport"] == "mobile" else "desktop", caption=True)}'
-        f'<header class="sh"><img class="icon" src="{_esc(ctx["mark_uri"])}" alt="{_esc(name)} '
-        f'shop icon"><div><h1>{_esc(name)}</h1><p class="title">{_esc(cp["shop_title"])}</p>'
+        f'{_owner_banner(ctx, mode="phone" if ctx["viewport"] == "mobile" else "desktop")}'
+        f'<header class="sh"><img class="icon" src="{_esc(ctx["icon_uri"])}" alt="{_esc(name)} '
+        f'shop icon{_esc(icon_note)}"><div><h1>{_esc(name)}</h1><p class="title">{_esc(cp["shop_title"])}</p>'
         f'<p class="meta">Canada · Digital crochet patterns · New shop, no reviews yet</p></div>'
         f'<div class="acts"><span class="btn solid" aria-disabled="true">Follow shop</span>'
         f'<span class="btn" aria-disabled="true">Message</span></div>{owner}</header>'
@@ -564,10 +664,15 @@ def _shop(ctx: dict) -> str:
 
     support = cp.get("support") or SUPPORT_CONTACT
     about_h = heads.get("about") or f"About {name}"
+    hero = ""
+    if ctx["owner"].get("ok"):
+        hero = (f'<img class="herologo" src="{_esc(ctx["owner"]["logo_uri"])}" alt="Brambleloop, '
+                f'crochet patterns: Patterns for a More Handmade Life (the owner\'s logo '
+                f'artwork, as supplied)">')
     return (
         f'<div class="frame">{fold}'
         f'<ul class="trust" aria-label="Why makers choose Brambleloop">{trust}</ul>'
-        f'<section class="about"><div>{portrait}</div><div><p class="kicker">'
+        f'<section class="about"><div>{portrait}</div><div>{hero}<p class="kicker">'
         f'{_esc(heads.get("laura") or "About the shop")}</p>'
         f'<h2>{_esc(about_h)}</h2>{intro}{about_p}{proof}'
         f'<p class="dl" style="margin-top:12px;font-size:12.5px;color:var(--muted)">'
@@ -591,21 +696,39 @@ def _board(ctx: dict, now: datetime) -> str:
         f'{_esc(v.source)}</td><td><code>{_esc(v.origin)}</code> {_esc("; ".join(v.notes))}</td></tr>'
         for k, v in (("Brand system (lane A)", ctx["ident"]), ("Copy (lane C)", ctx["copy_src"]),
                      ("Banner crop numbers (lane I)", ctx["spec_src"])))
-    icons = "".join(f'<figure class="ic"><img src="{_esc(mark)}" alt="icon at {n} px" '
+    o = ctx["owner"]
+    icon_uri = ctx["icon_uri"]
+    icons = "".join(f'<figure class="ic"><img src="{_esc(icon_uri)}" alt="shop icon at {n} px" '
                     f'width="{n}" height="{n}">{n} px</figure>' for n in (16, 32, 40, 48, 70))
     gw = ctx["spec_src"].value["canvas"]
+    owner_board = _owner_board(ctx) if o.get("ok") else (
+        f'<p class="bad">Owner canonical files unavailable: {_esc(o.get("error"))}</p>')
+
+    def ob(width: int, aspect: float, size: str, pos: str, cap: str) -> str:
+        return (f'<figure class="bnwrap" style="width:{width}px"><div class="ob" role="img" '
+                f'aria-label="{_esc("Owner banner, " + cap + ". " + label)}" style="aspect-ratio:'
+                f'{aspect:.4f};background-size:{size};background-position:{pos}"></div>'
+                f'{_esc(cap)}</figure>')
+
     banners = (
-        f'<figure class="bnwrap" style="width:640px">{_banner(ctx, mode="desktop")}Desktop: '
-        f'whole canvas {gw[0]}×{gw[1]}</figure>'
-        f'<figure class="bnwrap" style="width:390px">{_banner(ctx, mode="phone")}Phone 390 px: '
-        f'centre crop {g["phone"]:.2f}:1 (UNVERIFIED assumption)</figure>'
-        f'<figure class="bnwrap" style="width:320px">{_banner(ctx, mode="phone")}Small phone '
-        f'320 px (awkward crop check)</figure>')
+        ob(640, 1983 / 793, "100% 100%", "center", "As supplied: 1983×793 (2.50:1), "
+           "the canonical owner banner")
+        + ob(640, gw[0] / gw[1], "100% auto", "center", f"Desktop: whole canvas {gw[0]}×"
+             f"{gw[1]} — the exact file centre-cropped to 4:1 (one possible Etsy fit; Etsy "
+             f"does not publish its rule)")
+        + ob(390, g["phone"], f"{gw[0] / gw[1] / g['phone'] * 100:.1f}% auto", "center",
+             f"Phone 390 px: centre crop {g['phone']:.2f}:1 of that canvas (UNVERIFIED "
+             f"assumption)")
+        + ob(320, g["phone"], f"{gw[0] / gw[1] / g['phone'] * 100:.1f}% auto", "center",
+             "Small phone 320 px (awkward crop check)"))
     seasonal = (
-        f'<p>{_esc(ctx["copy"]["seasonal"]["text"])}</p><div class="row">'
-        f'<figure class="bnwrap" style="width:640px">{_banner(ctx, mode="desktop", season="winter")}'
-        f'Winter, desktop</figure><figure class="bnwrap" style="width:390px">'
-        f'{_banner(ctx, mode="phone", season="winter")}Winter, phone crop</figure></div>')
+        f'<p>{_esc(ctx["copy"]["seasonal"]["text"])} A seasonal banner would replace the '
+        f'canonical owner banner, which needs a new owner decision (D-FB-17); until then the '
+        f'season changes the announcement, not the banner.</p><div class="row">'
+        + ob(640, 1983 / 793, "100% 100%", "center", "Winter, desktop: canonical banner "
+             "unchanged")
+        + ob(390, 1983 / 793, "100% 100%", "center", "Winter, phone crop: canonical banner "
+             "unchanged") + '</div>')
     seller = ""
     if ctx["laura"]:
         seller = "".join(
@@ -649,14 +772,15 @@ def _board(ctx: dict, now: datetime) -> str:
         f'<p>Generated {_esc(now.isoformat())} · {_esc(ctx["viewport"])} '
         f'{VIEWPORTS[ctx["viewport"]]} px · never publishable. Every Laura image is her approved '
         f'canonical portrait, verified by its bytes: <b>{_esc(label)}</b>. The owner\'s '
-        f'banner concept guided the direction; it is not embedded (its woman is not verified '
-        f'as Laura).</p>'
+        f'canonical banner (D-FB-17) is shown as supplied; its woman is not verified as Laura, '
+        f'so it carries the same internal label.</p>'
         f'<h3>Sources</h3><table><tbody>{srcs}</tbody></table>'
-        f'<h3>Logo and icon at real sizes</h3><p>Upload: a 500×500 square PNG (Etsy: logo at least 500×500, recommended 500×500; VERIFIED by lane I). The mark sits inside the central circle, so a circular crop loses nothing.</p><div class="row">{icons}</div>'
+        f'{owner_board}'
+        f'<h3>Shop icon at real sizes</h3><p>Upload: a 500×500 square PNG (Etsy: logo at least 500×500, recommended 500×500; VERIFIED by lane I). Shown: {_esc((o.get("icon") or {}).get("label", "A3 mark"))}.</p><div class="row">{icons}</div>'
         f'<div class="row dark">{icons}<span>Dark surround (app dark mode)</span></div>'
-        f'<h3>Banner: desktop and phone crops</h3><div class="row">{banners}</div>'
-        f'<p>{_esc(ctx["spec_src"].value["basis"])}. Laura and the lockup sit inside the phone '
-        f'window; the product renders sit in the desktop-only wings.</p>'
+        f'<h3>Banner: as supplied, Etsy canvas and phone crops</h3><div class="row">{banners}</div>'
+        f'<p>{_esc(ctx["spec_src"].value["basis"])}. The measured identity block is '
+        f'{_esc((o.get("assessment") or {}).get("identity_block"))} in the 1983×793 file.</p>'
         f'<h3>Laura brand-face crops (banner/About). Not proposed for Etsy\'s profile photo, which belongs to the account holder (lane I checklist B3)</h3><div class="row">{seller}</div>'
         f'<h3>Listing cards at grid size, light and dark</h3><div class="row">{dark_cards}</div>'
         f'<div class="row dark">{dark_cards}</div>'
@@ -667,6 +791,97 @@ def _board(ctx: dict, now: datetime) -> str:
         f'<h3>Customer-facing gates for Laura imagery</h3><table><tbody>{gates}</tbody></table>'
         f'<h3>Where Laura appears</h3><table><tbody>{places}</tbody></table>'
         f'</section>')
+
+
+LISTING_ORDER = (
+    ("1", "Lifestyle: the finished piece in use, in a home", None,
+     "no qualified lifestyle frame exists for any pattern; nothing is generated or borrowed "
+     "to fill it (Product Truth, F-852)"),
+    ("2", "Finished object (disclosed render, hero)", "hero",
+     "the lead image today: a digital rendering of the finished design, verified on its bytes"),
+    ("3", "Scale (disclosed render)", "scale", "evidence frame: size with a centimetre scale"),
+    ("4", "Detail (disclosed render)", "detail", "evidence frame: the stitch up close"),
+    ("5", "Chart, yarn, construction, what's in the download", None,
+     "evidence frames after the desire frames; the checks behind them stay deeper down"),
+)
+
+
+def _owner_board(ctx: dict) -> str:
+    """Owner board sections for the D-FB-17 assets: hierarchy, measured icon choice, the
+    banner's publication gates, the owner-review candidates and the truth findings."""
+    o, label = ctx["owner"], ctx["laura_label"]
+    a = o["assessment"]
+    hier = "".join(f"<tr><td>{_esc(h['use'])}</td><td>{_esc(h['kind'])}</td>"
+                   f"<td>{_esc(h['where'])}</td><td>{_esc(h['label'])}</td></tr>"
+                   for h in o["hierarchy"])
+    ic = o["icon"]
+    rep = ic["report"]["measurements"]
+    irows = "".join(
+        f'<tr><td>{_esc(view)}</td><td>{px} px</td><td>{m["contrast"]:.2f}:1</td>'
+        f'<td>{m["coverage"]:.0%}</td><td class="{"ok" if m["ok"] else "bad"}">'
+        f'{"legible" if m["ok"] else "illegible: " + _esc("; ".join(m["problems"]))}</td></tr>'
+        for view, sizes in rep.items() for px, m in sorted(sizes.items()) if px <= 160)
+    pair = "".join(
+        f'<figure class="mono"><img src="{_esc(o["mono_uri"])}" alt="owner monogram at {n} px" '
+        f'width="{n}" height="{n}">owner {n} px</figure>'
+        f'<figure class="mono"><img src="{_esc(ctx["mark_uri"])}" alt="A3 micro-mark at {n} px" '
+        f'width="{n}" height="{n}">A3 micro-mark {n} px</figure>' for n in (40, 70))
+    gates = "".join(
+        f'<tr><td>{_esc(g["gate"])}</td><td class="{"ok" if g["status"] == "PASS" else "bad"}">'
+        f'{_esc(g["status"])}</td><td>{_esc(g["why"])}'
+        + (f' <i>Review: {_esc(g["review"])}</i>' if g.get("review") else "")
+        + f'</td></tr>' for g in a["gates"])
+    cands = "".join(
+        f'<figure class="cand bnwrap" style="width:640px"><img src="{_esc(c["uri"])}" alt="'
+        f'{_esc("Candidate " + c["id"] + ", owner review required. " + label)}">'
+        f'<b>{_esc(c["id"])}</b> — {_esc(c["status"])}, adopted: {_esc(c["adopted"])}. '
+        f'{_esc(c["note"])} Fixes: {_esc(", ".join(c["fixes"]))}. Does not fix: '
+        f'{_esc(", ".join(c["does_not_fix"]))}.</figure>' for c in o["candidates"])
+    from . import owner_banner as OB
+
+    nav = next((g for g in a["gates"] if g["gate"] == "nav_categories_truth"), None)
+    findings = ""
+    if nav is not None:
+        findings += (f"<li>Banner category line names {_esc(', '.join(nav['evidence']['empty']) or 'nothing empty')}"
+                     f": {_esc(nav['why'])}.</li>")
+    try:
+        footer = OB._nav_truth(OB.LOGO_FOOTER_NAV, OB._catalogue(None))
+        findings += (f"<li>Logo footer (HOME · BABY · GIFTS · SEASONAL) names "
+                     f"{_esc(', '.join(footer['empty']) or 'no empty category')}, which hold "
+                     f"no pattern today.</li>")
+    except Exception as exc:  # noqa: BLE001
+        findings += f"<li>Logo footer check unavailable: {_esc(type(exc).__name__)}</li>"
+    findings += ("<li>These are the owner's pixels: this preview does not edit them. Options "
+                 "are the owner's: list patterns in those sections before publishing, or "
+                 "decide on the wording.</li>")
+    order = "".join(
+        f"<tr><td>{n}</td><td>{_esc(what)}</td><td class=\"{'ok' if view == 'hero' else 'bad' if view is None and n == '1' else ''}\">"
+        f"{'AVAILABLE' if view == 'hero' else 'NOT MADE' if n == '1' else 'LATER'}</td>"
+        f"<td>{_esc(why)}</td></tr>" for n, what, view, why in LISTING_ORDER)
+    return (
+        f'<h3>Canonical owner assets (D-FB-17)</h3><p>The owner\'s logo artwork, exact '
+        f'({_esc(o["logo"]["sha256"][:12])}, {o["logo"]["size"][0]}×{o["logo"]["size"][1]}), is '
+        f'the hero identity. Lane A3\'s vectors are a supporting production system, labelled '
+        f'wherever they appear.</p><div class="row"><figure style="width:300px;max-width:100%">'
+        f'<img src="{_esc(o["logo_uri"])}" alt="Owner logo artwork, as supplied" '
+        f'style="width:100%;height:auto">Hero lockup: owner artwork, as supplied</figure></div>'
+        f'<table><thead><tr><th>Use</th><th>Asset</th><th>Where</th><th>Label</th></tr></thead>'
+        f'<tbody>{hier}</tbody></table>'
+        f'<h3>Shop icon: exact artwork first, measured</h3><p>{_esc(ic["label"])}. '
+        f'{_esc(ic["why"])}.</p><div class="row">{pair}</div>'
+        f'<table><thead><tr><th>Artwork</th><th>Size</th><th>Contrast</th><th>Coverage</th>'
+        f'<th>Result</th></tr></thead><tbody>{irows}</tbody></table>'
+        f'<h3>Owner banner: every publication gate on the exact file</h3><p>Status '
+        f'<b>{_esc(a["status"])}</b>: {len(a["passed"])} pass, {len(a["failed"])} fail, '
+        f'{len(a["unknown"])} unknown (UNKNOWN blocks like FAIL). Visible words: '
+        f'{_esc(a["visible_text_source"])}.</p>'
+        f'<table><thead><tr><th>Gate</th><th>Status</th><th>Evidence</th></tr></thead>'
+        f'<tbody>{gates}</tbody></table>'
+        f'<h3>Minimal reframes for the 4:1 canvas — OWNER_REVIEW_REQUIRED, none adopted</h3>'
+        f'<p>Deterministic, no owner pixel changed. They answer only the size gates; the '
+        f'others still stop the file.</p><div class="row">{cands}</div>'
+        f'<h3>Truth findings for the owner</h3><ul>{findings}</ul>'
+        f'<h3>Listing image order (lifestyle first)</h3><table><tbody>{order}</tbody></table>')
 
 
 def _doc(title: str, viewport: str, css: str, body: str) -> str:
