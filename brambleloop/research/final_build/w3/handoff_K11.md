@@ -70,11 +70,105 @@ Notes:
 
 ## Tests
 
-(counts filled in below)
+All runs used the venv interpreter with `PYTHONPATH=src`, on the final code. I did not run the full suite.
+
+**New test file:** `test_w3_k11_authority`, 18/18 passing.
+
+**Existing suites for the modules I touched.** All passed; the numbers are OK counts.
+
+| Suite | OK |
+|---|---|
+| test_v11_autonomy_orchestrator | 14 |
+| test_cert_orchestration | 20 |
+| test_roles | 35 |
+| test_r2_autonomy_useful_work | 6 |
+| test_w3_laura_core_constitution | 7 |
+| test_w3_laura_core_executive | 7 |
+| test_w3_laura_core_wiring | 6 |
+| test_w3_laura_core_identity | 11 |
+| test_w3_laura_core_continuity | 2 |
+| test_persistence | 11 |
+| test_improve | 32 |
+| test_improve_director | 14 |
+| test_improve_handlers | 8 |
+| test_cert_learning | 15 |
+| test_cert_improve_autonomy | 20 |
+| test_cert_improve_wave | 24 |
+| test_upgrades | 25 |
+| test_cert_culture_teardown | 16 |
+| test_cert_wiring | 16 |
+| test_v11_wiring | 14 |
+| test_v11_wiring_cc | 5 |
+| test_v11_cc_actions | 7 |
+| test_v11_learn_loops | 18 |
+| test_w3_k10_learn | 23 |
+| test_r2_security_department_block | 2 |
+| test_r2_product_policy_alias | 7 |
+| test_platform | 22 |
+| test_spend_governance | 36 |
+| test_takeover | 11 |
+| test_teardown_audits | 21 |
+| test_cert_cost | 19 |
+| test_escalation | 8 |
+| test_etsy_surfaces | 53 |
+| test_etsy_readback_observe | 37 |
+| test_cert_growth_ops | 13 |
+| test_cert_orders | 23 |
+| test_dashboard_spend | 7 |
+| test_w3_spend_attribution | 4 |
+| test_w3_spend_hygiene | 6 |
+
+**Guard suites:** test_vacuity 7, test_secret_scan 7, test_reachability 11 and test_w3_reachability_dynamic 3, all passing.
+
+**Not finished:** `test_product_run` hit my 1500 s timeout because the machine was heavily loaded. It had 7 OK and 0 FAIL when it was stopped.
+
+**Failures I did not cause:**
+
+- `test_v11_autonomy_timeline::test_the_committed_map_matches_the_generator` fails because the committed autonomy map is stale. It records 107 cadences and 125 handlers; the live code has 111 and 129. The test fails the same way on the integrator head e7b207c. K11 adds no cadence, handler or agent.
+- `test_cost_governance_wave2` has 5 failures, from another lane:
+  - the audit actions `launch.assessed`, `launch.held` and `launch.planned` have no retention decision;
+  - the temp prefix `bl-laura-proof-` is unregistered.
+
+  None of these are K11 audit actions, and K11 reads no audit action by name.
 
 ## Runtime proof
 
-`research/final_build/w3/K11_runtime_proof.py` writes `evidence/K11_runtime_proof.json` (see the results section below).
+`research/final_build/w3/K11_runtime_proof.py` writes `evidence/K11_runtime_proof.json`.
+
+**Setup:**
+
+- It runs the real `Worker` on a temporary SQLite database, phase shadow, with sockets closed.
+- I ran it on the K11 working tree, with code identical to 1fd6db3. The JSON's `commit` field says 04b811b because that was HEAD at the time.
+- I seeded three DAG nodes through `dag.submit`, and they are labelled as seeded:
+  - `store.publish` (PUBLISH);
+  - a `growth.distribution` that depends on it;
+  - an independent `seo.cycle`.
+- I enqueued `autonomy.orchestrate` and drained the queue.
+
+**Run 1** (13 jobs, 0 denied, 0 failed):
+
+| Node | State |
+|---|---|
+| publish | `awaiting_approval` |
+| promote | `blocked`, waiting on proof:publish |
+| seo | `enqueued` as jobs:13; it ran in the same drain |
+
+**After a restart** (a new `Database` on the same file, then a second orchestrate job):
+
+- seo is `done`, with evidence `{job_id 13, job_status done, did_no_work true, output_keys}`. `did_no_work` is reported as true: this was the first SEO cycle on an empty database.
+- publish is still `awaiting_approval`, and promote is still `blocked`.
+- The DAG holds mission nodes with completion evidence: 12 `done` and 11 `enqueued`.
+
+**Totals:** 26 jobs, 0 dead, **0 `store.publish` jobs**.
+
+**Live registry refusals:**
+
+- `pricing:pricing.experiment`: the agent is GREEN and the job is PUBLISH.
+- `orchestrator:store.publish`.
+- A build runtime asking for `store_operator:store.publish`.
+- A grant made by `laura`, because agents never self-grant.
+
+This was a bounded window of about 2.5 minutes, not a soak. The approve-then-execute path in a non-shadow phase is proven in unit tests only. In shadow, an approved item stays `approved`. Nothing ran in production, by design.
 
 ## WIRING REQUESTS
 
