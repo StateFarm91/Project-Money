@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from ..gates import platform_policy
+from ..store_foundation import copy_v2
 from . import terms as customer_terms
 
 # How the outside world is known. Ordered weakest-last so a reader can see the direction.
@@ -297,26 +298,12 @@ CLAIMS_BY_KEY: dict[str, Claim] = {c.key: c for c in CLAIMS}
 POLICY_SECTIONS: tuple[str, ...] = ("delivery", "returns", "licence", "support", "privacy",
                                     "ai")
 
-DELIVERY = (
-    "Every pattern here is a digital file. There is no processing time and nothing is "
-    "posted: the moment your payment clears, the PDF is available from your Etsy account "
-    "under Purchases and downloads, and Etsy emails you a link as well. Files are PDFs, "
-    "readable on a phone, a tablet or paper. If a download will not start or a file will "
-    "not open, message us and we will get it to you.")
-
-RETURNS = (
-    "Digital patterns cannot be returned, and Etsy does not allow a seller to accept a "
-    "return on a digital listing. We would rather you knew that before you bought than "
-    "after. What we do instead, and will do without argument: if a pattern contains an "
-    "error, we correct the pattern itself, re-issue it, and send the corrected file to "
-    "everyone who bought it. If you cannot open or download your file, we will get it to "
-    "you. If a pattern turns out not to be what the listing led you to expect, tell us — "
-    "that is a listing we need to fix, and we will make it right with you.")
-
-PRIVACY = (
-    "We only see what Etsy shares with us to fulfil your order. We do not sell or share "
-    "your information, and buying something does not put you on a mailing list — we only "
-    "email people who asked us to, and every email we send can be stopped in one click.")
+# The words of the three typed policies live in `store_foundation.copy_v2` (store copy v2,
+# wave 3): one place for every customer-facing store string. The names stay here because the
+# package and its checks are built on them.
+DELIVERY = copy_v2.DELIVERY
+RETURNS = copy_v2.RETURNS
+PRIVACY = copy_v2.PRIVACY
 
 
 def ai_disclosure() -> str:
@@ -353,11 +340,7 @@ def policies(terms: customer_terms.Terms | None = None) -> dict[str, str]:
 # The questions a pattern buyer actually asks, in the order they ask them. The first one is
 # the one the whole category answers badly, so it is first and it is answered from the terms
 # rather than from a sentence somebody wrote in a support reply.
-FAQ_ORDER: tuple[str, ...] = (
-    "sell_what_i_make", "is_it_a_finished_item", "where_is_my_file", "can_i_print_it",
-    "can_i_teach_from_it", "us_or_uk_terms", "what_if_there_is_a_mistake",
-    "can_i_get_a_refund", "was_ai_used", "do_you_ship",
-)
+FAQ_ORDER: tuple[str, ...] = copy_v2.FAQ_ORDER
 
 
 def faq(terms: customer_terms.Terms | None = None) -> list[dict]:
@@ -367,59 +350,9 @@ def faq(terms: customer_terms.Terms | None = None) -> list[dict]:
     them. The ones that are about the licence quote the decision verbatim, which is what
     makes `commerce.terms.consistency` able to check this surface at all.
     """
-    decided = terms or customer_terms.BRAMBLELOOP_TERMS
-    sell = decided.sentence(customer_terms.FINISHED_ITEM_SALE)
-    use = decided.sentence(customer_terms.PDF_USE)
-    share = decided.sentence(customer_terms.REDISTRIBUTION)
-    support = decided.sentence(customer_terms.SUPPORT_POLICY)
-    versions = decided.sentence(customer_terms.VERSION_POLICY)
-
-    answers: dict[str, tuple[str, str]] = {
-        "sell_what_i_make": (
-            "Can I sell what I make from this pattern?",
-            f"Yes: {sell}. You do not owe us a percentage and you do not need to ask. What "
-            f"you may not do is pass on the pattern itself — {share}."),
-        "is_it_a_finished_item": (
-            "Am I buying a blanket or a pattern?",
-            "A pattern. You receive instructions and charts as a PDF; you make the item "
-            "yourself. Nothing is shipped."),
-        "where_is_my_file": (
-            "Where is my file?",
-            "In your Etsy account under Purchases and downloads, available as soon as your "
-            "payment clears. Etsy also emails you a link. If neither works, message us."),
-        "can_i_print_it": (
-            "Can I print it?",
-            f"Yes. The pattern is {use}."),
-        "can_i_teach_from_it": (
-            "Can I teach a class from it?",
-            f"Yes, on one condition that is in the terms: the pattern is {use}. Each "
-            f"participant needs their own copy."),
-        "us_or_uk_terms": (
-            "US or UK crochet terms?",
-            "Both, as two files. Every pattern is delivered as two PDFs: one written "
-            "throughout in US terms and one written throughout in UK terms, each with its "
-            "own stitch key. A UK crocheter does not have to translate a US pattern in "
-            "their head, and nobody has to work out which stitch a word means."),
-        "what_if_there_is_a_mistake": (
-            "What if there is a mistake in the pattern?",
-            f"Tell us the pattern and the row. {support}. If the pattern is wrong we fix "
-            f"the pattern, not just your copy: {versions}."),
-        "can_i_get_a_refund": (
-            "Can I get a refund?",
-            "Digital patterns are not returnable, and Etsy does not allow a seller to "
-            "accept a return on a digital listing. If something is wrong — a file that "
-            "will not open, an error in the pattern, a listing that misled you — message "
-            "us and we will put it right."),
-        "was_ai_used": (
-            "Was this designed by AI?",
-            ai_disclosure()),
-        "do_you_ship": (
-            "Do you ship internationally?",
-            "There is nothing to ship. A digital pattern is the same file everywhere, and "
-            "any tax due is handled by Etsy at checkout."),
-    }
-    return [{"key": key, "question": answers[key][0], "answer": answers[key][1]}
-            for key in FAQ_ORDER]
+    # Store copy v2 owns the wording; the licence answers still quote `commerce.terms`
+    # verbatim and the AI answer is still the gate's disclosure, passed in from here.
+    return copy_v2.faq_core(terms or customer_terms.BRAMBLELOOP_TERMS, ai_disclosure())
 
 
 # ---------------------------------------------------------------------------
@@ -438,32 +371,43 @@ SHOP_TEXT_FIELDS: tuple[str, ...] = ("title", "announcement", "sale_message",
 # The message Etsy sends a buyer the moment a digital item is bought. It is the one surface
 # that reaches every customer, and a shop that leaves it blank sends nothing at the only
 # moment the buyer is certainly paying attention.
-DIGITAL_SALE_MESSAGE = (
-    "Thank you. Your pattern is ready now: open your Etsy account, go to Purchases and "
-    "downloads, and the PDF is there. Etsy has emailed you a link as well.\n\n"
-    "Two things worth knowing. You may sell the items you make from this pattern — you do "
-    "not owe us anything and you do not need to ask. And if anything in the pattern does "
-    "not add up, reply to this message with the pattern name and the row number: we correct "
-    "the pattern itself, re-issue it, and send the corrected file to everyone who bought "
-    "it, including you.")
+# v2 quotes the decided finished-item sentence; v1 said "you may sell the items you make"
+# with no limit, a fourth answer to the craft-fair question (#40).
+DIGITAL_SALE_MESSAGE = copy_v2.DIGITAL_SALE_MESSAGE
+
+
+# Etsy's OpenAPI document (read by lane I, `integrations.etsy_constraints`, 2026-10-06):
+# "the policy_additional field should only be set for shops located in the EU. Passing a
+# value for this field for shops outside of the EU, will result in an error." Brambleloop is
+# Canadian. The licence therefore lives in the FAQ answers (every axis of `commerce.terms`,
+# quoted verbatim) and never in policy_additional; Etsy's own policies article suggests the
+# FAQ for licensing information.
+SHOP_LOCATED_IN_EU = False
 
 
 def shop_text(terms: customer_terms.Terms | None = None) -> dict[str, str]:
-    """The five shop fields Etsy's API can actually write, ready to send.
+    """The five updateShop text fields, ready to send (policy_additional only for EU shops).
 
     Assembled here so that the day the phase moves, setting them is a call rather than a
-    writing session. `policy_additional` carries the licence and the disclosures because it
-    is the only policy text with a write endpoint -- the rest of the policy page is typed by
-    a person, and this is what stops the two halves saying different things.
+    writing session. For a shop outside the EU `policy_additional` is empty and must not be
+    sent at all (`api_shop_fields`); the licence a buyer reads is in the FAQ.
     """
     decided = terms or customer_terms.BRAMBLELOOP_TERMS
     return {
-        "title": "Crochet patterns checked row by row before they are sold",
+        "title": copy_v2.TAGLINE,
         "announcement": "",     # seasonal; `brand.storefront` owns which one is current
-        "sale_message": DIGITAL_SALE_MESSAGE,
-        "digital_sale_message": DIGITAL_SALE_MESSAGE,
-        "policy_additional": "\n\n".join([licence_text(decided), ai_disclosure()]),
+        "sale_message": copy_v2.digital_sale_message(decided),
+        "digital_sale_message": copy_v2.digital_sale_message(decided),
+        "policy_additional": ("\n\n".join([licence_text(decided), ai_disclosure()])
+                              if SHOP_LOCATED_IN_EU else ""),
     }
+
+
+def api_shop_fields(terms: customer_terms.Terms | None = None) -> dict[str, str]:
+    """What may actually be sent to updateShop: blank fields and EU-only fields left out."""
+    text = shop_text(terms)
+    return {k: v for k, v in text.items()
+            if v.strip() and (k != "policy_additional" or SHOP_LOCATED_IN_EU)}
 
 
 # What no endpoint can set. Listed so the owner action is a list of fields to fill rather
@@ -588,11 +532,19 @@ def check_package(terms: customer_terms.Terms | None = None) -> list[str]:
             "PACKAGE_NO_DIGITAL_SALE_MESSAGE: the message Etsy sends the instant a digital "
             "item is bought is the one surface that reaches every customer, and a blank one "
             "sends nothing at the only moment they are certainly reading")
-    if sell not in text["policy_additional"]:
+    if not SHOP_LOCATED_IN_EU and text["policy_additional"].strip():
         problems.append(
-            "PACKAGE_ADDITIONAL_POLICY_DIVERGES: policy_additional is the only policy text "
-            "with a write endpoint, so it is the half that drifts from the half a person "
-            "typed")
+            "PACKAGE_POLICY_ADDITIONAL_EU_ONLY: policy_additional may only be set by EU shops "
+            "(Etsy OpenAPI); a Canadian shop's write errors")
+    if "policy_additional" in api_shop_fields(decided) and not SHOP_LOCATED_IN_EU:
+        problems.append("PACKAGE_POLICY_ADDITIONAL_SENT: the API payload carries an EU-only "
+                        "field")
+    faq_doc = faq_text(decided)
+    for axis in customer_terms.AXES:
+        if decided.sentence(axis) not in faq_doc:
+            problems.append(
+                f"PACKAGE_LICENCE_NOT_IN_FAQ: {axis} is not stated in the FAQ, which is where "
+                f"a non-EU shop's licence lives")
 
     return problems
 

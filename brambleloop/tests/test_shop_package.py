@@ -211,8 +211,13 @@ def test_the_api_can_write_five_fields_and_a_person_types_the_rest():
     assert set(text) == set(P.SHOP_TEXT_FIELDS)
     assert text["digital_sale_message"].strip(), (
         "the message that reaches every customer at the moment they are reading")
-    # The half with a write endpoint must say what the half a person typed says.
-    assert T.BRAMBLELOOP_TERMS.sentence(T.FINISHED_ITEM_SALE) in text["policy_additional"]
+    # policy_additional is EU-only (Etsy OpenAPI, verified by lane I 2026-10-06): a Canadian
+    # shop must not send it, so the licence a buyer reads lives in the FAQ, every axis verbatim.
+    assert P.SHOP_LOCATED_IN_EU is False
+    assert text["policy_additional"] == ""
+    assert "policy_additional" not in P.api_shop_fields()
+    for axis in T.AXES:
+        assert T.BRAMBLELOOP_TERMS.sentence(axis) in P.faq_text(), axis
     where = dict(P.MANUAL_ONLY)
     assert "shop_policies_returns" in where and "Shop Manager" in where["about_story"]
     assert P.CLAIMS_BY_KEY["most_of_the_shop_is_typed_by_a_person"].basis == P.PRIMARY

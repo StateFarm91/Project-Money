@@ -192,6 +192,37 @@ VOICE_RULES: tuple[Rule, ...] = _voice_rules()
 _NEGATORS = re.compile(r"\b(no|not|never|nor|without|isn'?t|aren'?t|hasn'?t|haven'?t|"
                        r"wasn'?t|weren'?t|cannot|can'?t|n'?t)\b", re.I)
 
+# "Handmade" as the customer's aspiration, not the shop's product (owner decision, wave 3
+# lane C, 2026-10-06). Brambleloop sells digital patterns and makes nothing by hand, so
+# "handmade" stays refused as a description of anything the shop sells. The one reading the
+# owner allowed is the life or home the customer makes with a pattern: "Patterns for a More
+# Handmade Life", "for your handmade home". The exemption is deliberately narrow:
+#   - a customer-side determiner must come first ("a", "your", "a more", "more");
+#     "our", "my", "Brambleloop's" and bare "handmade" never qualify;
+#   - the noun must be the customer's life or home, not a product word;
+#   - the noun must not head a product phrase, so "a handmade home collection" and "your
+#     handmade home decor" are still read as the claims they make; "a handmade life, made by
+#     us" is caught by its own "made by" match.
+# Any other physical-making wording in the same text is still caught by the rest of the rule.
+_PRODUCT_NOUNS = (r"d[eé]cor|goods|wares|items?|products?|patterns?|gifts?|collections?|range"
+                  r"|lines?|sets?|kits?|bundles?|pieces?|accessor(?:y|ies)|crochet|knits?"
+                  r"|toys?|blankets?|baskets?|textiles?|furnishings?|shop|store|studio"
+                  r"|brand|made|crafted|by|from|sold|listings?|downloads?|pdfs?|designs?")
+_ASPIRATIONAL_HANDMADE = re.compile(
+    r"(?:\b(?:a|your)[ \t]+(?:more[ \t]+)?|\bmore[ \t]+)"
+    r"(?P<hm>hand[- ]?made)[ \t]+(?:life|lives|living|home|homes)\b"
+    rf"(?![ \t]*[-/&+]?[ \t]*(?:{_PRODUCT_NOUNS})\b)", re.I)
+
+
+def _aspirational_handmade(view: str, m: re.Match) -> bool:
+    """True when this TRUTH_PHYSICAL_MAKING match is only the word "handmade" inside the
+    customer-aspiration phrase above (and nothing else in the match)."""
+    if not re.fullmatch(r"hand[- ]?made", m.group(0), re.I):
+        return False
+    return any(a.start("hm") == m.start() and a.end("hm") == m.end()
+               for a in _ASPIRATIONAL_HANDMADE.finditer(view))
+
+
 # A negation only reaches the words of its own clause: a comma, a dash or a conjunction ends
 # it, so "Not a toy, we crocheted this" and "we never skip it and these are baby safe" are
 # read as the claims they make (J-product P-3).
@@ -264,6 +295,8 @@ def lint(text: str, *, surface: str = "", voice: bool = True) -> list[dict]:
         for view in views:
             for m in rule.pattern.finditer(view):
                 if rule.negatable and _negated(view, m.start()):
+                    continue
+                if rule.code == "TRUTH_PHYSICAL_MAKING" and _aspirational_handmade(view, m):
                     continue
                 if (rule.code, m.group(0).lower()) in seen:
                     continue

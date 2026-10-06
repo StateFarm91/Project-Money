@@ -49,14 +49,14 @@ BRAND_NAME = "Brambleloop"
 
 # ---- field limits this copy is written to -------------------------------------------------
 #
-# Etsy's help pages refuse automated readers from this environment (HTTP 403 on
-# help.etsy.com and etsy.com/legal on 2026-10-06), so these are SECONDARY: reported
-# consistently by third parties and an Etsy community thread, not read on Etsy's own page.
-# The copy is written to sit inside them; Shop Manager's own counter is the final word at
-# entry. The announcement is held to the repository's tighter 160 because a phone shows
-# only the opening of it.
+# Etsy's limits come from `integrations.etsy_constraints` (lane I, read from Etsy's own help
+# articles through the Help Center API, 2026-10-06; VERIFIED_HELP). If that module is absent
+# the secondary figures below stand, labelled SECONDARY. The announcement has no published
+# Etsy limit ("keep it short and sweet"); it is held to this shop's own 160 because a phone
+# shows only its opening.
 SECONDARY = "SECONDARY"
 REPO_ASSERTED = "UNVERIFIED_REPO_ASSERTED"
+VERIFIED_ETSY = "VERIFIED_HELP_CENTER"
 
 
 @dataclass(frozen=True)
@@ -71,22 +71,47 @@ class Constraint:
                 "source": self.source}
 
 
-CONSTRAINTS: dict[str, Constraint] = {c.key: c for c in (
+_FALLBACK: tuple[Constraint, ...] = (
     Constraint("shop_title", 55, SECONDARY,
-               "https://www.outfy.com/blog/etsy-character-limit/ (read via search "
-               "2026-10-06); Etsy's own page 403"),
+               "https://www.outfy.com/blog/etsy-character-limit/ (search 2026-10-06)"),
     Constraint("section_name", 24, SECONDARY,
                "https://community.etsy.com/t5/Etsy-Success/Are-there-character-limitations-"
-               "for-Shop-Sections/td-p/41665589 and outfy (search 2026-10-06)"),
-    Constraint("announcement", 160, REPO_ASSERTED,
-               "brand.storefront.ANNOUNCEMENT_MAX (Etsy's field is reported at 5,000; 160 "
-               "is this shop's own phone-first ceiling)"),
-    Constraint("announcement_first_sentence", 86, REPO_ASSERTED,
-               "brand.storefront_preview.PHONE_ANNOUNCEMENT_CHARS (assumed phone window)"),
+               "for-Shop-Sections/td-p/41665589 (search 2026-10-06)"),
     Constraint("about", 5000, REPO_ASSERTED, "brand.storefront.ABOUT_MAX"),
-    Constraint("faq_answer", 1200, REPO_ASSERTED,
-               "this module's own ceiling for a readable answer; Etsy's limit not on file"),
-)}
+    Constraint("sections_count", 20, REPO_ASSERTED, "brand.storefront.check_storefront"),
+)
+_ETSY_KEYS = {"shop_title": "shop_title_max_chars", "section_name": "section_name_max_chars",
+              "about": "about_max_chars", "sections_count": "sections_max"}
+
+
+def _constraints() -> dict[str, Constraint]:
+    out = {c.key: c for c in _FALLBACK}
+    try:
+        from ..integrations import etsy_constraints as ec
+
+        for key, ekey in _ETSY_KEYS.items():
+            c = ec.CONSTRAINTS.get(ekey)
+            if c is not None and c.basis in ec.VERIFIED_BASES and isinstance(c.value, int):
+                src = ec.SOURCES.get(c.source)
+                out[key] = Constraint(key, c.value, VERIFIED_ETSY,
+                                      f"integrations.etsy_constraints.{ekey}: "
+                                      f"{src.url if src else c.source} -- {c.quote!r}")
+    except Exception:  # noqa: BLE001 - lane I's module absent: secondary figures stand
+        pass
+    out["announcement"] = Constraint(
+        "announcement", 160, REPO_ASSERTED,
+        "brand.storefront.ANNOUNCEMENT_MAX: this shop's phone-first ceiling; Etsy publishes "
+        "no number")
+    out["announcement_first_sentence"] = Constraint(
+        "announcement_first_sentence", 86, REPO_ASSERTED,
+        "brand.storefront_preview.PHONE_ANNOUNCEMENT_CHARS (assumed phone window)")
+    out["faq_answer"] = Constraint(
+        "faq_answer", 1200, REPO_ASSERTED,
+        "this module's own ceiling for a readable answer; Etsy publishes no FAQ limit")
+    return out
+
+
+CONSTRAINTS: dict[str, Constraint] = _constraints()
 
 # ---- tagline -------------------------------------------------------------------------------
 #
@@ -98,7 +123,7 @@ CONSTRAINTS: dict[str, Constraint] = {c.key: c for c in (
 # Preference order. The first candidate that passes every check below is the chosen tagline.
 TAGLINE_CANDIDATES: tuple[str, ...] = (
     "Crochet patterns for a more handmade life",          # owner's line, with the category
-    "Crochet patterns for a life you make by hand",       # same meaning, lint-clean wording
+    "Crochet patterns for a life you make by hand",       # same meaning, fallback wording
     "Crochet patterns worth making, clearly written",
     "Beautiful crochet patterns, written to be followed",
     "Crochet patterns for a warmer, calmer home",
@@ -181,18 +206,23 @@ def _chosen(rows: list[dict]) -> str:
 
 TAGLINE: str = _chosen(tagline_candidates())
 
-# Lint finding the integrator should know about: the owner's line is truthful (the
-# "handmade life" is the customer's, made with the pattern), but TRUTH_PHYSICAL_MAKING's
-# `hand[- ]?made` alternative refuses it because Brambleloop itself makes nothing by hand.
-# The rule is not weakened here; the next candidate is used and the case is reported in the
-# lane C handoff for a narrowly scoped rule decision.
+# The owner's line, resolved (owner decision 2026-10-06, relayed to lane C): "handmade" here
+# describes the life and home the customer makes with a pattern, not anything Brambleloop
+# sells. `lint.TRUTH_PHYSICAL_MAKING` was refined (not removed) to pass exactly that
+# customer-aspiration reading ("a more handmade life", "your handmade home") while every
+# claim that the shop's products are handmade or hand-crocheted still fails. With that, the
+# owner's line is the first candidate that passes and is chosen automatically. Kept as data
+# so the decision trail stays visible.
 LINT_MISFIRES: tuple[dict, ...] = (
     {"text": "Patterns for a More Handmade Life", "rule": "TRUTH_PHYSICAL_MAKING",
+     "status": "resolved",
      "why_truthful": ("'handmade' describes the maker's life and the items the customer makes "
                       "with the pattern, not a claim that Brambleloop hand-makes anything"),
-     "proposal": ("allow 'handmade' only in the fixed phrases 'handmade life' / 'more handmade' "
-                  "/ 'handmade home', keeping every seller-made reading refused; integrator "
-                  "decision, not applied by lane C")},
+     "resolution": ("owner decision 2026-10-06: rule refined with a narrow customer-aspiration "
+                    "exemption (lint._ASPIRATIONAL_HANDMADE); seller-made readings still "
+                    "refused. Etsy help 360024112614 checked: its handmade rule concerns "
+                    "listing an item as handmade, and every Brambleloop listing is "
+                    "'Designed by'")},
 )
 
 BANNER: dict = {
@@ -227,6 +257,21 @@ SEASONAL_ANNOUNCEMENTS: dict[str, str] = {
 
 SELLER_CAPTION = "Laura · Brambleloop's AI founder"
 
+# Where Laura appears, and where she must not (Etsy help 115015651948 and 360000336867, via
+# integrations.etsy_constraints): the account profile picture is the signed-in account
+# holder's own, and a shop-team "Owner" is the real person responsible for the account. Laura
+# is neither. She is the brand face in the banner, the About story and seasonal creative,
+# always with her AI disclosure; her portrait is used only once it passes the publication gate.
+LAURA_PLACEMENT: dict[str, str] = {
+    "banner": "yes, as the brand face, when a publication-approved image exists",
+    "about_story": "yes: About paragraph 2, ABOUT_LAURA_INTRO, the 'Meet Laura' heading",
+    "about_photos": "yes, captioned with SELLER_CAPTION, once publication-approved",
+    "seasonal": "yes, same canonical Laura",
+    "account_profile_photo": "no: it presents the persona as the account holder",
+    "shop_team_owner_role": "no: Etsy's Owner role is the real responsible owner",
+    "listing_thumbnails": "product first; Laura only where it is commercially stronger",
+}
+
 ABOUT_LAURA_INTRO = ("Laura is Brambleloop's AI founder and the face of this shop. She is an "
                      "AI, not a human, and every pattern she puts her name to is checked row "
                      "by row before it reaches you.")
@@ -252,22 +297,23 @@ ABOUT_PARAGRAPHS: tuple[str, ...] = (
      "the table that make a room feel cared for. Quiet colours, natural textures and shapes "
      "meant to be lived with, not just admired."),
     ("Brambleloop is Laura's studio. Laura is its AI founder and the face you will see here. "
-     "She is an AI, not a human, and she will never pretend otherwise; what she holds every "
-     "pattern to is the standard below."),
+     "She is an AI, not a human, and she will never pretend otherwise. The standard below is "
+     "the one every pattern here is held to."),
     ("A pattern should be a pleasure to follow. Each one is written in plain, consistent "
-     "language, with a chart that says exactly what the words say, the hook, yarn weight "
-     "and gauge stated up front, and every stitch named before you begin. Each pattern "
+     "language, with a chart that says exactly what the words say, the hook size and gauge "
+     "stated up front, and every stitch named before you begin. Each pattern "
      "comes as two complete PDFs, one in US terms and one in UK terms, so you never have to "
      "translate in your head."),
     ("Behind that is an unusual amount of checking. Every design is drawn up stitch by stitch "
-     "before a word of the pattern is written, and the arithmetic of every row is verified "
-     "before release: the counts add up, the repeats divide evenly, and the chart matches the "
+     "before a word of the pattern is written, and every row's stitch count is checked "
+     "before the pattern goes on sale: the counts add up, the repeats divide evenly, and the chart matches the "
      "text. Then a separate check reads only the finished pattern, the way you will, and "
-     "rebuilds the design from it. If the two disagree anywhere, the pattern is not released. "
+     "rebuilds the design from it. If the two disagree anywhere, the pattern does not go on "
+     "sale. "
      "It exists for one reason: so you never reach row 94 of a blanket and wonder whether "
      "the mistake is yours."),
-    ("The designs are developed with AI, and the arithmetic is verified by code; neither "
-     "replaces the other. The pictures are digital renderings of each finished design, not "
+    ("The designs are developed with AI, and every stitch count is then verified exactly, "
+     "by a separate step that does no guessing; one never stands in for the other. The pictures are digital renderings of each finished design, not "
      "photographs. No sample has been photographed, and we have not yet worked a physical "
      "sample, so make a gauge swatch first: your yarn, hook and tension decide the finished "
      "size."),
@@ -275,7 +321,8 @@ ABOUT_PARAGRAPHS: tuple[str, ...] = (
      "send the corrected file to everyone who bought it, so the next maker never meets the "
      "same problem."),
     ("Brambleloop Studio is sold on Etsy by the human holder of this shop account, who is "
-     "responsible for every order. Questions come to us through Etsy Messages."),
+     "responsible for every order. What you may make, sell, print and teach from a pattern "
+     "is set out in the FAQ, and questions come to us through Etsy Messages."),
 )
 
 ABOUT = "\n\n".join(ABOUT_PARAGRAPHS)
@@ -552,7 +599,7 @@ class TrustSignal:
 
 # Customer value first; each still has a mechanism or decision behind it (evidence paths).
 TRUST_SIGNALS: tuple[TrustSignal, ...] = (
-    TrustSignal("compiler_checked", "Clear instructions, checked row by row before release",
+    TrustSignal("compiler_checked", "Clear instructions, with every stitch count checked",
                 "verified_process",
                 ("src/brambleloop/cir/compiler.py", "src/brambleloop/gates/certificate.py")),
     TrustSignal("reverse_checked", "Charts that say exactly what the words say",
@@ -662,5 +709,6 @@ def export() -> dict:
         "voice": list(VOICE_PRINCIPLES), "constraints": {k: c.to_dict()
                                                          for k, c in CONSTRAINTS.items()},
         "lint_misfires": [dict(m) for m in LINT_MISFIRES],
+        "laura_placement": dict(LAURA_PLACEMENT),
         "above_the_fold_keys": sorted(ABOVE_THE_FOLD),
     }
