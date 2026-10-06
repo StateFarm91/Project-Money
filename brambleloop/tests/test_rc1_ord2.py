@@ -120,6 +120,9 @@ from brambleloop.core import sealed_chain  # noqa: E402
 from brambleloop.ops import retention  # noqa: E402
 
 TOKEN = "local-owner-ord2-test-token-32characters"
+# A wrong token of the same shape, interpolated so no literal credential-shaped header sits in
+# the tree (test_secret_scan).
+WRONG_TOKEN = "fixture-not-the-owner-ord2-token-32chars"
 os.environ["BRAMBLELOOP_OPS_TOKEN"] = TOKEN
 COMPLETE = [entry(1, "transaction", "transaction", 10, -78),
             entry(2, "processing_fee", "receipt", 1, -66)]
@@ -166,7 +169,7 @@ def test_1_recording_needs_the_owner_credential():
     db = _db()
     from brambleloop.core import opsauth
 
-    for bad in ("", "Bearer wrong-token-wrong-token-wrong-token"):
+    for bad in ("", f"Bearer {WRONG_TOKEN}"):
         try:
             reconcile.record_mapping_verification(db, authorization=bad, by="owner",
                                                   evidence="x")

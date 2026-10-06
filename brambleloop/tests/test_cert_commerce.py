@@ -297,6 +297,8 @@ class _StubClient:
 
 
 _MISSING_NAMES = ("_load_cir", "build_twin")
+# Synthetic owner credential for the phase fixture only (never a real token).
+_OWNER_TOKEN = "fixture-owner-cert-commerce-credential-32+"
 
 
 def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim: bool = True):
@@ -372,7 +374,19 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
                 Job.status.in_([JobStatus.PENDING, JobStatus.FAILED]))):
             other.status = JobStatus.CANCELLED
         s.commit()
+    # rc1-AUTH A1: store.publish re-resolves the effective phase (the environment AND the
+    # owner's sealed, chained PhaseTransition record) instead of trusting the worker's boot
+    # phase, so a run past shadow must have both: the environment says limited_production and
+    # the owner's path to it is recorded through the owner-only route (tests/phase_fixture.py,
+    # synthetic owner credential -- not provider or owner proof).
+    from brambleloop.core import phase as phase_mod
+    saved_env = {k: os.environ.get(k) for k in (phase_mod.ENV_VAR, "BRAMBLELOOP_OPS_TOKEN")}
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = _OWNER_TOKEN
+    os.environ[phase_mod.ENV_VAR] = Phase.LIMITED_PRODUCTION.value
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from phase_fixture import record_phase_path
     try:
+        record_phase_path(db, _OWNER_TOKEN, Phase.LIMITED_PRODUCTION.value)
         JobQueue(db).enqueue("store_operator", "store.publish", inputs, idempotency_key=key)
         w = Worker(db, f"cert-{key}", phase=Phase.LIMITED_PRODUCTION, job_types=["store.publish"])
         try:
@@ -380,6 +394,11 @@ def _publish_past_shadow(db, *, key: str, inputs: dict, render_patch=None, shim:
         except _Reached:
             reached.append(True)
     finally:
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
         etsy.EtsyClient, etsy.Credentials.from_env = orig_client, orig_creds
         parity.restore()
         grid.restore()

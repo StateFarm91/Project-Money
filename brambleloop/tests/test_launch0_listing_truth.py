@@ -269,6 +269,7 @@ def test_the_planner_routes_retired_concept_slugs_to_the_launch0_slugs():
 
     for legacy, record in L.LEGACY_DUPLICATES.items():
         assert legacy not in pipeline.ENGINEERED, legacy
+        assert record["superseded_by"], (legacy, "a retired slug must name its Launch-0 slugs")
         for target in record["superseded_by"]:
             cir = pipeline._engineered_cir(target)
             assert cir is not None and cir.slug == target, target

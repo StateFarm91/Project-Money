@@ -268,8 +268,11 @@ def test_no_html_route_carries_an_inline_script_or_handler():
         pages = _html_routes(c)
     finally:
         os.environ.pop(opsauth.TOKEN_VAR, None)
+    assert pages, "no HTML route was found to check"
     for path, body in pages.items():
-        for m in re.finditer(r"<script\b([^>]*)>", body, re.IGNORECASE):
+        # A page with no <script> at all is the strongest pass: the assertion constrains only
+        # scripts that exist, so an empty match set here is the behaviour, not a vacuous loop.
+        for m in re.finditer(r"<script\b([^>]*)>", body, re.IGNORECASE):  # vacuity-ok: none = pass
             assert "src=" in m.group(1), (path, "inline <script> without src")
     # The dashboard has no script at all.
     assert "<script" not in pages["/"].lower()

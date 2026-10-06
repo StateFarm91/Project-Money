@@ -189,7 +189,17 @@ def test_the_deployed_image_and_start_command_carry_no_session_state():
     docker = (ROOT / "Dockerfile").read_text()
     assert ".claude" not in docker and "HEARTBEAT" not in docker
     copies = [ln.split()[1] for ln in docker.splitlines() if ln.startswith("COPY ")]
-    assert set(copies) <= {"requirements.txt", "src", "tests", "run_tests.sh"}, copies
+    # `release/` (A3-05) holds the tracked release records the runtime boot guard verifies
+    # (brambleloop.ops.release_record): reviewed build evidence committed to the repository,
+    # not state from any Claude session. It is admitted on that basis only, and the check
+    # below keeps it so: nothing in it may reference a Claude session or its working files.
+    assert set(copies) <= {"requirements.txt", "src", "release", "tests", "run_tests.sh"}, copies
+    records = sorted(f for f in (ROOT / "release").rglob("*") if f.is_file())
+    assert records, "the Dockerfile copies release/ but it holds no release record"
+    for f in records:
+        text = f.read_text(errors="replace").lower()
+        for marker in (".claude", "claude.ai/code", "claude-session", "heartbeat"):
+            assert marker not in text, (str(f), marker)
     deploy = json.loads((ROOT / "railway.json").read_text())["deploy"]
     assert "main:app" in deploy["startCommand"]
     assert deploy["restartPolicyType"] in ("ON_FAILURE", "ALWAYS")

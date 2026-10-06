@@ -94,6 +94,19 @@ def test_packet_cannot_be_ready_without_the_off_device_proof():
 
 
 if __name__ == "__main__":
-    test_packet_verdict_equals_handler_verdict()
-    test_packet_cannot_be_ready_without_the_off_device_proof()
-    print("test_rc1_own_packet: OK")
+    # One `OK  <name>` / `FAIL <name>` line per test, in definition order, and a nonzero exit
+    # on any failure: run_tests.sh counts ^OK lines, so a bare trailing "suite: OK" line would
+    # leave every pass here out of the total.
+    import traceback
+
+    fails = 0
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

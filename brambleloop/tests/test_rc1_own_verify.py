@@ -166,9 +166,19 @@ def test_verify_endpoint_uses_the_effective_phase_module():
 
 
 if __name__ == "__main__":
-    test_shadow_names_unchanged_and_green_when_nothing_written()
-    test_shadow_sees_draft_writes()
-    test_live_phase_is_not_permanently_red_and_checks_proof()
-    test_live_phase_red_without_grant_readback_or_certificate_or_with_stranded_draft()
-    test_verify_endpoint_uses_the_effective_phase_module()
-    print("test_rc1_own_verify: OK")
+    # One `OK  <name>` / `FAIL <name>` line per test, in definition order, and a nonzero exit
+    # on any failure: run_tests.sh counts ^OK lines, so a bare trailing "suite: OK" line would
+    # leave every pass here out of the total.
+    import traceback
+
+    fails = 0
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)
