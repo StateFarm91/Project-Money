@@ -13,6 +13,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+# Synthetic model labels: this package may not import the gateway (guardrails), and a real
+# model name belongs only in gateway/routing.py (tests/test_visual_inspection).
+_DEEP_MODEL = "synthetic-deep-tier"
+_CHEAP_MODEL = "synthetic-cheap-tier"
+
 
 class SyntheticRefused(RuntimeError):
     pass
@@ -112,13 +117,13 @@ def seed(db, *, now: datetime | None = None) -> dict:
     # Operating spend, as the gateways record it.
     rows = []
     for i, (kind, amt, prov, model, purpose, slug, dept, at) in enumerate([
-            ("llm", 0.4231, "anthropic", "claude-opus", "pattern_validation", "moss-stitch-cowl",
+            ("llm", 0.4231, "anthropic", _DEEP_MODEL, "pattern_validation", "moss-stitch-cowl",
              "product", prev),
-            ("llm", 0.0179, "anthropic", "claude-haiku", "seo_copy", "moss-stitch-cowl",
+            ("llm", 0.0179, "anthropic", _CHEAP_MODEL, "seo_copy", "moss-stitch-cowl",
              "growth", prev + timedelta(days=1)),
             ("image", 0.32, "openai", "gpt-image", "hero_render", "granny-square-tote",
              "design", prev + timedelta(days=2)),
-            ("llm", 1.1042, "anthropic", "claude-opus", "trend_research", "", "intel",
+            ("llm", 1.1042, "anthropic", _DEEP_MODEL, "trend_research", "", "intel",
              cur - timedelta(days=1)),
             ("image", 0.64, "bfl", "flux", "hero_render", "granny-square-tote", "design",
              cur),
@@ -162,6 +167,12 @@ def seed(db, *, now: datetime | None = None) -> dict:
 
 
 def runtime_proof(out_dir: str) -> dict:
+    """Run the proof on a throwaway database that is removed when the run ends."""
+    with tempfile.TemporaryDirectory(prefix="acct-proof-") as tmp:
+        return _runtime_proof(out_dir, tmp)
+
+
+def _runtime_proof(out_dir: str, tmp: str) -> dict:
     """Seed a temp SQLite DB, run the Accountant cycle, and write evidence files.
 
     `python3 -m brambleloop.finance.accounting.shadow_dataset <out_dir>` (PYTHONPATH=src).
@@ -178,7 +189,6 @@ def runtime_proof(out_dir: str) -> dict:
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    tmp = tempfile.mkdtemp(prefix="acct_proof_")
     db = Database(f"sqlite:///{tmp}/shadow.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
@@ -230,7 +240,7 @@ def runtime_proof(out_dir: str) -> dict:
     }
     for name, body in files.items():
         (out / name).write_text(json.dumps(body, indent=2, default=str))
-    return {"dir": str(out), "files": sorted(files), "db": f"{tmp}/shadow.sqlite"}
+    return {"dir": str(out), "files": sorted(files), "db": "throwaway SQLite, removed after the run"}
 
 
 if __name__ == "__main__":  # pragma: no cover - runtime proof entry point

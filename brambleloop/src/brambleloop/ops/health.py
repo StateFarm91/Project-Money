@@ -605,6 +605,10 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # the case the disk signal exists to show. A prefix used in `src/` and absent here is
     # invisible to that signal, and a test refuses the combination.
     "brambleloop-render-",
+    # v1.1 autonomy proof harness: a TemporaryDirectory scoped to one in-process run.
+    "bl-proof-",
+    # v1.1 accounting runtime proof: a TemporaryDirectory removed when the proof returns.
+    "acct-proof-",
     # `visual.milestone_d`'s plied curve file, written to check the render's geometry and
     # removed with the check. The registry test caught this one the day it was written --
     # the guard working as recorded in the 2026-09-25 wave verification.

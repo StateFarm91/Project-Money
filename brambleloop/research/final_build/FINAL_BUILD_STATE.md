@@ -230,3 +230,13 @@ Read-only production evidence (Railway project brambleloop, 2026-10-06T07:05Z):
   Claude session. BUT store.publish_refused has been 165 across every recorded heartbeat: the
   runtime is alive yet produces no new release work — the Priority Zero "idle company" defect
   that lane A's Executive Orchestrator targets (not deployable without owner approval).
+- 2026-10-06T08:15Z heartbeat: production /api/verify read-only — 12 checks, 0 failing; scheduler
+  08:15:15Z, worker 08:15:39Z. Nothing pushed to the production branch.
+
+## Full suite on 8ef77e3 (all lanes + WIRE) — 2026-10-06T08:50Z
+6,375 passing; 3 suites failing (9 tests), all repo-wide invariants catching new v1.1 code:
+temp dirs nothing removes (autonomy/proof, accounting shadow_dataset, seo/_testkit) and an
+uncounted prefix; `spend.refused` read by ops.slo with no retention decision; model names outside
+routing.TASKS (gateway/failover, accounting shadow_dataset). Fixed in the next commit (no test
+or invariant weakened; failover ranks now derive from routing.TIERS; accounting keeps its
+no-gateway-import guardrail and uses synthetic labels). Re-running the full suite.

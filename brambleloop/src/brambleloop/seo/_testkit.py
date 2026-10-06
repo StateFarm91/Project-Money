@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[3]          # brambleloop/
 sys.path.insert(0, str(ROOT / "tests"))
 _ART = tempfile.TemporaryDirectory()
 os.environ.setdefault("BRAMBLELOOP_ARTIFACT_DIR", _ART.name)
-_TMP = tempfile.mkdtemp(prefix="v11seo_")
+_TMP_DIR = tempfile.TemporaryDirectory(prefix="v11seo_")  # removed at interpreter exit
+_TMP = _TMP_DIR.name
 _N = [0]
 
 

@@ -179,12 +179,12 @@ def main(argv: list[str]) -> int:
     out = Path(argv[argv.index("--out") + 1]).resolve() if "--out" in argv else \
         Path("A_runtime_proof.json").resolve()
     src = str(Path(__file__).resolve().parents[2])
-    tmp = tempfile.mkdtemp(prefix="bl-proof-")
-    env = _child_env(src, seconds, f"{tmp}/proof.sqlite", str(out))
-    env["BRAMBLELOOP_PROOF_COMMIT"] = _commit()
-    proc = subprocess.run([sys.executable, "-m", "brambleloop.autonomy.proof", "--child"],
-                          env=env, cwd=tmp, timeout=seconds + 900)
-    return proc.returncode
+    with tempfile.TemporaryDirectory(prefix="bl-proof-") as tmp:
+        env = _child_env(src, seconds, f"{tmp}/proof.sqlite", str(out))
+        env["BRAMBLELOOP_PROOF_COMMIT"] = _commit()
+        proc = subprocess.run([sys.executable, "-m", "brambleloop.autonomy.proof", "--child"],
+                              env=env, cwd=tmp, timeout=seconds + 900)
+        return proc.returncode
 
 
 if __name__ == "__main__":  # pragma: no cover

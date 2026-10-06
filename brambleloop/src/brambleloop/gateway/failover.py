@@ -60,18 +60,18 @@ HEALTHY, DEGRADED, DOWN, HALF_OPEN, UNKNOWN = (
 CALL, PARK, CACHED, REFUSED = "CALL", "PARK", "CACHED", "REFUSED"
 
 # Relative capability, used only to enforce "fallback never goes down".
-CAPABILITY_RANK: dict[str, int] = {
-    "claude-haiku-4-5": 1, "claude-haiku-4-5-20251001": 1,
-    "claude-sonnet-5": 2,
-    "claude-opus-5": 3,
-}
+# Derived from routing.TIERS so the model names live only in the routing table
+# (tests/test_visual_inspection pins that); tier order is the capability order.
+_TIER_ORDER = (routing.CHEAP, routing.STANDARD, routing.DEEP)
+CAPABILITY_RANK: dict[str, int] = {routing.TIERS[t].model: i + 1
+                                   for i, t in enumerate(_TIER_ORDER)}
 
 # Per tier, the stronger models approved to stand in when the tier's model is unavailable.
 # Explicit rather than derived so a change is a reviewed edit, and asserted against
 # CAPABILITY_RANK so nobody can list a weaker model here (tests/test_v11_reliability_gateway).
 APPROVED_FALLBACKS: dict[str, tuple[str, ...]] = {
-    routing.CHEAP: ("claude-sonnet-5",),
-    routing.STANDARD: ("claude-opus-5",),
+    routing.CHEAP: (routing.TIERS[routing.STANDARD].model,),
+    routing.STANDARD: (routing.TIERS[routing.DEEP].model,),
     routing.DEEP: (),
 }
 
