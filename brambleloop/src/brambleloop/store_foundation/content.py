@@ -14,7 +14,13 @@ Words owned elsewhere are imported, never copied:
     commerce.terms            -- the licence and support sentences
     gates.platform_policy     -- the AI, digital and render disclosures
 
-Words owned here, because nothing owned them: the PIPEDA/CASL privacy addendum, the
+Store copy v2 (wave 3, lane C): every customer-facing store string -- tagline, announcement,
+About, delivery/returns/privacy wording, FAQ answers, disclosure block, support, section
+names, trust copy -- now lives in `store_foundation.copy_v2`; `commerce.shop_package` reads it
+there, and the licence and AI-disclosure sentences inside it are still rendered from
+`commerce.terms` and `gates.platform_policy`. The names below are kept as re-exports.
+
+Words formerly owned here, because nothing owned them: the PIPEDA/CASL privacy addendum, the
 support/contact surface, the FAQ entries the buyer-trust audit found missing (skill level,
 whether the images are photographs, whether a sample was made), the trust-signal register and
 the settings checklist.
@@ -95,95 +101,24 @@ class Surface:
 
 ETSY_HANDLE = "BrambleloopStudio"   # opened 2026-09-19 (build2.executor, gate etsy_shop)
 
-PRIVACY_ADDENDUM = (
-    "What we receive. When you buy, Etsy shares what is needed to fulfil the order: your Etsy "
-    "username, your name, the item and the order details, and anything you write to us. We "
-    "use it only to deliver your pattern, answer your questions and send corrections for the "
-    "version you bought.\n\n"
-    "Who sees it. Only Brambleloop Studio. We do not sell it, rent it or share it with "
-    "advertisers. Etsy's own privacy policy covers what Etsy collects.\n\n"
-    "Email. We send commercial email only to people who have expressly agreed to receive it. "
-    "Every such email says who we are and how to reach us, and has an unsubscribe that works, "
-    "as Canada's Anti-Spam Legislation (CASL) requires.\n\n"
-    "Your rights. You may ask what personal information we hold about you, ask us to correct "
-    "it, or ask us to delete what we are not required to keep, by messaging us on Etsy. We "
-    "handle personal information in line with Canada's Personal Information Protection and "
-    "Electronic Documents Act (PIPEDA).\n\n"
-    "Records. We keep order records for as long as Canadian tax rules require, and no longer "
-    "than we need them.")
+# Store copy v2 (wave 3, lane C) owns every customer-facing store string. These names are
+# kept as re-exports so existing readers keep working; the words are in `copy_v2`.
+from . import copy_v2  # noqa: E402
 
-SUPPORT_CONTACT = (
-    "Questions go through Etsy Messages: use the message button on this shop page or on your "
-    "order. Tell us the pattern name, which file you are using (US or UK terms) and the row "
-    "or round number, and we will answer against the exact version you bought. If the "
-    "problem is in the pattern, we correct the pattern itself and send the corrected file to "
-    "everyone who bought it.")
-
-# Questions a cautious buyer asks before a first purchase from a shop with no reviews, which
-# `commerce.shop_package.faq` did not answer. Answers are true today and say what is not done.
-def _extra_faq() -> list[dict]:
-    from ..gates import platform_policy
-
-    return [
-        {"key": "skill_level", "question": "What skill level do I need?",
-         "answer": ("Each listing states a difficulty and names every stitch the pattern "
-                    "uses, with the gauge and hook size, so you can judge before you buy.")},
-        {"key": "are_images_photos", "question": "Are the pictures photographs?",
-         "answer": platform_policy.DISCLOSURES["disclosed_render"]},
-        {"key": "sample_made", "question": "Has this pattern been made up in yarn?",
-         "answer": ("Not yet by us. Every row's stitch count is checked by a compiler and the "
-                    "finished sizes are calculated from the stated gauge, but we have not yet "
-                    "worked a physical sample of these designs. Your finished size will vary "
-                    "with yarn, hook and tension, so work a gauge swatch first.")},
-        {"key": "contact", "question": "How do I reach you?", "answer": SUPPORT_CONTACT},
-    ]
-
-
-@dataclass(frozen=True)
-class TrustSignal:
-    key: str
-    text: str
-    kind: str                       # verified_process | policy_commitment | platform_fact
-    evidence: tuple[str, ...]       # repository paths that implement or decide it
-    note: str = ""
-
-    def to_dict(self) -> dict:
-        return {"key": self.key, "text": self.text, "kind": self.kind,
-                "evidence": list(self.evidence), "note": self.note}
-
-
-TRUST_KINDS = ("verified_process", "policy_commitment", "platform_fact")
-
+PRIVACY_ADDENDUM = copy_v2.PRIVACY_ADDENDUM
+SUPPORT_CONTACT = copy_v2.SUPPORT_CONTACT
+TrustSignal = copy_v2.TrustSignal
+TRUST_KINDS = copy_v2.TRUST_KINDS
 # Only signals with a mechanism or a decision behind them. There are no review, sales,
 # favourite or years-in-business signals because there are none to show, and the preview
 # says so ("New shop -- no reviews yet") instead of leaving a gap a buyer reads as hiding.
-TRUST_SIGNALS: tuple[TrustSignal, ...] = (
-    TrustSignal("compiler_checked", "Every row's stitch count checked by a compiler",
-                "verified_process",
-                ("src/brambleloop/cir/compiler.py", "src/brambleloop/gates/certificate.py")),
-    TrustSignal("reverse_checked", "Each pattern re-read from the finished text before release",
-                "verified_process", ("src/brambleloop/cir/reverse.py",)),
-    TrustSignal("us_uk", "US and UK terms, as two complete PDFs", "verified_process",
-                ("src/brambleloop/publish/pdf.py",), "publish.pdf.TERMINOLOGIES"),
-    TrustSignal("corrections", "Corrections sent free to every buyer", "policy_commitment",
-                ("src/brambleloop/commerce/terms.py",), "terms.VERSION_POLICY"),
-    TrustSignal("licence", "Sell what you make, by hand or in small batches",
-                "policy_commitment", ("src/brambleloop/commerce/terms.py",),
-                "terms.FINISHED_ITEM_SALE: individual makers and small businesses, not "
-                "manufactured at scale"),
-    TrustSignal("renders_labelled", "Every image labelled as a rendering, never a photo",
-                "verified_process", ("src/brambleloop/publish/disclosed_listing.py",)),
-    TrustSignal("instant", "Instant PDF download through Etsy", "platform_fact",
-                ("src/brambleloop/commerce/shop_package.py",)),
-)
+TRUST_SIGNALS = copy_v2.TRUST_SIGNALS
+VOICE_PRINCIPLES = copy_v2.VOICE_PRINCIPLES
 
-VOICE_PRINCIPLES = (
-    "Specific over atmospheric: say what is checked, by what, before release.",
-    "Calm: no exclamation marks, no emoji, no capitals for emphasis.",
-    "Plain about limits: say what has not been done (no worked sample, renders not photos).",
-    "Buyer's words first: crochet pattern, PDF, US and UK terms, sizes in centimetres.",
-    "No borrowed credibility: no superlatives, counts, endorsements or invented history.",
-)
+
+def _extra_faq() -> list[dict]:
+    """The first-purchase questions `commerce.shop_package.faq` does not carry."""
+    return copy_v2.faq_extra()
 
 
 def settings_checklist() -> list[dict]:
@@ -218,6 +153,11 @@ def settings_checklist() -> list[dict]:
          "Shop Manager > Settings > Info & appearance / Payment settings", 2),
         ("two_factor", "Turn on two-factor sign-in for the Etsy account",
          "Etsy account settings > Security", 3),
+        ("creativity_classification", "At each listing: choose 'Designed by' the seller (a "
+                                       "digital pattern made with AI tools) and keep the AI "
+                                       "disclosure in the description (Etsy Creativity "
+                                       "Standards, read via secondary sources; Etsy page 403)",
+         "Listing editor > About this listing (who made it / what is it)", 1),
         ("search_visibility", "After the first listings are live, read Search Visibility and "
                               "record it (POST /api/search-visibility)",
          "Shop Manager > Marketing > Search Visibility", 5),
@@ -307,6 +247,28 @@ def launch0_products(db=None) -> list[dict]:
     return out
 
 
+def _sections(storefront, populated: dict[str, int]) -> list[dict]:
+    """Owner-nav section names (copy_v2) over the storefront's slugs, in the owner's order.
+
+    A section with no Launch-0 product is PLANNED and not shown: an empty shelf implies
+    products the shop does not have.
+    """
+    known = {s.slug for s in storefront.SECTIONS}
+    rows = []
+    for sc in sorted(copy_v2.SECTIONS, key=lambda x: x.order):
+        n = populated.get(sc.slug, 0)
+        rows.append({"name": sc.name, "slug": sc.slug, "blurb": sc.blurb, "listings": n,
+                     "shown": bool(n), "status": "live" if n else "planned",
+                     "known_slug": sc.slug in known})
+    for s in storefront.SECTIONS:
+        if s.slug not in copy_v2.SECTION_BY_SLUG:
+            n = populated.get(s.slug, 0)
+            rows.append({"name": s.name, "slug": s.slug, "blurb": "", "listings": n,
+                         "shown": bool(n), "status": "live" if n else "planned",
+                         "known_slug": True})
+    return rows
+
+
 # ---- the model ---------------------------------------------------------------------------
 
 def build(db=None, *, today=None) -> dict[str, Surface]:
@@ -314,7 +276,6 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
     an applied seasonal takeover (both need a `core.db.Database`)."""
     from ..brand import storefront
     from ..commerce import shop_package
-    from ..gates import platform_policy
     from . import assets, brand_face
 
     store = None
@@ -333,6 +294,13 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
     populated: dict[str, int] = {}
     for p in products:
         populated[p["section"]] = populated.get(p["section"], 0) + 1
+
+    announcement = store.announcement
+    if announcement == storefront.ANNOUNCEMENT_TEMPLATES.get("evergreen"):
+        announcement = copy_v2.ANNOUNCEMENT          # no takeover banner applied
+    about = copy_v2.ABOUT
+    if store.seasonal_copy:
+        about = f"{about}\n\n{store.seasonal_copy}"
 
     S = Surface
     surfaces = [
@@ -354,58 +322,63 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
           OWNER_MANUAL, customer_facing=False,
           notes=[brand_face.PREVIEW_IMAGE_LABEL]),
         S("shop_title", "Shop title (tagline)", "text", text["title"],
-          "commerce.shop_package.shop_text()['title']",
+          "store_foundation.copy_v2.TAGLINE (via commerce.shop_package.shop_text)",
           "Shop Manager > Settings > Info & appearance", API_WRITABLE, "shop_title"),
-        S("announcement", "Announcement", "text", store.announcement,
-          "brand.storefront.ANNOUNCEMENT_TEMPLATES / takeover",
+        S("announcement", "Announcement", "text", announcement,
+          "store_foundation.copy_v2.ANNOUNCEMENT / takeover banner when one is applied",
           "Shop Manager > Settings > Info & appearance", API_WRITABLE, "announcement",
           notes=[takeover_note] if takeover_note else []),
-        S("about", "About / shop story", "text", store.about, "brand.storefront.ABOUT",
+        S("about", "About / shop story", "text", about,
+          "store_foundation.copy_v2.ABOUT (+ applied seasonal copy)",
           shop_package.MANUAL_ONLY[4][1], OWNER_MANUAL, "about"),
         S("policy_delivery", "Delivery (digital)", "policy", pol["delivery"],
-          "commerce.shop_package.DELIVERY", shop_package.MANUAL_ONLY[0][1], OWNER_MANUAL,
+          "store_foundation.copy_v2.DELIVERY (via commerce.shop_package)",
+          shop_package.MANUAL_ONLY[0][1], OWNER_MANUAL,
           "policy_text"),
         S("policy_returns", "Returns and refunds", "policy", pol["returns"],
-          "commerce.shop_package.RETURNS", shop_package.MANUAL_ONLY[1][1], OWNER_MANUAL,
+          "store_foundation.copy_v2.RETURNS (via commerce.shop_package)",
+          shop_package.MANUAL_ONLY[1][1], OWNER_MANUAL,
           "policy_text"),
         S("policy_licence", "Pattern licence and customer use", "policy", pol["licence"],
           "commerce.terms via commerce.shop_package.licence_text",
           "Shop Manager > Settings > Policies: additional (policy_additional)", API_WRITABLE,
           "policy_text"),
         S("policy_privacy", "Privacy", "policy", pol["privacy"] + "\n\n" + PRIVACY_ADDENDUM,
-          "commerce.shop_package.PRIVACY + store_foundation.content.PRIVACY_ADDENDUM",
+          "store_foundation.copy_v2.PRIVACY + PRIVACY_ADDENDUM (via commerce.shop_package)",
           shop_package.MANUAL_ONLY[2][1], OWNER_MANUAL, "policy_text"),
         S("disclosures", "AI-use, digital-item and image disclosures", "disclosure",
-          pol["ai"] + "\n" + platform_policy.DISCLOSURES["disclosed_render"],
-          "gates.platform_policy.DISCLOSURES (ai_assisted_design, digital_download, "
-          "deterministic_render, disclosed_render)",
+          copy_v2.store_disclosure(),
+          "store_foundation.copy_v2.store_disclosure: gates.platform_policy.DISCLOSURES "
+          "(digital_download, ai_assisted_design, deterministic_render, disclosed_render) "
+          "verbatim + Laura and account-holder lines",
           "Shop Manager > Settings > Policies: additional (policy_additional) and every "
           "listing description", API_WRITABLE, "policy_text"),
         S("faq", "Frequently asked questions", "help",
           [dict(f) for f in shop_package.faq()] + _extra_faq(),
-          "commerce.shop_package.faq + store_foundation.content._extra_faq",
+          "store_foundation.copy_v2 (faq_core via commerce.shop_package.faq + faq_extra)",
           shop_package.MANUAL_ONLY[3][1], OWNER_MANUAL, "faq_entry"),
         S("support_contact", "Support and contact", "help", SUPPORT_CONTACT,
-          "store_foundation.content.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
+          "store_foundation.copy_v2.SUPPORT_CONTACT (consistent with terms.SUPPORT_POLICY)",
           "About section and FAQ (Etsy's Message button is automatic)", OWNER_MANUAL,
           "faq_entry"),
         S("digital_sale_message", "Message to buyers of digital items", "help",
-          text["digital_sale_message"], "commerce.shop_package.DIGITAL_SALE_MESSAGE",
+          text["digital_sale_message"],
+          "store_foundation.copy_v2.DIGITAL_SALE_MESSAGE (via commerce.shop_package)",
           "Shop Manager > Settings > Info & appearance", API_WRITABLE,
           "digital_sale_message"),
         S("sections", "Shop sections", "merch",
-          [{"name": s.name, "slug": s.slug, "listings": populated.get(s.slug, 0),
-            "shown": bool(populated.get(s.slug))} for s in storefront.SECTIONS],
-          "brand.storefront.SECTIONS, populated from the Launch-0 products",
+          _sections(storefront, populated),
+          "store_foundation.copy_v2.SECTIONS (owner nav) over brand.storefront.SECTIONS "
+          "slugs, populated from the Launch-0 products; unpopulated = planned, not shown",
           "Shop Manager > Listings > Sections", OWNER_MANUAL, "section_name"),
         S("opening_grid", "Opening grid (Launch-0 products)", "merch", products,
           "products.launch0 (+ drafted listings rows when present)",
           "Shop home page grid", INTERNAL, "listing_title"),
         S("trust_signals", "Trust signals", "trust", [t.to_dict() for t in TRUST_SIGNALS],
-          "store_foundation.content.TRUST_SIGNALS", "About section, banner area, listings",
+          "store_foundation.copy_v2.TRUST_SIGNALS", "About section, banner area, listings",
           OWNER_MANUAL),
         S("voice", "Brand voice", "brand", list(VOICE_PRINCIPLES),
-          "store_foundation.content.VOICE_PRINCIPLES; brand.bible", "applies to every surface",
+          "store_foundation.copy_v2.VOICE_PRINCIPLES; brand.bible", "applies to every surface",
           INTERNAL, customer_facing=False),
         S("settings_checklist", "Settings checklist (owner login)", "settings",
           settings_checklist(), "store_foundation.content.settings_checklist",

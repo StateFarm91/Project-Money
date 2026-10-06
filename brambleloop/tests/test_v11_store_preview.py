@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from brambleloop.store_foundation import lint, preview  # noqa: E402
+from brambleloop.store_foundation import copy_v2, lint, preview  # noqa: E402
 
 NOW = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
 STATUSES = {"OK", "DEGRADED", "BLOCKED", "UNKNOWN"}
@@ -148,7 +148,8 @@ def test_preview_shows_no_fabricated_social_proof():
 
 def test_preview_shows_every_surface():
     html = preview.render_preview(None, "mobile", now=NOW)
-    for needle in ("Brambleloop Studio", "Crochet patterns checked row by row",
+    # The shop title is store copy v2's chosen tagline (wave 3, lane C).
+    for needle in ("Brambleloop Studio", copy_v2.TAGLINE,
                    "Announcement", "About Brambleloop Studio", "Delivery (digital)",
                    "Returns and refunds", "Pattern licence and customer use", "Privacy",
                    "AI-use, digital-item and image disclosures", "Frequently asked questions",
