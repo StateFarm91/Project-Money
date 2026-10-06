@@ -57,6 +57,7 @@ CELL_AGENT: dict[str, str] = {
     "portfolio": "orchestrator",
     "finance": "cfo",
     "runtime": "orchestrator",
+    "learn": "learn",
 }
 
 

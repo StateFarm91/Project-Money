@@ -90,10 +90,10 @@ def test_a_self_review_that_weakens_product_truth_is_refused_end_to_end():
 def test_the_nightly_queue_is_real_and_bounded():
     db = _db()
     first = profiles.queue_proposals(db)
-    assert first["persisted"] == 12                    # every cell is unmeasured tonight
+    assert first["persisted"] == len(cells.CELLS)                   # every cell is unmeasured tonight
     assert all(q["touches"] == ["cadence"] for q in first["queued"])
     again = profiles.queue_proposals(db)
-    assert again["persisted"] == 0 and len(again["already_open"]) == 12
+    assert again["persisted"] == 0 and len(again["already_open"]) == len(cells.CELLS)
     from brambleloop.core.models import Improvement
     with db.session() as s:
         row = s.get(Improvement, first["queued"][0]["improvement"])

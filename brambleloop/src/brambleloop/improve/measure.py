@@ -335,6 +335,22 @@ def measure_growth(db, *, now: datetime | None = None):
                        {"loops": len(loops), "with_evidence": with_evidence})
 
 
+def measure_learn(db, *, now: datetime | None = None):
+    """LearnGap rows COVERED against total LearnGap rows (F-799)."""
+    from sqlalchemy import select
+
+    from ..learn.models import LearnGap
+
+    with db.session() as s:
+        states = [g.state for g in s.scalars(select(LearnGap))]
+    if not states:
+        return NotMeasured("learn", "no LearnGap row exists yet (learn.scan has found no "
+                                    "pattern or support source)")
+    covered = sum(1 for st in states if st == "COVERED")
+    return Measurement("learn", round(covered / len(states), 4), len(states),
+                       {"covered": covered, "gaps": len(states)})
+
+
 MEASURERS: dict[str, Callable] = {
     "product_creativity": measure_product_creativity,
     "pattern_engineering": measure_pattern_engineering,
@@ -348,6 +364,7 @@ MEASURERS: dict[str, Callable] = {
     "portfolio": measure_portfolio,
     "finance": measure_finance,
     "runtime": measure_runtime,
+    "learn": measure_learn,
 }
 
 assert set(MEASURERS) == {c.key for c in CELLS}, "every cell has exactly one measurer"
