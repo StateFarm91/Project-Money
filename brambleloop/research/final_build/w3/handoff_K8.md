@@ -51,6 +51,7 @@ Every Etsy-shaped proof runs against `tests/fake_etsy.py` through the real handl
 - `test_etsy_readback_observe` 37/37 (after the census changes).
 - Other suites: `test_rc1_order_truth` 13, `test_receipt_adversarial` 18, `test_rc1_ord2` 13, `test_departments` 28, `test_vacuity` 7, `test_secret_scan` 6, `test_etsy_surfaces` 52, `test_oauth_security_audit` 87.
 - `test_cert_orders` failed 2 under parallel load and then passed 0-failing when re-run alone. I am not certain it is only load-related.
+- **After merging `claude/visual-investigation` (2026-10-06, merge dc53d65, no conflicts):** I re-ran K8 9/9 + 17/17, `test_etsy_readback_observe` 37/37, `test_rc1_order_truth` 0 failing, `test_departments` 28, `test_vacuity` 7, `test_secret_scan` 6, `test_customer_data_auth` 9/9 and `test_cert_orders` 0 failing (this time it passed on the first run). The merge added `commerce/listing_outcomes.py` and changed `commerce/listing_tests.py` from another lane. Neither overlaps a K8 file.
 - I did not run the full suite.
 
 ## Could not verify
