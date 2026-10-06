@@ -93,12 +93,22 @@ class RuntimeOriginality(unittest.TestCase):
         with self.db.session() as session:
             session.add(Listing(product_slug=self.cir.slug, version=self.cir.version,
                                 title="Synthetic listing", description="Synthetic", tags=[]))
+        # rc1-AUTH A1: the handler re-resolves the effective phase (environment AND the
+        # owner's sealed PhaseTransition record), so a PRODUCTION ctx alone now reads as
+        # shadow; record the owner's path (synthetic credential) and agree in the env.
+        import os
+        from phase_fixture import record_phase_path
+        token="fixture-owner-originality-runtime-credential"
+        env=patch.dict(os.environ,{"BRAMBLELOOP_OPS_TOKEN":token,
+                                   "BRAMBLELOOP_PHASE":Phase.PRODUCTION.value})
+        env.start(); self.addCleanup(env.stop)
+        record_phase_path(self.db,token,Phase.PRODUCTION.value)
         ctx=SimpleNamespace(db=self.db, phase=Phase.PRODUCTION,
                             job=SimpleNamespace(inputs=dict(slug=self.cir.slug,version=self.cir.version)),
                             audit=lambda *a,**k: None)
         with ExitStack() as stack:
             def mock(name, **kw): return stack.enter_context(patch(name, **kw))
-            mock("brambleloop.runtime.pipeline._listing_parity",return_value={"blocks_release":False})
+            mock("brambleloop.runtime.pipeline._listing_parity",return_value={"verdict":"pass","blocks_release":False})
             mock("brambleloop.integrations.http.UrllibTransport")
             mock("brambleloop.integrations.etsy.Credentials.from_env")
             client=mock("brambleloop.integrations.etsy.EtsyClient").return_value

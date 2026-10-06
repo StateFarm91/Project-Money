@@ -184,6 +184,20 @@ class _FakeEtsy:
         return {}
 
 
+def _TransportTestGrant():
+    from brambleloop.integrations.etsy import OwnerGrant
+
+    class _VerifiedGrantForTransportTests(OwnerGrant):
+        def __init__(self):
+            super().__init__(None, action=OwnerGrant.PUBLISH, approval_id=1, slug=SLUG,
+                             version="1")
+
+        def refusal(self, *, action, listing_id=""):
+            return None if action == self.action else "wrong action"
+
+    return _VerifiedGrantForTransportTests()
+
+
 def test_the_disclosed_set_is_certified_and_served_with_its_alt_text():
     import hashlib
 
@@ -215,9 +229,18 @@ def test_the_disclosed_set_is_certified_and_served_with_its_alt_text():
         assert entry.alt_text == frame["alt_text"]
     assert all(o["alt_text"] for o in served["order"])  # bound in the publish digest
 
+    # rc1-AUTH D3: the client itself requires the owner's grant. Without one nothing is sent.
     fake = _FakeEtsy()
-    outcome = EtsyClient.publish(fake, payload=None, filename="p.pdf", data=b"%PDF",
+    refused = EtsyClient.publish(fake, payload=None, filename="p.pdf", data=b"%PDF",
                                  images=served["images"])
+    assert refused.published is False and fake.uploads == [], refused
+    assert any("OwnerGrant" in p for p in refused.problems), refused.problems
+    # The documented transport-test grant (tests/test_etsy.py): its database verification is
+    # stubbed as passing because this test is about which bytes and alt text are uploaded,
+    # not about the grant. The real sealed-grant verification is exercised in
+    # tests/test_publish_execution_gate.py and tests/test_rc1_auth.py.
+    outcome = EtsyClient.publish(fake, payload=None, filename="p.pdf", data=b"%PDF",
+                                 images=served["images"], grant=_TransportTestGrant())
     assert outcome.images_uploaded == 3, outcome
     assert [u["alt_text"] for u in fake.uploads] == [f["alt_text"] for f in cert["frames"]]
 

@@ -128,8 +128,19 @@ def test_unknown_owner_inbox_raises_an_alarm():
 
 
 if __name__ == "__main__":
-    test_revenue_is_unmeasured_while_order_source_is_gated()
-    test_measured_revenue_sums_only_reconciled_measured_rows()
-    test_spend_counts_every_recorded_kind_and_is_labelled()
-    test_unknown_owner_inbox_raises_an_alarm()
-    print("test_rc1_own_dashboard: OK")
+    # One `OK  <name>` / `FAIL <name>` line per test, in definition order, and a nonzero exit
+    # on any failure: run_tests.sh counts ^OK lines, so a bare trailing "suite: OK" line would
+    # leave every pass here out of the total.
+    import traceback
+
+    fails = 0
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                traceback.print_exc()
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

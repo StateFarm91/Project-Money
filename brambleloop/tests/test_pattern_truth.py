@@ -109,6 +109,7 @@ def test_cloudline_colour_changes_can_all_be_carried():
     assert plan.changes > 30 and plan.cut == 0 and plan.carry_is_possible
     assert plan.ends == 4
     rows = cir.components[0].rows
+    assert len(rows) > 1, "the cloudline panel compiled no rows to check"
     # Every colour block is an even number of rows, so every change is at one edge.
     blocks, run = [], 1
     for a, b in zip(rows, rows[1:]):
