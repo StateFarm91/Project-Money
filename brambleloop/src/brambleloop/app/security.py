@@ -120,6 +120,10 @@ PUBLIC_MUTATING_ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/learn/lessons/{slug}/review"): (
         "guarded by its own, deliberately distinct Learn reviewer credential "
         "(learn.api._reviewer); the operator token must not be able to approve a lesson"),
+    ("POST", "/api/cc/auth/login"): (
+        "the owner command-center login itself: verifies the owner passphrase hash (and TOTP "
+        "when configured), rate limited, same-origin and JSON only, every failure audited in "
+        "cc_security_events (app.command_center.auth)"),
 }
 
 # GET routes that trigger work, or return customer/order/support content, or return
@@ -184,10 +188,33 @@ def requires_operator(method: str, route_path: str) -> bool:
     return (method, route_path) not in PUBLIC_MUTATING_ROUTES
 
 
+# v1.1 Owner Command Center (F-887): `/api/cc/*` is authenticated by the owner *session*
+# (cookie + CSRF + nonce + step-up), not the operator bearer token, which must never live in a
+# phone browser. The command center registers its verifier here at mount time; until it does,
+# every `/api/cc/*` route is closed (503). The gate stays the one application-wide dependency.
+OWNER_SESSION_PREFIX = "/api/cc/"
+_owner_session_gate: Callable | None = None
+
+
+def register_owner_session_gate(fn: Callable | None) -> None:
+    """`fn(request, route_path)` raises `OperatorRefused` (or a subclass) to refuse."""
+    global _owner_session_gate
+    _owner_session_gate = fn
+
+
+def owner_session_route(route_path: str) -> bool:
+    return route_path.startswith(OWNER_SESSION_PREFIX)
+
+
 def operator_gate(request: Request) -> None:
     """Application-wide dependency. Default-deny for anything that is not a public read."""
     route = request.scope.get("route")
     route_path = getattr(route, "path", None) or request.url.path
+    if owner_session_route(route_path):
+        if _owner_session_gate is None:
+            raise OperatorRefused(503, "owner command center authentication not installed")
+        _owner_session_gate(request, route_path)
+        return
     if not requires_operator(request.method, route_path):
         return
     try:

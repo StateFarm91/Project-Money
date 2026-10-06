@@ -88,6 +88,11 @@ app.include_router(learn_router(db))
 from .storefront_api import make_router as storefront_router
 
 app.include_router(storefront_router(db))
+# v1.1 Owner Command Center (lane C): `/api/cc/*` behind the owner-session gate (registered
+# into `security.operator_gate`) and the PWA's static files at `/cc/` under a strict CSP.
+from . import command_center
+
+command_center.install(app, db)
 
 
 # What the last boot's enqueues did, readable from /health.
