@@ -131,6 +131,25 @@ def test_cost_attribution_by_product_release_department_provider():
     assert abs(sum(a["by"]["category"].values()) - a["total_cad"]) < 1e-3
 
 
+def test_drill_never_shows_a_stale_zero_for_unposted_source_rows():
+    """Integration defect: a cost row existed, no summary refresh had run, and drill showed
+    CA$0.00 with status OK."""
+    _n[0] += 1
+    db = Database(f"sqlite:///{_TMP}/d{_n[0]}.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    from brambleloop.core.models import CostEntry
+    with db.session() as s:
+        s.add(CostEntry(agent="a", kind="llm", amount_cad=1.25, at=NOW,
+                        detail={"price_basis": "measured"}))
+    stale = dashboard.drill(db, "operating_spend", now=NOW, refresh=False)
+    assert stale["status"] == "UNKNOWN" and stale["value_cad"] is None, stale
+    assert stale["unposted"]["count"] == 1 and "behind its sources" in stale["reason"]
+    fresh = dashboard.drill(db, "operating_spend", now=NOW)
+    assert fresh["status"] == "OK" and fresh["value_cad"] == 1.25, fresh
+    assert fresh["rows"] and fresh["rows"][0]["source_table"] == "cost_entries"
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     assert tests
