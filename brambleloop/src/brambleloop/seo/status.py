@@ -86,7 +86,62 @@ def _taxonomy(db) -> list[dict]:
         return [{"status": "UNKNOWN", "why": f"taxonomy readiness failed: {exc!s}"[:300]}]
 
 
+def _w3(db) -> dict:
+    """Wave-3 additions: Etsy constraint verification, Launch-0 strategy, learning hooks.
+
+    Never raises; each part degrades to an UNKNOWN record with its reason."""
+    out: dict = {}
+    try:
+        from . import constraints
+
+        snap = constraints.snapshot()
+        out["constraints"] = {"counts": snap["counts"], "retrieved_on": snap["retrieved_on"],
+                              "unverified_keys": snap["unverified_keys"],
+                              "repo_disagreements": snap["repo_disagreements"],
+                              "openapi_sha256": snap["openapi"]["sha256"]}
+    except Exception as exc:  # noqa: BLE001
+        out["constraints"] = {"status": "UNKNOWN", "why": f"{type(exc).__name__}: {exc!s}"[:200]}
+    try:
+        from . import strategy
+
+        plan = strategy.plan(db)
+        out["strategy"] = {"version": plan["version"], "ok": plan["ok"],
+                           "unverified_limits": plan["unverified_limits"],
+                           "products": [{"slug": p["slug"], "ok": p["ok"],
+                                         "title": p["title"], "tags": len(p["tags"]),
+                                         "tag_basis_counts": p["tag_basis_counts"],
+                                         "category_status": p["category"]["status"],
+                                         "blocking": p["blocking"][:3]}
+                                        for p in plan["products"]],
+                           "demand_basis": "modelled unless a tag's basis says measured"}
+    except Exception as exc:  # noqa: BLE001
+        out["strategy"] = {"status": "UNKNOWN", "why": f"{type(exc).__name__}: {exc!s}"[:200]}
+    try:
+        from . import learning
+
+        f = learning.funnel(db)
+        out["learning"] = {"search_visibility": {k: f["search_visibility"].get(k)
+                                                 for k in ("status", "value", "why")},
+                           "per_product": {s: {k: (v.get("status") if isinstance(v, dict)
+                                                   and "status" in v else None)
+                                               for k, v in row.items()
+                                               if k in ("impressions", "clicks",
+                                                        "favourites", "carts", "orders")}
+                                           for s, row in f["per_product"].items()},
+                           "thresholds": f["thresholds"]}
+    except Exception as exc:  # noqa: BLE001
+        out["learning"] = {"status": "UNKNOWN", "why": f"{type(exc).__name__}: {exc!s}"[:200]}
+    return out
+
+
 def summary(db) -> dict:
+    out = _summary_core(db)
+    if db is not None:
+        out["w3"] = _w3(db)
+    return out
+
+
+def _summary_core(db) -> dict:
     base = {"status": "UNKNOWN", "as_of": None, "basis": "unknown", "items": [],
             "sources": list(SOURCES), "kpis": {}, "guardrails": list(GUARDRAILS)}
     if db is None:
@@ -239,6 +294,21 @@ def next_work(db) -> list[dict]:
                                     sources=[f"seo_proposals:{p['slug']}", "listings"]))
             from . import evidence as ev_mod
 
+            try:
+                from . import constraints as cons
+
+                unv = [k for k, v in cons.working_limits().items()
+                       if v["status"] != cons.VERIFIED]
+            except Exception:  # noqa: BLE001
+                unv = []
+            if unv:
+                out.append(item("seo.verify_limits", "Owner: confirm Etsy field limits in "
+                                "Shop Manager", "owner",
+                                "owner: read the counters named in seo.constraints "
+                                "owner_check", 4,
+                                f"{len(unv)} working limit(s) are UNVERIFIED (Etsy help "
+                                f"pages refused automated reads): {', '.join(unv)}",
+                                sources=["seo.constraints"]))
             if not any(r["source"] == "etsy_stats_export" for r in ev_mod.all_rows(db)):
                 out.append(item("seo.stats_export", "Owner: export Etsy Stats search terms",
                                 "gated", "owner: POST /api/attribution/stats with the CSV", 3,

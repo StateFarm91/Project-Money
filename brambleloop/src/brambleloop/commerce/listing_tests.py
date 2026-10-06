@@ -167,19 +167,30 @@ class ListingTest:
         return self.primary or "+".join(sorted(self.variables))
 
 
+def exposure_refusal(exposure: int | None) -> str | None:
+    """Why a result on this much exposure may not be read, or None when it may.
+
+    The one exposure rule, shared by a listing test here and by the runtime experiment
+    conclusion step (`growth.experiments.conclude_all`, F-260), so the two paths cannot
+    disagree about whether a listing was seen.
+    """
+    if exposure is None:
+        return ("exposure was not recorded, so nobody knows whether this listing was seen. An "
+                "unexposed test is not a failed test, and the two are indistinguishable to "
+                "anything reading the outcome")
+    if exposure < MIN_EXPOSURE:
+        return (f"{exposure} impressions against a floor of {MIN_EXPOSURE}: a listing "
+                f"nobody saw did not fail, it was not tested")
+    return None
+
+
 def check_design(test: ListingTest) -> dict:
     """Everything wrong with this test before it is read. Empty means it can be read."""
     problems: list[str] = []
 
-    if test.exposure is None:
-        problems.append(
-            "exposure was not recorded, so nobody knows whether this listing was seen. An "
-            "unexposed test is not a failed test, and the two are indistinguishable to "
-            "anything reading the outcome")
-    elif test.exposure < MIN_EXPOSURE:
-        problems.append(
-            f"{test.exposure} impressions against a floor of {MIN_EXPOSURE}: a listing "
-            f"nobody saw did not fail, it was not tested")
+    refusal = exposure_refusal(test.exposure)
+    if refusal:
+        problems.append(refusal)
 
     if test.pre_period_days < MIN_PRE_PERIOD_DAYS:
         problems.append(

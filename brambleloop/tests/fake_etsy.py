@@ -112,6 +112,12 @@ class FakeEtsy:
         self.shop_body = shop_body
         self.listings: dict[str, dict[str, Any]] = {}
         self.images: dict[str, list[dict[str, Any]]] = {}
+        # W3-I: what the server actually received, kept out of every response body (Etsy
+        # returns no hash). listing_id -> [{"rank", "sha256", "bytes", "filename"}]. A test
+        # compares these with what the client sent, so "uploaded" means "these exact bytes
+        # arrived" rather than "a 201 came back".
+        self.received_images: dict[str, list[dict[str, Any]]] = {}
+        self.received_files: dict[str, list[dict[str, Any]]] = {}
         # getAllListingFiles (F-559): Etsy's ShopListingFile rows, with `size_bytes` and no
         # hash, because Etsy's schema has none.
         self.files: dict[str, list[dict[str, Any]]] = {}
@@ -252,6 +258,33 @@ class FakeEtsy:
         self.images[listing_id] = []
         self.files[listing_id] = []
         return record
+
+
+def _image_dimensions(data: bytes) -> tuple[int, int]:
+    """(width, height) from a PNG IHDR or a JPEG SOF header; (1, 1) when unreadable, which is
+    what this server reported for every image before W3-I and what the old tests' fixture
+    bytes (a PNG signature with no IHDR) still get."""
+    import struct
+
+    if data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) >= 24 and data[12:16] == b"IHDR":
+        w, h = struct.unpack(">II", data[16:24])
+        return int(w), int(h)
+    if data[:2] == b"\xff\xd8":
+        i = 2
+        while i + 9 < len(data):
+            if data[i] != 0xFF:
+                i += 1
+                continue
+            marker = data[i + 1]
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD,
+                          0xCE, 0xCF):
+                h, w = struct.unpack(">HH", data[i + 5:i + 9])
+                return int(w), int(h)
+            i += 2 + struct.unpack(">H", data[i + 2:i + 4])[0]
+    return 1, 1
 
 
 def _split(value: str) -> list[str]:
@@ -540,12 +573,19 @@ class _Handler(BaseHTTPRequestHandler):
                 # refusal there is a finding about the fixture and not about the transport.
                 status, message = fake.image_failure
                 return self._send(status, {"error": message})
+            width, height = _image_dimensions(data)
             image = {"listing_image_id": 900000 + len(fake.images[listing_id]) + 1,
                      "listing_id": int(listing_id),
                      "rank": int(float(text.get("rank", "1") or 1)),
                      "alt_text": text.get("alt_text", ""),
-                     "full_height": 1, "full_width": 1}
+                     # Etsy's ListingImage carries the full-size dimensions. W3-I: reported
+                     # from the received bytes (was a constant 1x1), so a read-back can
+                     # compare them with what was sent.
+                     "full_height": height, "full_width": width}
             fake.images[listing_id].append(image)
+            fake.received_images.setdefault(listing_id, []).append(
+                {"rank": image["rank"], "filename": filename, "bytes": len(data),
+                 "sha256": hashlib.sha256(data).hexdigest()})
             return self._send(201, image)
 
         # POST /v3/application/shops/{shop_id}/listings/{listing_id}/files
@@ -572,6 +612,9 @@ class _Handler(BaseHTTPRequestHandler):
                    "create_timestamp": int(time.time())}
             fake.next_file_id += 1
             fake.files[listing_id].append(row)
+            fake.received_files.setdefault(listing_id, []).append(
+                {"filename": filename, "bytes": len(data),
+                 "sha256": hashlib.sha256(data).hexdigest()})
             return self._send(201, dict(row))
 
         self._send(404, {"error": f"no such endpoint: {path}"})
