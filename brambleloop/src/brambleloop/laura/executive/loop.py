@@ -54,7 +54,7 @@ PROVIDERS: dict[str, tuple[str, str, str]] = {
     "learn": ("brambleloop.learn.improvement_status", "learn", "improve.measure"),
     "seo": ("brambleloop.seo.status", "store_commerce", "seo.cycle"),
     "ads": ("brambleloop.growth.ads_readiness", "growth", "marketing.ads_readiness"),
-    "visual_rnd": ("brambleloop.visual.rnd.status", "visual", "visual.identity_drift"),
+    "visual_rnd": ("brambleloop.visual.rnd.status", "visual", "visual.rnd.cycle"),
 }
 
 
@@ -109,11 +109,11 @@ class Priority:
 # ---- OBSERVE ---------------------------------------------------------------------------
 
 def _provider(name: str) -> dict:
-    import importlib
+    from ...autonomy.generators import provider_module
 
     mod_name = PROVIDERS[name][0]
     try:
-        mod = importlib.import_module(mod_name)
+        mod = provider_module(mod_name)      # static imports: visible to reachability (K15)
     except ImportError:
         return {"status": "UNKNOWN", "reason": "not built", "source": mod_name}
     return mod

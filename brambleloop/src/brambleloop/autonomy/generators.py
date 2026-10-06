@@ -256,6 +256,16 @@ def _ads_item(item: dict) -> tuple[str, str] | None:
     return None
 
 
+def _visual_item(item: dict) -> tuple[str, str] | None:
+    # Visual R&D (W3 lane H): every item is internal and GREEN by contract; one handler,
+    # `visual.rnd.cycle`, runs the whole deterministic cycle. Paid challengers never appear as
+    # items (they wait for an owner decision), and a provider error is not work.
+    if item.get("green") is not True or item.get("job_type") != "visual.rnd.cycle" or \
+            str(item.get("kind") or "").endswith("provider_error"):
+        return None
+    return "visual.rnd.cycle", str(item.get("key") or item.get("kind"))
+
+
 # department -> [(provider label, module, function, adapter)]
 PROVIDERS: dict[str, tuple[tuple[str, str, str, object], ...]] = {
     "learn": (("learn", "brambleloop.learn.improvement_status", "next_work", _learn_item),),
@@ -263,19 +273,44 @@ PROVIDERS: dict[str, tuple[tuple[str, str, str, object], ...]] = {
                  _finance_item),),
     "store_commerce": (("seo", "brambleloop.seo.status", "next_work", _seo_item),),
     "growth": (("ads", "brambleloop.growth.ads_readiness", "next_work", _ads_item),),
+    "visual": (("visual_rnd", "brambleloop.visual.rnd.status", "next_work", _visual_item),),
 }
+
+
+def provider_module(module: str):
+    """Import a provider module by STATIC import statements, so the C-65 reachability rule
+    (an AST walk of imports from the runtime roots) sees every provider the orchestrator and
+    Laura actually call (closure K15: F-913/F-914/F-915/F-927, seo.status,
+    learn.improvement_status). An unknown module falls back to importlib."""
+    if module == "brambleloop.learn.improvement_status":
+        from ..learn import improvement_status as mod
+    elif module == "brambleloop.finance.accounting.dashboard":
+        from ..finance.accounting import dashboard as mod
+    elif module == "brambleloop.seo.status":
+        from ..seo import status as mod
+    elif module == "brambleloop.growth.ads_readiness":
+        from ..growth import ads_readiness as mod
+    elif module == "brambleloop.visual.rnd.status":
+        from ..visual.rnd import status as mod
+    elif module == "brambleloop.ops.slo":
+        from ..ops import slo as mod
+    elif module == "brambleloop.autonomy.status":
+        from . import status as mod
+    else:
+        import importlib
+
+        mod = importlib.import_module(module)
+    return mod
 
 
 def provider_candidates(db, charter: charters.Charter, snap: Snapshot) -> list[Candidate]:
     """Runnable candidates from the department's own next_work provider(s). Never raises: a
     broken provider costs only its own candidates."""
-    import importlib
-
     out: list[Candidate] = []
     seen: set[str] = set()
     for label, module, fn, adapt in PROVIDERS.get(charter.key, ()):
         try:
-            items = getattr(importlib.import_module(module), fn)(db) or []
+            items = getattr(provider_module(module), fn)(db) or []
         except Exception:  # noqa: BLE001 - a provider failure never stops the department
             continue
         for item in items:

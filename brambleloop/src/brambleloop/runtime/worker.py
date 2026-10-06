@@ -714,6 +714,12 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # GREEN: Etsy read-only (getListingsByShop) behind the existing client gate, this database
     # only; until now it ran inside commerce.readings, which still calls it first.
     ("listing_outcomes", "cfo", "listing.outcomes", 24 * 60 * 60),
+    # Wave 3 lane H via lane D: the Visual R&D loop (autonomy.visual_rnd_job). Deterministic,
+    # CA$0, ~2-3 min CPU per cycle; paid challengers are only planned for the owner.
+    ("visual_rnd", "publishing", "visual.rnd.cycle", 6 * 60 * 60),
+    # Wave 3 closure K15 (F-909/F-916): the accountant's tax + handoff pack for the last closed
+    # month, kept as a company_memory row (autonomy.period_packs). Prepared, never filed.
+    ("accounting_period_pack", "cfo", "finance.accounting.period_pack", 24 * 60 * 60),
     # v1.1 wiring (integrator). Each handler is registered in runtime.v11_wiring.
     # Lane I (F-924): SLOs evaluated and slo.* incidents raised/closed. Stored notifications
     # only; a watchdog, so it is never thrash-suspended (swarm LIVENESS_JOB_TYPES).

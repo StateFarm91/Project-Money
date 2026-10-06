@@ -113,7 +113,7 @@ def test_continuity_across_model_swap_restart_scheduler_and_context_reset():
                              text=True, timeout=600, cwd=tmp)
         assert out.returncode == 0, out.stderr[-2000:]
         child = json.loads(out.stdout.strip().splitlines()[-1])
-        assert child["sha"] == child["tick_sha"] == s0["sha"] and child["v"] == 1, child
+        assert child["sha"] == child["tick_sha"] == s0["sha"] and child["v"] == 2, child  # genesis + D-FB-14
         s2 = snapshot(db)
         assert_continuous(s1, s2, "process restart")
 

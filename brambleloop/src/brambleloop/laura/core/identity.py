@@ -16,13 +16,20 @@ What this module is:
   sha256 is pinned in `GENESIS_SHA256`; an edit to the record in code without changing the
   pin fails the test suite, and an edit that changes the pin fails `ensure()` against any
   database that already holds her (the durable record wins over the code).
-* `ensure(db)` -- writes the genesis record as version 1 once, then verifies the whole
-  hash chain on every load. A tampered row raises `IdentityTampered`; nothing proceeds on a
-  Laura whose identity cannot be verified.
-* `amend(...)` -- the ONLY way the record changes: actor "owner", an owner decision id that
-  is listed in `AUTHORISED_IDENTITY_AMENDMENTS` (empty: the owner has authorised none) AND
-  appears in DECISION_LOG.md. Laura, the COO, any department and any model are refused,
-  so she can neither alter her identity nor expand her own authority.
+* `ensure(db)` -- writes the genesis record as version 1 once, applies each owner amendment
+  recorded in code (`RECORDED_AMENDMENTS`) once, as its own chained version, then verifies the
+  whole hash chain on every load. A tampered row raises `IdentityTampered`; nothing proceeds
+  on a Laura whose identity cannot be verified.
+* Genesis is FROZEN: `genesis_r1.json` is the record exactly as first pinned
+  (`GENESIS_SHA256`, visual identity laura-v15-a42aeac7). The owner's identity revision 2
+  (D-FB-14, laura-r2-a42aeac7, face unchanged) is NOT a re-written genesis: it is version 2,
+  an owner amendment citing D-FB-14 that changes exactly `rulings` and `visual_identity`.
+  The record the code expects after all recorded amendments is pinned in `CURRENT_SHA256`.
+  A database that already holds version 1 therefore stays valid and gains version 2.
+* `amend(...)` -- the ONLY runtime way the record changes: actor "owner", an owner decision id
+  that is listed in `AUTHORISED_IDENTITY_AMENDMENTS` AND appears in DECISION_LOG.md. Laura,
+  the COO, any department and any model are refused, so she can neither alter her identity
+  nor expand her own authority.
 
 No model is Laura. The LLM that provides cognition on a given day (if any) is recorded on her
 decisions as `cognition`; swapping it changes that label and nothing else.
@@ -47,8 +54,19 @@ IDENTITY_KEY = "laura"
 SCHEMA_VERSION = 1
 
 # Owner decisions that authorise a change to the identity record. The owner alone adds to
-# this tuple, and the id must also be recorded in DECISION_LOG.md. None exist.
-AUTHORISED_IDENTITY_AMENDMENTS: tuple[str, ...] = ()
+# this tuple, and the id must also be recorded in DECISION_LOG.md.
+# D-FB-14 (2026-10-06): owner-approved canonical identity revision 2 (laura-r2-a42aeac7).
+AUTHORISED_IDENTITY_AMENDMENTS: tuple[str, ...] = ("D-FB-14",)
+
+# Owner amendments whose content is fixed in code: (decision id, fields changed, reason).
+# `ensure` applies each once, in order, after genesis; the new field values are those of the
+# current code record (`_CURRENT`), and the result must hash to `CURRENT_SHA256`.
+RECORDED_AMENDMENTS: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    ("D-FB-14", ("rulings", "visual_identity"),
+     "owner decision D-FB-14 (2026-10-06): canonical identity revision 2, laura-v15-a42aeac7 -> "
+     "laura-r2-a42aeac7; the face is unchanged (a42aeac7...), the v6 revised torso and "
+     "full-length become the body references; D-FB-14 joins her rulings"),
+)
 OWNER_ACTOR = "owner"
 
 FOUNDER_RULING_TEXT = (
@@ -158,7 +176,8 @@ def _visual() -> dict:
             "never": "replaced, regenerated or allowed to drift"}
 
 
-def _genesis() -> dict:
+def _current_record() -> dict:
+    """The identity record as the code expects it now (genesis + recorded amendments)."""
     return {
         "schema_version": SCHEMA_VERSION,
         "identity_key": IDENTITY_KEY,
@@ -197,16 +216,37 @@ def sha256_of(record: dict) -> str:
     return hashlib.sha256(canonical_json(record).encode("utf-8")).hexdigest()
 
 
-_GENESIS = _genesis()
-# Pinned. Changing anything in the record changes this hash; the test suite and every
-# database that already holds her refuse the drift until an owner amendment records it.
-GENESIS_SHA256 = "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a"
-OWNER_CONTROLLED_FIELDS: tuple[str, ...] = tuple(sorted(_GENESIS))
+_GENESIS_FILE = Path(__file__).with_name("genesis_r1.json")
+# Version 1, frozen: the record exactly as first written (visual identity laura-v15-a42aeac7).
+_GENESIS = json.loads(_GENESIS_FILE.read_text(encoding="utf-8"))
+# Pinned. Changing anything in the genesis record changes this hash; the test suite and every
+# database that already holds her refuse the drift.
+GENESIS_SHA256 = "8832a934aec3b69786d9ab127b0a262e1f718e9f95b8bbc086cfdf36093b9372"
+_CURRENT = _current_record()
+# Pinned: genesis + RECORDED_AMENDMENTS (D-FB-14). A code edit to the record that no recorded
+# owner amendment explains changes this hash and `ensure` refuses it.
+CURRENT_SHA256 = "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a"
+OWNER_CONTROLLED_FIELDS: tuple[str, ...] = tuple(sorted(_CURRENT))
 
 
 def genesis() -> dict:
-    """A deep copy of the genesis record (callers cannot mutate the canonical one)."""
+    """A deep copy of the frozen genesis record, version 1 (callers cannot mutate it)."""
     return copy.deepcopy(_GENESIS)
+
+
+def record() -> dict:
+    """A deep copy of the record the code expects now: genesis + recorded owner amendments."""
+    return copy.deepcopy(_CURRENT)
+
+
+def _expected_chain() -> list[tuple[str, dict, str]]:
+    """[(decision, record after it, reason)] for each recorded amendment, in order."""
+    out, rec = [], copy.deepcopy(_GENESIS)
+    for decision, fields, reason in RECORDED_AMENDMENTS:
+        rec = copy.deepcopy(rec)
+        rec.update({f: copy.deepcopy(_CURRENT[f]) for f in fields})
+        out.append((decision, rec, reason))
+    return out
 
 
 class IdentityRefused(PermissionError):
@@ -222,6 +262,11 @@ def _decision_log() -> Path:
     if env:
         return Path(env)
     return Path(__file__).resolve().parents[4] / "DECISION_LOG.md"
+
+
+def decision_log_available() -> bool:
+    """DECISION_LOG.md is present (the repository); the deploy image does not ship it."""
+    return _decision_log().is_file()
 
 
 def decision_recorded(decision_id: str) -> bool:
@@ -285,6 +330,13 @@ def ensure(db) -> dict:
         raise IdentityTampered(
             "the genesis record in code no longer matches its pinned hash; Laura's identity "
             "changed in code without an owner amendment")
+    chain = _expected_chain()
+    if sha256_of(chain[-1][1] if chain else _GENESIS) != CURRENT_SHA256 or (
+            sha256_of(_CURRENT) != CURRENT_SHA256):
+        raise IdentityTampered(
+            "the identity record in code no longer matches its pinned hash (genesis + the "
+            "recorded owner amendments); Laura's identity changed in code without an owner "
+            "amendment")
     rows = _versions(db)
     if not rows:
         try:
@@ -297,10 +349,53 @@ def ensure(db) -> dict:
             pass                       # a concurrent process wrote it first; verify below
         rows = _versions(db)
     _verify(rows)
+    applied = {r.owner_decision_id for r in rows[1:]}
+    for decision, rec, reason in chain:
+        if decision in applied:
+            continue
+        _check_recorded_amendment(decision, rows[-1].record or {}, rec)
+        try:
+            with db.session() as s:
+                s.add(LauraIdentityVersion(
+                    version=rows[-1].version + 1, record=copy.deepcopy(rec),
+                    sha256=sha256_of(rec), prev_sha256=rows[-1].sha256,
+                    owner_decision_id=decision, actor=OWNER_ACTOR,
+                    reason=(f"{reason} [recorded owner amendment, applied from "
+                            f"laura.core.identity.RECORDED_AMENDMENTS]")[:2000], at=_now()))
+        except IntegrityError:
+            pass                       # a concurrent process applied it first
+        rows = _versions(db)
+        _verify(rows)
+        applied = {r.owner_decision_id for r in rows[1:]}
+    _verify(rows)
     head = rows[-1]
     return {"version": head.version, "sha256": head.sha256,
             "record": copy.deepcopy(head.record), "owner_decision_id": head.owner_decision_id,
             "at": head.at.isoformat() if head.at else None}
+
+
+def _check_recorded_amendment(decision: str, before: dict, after: dict) -> None:
+    """Fail closed unless a recorded amendment is authorised, logged and matches its decision."""
+    if decision not in AUTHORISED_IDENTITY_AMENDMENTS:
+        raise IdentityTampered(f"recorded amendment {decision} is not an authorised owner "
+                               f"decision (AUTHORISED_IDENTITY_AMENDMENTS)")
+    # The deploy image does not ship DECISION_LOG.md; the test suite proves every recorded
+    # amendment is logged. Where the log IS present it must contain the decision.
+    if decision_log_available() and not decision_recorded(decision):
+        raise IdentityTampered(f"recorded amendment {decision} is not in DECISION_LOG.md")
+    vis_after = after.get("visual_identity") or {}
+    if vis_after != (before.get("visual_identity") or {}):
+        rev = next((r for r in canonical.REVISIONS if r["decision"] == decision), None)
+        if rev is None or vis_after.get("identity_id") != rev["identity_id"] or (
+                vis_after.get("prior_identity_id") !=
+                (before.get("visual_identity") or {}).get("identity_id")) or (
+                {k: str(v).lower() for k, v in (vis_after.get("reference_hashes") or {}).items()}
+                != {k: str(v).lower() for k, v in rev["reference_hashes"].items()}) or (
+                vis_after.get("face_sha256") !=
+                (before.get("visual_identity") or {}).get("face_sha256")):
+            raise IdentityTampered(
+                f"recorded amendment {decision} does not match visual.canonical's revision for "
+                f"that decision (identity id, prior id, reference hashes, unchanged face)")
 
 
 def current(db) -> dict:
@@ -325,6 +420,11 @@ def amend(db, changes: dict, *, owner_decision_id: str, actor: str, reason: str)
         raise IdentityRefused(
             f"identity change refused: owner decision {decision or 'none'} is not listed in "
             f"laura.core.identity.AUTHORISED_IDENTITY_AMENDMENTS")
+    if any(decision == d for d, _f, _r in RECORDED_AMENDMENTS):
+        raise IdentityRefused(
+            f"identity change refused: {decision} is a recorded amendment whose content is fixed "
+            f"in code (RECORDED_AMENDMENTS) and already spent; a further change needs a new "
+            f"owner decision")
     if not decision_recorded(decision):
         raise IdentityRefused(f"identity change refused: {decision} is not recorded in "
                               f"DECISION_LOG.md")
@@ -354,7 +454,7 @@ def amend(db, changes: dict, *, owner_decision_id: str, actor: str, reason: str)
 
 def public_profile() -> dict:
     """What any surface may say about who Laura is. Nothing owner-private is in here."""
-    g = _GENESIS
+    g = _CURRENT
     return {"name": g["name"], "public_identity": g["public_identity"],
             "role": g["role"], "kind": g["kind"],
             "visual_identity_id": g["visual_identity"]["identity_id"],
@@ -431,4 +531,5 @@ def summary(db) -> dict:
                        "authority_spend_ceiling_cad": rec["authority"]["spend_ceiling_cad"],
                        "may_block_her": rec["constitution"]["may_block_her"]}],
             "sources": [f"laura_identity_versions:{cur['version']}",
-                        "laura.core.identity.GENESIS", "visual.canonical"]}
+                        "laura.core.identity.GENESIS",
+                        "laura.core.identity.RECORDED_AMENDMENTS", "visual.canonical"]}
