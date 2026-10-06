@@ -217,3 +217,20 @@ def handle_morning_handoff(ctx: JobContext) -> dict:
 # the one the runtime already imports for the company loop.
 from ..laura.executive import handlers as _laura_handlers  # noqa: E402,F401
 
+
+def _declare_wired_work_keys() -> None:
+    """Integrator wiring (W3 K3 via lane D): `listing.outcomes` is now a cadence, and every
+    cadence declares its work keys. runtime/pipeline.WORK_KEYS is not lane D's file, so the
+    declaration is made here until the requested line lands there (setdefault: the pipeline's
+    own declaration wins once it exists)."""
+    from ..runtime import pipeline as _pipeline
+
+    _pipeline.WORK_KEYS.setdefault("listing.outcomes",
+                                   ("exports_processed", "recorded_listings"))
+
+
+try:
+    _declare_wired_work_keys()
+except Exception:  # noqa: BLE001 - pipeline not importable yet; the judge falls back safely
+    pass
+

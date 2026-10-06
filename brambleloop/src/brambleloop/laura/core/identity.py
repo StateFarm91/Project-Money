@@ -11,7 +11,8 @@ What this module is:
 
 * `GENESIS` -- the canonical identity record as data: name, role, charter, authority limits,
   constitution, the PUBLIC/business voice specification, the visual identity id
-  (`visual.canonical.IDENTITY_ID`, laura-v15-a42aeac7) and the truthful-identity rule. Its
+  (`visual.canonical.IDENTITY_ID`: laura-r2-a42aeac7 since D-FB-14; the face is unchanged)
+  and the truthful-identity rule. Its
   sha256 is pinned in `GENESIS_SHA256`; an edit to the record in code without changing the
   pin fails the test suite, and an edit that changes the pin fails `ensure()` against any
   database that already holds her (the durable record wins over the code).
@@ -142,6 +143,10 @@ CONSTITUTION: dict = {
 
 def _visual() -> dict:
     return {"identity_id": canonical.IDENTITY_ID,
+            "revision": canonical.REVISION_NUMBER,
+            "revision_decision": canonical.REVISION_DECISION_ID,
+            "prior_identity_id": canonical.PRIOR_IDENTITY_ID,
+            "reference_hashes": dict(canonical.CURRENT_REFERENCE_HASHES),
             "face_sha256": canonical.FACE_SHA256,
             "frozen_identity_version": canonical.FROZEN_IDENTITY_VERSION,
             "identity_rule": canonical.IDENTITY_RULE,
@@ -195,7 +200,7 @@ def sha256_of(record: dict) -> str:
 _GENESIS = _genesis()
 # Pinned. Changing anything in the record changes this hash; the test suite and every
 # database that already holds her refuse the drift until an owner amendment records it.
-GENESIS_SHA256 = "8832a934aec3b69786d9ab127b0a262e1f718e9f95b8bbc086cfdf36093b9372"
+GENESIS_SHA256 = "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a"
 OWNER_CONTROLLED_FIELDS: tuple[str, ...] = tuple(sorted(_GENESIS))
 
 

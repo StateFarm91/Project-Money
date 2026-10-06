@@ -246,6 +246,8 @@ DEFAULT_AGENTS: list[dict] = [
                             # C-64: the order ingest (behind the transactions_r gate) and
                             # everything that reads orders.
                             "commerce.orders_ingest", "commerce.order_readings",
+                            # W3 K3 (F-258): listing-outcome producer (read-only).
+                            "listing.outcomes",
                             # The four-fifths escalation as a job rather than a page view:
                             # `spend_policy.escalation` was computed only when somebody
                             # fetched /api/spend-report, so a month that reached 80% with

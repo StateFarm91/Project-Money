@@ -1,17 +1,16 @@
-"""Laura's durable state (wave 3 lane D): identity versions, priorities, decisions, challenges.
+"""Laura's durable state (wave 3 lane D): identity versions, priorities, challenges.
 
-Four additive tables. None holds anything that exists only inside a model's context window;
-together with `laura.core.identity.GENESIS` they ARE Laura, whichever model provides the
-cognition on a given day.
+Three additive tables. Her decision HISTORY is not here: per the integrator's wave-3 ruling it
+lives in lane E's Laura memory (`laura.core.history` -> `laura.memory`, operational tier).
+None of the tables holds anything that exists only inside a model's context window; together
+with `laura.core.identity.GENESIS` and her laura.memory entries they ARE Laura, whichever
+model provides the cognition on a given day.
 
 * `laura_identity_versions` -- the canonical identity record, append-only and hash-chained.
   Version 1 is the genesis record from code; any later version needs a recorded owner decision
   (`identity.amend`). ORM updates and deletes are refused outright.
 * `laura_priorities` -- her current and past priorities, each with a reason and the durable
   rows it was derived from. Keyed (upsert), so a re-run tick changes nothing.
-* `laura_decisions` -- her history: real actions only (a priority set or closed, a
-  delegation, a review of a department's result, a challenge, a constitutional block, an
-  escalation). Append-only, keyed for idempotency; ORM updates and deletes are refused.
 * `laura_challenges` -- a Finance / Product Truth / Security objection against her work. Only
   the raising department or the owner may resolve one; Laura cannot.
 
@@ -72,28 +71,6 @@ class LauraPriority(Base):
     __table_args__ = (UniqueConstraint("key", name="uq_laura_priority_key"),)
 
 
-class LauraDecision(Base):
-    __tablename__ = "laura_decisions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    key: Mapped[str] = mapped_column(String(200))
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    # priority.set | priority.closed | delegation | review | challenge | rework |
-    # blocked | owner_action | escalation
-    kind: Mapped[str] = mapped_column(String(30), index=True)
-    department: Mapped[str] = mapped_column(String(40), default="", index=True)
-    subject: Mapped[str] = mapped_column(String(300), default="")
-    reason: Mapped[str] = mapped_column(Text, default="")
-    evidence: Mapped[list] = mapped_column(JSON, default=list)
-    refs: Mapped[list] = mapped_column(JSON, default=list)
-    # Which cognition produced the decision ("deterministic" today). Recorded so a model swap
-    # is visible in her history -- and so it is visible that a swap changed nothing else.
-    cognition: Mapped[dict] = mapped_column(JSON, default=dict)
-    identity_sha256: Mapped[str] = mapped_column(String(64), default="")
-
-    __table_args__ = (UniqueConstraint("key", name="uq_laura_decision_key"),)
-
-
 class LauraChallenge(Base):
     __tablename__ = "laura_challenges"
 
@@ -110,7 +87,7 @@ class LauraChallenge(Base):
     resolution: Mapped[str] = mapped_column(Text, default="")
 
 
-TABLES = (LauraIdentityVersion, LauraPriority, LauraDecision, LauraChallenge)
+TABLES = (LauraIdentityVersion, LauraPriority, LauraChallenge)
 
 
 class ImmutableRecordError(RuntimeError):
@@ -126,7 +103,7 @@ def _refuse(kind: str):
     return _listener
 
 
-for _cls in (LauraIdentityVersion, LauraDecision):
+for _cls in (LauraIdentityVersion,):
     event.listen(_cls, "before_update", _refuse("update"))
     event.listen(_cls, "before_delete", _refuse("delete"))
 

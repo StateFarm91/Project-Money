@@ -782,6 +782,7 @@ JOB_BANDS: dict[str, str] = {
     "learn.scan": "exploration",
     "creative.white_space": "exploration",
     "commerce.readings": "exploration",
+    "listing.outcomes": "exploration",          # W3 K3: same band as commerce.readings
     "commerce.orders_ingest": "exploration",
     # F-005: a read-only Etsy taxonomy snapshot, behind the etsy_api gate.
     "listing.taxonomy_refresh": "exploration",

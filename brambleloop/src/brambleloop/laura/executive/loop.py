@@ -19,7 +19,8 @@ COO closes a mission she delegated:
     IDLE       when the company queue is empty she takes the highest-value evidence-driven
                candidates the departments' own generators offer, so an empty queue never
                idles the company
-    RECORD     every real action is one append-only `laura_decisions` row + a timeline event
+    RECORD     every real action is one laura.memory operational entry (lane E's durable
+               memory; written once) + the company timeline event it cites
 
 No model is called. `work_done` is the number of NEW decisions this tick; a tick that observed
 an unchanged company reports 0 and the useful-work judge calls it a no-op.
@@ -327,31 +328,15 @@ class _Tick:
 
     def decide(self, key: str, kind: str, *, department: str, subject: str, reason: str,
                evidence: list | None = None, refs: list | None = None) -> bool:
-        """Append one decision unless its key exists. True when written (a real new act)."""
-        from sqlalchemy.exc import IntegrityError
+        """Record one decision (laura.memory, operational tier) unless its key exists.
+        True when written (a real new act)."""
+        from ..core import history as hist
 
-        from ...autonomy import memory
-        from ..core.models import LauraDecision
-
-        key = key[:200]
-        with self.db.session() as s:
-            if s.scalar(select(LauraDecision.id).where(LauraDecision.key == key)) is not None:
-                return False
-            try:
-                with s.begin_nested():
-                    s.add(LauraDecision(key=key, at=self.now, kind=kind, department=department,
-                                        subject=subject[:300], reason=reason[:4000],
-                                        evidence=list(evidence or [])[:20],
-                                        refs=list(refs or [])[:20], cognition=self.cog,
-                                        identity_sha256=self.ident_sha))
-            except IntegrityError:
-                return False
-        memory.record_event(self.db, f"laura.{kind}:{key}"[:200], kind=f"laura.{kind}"[:40],
-                            department=department, actor=ACTOR,
-                            severity="decision" if kind in ("blocked", "owner_action",
-                                                            "escalation") else "info",
-                            summary=f"Laura {kind}: {subject} -- {reason}"[:2000],
-                            refs=[f"laura_decisions:{key}", *(refs or [])][:10], at=self.now)
+        if not hist.record(self.db, key, kind=kind, department=department, subject=subject,
+                           reason=reason, evidence=list(evidence or []),
+                           refs=list(refs or []), cognition=self.cog,
+                           identity_sha256=self.ident_sha, at=self.now):
+            return False
         self.new += 1
         self.counts[kind] = self.counts.get(kind, 0) + 1
         return True
@@ -461,17 +446,17 @@ def _delegate(t: _Tick, queue, p: Priority, *, kind: str = "delegation",
 
 def _review(t: _Tick, queue) -> dict:
     """Judge every closed mission she delegated; challenge weak work with evidence."""
-    from ...autonomy import memory
-    from ..core.models import LauraDecision
+    from types import SimpleNamespace
 
-    with t.db.session() as s:
-        delegated = list(s.execute(select(LauraDecision.key, LauraDecision.kind,
-                                          LauraDecision.department, LauraDecision.subject)
-                                   .where(LauraDecision.kind.in_(
-                                       ["delegation", "challenge", "rework"]))
-                                   .order_by(LauraDecision.id)).all())
-        reviewed = set(s.scalars(select(LauraDecision.key).where(
-            LauraDecision.kind == "review")))
+    from ...autonomy import memory
+    from ..core import history as hist
+
+    decisions = hist.all_decisions(t.db)
+    delegated = [SimpleNamespace(key=d["decision_key"], kind=d["kind"],
+                                 department=d["department"], subject=d["subject"])
+                 for d in reversed(decisions)
+                 if d["kind"] in ("delegation", "challenge", "rework")]
+    reviewed = {d["decision_key"] for d in decisions if d["kind"] == "review"}
     out = {"reviewed": 0, "accepted": 0, "weak": 0, "failed": 0, "open": 0, "followons": 0}
     followons = 0
     for d in delegated:
@@ -532,7 +517,7 @@ def _escalate(t: _Tick, d, mkey: str, jt: str, st: str, refs: list) -> int:
     """A challenge or rework that was itself weak becomes a routed Lesson, not another job."""
     from ...core.models import Lesson
 
-    ref = f"laura_decisions:{d.kind}:{mkey}"[:200]
+    ref = f"laura_decision:{d.kind}:{mkey}"[:200]
     statement = (f"{d.department}: Laura's {d.kind} of {jt} ended {st}; the department needs "
                  "a cause, not another run")
     with t.db.session() as s:
@@ -683,16 +668,13 @@ def results_wake(db, queue, *, now: datetime | None = None) -> bool:
     Keyed per five minutes, so it cannot flood."""
     from ...autonomy import memory
     from ...queue.durable import DuplicateJob
-    from ..core.models import LauraDecision, ensure_tables
+    from ..core import history as hist
 
     now = now or _now()
-    ensure_tables(db)
-    with db.session() as s:
-        keys = [k.split(":", 1)[1] for k in s.scalars(select(LauraDecision.key).where(
-            LauraDecision.kind.in_(["delegation", "challenge", "rework"]))
-            .order_by(LauraDecision.id.desc()).limit(200))]
-        reviewed = set(s.scalars(select(LauraDecision.key).where(
-            LauraDecision.kind == "review")))
+    decisions = hist.all_decisions(db)
+    keys = [d["decision_key"].split(":", 1)[1] for d in decisions
+            if d["kind"] in ("delegation", "challenge", "rework")][:200]
+    reviewed = {d["decision_key"] for d in decisions if d["kind"] == "review"}
     pending = [k for k in keys if f"review:{k}"[:200] not in reviewed
                and (memory.get(db, k) or {}).get("state") in ("useful", "noop", "failed")]
     if not pending:
@@ -726,18 +708,22 @@ def priorities(db, *, status: str | None = None, limit: int = 50) -> list[dict]:
 
 
 def history(db, *, limit: int = 50, kind: str | None = None) -> list[dict]:
-    from ..core.models import LauraDecision, ensure_tables
+    """Her decisions, newest first, read from laura.memory (operational tier)."""
+    from ..core import history as hist
 
-    ensure_tables(db)
-    q = select(LauraDecision).order_by(LauraDecision.id.desc()).limit(limit)
-    if kind:
-        q = q.where(LauraDecision.kind == kind)
-    with db.session() as s:
-        return [{"id": r.id, "key": r.key, "at": _aware(r.at).isoformat() if r.at else None,
-                 "kind": r.kind, "department": r.department, "subject": r.subject,
-                 "reason": r.reason, "evidence": r.evidence, "refs": r.refs,
-                 "cognition": r.cognition, "identity_sha256": r.identity_sha256}
-                for r in s.scalars(q)]
+    out = []
+    for d in hist.all_decisions(db):
+        if kind and d["kind"] != kind:
+            continue
+        out.append({"key": d["decision_key"], "at": d.get("at"), "kind": d["kind"],
+                    "department": d.get("department", ""), "subject": d.get("subject", ""),
+                    "reason": d.get("reason", ""), "evidence": d.get("evidence", []),
+                    "refs": d.get("refs", []), "cognition": d.get("cognition", {}),
+                    "identity_sha256": d.get("identity_sha256", ""),
+                    "memory_ref": d.get("memory_ref")})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def summary(db) -> dict:
@@ -745,13 +731,14 @@ def summary(db) -> dict:
     try:
         from ...autonomy import memory
         from ..core import constitution
-        from ..core.models import LauraDecision, ensure_tables
+        from ..core import history as hist
+        from ..core.models import ensure_tables
 
         ensure_tables(db)
         last = memory.get(db, "laura:last_tick")
-        with db.session() as s:
-            by_kind = dict(s.execute(select(LauraDecision.kind, func.count())
-                                     .group_by(LauraDecision.kind)).all())
+        by_kind: dict[str, int] = {}
+        for d in hist.all_decisions(db):
+            by_kind[d["kind"]] = by_kind.get(d["kind"], 0) + 1
         reviews = history(db, kind="review", limit=500)
         verdicts = {"useful": 0, "noop": 0, "failed": 0}
         for r in reviews:
@@ -761,7 +748,7 @@ def summary(db) -> dict:
         open_p = [p for p in priorities(db, limit=100) if p["status"] != "closed"]
         if last is None:
             return {"status": "UNKNOWN", "as_of": None, "basis": "unknown", "items": open_p,
-                    "sources": ["laura_priorities", "laura_decisions"],
+                    "sources": ["laura_priorities", "laura_memory:operational:decision/*"],
                     "reason": "Laura's executive tick has not run here yet"}
         return {"status": "OK", "as_of": last["body"].get("at"), "basis": "measured",
                 "items": open_p, "last_tick": last["body"],
@@ -769,7 +756,8 @@ def summary(db) -> dict:
                 "delegation_outcomes": verdicts,
                 "open_challenges": constitution.open_challenges(db),
                 "recent_decisions": history(db, limit=20),
-                "sources": ["laura_priorities", "laura_decisions", "laura_challenges",
+                "sources": ["laura_priorities", "laura_memory:operational:decision/*",
+                            "laura_challenges",
                             "company_memory:laura:last_tick"]}
     except Exception as exc:  # noqa: BLE001 - a provider never raises
         return {"status": "UNKNOWN", "as_of": None, "basis": "unknown", "items": [],

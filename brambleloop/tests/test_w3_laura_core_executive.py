@@ -104,6 +104,18 @@ def test_tick_from_real_state_sets_priorities_delegates_and_reviews():
     hist = executive.history(db, limit=500)
     assert hist and all(h["identity_sha256"] == r1["identity_sha256"] for h in hist)
     assert all(h["cognition"]["engine"] == "deterministic" for h in hist)
+    # her history lives in lane E's Laura memory (operational tier), never public
+    from brambleloop.laura import memory as lm
+
+    entries = lm.read(db, "operational", "decision/*", lm.Principal.laura(),
+                      include_projections=False, limit=1000)
+    assert len(entries) == len(hist), (len(entries), len(hist))
+    assert all(e["sources"][0].startswith("company_timeline:laura.") for e in entries)
+    try:
+        lm.read(db, "operational", "decision/*", lm.principal_for_surface("storefront"))
+        raise AssertionError("a public surface read Laura's history")
+    except lm.PermissionRefused:
+        pass
     # her actions are on the company timeline as hers
     ev = [e for e in memory.events(db, limit=200) if e["actor"] == "laura"]
     assert ev, "no Laura timeline events"

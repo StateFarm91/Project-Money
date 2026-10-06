@@ -47,8 +47,10 @@ def test_genesis_record_is_pinned_and_carries_the_ruled_identity():
     assert identity.sha256_of(g) == identity.GENESIS_SHA256
     assert g["name"] == "Laura" and g["role"] == "Founder/CEO"
     assert g["kind"] == "persistent AI person"
-    assert g["visual_identity"]["identity_id"] == canonical.IDENTITY_ID == "laura-v15-a42aeac7"
-    assert identity.VISUAL_IDENTITY_ID == "laura-v15-a42aeac7"
+    assert g["visual_identity"]["identity_id"] == canonical.IDENTITY_ID == "laura-r2-a42aeac7"
+    assert g["visual_identity"]["face_sha256"].startswith("a42aeac7")
+    assert g["visual_identity"]["prior_identity_id"] == "laura-v15-a42aeac7"
+    assert identity.VISUAL_IDENTITY_ID == "laura-r2-a42aeac7"
     assert g["visual_identity"]["publication_approved"] is False
     assert set(("D-FB-11", "D-FB-12", "D-FB-13")) <= set(g["rulings"])
     assert g["authority"]["spend_ceiling_cad"] == 0.0
@@ -127,7 +129,7 @@ def test_an_authorised_owner_amendment_is_a_new_chained_version():
                              owner_decision_id="D-FB-13", actor="owner", reason="test")
         assert cur["version"] == 2 and cur["sha256"] != identity.GENESIS_SHA256
         assert identity.load(db)["history_policy"] == "amended by the owner"
-        assert identity.load(db)["visual_identity"]["identity_id"] == "laura-v15-a42aeac7"
+        assert identity.load(db)["visual_identity"]["identity_id"] == "laura-r2-a42aeac7"
     finally:
         core_identity.AUTHORISED_IDENTITY_AMENDMENTS = saved
     # once the authorisation is withdrawn, the version it wrote no longer verifies
