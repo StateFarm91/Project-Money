@@ -525,32 +525,28 @@ def ads(db) -> dict:
 
 
 def visual_rnd(db) -> dict:
-    """Lane H's Visual R&D provider (`visual.rnd.status.summary`), if merged."""
+    """Lane H's Visual R&D provider (`visual.rnd.status.summary`): per product class, the
+    incumbent pipeline and each reading -- an UNKNOWN reading says why, never 0."""
     title = "Visual R&D"
 
     def read():
-        from ...app.command_center import providers
+        from ...app.command_center import tabs
 
-        val, why = _optional("brambleloop.visual.rnd.status", "summary", db)
-        if why:
-            return unknown_section("visual_rnd", title, f"visual.rnd.status {why}",
-                                   ["brambleloop.visual.rnd.status.summary"])
-        e = providers.validate(val, "brambleloop.visual.rnd.status.summary")
-        src = e["provider"]
-        if e["status"] == UNKNOWN and not e["items"]:
-            return unknown_section("visual_rnd", title, e.get("reason") or "unknown", [src])
+        e = tabs.visual_rnd_section(db)
+        src = e.get("provider") or "brambleloop.visual.rnd.status.summary"
+        if not e["items"]:
+            return unknown_section("visual_rnd", title, e.get("reason") or "no product class "
+                                   "reported", [src])
         facts = []
-        for it in e["items"][:8]:
-            if isinstance(it, dict):
-                text = (it.get("statement") or it.get("title") or it.get("label")
-                        or it.get("summary") or it.get("key"))
-                if text:
-                    st = it.get("status") or it.get("state")
-                    facts.append(fact(f"{text}" + (f" ({st})" if st else ""),
-                                      str(it.get("source") or src), as_of=e.get("as_of")))
-        if not facts:
-            facts.append(fact(f"Visual R&D status {e['status']}"
-                              + (f" ({e.get('reason')})" if e.get("reason") else ""), src))
+        if e.get("reason"):
+            facts.append(fact(f"Visual R&D {e['status']}: {e['reason']}", src,
+                              as_of=e.get("as_of"), basis=e.get("basis") or "unknown"))
+        for r in e["items"][:6]:
+            readings = "; ".join(f"{label}: {r[label]}" for _k, label in
+                                 tabs.VISUAL_RND_METRICS[:4])
+            facts.append(fact(f"{r['title']} -- pipeline {r['pipeline']}; {readings}",
+                              src, as_of=e.get("as_of"),
+                              basis="measured" if r["status"] == "OK" else "unknown"))
         return section("visual_rnd", title, facts, status=e["status"], reason=e.get("reason"),
                        sources=e.get("sources"))
 

@@ -29,6 +29,7 @@ PROVIDERS: dict[str, tuple[str, str]] = {
     "seo": ("brambleloop.seo.status", "summary"),
     "ads": ("brambleloop.growth.ads_readiness", "summary"),
     "slo": ("brambleloop.ops.slo", "summary"),
+    "visual_rnd": ("brambleloop.visual.rnd.status", "summary"),
 }
 
 

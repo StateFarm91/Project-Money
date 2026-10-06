@@ -7,7 +7,7 @@ import { formatNumber, relTime } from "../format.js";
 
 const ORDER = [["autonomy", "Autonomous company"], ["jobs_24h", "Jobs in the last 24 h"],
   ["improvement", "Improvement loops"], ["improvements", "Improvements: proposed, tested, promoted, rolled back"],
-  ["experiments", "Experiments"], ["lessons", "Lessons"], ["last_useful_action", "Last useful action"]];
+  ["experiments", "Experiments"], ["visual_rnd", "Visual R&D (per product class)"], ["lessons", "Lessons"], ["last_useful_action", "Last useful action"]];
 
 function ownerGapTile(env) {
   // hours_since_owner_action: envelope with items[0].hours; UNKNOWN stays Unknown.

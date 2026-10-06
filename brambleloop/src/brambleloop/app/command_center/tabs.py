@@ -494,6 +494,66 @@ def operations_drill(db, kind: str, ident: str) -> dict:
                     audit_history=related, confidence="recorded row (measured)")
 
 
+# W3 lane H: the Visual R&D metrics shown per product class, in this order.
+VISUAL_RND_METRICS = (
+    ("accepted_image_yield", "Accepted-image yield"),
+    ("structural_rejection_trend", "Structural rejection trend"),
+    ("photorealism_trend", "Photorealism"),
+    ("laura_identity_consistency", "Laura identity consistency"),
+    ("cost_per_accepted_image", "Cost per accepted image"),
+    ("latency_s_median", "Median latency (s)"),
+    ("task_score_mean", "Gallery task score"),
+    ("benchmark_gap", "Benchmark gap"),
+    ("hero_ctr", "Hero CTR"),
+    ("listing_conversion", "Listing conversion"),
+    ("refund_rate", "Refund rate"),
+)
+
+
+def reading_text(m) -> str:
+    """One Visual R&D reading as text. UNKNOWN shows its reason and never a number."""
+    if isinstance(m, list):            # a trend: one point per pipeline version
+        if not m:
+            return "UNKNOWN"
+        last = m[-1]
+        return (f"{last.get('structural_rejection_share')} rejected at {last.get('version')} "
+                f"({last.get('frames')} frames; {len(m)} version(s))")
+    if not isinstance(m, dict) or m.get("value") is None or \
+            str(m.get("reading") or "").upper() != "MEASURED":
+        why = (m or {}).get("why") if isinstance(m, dict) else None
+        return "UNKNOWN" + (f" -- {why}" if why else "")
+    v = m["value"]
+    if m.get("currency") == "CAD":
+        v = f"CA${float(v):,.2f}"
+    n = m.get("frames") or m.get("galleries") or m.get("denominator")
+    return f"{v} ({m.get('basis') or 'measured'}" + (f"; n={n}" if n else "") + ")"
+
+
+def visual_rnd_section(db) -> dict:
+    """Lane H's provider, flattened to one row per product class for the Learn view."""
+    e = providers.call("visual_rnd", db)
+    rows = []
+    for it in e.get("items") or []:
+        if not isinstance(it, dict) or not it.get("product_class"):
+            continue
+        pl = it.get("pipeline") or {}
+        known = [k for k, _l in VISUAL_RND_METRICS
+                 if isinstance(it.get(k), dict) and it[k].get("reading") == "MEASURED"]
+        row = {"title": f"{it.get('title') or it['product_class']}",
+               "status": "OK" if known else "UNKNOWN",
+               "why": (None if known else "no measured Visual R&D reading for this class yet"),
+               "pipeline": (f"{pl.get('label')} (generation {pl.get('generation')})"
+                            if pl else "UNKNOWN -- no incumbent pipeline version"),
+               "experiments": str(it.get("experiments_total", "UNKNOWN")),
+               "paid_challengers_waiting_on_owner": str(len(it.get("paid_challengers_gated")
+                                                            or [])),
+               "source": "brambleloop.visual.rnd.status"}
+        for k, label in VISUAL_RND_METRICS:
+            row[label] = reading_text(it.get(k))
+        rows.append(row)
+    return {**e, "items": rows, "provider_items": len(e.get("items") or [])}
+
+
 def autonomy(db) -> dict:
     from ...core.models import AuditLog
 
@@ -518,7 +578,9 @@ def autonomy(db) -> dict:
                              "hours_since_owner_action": guard("owner_gap", owner_gap),
                              "improvements": readers.improvements(db),
                              "lessons": readers.lessons(db),
-                             "experiments": readers.experiments(db)},
+                             "experiments": readers.experiments(db),
+                             "visual_rnd": guard("visual_rnd",
+                                                 lambda: visual_rnd_section(db))},
                 last_useful_action=jw.get("last_useful_action"))
 
 
