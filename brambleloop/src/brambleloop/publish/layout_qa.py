@@ -94,51 +94,54 @@ def _dominant(image) -> tuple[tuple[int, int, int], float]:
     subject that bleeds to the corners would otherwise be classified as the background and
     the frame would read as empty -- which is what the first version of this did.
     """
+    import numpy as np
+
     rgb = image.convert("RGB")
-    counts: dict[tuple[int, int, int], int] = {}
-    for pixel in rgb.getdata():
-        counts[pixel] = counts.get(pixel, 0) + 1
-    colour = max(counts, key=counts.get)
     total = rgb.size[0] * rgb.size[1]
-    return colour, (counts[colour] / total if total else 0.0)
+    # Pack each pixel into one integer and count in C. The pure-Python loop this replaces
+    # was correct and cost ~1 s per frame -- seconds per product on every assets.build and
+    # the bulk of the acceptance gates' wall time (W3-HANG). Ties go to the colour seen first
+    # in scan order, exactly as the dict-insertion-order `max` did.
+    a = np.asarray(rgb, dtype=np.uint32).reshape(-1, 3)
+    packed = (a[:, 0] << 16) | (a[:, 1] << 8) | a[:, 2]
+    values, first, counts = np.unique(packed, return_index=True, return_counts=True)
+    best = counts.max()
+    winner = int(values[counts == best][np.argmin(first[counts == best])])
+    colour = ((winner >> 16) & 0xFF, (winner >> 8) & 0xFF, winner & 0xFF)
+    return colour, float(best) / total
+
+
+def _mask_array(mask):
+    import numpy as np
+
+    return np.asarray(mask) != 0
 
 
 def _ink_mask(image, background: tuple[int, int, int]):
     """A 1-bit image: white where the frame carries content, black where it is background."""
+    import numpy as np
     from PIL import Image
 
     rgb = image.convert("RGB")
-    r, g, b = rgb.split()
-    br, bg, bb = background
-    mask = Image.new("L", rgb.size, 0)
-    pixels = mask.load()
-    data = list(rgb.getdata())
-    w, _ = rgb.size
-    for index, (pr, pg, pb) in enumerate(data):
-        if (abs(pr - br) > INK_THRESHOLD or abs(pg - bg) > INK_THRESHOLD
-                or abs(pb - bb) > INK_THRESHOLD):
-            pixels[index % w, index // w] = 255
-    return mask
+    a = np.asarray(rgb, dtype=np.int16)
+    diff = np.abs(a - np.asarray(background, dtype=np.int16))
+    inked = (diff > INK_THRESHOLD).any(axis=2)
+    return Image.fromarray(np.where(inked, 255, 0).astype(np.uint8))
 
 
 def _share(mask) -> float:
     total = mask.size[0] * mask.size[1]
-    return (sum(1 for v in mask.getdata() if v) / total) if total else 0.0
+    return (int(_mask_array(mask).sum()) / total) if total else 0.0
 
 
 def _edge_ink(mask) -> float:
     """How much of the safe-area band carries content. Badges land here."""
     w, h = mask.size
     band_x, band_y = max(1, int(w * SAFE_MARGIN)), max(1, int(h * SAFE_MARGIN))
-    data = mask.load()
-    inked = 0
-    counted = 0
-    for x in range(w):
-        for y in range(h):
-            if x < band_x or x >= w - band_x or y < band_y or y >= h - band_y:
-                counted += 1
-                if data[x, y]:
-                    inked += 1
+    m = _mask_array(mask)  # shape (h, w)
+    inner = m[band_y:max(band_y, h - band_y), band_x:max(band_x, w - band_x)]
+    counted = w * h - inner.size
+    inked = int(m.sum()) - int(inner.sum())
     return (inked / counted) if counted else 0.0
 
 
@@ -150,11 +153,10 @@ def _tallest_text_band(mask) -> int:
     the font-fallback defect destroyed.
     """
     w, h = mask.size
-    data = mask.load()
+    rows = _mask_array(mask).sum(axis=1) if h else []
     best = run = 0
-    for y in range(h):
-        row = sum(1 for x in range(w) if data[x, y])
-        density = row / w if w else 0.0
+    for row in rows:
+        density = int(row) / w if w else 0.0
         if 0.01 < density < 0.45:
             run += 1
             best = max(best, run)
@@ -166,13 +168,13 @@ def _tallest_text_band(mask) -> int:
 def _crop_survival(mask) -> float:
     """How much of the content survives the square centre crop a mobile grid applies."""
     w, h = mask.size
-    total = sum(1 for v in mask.getdata() if v)
+    m = _mask_array(mask)
+    total = int(m.sum())
     if not total:
         return 0.0
     side = min(w, h)
     left, top = (w - side) // 2, (h - side) // 2
-    cropped = mask.crop((left, top, left + side, top + side))
-    return sum(1 for v in cropped.getdata() if v) / total
+    return int(m[top:top + side, left:left + side].sum()) / total
 
 
 def inspect(image, *, position: int, expect_text: bool = False) -> FrameReport:

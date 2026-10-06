@@ -11,6 +11,7 @@ so they are consistent, legible and reproducible for every size we publish.
 """
 from __future__ import annotations
 
+import functools
 import math
 import os
 from dataclasses import dataclass
@@ -37,6 +38,10 @@ GOLD = bible.rgb255("gold")
 LINE = bible.rgb255("line")
 
 
+# Memoised (W3-HANG): a pure function of two RGB triples, called once per chart cell -- 80,000
+# calls per product for a handful of distinct colours, ~20 s of contrast iteration per
+# assets.build. The cache returns the identical tuple the computation would.
+@functools.lru_cache(maxsize=4096)
 def _legible_on(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> tuple[int, int, int]:
     """Brand ink darkened until it clears the text-contrast floor on this background.
 
@@ -233,6 +238,7 @@ def _hex_to_rgb(value: str | None, fallback: tuple[int, int, int] = CREAM):
         return fallback
 
 
+@functools.lru_cache(maxsize=4096)
 def _readable_on(bg: tuple[int, int, int]) -> tuple[int, int, int]:
     """Ink or cream on this square, whichever measures better -- and moved until it passes.
 
@@ -282,11 +288,15 @@ def detect_repeat(grid: list[list[str]], colors: list[list[str | None]]
         cs = colors[i] if i < len(colors) else []
         return [(grid[i][j], cs[j] if j < len(cs) else None) for j in range(len(grid[i]))]
 
+    # Built once (W3-HANG). Rebuilding a row's key for every cell compared made the column
+    # scan O(rows x cols^2) per candidate period; the comparisons themselves are unchanged.
+    keys = [row_key(i) for i in range(rows)]
+
     col_period = cols
     for period in range(1, cols + 1):
         if cols % period:
             continue
-        if all(row_key(i)[j] == row_key(i)[j % period]
+        if all(keys[i][j] == keys[i][j % period]
                for i in range(rows) for j in range(len(grid[i]))):
             col_period = period
             break
@@ -295,7 +305,7 @@ def detect_repeat(grid: list[list[str]], colors: list[list[str | None]]
     for period in range(1, rows + 1):
         if rows % period:
             continue
-        if all(row_key(i) == row_key(i % period) for i in range(rows)):
+        if all(keys[i] == keys[i % period] for i in range(rows)):
             row_period = period
             break
     return col_period, row_period
