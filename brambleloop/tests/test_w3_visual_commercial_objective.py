@@ -148,7 +148,9 @@ def test_paid_hero_challengers_are_queued_not_run_and_tunables_stay_guarded():
     from sqlalchemy import select
     with db.session() as s:
         assert not list(s.scalars(select(M.VisualJudgement))), "nothing was generated"
+    assert H.TREATMENTS
     for t in H.TREATMENTS.values():
+        assert t["classes"], t
         for cls in t["classes"]:
             if t["params"]:
                 assert P.check_change(cls, t["params"]) == [], (t, cls)
