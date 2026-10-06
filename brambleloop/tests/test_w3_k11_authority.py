@@ -430,6 +430,7 @@ def test_f708_protected_authorities_cannot_be_changed_by_improvement():
 
     new = ("publication_authority", "spend_authority", "credentials", "legal_tax",
            "customer_remedy", "canonical_identity")
+    assert len(new) == 6
     for surface in new:
         assert surface in governance.PROTECTED_GATES
         assert governance.GATE_OPERATORS[surface] == ()
@@ -441,6 +442,7 @@ def test_f708_protected_authorities_cannot_be_changed_by_improvement():
         "publication_authority": "let listings publish automatically without owner approval",
         "spend_authority": "raise the daily cost ceiling for the image provider",
     }
+    assert len(prose) == 5
     for surface, text in prose.items():
         b = governance.check(text, touches=("code",))
         assert not b.ok and surface in b.reason, (surface, b)
