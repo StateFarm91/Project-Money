@@ -324,6 +324,122 @@ def verify_files(expected: list[dict[str, Any]], remote: list[dict[str, Any]] | 
 
 
 # ---------------------------------------------------------------------------
+# W3-I: the listing's images, rank by rank -- count, order, alt text and pixel size
+# ---------------------------------------------------------------------------
+
+# Etsy, uploadListingImage: "When uploading a new image, data such as colors and size may
+# return as null values due to asynchronous processing of the image. Use getListingImage
+# endpoint to fetch these values." So a null size straight after upload is PENDING, which is
+# neither a match nor a mismatch, and is never counted as verified.
+PENDING = "PENDING_ETSY_PROCESSING"
+
+
+@dataclass
+class ImageReadBack:
+    """The images Etsy holds for one listing, judged against what was uploaded."""
+
+    listing_id: str
+    images: list[dict[str, Any]] = field(default_factory=list)
+    problems: list[str] = field(default_factory=list)
+
+    @property
+    def verified(self) -> bool:
+        """True only when every image sent is on Etsy at its rank, with its alt text and its
+        pixel size, and Etsy holds no other image. Pending sizes are not verified."""
+        return (not self.problems and bool(self.images)
+                and all(i["alt_text"] == MATCH and i["size"] == MATCH for i in self.images))
+
+    @property
+    def pending(self) -> bool:
+        return any(i.get("size") == PENDING for i in self.images)
+
+    def summary(self) -> dict[str, Any]:
+        return {"listing_id": self.listing_id, "verified": self.verified,
+                "pending": self.pending, "images": list(self.images),
+                "problems": list(self.problems),
+                "hash_note": ("Etsy's ListingImage carries no hash of the uploaded bytes and "
+                              "re-encodes images (sRGB, compression). Byte identity is proven "
+                              "on our side; on Etsy's side the proof is rank, alt text and "
+                              "full_width x full_height, and it says so.")}
+
+
+def _dim(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
+
+
+def verify_images(expected: list[dict[str, Any]], remote: list[dict[str, Any]] | None, *,
+                  listing_id: str = "") -> ImageReadBack:
+    """Compare a listing's images on Etsy with the images uploaded, in rank order.
+
+    `expected`: one entry per image sent, in upload order, with `alt_text`, `width`,
+    `height` (read from the bytes sent, e.g. `etsy_constraints.image_info`). `remote`:
+    `EtsyClient.get_listing_images` results, or None when the read failed (unverified).
+
+    Etsy serves `url_fullxfull` at up to 3000 px per side, so an image sent larger than that
+    may legitimately come back scaled; a scaled size with the same aspect ratio is reported
+    as MATCH with a note, and anything else as MISMATCH.
+    """
+    out = ImageReadBack(listing_id=str(listing_id))
+    if remote is None:
+        out.problems.append("the listing's images could not be read back from Etsy, so what "
+                            "a shopper sees is unverified")
+        return out
+    if not expected:
+        out.problems.append("no uploaded image was named for this listing, so there is "
+                            "nothing to verify against (and Etsy will not activate it)")
+        return out
+    held = sorted(remote, key=lambda r: int(_dim(r.get("rank")) or 0))
+    if len(held) != len(expected):
+        out.problems.append(f"images: sent {len(expected)}, Etsy holds {len(held)}")
+    for rank, want in enumerate(expected, start=1):
+        entry: dict[str, Any] = {"rank": rank, "sent_alt_text": want.get("alt_text", ""),
+                                 "sent_px": [want.get("width"), want.get("height")]}
+        got = held[rank - 1] if rank <= len(held) else None
+        if got is None:
+            entry.update(alt_text=NOT_RETURNED, size=NOT_RETURNED, etsy_px=None)
+            out.problems.append(f"image rank {rank} is not on listing {listing_id}")
+            out.images.append(entry)
+            continue
+        entry["listing_image_id"] = got.get("listing_image_id")
+        sent_alt, got_alt = str(want.get("alt_text") or ""), str(got.get("alt_text") or "")
+        entry["alt_text"] = MATCH if sent_alt == got_alt else MISMATCH
+        if entry["alt_text"] == MISMATCH:
+            out.problems.append(f"image rank {rank} alt_text: sent {sent_alt!r}, Etsy holds "
+                                f"{got_alt!r}")
+        w, h = _dim(got.get("full_width")), _dim(got.get("full_height"))
+        entry["etsy_px"] = [w, h]
+        sw, sh = _dim(want.get("width")), _dim(want.get("height"))
+        if w is None or h is None:
+            entry["size"] = PENDING
+            out.problems.append(f"image rank {rank}: Etsy has not reported its size yet "
+                                f"(asynchronous processing); re-read before activation")
+        elif sw is None or sh is None:
+            entry["size"] = NOT_RETURNED
+            out.problems.append(f"image rank {rank}: the size sent was not recorded, so "
+                                f"Etsy's {w}x{h} cannot be compared")
+        elif (w, h) == (sw, sh):
+            entry["size"] = MATCH
+        elif max(sw, sh) > 3000 and max(w, h) <= 3000 and abs(w * sh - h * sw) <= max(sw, sh):
+            entry["size"] = MATCH
+            entry["note"] = f"sent {sw}x{sh}, served scaled to {w}x{h} (Etsy's 3000 px cap)"
+        else:
+            entry["size"] = MISMATCH
+            out.problems.append(f"image rank {rank} is {w}x{h} on Etsy and {sw}x{sh} as sent: "
+                                f"a different or cropped image")
+        out.images.append(entry)
+    for extra in held[len(expected):]:
+        out.problems.append(f"Etsy holds an extra image (listing_image_id "
+                            f"{extra.get('listing_image_id')}) that was not sent")
+    return out
+
+
+# ---------------------------------------------------------------------------
 # F-543: the remote draft against the certified listing, before activation
 # ---------------------------------------------------------------------------
 

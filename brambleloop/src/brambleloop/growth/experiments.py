@@ -463,6 +463,7 @@ def observe_metric(db, row) -> dict:
             return {"observed": None, "sample": 0, "why": "no recorded impressions"}
         visits = sum(int(o.visits or 0) for o in outcomes)
         return {"observed": round(visits / impressions, 5), "sample": impressions,
+                "exposure": impressions, "window": _window(outcomes),
                 "source": "listing_outcomes"}
     if metric == "conversion_rate":
         counted = [o for o in outcomes if o.orders is not None]
@@ -471,7 +472,8 @@ def observe_metric(db, row) -> dict:
             return {"observed": None, "sample": 0,
                     "why": "no recorded visits with a measured order count"}
         return {"observed": round(sum(int(o.orders) for o in counted) / visits, 5),
-                "sample": visits, "source": "listing_outcomes"}
+                "sample": visits, "exposure": sum(int(o.impressions or 0) for o in counted),
+                "window": _window(counted), "source": "listing_outcomes"}
     if metric == "bundle_attach_rate":
         if not orders_source_live(db)["live"] or not orders:
             return {"observed": None, "sample": 0, "why": "no recorded orders for the product"}
@@ -479,6 +481,57 @@ def observe_metric(db, row) -> dict:
                 "source": "orders.cross_sell_of"}
     return {"observed": None, "sample": 0,
             "why": f"no source records {metric!r} yet; it is UNMEASURED, not zero"}
+
+
+#: Metrics read from listing outcomes: a listing experiment, held to the listing-test
+#: exposure discipline (`commerce.listing_tests.exposure_refusal`) before it may conclude.
+LISTING_METRICS: frozenset[str] = frozenset({"listing_click_through_rate", "conversion_rate"})
+
+
+def _window(outcomes) -> dict:
+    """The treatment window the reading covers: first period start to last period end."""
+    starts = [o.period_start for o in outcomes if o.period_start]
+    ends = [o.period_end for o in outcomes if o.period_end]
+    if not starts or not ends:
+        return {"from": None, "to": None, "days": 0}
+    a, b = date.fromisoformat(min(starts)), date.fromisoformat(max(ends))
+    return {"from": a.isoformat(), "to": b.isoformat(), "days": (b - a).days + 1}
+
+
+def listing_discipline(db, row, reading: dict) -> dict:
+    """F-260: may this listing experiment's reading conclude anything?
+
+    Exposure first, by the listing-test rule: a listing nobody saw did not fail, it was not
+    tested, and an unexposed reading concludes nothing and writes nothing. A pre/post design
+    additionally needs its baseline -- a recorded period before registration -- because
+    without one the treatment's number is a number. The treatment window (only periods
+    after registration count; `observe_metric` already filters) is recorded with the verdict.
+    """
+    from sqlalchemy import select
+
+    from ..commerce.listing_tests import exposure_refusal
+    from ..core.models import ListingOutcome
+
+    if row.metric not in LISTING_METRICS:
+        return {"applies": False, "may_conclude": True}
+    problems = []
+    refusal = exposure_refusal(reading.get("exposure"))
+    if refusal:
+        problems.append(refusal)
+    baseline = None
+    if row.design == PRE_POST:
+        since = _aware(row.created_at).date().isoformat() if row.created_at else ""
+        with db.session() as s:
+            before = [o for o in s.scalars(select(ListingOutcome).where(
+                ListingOutcome.product_slug == row.product_slug))
+                if (o.period_end or "") < since]
+        baseline = _window(before)
+        if not before:
+            problems.append("a pre/post design with no recorded period before registration "
+                            "has no baseline to compare the treatment window against")
+    return {"applies": True, "may_conclude": not problems, "problems": problems,
+            "exposure": reading.get("exposure"), "window": reading.get("window"),
+            "baseline": baseline}
 
 
 def control_present(db, row) -> dict:
@@ -617,6 +670,14 @@ def conclude_all(db, *, today: date | None = None) -> dict:
                             "expected_value_cad": ev if ev is not None else UNMEASURED,
                             "observed": UNMEASURED, "why": reading["why"]})
             continue
+        discipline = listing_discipline(db, row, reading)
+        if not discipline["may_conclude"]:
+            results.append({"key": key, "state": row.state, "concluded": False,
+                            "expected_value_cad": ev if ev is not None else UNMEASURED,
+                            "observed": UNMEASURED, "outcome": "not_tested",
+                            "why": "; ".join(discipline["problems"]),
+                            "discipline": discipline})
+            continue
         verdict = record_persisted(db, key, reading["observed"], reading["sample"])
         causal = (bool(verdict.get("causal")) and control["present"]
                   and not (row.detail or {}).get("confounded"))
@@ -633,6 +694,7 @@ def conclude_all(db, *, today: date | None = None) -> dict:
             detail["last_verdict"] = {**verdict, "causal": causal,
                                       "control": control, "claim": claim,
                                       "source": reading.get("source"),
+                                      "discipline": discipline,
                                       "at": datetime.now(timezone.utc).isoformat()}
             fresh.detail = detail
             state = fresh.state

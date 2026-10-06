@@ -204,13 +204,14 @@ def replace_canonical(db, *, new_key: str, redesign_approval: dict,
             "there is no canonical identity to replace. A first selection is "
             "`select_canonical`, and it needs the owner too")
     approval = identity.validate_redesign_approval(redesign_approval, existing=current)
-    # D-FB-11: Laura is retired, replaced, regenerated or altered only on an owner decision
-    # recorded in `canonical.AUTHORISED_IDENTITY_CHANGES` (empty). A well-formed approval
+    # D-FB-11/D-FB-14: Laura is retired, replaced, regenerated or altered only on an owner
+    # decision recorded in `canonical.AUTHORISED_IDENTITY_CHANGES`, for exactly its change. A well-formed approval
     # record is not that decision; a portrait repair of her changes her face bytes and is
     # held to the same rule.
     from . import canonical
     canonical.require_identity_change_authorised(redesign_approval, current=current,
-                                                 action="replace_canonical")
+                                                 action="replace_canonical",
+                                                 reference_hashes=reference_hashes)
 
     with db.session() as s:
         old_row = s.scalar(select(ModelIdentity).where(

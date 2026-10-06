@@ -1499,3 +1499,37 @@ legal ownership or who the seller of record is (those must match the actual lega
 `TRUTH_LAURA_HUMAN_CLAIM` fails fabricated human experiences, undisclosed founder/CEO claims
 ("Laura founded Brambleloop", "CEO Laura") and ownership/seller statements ("Owned by Laura").
 Full text: `spec/07_Laura_Owner_Ruling_2026-10-06.md`.
+
+## D-FB-14 (2026-10-06) — Owner-approved canonical identity revision 2: approved face + v6 revised torso and full-length
+
+**Owner decision (2026-10-06, the owner; verbatim intent):** "Yes. I approve the v6 revised torso and
+revised full-length frames as Laura's canonical body/proportion references going forward. Do NOT
+relabel them as recovered frozen-v15 evidence. Preserve their actual provenance. The canonical face
+remains unchanged. Create a new explicitly owner-approved canonical identity revision based on:
+existing approved canonical face; v6 revised torso; v6 revised full-length; established identity
+rules. Preserve the old v15 missing-frame issue historically rather than pretending these are the
+missing files. Update manifests/hashes/versioning accordingly and require my protected authority for
+any future canonical identity replacement. This does not make any image publication-approved and
+does not waive photorealism/identity/Product Truth gates."
+
+**Exact assets (sha256, verified from the committed files):**
+- face (unchanged): `a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9`
+  (`visual/assets/identity_portrait.jpg`; copy at `canonical/laura-r2-a42aeac7/reference_pack/neutral_portrait.jpg`)
+- v6 revised torso: `afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db`
+- v6 revised full-length: `f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0`
+  (both moved byte-identical from `canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/`
+  to `canonical/laura-r2-a42aeac7/reference_pack/`; provenance: v6 bust-revision run 2026-09-21,
+  owner-approved as canonical body references 2026-10-06).
+
+**What changes.** Canonical identity is now `laura-r2-a42aeac7` (revision 2). Revision 1,
+`laura-v15-a42aeac7` (frozen build v15, production registry version 1), stays in the manifest's
+`revisions` history, and its torso, full-length and 5-frame stress set stay recorded as
+`missing_canonical` — the v6 frames are **not** those files. The other five v6 stress scenes were not
+approved and remain historical/forbidden; the v5 frames remain forbidden. `canonical.adopt_revision`
+moves a registry holding revision 1 to revision 2 once (not yet run in production).
+
+**Protected authority.** `canonical.AUTHORISED_IDENTITY_CHANGES` lists owner decisions that each
+authorise exactly one change (its revision's predecessor → that revision, with exactly those hashes).
+D-FB-14 is spent once applied; any future replacement or alteration of Laura needs a new owner
+decision recorded here and in code. Publication readiness is unchanged: no image is
+publication-approved; photorealism, anatomy, identity and Product Truth gates still apply.
