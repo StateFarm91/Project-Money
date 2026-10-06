@@ -171,3 +171,16 @@ FB-4). Files: CANDIDATE_3be3096.json, DEFECT_LEDGER_3be3096.json.
 Next (F-846): independent adversarial audit of this exact SHA by a different model; repairs land
 on a successor candidate, never on this tag. Commits since 958cb19 are UNSIGNED (signing helper
 lost in a disk cleanup) and NOT PUSHED; re-sign after a session restart, or push on owner say-so.
+
+## Adversarial certification of final-candidate-3be3096 (2026-10-06)
+Verdict so far: **NOT SHIPPABLE AS FROZEN.** Independent audits (different model) in
+research/final_build/audit_3be3096/:
+- Audit 1 money/orders/authority: 1 LAUNCH-BLOCKING (store.activate ignores recorded phase rollback),
+  5 HIGH (unrecorded model/render spend, billed-failed render released unbilled, sustainable_economics
+  passes on assumed sales, phase seal replayable), 8 MEDIUM, 5 LOW.
+- Audit 3 runtime/security: 1 LAUNCH-BLOCKING (unauthenticated stored XSS on dashboard → ops token in
+  localStorage), 4 HIGH (unauthenticated mutating routes, readiness closes live owner actions, buyer
+  id leak on 5 open routes, deploy guard unenforced), 5 MEDIUM, 4 LOW.
+- Audit 2 product truth/publishing: running.
+Repair workers (local branches, unsigned, not pushed; base 503190e): claude/rc1-AUTH, rc1-SPEND,
+rc1-ORD, rc1-SEC, rc1-OWN. Then: merge → full suite → rehearsal → freeze successor → re-audit.
