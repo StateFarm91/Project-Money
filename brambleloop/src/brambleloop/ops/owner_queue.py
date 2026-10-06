@@ -237,7 +237,10 @@ def packet_for(card: dict, row_why: str = "") -> dict:
     # A spend gate whose ceiling nobody stated is not free: CA$0.00 there would be UNKNOWN
     # rendered as zero. The basis says so and the packet is incomplete until a cost is stated.
     cost = merged.get("max_cost_cad")
-    if kind == "spend" and not cost:
+    if cost is None:
+        # W3-WIRE4: an owner action whose cost basis is UNKNOWN (`OwnerAction.max_cost_known`).
+        out["max_cost_basis"] = "UNKNOWN"
+    elif kind == "spend" and not cost:
         out["max_cost_basis"] = "UNKNOWN"
         missing.append("max_cost_cad (spend gate with no stated ceiling)")
     else:

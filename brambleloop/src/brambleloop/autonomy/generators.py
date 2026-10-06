@@ -303,6 +303,14 @@ def provider_module(module: str):
         from ..ops import slo as mod
     elif module == "brambleloop.autonomy.status":
         from . import status as mod
+    elif module == "brambleloop.launch.visibility":  # W3 K4 (F-287), Command Center
+        from ..launch import visibility as mod
+    elif module == "brambleloop.commerce.search_evidence":  # W3 K1, Command Center
+        from ..commerce import search_evidence as mod
+    elif module == "brambleloop.authority.dag":  # W3 K11, Command Center
+        from ..authority import dag as mod
+    elif module == "brambleloop.authority.policy":  # W3 K11, Command Center
+        from ..authority import policy as mod
     else:
         import importlib
 

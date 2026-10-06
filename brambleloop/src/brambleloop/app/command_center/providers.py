@@ -42,6 +42,10 @@ PROVIDERS: dict[str, tuple[str, str]] = {
     # wave-3 K7: owner queue lifecycle/inventories, security controls, postconditions,
     # rollback baseline, provenance coverage, job activity, incident actionability.
     "ops_truth": ("brambleloop.ops.truth", "summary"),
+    # W3 K11 (wired by W3-WIRE4): the durable company work DAG and the owner's authority
+    # ladder grants. Approvals and grants are POSTs behind step-up in `api.py`.
+    "authority_dag": ("brambleloop.authority.dag", "summary"),
+    "authority_policy": ("brambleloop.authority.policy", "summary"),
 }
 
 

@@ -85,6 +85,36 @@ OWNER_ACTION = {
 }
 
 
+def seed_owner_action(db) -> dict:
+    """Put `OWNER_ACTION` into the one consolidated owner queue (W3-F wiring 5, W3-WIRE4).
+
+    Idempotent on `requirement_key`: a row that already exists -- open, or answered by the
+    owner -- is never re-added or re-opened. The cost is stored with basis UNKNOWN
+    (`OwnerAction.max_cost_known` is None), so no surface renders it as CA$0.00 and no spend
+    path treats it as free (finance.accounting.policy refuses an UNKNOWN ceiling)."""
+    from sqlalchemy import select
+
+    from ...core.models import MAX_COST_UNKNOWN, OwnerAction
+
+    a = OWNER_ACTION
+    key = a["requirement_key"]
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)
+                       .order_by(OwnerAction.id.desc()).limit(1))
+        if row is not None:
+            return {"seeded": False, "owner_action_id": int(row.id), "why": "already queued"}
+        row = OwnerAction(
+            requirement_key=key, action=a["action"], reason=a["why"],
+            max_cost_cad=0.0, max_cost_basis=MAX_COST_UNKNOWN, minutes=int(a["minutes"]),
+            consequence_of_delay=a["consequence_of_waiting"],
+            blocks=", ".join(a["blocks"]),
+            why_software_cannot=("a listening judgement and a provider/paid-trial choice are "
+                                 "the owner's (D-FB-18 item 7); " + "; ".join(a["needs"])))
+        s.add(row)
+        s.flush()
+        return {"seeded": True, "owner_action_id": int(row.id), "why": a["source"]}
+
+
 def _judgement(key: str, kind: str, j) -> dict:
     """One criterion's reading. Never PASS without the right kind of evidence."""
     if not isinstance(j, dict):

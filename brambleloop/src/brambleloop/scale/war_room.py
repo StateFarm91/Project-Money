@@ -146,7 +146,8 @@ def board(db, *, now: datetime | None = None, target_cad: float = TARGET_CAD) ->
     with db.session() as s:
         experiments = list(s.scalars(select(RegisteredExperiment)))
         approvals = [{"id": a.id, "action": a.action, "reason": a.reason,
-                      "max_cost_cad": a.max_cost_cad, "minutes": a.minutes,
+                      "max_cost_cad": a.max_cost_known,  # None = UNKNOWN (W3-WIRE4)
+                      "max_cost_basis": a.max_cost_basis or "stated", "minutes": a.minutes,
                       "consequence_of_delay": a.consequence_of_delay, "blocks": a.blocks}
                      for a in s.scalars(select(OwnerAction).where(
                          OwnerAction.done == False).order_by(OwnerAction.id))]  # noqa: E712

@@ -48,6 +48,15 @@ PROTECTED_INVARIANTS: tuple[Invariant, ...] = (
               "reverse compiler, twin and certification thresholds are not tunable",
               ("truth", "cir", "compil", "reverse", "stitch_count", "certif", "gauge_tol",
                "twin", "validat", "originality", "benchmark_quarantine")),
+    # W3-B2 wiring 2 (W3-WIRE4): the owner's canonical brand assets (D-FB-17). Which bytes
+    # are the brand, which roles they fill and which owner decisions authorise a change are
+    # the owner's; a proposal naming them is refused, never ranked against them.
+    Invariant("brand_canonical_assets",
+              "the owner's canonical brand assets (brand.canonical_assets), the owner "
+              "decisions that authorise a brand change (AUTHORISED_BRAND_CHANGES) and the "
+              "canonical brand roles (brand_role)",
+              ("canonical_asset", "authorised_brand_change", "authorized_brand_change",
+               "brand_change", "brand_role", "canonical_brand")),
     Invariant("customer_safety",
               "customer truth and safety: disclosures, child-safety statements, escalation, "
               "consent and CASL rules",
