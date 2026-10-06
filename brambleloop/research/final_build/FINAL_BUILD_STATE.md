@@ -187,3 +187,26 @@ research/final_build/audit_3be3096/:
   safety/upload binding confirmed OK. Repairs: claude/rc1-LST, claude/rc1-PAT (base a034a44).
 Repair workers (local branches, unsigned, not pushed; base 503190e): claude/rc1-AUTH, rc1-SPEND,
 rc1-ORD, rc1-SEC, rc1-OWN. Then: merge → full suite → rehearsal → freeze successor → re-audit.
+
+## v1.1 RESUME — preserved state of the previous run (2026-10-06T06:10Z)
+Governing documents (now in repo): spec/10_Brambleloop_FINAL_Master_v1.1_Owner_Command_Center.pdf
+(canonical; sha256 36ed45ad…8177; text research/final_build/master_v1.1.txt) and
+spec/11_Final_Build_v1.1_Master_Prompt.pdf (execution directive; text
+research/final_build/v1_1/EXECUTION_DIRECTIVE_v1.1.txt). v1.0 body (§1–93) unchanged in v1.1;
+new §94–96, F-880..F-930. OA-0003 (always-on rented hosting) RESOLVED by the owner in the directive.
+Preserved state at v1.1 start:
+- Branch claude/visual-investigation, local HEAD 232f739 (signed). origin at 234fe82; 38 commits
+  unpushed — push of this branch was refused by the session permission classifier; owner to push
+  (`git push -u origin claude/visual-investigation`). Nothing is pushed to the production branch.
+- Production = claude/repository-setup-nc9x6o @ fcb982d (Railway). No deploy/merge authorised.
+- RC final-candidate-3be3096: frozen, audited, NOT SHIPPABLE (see above). Repairs rc1-SPEND/ORD/
+  ORD2/AUTH/OWN/SEC/LST/PAT merged locally → 232f739. Full suite on 232f739: 5,888 passing, 10 suites
+  failing (integration interactions) → worker rc1-INT (local branch claude/rc1-INT) repairing.
+- Signing: all 38 unpushed commits re-signed tree-identically (commit-tree -S); old tag
+  final-candidate-3be3096 still names the pre-resign unsigned object (superseded candidate).
+- Codex: build2-assist-01 (5 unique, verification evidence; C-78 ported by fb2-O),
+  final-finance-cost-basis-01 (evidence-cache tooling), continuous-operations-audit (2 unique:
+  department lanes, fenced recovery, Etsy Ads readiness + integration pack) → reconciled in v1.1
+  lanes A/H (reuse, not redo).
+Next: rc1-INT merge → release-eligible suite → rehearsal → freeze successor RC → re-audit, while
+v1.1 lanes (A–J) build F-880..F-930 on disjoint files.
