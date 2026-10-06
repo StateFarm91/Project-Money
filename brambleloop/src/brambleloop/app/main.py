@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 from datetime import timedelta, timezone
 
-from fastapi import FastAPI, Header, Request
+from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from sqlalchemy import func, select
 
@@ -29,7 +29,8 @@ from ..gateway.model_gateway import available_providers
 from ..queue.durable import DuplicateJob, JobQueue
 from ..runtime import pipeline  # noqa: F401  -- registers job handlers
 from ..runtime.worker import Scheduler
-from . import access_log, runner
+from . import access_log, runner, security
+from .security import Markup, esc
 
 APP_VERSION = "0.1.0"
 
@@ -49,7 +50,29 @@ from ..ops import release_record as _release_record
 BOOT_GUARD = _release_record.apply_at_import()
 
 db = Database()
-app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
+# A3-02: default-deny. Every route inherits `operator_gate`, so a mutating route (and every GET
+# in `security.OPERATOR_GET_ROUTES`) is closed to anyone without the operator credential
+# unless it is on the short, justified `security.PUBLIC_MUTATING_ROUTES` allow-list.
+app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION,
+              dependencies=[Depends(security.operator_gate)])
+app.add_exception_handler(security.OperatorRefused, security.operator_refused_handler)
+
+
+def _known_customer_refs() -> list[str]:
+    """Every stored buyer identifier, for the response scrub (A3-04 defence in depth)."""
+    from ..core.models import Customer, Order
+
+    with db.session() as s:
+        refs = set(s.scalars(select(SupportCase.customer_ref).distinct()))
+        refs |= set(s.scalars(select(Customer.customer_ref)))
+        refs |= set(s.scalars(select(Order.external_ref).distinct()))
+    return [r for r in refs if r]
+
+
+# Order matters: the scrub runs inside the header middleware, so every response -- including
+# one the scrub rewrote -- leaves with the security headers.
+app.add_middleware(security.CustomerRefScrubMiddleware, refs_provider=_known_customer_refs)
+app.add_middleware(security.SecurityHeadersMiddleware)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
 from .phase_api import make_router as phase_router
@@ -111,6 +134,10 @@ def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
     except Exception as e:  # noqa: BLE001 - a boot job must never block a boot
         record["outcome"] = "error"
         record["detail"] = f"{type(e).__name__}: {e}"[:300]
+        import logging
+
+        logging.getLogger("brambleloop.boot").warning("boot enqueue %s failed: %s",
+                                                      name, record["detail"])
     BOOT_ENQUEUES.append(record)
     return record
 
@@ -459,6 +486,22 @@ def _shutdown() -> None:
 # ---- health ---------------------------------------------------------------
 
 
+def _public_runner_state() -> dict:
+    """The runner state with its last error reduced to the exception class (A3-12).
+
+    A worker that died on a database error carries the driver's message, which names the
+    host and port; the unauthenticated health check reports that it failed and how, not where.
+    """
+    import re as _re
+
+    state = runner.STATE.to_dict()
+    err = str(state.get("last_error") or "")
+    if err:
+        m = _re.match(r"^((?:scheduler: )?[A-Za-z_][\w.]*)", err)
+        state["last_error"] = (m.group(1) if m else "error") + " (detail in the server log)"
+    return state
+
+
 @app.get("/health")
 def health() -> JSONResponse:
     """Liveness + a real readiness signal: can we actually reach the database?"""
@@ -469,13 +512,23 @@ def health() -> JSONResponse:
         detail = "ok"
     except Exception as e:  # noqa: BLE001
         healthy = False
-        detail = f"{type(e).__name__}: {e}"
+        # A3-12: the driver's message names the database host and port (and can name more).
+        # /health is unauthenticated, so it answers with the class of failure only; the
+        # detail goes to the server log, where the operator can read it.
+        import logging
+
+        logging.getLogger("brambleloop.health").warning(
+            "health: database unreachable: %s: %s", type(e).__name__, e)
+        detail = "unreachable"
     return JSONResponse(
         {"status": "ok" if healthy else "degraded", "version": APP_VERSION, "db": detail,
-         "build": build_identity(), "runner": runner.STATE.to_dict(),
+         "build": build_identity(), "runner": _public_runner_state(),
          # What this boot's enqueues actually did. A swallowed exception with no trace is
          # the boot-time version of a gate nobody can see refusing.
-         "boot_enqueues": list(BOOT_ENQUEUES)},
+         "boot_enqueues": [
+             ({**r, "detail": (r.get("detail") or "").split(":")[0]
+               + " (detail in the server log)"} if r.get("outcome") == "error" else r)
+             for r in BOOT_ENQUEUES]},
         status_code=200 if healthy else 503,
     )
 
@@ -567,7 +620,15 @@ def _truth_reading(name: str) -> dict:
 
 @app.post("/api/scheduler/tick")
 def api_tick() -> dict:
-    """Cron target. Idempotent per cadence window, so calling it often is harmless."""
+    """Cron target. Idempotent per cadence window, so calling it often is harmless.
+
+    Operator credential required (A3-02: every mutating route is default-deny). Production
+    does not call this over HTTP: the embedded runner ticks the scheduler in-process, and the
+    Railway cron entrypoint is `python -m brambleloop.app.scheduler_entry`, which talks to the
+    database directly. An external HTTP cron pointed here must send
+    `Authorization: Bearer $BRAMBLELOOP_OPS_TOKEN`, or it is refused with 401 (503 when the
+    token is unset) and enqueues nothing.
+    """
     return {"enqueued": Scheduler(db).tick()}
 
 
@@ -748,8 +809,33 @@ async def api_support_messages(request: Request,
     return JSONResponse({"recorded": True, "event": event, **out})
 
 
+def _as_of_refusal(as_of: str | None) -> JSONResponse | None:
+    """A3-01/A3-02: `as_of` is a calendar date or nothing, checked before anything is queued.
+
+    It used to be enqueued as given. A garbage value failed inside the job, dead-lettered with
+    the value quoted in its error, turned `/api/verify` red, and was then printed raw on the
+    dashboard -- an unauthenticated query string became stored script on the owner's page.
+    """
+    if as_of in (None, ""):
+        return None
+    from datetime import date as _date
+
+    text = str(as_of)
+    try:
+        if len(text) != 10:
+            raise ValueError
+        day = _date.fromisoformat(text)
+    except ValueError:
+        return JSONResponse({"error": "as_of must be a calendar date, YYYY-MM-DD"},
+                            status_code=400)
+    if not 2000 <= day.year <= 2100:
+        return JSONResponse({"error": "as_of must be a date between 2000 and 2100"},
+                            status_code=400)
+    return None
+
+
 @app.post("/api/plan-cycle")
-def api_plan_cycle(as_of: str | None = None) -> dict:
+def api_plan_cycle(as_of: str | None = None):
     """Enqueue a planning cycle now instead of waiting for the daily cadence.
 
     GREEN: it enqueues work the system already does on a schedule, spends nothing, and cannot
@@ -760,6 +846,9 @@ def api_plan_cycle(as_of: str | None = None) -> dict:
     Running it for a new date re-scores the pool against that calendar, which is the point:
     the portfolio changes with the date, not with the catalogue.
     """
+    refused = _as_of_refusal(as_of)
+    if refused is not None:
+        return refused
     payload = {"as_of": as_of} if as_of else {}
     key = f"plan.cycle:{as_of}" if as_of else None
     try:
@@ -2398,7 +2487,7 @@ def api_scale() -> dict:
 
 
 @app.post("/api/seasonal/recompute")
-def api_seasonal_recompute(as_of: str = "") -> dict:
+def api_seasonal_recompute(as_of: str = ""):
     """Recompute the seasonal war room now, rather than at the next daily cadence.
 
     Same argument as `/api/launch-readiness` and `/api/chain-rebuild`: a daily cadence is
@@ -2409,6 +2498,9 @@ def api_seasonal_recompute(as_of: str = "") -> dict:
     GREEN: it enqueues work already on a schedule, computes dates, spends nothing and
     publishes nothing.
     """
+    refused = _as_of_refusal(as_of)
+    if refused is not None:
+        return refused
     key = f"seasonal.sentinel:{utcnow():%Y%m%dT%H%M}"
     inputs = {"as_of": as_of} if as_of else {}
     try:
@@ -4865,10 +4957,10 @@ def _counts() -> dict:
         }
 
 
-def _pill(status: str) -> str:
+def _pill(status: str) -> Markup:
     cls = {"done": "done", "dead": "dead", "running": "running",
            "failed": "failed"}.get(status, "pending")
-    return f'<span class="pill {cls}">{status}</span>'
+    return Markup(f'<span class="pill {cls}">{esc(status)}</span>')
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -4884,12 +4976,15 @@ def dashboard() -> str:
         products = list(s.scalars(select(Product).order_by(Product.id.desc()).limit(10)))
         agents = list(s.scalars(select(Agent).order_by(Agent.name)))
 
+    # A3-01: every cell, header and empty-state is escaped here; a cell that is already
+    # markup this function's callers built (a status pill) arrives as `Markup`.
     def rows(items, cols, empty):
         if not items:
-            return f'<div class="empty">{empty}</div>'
-        head = "".join(f"<th>{c}</th>" for c in cols[0])
-        body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in items)
-        return f"<table><tr>{head}</tr>{body}</table>"
+            return Markup(f'<div class="empty">{esc(empty)}</div>')
+        head = "".join(f"<th>{esc(c)}</th>" for c in cols[0])
+        body = "".join("<tr>" + "".join(f"<td>{esc(c)}</td>" for c in r) + "</tr>"
+                       for r in items)
+        return Markup(f"<table><tr>{head}</tr>{body}</table>")
 
     # Launch readiness, because "is anything waiting on me" is the question an absent owner
     # actually has, and a count of queued actions does not answer it.
@@ -4906,7 +5001,7 @@ def dashboard() -> str:
             [["Requirement", "Ready", "Blocked on"]], "")
     except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
         launch_html = ('<h2>Launch readiness</h2><div class="empty">could not be assessed: '
-                       f'{type(e).__name__}</div>')
+                       f'{esc(type(e).__name__)}</div>')
 
     # -- the Build-2 command centre (#318, and the owner's request) --------
     #
@@ -4918,10 +5013,10 @@ def dashboard() -> str:
         # the as-of is the query time; a block reading an older snapshot says so itself.
         asof = f'<div class="asof">as of {utcnow():%Y-%m-%d %H:%M:%S} UTC</div>'
         try:
-            return f"<h2>{title}</h2>" + asof + build()
+            return f"<h2>{esc(title)}</h2>" + asof + build()
         except Exception as e:  # noqa: BLE001
-            return (f'<h2>{title}</h2>{asof}<div class="empty">unavailable: '
-                    f'{type(e).__name__}: {e}</div>')
+            return (f'<h2>{esc(title)}</h2>{asof}<div class="empty">unavailable: '
+                    f'{esc(type(e).__name__)}: {esc(e)}</div>')
 
     # F-179 / F-663: ONE owner surface. The legacy OwnerAction table is merged into the gate
     # cards by `executor.approval_inbox`; there is no second "Owner action required" list.
@@ -4977,8 +5072,8 @@ def dashboard() -> str:
                                    env=dict(os.environ))
         verdict = health.verdict(readings)
         return (f'<div class="grid"><div class="card"><span>state</span>'
-                f'<b>{verdict["state"]}</b></div></div>'
-                + f'<div class="empty">{verdict["why"]}</div>'
+                f'<b>{esc(verdict["state"])}</b></div></div>'
+                + f'<div class="empty">{esc(verdict["why"])}</div>'
                 + rows([(r["signal"], r["state"], r["why"][:90]) for r in
                         verdict["readings"]],
                        [["Signal", "State", "Why"]], ""))
@@ -5004,14 +5099,15 @@ def dashboard() -> str:
 
         closure_counts = closure.matrix(db)["counts"]
         cards = "".join(
-            f'<div class="card"><span>{k.replace("_", " ")}</span><b>{v}</b></div>'
+            f'<div class="card"><span>{esc(k.replace("_", " "))}</span><b>{esc(v)}</b></div>'
             for k, v in sorted(cov.items()))
         closing = "".join(
-            f'<div class="card"><span>closure: {k}</span><b>{v}</b></div>'
+            f'<div class="card"><span>closure: {esc(k)}</span><b>{esc(v)}</b></div>'
             for k, v in closure_counts.items())
         return (f'<div class="grid">{cards}'
-                f'<div class="card"><span>executable left</span><b>{executable}</b></div>'
-                f'<div class="card"><span>ready to start (not parked)</span><b>{ready}</b></div>'
+                f'<div class="card"><span>executable left</span><b>{esc(executable)}</b></div>'
+                f'<div class="card"><span>ready to start (not parked)</span><b>{esc(ready)}</b>'
+                f'</div>'
                 f"{closing}</div>")
 
     def _visual_pipeline() -> str:
@@ -5026,17 +5122,18 @@ def dashboard() -> str:
         try:
             m = milestones.assess()
         except Exception as e:  # noqa: BLE001 - a broken milestone must not blank the console
-            return f"<p>unavailable: {type(e).__name__}: {e}</p>"
+            return f"<p>unavailable: {esc(type(e).__name__)}: {esc(e)}</p>"
         tone = {"PASS": "#1a7f37", "PARTIAL": "#9a6700", "FAIL": "#cf222e",
                 "NOT_STARTED": "#57606a", "BLOCKED_ON_EARLIER": "#cf222e",
                 "UNMEASURED": "#57606a"}
         rows = "".join(
-            f"<tr><td><b>{r['milestone']}</b></td><td>{r['name']}</td>"
-            f"<td style=\"color:{tone.get(r['status'], '#57606a')}\"><b>{r['status']}</b></td>"
-            f"<td>{r['evidence'][:150]}</td></tr>"
+            f"<tr><td><b>{esc(r['milestone'])}</b></td><td>{esc(r['name'])}</td>"
+            f"<td style=\"color:{tone.get(r['status'], '#57606a')}\"><b>{esc(r['status'])}</b>"
+            f"</td><td>{esc(str(r['evidence'])[:150])}</td></tr>"
             for r in m["milestones"])
-        return (f"<p>highest passed: <b>{m['highest_passed'] or 'none'}</b> &middot; "
-                f"working on <b>{m['current'] or '-'}</b> &middot; {m['business_objective']}</p>"
+        return (f"<p>highest passed: <b>{esc(m['highest_passed'] or 'none')}</b> &middot; "
+                f"working on <b>{esc(m['current'] or '-')}</b> &middot; "
+                f"{esc(m['business_objective'])}</p>"
                 f"<table><tr><th></th><th>Milestone</th><th>State</th><th>Evidence</th></tr>"
                 f"{rows}</table>")
 
@@ -5166,14 +5263,14 @@ def dashboard() -> str:
 
         head = dashboard_truth.headline(db, st, inbox)
         headline_html = '<div class="grid">' + "".join(
-            f'<div class="card{" alarm" if k["alarm"] else ""}"><span>{k["label"]}</span>'
-            f'<b>{k["value"]}</b><small title="{k["evidence"]["transform"]}">'
-            f'{k["why"][:140]}<br>source: {k["evidence"]["source"][:80]} &middot; as of '
-            f'{k["evidence"]["as_of"]}</small></div>'
+            f'<div class="card{" alarm" if k["alarm"] else ""}"><span>{esc(k["label"])}</span>'
+            f'<b>{esc(k["value"])}</b><small title="{esc(k["evidence"]["transform"])}">'
+            f'{esc(str(k["why"])[:140])}<br>source: {esc(str(k["evidence"]["source"])[:80])}'
+            f' &middot; as of {esc(k["evidence"]["as_of"])}</small></div>'
             for k in head["kpis"]) + "</div>"
     except Exception as e:  # noqa: BLE001 - the dashboard must render even if this does not
-        headline_html = (f'<div class="empty">headline unavailable: {type(e).__name__}: '
-                         f'{e}</div>')
+        headline_html = (f'<div class="empty">headline unavailable: {esc(type(e).__name__)}: '
+                         f'{esc(e)}</div>')
 
     command_centre = (
         _block("Build 2 coverage", _build2)
@@ -5201,8 +5298,8 @@ def dashboard() -> str:
 <style>{_CSS}</style></head><body>
 <header><h1>BRAMBLELOOP STUDIO</h1>
 <div class="sub">Autonomous crochet commerce OS &middot; v{APP_VERSION} &middot; rendered {utcnow():%Y-%m-%d %H:%M} UTC
-&middot; commit <b>{ident['commit_short']}</b> ({ident['branch']}) &middot; container started {started}
-&middot; last clean /api/verify: <b>{last_ok_at}</b></div>
+&middot; commit <b>{esc(ident['commit_short'])}</b> ({esc(ident['branch'])}) &middot; container started {esc(started)}
+&middot; last clean /api/verify: <b>{esc(last_ok_at)}</b></div>
 </header><main>
 {headline_html}
 {_block("Waiting on the owner", _approvals)}
@@ -5210,23 +5307,23 @@ def dashboard() -> str:
 <h2>Volume and operations</h2>
 <div class="sub" style="color:var(--muted);font-size:12px">Output volume, not business readiness.</div>
 <div class="grid">
-  <div class="card"><span>Queue pending</span><b>{st['queue'].get('pending',0)}</b></div>
-  <div class="card"><span>Running</span><b>{st['queue'].get('running',0)}</b></div>
-  <div class="card"><span>Certified releases</span><b>{st['certified_versions']}</b></div>
-  <div class="card"><span>Open incidents</span><b>{st['open_incidents']}</b></div>
-  <div class="card"><span>{st['spend'].get('label', 'Recorded spend')}</span><b>{st['spend']['display']}</b></div>
-  <div class="card"><span>Revenue (reconciled)</span><b>{st['revenue']['display']}</b></div>
+  <div class="card"><span>Queue pending</span><b>{esc(st['queue'].get('pending',0))}</b></div>
+  <div class="card"><span>Running</span><b>{esc(st['queue'].get('running',0))}</b></div>
+  <div class="card"><span>Certified releases</span><b>{esc(st['certified_versions'])}</b></div>
+  <div class="card"><span>Open incidents</span><b>{esc(st['open_incidents'])}</b></div>
+  <div class="card"><span>{esc(st['spend'].get('label', 'Recorded spend'))}</span><b>{esc(st['spend']['display'])}</b></div>
+  <div class="card"><span>Revenue (reconciled)</span><b>{esc(st['revenue']['display'])}</b></div>
   <div class="card"><span>Worker</span><b>{'live' if st['runner']['worker_alive'] else ('off' if not st['runner']['enabled'] else 'stalled')}</b></div>
-  <div class="card"><span>Model providers</span><b>{len(st['model_providers']) or 'none'}</b></div>
-  <div class="card"><span>Listings drafted</span><b>{_counts()['listings']}</b></div>
-  <div class="card"><span>Listing images</span><b>{_counts()['listing_images']}</b></div>
-  <div class="card"><span>Content pieces</span><b>{_counts()['content_pieces']}</b></div>
+  <div class="card"><span>Model providers</span><b>{esc(len(st['model_providers']) or 'none')}</b></div>
+  <div class="card"><span>Listings drafted</span><b>{esc(_counts()['listings'])}</b></div>
+  <div class="card"><span>Listing images</span><b>{esc(_counts()['listing_images'])}</b></div>
+  <div class="card"><span>Content pieces</span><b>{esc(_counts()['content_pieces'])}</b></div>
 </div>
 <div class="sub" style="color:var(--muted);font-size:12px;margin:-14px 0 18px">
-Runner: {st['runner']['worker'] or 'not started'} &middot; last tick
-{st['runner']['worker_last_tick'] or 'never'} &middot; restarts {st['runner']['worker_restarts']}
-&middot; scheduler {st['runner']['scheduler_last_tick'] or 'never'}
-{('&middot; last error: ' + st['runner']['last_error']) if st['runner']['last_error'] else ''}
+Runner: {esc(st['runner']['worker'] or 'not started')} &middot; last tick
+{esc(st['runner']['worker_last_tick'] or 'never')} &middot; restarts {esc(st['runner']['worker_restarts'])}
+&middot; scheduler {esc(st['runner']['scheduler_last_tick'] or 'never')}
+{('&middot; last error: ' + esc(st['runner']['last_error'])) if st['runner']['last_error'] else ''}
 </div>
 {command_centre}
 {_block("Health", _health)}
@@ -5538,14 +5635,26 @@ def api_culture_development() -> dict:
 
 @app.get("/ops/teardown", response_class=HTMLResponse)
 def ops_teardown_page() -> HTMLResponse:
-    """The phone page: paste the operator token once, tap a pick, choose files.
+    """The phone page: paste the operator token, tap a pick, choose files.
 
     Served without authentication because it contains no data -- every row on it is fetched
-    with the token the browser holds. Deliberately one file, no build step and no framework:
+    with the token the page holds. Deliberately one file, no build step and no framework:
     this is opened on a phone, months from now, by somebody who has just paid for thirteen
     patterns and wants them filed.
+
+    A3-01: the token is held in page memory only, never in `localStorage` (which any script on
+    this origin could read, forever, and which an XSS on the dashboard would have read), and
+    the script is served from `/ops/teardown.js` so the page runs under a policy that forbids
+    inline script. Reloading the page asks for the token again; that is the price, and it is
+    the right one for a credential that controls the whole company.
     """
-    return HTMLResponse(_TEARDOWN_PAGE)
+    return HTMLResponse(_TEARDOWN_PAGE, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/ops/teardown.js")
+def ops_teardown_script() -> Response:
+    return Response(_TEARDOWN_SCRIPT, media_type="application/javascript",
+                    headers={"Cache-Control": "no-store"})
 
 
 _TEARDOWN_PAGE = """<!doctype html>
@@ -5575,14 +5684,23 @@ _TEARDOWN_PAGE = """<!doctype html>
 <h1>Benchmark intake</h1>
 <p class="sub">Tap a pick, choose the files Etsy gave you. Zips are fine. Nothing needs
 renaming, sorting or describing.</p>
-<div id="auth"><p class="sub">Operator token (stored on this phone only):</p>
+<div id="auth"><p class="sub">Operator token (kept in this page's memory only; it is
+forgotten when the page is closed or reloaded):</p>
 <input type="password" id="token" autocomplete="off" placeholder="BRAMBLELOOP_OPS_TOKEN">
-<button onclick="save()">Remember and load</button></div>
+<button id="load" type="button">Load</button></div>
 <div id="status" class="msg"></div>
 <div id="picks"></div>
-<script>
-const T=()=>localStorage.getItem('bl_ops')||'';
-function save(){localStorage.setItem('bl_ops',document.getElementById('token').value.trim());load();}
+<script src="/ops/teardown.js"></script></body></html>
+"""
+
+_TEARDOWN_SCRIPT = r"""'use strict';
+// The operator token lives in this variable and nowhere else (A3-01). Remove the copy an
+// earlier version of this page left in localStorage.
+let TOKEN='';
+try{ localStorage.removeItem('bl_ops'); }catch(e){}
+const T=()=>TOKEN;
+function save(){const i=document.getElementById('token');TOKEN=i.value.trim();i.value='';load();}
+function safeHref(u){u=String(u||'');return /^https:\/\//i.test(u)?u:'';}
 function H(){return {'Authorization':'Bearer '+T()};}
 async function load(){
   const s=document.getElementById('status'); s.textContent='Loading…';
@@ -5609,7 +5727,7 @@ function card(p){
   const m=document.createElement('p'); m.className='meta';
   m.textContent='CA$'+p.price_cad+' · '+p.department+' · '+(p.received?p.files+' files received':p.answers||'');
   el.appendChild(m);
-  if(p.url){const a=document.createElement('a');a.href=p.url;a.target='_blank';a.textContent='open the listing';a.className='meta';el.appendChild(a);}
+  if(safeHref(p.url)){const a=document.createElement('a');a.href=safeHref(p.url);a.rel='noopener noreferrer';a.target='_blank';a.textContent='open the listing';a.className='meta';el.appendChild(a);}
   const f=document.createElement('input'); f.type='file'; f.multiple=true; el.appendChild(f);
   const b=document.createElement('button'); b.textContent=p.received?'Add more files':'Upload';
   const out=document.createElement('div'); out.className='msg';
@@ -5630,6 +5748,6 @@ function card(p){
   };
   el.appendChild(b); el.appendChild(out); return el;
 }
-if(T()) load();
-</script></body></html>
+document.getElementById('load').addEventListener('click',save);
 """
+
