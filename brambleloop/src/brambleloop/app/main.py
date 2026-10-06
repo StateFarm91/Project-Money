@@ -41,6 +41,13 @@ APP_VERSION = "0.1.0"
 # survived a careful review of the application's own code.
 ACCESS_LOG_REDACTION = access_log.install()
 
+# A3-05: the runtime boot guard. On the hosting platform a build with no committed,
+# release-eligible record for its exact tree runs as SHADOW (and opens a P1 at startup), so a
+# push that skipped the git hook, or a platform-side redeploy, cannot run unproven code live.
+from ..ops import release_record as _release_record
+
+BOOT_GUARD = _release_record.apply_at_import()
+
 db = Database()
 app = FastAPI(title="Brambleloop Studio OS", version=APP_VERSION)
 from .activation_authority_api import make_router as activation_authority_router
@@ -111,6 +118,10 @@ def _boot_enqueue(name: str, *, when: bool, agent: str, job_type: str, key: str,
 @app.on_event("startup")
 def _startup() -> None:
     schema_changes = db.create_all()
+    try:
+        _release_record.record_incident(db)
+    except Exception:  # noqa: BLE001 - the phase is already forced; the row is the record
+        pass
     # One row per container start, carrying the commit it started on.
     #
     # `runner.STATE.worker_restarts` looks like a restart count and cannot be one: it counts
@@ -502,6 +513,8 @@ def api_status() -> dict:
         # therefore proves nothing about a deploy; this is the only field that says whether
         # a fix has actually reached production, and it says `unknown` when it cannot tell.
         "build": build_identity(),
+        "boot_guard": {k: BOOT_GUARD.get(k) for k in ("enforced", "ok", "action", "record",
+                                                      "reasons", "tree_sha256")},
         "queue": q.counts(),
         # Split, because the raw count is 99% Shadow Mode working correctly. A publication
         # job dying is a refusal, not a failure, and a number dominated by healthy refusals
@@ -522,8 +535,15 @@ def api_status() -> dict:
         "products": products,
         "certified_versions": certified,
         "open_incidents": incidents,
+        # Raw sums, kept for API compatibility and named for what they are. A3-09: neither is
+        # a headline figure -- `revenue` (UNMEASURED while the order source is gated; only
+        # measured+reconciled rows when not) and `spend` (every recorded kind) are.
         "agent_opex_cad": round(float(opex), 4),
+        "agent_opex_basis": "raw sum of cost_entries.amount_cad (all kinds); see `spend`",
         "revenue_cad": round(float(revenue), 2),
+        "revenue_cad_basis": "raw sum of ledger.gross_cad, unreconciled; see `revenue`",
+        "revenue": _truth_reading("revenue_reading"),
+        "spend": _truth_reading("spend_reading"),
         "owner_actions_open": owner_open,
         "runner": runner.STATE.to_dict(),
         # Reported rather than assumed. An empty list is the truthful answer until a key is
@@ -531,6 +551,18 @@ def api_status() -> dict:
         # exist.
         "model_providers": available_providers(),
     }
+
+
+def _truth_reading(name: str) -> dict:
+    """A3-09: the honest revenue/spend reading for /api/status; UNKNOWN if unreadable."""
+    from . import dashboard_truth
+
+    try:
+        return getattr(dashboard_truth, name)(db)
+    except Exception as exc:  # noqa: BLE001 - status must answer; unknown is not zero
+        return {"state": "UNKNOWN", "value_cad": None, "display": "UNKNOWN",
+                "label": "Recorded spend (all kinds)",
+                "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
 
 
 @app.post("/api/scheduler/tick")
@@ -4308,31 +4340,31 @@ def api_verify() -> JSONResponse:
     def check(name: str, ok: bool, evidence) -> None:
         checks.append({"check": name, "ok": bool(ok), "evidence": evidence})
 
-    phase = os.environ.get("BRAMBLELOOP_PHASE", "shadow")
-    check("phase_is_shadow", phase == "shadow", {"BRAMBLELOOP_PHASE": phase})
+    # A3-10: phase-aware -- the effective phase (env AND the sealed record), and in a live
+    # phase the publication checks assert "everything published is certified, granted and
+    # read back" instead of "nothing published". Draft writes (incomplete publishes, draft
+    # create intents, exercise drafts left on Etsy) are counted. See app/verify_checks.py.
+    from . import verify_checks
+
+    pub_checks = verify_checks.publication_checks(db)
+    checks.append(pub_checks["phase"])
 
     with db.session() as s:
-        published = s.scalar(select(func.count()).select_from(AuditLog).where(
-            AuditLog.action == "store.published")) or 0
         refused = s.scalar(select(func.count()).select_from(AuditLog).where(
             AuditLog.action == "store.publish_refused")) or 0
         certified = s.scalar(select(func.count()).select_from(PatternVersion).where(
             PatternVersion.certified)) or 0
         audits = s.scalar(select(func.count()).select_from(AuditLog)) or 0
-        revenue = s.scalar(select(func.sum(LedgerEntry.gross_cad))) or 0.0
-        customers = s.scalar(select(func.count()).select_from(LedgerEntry)) or 0
         limits = list(s.scalars(select(SpendLimit)))
         agents = list(s.scalars(select(Agent)))
         ad_spend = s.scalar(select(func.sum(CostEntry.amount_cad)).where(
             CostEntry.kind == "ads")) or 0.0
 
-    check("nothing_published", published == 0,
-          {"store.published": published, "store.publish_refused": refused})
+    checks.append(pub_checks["published"])
     check("publication_was_actually_attempted_and_refused", refused > 0,
           {"refusals": refused})
     check("no_paid_advertising", ad_spend == 0, {"ad_spend_cad": float(ad_spend)})
-    check("no_revenue_claimed", float(revenue) == 0.0 and customers == 0,
-          {"revenue_cad": float(revenue), "ledger_entries": customers})
+    checks.append(pub_checks["revenue"])
     # This assertion used to be "no model provider is configured", which was true for the
     # whole of Build 1 and stopped being true the moment the owner supplied a key. A standing
     # safety check that an owner decision has overtaken is not a safety check; it is a red
@@ -5182,8 +5214,8 @@ def dashboard() -> str:
   <div class="card"><span>Running</span><b>{st['queue'].get('running',0)}</b></div>
   <div class="card"><span>Certified releases</span><b>{st['certified_versions']}</b></div>
   <div class="card"><span>Open incidents</span><b>{st['open_incidents']}</b></div>
-  <div class="card"><span>Agent opex</span><b>CA${st['agent_opex_cad']:.2f}</b></div>
-  <div class="card"><span>Revenue</span><b>CA${st['revenue_cad']:.2f}</b></div>
+  <div class="card"><span>{st['spend'].get('label', 'Recorded spend')}</span><b>{st['spend']['display']}</b></div>
+  <div class="card"><span>Revenue (reconciled)</span><b>{st['revenue']['display']}</b></div>
   <div class="card"><span>Worker</span><b>{'live' if st['runner']['worker_alive'] else ('off' if not st['runner']['enabled'] else 'stalled')}</b></div>
   <div class="card"><span>Model providers</span><b>{len(st['model_providers']) or 'none'}</b></div>
   <div class="card"><span>Listings drafted</span><b>{_counts()['listings']}</b></div>

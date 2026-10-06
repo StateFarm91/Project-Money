@@ -128,28 +128,129 @@ def launch_inventory(db, survivors: list[str] | None = None) -> dict:
     }
 
 
-def commercial_evidence(db) -> dict:
-    """Money that arrived with the order it came from. Counted, never inferred."""
-    from sqlalchemy import func, select
+UNMEASURED = "UNMEASURED"
 
-    from ..core.models import LedgerEntry, Order
+
+def _order_source(db) -> dict:
+    """`commerce.orders_ingest.source_state`, or UNKNOWN when it cannot be read."""
+    try:
+        from ..commerce import orders_ingest
+
+        return dict(orders_ingest.source_state(db))
+    except Exception as exc:  # noqa: BLE001 - an unreadable source is not a measured one
+        return {"open": False, "measured": False, "missing": [], "last_read_at": None,
+                "why": f"order source state unreadable ({type(exc).__name__})"}
+
+
+def _sale_rows(db) -> list[dict]:
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry
 
     with db.session() as s:
-        evidenced = list(s.execute(select(LedgerEntry.gross_cad, LedgerEntry.evidence_ref)
-                                   .where(LedgerEntry.gross_cad > 0,
-                                          LedgerEntry.evidence_ref.is_not(None),
-                                          func.trim(LedgerEntry.evidence_ref) != "")))
+        return [{"gross": float(g or 0), "refunds": float(r or 0), "ref": (ref or "").strip(),
+                 "basis": b or "unknown", "recon": rs or "unreconciled"}
+                for g, r, ref, b, rs in s.execute(select(
+                    LedgerEntry.gross_cad, LedgerEntry.refunds_cad, LedgerEntry.evidence_ref,
+                    LedgerEntry.basis, LedgerEntry.reconciliation_state)
+                    .where(LedgerEntry.gross_cad > 0))]
+
+
+def _reconciled_measured(row: dict) -> bool:
+    """A3-09: a sale counts as evidenced only when measured AND reconciled to Etsy's ledger."""
+    from ..finance.reconcile import RECONCILED
+
+    return bool(row["ref"]) and row["basis"] == "measured" and row["recon"] == RECONCILED
+
+
+def revenue_reading(db) -> dict:
+    """Revenue as the headline may state it (A3-09).
+
+    UNMEASURED while the order source is not connected-and-read: a CA$0.00 there would be a
+    zero nobody observed. When measured, only measured+reconciled sale rows are summed (net of
+    refunds); anything else is reported as a count beside it, never inside it.
+    """
+    source = _order_source(db)
+    rows = _sale_rows(db)
+    good = [r for r in rows if _reconciled_measured(r)]
+    raw = round(sum(r["gross"] for r in rows), 2)
+    out = {"raw_ledger_gross_cad": raw, "unreconciled_rows": len(rows) - len(good),
+           "order_source_measured": bool(source.get("measured")),
+           "why": source.get("why") or ""}
+    if not source.get("measured"):
+        return {**out, "state": UNMEASURED, "value_cad": None, "display": UNMEASURED,
+                "evidence": evidence("commerce.orders_ingest.source_state; ledger",
+                                     transform="not summed: the order source is not measured",
+                                     confidence="unmeasured",
+                                     reconciliation="order source gated (transactions_r)")}
+    value = round(sum(r["gross"] - r["refunds"] for r in good), 2)
+    return {**out, "state": "MEASURED", "value_cad": value, "display": f"CA${value:.2f}",
+            "evidence": evidence("ledger (basis=measured, reconciliation=matched_etsy_ledger)",
+                                 transform="sum of gross less refunds over reconciled sales",
+                                 confidence="measured",
+                                 reconciliation="matched against the Etsy payment ledger")}
+
+
+def spend_reading(db) -> dict:
+    """Every recorded spend kind, labelled -- not model spend presented as total opex (A3-09)."""
+    from sqlalchemy import func, select
+
+    from ..core.models import CostEntry, LedgerEntry
+
+    with db.session() as s:
+        by_kind = {k or "other": round(float(v or 0), 4) for k, v in s.execute(
+            select(CostEntry.kind, func.sum(CostEntry.amount_cad)).group_by(CostEntry.kind))}
+        fees = float(s.scalar(select(func.sum(LedgerEntry.fees_cad))) or 0)
+        expense = float(s.scalar(select(func.sum(LedgerEntry.expense_cad))) or 0)
+    cost_total = round(sum(by_kind.values()), 4)
+    total = round(cost_total + fees + expense, 2)
+    return {"total_recorded_cad": total, "cost_entries_by_kind": by_kind,
+            "cost_entries_cad": cost_total, "model_cad": round(by_kind.get("llm", 0.0), 4),
+            "ledger_fees_cad": round(fees, 2), "ledger_expense_cad": round(expense, 2),
+            "label": "Recorded spend (all kinds)",
+            "display": f"CA${total:.2f}",
+            "evidence": evidence("cost_entries (every kind) + ledger fees_cad + expense_cad",
+                                 transform="sum; recorded spend only, not an all-in opex",
+                                 confidence="recorded (not reconciled)")}
+
+
+def commercial_evidence(db) -> dict:
+    """Money that arrived with the order it came from. Counted, never inferred.
+
+    A3-09: an "evidenced sale" is a ledger row with an evidence ref whose amount is measured
+    and reconciled against Etsy's ledger. A row that merely names a reference is counted as
+    recorded-unreconciled. While the order source is not measured the state is UNMEASURED.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import Order
+
+    source = _order_source(db)
+    rows = _sale_rows(db)
+    evidenced = [r for r in rows if _reconciled_measured(r)]
+    recorded = [r for r in rows if r["ref"] and not _reconciled_measured(r)]
+    with db.session() as s:
         orders = s.scalar(select(func.count()).select_from(Order)) or 0
+    if evidenced:
+        state = "OBSERVED"
+    elif not source.get("measured"):
+        state = UNMEASURED
+    else:
+        state = "NONE_OBSERVED"
     return {"evidenced_sales": len(evidenced),
-            "evidenced_gross_cad": round(sum(float(g or 0) for g, _ in evidenced), 2),
+            "evidenced_gross_cad": round(sum(r["gross"] for r in evidenced), 2),
+            "recorded_unreconciled_sales": len(recorded),
             "orders": int(orders),
-            "state": "OBSERVED" if evidenced or orders else "NONE_OBSERVED",
+            "order_source_measured": bool(source.get("measured")),
+            "state": state,
             "evidence": evidence(
-                "ledger (gross_cad > 0 with evidence_ref) and orders tables",
-                transform="count and sum of revenue rows that name their order",
-                confidence="measured",
-                reconciliation="not reconciled against Etsy payouts (order source is "
-                               "gated on transactions_r)")}
+                "ledger (gross_cad > 0, evidence_ref, basis=measured, "
+                "reconciliation=matched_etsy_ledger) and orders tables",
+                transform="count and sum of reconciled, measured revenue rows",
+                confidence="measured" if source.get("measured") else "unmeasured",
+                reconciliation=("matched against the Etsy payment ledger"
+                                if source.get("measured") else
+                                "not reconciled: order source gated on transactions_r"))}
 
 
 def benchmark_status(db) -> dict:
@@ -211,6 +312,9 @@ def headline(db, status: dict, inbox: dict | None = None) -> dict:
     commerce = commercial_evidence(db)
     bench = benchmark_status(db)
     dead = dead_letter_split(status)
+    revenue = revenue_reading(db)
+    spend = spend_reading(db)
+    inbox_known = inbox is not None and isinstance(inbox.get("cards"), list)
     kpis = [
         {"key": "launch_cleared", "label": "Launch-cleared / certified",
          "value": f"{inventory['launch_cleared']} / {inventory['certified']}",
@@ -235,12 +339,25 @@ def headline(db, status: dict, inbox: dict | None = None) -> dict:
                  f"benchmark shops; {bench['purchased_patterns']} purchased patterns")},
         {"key": "commercial_evidence", "label": "Commercial evidence",
          "value": (f"{commerce['evidenced_sales']} sales / CA${commerce['evidenced_gross_cad']:.2f}"
-                   if commerce["state"] == "OBSERVED" else "none observed"),
+                   if commerce["state"] == "OBSERVED" else
+                   UNMEASURED if commerce["state"] == UNMEASURED else "none observed"),
          "alarm": commerce["state"] != "OBSERVED", "evidence": commerce["evidence"],
-         "why": f"{commerce['orders']} orders on file; revenue counted only with its order"},
+         "why": (f"{commerce['orders']} orders on file; revenue counted only when measured "
+                 f"and reconciled ({commerce['recorded_unreconciled_sales']} recorded rows "
+                 f"not reconciled)")},
+        {"key": "revenue", "label": "Revenue (reconciled)", "value": revenue["display"],
+         "alarm": revenue["state"] != "MEASURED", "evidence": revenue["evidence"],
+         "why": (revenue["why"] or "measured, reconciled sales net of refunds")
+                + f"; raw ledger gross CA${revenue['raw_ledger_gross_cad']:.2f} not shown as revenue"},
+        {"key": "spend", "label": spend["label"], "value": spend["display"],
+         "alarm": False, "evidence": spend["evidence"],
+         "why": (f"model CA${spend['model_cad']:.2f}; cost entries by kind "
+                 f"{spend['cost_entries_by_kind']}; ledger fees CA${spend['ledger_fees_cad']:.2f}"
+                 f", ledger expense CA${spend['ledger_expense_cad']:.2f}")},
         {"key": "owner_inbox", "label": "Waiting on the owner",
-         "value": str(len((inbox or {}).get("cards") or [])) if inbox is not None else "UNKNOWN",
-         "alarm": False,
+         "value": str(len(inbox["cards"])) if inbox_known else "UNKNOWN",
+         # A3-09: an inbox nobody could read is an alarm, not a quiet "nothing waiting".
+         "alarm": not inbox_known,
          "evidence": evidence("build2.executor.approval_inbox (one queue)",
                               transform="closed owner gates that unblock work, merged with "
                                         "OwnerAction rows by requirement_key",
@@ -252,4 +369,5 @@ def headline(db, status: dict, inbox: dict | None = None) -> dict:
     ]
     return {"kpis": kpis, "inventory": inventory, "creative": survivors,
             "commercial": commerce, "benchmark": bench, "dead_letters": dead,
+            "revenue": revenue, "spend": spend,
             "as_of": _now()}

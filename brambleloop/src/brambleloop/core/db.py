@@ -46,6 +46,7 @@ def resolve_url(url: str | None = None, *, scratch: bool = False) -> str:
     builds a local SQLite file to restore into, and the guard, correctly refusing ephemeral
     SQLite, killed the job that proves the real database can be recovered.
     """
+    explicit = bool(url)
     url = (url or os.environ.get("BRAMBLELOOP_DATABASE_URL")
            or os.environ.get("DATABASE_URL") or "").strip()
     if url.startswith("postgres://"):
@@ -54,14 +55,43 @@ def resolve_url(url: str | None = None, *, scratch: bool = False) -> str:
         url = "postgresql+psycopg2://" + url[len("postgresql://"):]
     if not url:
         url = DEFAULT_URL
-    if (url.startswith("sqlite") and not scratch
-            and os.environ.get("BRAMBLELOOP_REQUIRE_POSTGRES") == "1"):
-        raise EphemeralStorageRefused(
-            "BRAMBLELOOP_REQUIRE_POSTGRES=1 but no Postgres URL is bound. Refusing to start "
-            "on ephemeral SQLite: the container would look healthy and lose every job, audit "
-            "record and release certificate on its next restart."
-        )
+    if url.startswith("sqlite") and not scratch:
+        why = sqlite_refusal_reason(os.environ, explicit=explicit)
+        if why:
+            raise EphemeralStorageRefused(
+                f"{why}, but no Postgres URL is bound. Refusing to start on ephemeral "
+                "SQLite: the container would look healthy and lose every job, audit record "
+                "and release certificate on its next restart."
+            )
     return url
+
+
+#: Markers the hosting platform injects into every container it runs (A3-08).
+HOSTED_MARKERS = ("RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME", "RAILWAY_PROJECT_ID",
+                  "RAILWAY_SERVICE_ID", "RAILWAY_DEPLOYMENT_ID")
+
+
+def sqlite_refusal_reason(env, *, explicit: bool = False) -> str | None:
+    """Why SQLite must be refused here, or None (A3-08: default-on, not opt-in).
+
+    * `BRAMBLELOOP_REQUIRE_POSTGRES=1` -- the original opt-in; refuses every SQLite URL.
+    * On the hosting platform (any `RAILWAY_*` marker), or with `BRAMBLELOOP_PHASE` set to
+      anything but `shadow`, SQLite reached from the environment or the default is refused
+      whatever `BRAMBLELOOP_REQUIRE_POSTGRES` says: a mis-bound `DATABASE_URL` there would
+      silently reset the company on restart. A SQLite URL passed explicitly by code (a tool
+      or a test building its own file) is that caller's decision and is not refused here.
+    """
+    if env.get("BRAMBLELOOP_REQUIRE_POSTGRES") == "1":
+        return "BRAMBLELOOP_REQUIRE_POSTGRES=1"
+    if explicit:
+        return None
+    hosted = sorted(m for m in HOSTED_MARKERS if env.get(m))
+    if hosted:
+        return f"running on the hosting platform ({hosted[0]} is set)"
+    phase = (env.get("BRAMBLELOOP_PHASE") or "shadow").strip().lower() or "shadow"
+    if phase != "shadow":
+        return f"BRAMBLELOOP_PHASE={phase} (not shadow)"
+    return None
 
 
 def make_engine(url: str | None = None, echo: bool = False, *,

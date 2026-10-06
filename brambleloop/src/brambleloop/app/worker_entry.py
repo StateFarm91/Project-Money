@@ -24,8 +24,17 @@ log = logging.getLogger("brambleloop.worker")
 
 
 def main() -> int:
+    # A3-05: same runtime boot guard as the web service. On the hosting platform an unproven
+    # build runs as SHADOW (the phase env is forced before the effective phase is read below).
+    from ..ops import release_record
+
+    release_record.apply_at_import()
     db = Database()
     db.create_all()
+    try:
+        release_record.record_incident(db)
+    except Exception:  # noqa: BLE001 - the phase is already forced
+        pass
     Registry(db).seed_defaults()
     from ..intel.benchmarks import seed as seed_benchmarks
 

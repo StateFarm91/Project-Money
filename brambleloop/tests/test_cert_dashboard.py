@@ -268,8 +268,17 @@ def test_dashboard_cards_equal_sql():
     assert int(_card(html, "Certified releases")) == one(
         "select count(*) from pattern_versions where certified=1")
     assert int(_card(html, "Open incidents")) == one("select count(*) from incidents where resolved=0")
-    assert _card(html, "Agent opex") == f"CA${one('select sum(amount_cad) from cost_entries'):.2f}"
-    assert _card(html, "Revenue") == f"CA${one('select sum(gross_cad) from ledger'):.2f}"
+    # A3-09: the spend card counts every recorded kind (cost entries + ledger fees/expense) and
+    # is labelled as such; revenue is UNMEASURED while the order source is gated, never a
+    # CA$ sum of unreconciled ledger rows.
+    spend = ((one("select coalesce(sum(amount_cad), 0) from cost_entries") or 0)
+             + (one("select coalesce(sum(fees_cad), 0) + coalesce(sum(expense_cad), 0) "
+                    "from ledger") or 0))
+    assert _card(html, "Recorded spend (all kinds)") == f"CA${spend:.2f}"
+    assert "<span>Agent opex</span>" not in html
+    assert _card(html, "Revenue (reconciled)") == "UNMEASURED"
+    assert one("select count(*) from ledger where gross_cad > 0") > 0, \
+        "the seed must hold ledger revenue for this to prove anything"
     assert int(_card(html, "Listings drafted")) == one("select count(*) from listings")
     counts = Counter(r["status"] for r in REQS)
     assert int(_card(html, "executable left")) == counts["partial"] + counts.get("missing", 0)

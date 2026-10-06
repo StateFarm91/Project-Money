@@ -83,9 +83,26 @@ def _build(green: bool) -> tuple[Path, dict]:
     return repo, shas
 
 
+# The throwaway repository's deployable tree (A3-05): its suites and the runner.
+LAYOUT = {"prefix": "", "dirs": ("tests/",), "files": ("run_tests.sh",), "release": "release"}
+
+
 def _check(repo: Path, candidate: str, deployed: str | None) -> dict:
     return G.check(candidate, deployed, repo=repo, record_dir=repo / "artifacts" / "suite_runs",
-                   log_base=repo)
+                   log_base=repo, layout=LAYOUT)
+
+
+def _record(repo: Path, sha: str) -> str:
+    """A3-05: write the tracked release record for `sha` and commit it on top; return HEAD."""
+    out = G.record_release(sha, repo=repo, record_dir=repo / "artifacts" / "suite_runs",
+                           log_base=repo, layout=LAYOUT)
+    assert out["ok"], out
+    return _commit(repo, "R (release record)")
+
+
+def _tracked(repo: Path) -> tuple[Path, dict]:
+    rec_path = next((repo / "release").glob("RELEASE_*.json"))
+    return rec_path, json.loads(rec_path.read_text())
 
 
 def test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed():
@@ -95,10 +112,21 @@ def test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed():
         rec = G.latest_suite(repo / "artifacts" / "suite_runs", sha=s["C"])
         assert rec and rec["release_eligible"] is True and rec["scope"] == "full"
         assert rec["tests_passing"] == 100 and rec["suites_total"] == 100
-        out = _check(repo, s["C"], s["B"])
+        # A3-05: the local (gitignored) record alone is not believed any more.
+        untracked = _check(repo, s["C"], s["B"])
+        assert untracked["verdict"] == "REFUSE", untracked
+        r = _record(repo, s["C"])
+        out = _check(repo, r, s["B"])
         assert out["verdict"] == "ALLOW", out
         assert out["suite_run"]["run_id"] == rec["run_id"]
-        assert _check(repo, s["C"], s["C"])["verdict"] == "ALLOW", "redeploying the same commit"
+        assert out["release_record"]["sha"] == s["C"]
+        assert _check(repo, r, r)["verdict"] == "ALLOW", "redeploying the same commit"
+        # A deployable change after the record breaks the binding: the tree digest moves.
+        (repo / "tests" / "test_s001.py").write_text('print("OK   changed")\n')
+        changed = _commit(repo, "D (unproven change)")
+        moved = _check(repo, changed, s["B"])
+        assert moved["verdict"] == "REFUSE" and any("tree digest" in x for x in
+                                                    moved["reasons"]), moved
     finally:
         shutil.rmtree(repo, ignore_errors=True)
 
@@ -106,8 +134,8 @@ def test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed():
 def test_a_candidate_that_is_not_a_descendant_of_production_is_refused_as_a_rollback():
     repo, s = _repo_with_suite()
     try:
-        # C is proven, but production runs S, which C's history does not contain.
-        out = _check(repo, s["C"], s["S"])
+        # C is proven (tracked record R), but production runs S, which R's history lacks.
+        out = _check(repo, _record(repo, s["C"]), s["S"])
         assert out["verdict"] == "REFUSE"
         assert any("not a descendant" in r and "roll production back" in r for r in out["reasons"])
         # An older commit than production is refused the same way (and has no suite record).
@@ -133,11 +161,31 @@ def test_a_missing_or_red_suite_record_is_refused():
     repo, s = _repo_with_suite(green=False)
     try:
         assert s["_run"].returncode == 1
-        red = _check(repo, s["C"], s["B"])
+        # `record` refuses to make a tracked record from a red run ...
+        refused = G.record_release(s["C"], repo=repo, layout=LAYOUT, log_base=repo,
+                                   record_dir=repo / "artifacts" / "suite_runs")
+        assert refused["ok"] is False, refused
+        # ... and a hand-made tracked record of a red run is refused by `check`.
+        import hashlib
+
+        local = G.latest_suite(repo / "artifacts" / "suite_runs", sha=s["C"])
+        rel = repo / "release" / "suite_runs"
+        rel.mkdir(parents=True)
+        rb = Path(local["_path"]).read_bytes()
+        lb = (repo / local["log"]).read_bytes()
+        (rel / "red.json").write_bytes(rb)
+        (rel / "red.log").write_bytes(lb)
+        (repo / "release" / f"RELEASE_{s['C']}.json").write_text(json.dumps({
+            "sha": s["C"], "release_eligible": True,
+            "source_tree_sha256": G.git_tree_digest(repo, s["C"], LAYOUT),
+            "suite_record": {"path": "suite_runs/red.json",
+                             "sha256": hashlib.sha256(rb).hexdigest()},
+            "suite_log": {"path": "suite_runs/red.log",
+                          "sha256": hashlib.sha256(lb).hexdigest()}}))
+        forged = _commit(repo, "R (forged record of a red run)")
+        red = _check(repo, forged, s["B"])
         assert red["verdict"] == "REFUSE"
         assert any("not release-eligible" in r and "failed" in r for r in red["reasons"]), red
-        for p in (repo / "artifacts" / "suite_runs").glob("*.json"):
-            p.unlink()
         missing = _check(repo, s["C"], s["B"])
         assert any("no suite run record" in r for r in missing["reasons"]), missing
     finally:
@@ -147,16 +195,32 @@ def test_a_missing_or_red_suite_record_is_refused():
 def test_a_record_whose_log_contradicts_it_or_is_gone_is_refused():
     repo, s = _repo_with_suite()
     try:
-        rec = G.latest_suite(repo / "artifacts" / "suite_runs", sha=s["C"])
-        log = repo / rec["log"]
+        import hashlib
+
+        _record(repo, s["C"])
+        rec_path, rec = _tracked(repo)
+        log = repo / "release" / rec["suite_log"]["path"]
         text = log.read_text()
         log.write_text(re.sub(r"suites failing: 0", "suites failing: 3", text))
-        out = _check(repo, s["C"], s["B"])
+        tampered = _commit(repo, "tamper the tracked log")
+        out = _check(repo, tampered, s["B"])
+        assert out["verdict"] == "REFUSE" and any("pinned sha256" in r
+                                                  for r in out["reasons"]), out
+        # Re-pinning the tampered log does not help: its own words are re-read.
+        rec["suite_log"]["sha256"] = hashlib.sha256(log.read_bytes()).hexdigest()
+        rec_path.write_text(json.dumps(rec))
+        repinned = _commit(repo, "re-pin the tampered log")
+        out = _check(repo, repinned, s["B"])
         assert out["verdict"] == "REFUSE" and any("suites failing: 3" in r
                                                   for r in out["reasons"]), out
         log.unlink()
-        gone = _check(repo, s["C"], s["B"])
+        gone = _check(repo, _commit(repo, "drop the tracked log"), s["B"])
         assert any("log" in r and "gone" in r for r in gone["reasons"]), gone
+        # The local (gitignored) copies are irrelevant: deleting them changes nothing.
+        for p in (repo / "artifacts" / "suite_runs").glob("*"):
+            if p.is_file():
+                p.unlink()
+        assert _check(repo, gone["candidate"], s["B"])["reasons"] == gone["reasons"]
     finally:
         shutil.rmtree(repo, ignore_errors=True)
 

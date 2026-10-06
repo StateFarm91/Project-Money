@@ -19,6 +19,10 @@ log = logging.getLogger("brambleloop.scheduler")
 
 
 def main() -> int:
+    # A3-05: same runtime boot guard as the web service (forces SHADOW on an unproven build).
+    from ..ops import release_record
+
+    release_record.apply_at_import()
     db = Database()
     db.create_all()
     sched = Scheduler(db)

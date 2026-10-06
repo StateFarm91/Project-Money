@@ -167,11 +167,18 @@ def test_readiness_never_closes_an_action_an_open_incident_names():
                           action="Answer the question", reason="raised elsewhere"))
         s.add(Incident(signature="elsewhere:condition", severity="P2", summary="holds",
                        detail={"owner_action": "some_other_subsystem_question"}))
-        s.add(OwnerAction(requirement_key="nobody_raises_this_any_more",
+        # A3-03: the closer closes only keys it owns whose condition re-check passes.
+        # `physical_calibration` is readiness-owned and its ask is withdrawn: it must close.
+        s.add(OwnerAction(requirement_key="physical_calibration",
                           action="Satisfied thing", reason="was needed"))
+        # A key nobody here owns is not "satisfied" just because it is not asked for.
+        s.add(OwnerAction(requirement_key="nobody_raises_this_any_more",
+                          action="Unowned thing", reason="was needed"))
     _run(db, "launch.readiness")
     assert not _owner(db, "some_other_subsystem_question")[0].done
-    assert _owner(db, "nobody_raises_this_any_more")[0].done, "the closer stopped closing"
+    assert _owner(db, "physical_calibration")[0].done, "the closer stopped closing"
+    assert not _owner(db, "nobody_raises_this_any_more")[0].done, \
+        "the closer closed an action it does not own (A3-03)"
 
 
 # ---- F-160 -----------------------------------------------------------------------------

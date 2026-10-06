@@ -135,7 +135,16 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "owner.activation.rebased": ("lifetime_total",
                                  "ops.activation_authority grant chain (sealed_chain)"),
     "store.published": ("lifetime_total",
-                        "app.main /api/verify `nothing_published` counts all of them"),
+                        "app.verify_checks (/api/verify) counts all of them, and in a live "
+                        "phase reads each one's read-back verdict"),
+    # A3-10: in a live phase /api/verify proves every listing on Etsy is covered by an owner
+    # publication grant by reading these rows; a pruned one would read as "no grant".
+    "store.publish_incomplete": ("lifetime_total",
+                                 "app.verify_checks (/api/verify) counts every draft left "
+                                 "incomplete on Etsy; pruning one would hide a shop write"),
+    "store.execution_revalidated": ("lifetime_total",
+                                    "app.verify_checks proves the owner publication grant "
+                                    "of every listing on Etsy from these rows"),
     "store.publish_refused": ("lifetime_total",
                               "app.main /api/verify "
                               "`publication_was_actually_attempted_and_refused`, and "
