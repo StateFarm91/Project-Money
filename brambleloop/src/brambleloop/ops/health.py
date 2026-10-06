@@ -74,6 +74,10 @@ SIGNALS: dict[str, str] = {
               "ceiling, with what each one is actually at"),
     "disk": ("free space where this system writes, and the temporary directories its own "
              "handlers left behind"),
+    # F-337 / F-338 / F-343 (wave-3 K7): running jobs against their rolling duration
+    # envelope, diagnosed non-destructively, plus the five-state activity reading.
+    "job_durations": ("running jobs against 3x their job type's rolling median duration, "
+                      "each over-envelope job diagnosed from records and never restarted"),
 }
 
 # A worker that has not ticked in this long is not alive.
@@ -316,7 +320,33 @@ def read(db, *, runner_state: dict | None = None, env: dict[str, str] | None = N
 
     readings.append(_disk(runner_state))
 
+    readings.append(_job_durations(db, now))
+
     return readings
+
+
+def _job_durations(db, now: datetime) -> Reading:
+    """F-337/F-338/F-343: the duration watchdog and the activity state, read from job rows."""
+    from . import job_watch
+
+    try:
+        w = job_watch.watch(db, now=now)
+        act = job_watch.activity(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        return Reading("job_durations", UNKNOWN, {"error": type(exc).__name__},
+                       "the jobs table could not be read for the duration watchdog")
+    over = w["over_envelope"]
+    evidence = {"running": w["running"], "over_envelope": over,
+                "unassessable": len(w["unassessable"]),
+                "threshold_multiple": w["threshold_multiple"], "activity": act}
+    if over:
+        return Reading("job_durations", DEGRADED, evidence,
+                       f"{len(over)} running job(s) exceed {w['threshold_multiple']}x their "
+                       f"rolling median; each is diagnosed (alive/advancing/completed-but-"
+                       f"unobserved/blocked/duplicated) and none was restarted")
+    return Reading("job_durations", HEALTHY, evidence,
+                   "no running job is past its envelope" if w["running"] else
+                   "no job is running")
 
 
 # F-128 / F-131: a capability signal reads the *probe*, never the variable.
@@ -733,7 +763,12 @@ def verdict(readings: list[Reading]) -> dict:
     else:
         state, why = HEALTHY, "work is being completed and no signal is bad"
 
+    # F-343: executing / completed / observer-waiting / blocked / unknown, from job rows.
+    jd = by_signal.get("job_durations")
+    activity = ((jd.evidence or {}).get("activity") if jd is not None else None) or {
+        "state": "unknown", "why": "the job_durations signal was not read"}
     return {"state": state, "why": why, "down": down, "degraded": degraded,
+            "activity": activity,
             "readings": [r.to_dict() for r in readings]}
 
 

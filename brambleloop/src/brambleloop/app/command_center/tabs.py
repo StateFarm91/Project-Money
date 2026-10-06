@@ -447,6 +447,7 @@ def store(db) -> dict:
 
 def operations(db) -> dict:
     return _tab("OPERATIONS", {"slo": providers.call("slo", db),
+                               "truth": providers.call("ops_truth", db),
                                "autonomy": providers.call("autonomy", db),
                                "queue": readers.queue(db),
                                "incidents": readers.incidents(db),

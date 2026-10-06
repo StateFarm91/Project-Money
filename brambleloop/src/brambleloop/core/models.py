@@ -13,7 +13,7 @@ from sqlalchemy import (
     JSON, Boolean, DateTime, Enum, Float, ForeignKey, Index, Integer, LargeBinary,
     String, Text, UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from .db import Base
 
@@ -745,6 +745,30 @@ class OwnerAction(Base):
     consequence_of_delay: Mapped[str] = mapped_column(Text, default="")
     blocks: Mapped[str] = mapped_column(Text, default="")
     done: Mapped[bool] = mapped_column(Boolean, default=False)
+    # F-180 (wave-3 K7, additive): the lifecycle beside the boolean. `done` stays the active-
+    # queue flag every producer already reads; `state` says *why* a row left the queue
+    # (`ops.owner_queue.STATES`), with when and the reason. A row closed by a producer that
+    # only flips `done` is stamped `closed_unclassified` by the validator below rather than
+    # being given a reason it never had.
+    state: Mapped[str] = mapped_column(String(24), default="open")
+    state_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    state_reason: Mapped[str] = mapped_column(Text, default="")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # F-870: why software cannot do this itself (KYC, legal acceptance, a browser-only page...).
+    why_software_cannot: Mapped[str] = mapped_column(Text, default="")
+
+    @validates("done")
+    def _lifecycle_on_done(self, _key, value):
+        state = self.state or "open"
+        if value and state in ("open", "parked"):
+            self.state = "closed_unclassified"
+            self.state_at = utcnow()
+            self.state_reason = self.state_reason or (
+                "closed by a producer that set done without naming a lifecycle state")
+        elif not value and state not in ("open", "parked"):
+            self.state = "open"
+            self.state_at = utcnow()
+        return value
 
 
 # ---------------------------------------------------------------------------

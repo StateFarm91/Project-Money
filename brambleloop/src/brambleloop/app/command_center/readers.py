@@ -53,10 +53,14 @@ def incidents(db, *, limit: int = 25) -> dict:
         with db.session() as s:
             rows = list(s.scalars(select(Incident).where(Incident.resolved == False)  # noqa: E712
                                   .order_by(Incident.at.desc()).limit(200)))
+            from ...ops.incident_lifecycle import actionability
+
+            # F-195 (K7): last-confirmed time, applicability and the owning remediation.
             items = [{"id": r.id, "severity": r.severity, "summary": r.summary[:400],
                       "signature": r.signature, "product_slug": r.product_slug,
                       "halts_publication": bool(r.halts_publication),
                       "report_count": r.report_count, "at": _iso(r.at),
+                      **actionability(r),
                       "source": f"incidents:{r.id}"} for r in rows]
         items.sort(key=lambda i: (SEVERITY_RANK.get(i["severity"], 9), i["at"] or ""))
         items = items[:limit]

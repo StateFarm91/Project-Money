@@ -93,7 +93,12 @@ class IncidentTracker:
         with self.db.session() as s:
             q = select(Incident).where(Incident.resolved == False)  # noqa: E712
             if product_slug:
-                q = q.where(Incident.product_slug == product_slug)
+                # F-168 (K7): a halt is scoped to its product unless the systemic escalation
+                # (`ops.incident_lifecycle.escalate_systemic`) has opened the company-wide
+                # row, which then applies to every product.
+                q = q.where((Incident.product_slug == product_slug) | (
+                    Incident.signature.like("systemic-halt:%")
+                    & Incident.halts_publication.is_(True)))
             rows = list(s.scalars(q))
             for r in rows:
                 s.expunge(r)

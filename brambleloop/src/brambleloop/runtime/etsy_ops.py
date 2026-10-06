@@ -233,7 +233,9 @@ def resolve_auth_needs_owner(db, *, evidence: str, granted_scopes=()) -> dict:
         for row in s.scalars(select(OwnerAction).where(
                 OwnerAction.requirement_key == AUTH_KEY,
                 OwnerAction.done == False)):  # noqa: E712
-            row.done = True
+            from ..ops import owner_queue
+            owner_queue.close(row, owner_queue.SATISFIED,
+                              "a later Etsy call succeeded with the scopes this card asked for")
             closed += 1
         resolved = lifecycle.resolve_signatures(s, [AUTH_INCIDENT], resolution=evidence)
     return {"owner_actions_closed": closed, "incidents_resolved": resolved}

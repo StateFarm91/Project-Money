@@ -3781,7 +3781,9 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                 if not readiness_may_close(key, readiness):
                     kept_open_not_ours.append(key)
                     continue
-                row.done = True
+                from ..ops import owner_queue
+                owner_queue.close(row, owner_queue.SATISFIED,
+                                  "the readiness re-check run now proves its condition cleared")
                 closed.append(key)
 
     # F-593 / F-547: the Etsy owner-only queue from `intel.etsy_surfaces`, adopted into the
@@ -5958,6 +5960,8 @@ def handle_health_sweep(ctx: JobContext) -> dict:
         "repaired_elsewhere": remediation["repaired_elsewhere"],
         "must_escalate": remediation["must_escalate"],
         "persistent": persistence["persistent"],
+        # F-343 (K7): executing / completed / observer-waiting / blocked / unknown.
+        "activity": (verdict.get("activity") or {}).get("state"),
     }
     ctx.audit("ops.health", detail=detail)
 
@@ -6000,6 +6004,18 @@ def handle_health_sweep(ctx: JobContext) -> dict:
             raised.append(signature)
     detail["escalated"] = raised
     detail["recovered"] = life["resolved"]
+
+    # wave-3 K7: the ops-truth sweep rides this cadence -- owner-action expiry (F-180),
+    # systemic halt escalation (F-168), postcondition read-back (F-124), incident-learning
+    # recurrence (F-392), the rollback baseline (F-176) and the daily readiness re-proof
+    # (F-199). Guarded inside; it can never fail the health sweep.
+    from ..ops import truth as ops_truth
+
+    try:
+        detail["truth"] = ops_truth.sweep(ctx.db)
+    except Exception as exc:  # noqa: BLE001
+        detail["truth"] = {"error": type(exc).__name__}
+    ctx.audit("ops.truth.sweep", detail=detail["truth"])
     return detail
 
 
@@ -6036,11 +6052,21 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         current = provenance.current_from_db(session)
         expected = provenance.expected_from_db(session)
         report = provenance.sweep(session, current=current, expected=expected)
+        # F-162 (K7): a class whose backlog is closed is declared graduated, once; from the
+        # next sweep an absent row in that class blocks its product's release.
+        graduated_now = provenance.declare_graduations(session, current=current,
+                                                       expected=expected)
         gate = provenance.graduation(session, current=current, expected=expected)
 
     detail = {
         "checked": report["checked"], "fresh": report["fresh"],
         "stale": report["stale"], "unproven": report["unproven"],
+        "invalidated": report["invalidated"],
+        "coverage": {"numerator": report["coverage"]["numerator"],
+                     "denominator": report["coverage"]["denominator"],
+                     "ratio": report["coverage"]["ratio"]},
+        "graduated_now": graduated_now,
+        "graduated_classes": report["graduated_classes"],
         "publication_blocked": report["publication_blocked"],
         "rebuild": report["rebuild"],
         "may_enforce_unproven": gate["may_enforce_unproven"],
@@ -6112,7 +6138,9 @@ def handle_provenance_backfill(ctx: JobContext) -> dict:
         report = backfill.run(session, dry_run=dry_run)
     ctx.audit("ops.provenance_backfill", detail={
         "dry_run": dry_run, "backfilled": report["backfilled"],
-        "left_unproven": report["left_unproven"], "why": report["why"]})
+        "left_unproven": report["left_unproven"], "why": report["why"],
+        # F-167 (K7): launch-relevant first; obsolete legacy retired, not backfilled.
+        "relevance": report.get("relevance", {}).get("counts")})
     return report
 
 
@@ -7805,7 +7833,9 @@ def _reconcile_canonical_model_action(db) -> None:
                 OwnerAction.requirement_key == "canonical_model_approval",
                 OwnerAction.done == False))  # noqa: E712
             if row is not None:
-                row.done = True
+                from ..ops import owner_queue
+                owner_queue.close(row, owner_queue.SATISFIED,
+                                  "the canonical pack was approved and frozen")
                 row.reason = (f"Approved and frozen as canonical pack version "
                               f"{pack.version} at {pack.approved_by_owner_at}. Closed "
                               f"because the decision was made, not because the question "

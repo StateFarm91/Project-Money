@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from . import approvals, ask as ask_mod, auth, emergency, notifications, tabs
+from . import approvals, ask as ask_mod, auth, emergency, notifications, providers, tabs
 from . import private_context
 
 
@@ -168,6 +168,19 @@ def make_router(db) -> APIRouter:
     @router.get("/operations")
     def operations(request: Request):
         return ok(tabs.operations(db))
+
+    @router.get("/truth")
+    def truth(request: Request):
+        # wave-3 K7: the ops-truth provider (owner inventory, tester roster, controls, ...).
+        return ok(providers.call("ops_truth", db))
+
+    @router.get("/drill")
+    def drill(request: Request, provider: str = "", index: int = 0):
+        # F-623 / F-665 (K7): any provider item -> source, timestamp, transformation,
+        # confidence, reconciliation state and safe external ids.
+        from ...ops import truth as ops_truth
+
+        return ok(ops_truth.drill(db, provider, index))
 
     @router.get("/operations/drill")
     def operations_drill(request: Request, kind: str = "", id: str = ""):  # noqa: A002

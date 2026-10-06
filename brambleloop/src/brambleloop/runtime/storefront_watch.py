@@ -12,7 +12,7 @@ endpoint this application may call; nothing here scrapes it.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from ..core.models import Phase
 from .worker import JobContext, handlers
@@ -70,7 +70,10 @@ def watch(db, *, phase, now: datetime | None = None) -> dict:
             OwnerAction.requirement_key == CARD_KEY, OwnerAction.done == False))  # noqa: E712
         if read_today:
             if open_card is not None:
-                open_card.done = True    # today's reading is on file; the ask is answered
+                # today's reading is on file; the ask is answered (F-180: satisfied)
+                from ..ops import owner_queue
+                owner_queue.close(open_card, owner_queue.SATISFIED,
+                                  "today's Search Visibility reading is on file")
         elif open_card is None:
             s.add(OwnerAction(
                 requirement_key=CARD_KEY,
@@ -85,7 +88,12 @@ def watch(db, *, phase, now: datetime | None = None) -> dict:
                 consequence_of_delay=("a listing Etsy has flagged during launch week stays "
                                       "flagged unseen through the days a new listing most "
                                       "needs search"),
-                blocks="F-280 launch-week Search Visibility watch"))
+                blocks="F-280 launch-week Search Visibility watch",
+                # F-180: the ask lapses with launch week rather than staying open forever;
+                # `ops.owner_queue.sweep` moves it to `expired` when this passes.
+                expires_at=started + timedelta(days=WINDOW_DAYS),
+                why_software_cannot=("Search Visibility is shown only inside Shop Manager to "
+                                     "the signed-in owner; no authorised endpoint returns it")))
             card = CARD_KEY
     return {"active": True, "phase": Phase(phase).value, "left_shadow_at": started.isoformat(),
             "day": day + 1, "of": WINDOW_DAYS, "read_today": read_today, "card_raised": card}

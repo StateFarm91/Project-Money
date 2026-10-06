@@ -273,7 +273,9 @@ def route_owner_card(db, key: str, lines: list[str], *, reason: str) -> str:
                                                  OwnerAction.done == False))  # noqa: E712
         if not lines:
             if row is not None:
-                row.done = True
+                from ..ops import owner_queue
+                owner_queue.close(row, owner_queue.WITHDRAWN,
+                                  "nothing is left for the owner to decide on this card")
                 return "closed"
             return "none"
         action = "Decide each: " + " | ".join(lines)
