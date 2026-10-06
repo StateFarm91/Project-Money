@@ -31,7 +31,7 @@ class GaugeTests(unittest.TestCase):
                 self.assertTrue(certify(c).granted)
                 self.assertFalse(gauge_findings(c))
                 self.assertEqual(c.components[0].foundation_kind,"magic_ring")
-                self.assertEqual(c.version,"1.1.0")
+                self.assertEqual(c.version,"1.2.0")
                 if 'basket' in c.slug:
                     self.assertEqual(twin.shape,VESSEL)
                     self.assertEqual(c.risk_class,"B")
@@ -44,13 +44,16 @@ class GaugeTests(unittest.TestCase):
     def test_existing_basket_size_tolerance_and_materials(self):
         for spec in vessels.BASKET_SIZES:
             c=vessels.build_basket(spec.key);t=build_twin(c,compile_cir(c))
-            self.assertLess(abs(t.width_cm-spec.across_cm),1.5)
+            # PT-10: width is across the points of the hexagon; the circle-formula target
+            # (across_cm) lies between the points and the flats.
+            self.assertLessEqual(t.across_flats_cm, spec.across_cm + 0.5)
+            self.assertGreaterEqual(t.across_points_cm, spec.across_cm - 0.5)
             self.assertLess(abs(t.height_cm-spec.tall_cm),1.5)
             self.assertEqual(c.gauge,gauge_for("worsted"))
             self.assertTrue(all(m.yarn_weight=="worsted" and m.name=="worsted cotton" for m in c.materials))
         c=vessels.build_hexagon_coaster();t=build_twin(c,compile_cir(c))
         self.assertEqual(c.gauge,gauge_for("dk"))
-        self.assertEqual(t.width_cm,9.2)
+        self.assertEqual((t.width_cm,t.across_flats_cm),(9.7,8.4))   # PT-10: hexagon spans
         self.assertTrue(all(m.yarn_weight=="dk" for m in c.materials))
 
     def test_invalid_old_gauge_and_broken_count_are_detected(self):
@@ -71,25 +74,26 @@ class GaugeTests(unittest.TestCase):
         from brambleloop.products.motifs import get
         c=launch0.cir_for("cloudline_blanket");r=compile_cir(c);t=build_twin(c,r)
         self.assertTrue(r.ok)
-        self.assertEqual((t.width_cm,t.height_cm),(79.2,97.1))
+        # PT-08: stitch-weighted row heights; PT-09: two-row stripes (1.2.0).
+        self.assertEqual((t.width_cm,t.height_cm),(79.2,96.4))
         self.assertLess(abs(t.width_cm-78.8),0.5)
-        self.assertLess(abs(t.height_cm-97.2),0.2)
+        self.assertLess(abs(t.height_cm-97.2),1.0)
         self.assertFalse(t.calibrated)
-        self.assertEqual(c.version,"1.1.0")
+        self.assertEqual(c.version,"1.2.0")
         motif=get("diamond-lattice")
         rows=c.components[0].rows
-        self.assertEqual(len(rows),70)
-        for row in rows[:3]+rows[-3:]:
+        self.assertEqual(len(rows),100)
+        for row in rows[:6]+rows[-6:]:
             self.assertEqual([(op.stitch,op.count) for op in row.ops],[("sc",99)])
             self.assertEqual(row.color,"cream")
-        for index,row in enumerate(r.rows[3:-3]):
+        for index,row in enumerate(r.rows[6:-6]):
             codes=[]
             for op in row.ops:
                 codes.extend(["1" if op.stitch=="dc" else "0"]*op.produces)
             self.assertEqual("".join(codes),motif.grid[index%8]*11)
         text=write_pattern(c,r)
         self.assertEqual(compare(c,text),[])
-        self.assertIn("3 single-crochet rows",c.designer_notes)
+        self.assertIn("6 single-crochet rows",c.designer_notes)
         cert=certify(c)
         self.assertTrue(cert.granted,cert.blocking_reasons)
         self.assertEqual(cert.gauge_standard,GAUGE_STANDARD)

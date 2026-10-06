@@ -39,6 +39,19 @@ Tolerances (each is stated with why, and none was tuned to make a frame pass):
                   a resample or a lossy round-trip all exceed it by orders of magnitude.
   CAPTION_IOU     0.98 between the caption pixels and the contract wording rendered in the
                   contract face at the contract position.
+  ANNOTATION_PX   12 pixels. Outside the product zone every pixel must be what the contract
+                  puts there -- background, the scale bar re-drawn from its own measured
+                  ends, its "N cm" label, the disclosure, and the annotation lines re-lettered
+                  from this module's own reading of the CIR -- and inside it nothing may be
+                  lettered at all. Text is drawn without antialiasing in the contract face at
+                  contract positions, so an honest frame differs by 0 px; 12 px is less than
+                  one glyph of the label face, so no word, figure or claim fits inside it.
+                  (The scale bar's segment boundaries are excused +-1 px: they are re-drawn
+                  from a measured pixels-per-cm.)
+
+Contract 2 (PT-05): version 1 verified every stitch and the caption and read no other text,
+so a scale view re-lettered with a false finished size and a false material/safety claim
+passed. Every text pixel is now accounted for.
 """
 from __future__ import annotations
 
@@ -51,7 +64,7 @@ from PIL import Image, ImageDraw
 
 from . import render_contract as K
 
-VERIFIER_VERSION = "render-verification/1.0.0"
+VERIFIER_VERSION = "render-verification/2.0.0"
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 
@@ -59,6 +72,8 @@ EXTENT_REL, EXTENT_PX = 0.02, 6.0
 PITCH_REL = 0.04
 HEIGHT_REL, HEIGHT_PX = 0.03, 4.0
 CAPTION_IOU = 0.98
+ANNOTATION_PX = 12
+LINE_THICKNESS_PX = 34
 RAISED_FRACTION = 0.08     # a raised post covers >= 25 % of a dc glyph; an sc carries none
 
 TOLERANCES = {
@@ -67,6 +82,7 @@ TOLERANCES = {
     "height": f"+-{HEIGHT_REL:.0%} or {HEIGHT_PX:g}px",
     "off_palette": f"<= {K.MAX_OFF_PALETTE_SHARE:.1%} of pixels",
     "caption_iou": f">= {CAPTION_IOU}",
+    "annotation_text": f"<= {ANNOTATION_PX}px differing from the re-drawn contract text",
 }
 
 
@@ -124,13 +140,18 @@ def expected_model(cir) -> dict:
             st = stitches.get(op.stitch)
             for _ in range(op.count):
                 seq.extend([op.stitch] * st.produces)
-        tallest = max((stitches.get(o.stitch).row_height for o in r.ops), default=base_h)
+        # Row height by the stitch-weighted rule (PT-08): every stitch the row makes counts
+        # its own row height. Recomputed here from the expanded stitches, not imported.
+        worked = ([st for st in seq if st not in ("ch", "sk", "slst")]
+                  or [st for st in seq if st not in ("ch", "sk")])
+        units = (sum((stitches.get(st).row_height or base_h) for st in worked)
+                 / len(worked) / base_h) if worked else 1.0
         if comp.construction == "flat_rows" and r.index % 2 == 0:
             seq = list(reversed(seq))          # worked from the other edge: fabric order
         out_rows.append({"index": r.index, "colour": r.color, "seq": seq,
                          "raised": [(stitches.get(s).row_height or base_h) > base_h + 1e-9
                                     for s in seq],
-                         "height_cm": unit_cm * tallest / base_h})
+                         "height_cm": unit_cm * units})
     model = {"construction": comp.construction, "w_cm": w_cm, "unit_cm": unit_cm,
              "rows": out_rows, "make": comp.make,
              "palette": {k: K.hex_rgb(v) for k, v in (cir.colors or {}).items()}}
@@ -142,10 +163,14 @@ def expected_model(cir) -> dict:
         if any(counts[i] != counts[base_n - 1] for i in range(base_n, len(counts))):
             raise ValueError("rounds that grow again after the wall begins are not a vessel "
                              "this verifier models")
-        model["radii_cm"] = [n * w_cm / (2 * math.pi) for n in counts]
+        sides = corners(rows)
+        # A stacked-increase round is a polygon with the stitch count's perimeter; its
+        # corners sit at perimeter / (2 n sin(pi/n)). A circle's radius is perimeter / 2 pi.
+        k = (2 * sides * math.sin(math.pi / sides)) if sides else 2 * math.pi
+        model["radii_cm"] = [n * w_cm / k for n in counts]
         model["base_rounds"] = base_n
         model["wall_rounds"] = len(counts) - base_n
-        model["sides"] = corners(rows)
+        model["sides"] = sides
     return model
 
 
@@ -584,6 +609,175 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
     return {"wall_rounds": len(walls), "per_face": per_face, "seen_over_rim": above}
 
 
+
+# --------------------------------------------------------------------------- annotations
+
+def _expected_figures(cir, model) -> tuple[dict, list[str]]:
+    """The figures the scale view must letter, from a fresh twin of the authoritative CIR,
+    cross-checked against this module's own gauge arithmetic. Returns (figures, problems)."""
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    comp = cir.components[0]
+    twin = build_twin(cir, compile_cir(cir), component=comp.name)
+    figures = {"width": twin.width_cm, "height": twin.height_cm, "sides": twin.sides or 0,
+               "points": twin.across_points_cm, "flats": twin.across_flats_cm,
+               "across": twin.width_cm, "vessel": twin.shape not in (None, "disc")}
+    problems = []
+
+    def agree(name, stated, computed):
+        if stated is None or abs(stated - computed) > max(0.02 * computed, 0.11):
+            problems.append(f"{name}: twin {stated} against gauge arithmetic {computed:.2f}")
+
+    if model["construction"] == "flat_rows":
+        agree("width", twin.width_cm, max(len(r["seq"]) for r in model["rows"]) * model["w_cm"])
+        agree("height", twin.height_cm, sum(r["height_cm"] for r in model["rows"]))
+    else:
+        R = model["radii_cm"][model["base_rounds"] - 1]
+        sides = model["sides"] or 0
+        if sides >= 3:
+            agree("across the points", twin.across_points_cm,
+                  2 * R if sides % 2 == 0 else R * (1 + math.cos(math.pi / sides)))
+            agree("across the flats", twin.across_flats_cm,
+                  2 * R * math.cos(math.pi / sides) if sides % 2 == 0
+                  else R * (1 + math.cos(math.pi / sides)))
+        else:
+            agree("across", twin.width_cm, 2 * R)
+        if model.get("wall_rounds"):
+            agree("height", twin.height_cm, model["wall_rounds"] * model["unit_cm"])
+    return figures, problems
+
+
+def _text_mask(lines_at: list[tuple[str, tuple[int, int], int]], w: int, h: int):
+    probe = Image.new("L", (w, h), 0)
+    d = ImageDraw.Draw(probe)
+    d.fontmode = "1"
+    for text, xy, size in lines_at:
+        d.text(xy, text, fill=255, font=K.font(size))
+    return np.asarray(probe) > 0
+
+
+def _annotations(frame: _Frame, cir, model, view: str, scale: dict, detail: dict,
+                 checks: list[dict]) -> None:
+    """Every pixel outside the product zone, and every lettered pixel inside it (PT-05)."""
+    from scipy import ndimage
+
+    form = "flat" if model["construction"] == "flat_rows" else "rounds"
+    lines: list[str] = []
+    if view == "scale":
+        figures, problems = _expected_figures(cir, model)
+        checks.append(_check("dimension_figures", FAIL if problems else PASS,
+                             "the finished size the frame letters is the CIR's, and agrees "
+                             "with the gauge arithmetic", problems=problems))
+        lines = K.annotation_lines("scale", form, figures)
+    elif view == "detail":
+        if form == "flat":
+            win = (detail or {}).get("window") or {}
+            if win:
+                lines = K.annotation_lines("detail", "flat",
+                                           {"rows": win["rows"], "cols": win["cols"]})
+        elif model.get("wall_rounds"):
+            lines = K.annotation_lines("detail", "rounds",
+                                       {"vessel": True, "base_rounds": model["base_rounds"]})
+    w, h = frame.w, frame.h
+    # The text that may appear, re-lettered at the contract positions.
+    probe = ImageDraw.Draw(Image.new("L", (1, 1)))
+    lf = K.font(K.LABEL_PX)
+    texts = [(K.DISCLOSURE, (round((w - probe.textlength(K.DISCLOSURE, font=K.font(K.CAPTION_PX))) / 2),
+                             round(K.CAPTION_TOP * h)), K.CAPTION_PX)]
+    if lines:
+        texts += [(t, xy, K.LABEL_PX) for t, xy in
+                  zip(lines, K.annotation_xy([probe.textlength(t, font=lf) for t in lines], w))]
+    o = K.SCALE_BAR_OUTLINE_PX
+    bx0, by0, bx1, _by1 = scale["bar_px"]
+    x0, y0, end = bx0 + o, by0 + o, bx1 - o + 1
+    segments = int(scale["segments_cm"])
+    texts.append((K.scale_label(segments), K.scale_label_xy(end, y0), K.LABEL_PX))
+    exp_text = _text_mask(texts, w, h)
+    # The scale bar, re-drawn from its own measured ends.
+    bar = Image.new("L", (w, h), 0)
+    bd = ImageDraw.Draw(bar)
+    y1 = y0 + K.SCALE_BAR_HEIGHT_PX
+    u = (end - x0) / segments
+    fuzzy = np.zeros((h, w), bool)
+    for i in range(segments):
+        a, b = x0 + i * u, x0 + (i + 1) * u
+        if i % 2 == 0:
+            bd.rectangle([round(a), y0, round(b) - 1, y1], fill=255)
+        for edge in (a, b):
+            fuzzy[y0:y1 + 1, max(0, int(edge) - 1):int(edge) + 2] = True
+    bd.rectangle([x0 - o, y0 - o, end - 1 + o, y1 + o], outline=255, width=o)
+    exp_dark = np.asarray(bar) > 0
+    zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE, w)
+    inside = np.zeros((h, w), bool)
+    # The drawing may touch the zone's edge by a pixel or two (rounding); text cannot hide
+    # in a 3 px ring.
+    inside[max(0, zy0 - 3):zy1 + 3, max(0, zx0 - 3):zx1 + 3] = True
+    seen_line = frame.cls == frame.LINE
+
+    seen_text = frame.cls == frame.CAPTION
+    seen_dark = frame.cls == frame.DARK
+    seen_bg = (frame.cls == frame.BG) & ~frame.off_palette
+    expected_bg = ~exp_text & ~exp_dark
+    outside = ~inside & ~fuzzy
+    # Dimension-line pixels are accounted for by the dimension-line check below, which sees
+    # the whole canvas (a line's end ticks may cross the zone edge).
+    wrong = outside & ((seen_text != exp_text) | (seen_dark != exp_dark)
+                       | (expected_bg & ~seen_bg & ~seen_line) | frame.off_palette)
+    # Inside the product zone nothing is lettered and nothing is a scale bar.
+    lettered_inside = inside & (seen_text | seen_dark)
+    n_out, n_in = int(wrong.sum()), int(lettered_inside.sum())
+    where = None
+    if n_out:
+        ys, xs = np.nonzero(wrong)
+        where = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
+    checks.append(_check(
+        "annotation_text", PASS if (n_out <= ANNOTATION_PX and n_in <= ANNOTATION_PX) else FAIL,
+        "every word on the frame is the disclosure, the scale label or a contract annotation "
+        "whose figures are recomputed from the CIR; nothing else is lettered anywhere",
+        differing_px=n_out, lettered_in_product_zone_px=n_in, differing_bbox=where,
+        expected_lines=lines))
+
+    # Marks inside the product zone that are not part of the drawn object(s).
+    zone = (~seen_bg[zy0:zy1, zx0:zx1]) & ~seen_line[zy0:zy1, zx0:zx1]
+    closed = ndimage.binary_fill_holes(ndimage.binary_closing(zone, iterations=K.GAP_PX + 1))
+    labels, count = ndimage.label(closed | zone)
+    stray = 0
+    if count:
+        areas = ndimage.sum(np.ones_like(zone), labels, range(1, count + 1))
+        small = {k + 1 for k, a in enumerate(areas) if a < 0.002 * zone.size}
+        if small:
+            stray = int((zone & np.isin(labels, list(small))).sum())
+    # Dimension lines: exactly the contract's, as long as the product they measure.
+    line_mask = seen_line & ~frame.off_palette
+    l_labels, l_count = ndimage.label(line_mask)
+    found = []
+    for sl in ndimage.find_objects(l_labels):
+        found.append((sl[1].stop - sl[1].start, sl[0].stop - sl[0].start))
+    want = []
+    if view == "scale":
+        if form == "flat":
+            m = (detail or {}).get("measured_cm") or [0, 0]
+            want = [("h", m[0]), ("v", m[1])]
+        else:
+            R = model["radii_cm"][model["base_rounds"] - 1]
+            sides = model["sides"] or 0
+            span = (2 * R) if not sides or sides % 2 == 0 else R * (1 + math.cos(math.pi / sides))
+            want = [("h", span)]
+            if model.get("wall_rounds"):
+                want.append(("v", model["wall_rounds"] * model["unit_cm"]))
+    lines_ok = len(found) == len(want)
+    for kind, cm in want:
+        target = cm * scale["px_per_cm"]
+        hit = [f for f in found
+               if (f[1] if kind == "h" else f[0]) <= LINE_THICKNESS_PX
+               and abs((f[0] if kind == "h" else f[1]) - target) <= max(0.03 * target, 10)]
+        lines_ok &= bool(hit)
+    checks.append(_check(
+        "marks_in_product_zone", PASS if (stray <= ANNOTATION_PX and lines_ok) else FAIL,
+        "nothing in the product zone but the product and the contract dimension lines",
+        stray_px=stray, dimension_lines_found=len(found), dimension_lines_expected=len(want)))
+
 # --------------------------------------------------------------------------- entry point
 
 def verify(png: bytes, *, cir, view: str) -> dict:
@@ -644,6 +838,7 @@ def _verify(png: bytes, *, cir, view: str) -> dict:
             detail = _verify_vessel(frame, model, view, u, checks)
     else:
         detail = _verify_plan(frame, model, view, u, checks, part="whole")
+    _annotations(frame, cir, model, view, scale, detail, checks)
     return _verdict(checks, image_sha256=sha, view=view, slug=cir.slug,
                     cir_fingerprint=cir.fingerprint, px_per_cm=round(u, 4), measured=detail)
 

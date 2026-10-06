@@ -848,7 +848,10 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     gauge_line = (f"{cir.gauge.stitches_per_10cm} sts x {cir.gauge.rows_per_10cm} rows = 10 cm "
                   f"in {cir.gauge.stitch_type}, {cir.gauge.hook_mm:g} mm hook"
                   if cir.gauge else None)
-    size_label = (f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm"
+    from ..cir.twin import size_statement   # PT-10: round pieces name their convention
+
+    size_label = ((size_statement(twin) if twin.shape is not None else
+                   f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm")
                   if twin.width_cm and twin.height_cm else None)
 
     # F-005..F-009: the deepest truthful Etsy category, from the stored taxonomy snapshot,

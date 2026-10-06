@@ -769,6 +769,17 @@ def handle_certify(ctx: JobContext) -> dict:
                    prior_risk_class=_prior_risk_class(ctx.db, cir.slug),
                    # F-074: primitives a passed, content-bound sample has actually measured.
                    calibrated_primitives=calibrated_primitives(ctx.db))
+    # PT-03: a certified slug@version is immutable. Different content -- a different design,
+    # or the same design now stating different customer-visible figures -- under a version
+    # that is already certified is refused here, with an incident, and nothing downstream is
+    # touched: two buyers holding "1.1.0" must hold the same pattern. A re-certification of
+    # identical content (a new document build, a policy re-read) is still allowed.
+    conflict = _version_conflict(ctx, cir, cert) if cert.granted else None
+    if conflict is not None:
+        _refuse_version_conflict(ctx, cir, conflict)
+        return {"artifact": f"{cir.slug}@{cir.version}", "granted": False,
+                "refused": "version_immutable", "reasons": [conflict["why"]]}
+
     ctx.audit("gate.certified" if cert.granted else "gate.blocked",
               artifact=f"{cir.slug}@{cir.version}",
               policy_version=cert.policy_version,
@@ -1060,6 +1071,60 @@ def _flatten_stitches(ops) -> list:
         else:
             out.append(o)
     return out
+
+
+def _version_conflict(ctx: JobContext, cir: CIR, cert) -> dict | None:
+    """Why `cert` may not be stored under cir.slug@cir.version, or None when it may (PT-03).
+
+    Content is the design (the stored CIR, normalised through CIR.from_dict so two spellings
+    of one design compare equal) and the figures the certificate tells the buyer
+    (`gates.certificate.claims_fingerprint` over its twin block). Either differing from the
+    certified record of the same version is a new release that has to carry a new version.
+    """
+    from sqlalchemy import select
+
+    from ..gates.certificate import claims_fingerprint
+
+    with ctx.db.session() as s:
+        row = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == cir.slug, PatternVersion.version == cir.version,
+            PatternVersion.certified == True))  # noqa: E712
+        if row is None:
+            return None
+        stored_json, stored_cert = row.cir_json, dict(row.certificate or {})
+    try:
+        stored_fp = CIR.from_dict(stored_json).fingerprint
+    except Exception:  # noqa: BLE001 - an unreadable stored design is not "the same"
+        stored_fp = "unreadable"
+    new_fp = cir.fingerprint
+    old_claims = claims_fingerprint(stored_cert.get("twin"))
+    new_claims = claims_fingerprint(cert.to_dict().get("twin"))
+    if stored_fp != new_fp:
+        return {"kind": "content", "stored": stored_fp, "offered": new_fp,
+                "why": (f"{cir.slug}@{cir.version} is already certified with design "
+                        f"{stored_fp}; this job offers design {new_fp} under the same version. "
+                        f"A certified version is immutable: bump the version")}
+    if old_claims and new_claims and old_claims != new_claims:
+        return {"kind": "claims", "stored": old_claims, "offered": new_claims,
+                "why": (f"{cir.slug}@{cir.version} is already certified stating figures "
+                        f"{old_claims}; the same design now states {new_claims} (size or "
+                        f"yardage moved). A certified version is immutable: bump the version")}
+    return None
+
+
+def _refuse_version_conflict(ctx: JobContext, cir: CIR, conflict: dict) -> None:
+    from ..ops.incident_lifecycle import open_or_restate
+
+    ctx.audit("gate.version_conflict", artifact=f"{cir.slug}@{cir.version}",
+              detail={k: conflict[k] for k in ("kind", "stored", "offered", "why")})
+    with ctx.db.session() as s:
+        open_or_restate(
+            s, signature=f"release.version_immutable:{cir.slug}@{cir.version}",
+            severity="P2", product_slug=cir.slug, halts_publication=False,
+            summary=conflict["why"],
+            detail={"kind": conflict["kind"], "stored": conflict["stored"],
+                    "offered": conflict["offered"], "version": cir.version,
+                    "job_id": ctx.job.id})
 
 
 def _stored_release_hash(ctx: JobContext, cir: CIR) -> str:

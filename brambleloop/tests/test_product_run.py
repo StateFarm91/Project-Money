@@ -631,9 +631,12 @@ def test_a_redesigned_product_re_enters_the_chain():
     fresh = _engineered_cir(slug)
 
     # Certify a *different* design under this slug, the way a product looks after it has been
-    # re-engineered: same slug, same version, different fabric.
+    # re-engineered: same slug, an older version, different fabric.
     stale = build(CATALOGUE["cottage-wall-hanging"])
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title})
+    # PT-03: an older release. Different fabric under the SAME version is now refused at
+    # certification (tests/test_version_immutability.py); a redesign ships as a new version.
+    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
+                           "version": "0.9.0"})
     assert stale.fingerprint != fresh.fingerprint
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()
@@ -690,7 +693,10 @@ def test_a_recertified_release_rebuilds_its_listing():
     slug = "mosaic-placemat-pair"
     fresh = _engineered_cir(slug)
     stale = build(CATALOGUE["cottage-wall-hanging"])
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title})
+    # PT-03: an older release. Different fabric under the SAME version is now refused at
+    # certification (tests/test_version_immutability.py); a redesign ships as a new version.
+    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
+                           "version": "0.9.0"})
 
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()
@@ -708,7 +714,9 @@ def test_a_recertified_release_rebuilds_its_listing():
         pv = s.scalar(select(PatternVersion).where(
             PatternVersion.product_id == product.id,
             PatternVersion.version == fresh.version))
-        listing = s.scalar(select(Listing).where(Listing.product_slug == slug))
+        # The redesign is a new version, so it gets its own listing row (PT-03).
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == fresh.version))
         assert listing.release_hash != stale_release, \
             "the listing was never rebuilt for the new release"
         assert listing.release_hash == pv.release_hash, \

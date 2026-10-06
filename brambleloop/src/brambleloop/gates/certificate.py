@@ -21,7 +21,7 @@ from ..cir import specification as _specification
 from ..cir.compiler import ERROR, WARNING, Finding, compile_cir
 from ..cir.model import CIR
 from ..cir.reverse import compare as reverse_compare
-from ..cir.twin import TwinModel, build_twin
+from ..cir.twin import TwinModel, build_twin, size_statement
 from ..cir.writer import write_pattern
 from .asset_truth import (
     Asset, check_assets, check_shape_claims, check_technique_claims,
@@ -248,6 +248,11 @@ def certify(
     # that way or it does not -- which is why this half is safe on prose and that half is not.
     findings.extend(check_technique_claims(cir.designer_notes or "", cir, twin,
                                            "cir.designer_notes"))
+    # PT-09: an instruction to carry the resting colour up the side is checked against the
+    # rows. On turned flat rows it is only possible when every change starts at the edge the
+    # incoming colour is resting at; otherwise the maker has to cut and rejoin, and a pattern
+    # that says "carry" there is telling them to do something the fabric cannot do.
+    findings.extend(colour_carry_findings(cir))
     # Design provenance, the design-difference ledger and the similarity review against
     # every purchased benchmark (F-783, F-798, F-794, F-791, F-795): `gates/originality.py`.
     findings.extend(_originality.release_findings(cir, pattern_text=pattern_text, db=db))
@@ -601,6 +606,54 @@ def assembly_findings(cir: CIR, geo) -> list[Finding]:
     return []
 
 
+def colour_carry_findings(cir: CIR) -> list[Finding]:
+    from ..cir.colour_changes import analyse, claims_carry
+
+    texts = [("cir.designer_notes", cir.designer_notes or "")] + [
+        (f"component {c.name} note", c.note or "") for c in cir.components]
+    if not any(claims_carry(t) for _w, t in texts):
+        return []
+    out: list[Finding] = []
+    for plan in analyse(cir).values():
+        if plan.changes and not plan.carry_is_possible:
+            out.append(Finding(
+                ERROR, "COLOUR_CARRY_IMPOSSIBLE",
+                f"the pattern tells the maker to carry the resting colour up the side, but "
+                f"{plan.cut} of {plan.changes} colour changes in {plan.component} start at the "
+                f"opposite edge from where the incoming colour rests (first at row "
+                f"{plan.first_cut_row}): on turned rows those must be cut and rejoined. "
+                f"Change the stripes to an even number of rows or state the cut-and-join "
+                f"method and its ends", plan.component, plan.first_cut_row))
+    return out
+
+
+# The customer-visible figures the twin derives from a design (PT-03, PT-07). A content
+# change is not only a CIR change: a model change that moves a stated size or yardage changes
+# what a buyer of that version was told, and the version has to move with it.
+CLAIM_FIELDS: tuple[str, ...] = (
+    "width_cm", "height_cm", "shape", "circumference_cm", "size_refusal", "sides",
+    "across_points_cm", "across_flats_cm", "yarn_metres", "yardage_tolerance", "pieces")
+
+
+def claims_fingerprint(summary: dict | None) -> str:
+    """A short hash of a certificate twin block's customer-visible figures ("" if none)."""
+    if not summary:
+        return ""
+    payload = {k: summary.get(k) for k in CLAIM_FIELDS}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str)
+                          .encode()).hexdigest()[:12]
+
+
+def release_claims(cir: CIR) -> dict:
+    """The twin block a certificate would carry, without running the whole chain."""
+    result = compile_cir(cir)
+    if not result.ok:
+        return {}
+    twins = {comp.name: build_twin(cir, result, component=comp.name)
+             for comp in cir.components}
+    return twin_summary(cir, twins, _assembly.assemble(cir, twins))
+
+
 def twin_summary(cir: CIR, twins: dict, geo) -> dict:
     """The certificate's twin block.
 
@@ -626,6 +679,12 @@ def twin_summary(cir: CIR, twins: dict, geo) -> dict:
         "stitches": sorted(set().union(*(t.stitch_types_used for t in twins.values()))),
         "yarn_metres": yarn,
         "yardage_tolerance": first.yardage_tolerance,
+        # PT-10: a polygon's two spans and the convention every size statement names.
+        "sides": first.sides,
+        "across_points_cm": first.across_points_cm,
+        "across_flats_cm": first.across_flats_cm,
+        "size_statement": size_statement(first),
+        "height_rule": first.height_rule,
         "pieces": {
             comp.name: {
                 "make": comp.make,

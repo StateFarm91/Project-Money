@@ -179,12 +179,86 @@ class Revolution:
         return across, round(self.axial_height_cm, 1)
 
 
-def _row_height_cm(row: ResolvedRow, cir: CIR) -> float:
-    """The physical height of one round, in cm, from the gauge's own stitch."""
+# How a row's height is computed from the stitches in it (PT-08, 2026-10-06).
+#
+# Until this date a row was as tall as its TALLEST stitch, so a single-crochet row with one
+# double crochet in every nine was measured as a full double-crochet row. On the Cloudline
+# blanket that was 64 of 70 rows, and the headline 97.1 cm length was roughly 40 % taller
+# than the fabric those rows make. The rule now is the stitch-weighted mean: every stitch the
+# row produces contributes its own row height, weighted by how many stitches of fabric it
+# makes (chains and skips make no row height of their own, and slip stitches among taller
+# stitches are shaping travel, so all three are left out). A row of all sc
+# is 1.0 sc units, a row of all dc 2.0, and a row of eight sc and one dc 1.11 -- the dc stands
+# proud of the ground as relief rather than lifting the whole row. This is a modelling rule,
+# not a measurement: `TwinModel.calibrated` stays False and every document says the size is
+# computed from the stated gauge until a worked sample measures it.
+HEIGHT_RULE = ("stitch-weighted mean row height (each stitch's row height weighted by the "
+               "stitches it produces; uncalibrated until a worked sample is measured)")
+
+
+# Stitches that do not build the row's height. Chains and skips make no fabric height of
+# their own; slip stitches in a row of taller stitches are travel -- the stepped shaping of a
+# sleeve cap or a shoulder walks along the top in slst without adding height to the columns
+# the taller stitches build -- so they are left out of the mean as well. A row worked ONLY in
+# slip stitches is a slip-stitch row and is measured as one.
+_NO_HEIGHT = ("ch", "sk")
+_TRAVEL = ("slst",)
+
+
+def row_height_units(row: ResolvedRow, base: float = 1.0) -> float:
+    """One row's height in gauge-stitch units, by the stitch-weighted mean rule."""
+    return mix_height_units([(o.stitch, o.count) for o in row.ops], base)
+
+
+def mix_height_units(mix, base: float = 1.0) -> float:
+    """The stitch-weighted row height, in gauge-stitch units, of a row with this stitch mix.
+
+    `mix` is an iterable of (stitch code, instances). The same rule as `row_height_units`,
+    for builders that size a design from its motif before any row exists, so the counts they
+    choose and the size the twin later measures come from one rule."""
+    def mean(exclude) -> float | None:
+        weight = total = 0.0
+        for code, count in mix:
+            st = stitches.get(code)
+            if code in exclude or st.produces <= 0:
+                continue
+            n = count * st.produces
+            weight += n
+            total += n * (st.row_height or base)
+        return (total / weight / base) if weight else None
+
+    value = mean(_NO_HEIGHT + _TRAVEL)
+    if value is None:
+        value = mean(_NO_HEIGHT)
+    return 1.0 if value is None else value
+
+
+def row_height_cm(row: ResolvedRow, cir: CIR) -> float:
+    """The physical height of one row or round, in cm, from the gauge's own stitch."""
     assert cir.gauge is not None
     base = stitches.get(cir.gauge.stitch_type).row_height or 1.0
-    tallest = max((stitches.get(o.stitch).row_height for o in row.ops), default=base)
-    return (10.0 / cir.gauge.rows_per_10cm) * (tallest / base)
+    return (10.0 / cir.gauge.rows_per_10cm) * row_height_units(row, base)
+
+
+_row_height_cm = row_height_cm          # the name earlier callers import
+
+
+def polygon_spans_cm(circumference_cm: float, sides: int) -> tuple[float, float]:
+    """(across the points, across the flats) of a regular polygon with this perimeter.
+
+    A stacked-increase piece is an n-sided polygon whose perimeter is its stitch count times
+    the stitch width. The circle formula (perimeter / pi) lies between the two and is neither:
+    a 42-stitch DK hexagon is 9.7 cm across the points and 8.4 cm across the flats, and
+    "9.2 cm across" is the size of no measurement a maker can take (PT-10).
+    """
+    if sides < 3:
+        d = circumference_cm / math.pi
+        return d, d
+    side = circumference_cm / sides
+    circumradius = side / (2.0 * math.sin(math.pi / sides))
+    apothem = side / (2.0 * math.tan(math.pi / sides))
+    points = 2.0 * circumradius if sides % 2 == 0 else circumradius + apothem
+    return points, 2.0 * apothem if sides % 2 == 0 else circumradius + apothem
 
 
 def _classify(rings: list[Ring]) -> str:
@@ -261,7 +335,7 @@ def measure(comp: Component, result: CompileResult, cir: CIR) -> Revolution:
     for row in rows:
         circumference = row.stitch_count / sts_per_cm
         radius = circumference / (2.0 * math.pi)
-        height = _row_height_cm(row, cir)
+        height = row_height_cm(row, cir)
 
         if previous_radius is None:
             # The first round is where the fabric begins. A magic ring starts at its own

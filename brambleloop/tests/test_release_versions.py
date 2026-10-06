@@ -10,8 +10,14 @@ nothing in the suite noticed. This file is the thing that notices.
 content hash the release chain keys redrafts and the certificate's content hash on (both hash
 `CIR.to_dict()`) -- taken with the version blanked, so it measures content alone.
 
+A fourth column pins the design's CLAIMS fingerprint (`gates.certificate.claims_fingerprint`
+over the twin block a certificate carries: finished size, polygon spans, yardage, tolerance).
+A model change that moves a figure a buyer reads -- PT-07's yardage, PT-08's row height --
+changes what a version promised even when the CIR is byte-identical, so it is a content
+change too.
+
 The test fails when:
-  * a design's content fingerprint changed but its version did not (bump the version), or
+  * a design's content or claims fingerprint changed but its version did not (bump it), or
   * its version changed but the pinned row was not updated (update the row with it), or
   * a catalogue builder appears or disappears without its row.
 
@@ -61,14 +67,20 @@ def content_fingerprint(cir: CIR) -> str:
     return dataclasses.replace(cir, version="").fingerprint
 
 
-def pinned() -> dict[str, tuple[str, str]]:
-    rows: dict[str, tuple[str, str]] = {}
+def claims_fingerprint(cir: CIR) -> str:
+    from brambleloop.gates.certificate import claims_fingerprint as fp, release_claims
+
+    return fp(release_claims(cir))
+
+
+def pinned() -> dict[str, tuple[str, str, str]]:
+    rows: dict[str, tuple[str, str, str]] = {}
     for line in TABLE.read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
-        slug, version, fp = line.split("\t")
+        slug, version, fp, claims = line.split("\t")
         assert slug not in rows, f"{slug} pinned twice"
-        rows[slug] = (version, fp)
+        rows[slug] = (version, fp, claims)
     return rows
 
 
@@ -79,12 +91,17 @@ def release_violations(built: dict[str, CIR], table: dict[str, tuple[str, str]])
     for slug in sorted(set(table) - set(built)):
         out.append(f"{slug}: pinned but no catalogue builder releases it; remove the row")
     for slug in sorted(set(built) & set(table)):
-        version, fp = table[slug]
+        version, fp, claims = table[slug]
         cir = built[slug]
         now = content_fingerprint(cir)
+        now_claims = claims_fingerprint(cir)
         if now != fp and cir.version == version:
             out.append(f"{slug}@{version}: content changed ({fp} -> {now}) but the version "
                        f"did not -- a released version cannot change content; bump it")
+        elif now_claims != claims and cir.version == version:
+            out.append(f"{slug}@{version}: customer-visible figures changed ({claims} -> "
+                       f"{now_claims}) but the version did not -- a released version cannot "
+                       f"change what it told the buyer; bump it")
         elif cir.version != version:
             out.append(f"{slug}: version {version} -> {cir.version} but the pinned row was "
                        f"not updated; update version and fingerprint together")
@@ -115,26 +132,48 @@ def test_the_check_catches_a_content_change_under_the_same_version():
                         f"update version and fingerprint together"], problems
 
 
-def test_the_d_fb_6_redesigns_carry_a_new_version():
-    """a8ed44f changed these designs' content; the unchanged ones keep theirs."""
+def test_the_check_catches_a_claims_change_under_the_same_version():
+    """PT-07: the same CIR with a twin model that states different yardage is a new release."""
+    import brambleloop.cir.twin as T
+
+    built = catalogue()
+    table = pinned()
+    slug = "hexagon-coaster-set"
+    saved = dict(T._YARN_FACTOR)
+    try:
+        T._YARN_FACTOR["inc"] = saved["inc"] * 2        # the double count, reintroduced
+        problems = release_violations({slug: built[slug]}, {slug: table[slug]})
+    finally:
+        T._YARN_FACTOR.clear()
+        T._YARN_FACTOR.update(saved)
+    assert problems and "customer-visible figures changed" in problems[0], problems
+
+
+def test_the_pt_redesigns_carry_a_new_version():
+    """D-FB-6 (a8ed44f) moved re-derived designs to 1.1.0; PT-07/08/09/10 (2026-10-06)
+    moved every design whose content or stated figures changed one minor further. The ribbed
+    scarf's figures did not change (no increases, no mixed-height rows) and keeps 1.0.0."""
     built = catalogue()
     for size in nordic_forest.SIZES:
-        assert built[f"nordic-forest-mosaic-throw-{size}"].version == "1.1.0"
-    assert built["heirloom-cable-blanket"].version == "1.1.0"
-    assert built["bobble-floor-pillow"].version == "1.1.0"
+        assert built[f"nordic-forest-mosaic-throw-{size}"].version == "1.2.0"
+    assert built["heirloom-cable-blanket"].version == "1.2.0"
+    assert built["bobble-floor-pillow"].version == "1.2.0"
     assert built["chunky-ribbed-scarf"].version == "1.0.0"
-    assert built["autumn-oak-mosaic-throw"].version == "1.0.0"     # LEGACY_HELD
+    assert built["autumn-oak-mosaic-throw"].version == "1.1.0"     # LEGACY_HELD
+    assert built["cloudline-baby-blanket"].version == "1.2.0"
+    assert built["hexagon-coaster-set"].version == "1.2.0"
     for slug, cir in built.items():
-        if slug.startswith("harbour-drop-shoulder-pullover-"):
-            assert cir.version == "1.1.0", slug
+        if slug.startswith(("harbour-drop-shoulder-pullover-", "market-basket-")):
+            assert cir.version == "1.2.0", slug
         if slug.startswith("pebble-raglan-cardigan-"):
-            assert cir.version == "1.0.0", slug
+            assert cir.version == "1.1.0", slug
 
 
 if __name__ == "__main__":
     if "--print" in sys.argv:
         for slug, cir in sorted(catalogue().items()):
-            print(f"{slug}\t{cir.version}\t{content_fingerprint(cir)}")
+            print(f"{slug}\t{cir.version}\t{content_fingerprint(cir)}\t"
+                  f"{claims_fingerprint(cir)}")
         sys.exit(0)
     fails = 0
     for name, fn in sorted(globals().items()):

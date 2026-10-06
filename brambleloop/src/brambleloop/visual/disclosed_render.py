@@ -21,12 +21,16 @@ What "derived 1:1" means here, concretely:
   * the scale bar is drawn in centimetres at the frame's own pixels-per-centimetre, so the
     finished size can be read off the picture rather than off a caption.
 
-Known modelling note, stated rather than hidden: the twin measures a round as a circle
-(`diameter = stitches x stitch width / pi`). A polygon with its corners on that circle has a
-perimeter 3/pi (about 95.5 %) of the circle's, so along a stacked-increase side the drawn
-stitch pitch is about 4.5 % under the gauge width. The render honours the twin's stated
-across-the-points dimension -- the number the listing prints -- and the verifier checks the
-pitch against the polygon it should be on, reporting the gauge deviation alongside.
+Polygon geometry (2.0.0, PT-10): the twin's rings are circles (`diameter = stitches x stitch
+width / pi`), but a stacked-increase round is a polygon whose perimeter is the stitch count
+times the stitch width. Rounds are drawn on that polygon -- corners at
+`circumference / (2 n sin(pi/n))` -- so the drawn stitch pitch is the gauge width and the
+drawn spans are the twin's across-the-points and across-the-flats figures, which is what the
+scale view letters and the listing prints.
+
+Text (2.0.0, PT-05): the only words on a frame are the disclosure, the scale bar's "N cm" and
+the contract annotation lines (`render_contract.annotation_lines`), whose numbers come from
+the CIR. The verifier re-draws exactly those and refuses any other text.
 
 Output: PNG bytes plus a construction manifest. The manifest is a claim, never evidence:
 `visual.render_verification` re-measures the pixels against the CIR independently and
@@ -45,7 +49,7 @@ from PIL import Image, ImageDraw
 from . import render_contract as K
 
 KIND = "disclosed_render"
-RENDERER_VERSION = "disclosed-render/1.0.0"
+RENDERER_VERSION = "disclosed-render/2.0.0"
 
 # The views a listing set is built from, and the gallery role each plays. One job each
 # (publish.eligibility.check_set refuses duplicate jobs).
@@ -181,12 +185,16 @@ def _scale_bar(d, px_per_cm: float) -> dict:
     end = x0 + segments * px_per_cm
     o = K.SCALE_BAR_OUTLINE_PX
     d.rectangle([x0 - o, y0 - o, round(end) - 1 + o, y1 + o], outline=K.SCALE_DARK, width=o)
-    label = f"{segments} cm"
-    d.text((round(end) + 24, y0 - 8), label, fill=K.CAPTION, font=K.font(K.LABEL_PX))
+    label = K.scale_label(segments)
+    d.text(K.scale_label_xy(round(end), y0), label, fill=K.CAPTION, font=K.font(K.LABEL_PX))
     return {"segments_cm": segments, "x0": x0, "y0": y0, "px_per_cm": px_per_cm}
 
 
-def _caption(d, extra: str = "") -> dict:
+def _caption(d, lines: list[str] | None = None) -> dict:
+    """The disclosure, and the contract annotation lines (`render_contract.annotation_lines`).
+
+    Nothing else is ever lettered on a frame: the verifier re-draws exactly these words from
+    its own reading of the CIR and refuses any other text (PT-05)."""
     f = K.font(K.CAPTION_PX)
     text = K.DISCLOSURE
     w = d.textlength(text, font=f)
@@ -194,12 +202,16 @@ def _caption(d, extra: str = "") -> dict:
     y = round(K.CAPTION_TOP * K.CANVAS_PX)
     d.text((x, y), text, fill=K.CAPTION, font=f)
     out = {"text": text, "x": x, "y": y}
-    if extra:
+    if lines:
         lf = K.font(K.LABEL_PX)
-        lw = d.textlength(extra, font=lf)
-        zx0, zy0, zx1, _ = K.zone_px(K.SCALE_ZONE)
-        d.text((zx1 - lw, zy0), extra, fill=K.CAPTION, font=lf)
-        out["label"] = extra
+        widths = [d.textlength(line, font=lf) for line in lines]
+        positions = K.annotation_xy(widths)
+        if min(px for px, _py in positions) < K.ANNOTATION_MIN_X_FRACTION * K.CANVAS_PX:
+            raise RenderRefused("annotation text is too long for the scale zone")
+        for line, xy in zip(lines, positions):
+            d.text(xy, line, fill=K.CAPTION, font=lf)
+        out["label"] = " ".join(lines)
+        out["lines"] = list(lines)
     return out
 
 
@@ -217,6 +229,13 @@ def _dimension_line(d, a, b, *, ticks: str) -> None:
             d.line([(p[0], p[1] - 14), (p[0], p[1] + 14)], fill=K.LINE, width=3)
         else:
             d.line([(p[0] - 14, p[1]), (p[0] + 14, p[1])], fill=K.LINE, width=3)
+
+
+def dimension_figures(twin) -> dict:
+    """The figures a scale view letters, from the twin (`render_contract.annotation_lines`)."""
+    return {"width": twin.width_cm, "height": twin.height_cm, "sides": twin.sides or 0,
+            "points": twin.across_points_cm, "flats": twin.across_flats_cm,
+            "across": twin.width_cm, "vessel": twin.shape not in (None, "disc")}
 
 
 # --------------------------------------------------------------------------- flat pieces
@@ -294,7 +313,7 @@ def _flat_view(cir, twin, palette, view: str) -> tuple[Image.Image, dict]:
         bottom = zy1 - ((zy1 - zy0) - win_h * px) / 2
         layout = _draw_flat(d, cir, twin, palette, px=px, left=left, bottom=bottom,
                             rows_window=(min(rows), r_last), cols_window=(0, cols - 1))
-        extra = f"Detail: first {r_last} rows x {cols} stitches, drawn stitch for stitch"
+        extra = K.annotation_lines("detail", "flat", {"rows": r_last, "cols": cols})
     else:
         margin = 70 if view == "scale" else 0
         px = min((zx1 - zx0 - margin) / full_w, (zy1 - zy0 - margin) / full_h)
@@ -304,13 +323,12 @@ def _flat_view(cir, twin, palette, view: str) -> tuple[Image.Image, dict]:
             left = zx0 + ((zx1 - zx0) - full_w * px) / 2
             bottom = zy1 - ((zy1 - zy0) - full_h * px) / 2
         layout = _draw_flat(d, cir, twin, palette, px=px, left=left, bottom=bottom)
-        extra = ""
+        extra = []
         if view == "scale":
             top = bottom - full_h * px
             _dimension_line(d, (left, bottom + 40), (left + full_w * px, bottom + 40), ticks="v")
             _dimension_line(d, (left - 40, top), (left - 40, bottom), ticks="h")
-            extra = (f"Finished size at the stated gauge: {twin.width_cm:g} cm wide x "
-                     f"{twin.height_cm:g} cm long")
+            extra = K.annotation_lines("scale", "flat", dimension_figures(twin))
     layout["px_per_cm"] = px
     layout["scale_bar"] = _scale_bar(d, px)
     layout["caption"] = _caption(d, extra)
@@ -358,10 +376,18 @@ def _path(rho: float, t0: float, t1: float, sides: int) -> list[tuple[float, flo
     return pts
 
 
-def _rounds(cir, twin):
+def _rounds(cir, twin, sides: int = 0):
     rings = list(twin.geometry.rings) if twin.geometry else []
     if not rings:
         raise RenderRefused(f"{cir.slug}: a round piece with no certified ring geometry")
+    if sides:
+        # A stacked-increase round is an n-sided polygon whose PERIMETER is the stitch count
+        # times the stitch width, so its corners sit at circumference / (2 n sin(pi/n)) --
+        # not on the circle's radius, which drew every polygon 4.5 % under gauge (PT-10).
+        from dataclasses import replace as _replace
+
+        k = 2 * sides * math.sin(math.pi / sides)
+        rings = [_replace(r, radius_cm=r.circumference_cm / k) for r in rings]
     rows = _by_row(twin)
     base, wall = [], []
     for ring in rings:
@@ -466,7 +492,7 @@ def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dic
         raise RenderRefused(
             f"{cir.slug}: the increases neither all stack nor all stagger, so the outline "
             f"is not a named shape and drawing one would be a guess (cir.geometry.corners)")
-    rings, rows, base, wall = _rounds(cir, twin)
+    rings, rows, base, wall = _rounds(cir, twin, sides)
     img, d = _canvas()
     zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE)
     zw, zh = zx1 - zx0, zy1 - zy0
@@ -476,7 +502,8 @@ def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dic
     xs = [_path_point(R, k / 360, sides)[0] for k in range(360)]
     ys = [_path_point(R, k / 360, sides)[1] for k in range(360)]
     span_x, span_y = max(xs) - min(xs), max(ys) - min(ys)
-    extra = ""
+    extra: list[str] = []
+    dims = dimension_figures(twin)
     layout: dict = {"sides": sides, "objects": 1}
     if not wall:
         make = cir.components[0].make
@@ -507,8 +534,7 @@ def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dic
                 y = c_y + span_y / 2 * px + 40
                 _dimension_line(d, (c_x - span_x / 2 * px, y), (c_x + span_x / 2 * px, y),
                                 ticks="v")
-                across = "across the points" if sides else "across"
-                extra = f"Finished size at the stated gauge: {twin.width_cm:g} cm {across}"
+                extra = K.annotation_lines("scale", "rounds", dims)
         layout["rounds"] = rendered
         layout["projection"] = "plan"
     else:
@@ -520,7 +546,8 @@ def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dic
             rendered = _draw_plan(d, cir, twin, palette, sides, cx=zx0 + zw / 2,
                                   cy=zy0 + zh / 2, px=px, rings=base, rows=rows)
             layout.update(rounds=rendered, projection="plan", part="base")
-            extra = f"Base from above: all {len(base)} base rounds"
+            extra = K.annotation_lines("detail", "rounds",
+                                       {"vessel": True, "base_rounds": len(base)})
         else:
             alpha = math.radians(K.OBLIQUE_DEG if view == "hero" else 0.0)
             ca, sa = math.cos(alpha), math.sin(alpha)
@@ -540,8 +567,7 @@ def _round_view(cir, result, twin, palette, view: str) -> tuple[Image.Image, dic
                                 (cx + span_x / 2 * px, low + 40), ticks="v")
                 _dimension_line(d, (cx - span_x / 2 * px - 40, top),
                                 (cx - span_x / 2 * px - 40, low), ticks="h")
-                extra = (f"Finished size at the stated gauge: {twin.width_cm:g} cm across, "
-                         f"{twin.height_cm:g} cm tall")
+                extra = K.annotation_lines("scale", "rounds", dims)
     layout["px_per_cm"] = px
     layout["scale_bar"] = _scale_bar(d, px)
     layout["caption"] = _caption(d, extra)
@@ -592,8 +618,8 @@ def render(cir, view: str) -> RenderedFrame:
         "generated": False, "photograph": False, "model_in_path": False,
         "calibrated": twin.calibrated,
         "modelling_notes": (
-            ["twin rounds are circular arithmetic; polygon rounds are drawn with corners on "
-             "the twin's radii, so side pitch is 3/pi of gauge width"]
+            ["polygon rounds are drawn on the perimeter the stitch count makes, so side "
+             "pitch is the gauge width"]
             if form == "rounds" and layout.get("sides") else []),
     }
     return RenderedFrame(view=view, png=png, manifest=manifest)
