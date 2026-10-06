@@ -26,9 +26,47 @@ def _aware(v):
 # ---- money --------------------------------------------------------------------------
 
 
+# Lane E (finance.accounting.dashboard) labels each figure with `reading`; the command
+# center's money contract (readers._money, format.js) reads `state`. Only these readings carry
+# a number; every other reading (UNKNOWN, lower_bound, stale, anything unrecognised) is shown
+# as its state word with value_cad None -- never as CA$0.00 (F-898, F-902).
+_READING_STATE = {"measured": "MEASURED", "estimated": "ESTIMATED", "modelled": "MODELLED",
+                  "derived": "RECORDED"}
+
+
+def _money_item(item: dict) -> dict:
+    """One lane E figure in the command center money shape, provider fields kept."""
+    reading = str(item.get("reading") or "UNKNOWN")
+    value = item.get("value_cad")
+    state = _READING_STATE.get(reading.lower(), reading.upper())
+    if state not in readers.VALUE_STATES or value is None:
+        state = state if state not in readers.VALUE_STATES else "UNKNOWN"
+        out = {**item, "value_cad": None, "actual_cad": None, "estimated_cad": None,
+               "state": state, "basis": "unknown", "display": state}
+    else:
+        suffix = "" if state == "MEASURED" else f" ({reading.lower()})"
+        out = {**item, "value_cad": round(float(value), 2), "state": state,
+               "basis": "measured" if state in ("MEASURED", "RECORDED") else state.lower(),
+               "display": f"CA${float(value):,.2f}{suffix}"}
+    out["provider_reading"] = reading
+    out["sources"] = [f"finance.accounting.dashboard:{item.get('metric') or '?'}"]
+    return out
+
+
+def _adapt_accounting(acct: dict) -> dict:
+    items = acct.get("items") or []
+    if not any(isinstance(i, dict) and "value_cad" in i for i in items):
+        return acct
+    return {**acct, "items": [_money_item(i) if isinstance(i, dict) and "value_cad" in i
+                              else i for i in items]}
+
+
 def money_section(db) -> dict:
     """The Accountant provider is primary; fallback readers only state what they measure."""
-    acct = providers.call("accounting", db)
+    acct = _adapt_accounting(providers.call("accounting", db))
+    profit_item = next((i for i in acct.get("items") or []
+                        if isinstance(i, dict) and i.get("metric") == "profit"
+                        and "state" in i), None)
     rev = readers.revenue(db)
     spent = readers.recorded_spend(db)
     try:
@@ -49,6 +87,9 @@ def money_section(db) -> dict:
         status = "DEGRADED"
     return {"status": status, "accounting": acct, "revenue": rev,
             "profit": (acct.get("profit") if isinstance(acct.get("profit"), dict) else
+                       {k: profit_item[k] for k in ("value_cad", "state", "basis", "display",
+                                                    "sources", "why")}
+                       if profit_item is not None else
                        {"value_cad": None, "state": "UNKNOWN", "basis": "unknown",
                         "display": "UNKNOWN",
                         "why": acct.get("reason") or "the accountant provider owns profit"}),
@@ -68,7 +109,9 @@ def money_drill(db, metric: str) -> dict:
     metric = str(metric or "")[:80]
     if not metric:
         return unknown("metric required", "money.drill")
-    if providers.available("accounting_drill"):
+    # The command center's own figures (revenue, recorded_spend) drill into its own readers;
+    # every other metric is the accountant's (lane E) and goes through its drill (F-915).
+    if metric not in ("revenue", "recorded_spend") and providers.available("accounting_drill"):
         out, why = providers.call_raw("accounting_drill", db, metric)
         if out is not None:
             return out if isinstance(out, dict) else {"metric": metric, "rows": out}

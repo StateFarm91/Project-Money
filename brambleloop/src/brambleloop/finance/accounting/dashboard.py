@@ -151,7 +151,8 @@ def _summary(db, window, now, refresh):
         item("cash", "Cash in bank", pos["cash_on_hand_cad"], pos["cash_reading"],
              why=pos["cash_why"]),
         item("expected_payout", "Etsy balance (expected payout)", pos["expected_payout_cad"],
-             "derived", why=pos["expected_payout_reading"]),
+             "UNKNOWN" if pos["expected_payout_cad"] is None else "derived",
+             why=pos["expected_payout_reading"]),
         item("committed_spend", "Committed spend (live reservations)",
              pos["committed_spend_cad"], "measured" if pos["committed_spend_cad"] is not None
              else "UNKNOWN", drill=False),
