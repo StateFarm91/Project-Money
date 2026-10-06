@@ -236,6 +236,9 @@ def ellipse_path(cx: float, cy: float, rx: float, ry: float, rot_deg: float = 0.
 class Fill:
     path: Path
     role: str
+    # "evenodd" (default; the research directions' letterforms) or "nonzero" (outlines whose
+    # contours overlap by design: variable-font instances and joined script letters).
+    rule: str = "evenodd"
 
 
 @dataclass
@@ -284,7 +287,7 @@ class Mark:
 
 def _el_svg(e, colour: str) -> str:
     if isinstance(e, Fill):
-        return f'<path d="{e.path.d()}" fill="{colour}" fill-rule="evenodd"/>'
+        return f'<path d="{e.path.d()}" fill="{colour}" fill-rule="{e.rule}"/>'
     if isinstance(e, Stroke):
         return (f'<path d="{e.path.d()}" fill="none" stroke="{colour}" '
                 f'stroke-width="{f(e.width)}" stroke-linecap="round" stroke-linejoin="round"/>')
@@ -341,7 +344,21 @@ def _coverage(e, scale: float, W: int, H: int, ss: int):
     from PIL import Image, ImageDraw
 
     S = scale * ss
-    if isinstance(e, Fill):
+    if isinstance(e, Fill) and getattr(e, "rule", "evenodd") == "nonzero":
+        # winding number = sum over contours of orientation x inside (exact for simple
+        # contours, which font outlines are); nonzero winding is filled.
+        wind = np.zeros((H * ss, W * ss), dtype=np.int16)
+        for pts, _closed in e.path.polylines():
+            if len(pts) < 3:
+                continue
+            area = sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]))
+            if abs(area) < 1e-12:
+                continue
+            im = Image.new("1", (W * ss, H * ss), 0)
+            ImageDraw.Draw(im).polygon([(x * S, y * S) for x, y in pts], fill=1)
+            wind += np.asarray(im, dtype=np.int16) * (1 if area > 0 else -1)
+        cov = (wind != 0).astype(np.float32)
+    elif isinstance(e, Fill):
         acc = np.zeros((H * ss, W * ss), dtype=bool)
         for pts, _closed in e.path.polylines():
             if len(pts) < 3:

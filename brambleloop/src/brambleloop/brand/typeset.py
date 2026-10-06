@@ -15,12 +15,18 @@ from pathlib import Path as _FsPath
 from .vector import Path
 
 DATA = _FsPath(__file__).resolve().parent / "data" / "glyphs.json"
+# The owner-concept identity's fonts (D-FB-16) live in their own file so the research
+# directions' outlines stay byte-identical; both are merged into one font table.
+OWNER_DATA = DATA.parent / "glyphs_owner.json"
 _TOK = re.compile(r"[MLQCZ]|-?\d+")
 
 
 @lru_cache(maxsize=1)
 def _fonts() -> dict:
-    return json.loads(DATA.read_text())["fonts"]
+    fonts = dict(json.loads(DATA.read_text())["fonts"])
+    if OWNER_DATA.exists():
+        fonts.update(json.loads(OWNER_DATA.read_text())["fonts"])
+    return fonts
 
 
 def font_metrics(font: str) -> dict:

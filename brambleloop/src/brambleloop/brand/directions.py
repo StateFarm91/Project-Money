@@ -153,7 +153,7 @@ def _moved(e, s: float, tx: float, ty: float):
         return Circle(e.cx * s + tx, e.cy * s + ty, e.r * s, e.role)
     if isinstance(e, Stroke):
         return Stroke(e.path.transformed(sx=s, tx=tx, ty=ty), e.width * s, e.role)
-    return Fill(e.path.transformed(sx=s, tx=tx, ty=ty), e.role)
+    return Fill(e.path.transformed(sx=s, tx=tx, ty=ty), e.role, getattr(e, "rule", "evenodd"))
 
 
 def trim(mark: Mark, pad: float) -> Mark:

@@ -134,7 +134,7 @@ def _pad_square(im, colour: str):
 
 
 def ground(c: Candidate) -> str:
-    return owner_ground() if c.kind == "raster" else _D.DIRECTIONS[c.direction_id].ground("colour")
+    return owner_ground() if c.kind == "raster" else I.get_direction(c.direction_id).ground("colour")
 
 
 def icon_image(c: Candidate, px: int = ICON_PX):
@@ -167,7 +167,7 @@ def lockup_image(c: Candidate, width: int, *, header: bool = False):
     else:
         from .vector import rasterize
 
-        d = _D.DIRECTIONS[c.direction_id]
+        d = I.get_direction(c.direction_id)
         m = d.lockup_horizontal() if header else d.lockup_stacked(tagline())
         arr = rasterize(m, d.colours("colour"), max(width, 600), ground=d.ground("colour"),
                         ss=3)
@@ -233,7 +233,7 @@ def mono_alpha(c: Candidate, px: int = ICON_PX):
         lum = _lum(big)
         hard = (lum < otsu(lum)).astype(np.float32)
         return hard.reshape(px, 2, px, 2).mean((1, 3))
-    d = _D.DIRECTIONS[c.direction_id]
+    d = I.get_direction(c.direction_id)
     arr = I.icon_raster(px, "mono", direction_id=c.direction_id)[..., :3]
     from .judge import _hex
 
@@ -316,7 +316,7 @@ def header_letter_px(c: Candidate) -> float:
         return round(OWNER_WORDMARK_CAP_PX * s, 1)
     from .judge import measure_direction
 
-    return float(measure_direction(_D.DIRECTIONS[c.direction_id])["header_letter_px"])
+    return float(measure_direction(I.get_direction(c.direction_id))["header_letter_px"])
 
 
 # ---- storefront (lane B's v2 renderer, mark injected) ---------------------------------------
