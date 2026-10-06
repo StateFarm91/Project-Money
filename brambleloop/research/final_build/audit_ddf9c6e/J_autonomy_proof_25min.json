@@ -1,0 +1,3430 @@
+{
+ "kind": "lane A runtime proof: embedded runner in-process, shadow, temp SQLite",
+ "not_a_soak": "bounded wall-clock window; it proves the hosted loop generates and executes work by itself, not 24 h of uptime (\u00a795 lights-out remains an open certification gate)",
+ "started": "2026-10-06T10:14:55.403758+00:00",
+ "finished": "2026-10-06T10:39:55.467299+00:00",
+ "duration_seconds": 1500.1,
+ "commit": "ddf9c6ed5a3077c38df93412381adc24c64107f0",
+ "environment": {
+  "phase": "shadow",
+  "network": "all HTTP(S) proxies -> http://127.0.0.1:9 (closed)",
+  "credentials": "none: child env is PATH/HOME/PYTHONPATH + BRAMBLELOOP_* only",
+  "human_or_session_enqueues_after_boot": 0
+ },
+ "samples": [
+  {
+   "at": "2026-10-06T10:15:25.515741+00:00",
+   "jobs": {
+    "done": 8,
+    "pending": 103,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:15:16.497901+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": [
+    "infra_heartbeat",
+    "health_sweep",
+    "executive_orchestrator",
+    "slo_check"
+   ]
+  },
+  {
+   "at": "2026-10-06T10:15:55.615577+00:00",
+   "jobs": {
+    "done": 17,
+    "pending": 94,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:15:36.675389+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:16:25.637115+00:00",
+   "jobs": {
+    "done": 36,
+    "pending": 87,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:16:18.075625+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:16:55.653669+00:00",
+   "jobs": {
+    "done": 120,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:16:38.544424+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:17:25.810707+00:00",
+   "jobs": {
+    "done": 121,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:17:19.204243+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:17:56.417817+00:00",
+   "jobs": {
+    "done": 123,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:17:39.827514+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:18:26.497602+00:00",
+   "jobs": {
+    "done": 123,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:18:20.370768+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:18:56.590559+00:00",
+   "jobs": {
+    "done": 124,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:18:41.156432+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:19:26.893825+00:00",
+   "jobs": {
+    "done": 124,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:19:21.869382+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:19:57.037521+00:00",
+   "jobs": {
+    "done": 125,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:19:42.114563+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:20:27.046051+00:00",
+   "jobs": {
+    "done": 126,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:20:22.476485+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:20:57.081949+00:00",
+   "jobs": {
+    "done": 127,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:20:42.886168+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:21:27.105535+00:00",
+   "jobs": {
+    "done": 142,
+    "pending": 69,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:21:23.309801+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:21:57.118996+00:00",
+   "jobs": {
+    "done": 159,
+    "pending": 69,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:21:43.378406+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:22:27.147379+00:00",
+   "jobs": {
+    "dead": 2,
+    "done": 179,
+    "pending": 63,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:22:23.793396+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:22:57.156297+00:00",
+   "jobs": {
+    "dead": 5,
+    "done": 179,
+    "pending": 60,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:22:43.841248+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:23:27.165104+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 245,
+    "pending": 2
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:23:24.595612+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": [
+    "executive_orchestrator:idle_wake"
+   ]
+  },
+  {
+   "at": "2026-10-06T10:23:57.174487+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 245,
+    "pending": 2
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:23:44.644565+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:24:27.185038+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 247
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:24:24.745958+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:24:57.194468+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 247
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:24:44.806349+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:25:27.204757+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 254,
+    "pending": 2
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:25:24.926775+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:25:57.215198+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 254,
+    "pending": 2
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:25:44.973061+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:26:27.232644+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 255,
+    "pending": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:26:25.073392+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:26:57.243424+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 255,
+    "pending": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:26:45.132288+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:27:27.255721+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 256
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:27:25.264844+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:27:57.266027+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 256
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:27:45.328367+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:28:27.288422+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 256
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:28:25.458257+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:28:57.301882+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 256
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:28:45.514618+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:29:27.312131+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 256
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:29:25.601037+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:29:57.322492+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 256
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:29:45.656035+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:30:27.355146+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 259,
+    "pending": 2
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:30:25.849492+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:30:57.364786+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 259,
+    "pending": 2
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:30:46.000878+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:31:27.375095+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 260,
+    "pending": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:31:26.190624+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:31:57.385215+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 260,
+    "pending": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:31:46.265389+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:32:27.401364+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 262
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:32:26.457023+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": [
+    "executive_orchestrator:idle_wake"
+   ]
+  },
+  {
+   "at": "2026-10-06T10:32:57.416608+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 262
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:32:46.518792+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:33:27.431823+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 262
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:33:26.685490+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:33:57.445302+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 262
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:33:46.755442+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:34:27.461185+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 262
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:34:26.866497+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:34:57.478245+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 262
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:34:46.945988+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:35:27.499790+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:35:27.075334+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:35:57.514309+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:35:47.137125+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:36:27.541434+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:36:27.269135+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:36:57.561480+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:36:47.336201+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:37:27.580762+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:37:27.511827+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:37:57.593912+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:37:47.574846+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:38:27.607323+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:38:07.627363+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:38:57.618526+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:38:47.743018+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:39:27.627266+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:39:07.805569+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-06T10:39:55.463294+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 263
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T10:39:47.917980+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  }
+ ],
+ "jobs_total": 273,
+ "jobs_by_department": {
+  "learn": {
+   "total": 21,
+   "done": 21,
+   "useful": 19,
+   "dead": 0
+  },
+  "platform": {
+   "total": 21,
+   "done": 21,
+   "useful": 21,
+   "dead": 0
+  },
+  "intelligence": {
+   "total": 27,
+   "done": 27,
+   "useful": 22,
+   "dead": 0
+  },
+  "executive": {
+   "total": 32,
+   "done": 32,
+   "useful": 29,
+   "dead": 0
+  },
+  "finance": {
+   "total": 9,
+   "done": 9,
+   "useful": 8,
+   "dead": 0
+  },
+  "product_design": {
+   "total": 31,
+   "done": 31,
+   "useful": 27,
+   "dead": 0
+  },
+  "product_truth": {
+   "total": 40,
+   "done": 40,
+   "useful": 40,
+   "dead": 0
+  },
+  "support": {
+   "total": 2,
+   "done": 2,
+   "useful": 2,
+   "dead": 0
+  },
+  "store_commerce": {
+   "total": 51,
+   "done": 41,
+   "useful": 40,
+   "dead": 10
+  },
+  "growth": {
+   "total": 20,
+   "done": 20,
+   "useful": 20,
+   "dead": 0
+  },
+  "visual": {
+   "total": 19,
+   "done": 19,
+   "useful": 14,
+   "dead": 0
+  }
+ },
+ "jobs_by_type": {
+  "learn.scan": {
+   "done": 1
+  },
+  "ops.heartbeat": {
+   "done": 3
+  },
+  "ops.queue_check": {
+   "done": 2
+  },
+  "radar.scan": {
+   "done": 2
+  },
+  "plan.cycle": {
+   "done": 1
+  },
+  "portfolio.review": {
+   "done": 2
+  },
+  "finance.reconcile": {
+   "done": 1
+  },
+  "plan.strategy": {
+   "done": 1
+  },
+  "improve.nightly": {
+   "done": 1
+  },
+  "improve.weekly": {
+   "done": 1
+  },
+  "improve.measure": {
+   "done": 1
+  },
+  "improve.mine": {
+   "done": 2
+  },
+  "improve.monitor": {
+   "done": 1
+  },
+  "creative.style_learning": {
+   "done": 1
+  },
+  "creative.outcome_learning": {
+   "done": 1
+  },
+  "seasonal.harvest": {
+   "done": 1
+  },
+  "gate.lanes": {
+   "done": 11
+  },
+  "creative.white_space": {
+   "done": 1
+  },
+  "creative.four_season": {
+   "done": 1
+  },
+  "improve.sandbox": {
+   "done": 1
+  },
+  "improve.league": {
+   "done": 1
+  },
+  "finance.governor": {
+   "done": 1
+  },
+  "support.triage": {
+   "done": 1
+  },
+  "commerce.readings": {
+   "done": 1
+  },
+  "commerce.orders_ingest": {
+   "done": 1
+  },
+  "listing.taxonomy_refresh": {
+   "done": 1
+  },
+  "listing.search_visibility_watch": {
+   "done": 1
+  },
+  "commerce.order_readings": {
+   "done": 1
+  },
+  "scale.trajectory": {
+   "done": 1
+  },
+  "creative.north_star": {
+   "done": 1
+  },
+  "ads.adjust": {
+   "done": 1
+  },
+  "growth.distribution": {
+   "done": 1
+  },
+  "growth.journey": {
+   "done": 2
+  },
+  "growth.steer": {
+   "done": 1
+  },
+  "growth.conclude": {
+   "done": 1
+  },
+  "ops.thrash": {
+   "done": 1
+  },
+  "seasonal.engine": {
+   "done": 1
+  },
+  "swarm.review": {
+   "done": 1
+  },
+  "swarm.allocate": {
+   "done": 1
+  },
+  "swarm.orphans": {
+   "done": 1
+  },
+  "swarm.backlog": {
+   "done": 1
+  },
+  "growth.preproduction": {
+   "done": 1
+  },
+  "growth.experiments": {
+   "done": 1
+  },
+  "creative.blind_review": {
+   "done": 1
+  },
+  "creative.grid_tournament": {
+   "done": 1
+  },
+  "intel.acceptance": {
+   "done": 1
+  },
+  "ops.provenance_backfill": {
+   "done": 1
+  },
+  "finance.escalation_check": {
+   "done": 1
+  },
+  "chain.rebuild": {
+   "done": 1
+  },
+  "launch.readiness": {
+   "done": 1
+  },
+  "ops.maturity_disagreements": {
+   "done": 1
+  },
+  "model.probe": {
+   "done": 1
+  },
+  "ops.continuity": {
+   "done": 1
+  },
+  "ops.offsite_archive": {
+   "done": 1
+  },
+  "creative.image_benchmark": {
+   "done": 1
+  },
+  "creative.model_tournament": {
+   "done": 1
+  },
+  "creative.model_reference_pack": {
+   "done": 1
+  },
+  "assets.owned_photography": {
+   "done": 1
+  },
+  "assets.model_photography": {
+   "done": 1
+  },
+  "seasonal.sentinel": {
+   "done": 2
+  },
+  "etsy.probe": {
+   "done": 1
+  },
+  "mjs.scan": {
+   "done": 1
+  },
+  "intel.serp_capture": {
+   "done": 1
+  },
+  "intel.benchmark_health": {
+   "done": 1
+  },
+  "intel.pod_learning": {
+   "done": 1
+  },
+  "mjs.seasonal_sentinel": {
+   "done": 1
+  },
+  "intel.panel_discovery": {
+   "done": 1
+  },
+  "intel.benchmark_refresh": {
+   "done": 1
+  },
+  "physical.upgrade_impact": {
+   "done": 1
+  },
+  "visual.identity_drift": {
+   "done": 2
+  },
+  "creative.benchmark_memory": {
+   "done": 1
+  },
+  "creative.reference_reading": {
+   "done": 1
+  },
+  "mjs.reviews": {
+   "done": 1
+  },
+  "improve.retrospective": {
+   "done": 2
+  },
+  "ops.policy_watch": {
+   "done": 1
+  },
+  "build.tick": {
+   "done": 1
+  },
+  "creative.blinded": {
+   "done": 1
+  },
+  "creative.expedition": {
+   "done": 1
+  },
+  "creative.tournament": {
+   "done": 1
+  },
+  "seasonal.remerchandising": {
+   "done": 2
+  },
+  "seasonal.cycle_proof": {
+   "done": 1
+  },
+  "ops.capacity": {
+   "done": 1
+  },
+  "ops.sentinel": {
+   "done": 2
+  },
+  "ops.health": {
+   "done": 3
+  },
+  "ops.capability_probes": {
+   "done": 1
+  },
+  "culture.sweep": {
+   "done": 1
+  },
+  "intel.gallery_analysis": {
+   "done": 1
+  },
+  "ops.retention": {
+   "done": 1
+  },
+  "ops.dependencies": {
+   "done": 1
+  },
+  "improve.replay": {
+   "done": 1
+  },
+  "teardown.enforce": {
+   "done": 1
+  },
+  "etsy.credential_health": {
+   "done": 1
+  },
+  "etsy.shop_snapshot": {
+   "done": 1
+  },
+  "etsy.listing_census": {
+   "done": 1
+  },
+  "autonomy.orchestrate": {
+   "done": 7
+  },
+  "ops.slo": {
+   "done": 3
+  },
+  "seo.cycle": {
+   "done": 1
+  },
+  "finance.accounting.cycle": {
+   "done": 1
+  },
+  "marketing.ads_readiness": {
+   "done": 1
+  },
+  "improve.role_work": {
+   "done": 8
+  },
+  "collection.assemble": {
+   "done": 3
+  },
+  "finance.challenge": {
+   "done": 1
+  },
+  "radar.score": {
+   "done": 11
+  },
+  "cir.draft": {
+   "done": 11
+  },
+  "cir.compile": {
+   "done": 12
+  },
+  "gate.certify": {
+   "done": 12
+  },
+  "listing.draft": {
+   "done": 10
+  },
+  "assets.build": {
+   "done": 10
+  },
+  "pricing.position": {
+   "done": 10
+  },
+  "listing.seo": {
+   "done": 11
+  },
+  "launch.plan": {
+   "done": 11
+  },
+  "marketing.schedule": {
+   "done": 10
+  },
+  "store.publish": {
+   "dead": 10
+  },
+  "autonomy.department_review": {
+   "done": 11
+  },
+  "autonomy.morning_handoff": {
+   "done": 1
+  }
+ },
+ "orchestrator_runs": [
+  {
+   "id": 95,
+   "status": "done",
+   "wake": "executive_orchestrator",
+   "enqueued": 1,
+   "states": {
+    "support": "GENERATED",
+    "product_truth": "BUSY",
+    "platform": "BUSY",
+    "finance": "BUSY",
+    "executive": "BUSY",
+    "learn": "BUSY",
+    "growth": "BUSY",
+    "intelligence": "BUSY",
+    "product_design": "BUSY",
+    "store_commerce": "BUSY",
+    "visual": "BUSY"
+   }
+  },
+  {
+   "id": 111,
+   "status": "done",
+   "wake": "executive_orchestrator",
+   "enqueued": 0,
+   "states": {
+    "support": "SATURATED",
+    "product_truth": "BUSY",
+    "platform": "BUSY",
+    "finance": "BUSY",
+    "executive": "BUSY",
+    "learn": "BUSY",
+    "growth": "BUSY",
+    "intelligence": "BUSY",
+    "product_design": "BUSY",
+    "store_commerce": "BUSY",
+    "visual": "BUSY"
+   }
+  },
+  {
+   "id": 247,
+   "status": "done",
+   "wake": "idle_queue",
+   "enqueued": 10,
+   "states": {
+    "support": "SATURATED",
+    "product_truth": "GENERATED",
+    "platform": "GENERATED",
+    "finance": "GENERATED",
+    "executive": "GENERATED",
+    "learn": "GENERATED",
+    "growth": "GENERATED",
+    "intelligence": "GENERATED",
+    "product_design": "GENERATED",
+    "store_commerce": "GENERATED",
+    "visual": "GENERATED"
+   }
+  },
+  {
+   "id": 258,
+   "status": "done",
+   "wake": "idle_queue",
+   "enqueued": 8,
+   "states": {
+    "support": "SATURATED",
+    "product_truth": "GENERATED",
+    "platform": "GENERATED",
+    "finance": "SATURATED",
+    "executive": "GENERATED",
+    "learn": "GENERATED",
+    "growth": "GENERATED",
+    "intelligence": "SATURATED",
+    "product_design": "GENERATED",
+    "store_commerce": "GENERATED",
+    "visual": "GENERATED"
+   }
+  },
+  {
+   "id": 269,
+   "status": "done",
+   "wake": "executive_orchestrator",
+   "enqueued": 1,
+   "states": {
+    "support": "SATURATED",
+    "product_truth": "SATURATED",
+    "platform": "BUSY",
+    "finance": "SATURATED",
+    "executive": "SATURATED",
+    "learn": "GENERATED",
+    "growth": "SATURATED",
+    "intelligence": "SATURATED",
+    "product_design": "SATURATED",
+    "store_commerce": "SATURATED",
+    "visual": "SATURATED"
+   }
+  },
+  {
+   "id": 272,
+   "status": "done",
+   "wake": "idle_queue",
+   "enqueued": 0,
+   "states": {
+    "support": "SATURATED",
+    "product_truth": "SATURATED",
+    "platform": "SATURATED",
+    "finance": "SATURATED",
+    "executive": "SATURATED",
+    "learn": "SATURATED",
+    "growth": "SATURATED",
+    "intelligence": "SATURATED",
+    "product_design": "SATURATED",
+    "store_commerce": "SATURATED",
+    "visual": "SATURATED"
+   }
+  },
+  {
+   "id": 273,
+   "status": "done",
+   "wake": "idle_queue",
+   "enqueued": 0,
+   "states": {
+    "support": "SATURATED",
+    "product_truth": "SATURATED",
+    "platform": "SATURATED",
+    "finance": "SATURATED",
+    "executive": "SATURATED",
+    "learn": "SATURATED",
+    "growth": "SATURATED",
+    "intelligence": "SATURATED",
+    "product_design": "SATURATED",
+    "store_commerce": "SATURATED",
+    "visual": "SATURATED"
+   }
+  }
+ ],
+ "generated_by_orchestrator": {
+  "support": {
+   "jobs": [
+    {
+     "id": 231,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 1
+  },
+  "product_truth": {
+   "jobs": [
+    {
+     "id": 248,
+     "job_type": "ops.sentinel",
+     "status": "done",
+     "reason": "10 PatternVersion row(s): new releases must be swept for stale or unproven artefacts"
+    },
+    {
+     "id": 259,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Product Truth / QA KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 2
+  },
+  "platform": {
+   "jobs": [
+    {
+     "id": 249,
+     "job_type": "ops.queue_check",
+     "status": "done",
+     "reason": "10 Job row(s): dead letters since the last queue check"
+    },
+    {
+     "id": 260,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Platform / Reliability KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 2
+  },
+  "finance": {
+   "jobs": [
+    {
+     "id": 250,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Finance / Accounting KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 1
+  },
+  "executive": {
+   "jobs": [
+    {
+     "id": 251,
+     "job_type": "autonomy.morning_handoff",
+     "status": "done",
+     "reason": "no morning brief yet for 2026-10-05; summarise the unattended hours"
+    },
+    {
+     "id": 261,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Executive / COO KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 2
+  },
+  "learn": {
+   "jobs": [
+    {
+     "id": 252,
+     "job_type": "improve.mine",
+     "status": "done",
+     "reason": "1 Incident row(s): incidents raised since the last mining run"
+    },
+    {
+     "id": 262,
+     "job_type": "improve.retrospective",
+     "status": "done",
+     "reason": "3 Lesson row(s): lessons routed since the last retrospective"
+    },
+    {
+     "id": 271,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Learn / Improvement KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 3
+  },
+  "growth": {
+   "jobs": [
+    {
+     "id": 253,
+     "job_type": "growth.journey",
+     "status": "done",
+     "reason": "10 Listing row(s): new listing drafts change the buyer journey"
+    },
+    {
+     "id": 263,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Growth / Marketing KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 2
+  },
+  "intelligence": {
+   "jobs": [
+    {
+     "id": 254,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Intelligence KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 1
+  },
+  "product_design": {
+   "jobs": [
+    {
+     "id": 255,
+     "job_type": "seasonal.sentinel",
+     "status": "done",
+     "reason": "10 PatternVersion row(s): new pattern versions need launch dates recomputed"
+    },
+    {
+     "id": 264,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Product & Design KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 2
+  },
+  "store_commerce": {
+   "jobs": [
+    {
+     "id": 256,
+     "job_type": "seasonal.remerchandising",
+     "status": "done",
+     "reason": "10 Listing row(s): new listing drafts are reviewed for seasonal merchandising"
+    },
+    {
+     "id": 265,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Store / Commerce KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 2
+  },
+  "visual": {
+   "jobs": [
+    {
+     "id": 257,
+     "job_type": "visual.identity_drift",
+     "status": "done",
+     "reason": "63 ListingAsset row(s): new listing assets must be read into the identity series"
+    },
+    {
+     "id": 266,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Visual KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 2
+  }
+ },
+ "missions": [
+  {
+   "id": 33,
+   "key": "autonomy:learn:review:learn:82929",
+   "kind": "mission",
+   "department": "learn",
+   "subject": "autonomy.department_review: no other ready work; measure Learn / Improvement KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 271,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Learn / Improvement KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for learn=0"
+    ],
+    "created": "2026-10-06T10:30:06.070381+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:32:26.560481+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:271",
+    "jobs:open for learn=0"
+   ],
+   "created_at": "2026-10-06T10:30:06.070381+00:00",
+   "updated_at": "2026-10-06T10:32:26.560481+00:00"
+  },
+  {
+   "id": 25,
+   "key": "autonomy:visual:review:visual:82929",
+   "kind": "mission",
+   "department": "visual",
+   "subject": "autonomy.department_review: no other ready work; measure Visual KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 266,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Visual KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for visual=0"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:266",
+    "jobs:open for visual=0"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 24,
+   "key": "autonomy:store_commerce:review:store_commerce:82929",
+   "kind": "mission",
+   "department": "store_commerce",
+   "subject": "autonomy.department_review: no other ready work; measure Store / Commerce KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 265,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Store / Commerce KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for store_commerce=0"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:265",
+    "jobs:open for store_commerce=0"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 23,
+   "key": "autonomy:product_design:review:product_design:82929",
+   "kind": "mission",
+   "department": "product_design",
+   "subject": "autonomy.department_review: no other ready work; measure Product & Design KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 264,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Product & Design KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for product_design=0"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:264",
+    "jobs:open for product_design=0"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 22,
+   "key": "autonomy:growth:review:growth:82929",
+   "kind": "mission",
+   "department": "growth",
+   "subject": "autonomy.department_review: no other ready work; measure Growth / Marketing KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 263,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Growth / Marketing KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for growth=0"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:263",
+    "jobs:open for growth=0"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 21,
+   "key": "autonomy:learn:handoff:improve.retrospective:Lesson:49",
+   "kind": "mission",
+   "department": "learn",
+   "subject": "improve.retrospective: 3 Lesson row(s): lessons routed since the last retrospective",
+   "state": "useful",
+   "body": {
+    "job_id": 262,
+    "job_type": "improve.retrospective",
+    "agent": "orchestrator",
+    "source": "handoff",
+    "value": 73,
+    "reason": "3 Lesson row(s): lessons routed since the last retrospective",
+    "evidence": [
+     "lessons:<= 49 (n=3)",
+     "jobs:last improve.retrospective done 2026-10-06T10:23:13.695532+00:00"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:262",
+    "lessons:<= 49 (n=3)",
+    "jobs:last improve.retrospective done 2026-10-06T10:23:13.695532+00:00"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 20,
+   "key": "autonomy:executive:review:executive:82929",
+   "kind": "mission",
+   "department": "executive",
+   "subject": "autonomy.department_review: no other ready work; measure Executive / COO KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 261,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Executive / COO KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for executive=0"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:261",
+    "jobs:open for executive=0"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 19,
+   "key": "autonomy:platform:review:platform:82929",
+   "kind": "mission",
+   "department": "platform",
+   "subject": "autonomy.department_review: no other ready work; measure Platform / Reliability KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 260,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Platform / Reliability KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for platform=0"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:260",
+    "jobs:open for platform=0"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 18,
+   "key": "autonomy:product_truth:review:product_truth:82929",
+   "kind": "mission",
+   "department": "product_truth",
+   "subject": "autonomy.department_review: no other ready work; measure Product Truth / QA KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 259,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Product Truth / QA KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for product_truth=0"
+    ],
+    "created": "2026-10-06T10:25:04.999297+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:30:06.070381+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:259",
+    "jobs:open for product_truth=0"
+   ],
+   "created_at": "2026-10-06T10:25:04.999297+00:00",
+   "updated_at": "2026-10-06T10:30:06.070381+00:00"
+  },
+  {
+   "id": 14,
+   "key": "autonomy:visual:handoff:visual.identity_drift:ListingAsset:63",
+   "kind": "mission",
+   "department": "visual",
+   "subject": "visual.identity_drift: 63 ListingAsset row(s): new listing assets must be read into the identity series",
+   "state": "useful",
+   "body": {
+    "job_id": 257,
+    "job_type": "visual.identity_drift",
+    "agent": "quality_director",
+    "source": "handoff",
+    "value": 90,
+    "reason": "63 ListingAsset row(s): new listing assets must be read into the identity series",
+    "evidence": [
+     "listing_assets:<= 63 (n=63)",
+     "jobs:last visual.identity_drift done 2026-10-06T10:15:41.937257+00:00"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:257",
+    "listing_assets:<= 63 (n=63)",
+    "jobs:last visual.identity_drift done 2026-10-06T10:15:41.937257+00:00"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 13,
+   "key": "autonomy:store_commerce:handoff:seasonal.remerchandising:Listing:10",
+   "kind": "mission",
+   "department": "store_commerce",
+   "subject": "seasonal.remerchandising: 10 Listing row(s): new listing drafts are reviewed for seasonal merchandising",
+   "state": "useful",
+   "body": {
+    "job_id": 256,
+    "job_type": "seasonal.remerchandising",
+    "agent": "listing",
+    "source": "handoff",
+    "value": 80,
+    "reason": "10 Listing row(s): new listing drafts are reviewed for seasonal merchandising",
+    "evidence": [
+     "listings:<= 10 (n=10)",
+     "jobs:last seasonal.remerchandising done 2026-10-06T10:16:14.047408+00:00"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:256",
+    "listings:<= 10 (n=10)",
+    "jobs:last seasonal.remerchandising done 2026-10-06T10:16:14.047408+00:00"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 11,
+   "key": "autonomy:product_design:handoff:seasonal.sentinel:PatternVersion:10",
+   "kind": "mission",
+   "department": "product_design",
+   "subject": "seasonal.sentinel: 10 PatternVersion row(s): new pattern versions need launch dates recomputed",
+   "state": "useful",
+   "body": {
+    "job_id": 255,
+    "job_type": "seasonal.sentinel",
+    "agent": "orchestrator",
+    "source": "handoff",
+    "value": 80,
+    "reason": "10 PatternVersion row(s): new pattern versions need launch dates recomputed",
+    "evidence": [
+     "pattern_versions:<= 10 (n=10)",
+     "jobs:last seasonal.sentinel done 2026-10-06T10:16:13.841366+00:00"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:255",
+    "pattern_versions:<= 10 (n=10)",
+    "jobs:last seasonal.sentinel done 2026-10-06T10:16:13.841366+00:00"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 10,
+   "key": "autonomy:intelligence:review:intelligence:82929",
+   "kind": "mission",
+   "department": "intelligence",
+   "subject": "autonomy.department_review: no other ready work; measure Intelligence KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 254,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Intelligence KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for intelligence=0"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:254",
+    "jobs:open for intelligence=0"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 9,
+   "key": "autonomy:growth:handoff:growth.journey:Listing:10",
+   "kind": "mission",
+   "department": "growth",
+   "subject": "growth.journey: 10 Listing row(s): new listing drafts change the buyer journey",
+   "state": "useful",
+   "body": {
+    "job_id": 253,
+    "job_type": "growth.journey",
+    "agent": "growth",
+    "source": "handoff",
+    "value": 80,
+    "reason": "10 Listing row(s): new listing drafts change the buyer journey",
+    "evidence": [
+     "listings:<= 10 (n=10)",
+     "jobs:last growth.journey done 2026-10-06T10:14:56.604356+00:00"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:253",
+    "listings:<= 10 (n=10)",
+    "jobs:last growth.journey done 2026-10-06T10:14:56.604356+00:00"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 8,
+   "key": "autonomy:learn:handoff:improve.mine:Incident:43",
+   "kind": "mission",
+   "department": "learn",
+   "subject": "improve.mine: 1 Incident row(s): incidents raised since the last mining run",
+   "state": "useful",
+   "body": {
+    "job_id": 252,
+    "job_type": "improve.mine",
+    "agent": "orchestrator",
+    "source": "handoff",
+    "value": 71,
+    "reason": "1 Incident row(s): incidents raised since the last mining run",
+    "evidence": [
+     "incidents:<= 43 (n=1)",
+     "jobs:last improve.mine done 2026-10-06T10:23:12.740933+00:00"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:252",
+    "incidents:<= 43 (n=1)",
+    "jobs:last improve.mine done 2026-10-06T10:23:12.740933+00:00"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 7,
+   "key": "autonomy:executive:brief:2026-10-05",
+   "kind": "mission",
+   "department": "executive",
+   "subject": "autonomy.morning_handoff: no morning brief yet for 2026-10-05; summarise the unattended hours",
+   "state": "useful",
+   "body": {
+    "job_id": 251,
+    "job_type": "autonomy.morning_handoff",
+    "agent": "coo",
+    "source": "handoff",
+    "value": 80,
+    "reason": "no morning brief yet for 2026-10-05; summarise the unattended hours",
+    "evidence": [
+     "company_memory:brief:2026-10-05 absent"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:251",
+    "company_memory:brief:2026-10-05 absent"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 6,
+   "key": "autonomy:finance:review:finance:82929",
+   "kind": "mission",
+   "department": "finance",
+   "subject": "autonomy.department_review: no other ready work; measure Finance / Accounting KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 250,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Finance / Accounting KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for finance=0"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:250",
+    "jobs:open for finance=0"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 5,
+   "key": "autonomy:platform:handoff:ops.queue_check:Job:245",
+   "kind": "mission",
+   "department": "platform",
+   "subject": "ops.queue_check: 10 Job row(s): dead letters since the last queue check",
+   "state": "useful",
+   "body": {
+    "job_id": 249,
+    "job_type": "ops.queue_check",
+    "agent": "orchestrator",
+    "source": "handoff",
+    "value": 80,
+    "reason": "10 Job row(s): dead letters since the last queue check",
+    "evidence": [
+     "jobs:<= 245 (n=10)",
+     "jobs:last ops.queue_check done 2026-10-06T10:20:57.724157+00:00"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:249",
+    "jobs:<= 245 (n=10)",
+    "jobs:last ops.queue_check done 2026-10-06T10:20:57.724157+00:00"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 4,
+   "key": "autonomy:product_truth:handoff:ops.sentinel:PatternVersion:10",
+   "kind": "mission",
+   "department": "product_truth",
+   "subject": "ops.sentinel: 10 PatternVersion row(s): new releases must be swept for stale or unproven artefacts",
+   "state": "useful",
+   "body": {
+    "job_id": 248,
+    "job_type": "ops.sentinel",
+    "agent": "orchestrator",
+    "source": "handoff",
+    "value": 80,
+    "reason": "10 PatternVersion row(s): new releases must be swept for stale or unproven artefacts",
+    "evidence": [
+     "pattern_versions:<= 10 (n=10)",
+     "jobs:last ops.sentinel done 2026-10-06T10:15:42.134357+00:00"
+    ],
+    "created": "2026-10-06T10:23:24.668320+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:25:04.999297+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:248",
+    "pattern_versions:<= 10 (n=10)",
+    "jobs:last ops.sentinel done 2026-10-06T10:15:42.134357+00:00"
+   ],
+   "created_at": "2026-10-06T10:23:24.668320+00:00",
+   "updated_at": "2026-10-06T10:25:04.999297+00:00"
+  },
+  {
+   "id": 1,
+   "key": "autonomy:support:review:support:82929",
+   "kind": "mission",
+   "department": "support",
+   "subject": "autonomy.department_review: no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 231,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for support=0"
+    ],
+    "created": "2026-10-06T10:21:59.667370+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T10:22:20.406371+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:231",
+    "jobs:open for support=0"
+   ],
+   "created_at": "2026-10-06T10:21:59.667370+00:00",
+   "updated_at": "2026-10-06T10:22:20.406371+00:00"
+  }
+ ],
+ "kpi_snapshots": [
+  "kpi:learn:autonomy:learn:review:learn:82929",
+  "kpi:visual:autonomy:visual:review:visual:82929",
+  "kpi:store_commerce:autonomy:store_commerce:review:store_commerce:82929",
+  "kpi:product_design:autonomy:product_design:review:product_design:82929",
+  "kpi:growth:autonomy:growth:review:growth:82929",
+  "kpi:executive:autonomy:executive:review:executive:82929",
+  "kpi:platform:autonomy:platform:review:platform:82929",
+  "kpi:product_truth:autonomy:product_truth:review:product_truth:82929",
+  "kpi:intelligence:autonomy:intelligence:review:intelligence:82929",
+  "kpi:finance:autonomy:finance:review:finance:82929",
+  "kpi:support:autonomy:support:review:support:82929"
+ ],
+ "morning_briefs": [
+  "brief:2026-10-05"
+ ],
+ "dead_letters": [
+  {
+   "id": 215,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 218,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 223,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 226,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 229,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 233,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 236,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 239,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 242,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 245,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  }
+ ],
+ "protected_job_types_seen": {
+  "store.publish": {
+   "dead": 10
+  },
+  "ads.adjust": {
+   "done": 1
+  }
+ },
+ "protected_generated_by_orchestrator": [],
+ "owner_actions": 24,
+ "spend": {
+  "rows": 0,
+  "amount_cad": 0.0,
+  "basis": "no cost_entries rows"
+ },
+ "status_summary": {
+  "status": "OK",
+  "as_of": "2026-10-06T10:39:55.467299+00:00",
+  "basis": "measured",
+  "items": [
+   {
+    "department": "executive",
+    "name": "Executive / COO",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 32,
+    "useful_24h": 29,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:35:07.444711+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "intelligence",
+    "name": "Intelligence",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 27,
+    "useful_24h": 22,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:23:13.633748+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "benchmark_observation",
+      "what": "read-only Etsy API credentials that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_design",
+    "name": "Product & Design",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 31,
+    "useful_24h": 27,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:23:25.516189+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "model_provider",
+      "what": "a model provider that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_truth",
+    "name": "Product Truth / QA",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 40,
+    "useful_24h": 40,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:24:25.503414+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "visual",
+    "name": "Visual",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 19,
+    "useful_24h": 14,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:23:25.285041+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "image_generation",
+      "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "canonical_model",
+      "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "image_vision",
+      "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "store_commerce",
+    "name": "Store / Commerce",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 41,
+    "useful_24h": 40,
+    "dead_24h": 10,
+    "last_run": "2026-10-06T10:23:25.628386+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "live_listings",
+      "what": "a listing that exists on the marketplace, which shadow mode forbids by design",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "support",
+    "name": "Customer Support",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 2,
+    "useful_24h": 2,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:14:56.501719+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "customers",
+      "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "finance",
+    "name": "Finance / Accounting",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 9,
+    "useful_24h": 8,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:23:16.459929+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "transactions_r",
+      "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "growth",
+    "name": "Growth / Marketing",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 20,
+    "useful_24h": 20,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:23:25.237669+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "ad_authority",
+      "what": "an approved advertising budget",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "owned_surfaces",
+      "what": "a site or a Pinterest account this company can publish to, which only the owner can create",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "learn",
+    "name": "Learn / Improvement",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 21,
+    "useful_24h": 19,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:25:05.611630+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "platform",
+    "name": "Platform / Reliability",
+    "status": "OK",
+    "orchestrator_state": "SATURATED",
+    "open_jobs": 0,
+    "completed_24h": 21,
+    "useful_24h": 21,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T10:32:06.399500+00:00",
+    "next_wake": "2026-10-06T10:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "offsite_storage",
+      "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   }
+  ],
+  "orchestrator": {
+   "last_tick": "2026-10-06T10:35:07.215337+00:00",
+   "stale": false,
+   "stale_after_minutes": 45,
+   "last_created": 0
+  },
+  "overnight": {
+   "missions_12h": 20,
+   "by_outcome": {
+    "queued": 0,
+    "useful": 20,
+    "noop": 0,
+    "failed": 0
+   },
+   "latest_brief": {
+    "id": 16,
+    "key": "brief:2026-10-05",
+    "kind": "morning_brief",
+    "department": "executive",
+    "subject": "Morning brief 2026-10-05",
+    "state": "ready",
+    "body": {
+     "window": {
+      "from": "2026-10-05T22:23:25.065030+00:00",
+      "to": "2026-10-06T10:23:25.065030+00:00",
+      "hours": 12
+     },
+     "completed_by_department": {
+      "learn": {
+       "completed": 18,
+       "useful": 16,
+       "generated": 0
+      },
+      "platform": {
+       "completed": 17,
+       "useful": 17,
+       "generated": 1
+      },
+      "intelligence": {
+       "completed": 26,
+       "useful": 21,
+       "generated": 0
+      },
+      "executive": {
+       "completed": 26,
+       "useful": 25,
+       "generated": 0
+      },
+      "finance": {
+       "completed": 9,
+       "useful": 8,
+       "generated": 1
+      },
+      "product_design": {
+       "completed": 29,
+       "useful": 25,
+       "generated": 0
+      },
+      "product_truth": {
+       "completed": 38,
+       "useful": 38,
+       "generated": 0
+      },
+      "support": {
+       "completed": 2,
+       "useful": 2,
+       "generated": 1
+      },
+      "store_commerce": {
+       "completed": 39,
+       "useful": 38,
+       "generated": 0
+      },
+      "growth": {
+       "completed": 18,
+       "useful": 18,
+       "generated": 0
+      },
+      "visual": {
+       "completed": 17,
+       "useful": 12,
+       "generated": 0
+      }
+     },
+     "completed_total": 239,
+     "missions": {
+      "total": 11,
+      "by_outcome": {
+       "queued": 10,
+       "useful": 1,
+       "noop": 0,
+       "failed": 0
+      }
+     },
+     "dead_letters": [
+      {
+       "job_id": 215,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 218,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 223,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 226,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 229,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 233,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 236,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 239,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 242,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      },
+      {
+       "job_id": 245,
+       "job_type": "store.publish",
+       "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+      }
+     ],
+     "spend": {
+      "amount_cad": 0.0,
+      "rows": 0,
+      "basis": "unknown",
+      "note": "no cost_entries rows in the window; not rendered as CA$0.00"
+     },
+     "incidents": [
+      {
+       "id": 43,
+       "severity": "P2",
+       "summary": "dependency model_provider failed its live probe: the model_provider gate is closed"
+      },
+      {
+       "id": 42,
+       "severity": "P3",
+       "summary": "creative_assets for Christmas 2026 (MEDIUM) should have started 4 days ago and nothing shows it has (assets.built/assets.listing_images_built). photography and "
+      },
+      {
+       "id": 41,
+       "severity": "P3",
+       "summary": "search_language for Christmas 2026 (MEDIUM) should have started 11 days ago and nothing shows it has (mjs.scanned/culture.sweep/learning.ingested). map buyer la"
+      },
+      {
+       "id": 40,
+       "severity": "P2",
+       "summary": "build2#7 is claimed COMPLETE+PROVEN but the measurement says never ran: registered but never run: physical.record"
+      },
+      {
+       "id": 39,
+       "severity": "P2",
+       "summary": "build2#65 is claimed COMPLETE+PROVEN but the measurement says never ran: registered but never run: launch.plan, marketing.schedule"
+      },
+      {
+       "id": 38,
+       "severity": "P2",
+       "summary": "build2#60 is claimed COMPLETE+PROVEN but the measurement says never ran: registered but never run: launch.plan, marketing.schedule"
+      },
+      {
+       "id": 37,
+       "severity": "P2",
+       "summary": "build2#58 is claimed COMPLETE+PROVEN but the measurement says never ran: registered but never run: launch.plan, marketing.schedule"
+      },
+      {
+       "id": 36,
+       "severity": "P2",
+       "summary": "build2#293 is claimed COMPLETE+PROVEN but the measurement says never ran: registered but never run: listing.seo"
+      },
+      {
+       "id": 35,
+       "severity": "P2",
+       "summary": "build2#200 is claimed COMPLETE+PROVEN but the measurement says never ran: registered but never run: creative.model_freeze"
+      },
+      {
+       "id": 34,
+       "severity": "P2",
+       "summary": "build2#197 is claimed COMPLETE+PROVEN but the measurement says never ran: registered but never run: assets.build"
+      }
+     ],
+     "decisions_needed": {
+      "open_owner_actions": 24,
+      "top": [
+       {
+        "id": 24,
+        "action": "Review 10 prepared listing draft(s) from certified releases and decide whether to authorise publication (Store Preview first)",
+        "key": "autonomy:store_commerce:publication_review"
+       },
+       {
+        "id": 23,
+        "action": "Open Etsy Shop Manager > Marketing > Etsy Ads and record the current eligibility message and timestamp. Do not activate ads.",
+        "key": "etsy_ads_eligibility_evidence"
+       },
+       {
+        "id": 22,
+        "action": "Decide the weekly review's cell recommendations, each separately: retire product_creativity: no completed work in 21 days; preserve 1 lesson(s) [46] first | retire seo_search: no completed work in 21 ",
+        "key": "improve.retirement:weekly_review"
+       },
+       {
+        "id": 21,
+        "action": "Decide each: add incident_steward: 42 open incident work item(s) have no accountable owner that can act on them (#176), so a steward for incident work is missing",
+        "key": "improve.architecture:add"
+       },
+       {
+        "id": 20,
+        "action": "In the Developer Portal's Webhook portal, add an endpoint for order.paid pointing at this service's callback, and give this system the signing secret through the environment -- never through this repo",
+        "key": "etsy_surface:webhook_order_paid"
+       },
+       {
+        "id": 19,
+        "action": "Confirm Etsy message notifications reach an inbox you read daily (Shop Manager > Settings > Emails), and agree a reply window. Nothing in this system will ever see a buyer message.",
+        "key": "etsy_surface:messages_watch"
+       },
+       {
+        "id": 18,
+        "action": "Download the first monthly statement once one exists and give the finance department its fee lines and totals.",
+        "key": "etsy_surface:first_monthly_statement"
+       },
+       {
+        "id": 17,
+        "action": "Re-authorise the Brambleloop app in a browser with transactions_r added to the scope set (listings_r listings_w listings_d shops_r shops_w transactions_r). Start the flow at /api/etsy/oauth/start as b",
+        "key": "etsy_surface:reauthorise_transactions_r"
+       },
+       {
+        "id": 16,
+        "action": "After the first listings go live, open Shop Manager > Policy Violations and confirm it is empty; check it again whenever the listing census alarm fires.",
+        "key": "etsy_surface:policy_violations_check"
+       },
+       {
+        "id": 15,
+        "action": "On the first order, read the fee lines in Shop Manager > Finances > Payment account and report every one by name and amount -- in particular whether an Offsite Ads fee and a Regulatory Operating Fee a",
+        "key": "etsy_surface:offsite_ads_fee_readout"
+       }
+      ]
+     },
+     "blocked_departments": [],
+     "sources": [
+      "jobs",
+      "cost_entries",
+      "incidents",
+      "owner_actions",
+      "company_memory"
+     ]
+    },
+    "sources": [
+     "jobs",
+     "cost_entries",
+     "incidents",
+     "owner_actions",
+     "company_memory"
+    ],
+    "created_at": "2026-10-06T10:23:25.065030+00:00",
+    "updated_at": "2026-10-06T10:23:25.065030+00:00"
+   }
+  },
+  "timeline": [
+   {
+    "id": 53,
+    "key": "mission.useful:autonomy:learn:review:learn:82929",
+    "at": "2026-10-06T10:32:26.560481+00:00",
+    "kind": "mission.useful",
+    "department": "learn",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for executive",
+    "refs": [
+     "jobs:271",
+     "company_memory:autonomy:learn:review:learn:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 52,
+    "key": "kpi:kpi:learn:autonomy:learn:review:learn:82929",
+    "at": "2026-10-06T10:30:06.438345+00:00",
+    "kind": "kpi.measured",
+    "department": "learn",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Learn / Improvement: useful_completions_24h=OK:17, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:learn:autonomy:learn:review:learn:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 51,
+    "key": "mission.created:autonomy:learn:review:learn:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.created",
+    "department": "learn",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Learn / Improvement: autonomy.department_review (review) -- no other ready work; measure Learn / Improvement KPIs and persist lessons (at most every 6 h)",
+    "refs": [
+     "jobs:271",
+     "company_memory:autonomy:learn:review:learn:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 50,
+    "key": "mission.useful:autonomy:product_truth:review:product_truth:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "product_truth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for visual, store_commerce, learn",
+    "refs": [
+     "jobs:259",
+     "company_memory:autonomy:product_truth:review:product_truth:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 49,
+    "key": "mission.useful:autonomy:platform:review:platform:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "platform",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for learn, executive",
+    "refs": [
+     "jobs:260",
+     "company_memory:autonomy:platform:review:platform:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 48,
+    "key": "mission.useful:autonomy:executive:review:executive:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "executive",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for intelligence, product_design, product_truth, visual, store_commerce, support, finance, growth, learn, platform",
+    "refs": [
+     "jobs:261",
+     "company_memory:autonomy:executive:review:executive:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 47,
+    "key": "mission.useful:autonomy:learn:handoff:improve.retrospective:Lesson:49",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "learn",
+    "actor": "orchestrator",
+    "severity": "info",
+    "summary": "improve.retrospective useful; output is evidence for executive",
+    "refs": [
+     "jobs:262",
+     "company_memory:autonomy:learn:handoff:improve.retrospective:Lesson:49"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 46,
+    "key": "mission.useful:autonomy:growth:review:growth:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "growth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for finance, learn",
+    "refs": [
+     "jobs:263",
+     "company_memory:autonomy:growth:review:growth:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 45,
+    "key": "mission.useful:autonomy:product_design:review:product_design:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "product_design",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for product_truth, visual, store_commerce",
+    "refs": [
+     "jobs:264",
+     "company_memory:autonomy:product_design:review:product_design:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 44,
+    "key": "mission.useful:autonomy:store_commerce:review:store_commerce:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "store_commerce",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for growth, finance, support",
+    "refs": [
+     "jobs:265",
+     "company_memory:autonomy:store_commerce:review:store_commerce:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 43,
+    "key": "mission.useful:autonomy:visual:review:visual:82929",
+    "at": "2026-10-06T10:30:06.070381+00:00",
+    "kind": "mission.useful",
+    "department": "visual",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for store_commerce, product_truth",
+    "refs": [
+     "jobs:266",
+     "company_memory:autonomy:visual:review:visual:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 42,
+    "key": "kpi:kpi:visual:autonomy:visual:review:visual:82929",
+    "at": "2026-10-06T10:27:05.650747+00:00",
+    "kind": "kpi.measured",
+    "department": "visual",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Visual: useful_completions_24h=OK:12, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:visual:autonomy:visual:review:visual:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 41,
+    "key": "kpi:kpi:store_commerce:autonomy:store_commerce:review:store_commerce:82929",
+    "at": "2026-10-06T10:26:05.566609+00:00",
+    "kind": "kpi.measured",
+    "department": "store_commerce",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Store / Commerce: useful_completions_24h=OK:39, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:store_commerce:autonomy:store_commerce:review:store_commerce:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 40,
+    "key": "kpi:kpi:product_design:autonomy:product_design:review:product_design:82929",
+    "at": "2026-10-06T10:25:05.474942+00:00",
+    "kind": "kpi.measured",
+    "department": "product_design",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Product & Design: useful_completions_24h=OK:25, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:product_design:autonomy:product_design:review:product_design:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 39,
+    "key": "kpi:kpi:growth:autonomy:growth:review:growth:82929",
+    "at": "2026-10-06T10:25:05.419559+00:00",
+    "kind": "kpi.measured",
+    "department": "growth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Growth / Marketing: useful_completions_24h=OK:19, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:growth:autonomy:growth:review:growth:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 38,
+    "key": "kpi:kpi:executive:autonomy:executive:review:executive:82929",
+    "at": "2026-10-06T10:25:05.363218+00:00",
+    "kind": "kpi.measured",
+    "department": "executive",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Executive / COO: useful_completions_24h=OK:26, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:executive:autonomy:executive:review:executive:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 37,
+    "key": "kpi:kpi:platform:autonomy:platform:review:platform:82929",
+    "at": "2026-10-06T10:25:05.315602+00:00",
+    "kind": "kpi.measured",
+    "department": "platform",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Platform / Reliability: useful_completions_24h=OK:16, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:platform:autonomy:platform:review:platform:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 36,
+    "key": "kpi:kpi:product_truth:autonomy:product_truth:review:product_truth:82929",
+    "at": "2026-10-06T10:25:05.264596+00:00",
+    "kind": "kpi.measured",
+    "department": "product_truth",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Product Truth / QA: useful_completions_24h=OK:39, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:product_truth:autonomy:product_truth:review:product_truth:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 35,
+    "key": "mission.created:autonomy:visual:review:visual:82929",
+    "at": "2026-10-06T10:25:04.999297+00:00",
+    "kind": "mission.created",
+    "department": "visual",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Visual: autonomy.department_review (review) -- no other ready work; measure Visual KPIs and persist lessons (at most every 6 h)",
+    "refs": [
+     "jobs:266",
+     "company_memory:autonomy:visual:review:visual:82929"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 34,
+    "key": "mission.created:autonomy:store_commerce:review:store_commerce:82929",
+    "at": "2026-10-06T10:25:04.999297+00:00",
+    "kind": "mission.created",
+    "department": "store_commerce",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Store / Commerce: autonomy.department_review (review) -- no other ready work; measure Store / Commerce KPIs and persist lessons (at most every 6 h)",
+    "refs": [
+     "jobs:265",
+     "company_memory:autonomy:store_commerce:review:store_commerce:82929"
+    ],
+    "source": "company_timeline"
+   }
+  ],
+  "sources": [
+   "jobs",
+   "company_memory",
+   "company_timeline",
+   "worker.CADENCES",
+   "build2.executor.gate_states"
+  ]
+ },
+ "timeline_head": [
+  {
+   "id": 53,
+   "key": "mission.useful:autonomy:learn:review:learn:82929",
+   "at": "2026-10-06T10:32:26.560481+00:00",
+   "kind": "mission.useful",
+   "department": "learn",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for executive",
+   "refs": [
+    "jobs:271",
+    "company_memory:autonomy:learn:review:learn:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 52,
+   "key": "kpi:kpi:learn:autonomy:learn:review:learn:82929",
+   "at": "2026-10-06T10:30:06.438345+00:00",
+   "kind": "kpi.measured",
+   "department": "learn",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Learn / Improvement: useful_completions_24h=OK:17, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:learn:autonomy:learn:review:learn:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 51,
+   "key": "mission.created:autonomy:learn:review:learn:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.created",
+   "department": "learn",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Learn / Improvement: autonomy.department_review (review) -- no other ready work; measure Learn / Improvement KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:271",
+    "company_memory:autonomy:learn:review:learn:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 50,
+   "key": "mission.useful:autonomy:product_truth:review:product_truth:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "product_truth",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for visual, store_commerce, learn",
+   "refs": [
+    "jobs:259",
+    "company_memory:autonomy:product_truth:review:product_truth:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 49,
+   "key": "mission.useful:autonomy:platform:review:platform:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "platform",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for learn, executive",
+   "refs": [
+    "jobs:260",
+    "company_memory:autonomy:platform:review:platform:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 48,
+   "key": "mission.useful:autonomy:executive:review:executive:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "executive",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for intelligence, product_design, product_truth, visual, store_commerce, support, finance, growth, learn, platform",
+   "refs": [
+    "jobs:261",
+    "company_memory:autonomy:executive:review:executive:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 47,
+   "key": "mission.useful:autonomy:learn:handoff:improve.retrospective:Lesson:49",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "learn",
+   "actor": "orchestrator",
+   "severity": "info",
+   "summary": "improve.retrospective useful; output is evidence for executive",
+   "refs": [
+    "jobs:262",
+    "company_memory:autonomy:learn:handoff:improve.retrospective:Lesson:49"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 46,
+   "key": "mission.useful:autonomy:growth:review:growth:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "growth",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for finance, learn",
+   "refs": [
+    "jobs:263",
+    "company_memory:autonomy:growth:review:growth:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 45,
+   "key": "mission.useful:autonomy:product_design:review:product_design:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "product_design",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for product_truth, visual, store_commerce",
+   "refs": [
+    "jobs:264",
+    "company_memory:autonomy:product_design:review:product_design:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 44,
+   "key": "mission.useful:autonomy:store_commerce:review:store_commerce:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "store_commerce",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for growth, finance, support",
+   "refs": [
+    "jobs:265",
+    "company_memory:autonomy:store_commerce:review:store_commerce:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 43,
+   "key": "mission.useful:autonomy:visual:review:visual:82929",
+   "at": "2026-10-06T10:30:06.070381+00:00",
+   "kind": "mission.useful",
+   "department": "visual",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for store_commerce, product_truth",
+   "refs": [
+    "jobs:266",
+    "company_memory:autonomy:visual:review:visual:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 42,
+   "key": "kpi:kpi:visual:autonomy:visual:review:visual:82929",
+   "at": "2026-10-06T10:27:05.650747+00:00",
+   "kind": "kpi.measured",
+   "department": "visual",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Visual: useful_completions_24h=OK:12, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:visual:autonomy:visual:review:visual:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 41,
+   "key": "kpi:kpi:store_commerce:autonomy:store_commerce:review:store_commerce:82929",
+   "at": "2026-10-06T10:26:05.566609+00:00",
+   "kind": "kpi.measured",
+   "department": "store_commerce",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Store / Commerce: useful_completions_24h=OK:39, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:store_commerce:autonomy:store_commerce:review:store_commerce:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 40,
+   "key": "kpi:kpi:product_design:autonomy:product_design:review:product_design:82929",
+   "at": "2026-10-06T10:25:05.474942+00:00",
+   "kind": "kpi.measured",
+   "department": "product_design",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Product & Design: useful_completions_24h=OK:25, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:product_design:autonomy:product_design:review:product_design:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 39,
+   "key": "kpi:kpi:growth:autonomy:growth:review:growth:82929",
+   "at": "2026-10-06T10:25:05.419559+00:00",
+   "kind": "kpi.measured",
+   "department": "growth",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Growth / Marketing: useful_completions_24h=OK:19, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:growth:autonomy:growth:review:growth:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 38,
+   "key": "kpi:kpi:executive:autonomy:executive:review:executive:82929",
+   "at": "2026-10-06T10:25:05.363218+00:00",
+   "kind": "kpi.measured",
+   "department": "executive",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Executive / COO: useful_completions_24h=OK:26, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:executive:autonomy:executive:review:executive:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 37,
+   "key": "kpi:kpi:platform:autonomy:platform:review:platform:82929",
+   "at": "2026-10-06T10:25:05.315602+00:00",
+   "kind": "kpi.measured",
+   "department": "platform",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Platform / Reliability: useful_completions_24h=OK:16, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:platform:autonomy:platform:review:platform:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 36,
+   "key": "kpi:kpi:product_truth:autonomy:product_truth:review:product_truth:82929",
+   "at": "2026-10-06T10:25:05.264596+00:00",
+   "kind": "kpi.measured",
+   "department": "product_truth",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Product Truth / QA: useful_completions_24h=OK:39, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:product_truth:autonomy:product_truth:review:product_truth:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 35,
+   "key": "mission.created:autonomy:visual:review:visual:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "visual",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Visual: autonomy.department_review (review) -- no other ready work; measure Visual KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:266",
+    "company_memory:autonomy:visual:review:visual:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 34,
+   "key": "mission.created:autonomy:store_commerce:review:store_commerce:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "store_commerce",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Store / Commerce: autonomy.department_review (review) -- no other ready work; measure Store / Commerce KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:265",
+    "company_memory:autonomy:store_commerce:review:store_commerce:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 33,
+   "key": "mission.created:autonomy:product_design:review:product_design:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "product_design",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Product & Design: autonomy.department_review (review) -- no other ready work; measure Product & Design KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:264",
+    "company_memory:autonomy:product_design:review:product_design:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 32,
+   "key": "mission.created:autonomy:growth:review:growth:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "growth",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Growth / Marketing: autonomy.department_review (review) -- no other ready work; measure Growth / Marketing KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:263",
+    "company_memory:autonomy:growth:review:growth:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 31,
+   "key": "mission.created:autonomy:learn:handoff:improve.retrospective:Lesson:49",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "learn",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Learn / Improvement: improve.retrospective (handoff) -- 3 Lesson row(s): lessons routed since the last retrospective",
+   "refs": [
+    "jobs:262",
+    "company_memory:autonomy:learn:handoff:improve.retrospective:Lesson:49"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 30,
+   "key": "mission.created:autonomy:executive:review:executive:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "executive",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Executive / COO: autonomy.department_review (review) -- no other ready work; measure Executive / COO KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:261",
+    "company_memory:autonomy:executive:review:executive:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 29,
+   "key": "mission.created:autonomy:platform:review:platform:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "platform",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Platform / Reliability: autonomy.department_review (review) -- no other ready work; measure Platform / Reliability KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:260",
+    "company_memory:autonomy:platform:review:platform:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 28,
+   "key": "mission.created:autonomy:product_truth:review:product_truth:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.created",
+   "department": "product_truth",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Product Truth / QA: autonomy.department_review (review) -- no other ready work; measure Product Truth / QA KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:259",
+    "company_memory:autonomy:product_truth:review:product_truth:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 27,
+   "key": "mission.useful:autonomy:product_truth:handoff:ops.sentinel:PatternVersion:10",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "product_truth",
+   "actor": "orchestrator",
+   "severity": "info",
+   "summary": "ops.sentinel useful; output is evidence for visual, store_commerce, learn",
+   "refs": [
+    "jobs:248",
+    "company_memory:autonomy:product_truth:handoff:ops.sentinel:PatternVersion:10"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 26,
+   "key": "mission.useful:autonomy:platform:handoff:ops.queue_check:Job:245",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "platform",
+   "actor": "orchestrator",
+   "severity": "info",
+   "summary": "ops.queue_check useful; output is evidence for learn, executive",
+   "refs": [
+    "jobs:249",
+    "company_memory:autonomy:platform:handoff:ops.queue_check:Job:245"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 25,
+   "key": "mission.useful:autonomy:finance:review:finance:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "finance",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for executive, growth",
+   "refs": [
+    "jobs:250",
+    "company_memory:autonomy:finance:review:finance:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 24,
+   "key": "mission.useful:autonomy:executive:brief:2026-10-05",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "executive",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.morning_handoff useful; output is evidence for intelligence, product_design, product_truth, visual, store_commerce, support, finance, growth, learn, platform",
+   "refs": [
+    "jobs:251",
+    "company_memory:autonomy:executive:brief:2026-10-05"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 23,
+   "key": "mission.useful:autonomy:learn:handoff:improve.mine:Incident:43",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "learn",
+   "actor": "orchestrator",
+   "severity": "info",
+   "summary": "improve.mine useful; output is evidence for executive",
+   "refs": [
+    "jobs:252",
+    "company_memory:autonomy:learn:handoff:improve.mine:Incident:43"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 22,
+   "key": "mission.useful:autonomy:growth:handoff:growth.journey:Listing:10",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "growth",
+   "actor": "growth",
+   "severity": "info",
+   "summary": "growth.journey useful; output is evidence for finance, learn",
+   "refs": [
+    "jobs:253",
+    "company_memory:autonomy:growth:handoff:growth.journey:Listing:10"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 21,
+   "key": "mission.useful:autonomy:intelligence:review:intelligence:82929",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "intelligence",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for product_design, growth",
+   "refs": [
+    "jobs:254",
+    "company_memory:autonomy:intelligence:review:intelligence:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 20,
+   "key": "mission.useful:autonomy:product_design:handoff:seasonal.sentinel:PatternVersion:10",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "product_design",
+   "actor": "orchestrator",
+   "severity": "info",
+   "summary": "seasonal.sentinel useful; output is evidence for product_truth, visual, store_commerce",
+   "refs": [
+    "jobs:255",
+    "company_memory:autonomy:product_design:handoff:seasonal.sentinel:PatternVersion:10"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 19,
+   "key": "mission.useful:autonomy:store_commerce:handoff:seasonal.remerchandising:Listing:10",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "store_commerce",
+   "actor": "listing",
+   "severity": "info",
+   "summary": "seasonal.remerchandising useful; output is evidence for growth, finance, support",
+   "refs": [
+    "jobs:256",
+    "company_memory:autonomy:store_commerce:handoff:seasonal.remerchandising:Listing:10"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 18,
+   "key": "mission.useful:autonomy:visual:handoff:visual.identity_drift:ListingAsset:63",
+   "at": "2026-10-06T10:25:04.999297+00:00",
+   "kind": "mission.useful",
+   "department": "visual",
+   "actor": "quality_director",
+   "severity": "info",
+   "summary": "visual.identity_drift useful; output is evidence for store_commerce, product_truth",
+   "refs": [
+    "jobs:257",
+    "company_memory:autonomy:visual:handoff:visual.identity_drift:ListingAsset:63"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 17,
+   "key": "kpi:kpi:intelligence:autonomy:intelligence:review:intelligence:82929",
+   "at": "2026-10-06T10:24:25.444475+00:00",
+   "kind": "kpi.measured",
+   "department": "intelligence",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Intelligence: useful_completions_24h=OK:20, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:intelligence:autonomy:intelligence:review:intelligence:82929"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "at": "2026-10-06T10:23:25.486218+00:00",
+   "kind": "incident",
+   "department": "",
+   "severity": "P2",
+   "summary": "winter-village-graphghan has 20 days of runway left for Christmas 2026: past its preferred launch date and inside the last window where reallocating effort still changes whether a customer can finish the object in time. After the latest effective date the only honest options are pivot, simplify or h",
+   "refs": [
+    "incidents:45"
+   ],
+   "source": "incidents"
+  },
+  {
+   "at": "2026-10-06T10:23:25.485515+00:00",
+   "kind": "incident",
+   "department": "",
+   "severity": "P2",
+   "summary": "nordic-forest-mosaic-throw has 15 days of runway left for Christmas 2026: past its preferred launch date and inside the last window where reallocating effort still changes whether a customer can finish the object in time. After the latest effective date the only honest options are pivot, simplify or",
+   "refs": [
+    "incidents:44"
+   ],
+   "source": "incidents"
+  },
+  {
+   "at": "2026-10-06T10:23:25.203956+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "autonomy.morning_handoff done",
+   "refs": [
+    "jobs:251"
+   ],
+   "source": "jobs"
+  }
+ ]
+}
