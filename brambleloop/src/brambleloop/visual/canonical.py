@@ -136,6 +136,39 @@ NOT_FOR_PUBLICATION = "not_for_publication"
 PUBLICATION_STATUSES = (CANONICAL_REFERENCE, PUBLICATION_APPROVED_STATUS, NOT_FOR_PUBLICATION)
 PUBLICATION_APPROVED: frozenset[str] = frozenset()
 
+# W3-B2 wiring 5 (W3-WIRE4): owner publication approvals scoped to ONE asset on ONE surface.
+#
+# `PUBLICATION_APPROVED` is global (every surface) and implies every CUSTOMER_FACING_GATE
+# passed, so it cannot say what the owner actually decided about the canonical storefront
+# banner. This table can, and it changes nothing global: `asset_status(sha)` and
+# `customer_ready(sha)` are untouched; only `asset_status(sha, surface=...)` and
+# `surface_publication(...)` read it, for that sha on that surface.
+#
+# What the owner approved for the banner bytes 048a1991... (DECISION_LOG):
+# * D-FB-17 item 2 -- these exact bytes ARE the canonical storefront banner, to be used IF
+#   they pass every applicable publication gate (a conditional designation, not a waiver);
+# * D-FB-18 item 1 -- an owner human identity review: the woman in THIS depiction is Laura.
+# What the owner did NOT approve, which therefore stays a finding: the baked-in navigation
+# listing empty categories (D-FB-18 item 3) and the concept crochet as evidence of any
+# Brambleloop product (D-FB-18 item 2; Product Truth not weakened). No gate is waived.
+SURFACE_STOREFRONT_BANNER = "storefront_banner"
+SURFACE_APPROVED_CONDITIONAL = "owner_surface_approval_conditional"
+PUBLICATION_APPROVALS: dict[str, dict] = {
+    "048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98": {
+        "surfaces": (SURFACE_STOREFRONT_BANNER,),
+        "decisions": ("D-FB-17", "D-FB-18"),
+        "owner_approved": ("canonical_identity",),
+        "designation": ("D-FB-17 item 2: the exact file is the canonical storefront banner, "
+                        "used only if it passes every applicable publication gate"),
+        "identity_review": "D-FB-18 item 1: the woman in this depiction is Laura (this "
+                           "depiction only; every other frame keeps the identity gate)",
+        "gates_waived_by_owner": (),
+        "not_approved": (
+            "public navigation listing empty categories (D-FB-18 item 3)",
+            "the concept crochet as evidence of any Brambleloop product (D-FB-18 item 2)"),
+    },
+}
+
 ROLES_V2: tuple[str, ...] = (
     "approved_face", "canonical_reference_pack", "canonical_stress_set", "superseded_body",
     "historical", "owner_concept", "missing_canonical", "prior_revision_reference")
@@ -486,9 +519,56 @@ def laura_verdict(scored: dict) -> dict:
             "drifted": drifted, "unread_locked": unread, "rule": IDENTITY_RULE}
 
 
-def asset_status(sha256: str) -> str:
-    """The publication status of one image by its bytes. Unknown bytes are never approved."""
+def surface_approval(sha256: str | None, surface: str | None) -> dict | None:
+    """The owner's publication approval for exactly this asset on exactly this surface."""
+    entry = PUBLICATION_APPROVALS.get(str(sha256 or "").lower())
+    if not entry or not surface or surface not in entry["surfaces"]:
+        return None
+    return {"sha256": str(sha256).lower(), "surface": surface, **entry}
+
+
+def surface_publication(sha256: str | None, surface: str, conditions: dict[str, str]) -> dict:
+    """Publication of one asset on one surface: the owner's scoped approval AND every
+    applicable gate the caller measured (`conditions`: gate -> PASS/FAIL/UNKNOWN).
+
+    PASS only when a scoped owner approval exists and every condition is PASS (UNKNOWN never
+    passes). Without an approval: FAIL. With one but a gate outstanding: FAIL if any gate
+    failed, else UNKNOWN. Nothing global changes either way."""
+    approval = surface_approval(sha256, surface)
+    if not conditions:
+        conds_ok, failing, unknown = False, [], ["no applicable gate was measured"]
+    else:
+        failing = sorted(g for g, st in conditions.items() if st == "FAIL")
+        unknown = sorted(g for g, st in conditions.items() if st not in ("PASS", "FAIL"))
+        conds_ok = not failing and not unknown
+    if approval is None:
+        status = "FAIL"
+        why = (f"no owner publication approval covers these bytes on '{surface}'; "
+               f"asset status '{asset_status(sha256 or '')}'")
+    elif conds_ok:
+        status = "PASS"
+        why = (f"owner approval {list(approval['decisions'])} for '{surface}' and every "
+               f"applicable gate passed")
+    else:
+        status = "FAIL" if failing else "UNKNOWN"
+        why = (f"the owner approved {list(approval['owner_approved'])} for '{surface}' "
+               f"({'; '.join(approval['decisions'])}), conditional on every applicable gate; "
+               f"outstanding: failed {failing or 'none'}, unknown {unknown or 'none'}")
+    return {"status": status, "surface": surface, "approval": approval,
+            "failing": failing, "unknown": unknown, "why": why,
+            "global_asset_status": asset_status(sha256 or ""),
+            "global_customer_ready": customer_ready(sha256)["customer_ready"]}
+
+
+def asset_status(sha256: str, surface: str | None = None) -> str:
+    """The publication status of one image by its bytes. Unknown bytes are never approved.
+
+    With `surface`, an owner approval scoped to that asset and surface reads as
+    `owner_surface_approval_conditional` (conditional on that surface's gates; see
+    `surface_publication`); without it, or on any other surface, the global status."""
     sha = str(sha256 or "").lower()
+    if surface is not None and surface_approval(sha, surface) is not None:
+        return SURFACE_APPROVED_CONDITIONAL
     if sha in PUBLICATION_APPROVED:
         return PUBLICATION_APPROVED_STATUS
     for e in all_entries():
@@ -541,5 +621,7 @@ def summary() -> dict:
         "missing_canonical": [f"{x['group']}/{x['frame']}" for x in
                               m.get("missing_canonical") or []],
         "publication_approved": sorted(PUBLICATION_APPROVED),
+        "surface_approvals": {sha: list(v["surfaces"]) for sha, v in
+                              PUBLICATION_APPROVALS.items()},
         "customer_ready": False,
     }

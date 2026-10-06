@@ -204,6 +204,14 @@ def _startup() -> None:
                                    "at": utcnow().isoformat()})
     except Exception:  # noqa: BLE001 - recording a boot must never prevent one
         pass
+    # W3-F wiring 5 (W3-WIRE4): the Laura voice listening decision lives in the one owner
+    # queue, with its cost basis UNKNOWN (never CA$0.00). Idempotent on requirement_key.
+    try:
+        from ..laura.agency import voice_selection as _voice_selection
+
+        _voice_selection.seed_owner_action(db)
+    except Exception:  # noqa: BLE001 - seeding the queue must never prevent a boot
+        pass
     if schema_changes:
         # A schema change nobody can see is how a deploy breaks quietly.
         Registry(db).audit("orchestrator", "schema.migrated",
@@ -4383,10 +4391,16 @@ def api_owner_actions() -> dict:
          "requirement_key": c["requirement_key"], "action": c["action"],
          "reason": c["why"], "max_cost_cad": c["max_cost_cad"], "minutes": c["minutes"],
          "consequence_of_delay": c["consequence_of_waiting"], "unblocks": c["unblocks"],
-         "evidence": c["evidence"], "steps": c["steps"]}
+         "evidence": c["evidence"], "steps": c["steps"],
+         # F-870 / F-623 / F-180 (K7, wired by W3-WIRE4). `max_cost_basis` "UNKNOWN" means
+         # `max_cost_cad` is null: no ceiling is stated, which is never CA$0.00.
+         "why_software_cannot": c.get("why_software_cannot"), "rank": c.get("rank"),
+         "urgency": c.get("urgency"), "max_cost_basis": c.get("max_cost_basis")}
         for c in inbox["cards"]],
         "external_capability_unavailable": inbox["external_capability_unavailable"],
         "withheld_satisfied": inbox["satisfied_but_open"],
+        "empty_state": inbox.get("empty_state"),
+        "parked": inbox.get("parked_owner_actions"),
         "source": inbox["source"]}
 
 
@@ -5021,6 +5035,25 @@ def _counts() -> dict:
         }
 
 
+def _owner_cost_text(card: dict) -> str:
+    """A card's maximum cost as text. UNKNOWN is never rendered as CA$0.00 (F-870)."""
+    cost = card.get("max_cost_cad")
+    if card.get("max_cost_basis") == "UNKNOWN" or cost is None:
+        return "UNKNOWN (no ceiling stated yet)"
+    return f"CA${float(cost):.2f}"
+
+
+def _newest_row_line(values) -> Markup:
+    """F-203 (K7, wired by W3-WIRE4): the as-of of a table is its newest row, stated next to
+    the query time, so a stale table cannot read as current."""
+    stamps = [v for v in values if v is not None]
+    newest = max(stamps, key=lambda v: v if v.tzinfo else v.replace(tzinfo=timezone.utc)) \
+        if stamps else None
+    newest_text = f"{newest:%Y-%m-%d %H:%M:%S} UTC" if newest else "no rows"
+    return Markup(f'<div class="asof">as of {utcnow():%Y-%m-%d %H:%M:%S} UTC (query time)'
+                  f' &middot; newest row {esc(newest_text)}</div>')
+
+
 def _pill(status: str) -> Markup:
     cls = {"done": "done", "dead": "dead", "running": "running",
            "failed": "failed"}.get(status, "pending")
@@ -5096,15 +5129,23 @@ def dashboard() -> str:
         if inbox is None:
             raise RuntimeError("the owner inbox could not be computed")
         cards = inbox.get("cards") or []
+        if not cards:
+            # F-204 (K7, wired by W3-WIRE4): an empty queue is only "nothing is waiting" when
+            # the empty-queue guard proves it; otherwise it says so, with the reason.
+            es = inbox.get("empty_state") or {}
+            if es.get("state") == "PROVEN-EMPTY":
+                return rows([], [[]], "nothing is waiting on the owner")
+            return rows([], [[]], "queue empty but UNPROVEN: "
+                        + str(es.get("why") or "the empty-queue check did not run"))
         return rows(
             [(c["gate"] or c["requirement_key"], c["action"],
-              f"CA${c['max_cost_cad']:.2f}", f"{c['minutes']} min",
+              _owner_cost_text(c), f"{c['minutes']} min",
               c.get("consequence_of_waiting", ""), c["unblocks_count"],
               c.get("evidence", ""))
              for c in cards],
             [["Gate / decision", "Action", "Max cost", "Time", "Consequence of waiting",
               "Unblocks", "Evidence it is done"]],
-            "nothing is waiting on the owner")
+            "")
 
     def _external() -> str:
         """F-196: gates no owner action can open. Listed, never asked for."""
@@ -5394,13 +5435,16 @@ Runner: {esc(st['runner']['worker'] or 'not started')} &middot; last tick
 {_block("Learning changes", _learning)}
 {launch_html}
 <h2>Recent jobs</h2>
+{_newest_row_line(t for j in jobs for t in (j.finished_at, j.started_at, j.created_at))}
 {rows([(j.id, j.agent, j.job_type, _pill(j.status.value), j.attempts,
         (j.last_error or "")[:70]) for j in jobs],
       [["#", "Agent", "Job", "Status", "Tries", "Error"]], "No jobs yet.")}
 <h2>Products</h2>
+{_newest_row_line(p.created_at for p in products)}
 {rows([(p.slug, p.title, p.status, p.risk_class) for p in products],
       [["Slug", "Title", "Status", "Risk"]], "No products yet.")}
 <h2>Open incidents</h2>
+{_newest_row_line(i.at for i in incidents)}
 {rows([(i.severity, i.product_slug or "-", i.report_count, i.summary[:70],
         "HALTS" if i.halts_publication else "") for i in incidents],
       [["Sev", "Product", "Reports", "Summary", ""]], "No open incidents.")}
@@ -5410,6 +5454,7 @@ Runner: {esc(st['runner']['worker'] or 'not started')} &middot; last tick
         "on" if a.enabled else "off") for a in agents],
       [["Agent", "Authority", "Phase", "Daily cap", ""]], "No agents.")}
 <h2>Audit trail</h2>
+{_newest_row_line(a.at for a in audits)}
 {rows([(f"{a.at:%m-%d %H:%M}", a.actor, a.action, (a.artifact or "")[:40]) for a in audits],
       [["When", "Actor", "Action", "Artifact"]], "Nothing audited yet.")}
 </main></body></html>"""

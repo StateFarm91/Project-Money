@@ -726,6 +726,9 @@ class SwarmAllocation(Base):
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+MAX_COST_UNKNOWN = "UNKNOWN"
+
+
 class OwnerAction(Base):
     """The single consolidated owner queue (section 14)."""
 
@@ -756,6 +759,18 @@ class OwnerAction(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # F-870: why software cannot do this itself (KYC, legal acceptance, a browser-only page...).
     why_software_cannot: Mapped[str] = mapped_column(Text, default="")
+    # W3-F wiring 5 (W3-WIRE4): the basis of `max_cost_cad`. "stated" (the default, every
+    # existing row) means the figure is the owner's real ceiling. "UNKNOWN" means nobody can
+    # state a ceiling yet (e.g. a provider not chosen): the stored 0.0 is a placeholder that
+    # every reader must render as UNKNOWN and no spend path may treat as free or uncapped.
+    max_cost_basis: Mapped[str] = mapped_column(String(16), default="stated")
+
+    @property
+    def max_cost_known(self) -> float | None:
+        """`max_cost_cad`, or None when its basis is UNKNOWN (never CA$0.00)."""
+        if (self.max_cost_basis or "stated") == MAX_COST_UNKNOWN:
+            return None
+        return float(self.max_cost_cad or 0.0)
 
     @validates("done")
     def _lifecycle_on_done(self, _key, value):

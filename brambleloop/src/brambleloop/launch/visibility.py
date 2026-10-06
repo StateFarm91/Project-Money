@@ -193,7 +193,8 @@ def _owner_actions(db) -> dict:
         rows = list(s.scalars(select(OwnerAction).where(OwnerAction.done == False)  # noqa: E712
                               .order_by(OwnerAction.id)))
         items = [{"key": r.requirement_key, "action": r.action, "why": r.reason,
-                  "max_cost_cad": r.max_cost_cad, "minutes": r.minutes,
+                  "max_cost_cad": r.max_cost_known,  # None = UNKNOWN (W3-WIRE4)
+                  "max_cost_basis": r.max_cost_basis or "stated", "minutes": r.minutes,
                   "consequence_of_delay": r.consequence_of_delay} for r in rows[:20]]
     return {"state": "OPEN" if rows else "NONE", "open": len(rows), "items": items}
 

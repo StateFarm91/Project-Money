@@ -470,7 +470,44 @@ def assess(db=None) -> dict:
     gates += _laura_gates()
     gates += _disclosure_gates(meta)
     gates += _truth_gates(db)
+    _finalise_publication(gates)
     return _rollup(gates, db_used=db is not None, block=block)
+
+
+def _finalise_publication(gates: list[dict]) -> None:
+    """W3-WIRE4 (B2 wiring 5): `laura_publication_status` reads the owner's approval scoped
+    to THIS asset on the storefront_banner surface (`visual.canonical.surface_publication`),
+    conditional on every other applicable gate measured here. Advisory
+    UNVERIFIED_ASSUMPTION gates are not conditions. Nothing global is flipped."""
+    from ..visual import canonical
+
+    idx = next((i for i, g in enumerate(gates) if g["gate"] == "laura_publication_status"),
+               None)
+    if idx is None:
+        return
+    sha = CA.ASSETS[ROLE].sha256
+    conditions = {g["gate"]: g["status"] for g in gates
+                  if g["gate"] != "laura_publication_status"
+                  and g["status"] != UNVERIFIED_ASSUMPTION}
+    pub = canonical.surface_publication(sha, canonical.SURFACE_STOREFRONT_BANNER, conditions)
+    g = gates[idx]
+    g["status"] = pub["status"]
+    g["evidence"].update({
+        "surface": pub["surface"],
+        "surface_status": canonical.asset_status(sha,
+                                                 surface=canonical.SURFACE_STOREFRONT_BANNER),
+        "owner_surface_approval": pub["approval"], "outstanding_failed": pub["failing"],
+        "outstanding_unknown": pub["unknown"]})
+    g["basis"] = ("measured: visual.canonical.surface_publication -- the owner's approval "
+                  "scoped to this sha on storefront_banner, AND every applicable gate here")
+    g["rule"] = ("no Laura image reaches customers until publication_approved; a scoped "
+                 "owner approval covers only its asset and surface and waives no gate")
+    g["why"] = pub["why"] + (". Globally the bytes stay "
+                             f"'{pub['global_asset_status']}' (not customer_ready); the "
+                             "owner's identity review approves identity, not the empty-"
+                             "category navigation or the concept crochet")
+    g["review"] = ("resolve the outstanding gates; the owner's scoped approval already "
+                   "covers identity") if pub["approval"] else g.get("review")
 
 
 def _laura_gates() -> list[dict]:

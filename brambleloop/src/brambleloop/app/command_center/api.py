@@ -455,6 +455,63 @@ def make_router(db) -> APIRouter:
                               session_public_id=auth.current_public_id(request)) from None
         return ok(out)
 
+    # ---- authority (W3 K11, wired by W3-WIRE4) -------------------------------------------
+    # Under /api/cc/, so `auth.gate` has already required a live owner session, CSRF and a
+    # fresh nonce. Both are consequential owner decisions, so each also needs a fresh step-up
+    # before the domain call, which itself refuses anything but owner + step_up_verified.
+
+    @router.post("/authority/approve/{key}")
+    async def authority_approve(key: str, request: Request):
+        from ...authority import dag
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        auth.require_stepup(db, request, "authority.approve")
+        ref = str(body.get("approval_ref") or body.get("owner_action_id") or "")[:120]
+        try:
+            out = await run_in_threadpool(lambda: dag.approve(
+                db, key, approved_by="owner", step_up_verified=True,
+                approval_ref=ref or f"cc:{pid}"))
+        except dag.WorkRefused as exc:
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc)[:500],
+                              kind="action", session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "authority.approve", "key": key, "ref": ref})
+        return ok({"ok": True, "work_item": out})
+
+    @router.post("/authority/grant")
+    async def authority_grant(request: Request):
+        from ...authority import policy
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        auth.require_stepup(db, request, "authority.grant")
+        try:
+            max_per_day = int(body.get("max_per_day") or 0)
+            max_cost = float(body.get("max_cost_cad") or 0.0)
+        except (TypeError, ValueError):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST",
+                              "max_per_day must be an integer and max_cost_cad a number",
+                              kind="action", session_public_id=pid) from None
+        kwargs = {"agent": str(body.get("agent") or "")[:64],
+                  "action_class": str(body.get("action_class") or "")[:32],
+                  "job_type": str(body.get("job_type") or "")[:80],
+                  "level": str(body.get("level") or "owner_each")[:20],
+                  "max_per_day": max_per_day, "max_cost_cad": max_cost,
+                  "owner_decision_id": str(body.get("owner_decision_id") or "")[:64],
+                  "reason": str(body.get("reason") or "")[:2000]}
+        try:
+            pid_row = await run_in_threadpool(lambda: policy.grant(
+                db, granted_by="owner", step_up_verified=True, **kwargs))
+        except policy.AuthorityRefused as exc:
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc)[:500],
+                              kind="action", session_public_id=pid) from None
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": "authority.grant", "policy_id": pid_row,
+                            **{k: kwargs[k] for k in ("agent", "action_class", "job_type",
+                                                      "level", "owner_decision_id")}})
+        return ok({"ok": True, "policy_id": pid_row})
+
     # ---- Talk to Laura (W3 lane F; D-FB-13, spec/07 item 9) ------------------------------
     # Under /api/cc/, so `auth.gate` has already required a live owner session, and for the
     # POSTs CSRF + a fresh nonce + timestamp. A protected follow-on additionally needs

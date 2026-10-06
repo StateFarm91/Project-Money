@@ -1456,7 +1456,11 @@ def report(db, *, env: dict[str, str] | None = None) -> dict:
 # How the cards sort. Free and quick first, because an owner reading on a phone answers the
 # top one, and the top one should be the one that unblocks most for least.
 def _urgency(card: dict) -> tuple:
-    return (card["max_cost_cad"], card["minutes"], -card["unblocks_count"])
+    # W3-WIRE4: an UNKNOWN cost (None) is never ranked as free; it sorts after every stated
+    # cost, because nobody can say yet what answering it would spend.
+    cost = card["max_cost_cad"]
+    return (cost is None, cost if cost is not None else 0.0, card["minutes"],
+            -card["unblocks_count"])
 
 
 # F-179 / F-663: the legacy OwnerAction table and the gate cards are ONE queue.
@@ -1518,7 +1522,8 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
 
     with db.session() as s:
         rows = [{"id": a.id, "requirement_key": a.requirement_key or "", "action": a.action,
-                 "reason": a.reason or "", "max_cost_cad": float(a.max_cost_cad or 0.0),
+                 # W3-WIRE4: None when the row's cost basis is UNKNOWN (never CA$0.00).
+                 "reason": a.reason or "", "max_cost_cad": a.max_cost_known,
                  "minutes": int(a.minutes or 0),
                  "consequence_of_delay": a.consequence_of_delay or "",
                  "blocks": a.blocks or "", "at": a.at.isoformat() if a.at else None,
@@ -1650,7 +1655,8 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
     # readiness assessment before an empty queue is called proven.
     empty_state = owner_queue.empty_guard(db, cards, gates_read_live=True)
     snapshot = queue(db)
-    free_and_quick = [c for c in cards if c["max_cost_cad"] == 0.0]
+    free_and_quick = [c for c in cards if c["max_cost_cad"] == 0.0
+                      and c.get("max_cost_basis") != "UNKNOWN"]
     return {
         "cards": cards,
         "open_actions": len(cards),

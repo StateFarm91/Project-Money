@@ -83,6 +83,11 @@ def _authority(s, proposal: dict) -> tuple[bool, str]:
         return False, f"owner action {auth['ref']!r} does not exist"
     if not row.done:
         return False, f"owner action {auth['ref']!r} is not approved (not done)"
+    if row.max_cost_known is None:
+        # W3-WIRE4: an owner action whose ceiling is UNKNOWN authorises no spend; an unstated
+        # ceiling is neither free nor uncapped.
+        return False, (f"owner action {auth['ref']!r} states no cost ceiling (UNKNOWN); a "
+                       "spend needs the owner's stated maximum")
     if row.max_cost_cad and float(proposal.get("amount_cad") or 0) > row.max_cost_cad + 1e-9:
         return False, (f"owner approved at most CA${row.max_cost_cad:.2f}; proposal asks "
                        f"CA${float(proposal['amount_cad']):.2f}")

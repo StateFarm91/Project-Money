@@ -150,6 +150,7 @@ class Database:
         from ..laura.core import models as laura_core_models  # noqa: F401; Laura (W3-D)
         from ..visual.rnd import models as visual_rnd_models  # noqa: F401; Visual R&D (H, w3)
         from ..gateway import paid_calls as _paid_calls  # noqa: F401; PaidCallRecord (SPEND)
+        from ..authority import models as _authority_models  # noqa: F401; authority (W3-K11)
         from .migrate import apply as apply_migrations
 
         Base.metadata.create_all(self.engine)

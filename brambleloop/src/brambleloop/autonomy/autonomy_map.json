@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-06T07:21:17.956681+00:00",
+ "generated_at": "2026-10-06T20:46:40.038291+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,9 +10,9 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 107,
-  "handlers": 125,
-  "agents": 28,
+  "cadences": 111,
+  "handlers": 129,
+  "agents": 29,
   "follow_on_edges": 53
  },
  "departments": [
@@ -23,13 +23,15 @@
    "agents": [
     "coo",
     "growth",
+    "laura",
     "orchestrator",
     "swarm_steward"
    ],
    "charter_agents": [
     "coo",
     "orchestrator",
-    "swarm_steward"
+    "swarm_steward",
+    "laura"
    ],
    "authority": {
     "generatable": [
@@ -130,6 +132,12 @@
       "agent": "coo",
       "job_type": "autonomy.orchestrate",
       "period_seconds": 900
+     },
+     {
+      "name": "laura_executive",
+      "agent": "laura",
+      "job_type": "laura.executive_tick",
+      "period_seconds": 300
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -142,6 +150,7 @@
     ]
    },
    "cadence": [
+    300,
     900,
     3600,
     86400,
@@ -166,6 +175,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.handlers",
+     "brambleloop.laura.executive.handlers",
      "brambleloop.runtime.orders",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release"
@@ -177,6 +187,7 @@
      "build.tick",
      "launch.plan",
      "launch.readiness",
+     "laura.executive_tick",
      "ops.capacity",
      "plan.cycle",
      "plan.strategy",
@@ -888,10 +899,12 @@
    "authority": {
     "generatable": [
      "visual.identity_drift",
+     "visual.rnd.cycle",
      "autonomy.department_review"
     ],
     "generatable_agents": {
      "visual.identity_drift": "quality_director",
+     "visual.rnd.cycle": "publishing",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -952,6 +965,12 @@
       "agent": "publishing",
       "job_type": "seasonal.cycle_proof",
       "period_seconds": 604800
+     },
+     {
+      "name": "visual_rnd",
+      "agent": "publishing",
+      "job_type": "visual.rnd.cycle",
+      "period_seconds": 21600
      }
     ],
     "orchestrator": "autonomy.orchestrate every 15 min + Scheduler.tick idle_wake",
@@ -966,6 +985,7 @@
    },
    "cadence": [
     3600,
+    21600,
     86400,
     604800
    ],
@@ -984,7 +1004,8 @@
      }
     ],
     "overdue_cadence_catch_up": [
-     "visual.identity_drift"
+     "visual.identity_drift",
+     "visual.rnd.cycle"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -992,6 +1013,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:visual:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.autonomy.visual_rnd_job",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -1007,7 +1029,8 @@
      "seasonal.cycle_proof",
      "visual.identity_drift",
      "visual.portrait_repair",
-     "visual.provider_trial"
+     "visual.provider_trial",
+     "visual.rnd.cycle"
     ],
     "permitted_without_handler": [
      "assets.render"
@@ -1063,6 +1086,7 @@
    "name": "Store / Commerce",
    "mission": "Turn certified releases into correct listings, keep the shop's read-back true, and prepare (never perform) publication for owner approval.",
    "agents": [
+    "cfo",
     "listing",
     "orchestrator",
     "pricing",
@@ -1144,6 +1168,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "listing_outcomes",
+      "agent": "cfo",
+      "job_type": "listing.outcomes",
+      "period_seconds": 86400
+     },
+     {
       "name": "seo_cycle",
       "agent": "listing",
       "job_type": "seo.cycle",
@@ -1198,6 +1228,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.etsy_ops",
+     "brambleloop.runtime.listing_outcomes",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
      "brambleloop.runtime.storefront_watch",
@@ -1209,6 +1240,7 @@
      "etsy.listing_census",
      "etsy.shop_snapshot",
      "listing.draft",
+     "listing.outcomes",
      "listing.search_visibility_watch",
      "listing.seo",
      "listing.taxonomy_refresh",
@@ -1398,6 +1430,7 @@
      "commerce.readings",
      "finance.escalation_check",
      "finance.accounting.cycle",
+     "finance.accounting.period_pack",
      "autonomy.department_review"
     ],
     "generatable_agents": {
@@ -1406,6 +1439,7 @@
      "commerce.readings": "cfo",
      "finance.escalation_check": "cfo",
      "finance.accounting.cycle": "cfo",
+     "finance.accounting.period_pack": "cfo",
      "autonomy.department_review": "coo"
     },
     "forbidden": [
@@ -1462,6 +1496,12 @@
       "period_seconds": 21600
      },
      {
+      "name": "accounting_period_pack",
+      "agent": "cfo",
+      "job_type": "finance.accounting.period_pack",
+      "period_seconds": 86400
+     },
+     {
       "name": "accounting_cycle",
       "agent": "cfo",
       "job_type": "finance.accounting.cycle",
@@ -1504,7 +1544,8 @@
      "commerce.order_readings",
      "commerce.readings",
      "finance.escalation_check",
-     "finance.accounting.cycle"
+     "finance.accounting.cycle",
+     "finance.accounting.period_pack"
     ],
     "self_review": "autonomy.department_review every 6 h when idle",
     "approval_items": []
@@ -1512,6 +1553,7 @@
    "mission_creation": "orchestrator._enqueue_mission: job (idempotency key autonomy:finance:<evidence fingerprint>) + company_memory kind=mission + company_timeline mission.created",
    "execution": {
     "handler_modules": [
+     "brambleloop.autonomy.period_packs",
      "brambleloop.finance.accounting.job",
      "brambleloop.runtime.commerce_readings",
      "brambleloop.runtime.orders",
@@ -1523,6 +1565,7 @@
      "commerce.orders_ingest",
      "commerce.readings",
      "finance.accounting.cycle",
+     "finance.accounting.period_pack",
      "finance.challenge",
      "finance.escalation_check",
      "finance.governor",

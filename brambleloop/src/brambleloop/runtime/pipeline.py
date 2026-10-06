@@ -2280,6 +2280,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "finance.accounting.cycle": ("posting.posted", "posting.reversed", "matching.matched",
                                  "posting_after_match.posted", "anomalies.findings",
                                  "anomalies.opened"),
+    "finance.accounting.period_pack": ("work_done",),  # W3-D (wired by W3-WIRE4)
     "finance.challenge": ("challenges", "blocking"),
     "finance.escalation_check": ("required", "owner_action"),
     "finance.governor": ("paused", "incidents", "agents_spiking", "ceilings_changed"),
@@ -2312,9 +2313,11 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "intel.benchmark_refresh": ("triggers", "raised"),
     "intel.panel_discovery": ("joined", "scanned"),
     "intel.pod_learning": ("records", "judgements", "measured"),
+    "laura.executive_tick": ("work_done",),  # W3-D (wired by W3-WIRE4)
     "launch.readiness": ("owner_actions_added", "owner_actions_closed"),
     "learn.scan": ("queued", "generated", "published"),
     "listing.draft": ("drafted",),
+    "listing.outcomes": ("exports_processed", "recorded_listings"),  # W3 K3 via D (WIRE4)
     "listing.seo": ("listing",),
     "marketing.ads_readiness": ("rechecked", "campaign_activated"),
     "marketing.schedule": ("pieces",),
@@ -2355,6 +2358,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "swarm.review": ("enacted", "retire", "merge"),
     "teardown.enforce": ("binding", "provisional", "blocked", "lessons"),
     "visual.identity_drift": ("gradual_drift", "incidents_opened"),
+    "visual.rnd.cycle": ("work_done",),  # W3-D (wired by W3-WIRE4)
     # Capability-gated cadences: shadow/credential-less runs report `ran: false` (no-op);
     # these keys are what they report when the capability is open and they did the work.
     "assets.model_photography": ("made",),
