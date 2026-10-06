@@ -63,6 +63,11 @@ from ..core.resilience import PermanentError, TransientError, classify_http
 log = logging.getLogger("brambleloop.etsy")
 
 # Etsy's own limits, as published. These are not our preferences.
+# Evidence (read 2026-10-06, `integrations.etsy_constraints`): TITLE_MAX, TAGS_MAX and
+# TAG_CHARS_MAX are quoted from Etsy help articles 115015628707 and 360000336307.
+# MATERIALS_MAX and DESCRIPTION_MAX have NO Etsy source on file -- neither the Open API
+# document nor any help article states them -- so they are kept as this client's own caps and
+# reported as ETSY_PUBLISHES_NONE by `etsy_constraints.reconcile()`.
 TITLE_MAX = 140
 TAGS_MAX = 13
 TAG_CHARS_MAX = 20
@@ -676,8 +681,15 @@ ALT_TEXT_MAX = 500
 
 # Content types for the formats a listing image can be. Explicit rather than guessed from
 # `mimetypes`, whose answer depends on the host's /etc/mime.types.
+#
+# A subset of Etsy's own list, never a superset. Etsy (help article 115015663347, edited
+# 2026-05-04, read 2026-10-06): "All images in your shop should be one of these file types:
+# .jpg, .gif, .png, .svg, or .heic. These are the only image file types Etsy supports."
+# `.webp` was here until 2026-10-06 and is not on that list, so it was removed (lane W3-I);
+# svg and heic are Etsy-supported but nothing here produces them. See
+# `integrations.etsy_constraints` for every published image rule.
 IMAGE_CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-                       ".gif": "image/gif", ".webp": "image/webp"}
+                       ".gif": "image/gif"}
 
 
 def form_fields(payload: dict[str, Any]) -> dict[str, Any]:
