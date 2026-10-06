@@ -856,6 +856,27 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
                         for slug, r in list(sustainability.break_even(db)["products"]
                                             .items())[:20]}}))
 
+    # F-400 / F-879 / F-136: launch is driven by the Final Master launch-critical set, computed
+    # (not summarised) by build2.final_master from the adjudicated closure snapshot that ships
+    # in the image. Post-launch rows never block; only OPEN launch-critical rows and integrity
+    # violations do. GATED rows wait on owner/data/external gates presented elsewhere.
+    from ..build2 import final_master
+
+    fm = final_master.summary(db)
+    out.append(_build(
+        "final_master_closure",
+        "every launch-critical Final Master requirement is complete or explicitly gated, and "
+        "the closure snapshot passes its integrity checks",
+        bool(fm.get("launch_ready")),
+        {"status": fm["status"], "launch_critical": fm.get("launch_critical"),
+         "launch_critical_open": fm.get("launch_critical_open"),
+         "gated_by_kind": fm.get("gated_by_kind"),
+         "post_launch_excluded": fm.get("post_launch_excluded"),
+         "integrity_violations": (fm.get("integrity_violations") or [])[:10],
+         "open_sample": [r["uid"] for r in (fm.get("items") or [])[:25]],
+         "mapping_basis": fm.get("mapping_basis"), "rule": fm.get("rule"),
+         "reason": fm.get("reason")}))
+
     out.append(Requirement(
         key="phase",
         description="the phase allows publishing",

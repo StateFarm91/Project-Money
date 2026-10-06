@@ -524,10 +524,25 @@ _FINAL_MATRIX = _PACKAGE.parent.parent / "research" / "final_build" / "closure_m
 def _final_matrix_rows(path: Path | None = None) -> tuple[list[dict] | None, str]:
     import json
 
+    explicit = path is not None
     path = path or _FINAL_MATRIX
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError) as exc:
+        if not explicit:
+            # F-397: the research matrix exists only in a development checkout. In the image,
+            # read the shipped projection (build2/final_master_closure.json), which carries
+            # uid, maturity and producer module for every row at INTEGRATED or above.
+            from . import final_master
+
+            snap = final_master.load()
+            if snap is not None:
+                rows = [{"uid": r["uid"], "maturity": r["maturity"],
+                         "producer": ("src/brambleloop/" + r["producer_module"])
+                         if r.get("producer_module") else None}
+                        for r in snap.get("rows") or []
+                        if r.get("maturity") in INTEGRATED_OR_ABOVE]
+                return rows, final_master.SNAPSHOT.name
         return None, f"{path.name} unreadable here ({type(exc).__name__})"
     rows = data.get("matrix") if isinstance(data, dict) else data
     return (rows if isinstance(rows, list) else None), str(path.name)

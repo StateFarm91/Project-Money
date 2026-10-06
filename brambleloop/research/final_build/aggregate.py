@@ -23,7 +23,28 @@ mapping was made against), and a completion verdict (F-178/F-843):
 The summary carries the counts, including `launch_critical_open`. It is computed, not pinned
 to zero: release requires it to reach 0 (or every open row to be reclassified with a reason).
 Human/integrator adjudications that cannot be computed live in `overrides.json`
-({uid: {field: value, "reason": ...}}) and are applied last, with the reason kept.
+({uid: {field: value, "reason": ..., "accepted_by": ...}}), with the reason kept. Evidence
+fields (`EVIDENCE_OVERRIDE_KEYS`: producer, tests, evidence, consumer, durable_state) are applied
+BEFORE cap(), so a corrected mapping is still adjudicated by the evidence rules; every other
+field is applied after. An override without a reason or without `accepted_by` is a problem
+(F-867: a worker cannot certify itself through the override file).
+
+`completion_target` (wave 3, lane TOOLS) is the one override that changes the completion rule
+rather than a fact: a launch-critical row whose producer is operator tooling -- run_tests.sh,
+tests/, repo-root ops/*.py, scripts/*.py, research/final_build/*.py, or an offline adjudicator
+listed in OFFLINE_ADJUDICATORS -- can never be reached from a runtime root, so INTEGRATED is
+unreachable by construction and TESTED is its ceiling. The override may set the target to
+TESTED and to nothing else, and only for such a row (`structural_producer`); anywhere else it is
+refused into `problems` and ignored. It never raises maturity, never clears coverage or a defect.
+
+F-133: a launch-critical row that is not COMPLETE and whose coverage is PARTIAL must name the
+missing behaviour (`missing_part`) and what closes it (`next_action`); an orphaned partial is
+listed in the summary and named in the row's completion reasons.
+
+The runtime snapshot (F-129/F-136/F-400/F-879): `src/brambleloop/build2/final_master_closure.json`
+is a compact, deterministic projection of this matrix that ships in the image (inside the
+release tree digest) and is read by `brambleloop.build2.final_master` -- the live consumer that
+the launch readiness gate and the executor report call. Regenerated on every run.
 
 Run: python3 research/final_build/aggregate.py
 """
@@ -49,6 +70,16 @@ REMAP_SHAS = {"6f9a2f7": "6f9a2f7a1405f5c9638a78552934445bc590c63f"}
 PRODUCTION = "fcb982d57e291c88d9f78eaa091e90904b6c2cc9"
 # Completion target per launch class (F-178). Only launch-critical rows have a launch target.
 TARGET = {"LAUNCH-CRITICAL": "INTEGRATED", "MATURE": None, "NA": None}
+# Override keys that correct the mapping's evidence; cap() adjudicates them like any claim.
+EVIDENCE_OVERRIDE_KEYS = ("producer", "tests", "evidence", "consumer", "durable_state")
+# Modules under src/ that are offline-by-design adjudicators (a CLI run by the integrator over
+# evidence packets, never by the runtime). Their rows are structural like operator tooling.
+OFFLINE_ADJUDICATORS = frozenset({"build2/final_proof.py"})
+# Producer paths that are operator tooling (relative to the brambleloop root, or repo-root ops/).
+_TOOLING = re.compile(
+    r"^(?:brambleloop/)?(?:run_tests\.sh|tests/[\w/]+\.py|scripts/[\w/]+\.py|"
+    r"research/final_build/[\w/]+\.py)$|^ops/[\w]+\.py$")
+SNAPSHOT = SRC / "build2" / "final_master_closure.json"
 # Words in a row's protected effect / producer / title that name a protected (externally
 # visible, spending, customer-facing or authority-bearing) action. A row matching none, with no
 # protected_effect, is "unprotected"; anything else is "protected" (fail safe: final_proof then
@@ -198,6 +229,45 @@ def protected_action_applicability(row):
     return "unprotected", "no protected_effect and no protected action named"
 
 
+def producer_paths(row):
+    """Every file path the row's producer names (`a.py`, `ops/x.py (repo root)`, `run_tests.sh`)."""
+    text = str(row.get("producer") or "")
+    return re.findall(r"(?:[\w.-]+/)*[\w.-]+\.(?:py|sh)", text)
+
+
+def structural_producer(row):
+    """(True, why) when every path the producer names is operator tooling or an offline
+    adjudicator, so the row can never reach a runtime root and TESTED is its ceiling."""
+    paths = producer_paths(row)
+    if not paths:
+        return False, "producer names no file"
+    bad = []
+    for p in paths:
+        rel = p[len("src/brambleloop/"):] if p.startswith("src/brambleloop/") else p
+        if rel in OFFLINE_ADJUDICATORS:
+            continue
+        if _TOOLING.match(p):
+            if p.startswith("ops/"):
+                # `ops/x.py` is ambiguous: repo-root operator tooling, or the runtime package
+                # src/brambleloop/ops/x.py. Tooling only when the file is the repo-root one.
+                if (ROOT.parent / p).is_file() and not (SRC / p).is_file():
+                    continue
+            elif (ROOT / p.removeprefix("brambleloop/")).is_file():
+                continue
+        bad.append(p)
+    if bad:
+        return False, "producer names runtime module(s): " + ", ".join(bad)
+    return True, "producer is operator tooling / offline adjudicator: " + ", ".join(paths)
+
+
+def orphaned_partial(row):
+    """F-133: a partial that does not say what is missing or what closes it."""
+    if row.get("coverage") == "FULL":
+        return False
+    return not (str(row.get("missing_part") or "").strip()
+                and str(row.get("next_action") or "").strip())
+
+
 def completion(row):
     """(verdict, reasons) for one adjudicated row (F-178)."""
     cls = row.get("launch_class")
@@ -206,12 +276,22 @@ def completion(row):
     if cls != "LAUNCH-CRITICAL":
         return "POST-LAUNCH", []
     reasons = []
-    if LEVELS.index(row["maturity"]) < LEVELS.index(TARGET[cls]):
-        reasons.append(f"maturity {row['maturity']} below target {TARGET[cls]}")
+    target = TARGET[cls]
+    if row.get("completion_target") == "TESTED" and structural_producer(row)[0]:
+        target = "TESTED"
+    if LEVELS.index(row["maturity"]) < LEVELS.index(target):
+        reasons.append(f"maturity {row['maturity']} below target {target}")
     if row.get("coverage") != "FULL":
         reasons.append("coverage PARTIAL: " + str(row.get("missing_part") or "")[:160])
+        if orphaned_partial(row):
+            reasons.append("orphaned partial (F-133): missing_part or next_action is blank")
     if row.get("defect"):
         reasons.append("defect recorded: " + str(row["defect"])[:160])
+    if not reasons and not (str(row.get("producer") or "").strip()
+                            and (str(row.get("consumer") or "").strip() or target == "TESTED")):
+        # F-831/F-832: complete means a named producer AND a named consumer (operator tooling,
+        # target TESTED, has no runtime consumer by construction). Mirrored by final_master.
+        reasons.append("no producer->consumer chain named (F-831)")
     if not reasons:
         return "COMPLETE", []
     gate = row.get("gate") or {}
@@ -258,6 +338,56 @@ def launch_scope(matrix, remapped_classes, overrides, basis):
         "counts": dict(Counter(e["scope"] for e in entries)),
         "reclassified_out_of_launch": sorted(e["uid"] for e in entries if e["reclassified"]),
         "entries": entries}
+
+
+def _gate_view(row):
+    g = row.get("gate") or {}
+    kind = g.get("kind") if g.get("kind") in ("owner", "data", "external") else "none"
+    return {"kind": kind, "key": (g.get("key") or None) if kind != "none" else None}
+
+
+def runtime_snapshot(out):
+    """The compact projection the runtime reads (brambleloop.build2.final_master).
+
+    Deterministic (sorted keys, no timestamps) so regenerating it on unchanged inputs is a
+    no-op diff. Launch-critical rows carry what the live gate re-verifies; post-launch and
+    not-applicable rows carry only their class and verdict (F-400: they are excluded from the
+    launch verdict by construction, never silently dropped).
+    """
+    rows = []
+    for r in out["matrix"]:
+        base = {"uid": r["uid"], "launch_class": r["launch_class"],
+                "completion": r["completion"]}
+        if LEVELS.index(r["maturity"]) >= LEVELS.index("INTEGRATED"):
+            # build2.maturity's F-125 disagreement check reads these in the image, where the
+            # research matrix does not exist (F-397).
+            base["maturity"] = r["maturity"]
+            m = re.search(r"src/brambleloop/([\w/]+\.py)", str(r.get("producer") or ""))
+            base["producer_module"] = m.group(1) if m else None
+        if r["launch_class"] == "LAUNCH-CRITICAL":
+            base.update({
+                "title": r["title"][:60], "maturity": r["maturity"],
+                "maturity_claimed": r["maturity_claimed"],
+                "coverage": r.get("coverage"), "defect": bool(r.get("defect")),
+                "gate": _gate_view(r),
+                "has_missing_part": bool(str(r.get("missing_part") or "").strip()),
+                "next_action": str(r.get("next_action") or "")[:100],
+                "has_producer": bool(str(r.get("producer") or "").strip()),
+                "has_consumer": bool(str(r.get("consumer") or "").strip()),
+                "structural": structural_producer(r)[0],
+                "completion_target": r.get("completion_target"),
+                "overridden": sorted({n.split(":")[0][len("override "):]
+                                      for n in r["adjudication"]
+                                      if n.startswith("override ")}),
+                "mapped_on": r["mapped_on"][:12]})
+        rows.append(base)
+    return {"schema": 1, "levels": LEVELS, "target": TARGET,
+            "generated_by": "research/final_build/aggregate.py (do not edit by hand)",
+            "basis": out["basis"],
+            "summary": {k: out["summary"][k] for k in (
+                "rows", "launch_critical_completion", "launch_critical_open",
+                "orphaned_partials", "structural_target_overrides")},
+            "rows": rows}
 
 
 def cap(row, reach):
@@ -338,18 +468,39 @@ def main():
         row = rows.get(uid)
         if row is None:
             continue
+        ov, notes = {}, []
+        if uid in overrides:
+            ov = dict(overrides[uid])
+            reason = ov.pop("reason", None)
+            accepted_by = ov.pop("accepted_by", None)
+            if not str(reason or "").strip() or not str(accepted_by or "").strip():
+                problems.append(f"{uid}: override without reason/accepted_by is refused")
+                ov = {}
+            for k in EVIDENCE_OVERRIDE_KEYS:
+                if k in ov:
+                    v = ov.pop(k)
+                    notes.append(f"override {k}: {row.get(k)!r} -> {v!r} ({reason}; "
+                                 f"accepted by {accepted_by}; adjudicated by cap())")
+                    row[k] = v
         claimed = row["maturity"]
-        final, notes = cap(row, reach)
+        final, cap_notes = cap(row, reach)
+        notes.extend(cap_notes)
         row["maturity_claimed"], row["maturity"] = claimed, final
         if row.get("launch_class") not in CLASSES:
             notes.append(f"launch_class {row.get('launch_class')!r} invalid -> LAUNCH-CRITICAL (fail safe)")
             row["launch_class"] = "LAUNCH-CRITICAL"
-        if uid in overrides:
-            ov = dict(overrides[uid])
-            reason = ov.pop("reason", "integrator override")
-            for k, v in ov.items():
-                notes.append(f"override {k}: {row.get(k)!r} -> {v!r} ({reason})")
-                row[k] = v
+        if "completion_target" in ov:
+            ok, why = structural_producer(row)
+            if ov["completion_target"] != "TESTED" or not ok:
+                problems.append(f"{uid}: completion_target {ov['completion_target']!r} refused "
+                                f"({why})")
+                ov.pop("completion_target")
+            else:
+                ov["completion_target_basis"] = why
+        for k, v in ov.items():
+            notes.append(f"override {k}: {row.get(k)!r} -> {v!r} ({reason}; "
+                         f"accepted by {accepted_by})")
+            row[k] = v
         row["adjudication"] = notes
         row.update({"id": req["id"], "title": req["title"], "version": req["version"],
                     "master_priority": req.get("master_priority")})
@@ -403,6 +554,10 @@ def main():
         "capped_by_proxy_evidence": sum(1 for r in matrix if any(
             "F-837" in n for n in r["adjudication"])),
         "mapped_on": dict(Counter(r["mapped_on"][:7] for r in matrix)),
+        "orphaned_partials": sorted(r["uid"] for r in lc if r["completion"] != "COMPLETE"
+                                    and orphaned_partial(r)),
+        "structural_target_overrides": sorted(r["uid"] for r in matrix
+                                              if r.get("completion_target") == "TESTED"),
     }
     reach_basis = json.loads((HERE / "module_reachability.json").read_text()).get("basis")
     out = {"basis": {"mapping": {"base": MAPPING_BASE,
@@ -418,6 +573,8 @@ def main():
     (HERE / "closure_matrix.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     scope = launch_scope(matrix, remapped_classes, overrides, out["basis"])
     (HERE / "LAUNCH_SCOPE.json").write_text(json.dumps(scope, indent=1, ensure_ascii=False) + "\n")
+    SNAPSHOT.write_text(json.dumps(runtime_snapshot(out), indent=None, separators=(",", ":"),
+                                   ensure_ascii=False, sort_keys=True) + "\n")
     print(json.dumps(summary, indent=1)[:4000])
 
 

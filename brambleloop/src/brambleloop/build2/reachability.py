@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import ast
 import os
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache, wraps
 from contextvars import ContextVar
@@ -196,12 +197,30 @@ def _imports_cached(snapshot, mod: str) -> frozenset[str]:
         return set()
     is_pkg = _path_of(mod).name == "__init__.py"
     found: set[str] = set()
+    dynamic = False
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             found.update(_resolve(mod, is_pkg, node))
         elif isinstance(node, ast.Import):
             found.update(a.name for a in node.names if a.name.startswith("brambleloop"))
+        elif isinstance(node, ast.Call):
+            fn = node.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+            if name in ("import_module", "__import__"):
+                dynamic = True
+    if dynamic:
+        # F-833 / C-65: a module that imports by name (`importlib.import_module(table[key])`,
+        # e.g. the Command Center's PROVIDERS table) reaches every module its own string
+        # literals name in full ("brambleloop.x.y"). Bounded on purpose: only in a module that
+        # performs a dynamic import, and only a literal that resolves to a module file.
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and _DOTTED_MODULE.fullmatch(node.value)):
+                found.add(node.value)
     return frozenset(m for m in found if _path_of(m) is not None)
+
+
+_DOTTED_MODULE = re.compile(r"brambleloop(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
 
 
 @_graph_boundary

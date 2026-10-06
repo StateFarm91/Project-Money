@@ -32,7 +32,32 @@ class ProofTests(unittest.TestCase):
             live_root=receipt(kind="worker", producer="producer"), production_producer=receipt(),
             failure_test=receipt(), suite=receipt(passed=5, failed=0, clean=True),
             execution_gate=receipt(phase="execution", effect="effect", outcome="refused"),
-            independent_review=receipt(reviewer="reviewer", verdict="supported", result="result"))
+            independent_review=receipt(reviewer="reviewer", verdict="supported", result="result",
+                                       direct_confirmed=True))
+
+    def test_fixture_provenance_is_derived_not_asserted(self):
+        """F-836: an artifact among tests/fixtures blocks even when the author says runtime."""
+        for rel in ("tests/raw.json", "fixtures/raw.json", "raw_fixture.json"):
+            with self.subTest(path=rel):
+                target = self.root / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((self.root / "raw.json").read_bytes())
+                packet = copy.deepcopy(self.packet)
+                packet["artifacts"]["raw"]["path"] = rel
+                result = self.check_packet(packet)
+                self.assertEqual(result["verdict"], "BLOCKED")
+                self.assertIn("fixture-derived artifact:raw", result["errors"])
+
+    def test_directness_needs_the_independent_reviewers_confirmation(self):
+        """F-837: the packet author's `direct: true` alone does not establish directness."""
+        for value in (None, False, "yes"):
+            with self.subTest(value=value):
+                packet = copy.deepcopy(self.packet)
+                packet["independent_review"]["direct_confirmed"] = value
+                result = self.check_packet(packet)
+                self.assertEqual(result["verdict"], "BLOCKED")
+                self.assertIn("directness not confirmed by the independent reviewer",
+                              result["errors"])
 
     def check_packet(self, packet):
         return validate(self.row, packet, head=self.head, root=self.root)

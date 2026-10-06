@@ -222,9 +222,59 @@ def git_tree_digest(repo: Path, rev: str, layout: dict = LAYOUT) -> str:
     return tree_digest((p[len(pre):], blobs[p] or b"") for p in files)
 
 
+SUPPLY_CHAIN_TOOL = "scripts/supply_chain.py"
+
+
+def supply_chain_evidence(repo: Path, sha: str, layout: dict = LAYOUT) -> tuple[dict, list[str]]:
+    """F-158 / F-416: the supply-chain verdict for the tree at `sha`, read from git.
+
+    Uses the verifier as it exists AT `sha` (a release is judged by its own rules, not by a
+    newer working tree). A SHA that predates the verifier has no supply-chain evidence and
+    says so ("unavailable"); a SHA that carries it must pass it, or the record is refused.
+    """
+    pre = layout["prefix"]
+    want = [pre + SUPPLY_CHAIN_TOOL, pre + "requirements.lock", pre + "requirements.txt",
+            pre + "Dockerfile", pre + layout["release"] + "/" + HISTORY_FILE]
+    blobs = _blobs(repo, sha, want)
+    tool = blobs.get(pre + SUPPLY_CHAIN_TOOL)
+    if tool is None:
+        return {"status": "unavailable",
+                "why": f"{SUPPLY_CHAIN_TOOL} is not in the tree at {sha[:12]}"}, []
+    import types
+    mod = types.ModuleType("brambleloop_supply_chain_at_sha")
+    mod.__file__ = str(repo / pre / SUPPLY_CHAIN_TOOL)
+    exec(compile(tool, f"{sha[:12]}:{SUPPLY_CHAIN_TOOL}", "exec"), mod.__dict__)  # noqa: S102
+    text = {k: (blobs.get(pre + k) or b"").decode(errors="replace")
+            for k in ("requirements.lock", "requirements.txt", "Dockerfile")}
+    v = mod.verify(lock_text=text["requirements.lock"], reqs_text=text["requirements.txt"],
+                   docker_text=text["Dockerfile"])
+    entries = v.pop("_entries")
+    bom = mod.sbom(entries, lock_sha256=v["lock_sha256"])
+    base = None
+    try:
+        dep = json.loads(blobs.get(pre + layout["release"] + "/" + HISTORY_FILE) or b"{}")
+        base = ((dep.get("deployed") or [{}])[-1]).get("sha")
+    except ValueError:
+        pass
+    change = None
+    if base:
+        old = _blobs(repo, base, [pre + "requirements.lock"]).get(pre + "requirements.lock")
+        old_entries = mod.parse_lock(old.decode(errors="replace"))[0] if old else {}
+        change = {"base": base, "base_had_lock": old is not None,
+                  **mod.change_record(old_entries, entries)}
+    ev = {"status": "verified" if v["ok"] else "refused", **v,
+          "sbom_sha256": hashlib.sha256(json.dumps(bom, sort_keys=True).encode()).hexdigest(),
+          "sbom_components": len(bom["components"]), "change_since_deployed": change}
+    return ev, [f"supply chain: {p}" for p in v["problems"]]
+
+
 def _record_problems(rec: dict, read) -> list[str]:
     """Why a release record does not prove its SHA; mirrors release_record.check_record."""
     reasons: list[str] = []
+    sc = rec.get("supply_chain")
+    if isinstance(sc, dict) and sc.get("status") == "refused":
+        reasons.append("tracked release record carries a refused supply-chain verdict: "
+                       + "; ".join(map(str, sc.get("problems") or []))[:300])
     sha = str(rec.get("sha") or "")
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         reasons.append("tracked release record does not name a full commit SHA")
@@ -439,6 +489,9 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
     why = _log_confirms(rec, log_base or (repo / layout["prefix"].rstrip("/")))
     if why:
         return {"ok": False, "reasons": [why]}
+    supply, sc_problems = supply_chain_evidence(repo, full, layout)
+    if sc_problems:
+        return {"ok": False, "reasons": sc_problems, "supply_chain": supply}
     raw_log = rec.get("log") or ""
     base = log_base or (repo / layout["prefix"].rstrip("/"))
     log_path = Path(raw_log) if Path(raw_log).is_absolute() else base / raw_log
@@ -460,6 +513,9 @@ def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR
         "suite_log": {"path": f"suite_runs/{rid}.log",
                       "sha256": hashlib.sha256(log_bytes).hexdigest()},
         "release_eligible": True, "recorded_at": now or rec.get("finished_utc"),
+        # F-158 / F-416: lock verification, SBOM digest and the change record against the
+        # last deployed SHA, for the tree at `sha` (scripts/supply_chain.py as of `sha`).
+        "supply_chain": supply,
         "note": "commit this file and suite_runs/ on top of `sha`; the deploy guard and the "
                 "runtime boot guard read it from git / the image, never from artifacts/",
     }
