@@ -134,8 +134,44 @@ class VisualLesson(Base):
     ref: Mapped[str] = mapped_column(String(160), default="")
 
 
+class VisualHeroVariant(Base):
+    """One hero (listing frame 1) treatment for one product class: the commercial R&D unit.
+
+    `style_key` is the value `ListingOutcome.hero_style` carries for listings that showed this
+    hero, which is how the slow loop credits marketplace outcomes to it. `state`: incumbent |
+    candidate | rejected | retired | overturned | gated_spend (a paid challenger waiting for
+    owner spend authority) | unavailable (needs an asset that does not exist yet).
+    `basis` says what the latest decision rested on: "proxy" (internal judges only) or
+    "market" (ListingOutcome evidence). A proxy promotion is provisional by construction.
+    """
+
+    __tablename__ = "visual_rnd_hero_variants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now,
+                                                 index=True)
+    product_class: Mapped[str] = mapped_column(String(48), index=True)
+    treatment: Mapped[str] = mapped_column(String(64), index=True)
+    style_key: Mapped[str] = mapped_column(String(120), index=True)
+    execution: Mapped[str] = mapped_column(String(32), default="deterministic_local")
+    params: Mapped[dict] = mapped_column(JSON, default=dict)
+    parent_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    state: Mapped[str] = mapped_column(String(24), index=True)
+    basis: Mapped[str] = mapped_column(String(16), default="proxy")
+    gates: Mapped[dict] = mapped_column(JSON, default=dict)
+    accepted: Mapped[bool] = mapped_column(Boolean, default=False)
+    objective: Mapped[dict] = mapped_column(JSON, default=dict)
+    estimated_cost_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    why: Mapped[str] = mapped_column(Text, default="")
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 TABLES = (VisualPipelineVersion, VisualExperiment, VisualJudgement, VisualMarketEvidence,
-          VisualLesson)
+          VisualLesson, VisualHeroVariant)
+# The tables whose presence means "the department has run" (the hero table is additive and
+# created by the same `ensure_tables`, so an older database is not reported as never-run).
+CORE_TABLES = TABLES[:5]
 
 
 def is_session(db) -> bool:
@@ -170,4 +206,13 @@ def tables_exist(db) -> bool:
         names = set(inspect(engine(db)).get_table_names())
     except Exception:  # noqa: BLE001 - an unreadable schema is not a populated one
         return False
-    return all(m.__tablename__ in names for m in TABLES)
+    return all(m.__tablename__ in names for m in CORE_TABLES)
+
+
+def table_exists(db, model) -> bool:
+    from sqlalchemy import inspect
+
+    try:
+        return model.__tablename__ in set(inspect(engine(db)).get_table_names())
+    except Exception:  # noqa: BLE001
+        return False
