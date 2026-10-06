@@ -613,24 +613,54 @@ def _fallback_finance_policy(db, proposal: dict) -> dict:
     return {"verdict": verdict, "reasons": reasons}
 
 
+_E_VERDICTS = {"CLEARED": ALLOW, "ESCALATED": ESCALATE, "BLOCKED": BLOCK,
+               ALLOW: ALLOW, ESCALATE: ESCALATE, BLOCK: BLOCK}
+
+
 def _normalise(result) -> dict:
-    """Read lane E's answer. Anything unrecognised fails closed (BLOCK)."""
-    if isinstance(result, bool):
-        return {"verdict": ALLOW if result else BLOCK, "reasons": [], "raw": result}
-    if isinstance(result, dict):
-        v = str(result.get("verdict") or result.get("decision") or "").upper()
-        if v in ("APPROVE", "APPROVED", "OK", "PASS"):
-            v = ALLOW
-        if v in ("REFUSE", "REFUSED", "DENY", "DENIED", "REJECT"):
-            v = BLOCK
-        if v not in _SEVERITY and "allowed" in result:
-            v = ALLOW if result["allowed"] else BLOCK
-        if v in _SEVERITY:
-            reasons = result.get("reasons") or result.get("why") or []
-            return {"verdict": v, "reasons": [reasons] if isinstance(reasons, str)
-                    else list(reasons), "raw": json.loads(json.dumps(result, default=str))}
-    return {"verdict": BLOCK, "reasons": [f"unrecognised Finance answer {result!r}"[:300]],
-            "raw": None}
+    """Map lane E's answer onto ALLOW / ESCALATE / BLOCK. Malformed answers fail closed (BLOCK).
+
+    Lane E's contract (finance/accounting/policy.py): `{"allow": bool, "verdict":
+    "cleared"|"escalated"|"blocked", "reasons": [...], "challenge_id": str,
+    "escalate_to": "owner"|None, "checks": [...]}`. `escalated` carries `allow=False` (missing
+    authority or evidence: the owner decides), so the verdict string decides, and `allow` must
+    agree with it: `allow` is True exactly when the verdict is `cleared`. A disagreement is
+    malformed. Without a verdict string: `allow` True -> ALLOW, `allow` False with an
+    `escalate_to` -> ESCALATE, `allow` False otherwise -> BLOCK. ALLOW still needs owner
+    authority here: it only lets the proposal become an owner approval item.
+    """
+    def bad(why):
+        return {"verdict": BLOCK, "reasons": [f"unrecognised Finance answer ({why}): "
+                                              f"{result!r}"[:300]], "raw": None}
+
+    if not isinstance(result, dict):
+        return bad("not a dict")
+    raw = json.loads(json.dumps(result, default=str))
+    reasons = result.get("reasons", [])
+    if isinstance(reasons, str):
+        reasons = [reasons]
+    if not isinstance(reasons, list):
+        return bad("reasons is not a list")
+    allow = result.get("allow")
+    if allow is not None and not isinstance(allow, bool):
+        return bad("allow is not a bool")
+    word = str(result.get("verdict") or "").strip().upper()
+    if word:
+        verdict = _E_VERDICTS.get(word)
+        if verdict is None:
+            return bad(f"verdict {word!r}")
+        if allow is not None and allow != (verdict == ALLOW):
+            return bad("allow disagrees with verdict")
+    elif allow is True:
+        verdict = ALLOW
+    elif allow is False:
+        verdict = ESCALATE if result.get("escalate_to") else BLOCK
+    else:
+        return bad("neither verdict nor allow")
+    if verdict != ALLOW and not reasons:
+        reasons = [f"Finance {verdict} without stated reasons"]
+    return {"verdict": verdict, "reasons": [str(r) for r in reasons], "raw": raw,
+            "challenge_id": result.get("challenge_id")}
 
 
 def finance_check(db, proposal: dict) -> dict:
@@ -648,8 +678,9 @@ def finance_check(db, proposal: dict) -> dict:
     return {**got, "checker": FINANCE_CHECK}
 
 
-def _key(slug, funding, daily, days, now) -> str:
-    raw = f"{slug}|{funding}|{daily:.2f}|{days}|{now.date().isoformat()}"
+def _key(slug, funding, daily, days, now=None) -> str:
+    """Same ask, same key: the owner item and Finance's authority ref stay stable."""
+    raw = f"{slug}|{funding}|{daily:.2f}|{days}"
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
@@ -674,15 +705,21 @@ def propose(db, slug: str, *, daily_budget_cad: float, days: int, funding: str,
     window = (econ.get("offsite_ads") or {}).get("attribution_window_days") or 30
     cac = (float(max_cac_cad) if max_cac_cad is not None
            else float(econ.get("contribution_per_order_cad_conservative") or 0.0))
-    proposal = {"kind": "ads_spend", "department": "growth", "proposer": "growth.ads",
+    proposal = {"kind": "ads", "department": "growth", "proposer": "growth.ads",
                 "purpose": "etsy_ads_experiment", "currency": "CAD", "slug": slug,
                 "funding": funding, "daily_budget_cad": daily, "days": days,
                 "total_cad": round(daily * days, 2), "amount_cad": round(daily * days, 2),
                 "max_cac_cad": round(cac, 2), "hypothesis": hypothesis,
                 "stop_condition": stop_condition, "attribution_window_days": int(window),
-                "economics": econ, "readiness_status": ready["status"]}
+                "economics": econ, "readiness_status": ready["status"],
+                # Lane E keys: Growth has no measured conversion, so it states no expected
+                # contribution rather than invent one (Finance then escalates the margin).
+                "product_slug": slug, "channel": "etsy_ads",
+                "expected_contribution_cad": None}
     key = _key(slug, funding, daily, days, now)
     proposal["key"] = key
+    # The authority Finance verifies is the owner's decision on this proposal's own item.
+    proposal["authority"] = {"type": "owner_action", "ref": f"ads.proposal:{key}"}
     ceiling = hard_ceiling(db, proposal)
     finance = finance_check(db, proposal)
     verdict = max(finance["verdict"], ceiling["verdict"], key=_SEVERITY.get)
@@ -714,15 +751,23 @@ def propose(db, slug: str, *, daily_budget_cad: float, days: int, funding: str,
             reasons=reasons,
             evidence=json.loads(json.dumps({
                 "finance_verdict": finance["verdict"], "finance_raw": finance.get("raw"),
-                "finance_note": finance.get("note"), "hard_ceiling": ceiling,
+                "finance_note": finance.get("note"),
+                "finance_challenge_id": finance.get("challenge_id"), "hard_ceiling": ceiling,
                 "proposal": {k: payload[k] for k in ("funding", "daily_budget_cad", "days",
                                                       "total_cad", "max_cac_cad")}},
                 default=str)))
         s.add(ch)
-        if status == "AWAITING_OWNER":
-            rk = f"ads.proposal:{key}"
-            act = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == rk,
-                                                     OwnerAction.done == False))  # noqa: E712
+        rk = f"ads.proposal:{key}"
+        act = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == rk)
+                       .order_by(OwnerAction.id.desc()).limit(1))
+        if status != "AWAITING_OWNER":
+            # The proposal no longer survives. An owner item nobody has acted on is withdrawn
+            # (deleted: the proposal and challenge rows keep the audit); one the owner already
+            # decided stays as the record of that decision, and Finance re-verifies it.
+            if act is not None and not act.done:
+                s.delete(act)
+                row.owner_action_id = None
+        else:
             if act is None:
                 act = OwnerAction(
                     requirement_key=rk,
@@ -748,7 +793,7 @@ def propose(db, slug: str, *, daily_budget_cad: float, days: int, funding: str,
 
 
 def rechallenge(db, proposal_id: int, *, now=None, trust_gate: dict | None = None) -> dict:
-    """Revalidate a proposal from scratch (readiness, Finance, ceiling); the old row is SUPERSEDED.
+    """Revalidate a proposal from scratch (readiness, Finance, ceiling); a new challenge row.
 
     Authority revoked, economics changed or a ceiling lowered since the proposal was written
     therefore refuses now, not at some later execution that does not exist.
@@ -761,11 +806,7 @@ def rechallenge(db, proposal_id: int, *, now=None, trust_gate: dict | None = Non
         args = dict(slug=p.product_slug, daily_budget_cad=p.daily_budget_cad, days=p.days,
                     funding=p.funding, hypothesis=p.hypothesis,
                     stop_condition=p.stop_condition, max_cac_cad=p.max_cac_cad)
-        p.status = "SUPERSEDED"
-        if p.owner_action_id:
-            act = s.get(OwnerAction, p.owner_action_id)
-            if act is not None and not act.done:
-                act.done = True  # withdrawn; a fresh item is raised if it still survives
+        p.status = "SUPERSEDED"  # overwritten by the fresh challenge below (same key)
     slug = args.pop("slug")
     return propose(db, slug, now=now, trust_gate=trust_gate, **args)
 

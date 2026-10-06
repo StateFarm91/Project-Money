@@ -66,3 +66,24 @@ From `growth/ads_readiness.py` I reused `locked_row`, `snapshot`, `state`, `tick
 - There is no real Etsy Ads data, eligibility evidence, ad spend or attributed order, so every KPI is UNEXERCISED in production.
 - Owner approval is an `OwnerAction`. `done` cannot tell approved from dismissed, and `rechallenge` marks a withdrawn item `done`. An authenticated owner decision route is lane C's or A's work.
 - No ad executor exists, by design. If one is ever built, it must re-run `rechallenge` before any spend.
+
+## Follow-up after lane E merge (2026-10-06)
+
+I merged `claude/visual-investigation` (cff27f7, includes lane E) into `claude/v11-H`. The integration with lane E is now built against its real contract.
+
+- **Adapter (`_normalise`):** E's `verdict` string decides: `cleared` → ALLOW, `escalated` → ESCALATE, `blocked` → BLOCK. `allow` must agree with it (True exactly when `cleared`), otherwise the answer is treated as malformed.
+  - Without a verdict string: `allow` True → ALLOW; `allow` False with `escalate_to` → ESCALATE; `allow` False otherwise → BLOCK.
+  - Malformed answers still fail closed: not a dict, a non-bool `allow`, an unknown verdict, non-list reasons, or an exception.
+  - E's reasons are kept verbatim. E's `challenge_id` is stored in `ads_finance_challenges.evidence.finance_challenge_id`.
+  - ALLOW still only produces an owner approval item.
+- **Proposal sent to E:**
+  - `kind` is now `"ads"` (it was `"ads_spend"`, which skipped E's phase and ads rules).
+  - Added `product_slug`, `channel`, and `expected_contribution_cad: None`. Growth does not invent a conversion rate, so E escalates the margin check.
+  - Added `authority = {"type": "owner_action", "ref": "ads.proposal:<key>"}`, which is the proposal's own owner item.
+- **Stable proposal key:** the key is now slug|funding|daily|days (date removed), so E's authority ref stays stable.
+- **Withdrawing owner items:** when a proposal stops surviving a re-challenge, an owner item nobody has acted on is deleted. It used to be marked done, which E would have read as an approval. An item the owner already decided is kept, and E re-verifies it.
+- **Tests:**
+  - The fallback-rule tests (margin/max CAC, anomaly hold, owner-cash escalation, unknown economics, credit escalation, revoked authority) now force the fallback path with `ForceFallback` (the policy import raises ImportError).
+  - The lane-E-shaped tests use answers in E's exact format.
+  - New: `test_s95_real_lane_e_check_spend_blocks_growth_spend_unmocked` runs the §95 case through the real `check_spend`. It gets BLOCK with E's `[cash]`, `[phase]` and `[evidence]` reasons preserved, and one `acct_challenges` row cross-referenced.
+  - New: an ESCALATED-routing test, and 9 malformed-answer cases.
