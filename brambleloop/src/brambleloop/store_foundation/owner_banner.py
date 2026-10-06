@@ -34,8 +34,85 @@ from pathlib import Path
 from ..brand import canonical_assets as CA
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
+# A check that rests on an internal assumption Etsy does not state (D-FB-18 item 4: the 4:1
+# rule "must not drive a redesign until verified"). Advisory: never PASS, never a blocker,
+# always shown with what would verify it.
+UNVERIFIED_ASSUMPTION = "UNVERIFIED_ASSUMPTION"
+STATUSES = (PASS, FAIL, UNKNOWN, UNVERIFIED_ASSUMPTION)
+BLOCKING = (FAIL, UNKNOWN)
 OWNER_REVIEW_REQUIRED = "OWNER_REVIEW_REQUIRED"
-ASSESSMENT_VERSION = "owner-banner-assessment/1"
+REJECTED_BY_OWNER = "REJECTED_BY_OWNER"
+ASSESSMENT_VERSION = "owner-banner-assessment/2"
+
+# Etsy's own words, read-only GETs on 2026-10-06 by lane B2. Help Center articles were read as
+# JSON through the Help Center article API (the HTML pages answer automated readers with 403);
+# etsy.com/legal and the seller handbook answered 403 (bot protection) and stay UNVERIFIED.
+ETSY_EVIDENCE: tuple[dict, ...] = (
+    {"key": "big_banner_size", "source_label": "Etsy Help Center article 115015663347 (images in your shop)", "status": "VERIFIED_HELP_CENTER",
+     "url": "https://help.etsy.com/hc/en-us/articles/115015663347-Requirements-and-Best-"
+            "Practices-for-Images-in-Your-Etsy-Shop",
+     "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/115015663347.json",
+     "retrieved_at": "2026-10-06T18:29:18Z", "edited_at": "2026-05-04T19:20:43Z",
+     "quotes": ["The minimum required size for big shop banners is 1200 x 300px.",
+                "The recommended size is 1600 x 400px.",
+                "Image sizes are optimized for mobile displays."]},
+    {"key": "banner_display", "source_label": "Etsy Help Center article 115015663247 (shop appearance)", "status": "VERIFIED_HELP_CENTER",
+     "url": "https://help.etsy.com/hc/en-us/articles/115015663247-How-to-Customize-Your-"
+            "Shop-s-Appearance",
+     "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/115015663247.json",
+     "retrieved_at": "2026-10-06T18:29:18Z", "edited_at": "2026-05-05T14:06:33Z",
+     "quotes": ["Big Banner: A large image with a minimum size of 1200 x 300 pixels.",
+                "This image appears when shoppers view your shop on the standard view of the "
+                "website as well as on mobile devices."]},
+    {"key": "banner_aspect_or_crop", "source_label": "Etsy Help Center articles 115015663347 and 115015663247", "status": "NOT_STATED",
+     "url": "(both articles above)", "retrieved_at": "2026-10-06T18:29:18Z",
+     "quotes": [], "note": "neither article states a required aspect ratio, a crop rule or a "
+                           "safe zone for the big banner; 1600x400 is a recommendation"},
+    {"key": "ai_disclosure", "source_label": "Etsy Help Center article 360024112614 (what can I sell)", "status": "VERIFIED_HELP_CENTER",
+     "url": "https://help.etsy.com/hc/en-us/articles/360024112614-What-Can-I-Sell-on-Etsy",
+     "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/360024112614.json",
+     "retrieved_at": "2026-10-06T18:29:57Z", "edited_at": "2025-09-17T18:36:53Z",
+     "quotes": ["As a seller, you can offer your original design as a digital download, or use "
+                "a third party to produce or print your design onto a physical item. This "
+                "category also includes seller-prompted AI creations.",
+                "Seller-prompted AI creations must disclose the use of AI."],
+     "note": "the rule is about items offered for sale; no fetched text addresses shop "
+             "banners or branding imagery"},
+    {"key": "seller_policy_and_creativity_standards", "source_label": "Etsy Seller Policy, Creativity Standards and seller handbook article 1275449912004", "status": "BLOCKED_403",
+     "url": "https://www.etsy.com/legal/sellers/ ; https://www.etsy.com/legal/creativity ; "
+            "https://www.etsy.com/seller-handbook/article/1275449912004",
+     "retrieved_at": "2026-10-06T18:29:36Z", "quotes": [],
+     "note": "HTTP 403 (bot protection) on all three; their content stays UNVERIFIED here "
+             "(gates.policy_knowledge holds search-engine excerpts: AI disclosure 'in your "
+             "relevant listings')"},
+)
+
+# Visual work recorded, never started here (paid generation needs owner spend approval).
+VISUAL_TASKS: tuple[dict, ...] = (
+    {"id": "VT-B2-1", "status": "GATED",
+     "task": "reproduce the banner scene with verified Brambleloop products in place of the "
+             "concept crochet, preserving Laura, the warm room, the central identity, the "
+             "tagline and the feel; owner review before any public replacement",
+     "trigger": "Product Truth review concludes concept crochet is unsuitable on the public "
+                "banner, or matching products exist", "decision": "D-FB-18 item 2",
+     "gated_on": ["owner spend approval for generation", "owner review"]},
+    {"id": "VT-B2-2", "status": "NOT_REQUIRED_BY_EVIDENCE",
+     "task": "recompose the same scene at Etsy's verified banner dimensions, preserving Laura, "
+             "the warm room, the lifestyle aesthetic, the central identity, the crochet/yarn "
+             "environment, the tagline, balance and feel; owner review before public "
+             "replacement",
+     "trigger": "only if Etsy evidence (or the owner's in-app check after an owner-approved "
+                "upload) shows a different ratio is required or the composition is cropped",
+     "decision": "D-FB-18 item 4",
+     "gated_on": ["verified requirement", "owner spend approval", "owner review"]},
+)
+
+# D-FB-18 item 2: the banner's crochet is brand/lifestyle concept imagery. It is never mapped
+# to a pattern and never implies those exact pieces are available.
+CROCHET_CLASSIFICATION = {"class": "brand_lifestyle_concept", "mapped_to_patterns": (),
+                          "decision": "D-FB-18 item 2",
+                          "rule": "never mapped to existing patterns; never implies those "
+                                  "pieces are available"}
 ROLE = CA.STOREFRONT_BANNER
 
 # Ink detection for the centred identity block. The search band is the central fifth of the
@@ -80,7 +157,7 @@ REVIEW_MAX_BYTES = 300_000               # wave-3 limit for committed images
 
 def _gate(gate: str, status: str, evidence: dict, *, basis: str, why: str,
           rule: str = "", review: str = "") -> dict:
-    assert status in (PASS, FAIL, UNKNOWN)
+    assert status in STATUSES
     out = {"gate": gate, "status": status, "why": why, "basis": basis, "evidence": evidence,
            "rule": rule}
     if review:
@@ -314,8 +391,10 @@ def assess(db=None) -> dict:
     gates.append(_gate(
         "etsy_banner_minimum_and_format", FAIL if hard else PASS,
         {"size": [w, h], "format": "png", "transparent": transparent, "findings": hard,
-         "etsy": ebasis}, basis="measured file vs Etsy Help Center figures (published, not "
-        "enforcement-observed)",
+         "etsy": ebasis, "etsy_live": [e for e in ETSY_EVIDENCE
+                                       if e["key"] in ("big_banner_size", "banner_display")]},
+        basis="measured file vs Etsy Help Center text re-read 2026-10-06 (published, not "
+        "enforcement-observed; no upload made)",
         why=(f"{w}x{h} PNG, opaque: at or above Etsy's published minimum 1200x300 and "
              f"recommended 1600x400; PNG is a supported type" if not hard else
              "; ".join(p.get("detail", "") for p in hard)),
@@ -324,16 +403,22 @@ def assess(db=None) -> dict:
     t_aspect = target[0] / target[1]
     aspect = w / h
     gates.append(_gate(
-        "f233_banner_canvas_4to1", FAIL if abs(aspect - t_aspect) > 0.02 else PASS,
+        "f233_banner_canvas_4to1",
+        PASS if abs(aspect - t_aspect) <= 0.02 else UNVERIFIED_ASSUMPTION,
         {"aspect": round(aspect, 3), "canvas": target, "canvas_aspect": round(t_aspect, 3),
          "etsy_finding": [p for p in probs if p.get("code") == "BANNER_ASPECT_DIFFERS"],
          "canvas_basis": ("1600x400 is asserted in this repo (brand.storefront.BANNER_SIZE) "
                           "and quoted from Etsy's Help Center by lane I as the *recommended* "
                           "size; how Etsy fits a 2.50:1 upload into it is NOT published "
                           "(UNVERIFIED) -- it may crop or scale")},
-        basis="measured", rule="storefront_gate F-233: the banner canvas is 4:1",
-        why=(f"the file is {aspect:.2f}:1; the storefront canvas is {t_aspect:.2f}:1, so "
-             f"Etsy must crop or fit it and the composition is not what the owner sees")))
+        basis="measured aspect vs an UNVERIFIED assumption",
+        rule="storefront_gate F-233 assumed a 4:1 canvas; Etsy states only a minimum "
+             "(1200x300) and a recommended size (1600x400) -- no required ratio or crop rule",
+        why=(f"the file is {aspect:.2f}:1 against a 4:1 *recommendation*. Etsy publishes no "
+             f"required aspect ratio and no crop behaviour (re-read 2026-10-06), so this is "
+             f"not a failure; it drives no redesign (D-FB-18 item 4)"),
+        review="owner: after an owner-approved upload, look at the banner in the Etsy app "
+               "and on desktop; reopen VT-B2-2 only if it is cropped badly"))
 
     block = measure_identity_block(a)
     crop_h = int(round(w / t_aspect))
@@ -345,33 +430,36 @@ def assess(db=None) -> dict:
         fits = block["height_px"] <= crop_h
         gates.append(_gate(
             "f233_identity_block_survives_4to1", PASS if (lost_top == 0 and lost_bottom == 0)
-            else FAIL,
+            else UNVERIFIED_ASSUMPTION,
             {"identity_block_rows": block["rows"], "identity_block_height_px":
              block["height_px"], "full_width_4to1_height_px": crop_h,
              "centre_crop_rows": [top, top + crop_h - 1], "rows_lost_top": lost_top,
              "rows_lost_bottom": lost_bottom, "any_full_width_4to1_crop_fits": fits,
              "elements": block["elements"], "procedure": block["procedure"]},
-            basis="measured (ink rows); the centre crop is an assumption about Etsy",
+            basis="measured (ink rows) under the ASSUMED 4:1 centre crop (Etsy states no crop)",
             rule="storefront_gate F-233: the mark stays whole inside the canvas",
             why=(f"the centred identity block is {block['height_px']} px tall (rows "
                  f"{y0}-{y1}); a full-width 4:1 crop is {crop_h} px tall, so no 4:1 crop "
                  f"of the exact file keeps all of it; a centre crop (rows {top}-"
                  f"{top + crop_h - 1}) cuts {lost_top} px from the top of the monogram"
-                 + (f" and {lost_bottom} px from the bottom" if lost_bottom else ""))))
+                 + (f" and {lost_bottom} px from the bottom" if lost_bottom else "")
+                 + " -- IF Etsy crops to 4:1, which it does not state"),
+            review="owner: in-app check after an owner-approved upload"))
         cols = block["cols"]
         phone_w = crop_h * 2
         p0 = (w - phone_w) // 2
         inside = bool(cols) and p0 <= cols[0] and cols[1] <= p0 + phone_w - 1
         gates.append(_gate(
-            "f233_identity_block_in_phone_window", UNKNOWN,
+            "f233_identity_block_in_phone_window", UNVERIFIED_ASSUMPTION,
             {"identity_block_cols": cols, "assumed_phone_window_cols": [p0, p0 + phone_w - 1],
              "horizontally_inside_assumed_window": inside,
              "phone_crop_basis": ebasis["banner_mobile_crop"]["basis"]},
             basis="measured block vs an ASSUMED 2:1 centre window",
             rule="storefront_gate F-233: the mark inside the phone window",
-            why=(f"inside the assumed 2:1 centre window horizontally ({inside}), but Etsy "
-                 f"publishes no phone crop (UNKNOWN), so this cannot pass; check in the Etsy "
-                 f"app after an owner-approved upload"),
+            why=(f"inside the assumed 2:1 centre window horizontally ({inside}); Etsy says "
+                 f"only that the banner shows on mobile and sizes are 'optimized for mobile "
+                 f"displays' -- no crop geometry, so this cannot pass; check in the Etsy app "
+                 f"after an owner-approved upload"),
             review="owner: check the real phone crop after upload (checklist B2)"))
     else:
         gates.append(_gate("f233_identity_block_survives_4to1", UNKNOWN,
@@ -392,27 +480,41 @@ def _laura_gates() -> list[dict]:
         from ..visual import canonical, identity_gate
 
         g = identity_gate.assess({})
-        out.append(_gate(
-            "laura_identity", UNKNOWN,
-            {"identity_id": canonical.IDENTITY_ID, "identity_gate": {
-                k: g.get(k) for k in ("status", "band", "why", "gate_version")},
-             "biometric": identity_gate.biometric_floor(None),
-             "qualified_embedders": sorted(identity_gate.QUALIFIED_EMBEDDERS),
-             "c2pa": {k: (metadata().get("c2pa") or {}).get(k) for k in
-                      ("ai_generated_declared", "generator_names", "timestamps")},
-             "conditioning_receipt": None,
-             "is_canonical_reference_bytes": sha in {
-                 e.get("sha256") for e in canonical.all_entries()}},
-            basis="identity gate run on the file: no judge readings, no conditioning "
-                  "receipt, no qualified face-embedding model",
-            rule="F-732: a woman similar to Laura is not Laura",
-            why=(f"a person is declared in the banner ({DECLARED_CONTENT}). Whether she is "
-                 f"Laura ({canonical.IDENTITY_ID}) cannot be measured here: the biometric "
-                 f"floor is UNMEASURED (no face-embedding model installed), no judge has read "
-                 f"it, and no conditioning receipt shows it was made from her reference "
-                 f"bytes (its manifest names an outside generator). Goes to the human identity-review "
-                 f"queue; never PASS"),
-            review="human identity review (visual.identity_gate queue)"))
+        review = CA.owner_identity_review(sha)
+        machine = {"identity_gate": {k: g.get(k) for k in ("status", "band", "why",
+                                                            "gate_version")},
+                   "biometric": identity_gate.biometric_floor(None),
+                   "qualified_embedders": sorted(identity_gate.QUALIFIED_EMBEDDERS),
+                   "conditioning_receipt": None}
+        if review and review.get("identity") == canonical.IDENTITY_ID:
+            out.append(_gate(
+                "laura_identity", PASS,
+                {"identity_id": canonical.IDENTITY_ID, "owner_human_review": review,
+                 "sha256": sha, "machine_reading": machine},
+                basis=f"owner human identity review ({review['decision']}), bound to these "
+                      f"exact bytes; no machine reading claimed",
+                rule="F-732 / F-219: identity by a human review where the machine floor is "
+                     "unmeasured; the review covers this depiction only",
+                why=(f"the owner confirmed the woman in this banner is Laura "
+                     f"({canonical.IDENTITY_ID}) -- {review['decision']} item {review['item']}, "
+                     f"{review['scope']}. Every other frame keeps the identity gate and its "
+                     f"review queue")))
+        else:
+            out.append(_gate(
+                "laura_identity", UNKNOWN,
+                {"identity_id": canonical.IDENTITY_ID, **machine,
+                 "c2pa": {k: (metadata().get("c2pa") or {}).get(k) for k in
+                          ("ai_generated_declared", "generator_names", "timestamps")},
+                 "is_canonical_reference_bytes": sha in {
+                     e.get("sha256") for e in canonical.all_entries()}},
+                basis="identity gate run on the file: no judge readings, no conditioning "
+                      "receipt, no qualified face-embedding model",
+                rule="F-732: a woman similar to Laura is not Laura",
+                why=(f"a person is declared in the banner ({DECLARED_CONTENT}); whether she "
+                     f"is Laura ({canonical.IDENTITY_ID}) cannot be measured here and no "
+                     f"owner review covers these bytes. Human identity-review queue; never "
+                     f"PASS"),
+                review="human identity review (visual.identity_gate queue)"))
         ready = canonical.customer_ready(sha)
         out.append(_gate(
             "laura_publication_status", FAIL,
@@ -422,10 +524,14 @@ def _laura_gates() -> list[dict]:
             basis="measured: visual.canonical.asset_status / customer_ready on the file's "
                   "sha256",
             rule="no Laura image reaches customers until publication_approved",
-            why=(f"the file's bytes are '{canonical.asset_status(sha)}': no Laura image is "
-                 f"publication_approved, and a banner presenting a woman as Brambleloop's "
-                 f"face is Laura imagery (if she is Laura) or presents an unverified woman as "
-                 f"the brand face (if not) -- neither is publishable today")))
+            why=(f"the file's bytes are '{canonical.asset_status(sha)}'. D-FB-18 confirmed "
+                 f"her identity, not publication. The publication model "
+                 f"(visual.canonical.PUBLICATION_APPROVED) is a per-asset sha set with no "
+                 f"surface scope and implies every CUSTOMER_FACING_GATE passed; it cannot "
+                 f"express 'owner-approved for the storefront banner only', and photorealism/"
+                 f"anatomy are unjudged. Not flipped (visual.canonical is read-only here)"),
+            review="owner publication decision + a per-surface approval in visual.canonical "
+                   "(WIRING REQUEST)"))
         out.append(_gate(
             "laura_photorealism_anatomy", UNKNOWN,
             {"vision_reading": None},
@@ -449,30 +555,28 @@ def _disclosure_gates(meta: dict) -> list[dict]:
     has_generated = PP.DISCLOSURES["generated_imagery"] in disc
     c2 = meta.get("c2pa") or {}
     declared_ai = bool(c2.get("ai_generated_declared"))
-    if declared_ai:
-        status = PASS if has_generated else FAIL
-        why = ("the file's own C2PA manifest declares it AI-generated (digitalSourceType "
-               f"{', '.join(c2.get('digital_source_types') or [])}; generator "
-               f"{', '.join(c2.get('generator_names') or []) or 'unnamed'}"
-               f" {', '.join(c2.get('generator_versions') or [])}; signature not verified "
-               "here). The store disclosure carries Laura's AI line"
-               + (" and the generated-imagery sentence" if has_generated else
-                  " but NOT the generated-imagery sentence, so the banner's generated scene "
-                  "and crochet would reach shoppers undisclosed"))
-    else:
-        status = UNKNOWN
-        why = ("how the banner was made is not recorded (no provenance metadata, no record "
-               "in the repo); if any of it is generated the store disclosure must say so")
+    ev = {e["key"]: e for e in ETSY_EVIDENCE}
     out = [_gate(
-        "ai_generated_imagery_disclosure", status,
-        {"embedded_provenance_chunks": meta["provenance_chunks"], "png_chunks": meta["chunks"],
-         "c2pa": c2, "store_disclosure_has_laura_ai_line": has_laura,
+        "ai_generated_imagery_disclosure", UNKNOWN,
+        {"c2pa": c2, "png_chunks": meta["chunks"], "provenance_kept": "caBX" in meta["chunks"],
+         "etsy_rule": ev["ai_disclosure"], "etsy_blocked": ev["seller_policy_and_creativity_"
+                                                               "standards"],
+         "store_disclosure_has_laura_ai_line": has_laura,
          "store_disclosure_has_generated_imagery_line": has_generated,
-         "required_sentence": PP.DISCLOSURES["generated_imagery"]},
-        basis="measured: the PNG's embedded C2PA manifest and the store disclosure text",
-        rule="gates.platform_policy DISCLOSURES['generated_imagery']; AI-use disclosure",
-        why=why,
-        review="" if declared_ai else "owner: state how the banner was made")]
+         "marketing_sentence_required": False},
+        basis="Etsy Help Center text re-read 2026-10-06 + the file's C2PA manifest",
+        rule=("Etsy (Help Center 360024112614): 'Seller-prompted AI creations must disclose "
+              "the use of AI.' -- a rule about items for sale; D-FB-18 item 9: no AI marketing "
+              "language merely because of Content Credentials; never strip provenance"),
+        why=(("the file's own manifest declares it AI-generated (signature not verified). "
+              if declared_ai else "provenance not declared in the file. ")
+             + "Etsy's verified text requires AI disclosure for items offered for sale; no "
+               "fetched Etsy text addresses shop banners or branding imagery, and the Seller "
+               "Policy / Creativity Standards pages returned 403. So what (if anything) a "
+               "banner requires is UNVERIFIED: nothing is added to customer copy on this "
+               "basis, and the C2PA metadata stays in the file"),
+        review="owner or a human page reading of Etsy's Seller Policy / Creativity Standards "
+               "for shop banners")]
     hits = {k: [f["code"] for f in lint.lint(t, voice=False)
                 if f["code"] == "TRUTH_LAURA_HUMAN_CLAIM"] for k, t in VISIBLE_TEXT.items()}
     ai_words = [k for k, t in VISIBLE_TEXT.items() if " AI" in f" {t} " or "artificial" in t.lower()]
@@ -484,16 +588,21 @@ def _disclosure_gates(meta: dict) -> list[dict]:
         rule="Laura is never presented as human",
         why=("no transcribed word claims she is human" if not any(hits.values()) else
              "a transcribed word claims a human Laura")))
+    about = " ".join(str(x) for x in (copy_v2.export().get("about_paragraphs") or []))
+    about_ai = "Laura" in about and " AI" in f" {about}"
     out.append(_gate(
-        "laura_ai_disclosure_at_banner", UNKNOWN,
+        "laura_ai_disclosure_at_banner", PASS if (has_laura and about_ai) else FAIL,
         {"in_image_disclosure": bool(ai_words), "store_level_disclosure": has_laura,
-         "etsy_banner_caption": "no Etsy constraint describes text shown with a big banner"},
-        basis="transcribed words + store disclosure text",
-        rule="D-FB-13: AI disclosure accurate and proportionate where required",
-        why=("the banner itself carries no AI disclosure; the store's disclosure says Laura "
-             "is an AI. Whether a shopper who sees only the banner is adequately told is a "
-             "policy reading nobody has made"),
-        review="owner + policy reading"))
+         "about_names_laura_as_ai": about_ai,
+         "etsy_banner_caption": "Etsy publishes no caption field for a big banner"},
+        basis="measured: store disclosure and About text (copy_v2)",
+        rule="spec/07 + D-FB-11..13: Laura is disclosed as an AI where she is presented; "
+             "never claims to be human (Etsy's own banner requirement: see "
+             "ai_generated_imagery_disclosure)",
+        why=("the shop's disclosure and About both say Laura is an AI; the banner adds no "
+             "human claim. In-image AI wording is not required by any verified rule"
+             if has_laura and about_ai else
+             "the shop does not say Laura is an AI where she is presented")))
     return out
 
 
@@ -514,33 +623,53 @@ def _truth_gates(db=None) -> list[dict]:
         data = CA.verified_bytes(ROLE)
         fg = FIG.evaluate({"image_png": data,
                            "image_sha256": hashlib.sha256(data).hexdigest()})
+        from ..gates import platform_policy as PP
+
+        mood = PP.ASSET_ROLES.get("mood_frame")
         out.append(_gate(
             "product_truth", UNKNOWN,
             {"final_image_gate": {k: fg.get(k) for k in ("status", "why", "gate_version")},
-             "catalogue_products": cat["products"], "declared_content": DECLARED_CONTENT},
-            basis="final_image_gate on the file + the catalogue; image contents not measured",
-            rule="Product Truth: an image may not present a product that does not exist",
-            why=(f"the banner is declared to show crochet ({DECLARED_CONTENT}); the code "
-                 f"cannot see what. Its own C2PA manifest declares it AI-generated, so any "
-                 f"crochet in it is generated, not a verified render of a pattern "
-                 f"(final_image_gate: {fg.get('status')}). The shop has {len(cat['products'])} patterns: "
+             "crochet_classification": {**CROCHET_CLASSIFICATION,
+                                        "mapped_to_patterns": list(
+                                            CROCHET_CLASSIFICATION["mapped_to_patterns"])},
+             "rules_consulted": {
+                 "platform_policy.ASSET_ROLES['mood_frame']": list(mood) if mood else None,
+                 "platform_policy (module rule)": "a generated image may not misrepresent what "
+                                                  "the buyer receives",
+                 "etsy_help_center": "no fetched Etsy text addresses what a shop banner may "
+                                     "depict (ETSY_EVIDENCE)"},
+             "catalogue_products": cat["products"], "declared_content": DECLARED_CONTENT,
+             "visual_task": "VT-B2-1"},
+            basis="final_image_gate on the file + the catalogue + the repo's marketplace rules",
+            rule=("Product Truth (unweakened): an image may not present a product that does "
+                  "not exist. platform_policy permits a generated 'mood_frame' only as a "
+                  "listing image that makes no claim about the object; no rule covers concept "
+                  "crochet on a storefront banner"),
+            why=(f"D-FB-18 classifies the banner's crochet as brand/lifestyle concept imagery, "
+                 f"mapped to no pattern ({len(cat['products'])} patterns exist: "
                  + ", ".join(p["title"] for p in cat["products"])
-                 + ". Any crochet item in the banner that reads as a Brambleloop product but "
-                 "is not one of these fails Product Truth; a reviewer must decide"),
-            review=("human: list every crochet item shown and whether a shopper would take it "
-                    "for a Brambleloop pattern; same for the book spines (no books are sold)")))
+                 + "). Whether concept crochet is acceptable on a public storefront banner "
+                 "cannot be proven from the repo's rules or Etsy's fetched text, and whether a "
+                 "shopper would read it as for sale is unmeasured -- so UNKNOWN (blocks). The "
+                 "composition stays the canonical art target; VT-B2-1 (GATED) reproduces the "
+                 "scene with verified products when warranted"),
+            review=("human: would a shopper take any crochet shown (or the book spines) for "
+                    "something this shop sells?")))
         nav = _nav_truth(BANNER_NAV, cat)
         out.append(_gate(
             "nav_categories_truth", FAIL if nav["empty"] else PASS,
             {"banner_nav": nav["rows"], "empty": nav["empty"],
              "text_source": VISIBLE_TEXT_SOURCE},
             basis="transcribed nav words vs measured catalogue sections",
-            rule="a visible category promises products (copy_v2 SECTIONS: empty sections are "
-                 "never shown)",
-            why=(f"the banner names {', '.join(nav['empty'])}, which hold no pattern today"
-                 if nav["empty"] else "every named category holds a pattern"),
-            review="owner: the pixels are the owner's -- list products there first, or decide "
-                   "on the wording; this lane does not edit them"))
+            rule="D-FB-18 item 3: never advertise empty categories publicly; generated "
+                 "navigation shows only populated categories (store_foundation.navigation)",
+            why=(f"the banner's baked-in nav names {', '.join(nav['empty'])}, which hold no "
+                 f"pattern today. The owner chose not to alter the source file, so this stays a "
+                 f"reported truth finding for the banner; every generated surface hides those "
+                 f"categories until populated" if nav["empty"]
+                 else "every named category holds a pattern"),
+            review="owner: publish the banner only once those categories hold products, or "
+                   "accept/decide otherwise; the canonical PNG is never edited"))
     found = {k: [f["code"] for f in lint.lint(t, voice=False) if f["kind"] == lint.TRUTH]
              for k, t in VISIBLE_TEXT.items()}
     voice = {k: sorted({f["code"] for f in lint.lint(t) if f["kind"] == lint.VOICE})
@@ -564,14 +693,15 @@ def _truth_gates(db=None) -> list[dict]:
 
 
 def _rollup(gates: list[dict], *, db_used: bool, block: dict | None = None) -> dict:
-    by = {s: [g["gate"] for g in gates if g["status"] == s] for s in (PASS, FAIL, UNKNOWN)}
+    by = {s: [g["gate"] for g in gates if g["status"] == s] for s in STATUSES}
     dimensional = {"f233_banner_canvas_4to1", "f233_identity_block_survives_4to1",
-                   "etsy_banner_minimum_and_format"}
+                   "f233_identity_block_in_phone_window", "etsy_banner_minimum_and_format"}
     nondim = [g for g in by[FAIL] if g not in dimensional]
     canon = CA.ASSETS[ROLE]
     return {
         "version": ASSESSMENT_VERSION, "asset": canon.to_dict(), "decision": canon.decision,
         "gates": gates, "passed": by[PASS], "failed": by[FAIL], "unknown": by[UNKNOWN],
+        "unverified_assumptions": by[UNVERIFIED_ASSUMPTION],
         "publishable": not by[FAIL] and not by[UNKNOWN],
         "status": "PUBLISHABLE" if not by[FAIL] and not by[UNKNOWN] else "BLOCKED",
         "only_dimensional_failures": bool(by[FAIL]) and not nondim,
@@ -579,8 +709,10 @@ def _rollup(gates: list[dict], *, db_used: bool, block: dict | None = None) -> d
         "identity_block": {k: (block or {}).get(k) for k in ("rows", "cols", "height_px",
                                                               "width_px")},
         "declared_content": DECLARED_CONTENT, "visible_text_source": VISIBLE_TEXT_SOURCE,
-        "rule": ("D-FB-17: the exact file is used only if every applicable gate passes; "
-                 "UNKNOWN blocks like FAIL and is never reported as PASS"),
+        "rule": ("D-FB-17/18: the exact file is used only if every applicable gate passes; "
+                 "UNKNOWN blocks like FAIL and is never reported as PASS; an "
+                 "UNVERIFIED_ASSUMPTION is advisory -- never a pass, never a verified failure"),
+        "etsy_evidence": list(ETSY_EVIDENCE), "visual_tasks": list(VISUAL_TASKS),
         "db_used": db_used,
     }
 
@@ -590,7 +722,7 @@ def storefront_findings(result: dict | None = None) -> list[dict]:
     r = result or assess()
     out = []
     for g in r["gates"]:
-        if g["status"] == PASS:
+        if g["status"] not in BLOCKING:
             continue
         code = f"STORE_BANNER_OWNER_{g['gate'].upper()}_{g['status']}"
         if g["gate"] == "canonical_integrity":
@@ -608,6 +740,24 @@ def identity_review_request(db, result: dict | None = None) -> int | None:
 
     r = result or assess()
     g = next((x for x in r["gates"] if x["gate"] == "laura_identity"), None)
+    review = (g or {}).get("evidence", {}).get("owner_human_review")
+    if g is not None and g["status"] == PASS and review:
+        # Record the owner's review in the same queue, resolved, so the provenance is durable.
+        sha = r["asset"]["sha256"]
+        done = [x for x in identity_gate.queue(db, state="resolved", limit=500)
+                if x["image_sha256"] == sha and x["decision"] == "confirmed_same_person"]
+        if done:
+            return done[0]["id"]
+        rid = identity_gate.open_review(
+            db, product_class="storefront_banner",
+            subject="owner canonical banner (D-FB-17)",
+            gate={"band": identity_gate.BAND_REVIEW, "review_required": True,
+                  "why": "owner human identity review", "validity": None, "biometric": None,
+                  "judges": []}, image_sha256=sha)
+        identity_gate.resolve(db, rid, decision="confirmed_same_person",
+                              reviewer=f"owner ({review['decision']})",
+                              note=f"{review['scope']}; {review['not']}")
+        return rid
     if g is None or g["status"] != UNKNOWN:
         return None
     gate = {"band": identity_gate.BAND_REVIEW, "review_required": True,
@@ -628,10 +778,10 @@ def _crop_rows(block: dict, h: int, crop_h: int) -> tuple[int, int]:
 
 
 def candidates() -> list[dict]:
-    """Deterministic, non-generative 4:1 reframes of the exact file for OWNER REVIEW.
-
-    Each fixes only the dimensional gates; none is adopted, none changes an owner pixel, and
-    none resolves a non-dimensional gate. Returned with PIL images under "image"."""
+    """Deterministic, non-generative 4:1 reframes of the exact file -- REJECTED by the owner
+    (D-FB-18 item 4: never crop away the tagline/heart/category composition, never use
+    stretched-edge padding). Kept only as historical evidence of what was proposed; neither
+    can be adopted. Returned with PIL images under "image"."""
     import numpy as np
     from PIL import Image
 
@@ -689,7 +839,8 @@ def candidates() -> list[dict]:
                  f"owner columns {(new_w - 2 * h) // 2 - lp}-{(new_w + 2 * h) // 2 - lp - 1} "
                  f"show")})
     for c in out:
-        c["status"] = OWNER_REVIEW_REQUIRED
+        c["status"] = REJECTED_BY_OWNER
+        c["rejected_by"] = "D-FB-18 item 4"
         c["adopted"] = False
         c["fixes"] = ["f233_banner_canvas_4to1"] + (
             ["f233_identity_block_survives_4to1"] if c["id"].startswith("B") else [])

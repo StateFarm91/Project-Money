@@ -234,6 +234,7 @@ def test_micro_mark_only_where_the_artwork_is_measured_illegible():
     failing = [px for px in (40, 70) if not mono[px]["ok"]]
     if c["derivative"]:
         assert failing, c                       # a derivative needs a measured failure
+        assert c["owner_approval"]["decision"] == "D-FB-18" and c["status"] == "OWNER_APPROVED"
         assert c["asset"] == "a3_micro_mark" and "derivative" in c["label"].lower()
         assert "contrast" in c["why"] or "covers" in c["why"]
     else:
@@ -269,8 +270,10 @@ def test_owner_files_read_from_the_repo_not_a_session_scratchpad():
 
 # ---- banner assessment honesty -------------------------------------------------------------
 
-MUST_BE_UNKNOWN = ("laura_identity", "laura_photorealism_anatomy", "product_truth",
-                   "visible_text_complete", "f233_identity_block_in_phone_window")
+MUST_BE_UNKNOWN = ("laura_photorealism_anatomy", "product_truth", "visible_text_complete",
+                   "ai_generated_imagery_disclosure")
+ASSUMPTIONS = ("f233_banner_canvas_4to1", "f233_identity_block_survives_4to1",
+               "f233_identity_block_in_phone_window")
 
 
 def test_banner_assessment_is_honest():
@@ -278,7 +281,7 @@ def test_banner_assessment_is_honest():
     gates = {g["gate"]: g for g in r["gates"]}
     assert gates
     for g in r["gates"]:
-        assert g["status"] in ("PASS", "FAIL", "UNKNOWN"), g
+        assert g["status"] in OB.STATUSES, g
         assert g["basis"] and g["why"], g
         if g["status"] == "PASS":
             assert g["evidence"], g               # no PASS without evidence
@@ -287,27 +290,43 @@ def test_banner_assessment_is_honest():
     for name in MUST_BE_UNKNOWN:                  # unmeasurable image content: never PASS
         assert gates[name]["status"] == "UNKNOWN", gates[name]
     assert gates["canonical_integrity"]["status"] == "PASS"
-    assert gates["f233_banner_canvas_4to1"]["status"] == "FAIL"
+    # D-FB-18 item 4: 4:1 is not verified by Etsy -> advisory, never a pass or a verified fail
+    for name in ASSUMPTIONS:
+        assert gates[name]["status"] == "UNVERIFIED_ASSUMPTION", gates[name]
+        assert name in r["unverified_assumptions"] and name not in r["passed"]
     assert gates["f233_banner_canvas_4to1"]["evidence"]["aspect"] == 2.501
+    # D-FB-18 item 1: owner human review of THIS banner -> PASS with provenance
+    li = gates["laura_identity"]
+    assert li["status"] == "PASS" and li["evidence"]["sha256"] == BANNER_SHA
+    assert li["evidence"]["owner_human_review"]["decision"] == "D-FB-18"
+    assert "owner human identity review" in li["basis"]
+    # identity is not publication: not flipped
     assert gates["laura_publication_status"]["status"] == "FAIL"
+    assert gates["laura_publication_status"]["evidence"]["asset_status"] == \
+        "not_for_publication"
+    # D-FB-18 item 2: concept crochet, mapped to nothing; Product Truth not weakened
+    pt = gates["product_truth"]["evidence"]["crochet_classification"]
+    assert pt["class"] == "brand_lifestyle_concept" and pt["mapped_to_patterns"] == []
+    # D-FB-18 item 9: no marketing sentence demanded because of C2PA
+    ai = gates["ai_generated_imagery_disclosure"]
+    assert ai["evidence"]["marketing_sentence_required"] is False
+    assert ai["evidence"]["provenance_kept"] is True
     assert gates["nav_categories_truth"]["status"] == "FAIL"
     assert set(gates["nav_categories_truth"]["evidence"]["empty"]) == {
         "Wearables", "Gifts", "Seasonal"}
-    # the file's own C2PA manifest is read, labelled unverified, and drives the disclosure gate
-    ai = gates["ai_generated_imagery_disclosure"]
     assert ai["evidence"]["c2pa"]["present"] and ai["evidence"]["c2pa"]["signature_verified"] \
         is False
-    assert ai["status"] in ("PASS", "FAIL")
-    assert (ai["status"] == "PASS") == ai["evidence"]["store_disclosure_has_generated_imagery_line"]
     assert not r["publishable"] and r["status"] == "BLOCKED"
     # every non-passing gate is a named storefront finding
     codes = {f["code"] for f in OB.storefront_findings(r)}
     for g in r["gates"]:
-        if g["status"] != "PASS":
-            assert f"STORE_BANNER_OWNER_{g['gate'].upper()}_{g['status']}" in codes
+        code = f"STORE_BANNER_OWNER_{g['gate'].upper()}_{g['status']}"
+        assert (code in codes) == (g["status"] in OB.BLOCKING), code
 
 
-def test_person_in_banner_goes_to_human_identity_review():
+def test_owner_review_is_recorded_and_covers_this_banner_only():
+    import dataclasses
+
     from brambleloop.core.db import Database
     from brambleloop.store_foundation import preview
     from brambleloop.visual import identity_gate as IG
@@ -316,10 +335,70 @@ def test_person_in_banner_goes_to_human_identity_review():
     db.create_all()
     rid = OB.identity_review_request(db)
     assert rid is not None and OB.identity_review_request(db) == rid      # idempotent
-    q = IG.queue(db)
-    assert len(q) == 1 and q[0]["band"] == "REVIEW" and q[0]["image_sha256"] == BANNER_SHA
+    done = IG.queue(db, state="resolved")
+    assert len(done) == 1 and done[0]["decision"] == "confirmed_same_person"
+    assert done[0]["image_sha256"] == BANNER_SHA and not IG.queue(db)
     item = next(x for x in preview.summary(db)["items"] if x["key"] == "storefront_banner")
-    assert item["status"] != "READY" and "laura_identity" in item["unknown"], item
+    assert "laura_identity" not in item["unknown"], item
+    # any other image: no owner review, the normal gate and queue apply
+    other = hashlib.sha256(b"another frame of a woman").hexdigest()
+    assert CA.owner_identity_review(other) is None
+    assert CA.owner_identity_review(BANNER_SHA.upper())["decision"] == "D-FB-18"
+    assert IG.assess({})["status"] == "UNKNOWN"
+    saved = CA.ASSETS[CA.STOREFRONT_BANNER]
+    try:
+        CA.ASSETS[CA.STOREFRONT_BANNER] = dataclasses.replace(saved, sha256=other)
+        g = next(x for x in OB._laura_gates() if x["gate"] == "laura_identity")
+        assert g["status"] == "UNKNOWN" and "review" in g, g
+    finally:
+        CA.ASSETS[CA.STOREFRONT_BANNER] = saved
+    assert CA.verify()["ok"]
+
+
+def test_navigation_shows_only_populated_categories():
+    import re
+
+    from brambleloop.store_foundation import navigation as N, preview, preview_v2
+
+    arch = {s["name"] for s in N.architecture()}
+    public = {s["name"] for s in N.public_nav()}
+    hidden = {s["name"] for s in N.hidden()}
+    assert {"Wearables", "Gifts", "Seasonal"} <= arch          # kept in the data model
+    assert {"Wearables", "Gifts", "Seasonal"} <= hidden and not ({"Wearables", "Gifts",
+                                                                  "Seasonal"} & public)
+    assert public and all(s["listings"] >= 1 for s in N.public_nav())
+    for vp in ("mobile", "desktop"):
+        html = preview.render_preview(None, vp, now=NOW, variant="v2")
+        shop = html.split('<div class="frame">', 1)[1].split('<section class="board"', 1)[0]
+        text = preview_v2.visible_text(shop)
+        assert not N.empty_categories_named(text), N.empty_categories_named(text)
+        chips = re.findall(r'<ul class="secs"[^>]*>(.*?)</ul>', shop, re.S)
+        assert chips and not N.empty_categories_named(preview_v2.visible_text(chips[0]))
+    # the banner's baked-in nav stays a reported truth finding (owner kept the source file)
+    g = next(x for x in OB.assess()["gates"] if x["gate"] == "nav_categories_truth")
+    assert g["status"] == "FAIL" and set(g["evidence"]["empty"]) == {"Wearables", "Gifts",
+                                                                       "Seasonal"}
+
+
+def test_etsy_evidence_is_recorded_with_sources():
+    ev = {e["key"]: e for e in OB.ETSY_EVIDENCE}
+    assert ev
+    for e in ev.values():
+        assert e["url"] and e["retrieved_at"].startswith("2026-10-06T"), e
+        if e["status"].startswith("VERIFIED"):
+            assert e["quotes"] and e.get("edited_at"), e
+        else:
+            assert not e["quotes"], e            # nothing quoted from an unread page
+    assert ev["seller_policy_and_creativity_standards"]["status"] == "BLOCKED_403"
+    assert "The recommended size is 1600 x 400px." in ev["big_banner_size"]["quotes"]
+    assert ev["banner_aspect_or_crop"]["status"] == "NOT_STATED"
+    tasks = {t["id"]: t for t in OB.VISUAL_TASKS}
+    assert tasks["VT-B2-1"]["status"] == "GATED"
+    assert tasks["VT-B2-2"]["status"] == "NOT_REQUIRED_BY_EVIDENCE"
+    for t in tasks.values():
+        assert "owner spend approval" in " ".join(t["gated_on"])
+    # provenance metadata is never stripped from the canonical file
+    assert b"caBX" in CA.verified_bytes(CA.STOREFRONT_BANNER)
 
 
 def test_unknown_alone_blocks_publication():
@@ -329,6 +408,10 @@ def test_unknown_alone_blocks_publication():
     assert not only_unknown["publishable"] and only_unknown["status"] == "BLOCKED"
     all_pass = OB._rollup([{"gate": "canonical_integrity", "status": "PASS"}], db_used=False)
     assert all_pass["publishable"]
+    adv = OB._rollup([{"gate": "canonical_integrity", "status": "PASS"},
+                      {"gate": "f233_banner_canvas_4to1", "status": "UNVERIFIED_ASSUMPTION"}],
+                     db_used=False)
+    assert adv["publishable"] and "f233_banner_canvas_4to1" not in adv["passed"]
 
 
 def test_identity_block_is_measured_not_declared():
@@ -347,7 +430,8 @@ def test_candidates_are_owner_review_only_and_change_no_owner_pixel():
     cands = OB.candidates()
     assert len(cands) == 2
     for c in cands:
-        assert c["status"] == "OWNER_REVIEW_REQUIRED" and c["adopted"] is False
+        assert c["status"] == "REJECTED_BY_OWNER" and c["adopted"] is False
+        assert c["rejected_by"] == "D-FB-18 item 4"
         assert c["changes"]["owner_pixels_altered"] == 0
         assert abs(c["aspect"] - 4.0) <= 0.02, c["aspect"]
         a = np.asarray(c["image"])
@@ -383,7 +467,7 @@ def test_committed_evidence_matches_the_code():
         p = ROOT / c["review_file"]
         assert p.is_file() and p.stat().st_size <= OB.REVIEW_MAX_BYTES, p
         assert hashlib.sha256(p.read_bytes()).hexdigest() == c["review_file_sha256"]
-        assert c["status"] == "OWNER_REVIEW_REQUIRED" and c["adopted"] is False
+        assert c["status"] == "REJECTED_BY_OWNER" and c["adopted"] is False
 
 
 # ---- storefront and visual consume the canonical assets -------------------------------------
@@ -395,7 +479,8 @@ def test_preview_is_built_around_the_owner_files():
     shop = html.split('<div class="frame">', 1)[1].split('<section class="board"', 1)[0]
     assert '--owner-banner:url("data:image/jpeg;base64,' in html
     assert 'class="bn obn"' in shop and "D-FB-17" in shop
-    assert "not verified as Laura" in shop and "Internal preview" in shop
+    assert "confirmed by the owner's review of this banner (D-FB-18)" in shop
+    assert "Internal preview" in shop and "not publication-approved" in shop
     assert 'class="herologo"' in shop
     choice = CA.shop_icon_choice()
     if choice["derivative"]:
@@ -406,7 +491,8 @@ def test_preview_is_built_around_the_owner_files():
         assert "No picture of the finished piece yet" in c   # never a fabricated lifestyle
         assert "Digital rendering, not a photograph" in c
     board = html.split('<section class="board"', 1)[1]
-    for needle in ("Canonical owner assets (D-FB-17)", "OWNER_REVIEW_REQUIRED",
+    for needle in ("Canonical owner assets (D-FB-17)", "rejected by the owner",
+                   "Etsy evidence", "VT-B2-1", "Hidden until populated",
                    "every publication gate on the exact file", "Truth findings for the owner",
                    "Listing image order"):
         assert needle in board, needle

@@ -171,6 +171,7 @@ def check_banner(tagline: str = "") -> tuple[list[dict], dict]:
     info = {"assessed": True, "asset": r["asset"]["file"], "sha256": r["asset"]["sha256"],
             "decision": r["decision"], "status": r["status"], "passed": r["passed"],
             "failed": r["failed"], "unknown": r["unknown"],
+            "unverified_assumptions": r.get("unverified_assumptions", []),
             "canvas": list(spec.value["canvas"]), "canvas_source": spec.source,
             "basis": spec.value["basis"]}
     out = owner_banner.storefront_findings(r)

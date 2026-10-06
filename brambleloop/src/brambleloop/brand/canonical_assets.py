@@ -86,6 +86,33 @@ DECISIONS: dict[str, dict[str, str]] = {
     DECISION_ID: {r: a.sha256 for r, a in ASSETS.items()},
 }
 
+# Owner HUMAN identity reviews, keyed by the exact bytes reviewed. D-FB-18 item 1: the owner
+# confirmed the woman in the canonical banner IS Laura -- for THIS depiction only. It covers no
+# other image: every other frame keeps `visual.identity_gate` and its review queue.
+OWNER_IDENTITY_REVIEWS: dict[str, dict] = {
+    "048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98": {
+        "decision": "D-FB-18", "item": 1, "reviewer": "owner", "kind": "human_identity_review",
+        "result": "confirmed_same_person", "identity": "laura-r2-a42aeac7",
+        "scope": "this depiction only (the canonical storefront banner bytes)",
+        "reviewed_on": "2026-10-06",
+        "not": "not a publication approval and not a waiver of Laura's identity controls for "
+               "any other or future image"},
+}
+
+# Owner approvals of a derivative for a specific use (D-FB-18 item 5).
+DERIVATIVE_APPROVALS: dict[str, dict] = {
+    "shop_icon": {"decision": "D-FB-18", "item": 5, "asset": "a3_micro_mark",
+                  "scope": "Etsy's tiny icon sizes where the canonical B is measured unreadable",
+                  "does_not": "supersede the canonical hero logo"},
+}
+
+
+def owner_identity_review(sha256: str) -> dict | None:
+    """The owner's human identity review for exactly these bytes, or None."""
+    rec = OWNER_IDENTITY_REVIEWS.get(str(sha256 or "").strip().lower())
+    return dict(rec) if rec else None
+
+
 # Crop boxes inside the canonical logo (x0, y0, x1, y1), found by lane A2 from the raster's
 # ink bands (`brand.comparison`): the monogram (B + sprig + yarn + ball) and the whole lockup.
 # A crop changes no pixel; it selects part of the supplied artwork.
@@ -308,7 +335,7 @@ HIERARCHY: tuple[dict, ...] = (
     {"use": "shop_icon", "asset": "measured", "kind": "owner monogram crop where measured "
      "legible at every display size; otherwise the A3 micro-mark (small-size utility "
      "derivative)", "where": "Etsy shop icon (one 500 px upload, shown small)",
-     "label": "see icon_report()"},
+     "label": "see icon_report(); micro-mark approved at tiny sizes (D-FB-18 item 5)"},
     {"use": "mono_reversed", "asset": "a3_vector", "kind": "A3 vector, supporting production "
      "system", "where": "one-ink print, stamps, embossing, cream-on-forest reversals",
      "label": "Supporting vector (A3), not the hero"},
@@ -385,6 +412,7 @@ def shop_icon_choice(display_sizes: tuple[int, ...] = (40, 70)) -> dict:
     failing = {px: mono[px]["problems"] for px in display_sizes if not mono[px]["ok"]}
     legible_from = next((px for px in sorted(mono) if all(mono[q]["ok"] for q in mono
                                                           if q >= px)), None)
+    approval = DERIVATIVE_APPROVALS.get("shop_icon")
     if not failing:
         return {"asset": "owner_monogram_crop", "derivative": False,
                 "label": "Owner artwork (monogram crop, exact pixels)",
@@ -395,7 +423,9 @@ def shop_icon_choice(display_sizes: tuple[int, ...] = (40, 70)) -> dict:
             "why": ("Exact owner artwork measured illegible at " + "; ".join(
                 f"{px} px: {', '.join(p)}" for px, p in failing.items())
                     + f". It is legible from {legible_from} px up, where it is used"),
-            "legible_from_px": legible_from, "report": rep}
+            "legible_from_px": legible_from, "report": rep,
+            "owner_approval": dict(approval) if approval else None,
+            "status": "OWNER_APPROVED" if approval else "MEASURED"}
 
 
 def summary() -> dict:

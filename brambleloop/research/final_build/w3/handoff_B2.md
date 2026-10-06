@@ -77,11 +77,13 @@ lane's changes.
 
 ## WIRING REQUESTS
 
-1. **Lane C (`store_foundation/copy_v2.py`)**: add `gates.platform_policy.DISCLOSURES["generated_imagery"]`
-   to `store_disclosure()`; and if the owner banner is ever published, `image_note` ("Images are
-   digital renderings … not photographs") and the trust line "Every picture labelled as a
-   rendering, never a photo" no longer describe every image (the banner is a generated image).
-   `owner_banner` flips `ai_generated_imagery_disclosure` to PASS automatically once the sentence is present.
+1. ~~Lane C: add the generated-imagery sentence to `store_disclosure()`~~ **WITHDRAWN** after
+   D-FB-18 item 9. Verified Etsy text requires AI disclosure for items for sale, and nothing
+   verified covers shop banners, so no marketing sentence is required on the strength of C2PA.
+   Restated narrowly: *if* the owner banner is ever published, lane C should scope the lines
+   "Images are digital renderings … not photographs" and "Every picture labelled as a rendering,
+   never a photo" to **listing** images. They would otherwise be untrue of the banner. This is
+   a truth fix, not an AI notice.
 2. **improve/invariants owner**: add `canonical_assets`, `AUTHORISED_BRAND_CHANGES`,
    `brand_role` to the protected-invariant names so a proposal cannot target them.
 3. **Owner of `research/final_build/w3/evidence/B_metrics.json`**: re-run
@@ -104,3 +106,37 @@ lane's changes.
   is blocked, so it is left for an explicit decision.
 - No lifestyle frame exists for any pattern; cards show a placeholder rather than anything
   generated.
+
+
+## Follow-up: owner decisions D-FB-18 (merged `claude/visual-investigation` first)
+
+| D-FB-18 item | Status | Where |
+|---|---|---|
+| 1 Banner woman is Laura | COMPLETE | `canonical_assets.OWNER_IDENTITY_REVIEWS` (bound to sha 048a1991…). The banner's `laura_identity` = PASS (owner human review). `owner_banner.identity_review_request(db)` records it as a resolved `confirmed_same_person` review (reviewer "owner (D-FB-18)"). Any other sha → normal UNKNOWN + review queue (tested). |
+| 1 Publication for this banner | REPORTED, not flipped | `visual.canonical.PUBLICATION_APPROVED` is a per-sha set with no surface scope, and membership implies every customer-facing gate passed. It cannot express "banner surface only". `laura_publication_status` stays FAIL. |
+| 2 Concept crochet | COMPLETE (UNKNOWN kept) | `CROCHET_CLASSIFICATION = brand_lifestyle_concept`, mapped to no pattern. No repo or Etsy rule proves it is allowed on a banner, so `product_truth` stays UNKNOWN. VT-B2-1 is recorded as GATED. |
+| 3 Categories | COMPLETE | New `store_foundation/navigation.py` (public = ≥ 1 product; hidden kept in the architecture). The preview's section chips filter on ≥ 1 product. The banner's baked-in nav stays a FAIL truth finding. |
+| 4 Banner shape | COMPLETE | Etsy re-read live (Help Center API, 200): minimum 1200×300 and recommended 1600×400; **no ratio or crop rule stated**. The 3 dimensional gates are now `UNVERIFIED_ASSUMPTION` (advisory, non-blocking, never PASS). Candidates A/B are `REJECTED_BY_OWNER` and kept as small historical files (they are not shown in the preview). VT-B2-2 is recorded as NOT_REQUIRED_BY_EVIDENCE. etsy.com/legal and the seller handbook returned 403, so they stay UNVERIFIED. |
+| 5 Shop icon | COMPLETE | `DERIVATIVE_APPROVALS["shop_icon"]` (D-FB-18 item 5). `shop_icon_choice()` → status OWNER_APPROVED; the hero is unchanged. |
+| 9 AI disclosure | COMPLETE (UNKNOWN) | The gate requires exactly what verified Etsy text requires. Item rule: "Seller-prompted AI creations must disclose the use of AI." The banner requirement is unverified, so the gate is UNKNOWN. No sentence added; C2PA kept (tested). |
+
+Assessment after the decisions:
+- PASS 6: integrity, Etsy minimum/format, laura_identity (owner review), no human claim, Laura AI disclosure (store + About), copy truth lint.
+- FAIL 2: laura_publication_status, nav_categories_truth.
+- UNKNOWN 4: photorealism/anatomy, AI-imagery disclosure, product_truth, visible_text_complete.
+- UNVERIFIED_ASSUMPTION 3: canvas 4:1, identity block in 4:1, phone window.
+
+Tests: `test_w3_b2_canonical_assets` 18 OK (new: the owner review covers this banner only and
+is recorded; navigation shows only populated categories; Etsy evidence recorded with
+sources/quotes, nothing quoted from a 403 page; provenance kept; advisory-only does not block).
+Store tests green: structure 16, mobile 8, gate 9, v11_store_foundation 20, v11_store_preview
+13, canon_store_brand_face 11. Also green: test_vacuity 7, test_secret_scan 7,
+test_reachability 11. `test_w3_reachability_dynamic` now 3 OK after the merge.
+
+Additional WIRING REQUESTS:
+5. **visual.canonical owner (lane H):** add a scoped owner publication approval, for example
+   `PUBLICATION_APPROVALS = {sha: {"surfaces": ("storefront_banner",), "decision": ...,
+   "gates_waived_by_owner": (...)}}`, with `asset_status(sha, surface=...)`. The banner's
+   publication can then be modelled per surface without touching `PUBLICATION_APPROVED`.
+6. **Lane C (`copy_v2.BANNER["nav"]`):** consume it only through `navigation.public_nav()` so no
+   exported surface lists empty categories.

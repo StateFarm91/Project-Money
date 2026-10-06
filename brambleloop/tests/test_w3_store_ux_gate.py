@@ -97,8 +97,10 @@ def test_banner_checks_the_owner_canonical_file():
         assert f"STORE_BANNER_OWNER_{g.upper()}_FAIL" in c, (g, c)
     for g in info["unknown"]:
         assert f"STORE_BANNER_OWNER_{g.upper()}_UNKNOWN" in c, (g, c)
-    # the 2.50:1 file against the 4:1 canvas is a measured dimensional failure
-    assert "STORE_BANNER_OWNER_F233_BANNER_CANVAS_4TO1_FAIL" in c, c
+    # D-FB-18: 4:1 is an unverified assumption (Etsy states only min/recommended sizes), so
+    # the 2.50:1 file is reported as advisory, never as a verified failure or a pass
+    assert "f233_banner_canvas_4to1" in info["unverified_assumptions"], info
+    assert not [x for x in c if "F233_BANNER_CANVAS_4TO1" in x], c
 
 
 def test_untrue_or_technical_copy_fails():

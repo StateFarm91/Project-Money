@@ -9,8 +9,8 @@ canonical files (`brand.canonical_assets`) -- warm, premium, feminine, cosy, lif
 
 * the banner IS the owner's canonical banner, shown as supplied (resampled to fit, never
   redrawn) with its honest state: `owner_banner.assess` names every publication gate that
-  stops the exact file today, and the woman in it is not verified as Laura, so it carries the
-  internal-preview label. The owner board shows what Etsy's 4:1 canvas and an assumed phone
+  stops the exact file today; the owner confirmed its woman is Laura for this banner only
+  (D-FB-18) and it is not publication-approved, so it carries the internal-preview label. The owner board shows what Etsy's 4:1 canvas and an assumed phone
   window would do to it, and the minimal reframes that are OWNER_REVIEW_REQUIRED;
 * the hero lockup (About header) is the owner's logo artwork, exact; the shop icon is the
   owner's monogram where measured legible at every display size, otherwise the A3 micro-mark,
@@ -448,16 +448,12 @@ def _owner_assets() -> dict:
             "logo": CA.ASSETS[CA.HERO_LOGO].to_dict(),
             "banner": CA.ASSETS[CA.STOREFRONT_BANNER].to_dict(),
         }
-        import io
+        # D-FB-18 item 4: the reframes were rejected; listed (no images) as history only.
+        out["candidates"] = [{k: v for k, v in c.items() if k != "image"}
+                             for c in OB.candidates()]
+        from . import navigation
 
-        cands = []
-        for c in OB.candidates():
-            img = c.pop("image")
-            w, h = img.size
-            buf = io.BytesIO()
-            img.resize((640, round(h * 640 / w))).save(buf, "JPEG", quality=80)
-            cands.append({**c, "uri": uri(buf.getvalue(), "jpeg")})
-        out["candidates"] = cands
+        out["nav"] = navigation.summary(None)
     except Exception as exc:  # noqa: BLE001 - shown as an honest missing state
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     _OWNER_CACHE.update(out)
@@ -472,12 +468,13 @@ def _owner_banner(ctx: dict, *, mode: str) -> str:
                 f'</div><div class="bn obn" role="group" aria-label="Shop banner, {mode} view">'
                 f'</div>')
     a = o["assessment"]
-    label = (f"Canonical owner banner (D-FB-17), as supplied. {ctx['laura_label']}: the woman "
-             f"shown is not verified as Laura.")
+    who = ("Laura, confirmed by the owner's review of this banner (D-FB-18)"
+           if "laura_identity" in a["passed"] else "the woman shown is not verified as Laura")
+    label = (f"Canonical owner banner (D-FB-17), as supplied. {ctx['laura_label']}: {who}.")
     strip = (f'<div class="pvs" role="note">Owner banner, as supplied (D-FB-17). Internal '
              f'preview, not yet publishable: {len(a["failed"])} checks fail and '
-             f'{len(a["unknown"])} await review (owner board). The woman shown is not '
-             f'verified as Laura.</div>')
+             f'{len(a["unknown"])} await review (owner board). Shows {who}; not '
+             f'publication-approved.</div>')
     return (strip + f'<div class="bn obn" role="group" aria-label="{_esc(f"Shop banner, {mode} view")}">'
             f'<div class="art" role="img" aria-label="{_esc(label)}"></div></div>')
 
@@ -606,7 +603,8 @@ def _shop(ctx: dict) -> str:
     label = ctx["laura_label"]
     heads = cp.get("headings") or {}
     products = ctx["products"]
-    shown = [x for x in s["sections"].value if x["shown"]]
+    # D-FB-18 item 3: only categories with at least one product are shown
+    shown = [x for x in s["sections"].value if x["shown"] and (x["listings"] or 0) >= 1]
     names = cp.get("sections") or {}
     secs = (f'<li class="on">All<span class="n">{len(products)}</span></li>'
             + "".join(f'<li>{_esc(names.get(x["slug"], x["name"]))}<span class="n">'
@@ -772,8 +770,9 @@ def _board(ctx: dict, now: datetime) -> str:
         f'<p>Generated {_esc(now.isoformat())} · {_esc(ctx["viewport"])} '
         f'{VIEWPORTS[ctx["viewport"]]} px · never publishable. Every Laura image is her approved '
         f'canonical portrait, verified by its bytes: <b>{_esc(label)}</b>. The owner\'s '
-        f'canonical banner (D-FB-17) is shown as supplied; its woman is not verified as Laura, '
-        f'so it carries the same internal label.</p>'
+        f'canonical banner (D-FB-17) is shown as supplied; the owner confirmed its woman is '
+        f'Laura (D-FB-18, this banner only) and it is not publication-approved, so it carries '
+        f'the same internal label.</p>'
         f'<h3>Sources</h3><table><tbody>{srcs}</tbody></table>'
         f'{owner_board}'
         f'<h3>Shop icon at real sizes</h3><p>Upload: a 500×500 square PNG (Etsy: logo at least 500×500, recommended 500×500; VERIFIED by lane I). Shown: {_esc((o.get("icon") or {}).get("label", "A3 mark"))}.</p><div class="row">{icons}</div>'
@@ -831,12 +830,20 @@ def _owner_board(ctx: dict) -> str:
         f'{_esc(g["status"])}</td><td>{_esc(g["why"])}'
         + (f' <i>Review: {_esc(g["review"])}</i>' if g.get("review") else "")
         + f'</td></tr>' for g in a["gates"])
-    cands = "".join(
-        f'<figure class="cand bnwrap" style="width:640px"><img src="{_esc(c["uri"])}" alt="'
-        f'{_esc("Candidate " + c["id"] + ", owner review required. " + label)}">'
-        f'<b>{_esc(c["id"])}</b> — {_esc(c["status"])}, adopted: {_esc(c["adopted"])}. '
-        f'{_esc(c["note"])} Fixes: {_esc(", ".join(c["fixes"]))}. Does not fix: '
-        f'{_esc(", ".join(c["does_not_fix"]))}.</figure>' for c in o["candidates"])
+    cands = "".join(f'<li><b>{_esc(c["id"])}</b> — {_esc(c["status"])} '
+                    f'({_esc(c.get("rejected_by", ""))}), adopted: {_esc(c["adopted"])}. '
+                    f'{_esc(c["note"])}</li>' for c in o["candidates"])
+    etsy = "".join(
+        f'<tr><td>{_esc(e["key"])}</td><td class="{"ok" if e["status"].startswith("VERIFIED") else "bad"}">'
+        f'{_esc(e["status"])}</td><td>{_esc(e["source_label"])} · retrieved {_esc(e["retrieved_at"])}'
+        + (f' · edited {_esc(e["edited_at"])}' if e.get("edited_at") else "")
+        + "".join(f'<br>“{_esc(q)}”' for q in e["quotes"])
+        + (f'<br><i>{_esc(e["note"])}</i>' if e.get("note") else "") + '</td></tr>'
+        for e in a.get("etsy_evidence") or [])
+    tasks = "".join(f'<li><b>{_esc(t["id"])}</b> {_esc(t["status"])}: {_esc(t["task"])} '
+                    f'<i>When: {_esc(t["trigger"])}</i></li>'
+                    for t in a.get("visual_tasks") or [])
+    nav_s = o.get("nav") or {}
     from . import owner_banner as OB
 
     nav = next((g for g in a["gates"] if g["gate"] == "nav_categories_truth"), None)
@@ -873,13 +880,20 @@ def _owner_board(ctx: dict) -> str:
         f'<th>Result</th></tr></thead><tbody>{irows}</tbody></table>'
         f'<h3>Owner banner: every publication gate on the exact file</h3><p>Status '
         f'<b>{_esc(a["status"])}</b>: {len(a["passed"])} pass, {len(a["failed"])} fail, '
-        f'{len(a["unknown"])} unknown (UNKNOWN blocks like FAIL). Visible words: '
+        f'{len(a["unknown"])} unknown (UNKNOWN blocks like FAIL), '
+        f'{len(a.get("unverified_assumptions") or [])} unverified assumptions (advisory). '
+        f'Visible words: '
         f'{_esc(a["visible_text_source"])}.</p>'
         f'<table><thead><tr><th>Gate</th><th>Status</th><th>Evidence</th></tr></thead>'
         f'<tbody>{gates}</tbody></table>'
-        f'<h3>Minimal reframes for the 4:1 canvas — OWNER_REVIEW_REQUIRED, none adopted</h3>'
-        f'<p>Deterministic, no owner pixel changed. They answer only the size gates; the '
-        f'others still stop the file.</p><div class="row">{cands}</div>'
+        f'<h3>Etsy evidence (read-only, authoritative sources)</h3><table><tbody>{etsy}'
+        f'</tbody></table>'
+        f'<h3>Recorded Visual tasks (not started)</h3><ul>{tasks}</ul>'
+        f'<h3>Reframes A and B — rejected by the owner (D-FB-18), kept as history</h3>'
+        f'<ul>{cands}</ul>'
+        f'<h3>Navigation</h3><p>Public: {_esc(", ".join(nav_s.get("public") or []))}. Hidden '
+        f'until populated (kept in the category architecture): '
+        f'{_esc(", ".join(nav_s.get("hidden") or []))}.</p>'
         f'<h3>Truth findings for the owner</h3><ul>{findings}</ul>'
         f'<h3>Listing image order (lifestyle first)</h3><table><tbody>{order}</tbody></table>')
 

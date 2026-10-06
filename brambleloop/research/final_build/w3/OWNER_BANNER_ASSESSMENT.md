@@ -1,89 +1,101 @@
-# Owner canonical banner — publication assessment (lane B2, D-FB-17)
+# Owner canonical banner — publication assessment (lane B2, D-FB-17 + D-FB-18)
 
-Generated 2026-10-06 (UTC) by `brambleloop.store_foundation.owner_banner.assess()`.
+Generated 2026-10-06 (UTC) by `brambleloop.store_foundation.owner_banner.assess()`
+(assessment version 2, after the owner's answers in DECISION_LOG D-FB-18).
 Machine-readable record: `research/final_build/w3/owner_banner_candidates/owner_banner_assessment.json`
 (regenerate with `owner_banner.write_evidence(Path("."))`; `tests/test_w3_b2_canonical_assets.py`
 fails if this file and the code disagree).
 
 **File:** `src/brambleloop/brand/owner_source/brambleloop_owner_banner_canonical.png`,
 sha256 `048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98`, 1983×793 RGB PNG
-(2.50:1), byte-identical to what the owner supplied (re-hashed on every read; immutable).
+(2.50:1), byte-identical to what the owner supplied (re-hashed on every read; never edited; its
+C2PA provenance chunk is kept).
 
-**Verdict: BLOCKED.** The exact file cannot be published today. 4 gates pass, 5 fail, 6 are
-UNKNOWN (UNKNOWN blocks like FAIL and is never counted as a pass). The failures are **not only
-dimensional**, so no reframe alone makes it publishable. The banner stays the canonical target;
-nothing has been substituted, and no correction is adopted.
+**Verdict: still BLOCKED, now on 2 FAIL + 4 UNKNOWN.** 6 gates pass and 3 are advisory
+UNVERIFIED_ASSUMPTION. The banner stays the canonical art target. Nothing has been substituted
+or adopted.
 
-## What the code can and cannot know
+Statuses: PASS (with evidence) · FAIL (with evidence) · UNKNOWN (blocks; never a pass) ·
+UNVERIFIED_ASSUMPTION (advisory: an internal assumption Etsy does not state. It is never a
+pass and never a verified failure, and it drives no redesign. D-FB-18 item 4).
 
-- **Measured from pixels:** size, aspect, format, opacity, embedded metadata, and the centred
-  identity block's extent (ink rows in the central 40–60 % band: rows 44–636, 593 px tall;
-  wordmark columns 630–1431).
-- **Measured from the file's own metadata:** the PNG carries a C2PA (Content Credentials)
-  manifest in a `caBX` chunk. Parsed, it declares `digitalSourceType = trainedAlgorithmicMedia`,
-  action `c2pa.created` / `c2pa.converted`, generator "ChatGPT" / "gpt-image", signed by
-  "OpenAI Media Service", 2026-10-06T14:07:05Z. **The signature has not been cryptographically
-  verified** (no C2PA library is installed); this is the file's own declaration. The logo
-  carries the same kind of manifest (2026-10-06T14:05:20Z).
-- **Measured from the repo:** Etsy's published numbers (`integrations.etsy_constraints`, quoted
-  from Etsy's Help Center on 2026-10-06; what Etsy *publishes*, not observed enforced — no upload
-  has been made), the catalogue and sections, Laura's canon and publication status, and the store
-  disclosure text.
-- **Not measured (no OCR, face detector or face-embedding model is installed):** what the picture
-  shows. The visible words are a transcription (lane B2 brief + DECISION_LOG D-FB-17), and the
-  people/objects are as declared in D-FB-17 ("Laura left, warm cozy setting, centred identity,
-  crochet/yarn right, tagline"). Those gates are UNKNOWN for human review.
+## Etsy evidence (read-only GETs, 2026-10-06)
+
+| Topic | Status | Source (retrieved / Etsy edited) | Etsy's words |
+|---|---|---|---|
+| Big banner size | VERIFIED (Help Center) | help.etsy.com article 115015663347, via the Help Center article API (`/api/v2/help_center/en-us/articles/115015663347.json`). Retrieved 2026-10-06T18:29:18Z; edited 2026-05-04T19:20:43Z | "The minimum required size for big shop banners is 1200 x 300px." "The recommended size is 1600 x 400px." "Image sizes are optimized for mobile displays." |
+| Banner display | VERIFIED (Help Center) | article 115015663247. Retrieved 18:29:18Z; edited 2026-05-05T14:06:33Z | "Big Banner: A large image with a minimum size of 1200 x 300 pixels." "This image appears when shoppers view your shop on the standard view of the website as well as on mobile devices." |
+| Banner aspect / crop | **NOT STATED** | both articles above | Neither article gives a required aspect ratio, a crop rule or a safe zone. 1600×400 is a *recommendation*. |
+| AI disclosure | VERIFIED (Help Center) | article 360024112614. Retrieved 18:29:57Z; edited 2025-09-17T18:36:53Z | "…This category also includes seller-prompted AI creations." "Seller-prompted AI creations must disclose the use of AI." This is a rule about items offered for sale. No fetched text covers shop banners. |
+| Seller Policy, Creativity Standards, seller handbook | **BLOCKED (HTTP 403)** | etsy.com/legal/sellers/, etsy.com/legal/creativity, etsy.com/seller-handbook/article/1275449912004. Retrieved 18:29:36Z | Nothing quoted. These stay UNVERIFIED. `gates.policy_knowledge` holds earlier search-engine excerpts: disclose AI "in your relevant listings". |
 
 ## Gates on the exact file
 
-| Gate | Status | Evidence | Basis |
-|---|---|---|---|
-| `canonical_integrity` | **PASS** | byte-identical to what the owner supplied | sha256 of the repository copy |
-| `etsy_banner_minimum_and_format` | **PASS** | 1983×793 opaque PNG ≥ Etsy's published minimum 1200×300 and recommended 1600×400; PNG supported | file vs Etsy Help Center figures (published, not enforcement-observed) |
-| `f233_banner_canvas_4to1` | **FAIL** | file is 2.50:1; the storefront canvas is 4.00:1 (1600×400). Etsy must crop or fit it; how Etsy fits a non-4:1 upload is **not published (UNVERIFIED)** | measured |
-| `f233_identity_block_survives_4to1` | **FAIL** | identity block 593 px tall (rows 44–636); a full-width 4:1 crop is 496 px tall, so **no** 4:1 crop keeps all of it; a centre crop (rows 148–643) cuts 104 px off the top of the monogram | measured ink rows; centre crop is an assumption about Etsy |
-| `f233_identity_block_in_phone_window` | **UNKNOWN** | horizontally inside an assumed 2:1 centre window (cols 496–1487 ⊃ 630–1431), but Etsy publishes no phone crop | measured block vs ASSUMED window |
-| `laura_identity` | **UNKNOWN** | a person is declared (D-FB-17). Whether she is Laura (`laura-r2-a42aeac7`) cannot be measured: biometric floor UNMEASURED (no qualified face-embedding model), no judge readings, no conditioning receipt from her reference bytes (the manifest names an outside generator). Human identity-review queue (`owner_banner.identity_review_request(db)`) | identity gate run on the file |
-| `laura_publication_status` | **FAIL** | `visual.canonical.asset_status` = `not_for_publication`; no Laura image is publication_approved. A banner presenting a woman as the brand's face is Laura imagery (if she is Laura) or an unverified woman as the brand face (if not) | measured on the file's sha256 |
-| `laura_photorealism_anatomy` | **UNKNOWN** | no vision-judge reading exists; none invented | — |
-| `ai_generated_imagery_disclosure` | **FAIL** | the file's own C2PA manifest declares it AI-generated; the store disclosure (`copy_v2.store_disclosure`) carries Laura's AI line but **not** `platform_policy.DISCLOSURES["generated_imagery"]`, so the generated scene and crochet would reach shoppers undisclosed. Also: the shop's image note says "Images are digital renderings … not photographs", which does not describe this generated image | C2PA manifest + store disclosure text |
-| `laura_never_claims_human_in_text` | **PASS** | `TRUTH_LAURA_HUMAN_CLAIM` fires on no transcribed word (scope: the transcription only) | lint |
-| `laura_ai_disclosure_at_banner` | **UNKNOWN** | no in-image AI disclosure; store-level disclosure says Laura is an AI; whether that is adequate for a shopper who sees only the banner is an unmade policy reading | transcription + disclosure text |
-| `product_truth` | **UNKNOWN** | `final_image_gate` = UNKNOWN (no verified source render — the file declares itself generated). The shop has 3 patterns: Hexagonal Storage Basket, Cloudline Textured Baby Blanket, Hexagon Coaster Set. Any crochet item (garment, basket, granny-square pieces, the book spines) that reads as a Brambleloop product but is not one of these fails Product Truth — a reviewer must list what is shown | final_image_gate + catalogue |
-| `nav_categories_truth` | **FAIL** | banner nav HOME \| BABY \| WEARABLES \| GIFTS \| SEASONAL: **Wearables, Gifts, Seasonal hold no pattern** (sections `wear`, `collections`, `seasonal` have 0 listings; only Home 2 and Baby 1) | transcription vs measured sections |
-| `public_copy_truth_lint` | **PASS** | no truth rule fires on: BRAMBLELOOP, CROCHET PATTERNS, "Patterns for a More Handmade Life", the nav, "Good Things Take Time", "SAME YARN MORE HAPPY", "Crochet a Brighter Everyday", spines "CROCHET / A CALMER HOME / A BRIGHTER YOU". All-caps voice advisories only (artwork typography) | lint over the transcription |
-| `visible_text_complete` | **UNKNOWN** | no OCR: nobody has machine-checked the transcription is every word | — |
+| Gate | Status | Evidence / why |
+|---|---|---|
+| `canonical_integrity` | **PASS** | The file is byte-identical to what the owner supplied. |
+| `etsy_banner_minimum_and_format` | **PASS** | The file is a 1983×793 opaque PNG. That meets Etsy's minimum (1200×300) and recommended size (1600×400), as quoted above. These are published figures; Etsy's handling has not been observed because nothing has been uploaded. |
+| `f233_banner_canvas_4to1` | **UNVERIFIED_ASSUMPTION** | The file is 2.50:1. "4:1" was only this repo's assumption. Etsy states no required ratio and no crop rule, so this is not a failure. |
+| `f233_identity_block_survives_4to1` | **UNVERIFIED_ASSUMPTION** | The identity block is rows 44–636 (593 px tall). It would lose 104 px *if* Etsy centre-cropped to 4:1, which Etsy does not state. |
+| `f233_identity_block_in_phone_window` | **UNVERIFIED_ASSUMPTION** | The block fits horizontally inside an assumed 2:1 window. Etsy publishes no phone crop. |
+| `laura_identity` | **PASS (owner human review)** | D-FB-18 item 1: the owner confirmed the woman is Laura (`laura-r2-a42aeac7`). The review is bound to these exact bytes (`canonical_assets.OWNER_IDENTITY_REVIEWS`) and recorded as a resolved review (`confirmed_same_person`, reviewer "owner (D-FB-18)") in the `visual.identity_gate` queue. **It covers no other image.** Every other frame keeps the normal gate and queue (tested). No machine reading is claimed: the biometric floor is still unmeasured. |
+| `laura_publication_status` | **FAIL** | `asset_status` = `not_for_publication`. D-FB-18 confirmed her identity, not publication. **What's missing:** `visual.canonical.PUBLICATION_APPROVED` is a per-asset sha set with no surface scope, and membership implies every customer-facing gate passed. So it cannot express "owner-approved for the storefront banner only", and photorealism/anatomy are unjudged. The model was not flipped. |
+| `laura_photorealism_anatomy` | **UNKNOWN** | No vision reading exists, and none is invented. |
+| `ai_generated_imagery_disclosure` | **UNKNOWN** | The file's own C2PA manifest declares it AI-generated (ChatGPT / gpt-image, OpenAI-signed; signature not verified here). Etsy's verified text requires AI disclosure for *items for sale*. No verified Etsy text says what a shop banner requires, and the policy pages returned 403. **No marketing sentence is added on the strength of C2PA** (D-FB-18 item 9), and the provenance metadata stays in the file. |
+| `laura_never_claims_human_in_text` | **PASS** | `TRUTH_LAURA_HUMAN_CLAIM` fires on no transcribed word. |
+| `laura_ai_disclosure_at_banner` | **PASS** | Both the store disclosure and the About say Laura is an AI. The banner adds no human claim, and no verified rule requires AI wording inside the image. |
+| `product_truth` | **UNKNOWN** | D-FB-18 item 2: the crochet is classified `brand_lifestyle_concept` and mapped to **no** pattern. Product Truth is unchanged. The repo's rules permit a generated `mood_frame` only as a listing image that makes no claim about the object; no rule, and no fetched Etsy text, covers concept crochet on a storefront banner. Whether a shopper reads it as for sale is unmeasured. Hence UNKNOWN, with task VT-B2-1 recorded. |
+| `nav_categories_truth` | **FAIL** (reported truth finding) | The banner's baked-in nav names Wearables, Gifts and Seasonal, which hold no pattern. The owner chose not to alter the source file. Every generated surface hides those categories until populated (`store_foundation.navigation`). |
+| `public_copy_truth_lint` | **PASS** | No truth rule fires on any transcribed word. |
+| `visible_text_complete` | **UNKNOWN** | No OCR is installed. The transcription's completeness is unverified. |
 
-**Related logo finding (not a banner gate):** the canonical logo's footer reads
-HOME · BABY · GIFTS · SEASONAL — **Gifts and Seasonal hold no pattern today.** These are the
-owner's pixels; this lane does not edit them. Owner options: list patterns in those sections
-before the artwork is shown publicly, or decide on the wording.
+**Logo footer** (not a banner gate): it reads HOME · BABY · GIFTS · SEASONAL. Gifts and Seasonal
+are empty. Same treatment: the pixels are untouched, and generated navigation shows only Home
+and Baby.
 
-## Minimal correction candidates — OWNER_REVIEW_REQUIRED, none adopted
+## Categories (D-FB-18 item 3)
 
-Deterministic and non-generative; **no owner pixel is altered** in either (tests prove pixel
-equality against the original). They address only the dimensional gates. Review copies are
-resampled; the full-size candidate is regenerated exactly by `owner_banner.candidates()`.
-Adoption would need a new owner decision naming the file's bytes
-(`canonical_assets.AUTHORISED_BRAND_CHANGES`).
+`store_foundation.navigation`: public navigation = categories with ≥ 1 product (today Home,
+Baby). Wearables, Gifts, Seasonal (and the planned Blankets) remain in the category
+architecture (`copy_v2.SECTIONS`). They are hidden until populated. The preview's section chips
+and visible shop text name no hidden category (tested).
 
-| Candidate | What changes (measured) | Fixes | Does not fix |
-|---|---|---|---|
-| `A_crop_4x1_top_anchored.png` (review 800×200) | full-width crop to 1983×496 (3.998:1), rows 44–539. Removes the top 44 rows and the bottom 253 rows. Of the identity block, the monogram, wordmark and descriptor are kept; the last row of the script tagline (row 540), the heart (550–594) and the category line (619–636) are cut. Whether the person's face stays whole is **not measured** (no face detector) — owner to look | `f233_banner_canvas_4to1` | identity block (heart + nav cut), all non-dimensional gates |
-| `B_pad_4x1_edge_colour.png` (review 1000×250) | every owner pixel kept at its own size; 594 px added left, 595 px right (3172×793, exactly 4:1) as a soft vertical gradient of each edge's own colours (per-row mean of the 4 outermost columns, 201-row box smoothing; no new imagery). The artwork fills the centre 63 % of the width; under the assumed 2:1 phone window owner columns 199–1784 show | `f233_banner_canvas_4to1`, `f233_identity_block_survives_4to1` | all non-dimensional gates |
-| `simulation_centre_crop_4x1.png` (review 800×200) | **not a candidate**: what a plain 4:1 centre crop of the exact file would show (one possible Etsy behaviour) | — | — |
+## Recorded Visual tasks (not started — paid generation needs owner spend approval)
 
-## What the owner needs to decide (no action taken by this lane)
+- **VT-B2-1 — GATED.** Reproduce the banner scene with verified Brambleloop products in place of
+  the concept crochet, preserving Laura, the warm room, the central identity, the tagline and
+  the feel. Owner review comes before any public replacement. Trigger: the Product Truth review
+  says concept crochet is unsuitable publicly, or matching products exist.
+- **VT-B2-2 — NOT_REQUIRED_BY_EVIDENCE.** Recompose the same scene at Etsy's verified banner
+  dimensions, preserving Laura, the warm room, the lifestyle aesthetic, the central identity,
+  the crochet/yarn environment, the tagline, balance and feel. Owner review comes before
+  replacement. Etsy states no required ratio, so this opens only if Etsy evidence, or the
+  owner's in-app check after an owner-approved upload, shows the composition is cropped.
 
-1. **Laura in the banner** — the woman is not verified as Laura and no Laura image is
-   publication-approved. Either the human identity review confirms her and the Laura
-   customer-facing gates are passed, or the composition is reproduced from Laura's canonical
-   references (Visual), or the owner decides otherwise. Any visible change comes back to the owner.
-2. **Generated-imagery disclosure** — the file declares itself AI-generated. Lane C must add the
-   generated-imagery sentence to the store disclosure (and adjust "Images are digital
-   renderings…") before this banner can be published.
-3. **Product Truth review** — a human lists the crochet shown and whether any reads as a
-   Brambleloop pattern that does not exist.
-4. **Nav categories** — Wearables / Gifts / Seasonal (banner) and Gifts / Seasonal (logo footer)
-   have no products.
-5. **Aspect** — choose A, B, neither, or a Visual reproduction at 4:1 of the same composition.
+## Earlier reframes — REJECTED by the owner (D-FB-18 item 4)
+
+`owner_banner_candidates/A_crop_4x1_top_anchored.png` (cut the tagline/heart/category line) and
+`B_pad_4x1_edge_colour.png` (edge padding) are marked `REJECTED_BY_OWNER` and cannot be
+adopted. Decision: **kept as small historical evidence** (≤ 300 KB each, deterministic) so the
+record of what was proposed and rejected stays auditable. `simulation_centre_crop_4x1.png`
+shows one possible Etsy crop; it was never a candidate.
+
+## Shop icon (D-FB-18 item 5)
+
+The A3 micro-mark is **owner-approved** at Etsy's tiny icon sizes, where the canonical B is
+measured unreadable: 2.62:1 contrast at 40 px, legible from 70 px. Approval is recorded as
+`canonical_assets.DERIVATIVE_APPROVALS["shop_icon"]` and appears in `shop_icon_choice()`. The
+hero logo is unchanged.
+
+## Still gated (owner / verification)
+
+1. **Laura publication approval for this banner.** It needs an owner publication decision plus
+   a per-surface approval in `visual.canonical` (the model can't express one today), plus
+   photorealism/anatomy readings.
+2. **Product Truth on the concept crochet** (human reading or a policy ruling), or VT-B2-1.
+3. **Nav text baked into the banner.** Publish only when those categories hold products, or the
+   owner decides otherwise.
+4. **Etsy's banner AI-disclosure requirement.** Needs a human/owner reading of the Seller
+   Policy / Creativity Standards pages (403 to automated readers).
+5. **Visible-text completeness** (human check).
+6. **Real Etsy crop.** The owner checks it in the Etsy app after an owner-approved upload.
