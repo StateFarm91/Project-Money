@@ -210,3 +210,23 @@ Preserved state at v1.1 start:
   lanes A/H (reuse, not redo).
 Next: rc1-INT merge → release-eligible suite → rehearsal → freeze successor RC → re-audit, while
 v1.1 lanes (A–J) build F-880..F-930 on disjoint files.
+
+## v1.1 integration progress (2026-10-06T07:10Z)
+Merged into claude/visual-investigation (local, signed, not pushed — push still classifier-blocked):
+rc1-INT (366c705), lanes H (ads readiness + Finance challenge, follow-up 4006b73), G (SEO), E
+(double-entry Accountant), C (Command Center API/auth), D (PWA), B (Learn loops + D-B1 monitor
+fix), F (Store Foundation + preview), I (SLOs, failover, recovery, CLOUD_HOSTING_PLAN.md).
+Lane A (autonomy/orchestrator) still running; wiring of G/E/H/I/B/F jobs into scheduler/worker/
+registry waits for A (A owns those files). INT2 repairing test_v11_cc_views (2 fails vs real E).
+Interpreter: the only complete one is /home/user/Project-Money/brambleloop/.venv/bin/python;
+earlier "environment" failures (numpy/sqlalchemy) were wrong-interpreter, not product defects.
+
+Read-only production evidence (Railway project brambleloop, 2026-10-06T07:05Z):
+- brambleloop-os deploys from claude/repository-setup-nc9x6o (rootDirectory brambleloop),
+  healthcheck /health, 1 replica us-west2, no App Sleeping/serverless key in config; restart
+  policy not set explicitly (Railway default). Service "Project-Money" latest deploy FAILED (stale).
+- /api/verify: ok, shadow, postgres, scheduler last_tick 07:04:53Z and worker last_tick 07:05:05Z
+  — ticking ~7h after the last heartbeat poke (00:15Z), so the embedded runtime runs without a
+  Claude session. BUT store.publish_refused has been 165 across every recorded heartbeat: the
+  runtime is alive yet produces no new release work — the Priority Zero "idle company" defect
+  that lane A's Executive Orchestrator targets (not deployable without owner approval).
