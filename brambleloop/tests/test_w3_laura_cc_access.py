@@ -79,7 +79,7 @@ def test_portrait_is_owner_only_and_labelled_internal():
     assert r.headers["content-type"] == "image/jpeg" and r.content[:2] == b"\xff\xd8"
     assert r.headers["cache-control"] == "no-store"
     assert "not publication-approved" in r.headers["x-laura-image-status"]
-    assert r.headers["x-laura-identity"] == "laura-v15-a42aeac7"
+    assert r.headers["x-laura-identity"] == H.CANON_ID
     # The portrait is not in the public static shell; the shell only references the API.
     assert not [p for p in STATIC_DIR.rglob("*") if p.suffix.lower() in (".jpg", ".jpeg")]
     view = (STATIC_DIR / "js" / "views" / "laura.js").read_text()

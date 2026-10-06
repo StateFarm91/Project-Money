@@ -419,6 +419,25 @@ def make_router(db) -> APIRouter:
         body = await body_of(request)
         return ok(await run_in_threadpool(ask_mod.ask, db, str(body.get("question") or "")))
 
+    # ---- listing outcomes intake (W3 lane K3 wiring) -------------------------------------
+
+    @router.post("/listing-outcomes")
+    async def listing_outcomes_intake(request: Request, period_start: str = "",
+                                      period_end: str = ""):
+        """Owner uploads an Etsy listing-level Stats export (CSV body). Session + CSRF + nonce
+        are already enforced by `auth.gate`; refusals are 400 with the exact reason."""
+        from ...commerce import listing_outcomes
+
+        text = (await request.body()).decode("utf-8", errors="replace")
+        try:
+            out = await run_in_threadpool(lambda: listing_outcomes.submit_export(
+                db, text, period_start=period_start, period_end=period_end,
+                submitted_by=actor(request)))
+        except listing_outcomes.OutcomeRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=auth.current_public_id(request)) from None
+        return ok(out)
+
     # ---- Talk to Laura (W3 lane F; D-FB-13, spec/07 item 9) ------------------------------
     # Under /api/cc/, so `auth.gate` has already required a live owner session, and for the
     # POSTs CSRF + a fresh nonce + timestamp. A protected follow-on additionally needs

@@ -6,7 +6,7 @@
 * seeded company: answers cite the exact rows (jobs, company_memory, lessons, products,
   owner queue) and every fact carries a source and an in-app evidence link;
 * the turn is durable (`laura_cc_turns`) and readable back through the API;
-* identity is truthful (AI, not human) and the canonical id is laura-v15-a42aeac7;
+* identity is truthful (AI, not human) and the id is the owner-approved canonical one (visual.canonical.IDENTITY_ID);
 * optional model phrasing goes through the gateway, records spend, and is discarded when it
   changes a number.
 
@@ -110,13 +110,13 @@ def test_turns_are_durable_and_served_by_the_api():
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["register"] == "business" and body["turn_id"] > 0
-    assert body["speaker"]["identity_id"] == "laura-v15-a42aeac7", body["speaker"]
+    assert body["speaker"]["identity_id"] == H.CANON_ID, body["speaker"]
     assert "not publication-approved" in body["speaker"]["portrait_label"]
     hist = c.get("/api/cc/laura/conversation?limit=5").json()
     assert hist["turns"] and hist["turns"][0]["turn_id"] == body["turn_id"], hist
     assert hist["turns"][0]["sources"] == body["sources"]
     ov = c.get("/api/cc/laura").json()
-    assert ov["identity"]["identity_id"] == "laura-v15-a42aeac7"
+    assert ov["identity"]["identity_id"] == H.CANON_ID
     assert len(ov["suggested"]) == 8 and ov["register"] == "business"
     assert ov["needs_you"]["count"] >= 1, ov["needs_you"]
     r = H.post(c, csrf, "/api/cc/laura/ask", {"question": 42})
@@ -128,7 +128,7 @@ def test_identity_is_truthful():
     assert r["intent"] == "identity" and r["status"] == "ANSWERED", r
     low = r["answer"].lower()
     assert "i'm an ai" in low and "not a human" in low, r["answer"]
-    assert "laura-v15-a42aeac7" in json.dumps(r["facts"])
+    assert H.CANON_ID in json.dumps(r["facts"])
     for bad in ("i am human", "i crocheted", "my childhood", "my grandmother"):
         assert bad not in low, bad
 

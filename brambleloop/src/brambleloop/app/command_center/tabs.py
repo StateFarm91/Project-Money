@@ -414,9 +414,24 @@ def morning_brief(db, hours: float = 12) -> dict:
 # ---- store / operations / autonomy / insights -----------------------------------------
 
 
+def _seo_w3(seo: dict) -> dict:
+    """W3 lane G: the SEO provider's wave-3 block (Etsy constraint verification, Launch-0
+    strategy, learning hooks) as its own section. Absent -> UNKNOWN, never an empty OK."""
+    w3 = seo.get("w3") if isinstance(seo, dict) else None
+    if not isinstance(w3, dict) or not w3:
+        return unknown("seo.status summary has no w3 block", "brambleloop.seo.status")
+    items = [{"part": k, **(v if isinstance(v, dict) else {"value": v})} for k, v in w3.items()]
+    bad = [i for i in items if i.get("status") == "UNKNOWN"]
+    return envelope("DEGRADED" if bad else "OK", items, ["brambleloop.seo.status (w3)"],
+                    basis="modelled", provider="brambleloop.seo.status.w3",
+                    reason=("; ".join(f"{i['part']}: {i.get('why')}" for i in bad)[:300]
+                            if bad else None))
+
+
 def store(db) -> dict:
+    seo = providers.call("seo", db)
     return _tab("STORE", {"store_foundation": providers.call("store_foundation", db),
-                          "seo": providers.call("seo", db),
+                          "seo": seo, "seo_w3": _seo_w3(seo),
                           "products": readers.products(db),
                           "publication_candidates": guard(
                               "publication_candidates", lambda: envelope(

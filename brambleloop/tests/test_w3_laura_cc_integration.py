@@ -40,7 +40,7 @@ def test_identity_is_lane_d_verified_record():
     ov = c.get("/api/cc/laura").json()
     idn = ov["identity"]
     assert idn["source"] == "brambleloop.laura.identity", idn
-    assert idn["identity_id"] == "laura-v15-a42aeac7" and not idn.get("identity_disagreement")
+    assert idn["identity_id"] == H.CANON_ID and not idn.get("identity_disagreement")
     assert idn["verified"]["status"] == "OK" and idn["verified"]["identity_version"], idn
     t = _ask(c, csrf, "Who are you?")
     assert any(s.startswith("laura_identity_versions:") for s in t["sources"]), t["sources"]
@@ -123,6 +123,34 @@ def test_constitution_can_block_laura_follow_on():
             pass
     finally:
         constitution.resolve_challenge(DB, cid, resolved_by="finance", resolution="done")
+
+
+def test_unverifiable_identity_blocks_every_follow_on():
+    """Fail closed: if Laura's durable identity does not verify (lane D raises
+    IdentityTampered -- e.g. the stale genesis pin after the D-FB-14 revision), the
+    constitution blocks her follow-ons and nothing is enqueued."""
+    if not HAVE_D:
+        print("SKIP lane D not merged")
+        return
+    from unittest.mock import patch
+
+    from brambleloop.laura.core import identity as ident
+
+    c, csrf = H.session()
+    t = _ask(c, csrf, "What did your company do overnight?")
+    prop = next(p for p in t["proposals"] if p["kind"] == "mission")
+    with DB.session() as s:
+        before = s.query(Job).count()
+
+    def tampered(_db):
+        raise ident.IdentityTampered("simulated: record does not match its pin")
+
+    with patch.object(ident, "load", tampered):
+        r = H.post(c, csrf, "/api/cc/laura/follow-on",
+                   {"turn_id": t["turn_id"], "proposal_key": prop["key"], "confirm": True})
+    assert r.status_code == 409 and "identity unverifiable" in r.json()["error"], r.text
+    with DB.session() as s:
+        assert s.query(Job).count() == before
 
 
 if __name__ == "__main__":

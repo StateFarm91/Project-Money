@@ -412,6 +412,19 @@ def seo(db) -> dict:
                 facts.append(fact(f"{it.get('slug') or ''} {it.get('title') or ''}: "
                                   f"{'ok' if it.get('ok') else 'needs work'}".strip(), src,
                                   as_of=e.get("as_of")))
+        w3 = e.get("w3") if isinstance(e.get("w3"), dict) else {}
+        strat = w3.get("strategy") if isinstance(w3.get("strategy"), dict) else {}
+        if strat.get("products"):
+            okn = sum(1 for p in strat["products"] if p.get("ok"))
+            facts.append(fact(f"Launch-0 search strategy v{strat.get('version')}: {okn} of "
+                              f"{len(strat['products'])} listing plan(s) pass; demand basis "
+                              f"{strat.get('demand_basis', 'modelled')}",
+                              "brambleloop.seo.status (w3.strategy)", basis="modelled"))
+        cons = w3.get("constraints") if isinstance(w3.get("constraints"), dict) else {}
+        if cons.get("counts"):
+            facts.append(fact("Etsy listing constraints: " + ", ".join(
+                f"{v} {k}" for k, v in sorted(cons["counts"].items())), "brambleloop.seo.status "
+                "(w3.constraints)"))
         if not facts:
             facts.append(fact(f"SEO status {e['status']}"
                               + (f" ({e.get('reason')})" if e.get("reason") else ""), src,
