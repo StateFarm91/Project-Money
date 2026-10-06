@@ -273,6 +273,24 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
                         "balance that serves them is spent. Rendering now would buy images "
                         "that cannot be scored. " + held.get("why_this_stops_spending", ""))}
 
+    # F-877: the experiment's plan -- hypothesis, provider/model, call count, max spend and
+    # pass/fail criteria -- is validated before anything is bought, and its call count and
+    # ceiling are enforced per render below (on top of `attempt`'s own ceiling check).
+    from . import spend_plan
+
+    plan = trial_plan(challenger, attempts=attempts,
+                      incumbent_arm=0 if prior_incumbent else incumbent_arm, cases=cases)
+    try:
+        # A run that plans no paid call (everything reused) buys nothing, so it is not a
+        # paid experiment; `guard` still refuses any call it did not plan.
+        if plan["call_count"]:
+            spend_plan.validate(plan)
+    except spend_plan.PlanRefused as exc:
+        return {"ran": False, "waiting_on": "complete_spend_plan", "challenger": challenger,
+                "incumbent": INCUMBENT, "spent_cad": 0.0, "attempts": [],
+                "paid_plan": plan, "why": str(exc)}
+    calls = 0
+
     # Seeded from what the experiment has already spent, not from zero. The ceiling governs
     # the authorisation the owner gave once, so every challenger after the first draws from
     # what is left of it rather than from a fresh copy of it.
@@ -305,9 +323,12 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
             twin = build_twin(cir, result)
             for _ in range(n):
                 try:
+                    spend_plan.guard(plan, spent_cad=spent, calls_made=calls,
+                                     next_cost_cad=_price_of(provider))
+                    calls += 1
                     row = attempt(db, cir, twin, provider_key=provider,
                                   work_dir=work_dir, spent_so_far=spent, **judges)
-                except CeilingReached as exc:
+                except (CeilingReached, spend_plan.PlanRefused) as exc:
                     stopped = str(exc)
                     break
                 row["difficulty"] = difficulty
@@ -336,6 +357,7 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
         "stopped_at_ceiling": bool(stopped),
         "why_stopped": stopped,
         "attempts": rows,
+        "paid_plan": plan,
         "by_provider": {p: _summarise([r for r in rows if r.get("provider") == p])
                         for p in (challenger, INCUMBENT)},
         "verdict": _recommend(rows, challenger=challenger),
@@ -344,6 +366,27 @@ def run(db, *, challenger: str, work_dir: str, attempts: int = 2,
             "stack is the owner's decision and the instruction was to bring the measured "
             "evidence and a recommendation before changing it"),
     }
+
+
+def trial_plan(challenger: str, *, attempts: int = 2, incumbent_arm: int = 1,
+               cases=CASES) -> dict:
+    """This experiment's F-877 plan (`visual.spend_plan`), built from its own constants."""
+    from . import spend_plan
+
+    calls = (int(attempts) + int(incumbent_arm)) * len(tuple(cases))
+    price = max(_price_of(challenger), _price_of(INCUMBENT))
+    return spend_plan.build(
+        hypothesis=("the texture_not_repeating blocker is specific to the incumbent "
+                    f"{INCUMBENT}; {challenger} clears it while holding every other floor"),
+        provider_model=f"{challenger} vs {INCUMBENT}", call_count=calls,
+        max_spend_cad=CEILING_CAD, price_cad_per_call=price or None,
+        pass_criteria=("challenger clears texture_not_repeating on every render",
+                       "no structural, photoreal or product-truth regression",
+                       "recommendation 'switch_worth_making' (owner decides the switch)"),
+        fail_criteria=("challenger tiles on every render (keep_the_incumbent)",
+                       "clears the blocker but regresses another floor",
+                       "experiment spend reaches CEILING_CAD (stop at the ceiling)"),
+        basis="owner authorisation 2026-09-23: CA$4.00 hard ceiling; list prices")
 
 
 def _summarise(rows: list[dict]) -> dict:

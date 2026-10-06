@@ -134,8 +134,37 @@ class VisualLesson(Base):
     ref: Mapped[str] = mapped_column(String(160), default="")
 
 
+class VisualIdentityReview(Base):
+    """A borderline whole-person identity result held for a human (F-219, K12).
+
+    Opened by `visual.identity_gate` when a model-bearing frame is neither an obvious drift
+    (auto-refused) nor provably the same person. While open, the frame's identity gate is
+    UNKNOWN, which blocks. A resolution records what the reviewer saw; it never approves an
+    image for publication (`visual.canonical.asset_status` is the only publication status).
+    """
+
+    __tablename__ = "visual_rnd_identity_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now,
+                                                index=True)
+    product_class: Mapped[str] = mapped_column(String(48), index=True)
+    subject: Mapped[str] = mapped_column(String(160), index=True)
+    image_sha256: Mapped[str] = mapped_column(String(64), default="")
+    judgement_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    band: Mapped[str] = mapped_column(String(24), default="REVIEW")
+    reasons: Mapped[list] = mapped_column(JSON, default=list)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    state: Mapped[str] = mapped_column(String(16), default="open", index=True)
+    decision: Mapped[str] = mapped_column(String(32), default="")
+    reviewer: Mapped[str] = mapped_column(String(64), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                         nullable=True)
+
+
 TABLES = (VisualPipelineVersion, VisualExperiment, VisualJudgement, VisualMarketEvidence,
-          VisualLesson)
+          VisualLesson, VisualIdentityReview)
 
 
 def is_session(db) -> bool:
