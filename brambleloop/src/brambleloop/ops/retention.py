@@ -113,6 +113,10 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # K8: the customer workspace lists the newest 50 defect candidates only, so pruning rows
+    # older than the horizon cannot change what it shows.
+    "support.defect_candidate": ("windowed",
+                                 "support.workspace reads the newest 50 rows"),
     # Spend refusals are counted over a bounded window only: finance.spend_report.refusals
     # reads the calendar month and ops.slo.soak_report reads the lights-out soak window
     # (hours), both far inside the retention horizon, so pruning older rows changes neither.
