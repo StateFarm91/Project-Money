@@ -62,8 +62,11 @@ def test_tunable_surface_is_declared_and_safe():
                               {name: P.TUNABLES[name].default}) == [], name
     # Laura reproduction varies HOW the canonical Laura is reproduced, never WHO.
     choices = P.TUNABLES["laura_reproduction"].choices
-    assert choices and all(c.startswith("frozen_v15") for c in choices), choices
-    assert "laura-v15-a42aeac7" == canonical.IDENTITY_ID
+    assert choices and all(c.startswith("canonical_") for c in choices), choices
+    # The tunable never names an identity: WHO she is comes only from the owner-authorised
+    # canonical record (D-FB-14 today), which no promotion can change.
+    assert canonical.IDENTITY_ID.startswith("laura-") and canonical.AUTHORISED_IDENTITY_CHANGES
+    assert not any(canonical.IDENTITY_ID in c for c in choices), choices
 
 
 def test_invariant_refuses_every_gate_weakening():
