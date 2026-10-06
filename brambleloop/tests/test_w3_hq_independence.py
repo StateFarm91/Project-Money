@@ -28,6 +28,12 @@ ALLOWED = {
         "exists and otherwise the shipped projection build2/final_master_closure.json "
         "(test_the_maturity_check_falls_back_to_the_shipped_projection)"),
     ("seo/_testkit.py", "tests"): "a test kit; tests/ is in the image anyway",
+    ("core/decision_index.py", "DECISION_LOG.md"): (
+        "read only by the index generator (`main`) in the repository; at runtime `recorded()` "
+        "reads the shipped core/decision_index.json (test_w3_decision_index keeps it in sync)"),
+    ("laura/memory/provenance.py", "DECISION_LOG.md"): (
+        "read when present (repository); in the image the OSError path falls back to the "
+        "shipped core/decision_index.json (test_runtime_readers_fall_back_to_the_index...)"),
 }
 
 

@@ -1,0 +1,20 @@
+{
+ "ids": {
+  "2026-09-25": 2,
+  "2026-09-26": 2,
+  "D-FB-10": 2,
+  "D-FB-11": 2,
+  "D-FB-12": 2,
+  "D-FB-13": 2,
+  "D-FB-14": 2,
+  "D-FB-15": 2,
+  "D-FB-16": 2,
+  "D-FB-17": 2,
+  "D-FB-18": 2,
+  "D-FB-9": 2,
+  "DECISION_LOG": 1,
+  "Final": 2,
+  "Standing": 2
+ },
+ "source": "DECISION_LOG.md headings"
+}

@@ -38,7 +38,10 @@ def _decision_exists(ident: str) -> bool:
     try:
         text = DECISION_LOG.read_text(encoding="utf-8")
     except OSError:
-        return False
+        # The deploy image ships the heading index, not the log (core.decision_index).
+        from ...core import decision_index
+
+        return decision_index.recorded(ident)
     return re.search(rf"^#+\s+{re.escape(ident)}(\s|\(|$)", text, re.M) is not None
 
 

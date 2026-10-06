@@ -274,7 +274,10 @@ def decision_recorded(decision_id: str) -> bool:
     try:
         text = _decision_log().read_text(encoding="utf-8")
     except OSError:
-        return False
+        # The deploy image ships the heading index, not the log (core.decision_index).
+        from ...core import decision_index
+
+        return decision_index.recorded(decision_id, level=2)
     return re.search(rf"^##\s+{re.escape(decision_id)}\b", text, re.M) is not None
 
 
@@ -379,9 +382,9 @@ def _check_recorded_amendment(decision: str, before: dict, after: dict) -> None:
     if decision not in AUTHORISED_IDENTITY_AMENDMENTS:
         raise IdentityTampered(f"recorded amendment {decision} is not an authorised owner "
                                f"decision (AUTHORISED_IDENTITY_AMENDMENTS)")
-    # The deploy image does not ship DECISION_LOG.md; the test suite proves every recorded
-    # amendment is logged. Where the log IS present it must contain the decision.
-    if decision_log_available() and not decision_recorded(decision):
+    # The decision must be recorded: in DECISION_LOG.md where the log is present, otherwise in
+    # the heading index the image ships (core.decision_index, kept in sync by a test).
+    if not decision_recorded(decision):
         raise IdentityTampered(f"recorded amendment {decision} is not in DECISION_LOG.md")
     vis_after = after.get("visual_identity") or {}
     if vis_after != (before.get("visual_identity") or {}):
