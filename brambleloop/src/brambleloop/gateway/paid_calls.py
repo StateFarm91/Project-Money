@@ -82,7 +82,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db import Base
 from ..core.models import AuditLog, Incident, utcnow
-from ..core.resilience import PermanentError, TransientError
+from ..core.resilience import PermanentError
 
 PENDING, OK, DECLINED, FAILED_BILLED, UNCERTAIN = (
     "PENDING", "OK", "DECLINED", "FAILED_BILLED", "UNCERTAIN")
@@ -472,3 +472,38 @@ def summary(db) -> dict:
                                       if r.outcome == OK),
             "unresolved": len(unresolved), "items": items[:50],
             "sources": ["paid_call_records", "effect_intents"]}
+
+
+def reclaimed_spend_violations(session, job_ids) -> list[dict]:
+    """For the soak (`ops.slo._effect_evidence`): which reclaimed jobs may have paid twice.
+
+    A reclaimed job's cost rows are NOT a violation when every billed row carries the
+    `paid_call_key` of its write-ahead intent and no key was billed twice: the reclaimed
+    attempt replayed (CA$0, `replayed_not_billed`) or the orphan was counted once at its
+    estimate. A billed row with no key (an unguarded path) or two billed rows for one key
+    are violations, as before."""
+    from collections import defaultdict
+
+    from ..core.models import CostEntry
+
+    ids = [j for j in (job_ids or []) if j is not None]
+    if not ids:
+        return []
+    billed: dict[int, list] = defaultdict(list)
+    for jid, amount, detail in session.execute(
+            select(CostEntry.job_id, CostEntry.amount_cad, CostEntry.detail)
+            .where(CostEntry.job_id.in_(ids))).all():
+        d = detail if isinstance(detail, dict) else {}
+        if d.get("billing") == REPLAY_BILLING:
+            continue
+        if float(amount or 0.0) <= 0 and not d.get("paid_call_key"):
+            continue
+        billed[jid].append(d.get("paid_call_key"))
+    out = []
+    for jid, keys in sorted(billed.items()):
+        if any(k is None for k in keys):
+            out.append({"job_id": jid, "why": "paid call(s) with no write-ahead intent "
+                                               "recorded on a re-executed job"})
+        elif len(keys) != len(set(keys)):
+            out.append({"job_id": jid, "why": "one paid-call intent billed more than once"})
+    return out

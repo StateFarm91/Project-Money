@@ -375,6 +375,17 @@ def test_runtime_sigkill_after_payment_replays_and_completes():
     assert outputs["names"] == ["Fern", "Moss", "Bramble"], outputs
     billed = [c for c in _cost_rows(db, jid) if c[0] > 0]
     assert len(billed) == 1, _cost_rows(db, jid)
+    # The soak helper (WIRING REQUEST for ops.slo): paid once under one intent = no violation;
+    # an unkeyed bill on the same reclaimed job = a violation.
+    from brambleloop.core.models import CostEntry
+    from brambleloop.gateway import paid_calls
+
+    with db.session() as s:
+        assert paid_calls.reclaimed_spend_violations(s, [jid]) == []
+        s.add(CostEntry(agent=AGENT, amount_cad=0.01, kind="llm", job_id=jid, detail={}))
+        s.flush()
+        assert paid_calls.reclaimed_spend_violations(s, [jid]), "unkeyed bill is flagged"
+        s.rollback()
 
 
 def test_runtime_sigkill_during_the_call_is_not_blindly_restarted():

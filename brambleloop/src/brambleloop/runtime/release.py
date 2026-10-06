@@ -4385,16 +4385,15 @@ def handle_creative_blinded(ctx: JobContext) -> dict:
     """
     from ..creative import blinded
     from ..creative.audit import catalogue_concepts
-    from ..gateway import routing
-    from ..gateway.anthropic import AnthropicProvider
-    from ..gateway.model_gateway import ModelGateway
+    from ..gateway import failover
 
     # The tier the task is routed to, rather than a model named here. Routing decides which
     # model answers which question and prices it; a handler picking its own would make the
     # ceiling's estimate a guess about a different call than the one being made.
-    _task, tier = routing.route(blinded.TASK)
-    gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
-                           job_id=ctx.job.id)
+    # W-8: the declared tier first, an approved *stronger* fallback when it is down and the
+    # money fits, PARK (retry with backoff) when neither -- never a weaker model.
+    gateway = failover.job_gateway(ctx.db, blinded.TASK, registry=ctx.registry,
+                                   agent="creative_director", job_id=ctx.job.id)
 
     concepts = catalogue_concepts()
     try:
@@ -4448,9 +4447,7 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     from ..core.models import utcnow
     from ..creative import ideation, prospecting
     from ..creative.audit import catalogue_concepts
-    from ..gateway import routing
-    from ..gateway.anthropic import AnthropicProvider
-    from ..gateway.model_gateway import ModelGateway
+    from ..gateway import failover
 
     # C-61: winners that waited on a vision judgement are re-presented first, so a judgement
     # recorded since the last run reaches engineering without waiting for a new winner.
@@ -4506,10 +4503,9 @@ def handle_creative_tournament(ctx: JobContext) -> dict:
     if blocked is not None:
         return blocked
 
-    _task, tier = routing.route(prospecting.IDEATION_TASK)
     gateway = ideation.BriefingGateway(
-        ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
-                     job_id=ctx.job.id), plan)
+        failover.job_gateway(ctx.db, prospecting.IDEATION_TASK, registry=ctx.registry,
+                             agent="creative_director", job_id=ctx.job.id), plan)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
     # #279: the seasonal transformations `seasonal.remerchandising` derived for this event
     # enter the field as entrants, and the funnel judges them beside the generated concepts.
@@ -4600,9 +4596,7 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     """
     from ..creative import ideation, prospecting
     from ..creative.audit import catalogue_concepts
-    from ..gateway import routing
-    from ..gateway.anthropic import AnthropicProvider
-    from ..gateway.model_gateway import ModelGateway
+    from ..gateway import failover
 
     # Deliberately not caught. `NoArenasContradictsEvidence` means the matrix disagrees with
     # the catalogue of listings behind it, and a defect that makes discovery report "nothing
@@ -4634,10 +4628,9 @@ def handle_creative_expedition(ctx: JobContext) -> dict:
     # #117: the expedition's arena loses its saturated, angle-less forms before slots exist.
     arena = ideation.restrict(arena, plan["saturation"]["excluded_forms"])
 
-    _task, tier = routing.route(prospecting.GENERATION_TASK)
     gateway = ideation.BriefingGateway(
-        ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
-                     job_id=ctx.job.id), plan)
+        failover.job_gateway(ctx.db, prospecting.GENERATION_TASK, registry=ctx.registry,
+                             agent="creative_director", job_id=ctx.job.id), plan)
     catalogue = catalogue_concepts() + prospecting.discovered(ctx.db)
 
     try:
@@ -4996,9 +4989,8 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
     from ..core.resilience import PermanentError, TransientError
-    from ..gateway import routing
     from ..gateway.anthropic import AnthropicProvider
-    from ..gateway.model_gateway import ModelGateway
+    from ..gateway import failover
     from ..publish import listing_asset
     from ..seasonal import cycle
 
@@ -5011,12 +5003,11 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     # everything except the one input it needed.
     gateway = None
     if AnthropicProvider.key():
-        _task, tier = routing.route("concept_generation")
         # Certification C-31: with the registry every call is checked against the monthly,
         # provider and agent ceilings, reserved before it leaves and billed to this job.
-        # Without it the gateway did none of the three.
-        gateway = ModelGateway([AnthropicProvider(model=tier.model)], registry=ctx.registry,
-                               job_id=ctx.job.id)
+        # Without it the gateway did none of the three. W-8: through `failover.job_gateway`.
+        gateway = failover.job_gateway(ctx.db, "concept_generation", registry=ctx.registry,
+                                       agent="creative_director", job_id=ctx.job.id)
     if gateway is None:
         return {"ran": False, "reason": ("no model provider credential, so the cycle "
                                          "cannot generate concepts and would stop four "
