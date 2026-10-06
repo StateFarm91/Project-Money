@@ -1,3 +1,11 @@
+> **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
+> `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
+> committed under `visual/assets/canonical/laura-r2-a42aeac7/reference_pack/` with their real provenance (v6 run
+> 2026-09-21). Revision 1 `laura-v15-a42aeac7` and its missing v15 frames stay as history (OA-CANON-1 still open for
+> the v15 bytes as evidence). `canonical.adopt_revision(db)` moves the production registry from revision 1 to 2 once —
+> **not yet run** (deploy step). Further changes need a new owner decision in `AUTHORISED_IDENTITY_CHANGES`. No image
+> is publication-approved; photorealism/identity/Product Truth gates unchanged.
+
 > **2026-10-06 — LAURA: canonical brand face preserved and protected (D-FB-11..13; branch `claude/v11-CANON`, not deployed).**
 > Owner rulings: the frozen model is **Laura**, a persistent AI person and the **Founder/CEO of Brambleloop**; the
 > approved woman is her permanent visual identity (`spec/07_Laura_Owner_Ruling_2026-10-06.md`). **Task #59
