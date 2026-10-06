@@ -260,12 +260,34 @@ def _load_source(s, table: str, sid: str) -> dict:
     return {}
 
 
-def drill(db, metric: str, *, window: str = "30d", now: datetime | None = None) -> dict:
+def drill(db, metric: str, *, window: str = "30d", now: datetime | None = None,
+          refresh: bool = True) -> dict:
+    """See the module docstring. Like `summary`, `refresh=True` first runs the idempotent
+    posting rules; if source rows are still unposted afterwards (refresh off or failed), the
+    figure is UNKNOWN with the reason -- a journal that is behind its sources never shows a
+    measured-looking number (least of all CA$0.00)."""
     now = now or datetime.now(timezone.utc)
     if metric not in METRICS:
         return _unknown(f"unknown metric {metric!r}", now, valid_metrics=sorted(METRICS))
     try:
-        return _drill(db, metric, window, now)
+        from . import posting_rules
+
+        dbx = ensure(db)
+        refresh_error = None
+        if refresh:
+            try:
+                posting_rules.post_all(dbx, now=now)
+            except Exception as exc:  # noqa: BLE001
+                refresh_error = f"posting refresh failed: {type(exc).__name__}"
+        behind = posting_rules.unposted(dbx)
+        if behind["count"]:
+            return _unknown(
+                f"the journal is behind its sources: {behind['count']} source row(s) not "
+                f"yet posted" + (f" ({refresh_error})" if refresh_error else "")
+                + "; the figure is STALE/UNKNOWN until the Finance cycle posts them",
+                now, metric=metric, value_cad=None, reading="UNKNOWN",
+                unposted=behind)
+        return _drill(dbx, metric, window, now)
     except Exception as exc:  # noqa: BLE001
         return _unknown(f"drill unavailable: {type(exc).__name__}: {exc}"[:300], now)
 
