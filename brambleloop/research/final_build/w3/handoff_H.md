@@ -65,7 +65,7 @@ no spend.
 
 - `tests/test_w3_visual_rnd_loop.py`: 8/8 OK.
 - `tests/test_w3_visual_rnd_guard.py`: 6/6 OK.
-- Existing tests re-run: see the final message.
+- Existing re-run, all passing (OK lines = test count): test_disclosed_render 27/27, test_disclosed_render_runtime 3/3, test_canon_manifest 21/21, test_final_visual_authority 10/10, test_fb4_lc 16/16, test_vacuity 7/7, test_secret_scan 6/6.
 
 ## WIRING REQUESTS
 
