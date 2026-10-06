@@ -95,6 +95,34 @@ class FakeProvider:
             sys.modules[self.mod_name] = self.prev
 
 
+class AbsentProvider:
+    """Makes a provider's module unimportable for a block, as if its lane were not merged.
+
+    `sys.modules[name] = None` makes `importlib.import_module(name)` raise ImportError, which
+    is exactly what an unbuilt lane looks like to the command center -- so the absence test
+    holds whether or not the real module exists in this checkout.
+    """
+
+    def __init__(self, *keys):
+        self.mods = sorted({providers.PROVIDERS[k][0] for k in keys})
+
+    def __enter__(self):
+        self.prev = {m: sys.modules.get(m, _MISSING) for m in self.mods}
+        for m in self.mods:
+            sys.modules[m] = None  # type: ignore[assignment]
+        return self
+
+    def __exit__(self, *exc):
+        for m, prev in self.prev.items():
+            if prev is _MISSING:
+                sys.modules.pop(m, None)
+            else:
+                sys.modules[m] = prev
+
+
+_MISSING = object()
+
+
 def _money_values(node, path=""):
     """Every (path, value_cad, state) money object in a JSON tree."""
     out = []
@@ -119,18 +147,60 @@ def _assert_no_unknown_zero(payload):
 
 def test_money_is_unknown_not_zero_when_the_accountant_is_absent():
     c, _ = session()
-    assert not providers.available("accounting")
+    with AbsentProvider("accounting", "accounting_drill"):
+        assert not providers.available("accounting")
+        assert not providers.available("accounting_drill")
+        m = c.get("/api/cc/money").json()
+        assert m["sections"]["accounting"]["status"] == "UNKNOWN"
+        assert m["sections"]["accounting"]["reason"] == "not built"
+        assert m["revenue"]["value_cad"] is None and m["revenue"]["display"] in (
+            "UNMEASURED", "UNKNOWN")
+        assert m["profit"]["value_cad"] is None and m["profit"]["display"] == "UNKNOWN"
+        assert m["source_health"]["warning"], m["source_health"]
+        _assert_no_unknown_zero(m)
+        h = c.get("/api/cc/home").json()
+        assert h["headline"]["profit"]["display"] == "UNKNOWN"
+        _assert_no_unknown_zero(h)
+        d = c.get("/api/cc/money/drill?metric=profit").json()
+        assert d["status"] == "UNKNOWN" and d["items"] == [] and "not built" in d["reason"], d
+    assert providers.available("accounting"), "the absence above must not leak"
+
+
+def test_the_real_accountant_passes_through_and_never_shows_unknown_as_zero():
+    """Lane E's real provider, on this database (order source never connected, no bank):
+    its figures reach the MONEY tab with provenance, and every UNKNOWN stays UNKNOWN."""
+    c, _ = session()
+    assert providers.available("accounting") and providers.available("accounting_drill")
     m = c.get("/api/cc/money").json()
-    assert m["sections"]["accounting"]["status"] == "UNKNOWN"
-    assert m["sections"]["accounting"]["reason"] == "not built"
-    assert m["revenue"]["value_cad"] is None and m["revenue"]["display"] in ("UNMEASURED",
-                                                                             "UNKNOWN")
+    acct = m["sections"]["accounting"]
+    assert acct["provider"] == "brambleloop.finance.accounting.dashboard.summary", acct
+    assert acct["status"] in ("UNKNOWN", "DEGRADED", "OK", "BLOCKED")
+    assert acct["sources"], acct
+    figures = [i for i in acct["items"] if isinstance(i, dict) and "value_cad" in i]
+    assert figures, acct["items"]
+    for it in figures:
+        assert it["state"] in ("MEASURED", "ESTIMATED", "MODELLED", "RECORDED", "UNKNOWN",
+                               "LOWER_BOUND", "STALE"), it
+        assert it["sources"] == [f"finance.accounting.dashboard:{it['metric']}"], it
+        if it["provider_reading"].upper() == "UNKNOWN":
+            assert it["value_cad"] is None and it["display"] == "UNKNOWN", it
+            assert it["actual_cad"] is None and it["estimated_cad"] is None, it
+        if it["value_cad"] is None:
+            assert "0.00" not in it["display"], it
+    by_metric = {i["metric"]: i for i in figures}
+    # No order source and no bank statement on this database: these cannot be numbers.
+    for metric in ("gross_sales", "net_sales", "profit", "cash", "expected_payout",
+                   "safe_discretionary_budget"):
+        assert by_metric[metric]["value_cad"] is None, by_metric[metric]
+        assert by_metric[metric]["state"] == "UNKNOWN", by_metric[metric]
     assert m["profit"]["value_cad"] is None and m["profit"]["display"] == "UNKNOWN"
-    assert m["source_health"]["warning"], m["source_health"]
+    assert m["profit"]["sources"] == ["finance.accounting.dashboard:profit"], m["profit"]
     _assert_no_unknown_zero(m)
     h = c.get("/api/cc/home").json()
     assert h["headline"]["profit"]["display"] == "UNKNOWN"
     _assert_no_unknown_zero(h)
+    d = c.get("/api/cc/money/drill?metric=operating_spend").json()
+    assert d["metric"] == "operating_spend" and "check" in d and "sources" in d, d
 
 
 def test_money_is_unknown_when_the_accounting_source_disconnects():

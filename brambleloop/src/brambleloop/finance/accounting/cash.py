@@ -98,7 +98,11 @@ def position(db, *, now: datetime | None = None, health: dict | None = None) -> 
         "cash_on_hand_cad": to_cad(cash_micros) if cash_micros is not None else None,
         "cash_reading": "measured" if cash_known else "UNKNOWN",
         "cash_why": health["sources"]["bank"]["why"],
-        "expected_payout_cad": to_cad(receivable),
+        # health.figure_reading: a disconnected/never-read order source with no recorded
+        # receivable reads UNKNOWN, and an UNKNOWN figure is None -- never CA$0.00 (F-898).
+        "expected_payout_cad": (None if H.figure_reading(health["sources"]["orders"]["state"],
+                                                         bool(receivable)) == "UNKNOWN"
+                                else to_cad(receivable)),
         "expected_payout_by_basis_cad": {k: to_cad(v, 4) for k, v in
                                          ((b.get(A.ETSY_RECEIVABLE) or {}).get("by_basis")
                                           or {}).items() if v},
