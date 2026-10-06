@@ -3417,14 +3417,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
     from sqlalchemy import select
 
     from ..core.models import OwnerAction
-    from ..gateway.model_gateway import available_providers
-    from ..launch.readiness import assess
     from . import etsy_ops
-
-    try:
-        providers = available_providers()
-    except Exception:  # noqa: BLE001 - a gateway problem must not stop the assessment
-        providers = []
 
     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
 
@@ -3441,16 +3434,18 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
                                                       store=store, job_id=ctx.job.id)["ok"]
                  for slug, v in releases}
 
-    readiness = assess(ctx.db, phase=ctx.phase.value, providers=providers,
-                       storage_durable=store.durable)
-
     # #195 is a launch-blocking acceptance test, so it is an item of this report and not an
     # endpoint beside it. PROVEN only on a window the rows show was worked unattended; a
     # proof that fails, or cannot be computed, is NOT PROVEN and holds `ready` false.
+    # A3-07: computed by the one shared function the owner's launch packet also calls.
     from ..build2 import autonomy
+    from ..launch.readiness import launch_assessment
 
-    off_device = autonomy.launch_item(ctx.db)
-    ready = bool(readiness.ready) and off_device["status"] == autonomy.PROVEN
+    assessed = launch_assessment(ctx.db, phase=ctx.phase.value,
+                                 artifact_dir=ctx.job.inputs.get("artifact_dir"))
+    readiness = assessed.readiness
+    off_device = assessed.off_device
+    ready = assessed.ready
 
     # Build-2 access gates join the same queue rather than starting a second one beside it.
     # Section 14 is explicit that there is one owner queue, and the reason is arithmetic: two
@@ -3545,37 +3540,30 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         # that failed than a company with nothing left for its owner to do, and closing the
         # whole queue on that would destroy the record of what was asked.
         closed: list[str] = []
+        kept_open_not_ours: list[str] = []
         if requests:
             wanted = {r.key for r in requests}
-            from ..improve.upgrades import OWNER_CARD_PREFIXES
 
-            # F-541: a closer may not close an action whose condition still holds. An open
-            # incident that names an owner action (`detail.owner_action`) is that condition,
-            # read now -- e.g. the Etsy re-authorisation an orders run raised -- so its row
-            # stays open whichever subsystem raised it. It closes when the incident's own
-            # detector resolves it on evidence.
+            # A3-03: default-keep. This closer may close ONLY an action it owns -- a key in
+            # READINESS_OWNED_ACTIONS -- and only when that key's own condition re-check,
+            # run now, proves the condition cleared. Every other owner action (correction
+            # notices, stranded test drafts, spend ceilings, ad scaling, club decisions,
+            # Search Visibility readings, improvement cards, Etsy queue items, ...) is closed
+            # by the producer that raised it, on its evidence, or by the owner. "Not asked
+            # for by this assessment" is no longer read as "satisfied".
             held_by_incident = _owner_actions_held_open_by_incidents(s)
             for key, row in open_actions.items():
-                if key in wanted or key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
+                if key in wanted:
                     continue
                 if key in held_by_incident:
-                    continue
-                if key.startswith(NOT_THE_READINESS_PREFIXES_TO_CLOSE):
+                    # F-541: an open incident naming this action is its condition, now.
                     continue
                 if key in withheld:
                     # withheld is not done: the request is not being made yet, and marking
                     # its earlier row done would read as the owner having completed it
                     continue
-                # The improvement pipeline's cards are decisions it raised and closes itself;
-                # this assessment never asked for them, so it is not the one to close them.
-                if key.startswith(OWNER_CARD_PREFIXES):
-                    continue
-                # #165's refresh purchases are raised and bounded by `intel.benchmark_refresh`.
-                if key.startswith("benchmark_refresh:"):
-                    continue
-                # FB-1 B (F-593, F-541): the Etsy owner-only queue and the re-authorisation
-                # action are closed by `runtime.etsy_ops` on the reading their evidence names.
-                if key.startswith(etsy_ops.OWNER_PREFIXES):
+                if not readiness_may_close(key, readiness):
+                    kept_open_not_ours.append(key)
                     continue
                 row.done = True
                 closed.append(key)
@@ -3605,6 +3593,7 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
         "owner_actions_queued": queued,
         "owner_actions_restated": restated,
         "owner_actions_closed": closed,
+        "owner_actions_kept_open_not_readiness_owned": kept_open_not_ours,
         "etsy_owner_queue": etsy_queue,
         "capabilities_unavailable": access.unmet_report()["unmet_capabilities"]})
 
@@ -7458,6 +7447,85 @@ DEFERRED_UNTIL_FIRST_SALE: frozenset[str] = frozenset({
     "legal_and_tax_setup",
     "payment_settings_setup",
 })
+
+
+# ---- A3-03: the owner actions launch.readiness owns, and how each proves it cleared ----
+#
+# The closer used to close every open key it had not generated this run, minus an exemption
+# list. That is default-close: any subsystem whose prefix was missing from the list -- the
+# buyer correction-notice approval, a test draft stranded in the live shop, the monthly
+# spend-ceiling escalation, the launch-week Search Visibility reading -- vanished from the
+# owner's queue with its condition still true. The rule is now inverted: an action is closed
+# here only if its key is one this assessment raises AND its condition re-check passes.
+
+#: Requirement keys whose owner request `launch.readiness.assess` itself generates.
+READINESS_REQUIREMENT_KEYS: frozenset[str] = frozenset({
+    "etsy_shop", "payout", "listing_fees", "physical_calibration", "model_credits",
+    "benchmark_challenge", "brand_clearance", "artifact_storage", "phase",
+})
+
+
+def _requirement_cleared(key: str, readiness) -> bool:
+    """The requirement was assessed on this run and no longer asks the owner for anything."""
+    for r in getattr(readiness, "requirements", ()):
+        if r.key == key:
+            return bool(r.ready) or r.owner_request is None
+    return False  # not assessed this run: unknown is not cleared
+
+
+def _access_cleared(key: str, readiness) -> bool:
+    from ..launch import access
+
+    try:
+        return bool(access.available(key))
+    except KeyError:
+        return False
+
+
+def _credential_cleared(key: str, readiness) -> bool:
+    from ..ops import credential_register as cr
+
+    name = key[len(cr.KEY_PREFIX):]
+    for e in cr.REGISTER:
+        if e.name == name:
+            return e.status == cr.ROTATED
+    return False  # a credential the register does not name cannot be proven rotated
+
+
+def _access_keys() -> frozenset[str]:
+    from ..launch import access
+
+    return frozenset(c.key for c in access.CAPABILITIES)
+
+
+def _credential_prefix() -> str:
+    from ..ops import credential_register as cr
+
+    return cr.KEY_PREFIX
+
+
+#: (matcher, re-check). The matcher says the key is readiness-owned; the re-check proves the
+#: condition behind it is satisfied now. Both must hold for the closer to touch the row.
+READINESS_OWNED_ACTIONS: tuple[tuple[str, object, object], ...] = (
+    ("launch.readiness requirements", lambda k: k in READINESS_REQUIREMENT_KEYS,
+     _requirement_cleared),
+    ("launch.access capability requests", lambda k: k in _access_keys(), _access_cleared),
+    ("ops.credential_register rotations", lambda k: k.startswith(_credential_prefix()),
+     _credential_cleared),
+)
+
+
+def readiness_may_close(key: str, readiness) -> bool:
+    """True only for a readiness-owned key whose condition re-check proves it cleared."""
+    if not key:
+        return False
+    for _name, owns, cleared in READINESS_OWNED_ACTIONS:
+        if owns(key):
+            try:
+                return bool(cleared(key, readiness))
+            except Exception:  # noqa: BLE001 - a re-check that fails proves nothing
+                return False
+    return False
 
 
 def _owner_actions_held_open_by_incidents(session) -> set[str]:

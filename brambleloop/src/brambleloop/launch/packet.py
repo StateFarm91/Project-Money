@@ -101,15 +101,24 @@ def _product(db, rel: dict) -> dict:
             "unknown": ev["summary"]["unknown"]}
 
 
-def _owner_queue(db, phase: str) -> tuple[dict, str | None]:
-    from .readiness import assess
+def _owner_queue(db, phase: str, artifact_dir=None) -> tuple[dict, str | None]:
+    # A3-07: the same function, with the same inputs, the launch.readiness handler uses --
+    # providers, storage durability and the off-device autonomy proof (#195) included.
+    from .readiness import launch_assessment
 
-    r, err = _guard(lambda: assess(db, phase=phase))
-    if r is None:
+    a, err = _guard(lambda: launch_assessment(db, phase=phase, artifact_dir=artifact_dir))
+    if a is None:
         return {"ready": False, "state": UNKNOWN, "owner_actions": [], "buildable": [],
-                "outstanding": [], "unknowns": []}, err
+                "outstanding": [], "unknowns": [], "off_device_autonomy_proof": {
+                    "status": UNKNOWN, "why": "assessment unreadable"}}, err
+    r = a.readiness
+    od = a.off_device
     return {
-        "ready": bool(r.ready), "state": PASS if r.ready else FAIL,
+        "ready": bool(a.ready), "state": PASS if a.ready else FAIL,
+        "readiness_ready_before_off_device_proof": bool(r.ready),
+        "off_device_autonomy_proof": {k: od.get(k) for k in (
+            "key", "blocking", "status", "unmet", "window_hours", "why")},
+        "providers": list(a.providers), "storage_durable": a.storage_durable,
         "owner_actions": [{"key": o.key, "action": o.action, "why": o.reason,
                            "max_cost_cad": o.max_cost_cad, "minutes": o.minutes,
                            "consequence_of_delay": o.consequence_of_delay,
@@ -177,7 +186,7 @@ ACTIVATION_STEPS = (
 
 
 def build(db, *, sha: str, repo_root: Path | None = None, env: dict | None = None,
-          now: datetime | None = None) -> dict:
+          now: datetime | None = None, artifact_dir=None) -> dict:
     """The packet as a dict. Reads only."""
     from ..core import phase as phase_mod
     from ..ops import publication_authority as pa
@@ -186,7 +195,7 @@ def build(db, *, sha: str, repo_root: Path | None = None, env: dict | None = Non
     phase = phase_mod.resolve(db, env)
     releases, err = _guard(launch0_releases, [])
     products = [_product(db, r) for r in releases]
-    queue, queue_err = _owner_queue(db, phase["phase"])
+    queue, queue_err = _owner_queue(db, phase["phase"], artifact_dir)
     limits, limits_err = _guard(lambda: _spend_limits(db), [])
     # The readiness owner queue is launch-wide (account, payout, samples, fees...): every
     # open owner action blocks every product, so each product names them by key.
@@ -276,6 +285,9 @@ def render_markdown(p: dict) -> str:
     L += ["## Open owner gates (from the launch-readiness owner queue)", "",
           f"Readiness: {q['state']}" + (f" (error: {p['owner_queue_error']})"
                                          if p.get("owner_queue_error") else ""), ""]
+    od = q.get("off_device_autonomy_proof") or {}
+    L += [f"Off-device autonomy proof (#195, launch-blocking): {od.get('status', UNKNOWN)}"
+          + (f" -- unmet: {', '.join(od.get('unmet') or [])}" if od.get("unmet") else ""), ""]
     if q["owner_actions"]:
         L += ["| Action | Why | Max cost CAD | Minutes | Consequence of waiting |",
               "|---|---|---|---|---|"]

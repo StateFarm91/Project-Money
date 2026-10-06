@@ -42,10 +42,33 @@ TWO REFUSALS, BOTH COMPUTED
    must still exist, must name the same run and SHA in its header, and must carry the TOTAL line
    with `suites failing: 0` -- the job's own words, re-read, not the record's summary of them.
    Missing, red, filtered, dirty, or contradicted by its log: REFUSE.
+
+TRACKED EVIDENCE ONLY (A3-05). The run record and its log live in `brambleloop/artifacts/`,
+which is gitignored: nobody reviews it, a fresh clone does not have it, and the container
+cannot see it. So `check` no longer believes it. The proof is a TRACKED release record,
+`brambleloop/release/RELEASE_<sha>.json`, written by `record` from the local run record (after
+the checks above pass) together with tracked copies of the run record and its log, each pinned
+by sha256, and bound to the deployable tree digest (`src/**` without bytecode +
+`requirements.lock`) of the SHA the suite ran on. It is committed on top of that SHA (a commit
+cannot contain its own hash) and read by `check` from git at the candidate -- never from the
+working tree. The same record is what the runtime boot guard (`brambleloop.ops.release_record`)
+verifies inside the container, so a push that skipped this hook still runs only as SHADOW.
+
+ROLLBACK (A3-06). Rolling production back is refused by rule 1 -- correctly, for an accident.
+A deliberate rollback is a different act and has its own door: `rollback-commit --to <sha>
+--reason "<owner reason>"` writes a commit on top of the deployed one whose tree is exactly
+the tree of a previously deployed, recorded SHA (`brambleloop/release/DEPLOYED_HISTORY.json`),
+with `Rollback-To:` / `Rollback-Reason:` trailers. `check` recognises it from those trailers:
+the target must be in the deployed history (read from the deployed commit), the tree must be
+identical to the target's, the reason must be stated, and the deployed commit must still be an
+ancestor (it is a fast-forward, so history keeps the forward release). No release record is
+asked of the target: it ran in production before, and that is its evidence. See
+`ops/ROLLBACK_RUNBOOK.md`.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -60,10 +83,26 @@ ZERO = "0" * 40
 RECORD_DIR = REPO / "brambleloop" / "artifacts" / "suite_runs"
 _TOTAL = re.compile(r"^TOTAL PASSING: (\d+) ; suites failing: (\d+)\s*$", re.M)
 
+#: Where the deployable tree and the tracked release evidence live, relative to the repo root.
+#: `prefix` is stripped from paths before hashing, so the digest equals the one the boot
+#: guard computes inside the image (where `brambleloop/` is the working directory).
+LAYOUT = {"prefix": "brambleloop/", "dirs": ("src/",), "files": ("requirements.lock",),
+          "release": "release"}
+HISTORY_FILE = "DEPLOYED_HISTORY.json"
+ROLLBACK_TO = "Rollback-To:"
+ROLLBACK_REASON = "Rollback-Reason:"
+MIN_REASON = 10
+
+
+def _git_raw(repo: Path, *args: str, stdin: bytes | None = None):
+    """The one process this module starts: read-only `git` (plus `commit-tree`, which only
+    writes an unreferenced object for `rollback-commit`)."""
+    return subprocess.run(["git", "-C", str(repo), *args], input=stdin, capture_output=True)
+
 
 def _git(repo: Path, *args: str) -> tuple[int, str]:
-    r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
-    return r.returncode, r.stdout.strip()
+    r = _git_raw(repo, *args)
+    return r.returncode, r.stdout.decode(errors="replace").strip()
 
 
 def resolve(repo: Path, rev: str) -> str | None:
@@ -117,12 +156,230 @@ def _log_confirms(rec: dict, base: Path) -> str | None:
     return None
 
 
+# ---- tracked release evidence (A3-05) ------------------------------------------------------
+
+def deployable(rel: str, layout: dict = LAYOUT) -> bool:
+    """Same rule as `brambleloop.ops.release_record.deployable` (a test holds them equal)."""
+    if rel in layout["files"]:
+        return True
+    if not rel.startswith(tuple(layout["dirs"])):
+        return False
+    return "__pycache__" not in rel.split("/") and not rel.endswith((".pyc", ".pyo"))
+
+
+def tree_digest(entries) -> str:
+    """Same function as `brambleloop.ops.release_record.tree_digest`."""
+    h = hashlib.sha256()
+    for rel, data in sorted(entries, key=lambda e: e[0]):
+        h.update(rel.encode() + b"\0" + hashlib.sha256(data).hexdigest().encode() + b"\n")
+    return h.hexdigest()
+
+
+def _ls_tree(repo: Path, rev: str, *paths: str) -> list[tuple[str, str]]:
+    """(mode, path) for every blob under `paths` at `rev`."""
+    r = _git_raw(repo, "ls-tree", "-r", "-z", rev, "--", *paths)
+    if r.returncode != 0:
+        return []
+    out = []
+    for item in r.stdout.split(b"\0"):
+        if not item:
+            continue
+        meta, path = item.split(b"\t", 1)
+        mode, kind, _obj = meta.decode().split()
+        if kind == "blob":
+            out.append((mode, path.decode()))
+    return out
+
+
+def _blobs(repo: Path, rev: str, paths: list[str]) -> dict[str, bytes | None]:
+    """Contents of `rev:path` for each path, read in one `git cat-file --batch`."""
+    if not paths:
+        return {}
+    r = _git_raw(repo, "cat-file", "--batch",
+                 stdin="".join(f"{rev}:{p}\n" for p in paths).encode())
+    data, pos, out = r.stdout, 0, {p: None for p in paths}
+    for p in paths:
+        nl = data.find(b"\n", pos)
+        if nl < 0:
+            break
+        header = data[pos:nl].decode(errors="replace").split()
+        pos = nl + 1
+        if len(header) == 3 and header[1] == "blob":
+            size = int(header[2])
+            out[p] = data[pos:pos + size]
+            pos += size + 1
+        else:
+            out[p] = None
+    return out
+
+
+def git_tree_digest(repo: Path, rev: str, layout: dict = LAYOUT) -> str:
+    pre = layout["prefix"]
+    roots = [pre + d.rstrip("/") for d in layout["dirs"]] + [pre + f for f in layout["files"]]
+    files = [p for mode, p in _ls_tree(repo, rev, *roots)
+             if mode in ("100644", "100755") and deployable(p[len(pre):], layout)]
+    blobs = _blobs(repo, rev, files)
+    return tree_digest((p[len(pre):], blobs[p] or b"") for p in files)
+
+
+def _record_problems(rec: dict, read) -> list[str]:
+    """Why a release record does not prove its SHA; mirrors release_record.check_record."""
+    reasons: list[str] = []
+    sha = str(rec.get("sha") or "")
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        reasons.append("tracked release record does not name a full commit SHA")
+    if rec.get("release_eligible") is not True:
+        reasons.append("tracked release record is not marked release_eligible")
+    suite = None
+    for label, ref in (("suite run record", rec.get("suite_record") or {}),
+                       ("suite log", rec.get("suite_log") or {})):
+        rel = str(ref.get("path") or "")
+        data = read(rel) if rel and ".." not in rel.split("/") else None
+        if data is None:
+            reasons.append(f"tracked {label} copy {rel!r} is gone from the commit")
+            continue
+        if hashlib.sha256(data).hexdigest() != ref.get("sha256"):
+            reasons.append(f"tracked {label} copy {rel!r} does not match its pinned sha256")
+            continue
+        if label == "suite run record":
+            try:
+                suite = json.loads(data)
+            except ValueError:
+                reasons.append("tracked suite run record is not JSON")
+        else:
+            text = data.decode(errors="replace")
+            if suite is not None and (f"RUN ID: {suite.get('run_id')}" not in text
+                                      or f"GIT SHA: {sha}" not in text):
+                reasons.append("the tracked log does not name this run and SHA; record and "
+                               "log disagree")
+            totals = _TOTAL.findall(text)
+            if not totals:
+                reasons.append("the tracked log has no TOTAL line; the run did not finish")
+            elif int(totals[-1][1]) != 0:
+                reasons.append(f"the tracked log says suites failing: {totals[-1][1]}")
+    if suite is not None:
+        if suite.get("git_sha") != sha:
+            reasons.append("tracked suite run record ran on a different SHA than the record")
+        if not suite.get("release_eligible") or suite.get("status") != "passed":
+            reasons.append(f"tracked suite run record is {suite.get('status')} (scope "
+                           f"{suite.get('scope')}, tree {suite.get('tree')}, failing "
+                           f"{suite.get('suites_failing')}): not release-eligible")
+        elif suite.get("scope") != "full" or suite.get("failing_suites") or int(
+                suite.get("suites_failing") or 0):
+            reasons.append("tracked suite run record is not a full run with zero failing")
+    return reasons
+
+
+def release_proof(repo: Path, cand: str, layout: dict = LAYOUT) -> tuple[dict | None, list[str]]:
+    """The tracked release record at `cand` that proves `cand`'s deployable tree, or why not."""
+    rel_dir = layout["prefix"] + layout["release"]
+    names = [p for _m, p in _ls_tree(repo, cand, rel_dir)
+             if re.fullmatch(r"RELEASE_[0-9a-f]+\.json", p.rsplit("/", 1)[-1])]
+    digest = git_tree_digest(repo, cand, layout)
+    if not names:
+        return None, [f"no tracked release record (and so no suite run record) for "
+                      f"{cand[:12]}: run REQUIRE_CLEAN=1 ./run_tests.sh on exactly the commit, "
+                      f"then `ops/deploy_guard.py record` and commit {rel_dir}/"]
+    blobs = _blobs(repo, cand, names)
+    best: list[str] = [f"no tracked release record in {rel_dir}/ names the deployable tree "
+                       f"digest of {cand[:12]} ({digest[:16]}...)"]
+    for name in names:
+        try:
+            rec = json.loads(blobs.get(name) or b"")
+        except ValueError:
+            continue
+        if rec.get("source_tree_sha256") != digest:
+            continue
+
+        def read(rel: str) -> bytes | None:
+            return _blobs(repo, cand, [f"{rel_dir}/{rel}"]).get(f"{rel_dir}/{rel}")
+
+        why = _record_problems(rec, read)
+        sha = str(rec.get("sha") or "")
+        if not why:
+            code, _ = _git(repo, "merge-base", "--is-ancestor", sha, cand)
+            if code != 0:
+                why = [f"tracked release record names {sha[:12]}, which is not {cand[:12]} "
+                       "or an ancestor of it"]
+        if not why:
+            suite = json.loads(read(rec["suite_record"]["path"]) or b"{}")
+            return {"file": name, "sha": sha, "tree_sha256": digest, "suite": suite}, []
+        best = why
+    return None, best
+
+
+def _commit_message(repo: Path, rev: str) -> str:
+    code, out = _git(repo, "log", "-1", "--format=%B", rev)
+    return out if code == 0 else ""
+
+
+def _trailer(message: str, key: str) -> str:
+    for line in message.splitlines():
+        if line.startswith(key):
+            return line[len(key):].strip()
+    return ""
+
+
+def deployed_history(repo: Path, rev: str, layout: dict = LAYOUT) -> list[str]:
+    """SHAs recorded as having run in production, read from git at `rev` (tracked only)."""
+    path = f"{layout['prefix']}{layout['release']}/{HISTORY_FILE}"
+    data = _blobs(repo, rev, [path]).get(path)
+    try:
+        return [str(e["sha"]) for e in json.loads(data or b"{}").get("deployed", [])
+                if e.get("sha")]
+    except (ValueError, TypeError, KeyError):
+        return []
+
+
+def _rollback(repo: Path, cand: str, dep: str | None, target_arg: str, reason: str,
+              layout: dict) -> list[str]:
+    """Why a deliberate rollback candidate is not sanctioned; empty when it is."""
+    reasons: list[str] = []
+    if len(reason.strip()) < MIN_REASON:
+        reasons.append("rollback needs the owner's stated reason (Rollback-Reason)")
+    target = resolve(repo, target_arg)
+    if target is None:
+        return reasons + [f"rollback target {target_arg!r} is not a commit in this repository"]
+    if dep is None:
+        return reasons + ["deployed commit unknown: a rollback must name what it replaces"]
+    history = set(deployed_history(repo, dep, layout)) | set(
+        deployed_history(repo, cand + "^1", layout))
+    if target not in history:
+        reasons.append(f"rollback target {target[:12]} is not in the tracked deployed history "
+                       f"({layout['release']}/{HISTORY_FILE})")
+    if cand == target:
+        return reasons  # a direct (non-fast-forward) rollback to the exact recorded commit
+    _c, cand_tree = _git(repo, "rev-parse", f"{cand}^{{tree}}")
+    _t, target_tree = _git(repo, "rev-parse", f"{target}^{{tree}}")
+    if not cand_tree or cand_tree != target_tree:
+        reasons.append(f"rollback commit {cand[:12]} does not carry exactly the tree of "
+                       f"{target[:12]}")
+    code, _ = _git(repo, "merge-base", "--is-ancestor", dep, cand)
+    if code != 0:
+        reasons.append(f"rollback commit {cand[:12]} is not on top of deployed {dep[:12]}")
+    return reasons
+
+
 def check(candidate: str, deployed: str | None, *, repo: Path = REPO,
-          record_dir: Path = RECORD_DIR, log_base: Path | None = None) -> dict:
+          record_dir: Path = RECORD_DIR, log_base: Path | None = None,
+          layout: dict = LAYOUT, rollback_to: str = "", rollback_reason: str = "") -> dict:
     reasons: list[str] = []
     cand = resolve(repo, candidate)
     if cand is None:
         reasons.append(f"candidate {candidate!r} is not a commit in this repository")
+
+    # A3-06: a deliberate, owner-reasoned rollback has its own door (see the docstring).
+    message = _commit_message(repo, cand) if cand else ""
+    rollback_to = rollback_to or _trailer(message, ROLLBACK_TO)
+    rollback_reason = rollback_reason or _trailer(message, ROLLBACK_REASON)
+    if cand is not None and rollback_to:
+        dep = resolve(repo, deployed or "")
+        why = _rollback(repo, cand, dep, rollback_to, rollback_reason, layout)
+        return {"verdict": "REFUSE" if why else "ALLOW", "mode": "rollback",
+                "candidate": cand, "deployed": dep,
+                "rollback": {"to": resolve(repo, rollback_to), "reason": rollback_reason},
+                "suite_run": None, "reasons": why,
+                "note": "verdict only; this script never deploys (F-461, A3-06)"}
 
     dep = resolve(repo, deployed or "")
     if not deployed:
@@ -139,26 +396,20 @@ def check(candidate: str, deployed: str | None, *, repo: Path = REPO,
         elif code != 0:
             reasons.append("git could not compute ancestry; refusing rather than guessing")
 
+    # A3-05: only tracked evidence is believed -- the release record, run record and log as
+    # committed at the candidate, bound to its deployable tree. `record_dir`/`log_base` (the
+    # gitignored local run records) are read only by `record`, which makes the tracked copy.
     suite = None
+    proof = None
     if cand is not None:
-        suite = latest_suite(record_dir, sha=cand)
-        if suite is None:
-            reasons.append(f"no suite run record for {cand[:12]}: run REQUIRE_CLEAN=1 "
-                           "./run_tests.sh on exactly this commit")
-        else:
-            eligible = latest_suite(record_dir, sha=cand, eligible_only=True)
-            if eligible is None:
-                reasons.append(
-                    f"latest suite for {cand[:12]} is {suite.get('status')} "
-                    f"(scope {suite.get('scope')}, tree {suite.get('tree')}, failing "
-                    f"{suite.get('suites_failing')}): not release-eligible")
-            else:
-                suite = eligible
-                why = _log_confirms(eligible, log_base or (repo / "brambleloop"))
-                if why:
-                    reasons.append(why)
+        proof, why = release_proof(repo, cand, layout)
+        reasons.extend(why)
+        if proof is not None:
+            suite = proof["suite"]
     return {
-        "verdict": "REFUSE" if reasons else "ALLOW",
+        "verdict": "REFUSE" if reasons else "ALLOW", "mode": "forward",
+        "release_record": None if proof is None else {
+            k: proof[k] for k in ("file", "sha", "tree_sha256")},
         "candidate": cand, "deployed": dep,
         "suite_run": None if suite is None else {k: suite.get(k) for k in (
             "run_id", "status", "git_sha", "scope", "tree", "tests_passing",
@@ -166,6 +417,73 @@ def check(candidate: str, deployed: str | None, *, repo: Path = REPO,
         "reasons": reasons,
         "note": "verdict only; this script never deploys (F-461)",
     }
+
+
+def record_release(sha: str, *, repo: Path = REPO, record_dir: Path = RECORD_DIR,
+                   log_base: Path | None = None, layout: dict = LAYOUT,
+                   now: str = "") -> dict:
+    """Write the tracked release record for `sha` into the working tree (never commits).
+
+    Refuses unless the local run record for exactly `sha` is release-eligible and its log
+    confirms it (the original F-461 checks). Copies the run record and log into
+    `<release>/suite_runs/`, pins both by sha256, and binds them to `sha`'s deployable tree
+    digest. The operator reviews and commits the result; `check` then reads it from git.
+    """
+    full = resolve(repo, sha)
+    if full is None:
+        return {"ok": False, "reasons": [f"{sha!r} is not a commit in this repository"]}
+    rec = latest_suite(record_dir, sha=full, eligible_only=True)
+    if rec is None:
+        return {"ok": False, "reasons": [f"no release-eligible local suite run record for "
+                                         f"{full[:12]}"]}
+    why = _log_confirms(rec, log_base or (repo / layout["prefix"].rstrip("/")))
+    if why:
+        return {"ok": False, "reasons": [why]}
+    raw_log = rec.get("log") or ""
+    base = log_base or (repo / layout["prefix"].rstrip("/"))
+    log_path = Path(raw_log) if Path(raw_log).is_absolute() else base / raw_log
+    rel_dir = repo / (layout["prefix"] + layout["release"])
+    (rel_dir / "suite_runs").mkdir(parents=True, exist_ok=True)
+    rec_bytes = Path(rec["_path"]).read_bytes()
+    log_bytes = log_path.read_bytes()
+    rid = re.sub(r"[^A-Za-z0-9_.-]", "_", str(rec.get("run_id") or full[:12]))
+    (rel_dir / "suite_runs" / f"{rid}.json").write_bytes(rec_bytes)
+    (rel_dir / "suite_runs" / f"{rid}.log").write_bytes(log_bytes)
+    record = {
+        "kind": "brambleloop.release_record", "version": 1, "sha": full,
+        "source_tree_sha256": git_tree_digest(repo, full, layout),
+        "deployable": {"prefix_stripped": layout["prefix"], "dirs": list(layout["dirs"]),
+                       "files": list(layout["files"]),
+                       "excluded": ["__pycache__/", "*.pyc", "*.pyo", "symlinks"]},
+        "suite_record": {"path": f"suite_runs/{rid}.json",
+                         "sha256": hashlib.sha256(rec_bytes).hexdigest()},
+        "suite_log": {"path": f"suite_runs/{rid}.log",
+                      "sha256": hashlib.sha256(log_bytes).hexdigest()},
+        "release_eligible": True, "recorded_at": now or rec.get("finished_utc"),
+        "note": "commit this file and suite_runs/ on top of `sha`; the deploy guard and the "
+                "runtime boot guard read it from git / the image, never from artifacts/",
+    }
+    out = rel_dir / f"RELEASE_{full}.json"
+    out.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+    return {"ok": True, "record": str(out), "sha": full,
+            "tree_sha256": record["source_tree_sha256"]}
+
+
+def rollback_commit(to: str, reason: str, *, deployed: str, repo: Path = REPO,
+                    layout: dict = LAYOUT) -> dict:
+    """Write (do not push) a commit on top of `deployed` carrying exactly `to`'s tree."""
+    dep, target = resolve(repo, deployed or ""), resolve(repo, to)
+    if dep is None or target is None:
+        return {"ok": False, "reasons": ["deployed and target must both be commits here"]}
+    msg = (f"Rollback production to {target[:12]}\n\n{reason.strip()}\n\n"
+           f"{ROLLBACK_TO} {target}\n{ROLLBACK_REASON} {' '.join(reason.split())}\n")
+    r = _git_raw(repo, "commit-tree", f"{target}^{{tree}}", "-p", dep, "-m", msg)
+    sha = r.stdout.decode(errors="replace").strip()
+    if r.returncode != 0 or not sha:
+        return {"ok": False, "reasons": ["git commit-tree failed: "
+                                         + r.stderr.decode(errors="replace").strip()[:300]]}
+    verdict = check(sha, dep, repo=repo, layout=layout)
+    return {"ok": verdict["verdict"] == "ALLOW", "commit": sha, "check": verdict}
 
 
 def deployed_from(explicit: str | None = None, env: dict | None = None) -> tuple[str | None, str]:
@@ -231,6 +549,17 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--deployed", default="")
     c.add_argument("--records", default=str(RECORD_DIR))
     c.add_argument("--repo", default=str(REPO))
+    c.add_argument("--rollback-to", default="")
+    c.add_argument("--reason", default="")
+    rr = sub.add_parser("record")
+    rr.add_argument("--sha", default="HEAD")
+    rr.add_argument("--records", default=str(RECORD_DIR))
+    rr.add_argument("--repo", default=str(REPO))
+    rb = sub.add_parser("rollback-commit")
+    rb.add_argument("--to", required=True)
+    rb.add_argument("--reason", required=True)
+    rb.add_argument("--deployed", default="")
+    rb.add_argument("--repo", default=str(REPO))
     pp = sub.add_parser("pre-push")
     pp.add_argument("remote", nargs="?", default="")
     pp.add_argument("url", nargs="?", default="")
@@ -244,9 +573,21 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     if a.cmd == "check":
         out = check(a.candidate, deployed_from(a.deployed or None)[0], repo=Path(a.repo),
-                    record_dir=Path(a.records))
+                    record_dir=Path(a.records), rollback_to=a.rollback_to,
+                    rollback_reason=a.reason)
         print(json.dumps(out, indent=2, sort_keys=True))
         return 0 if out["verdict"] == "ALLOW" else 1
+    if a.cmd == "record":
+        out = record_release(a.sha, repo=Path(a.repo), record_dir=Path(a.records))
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 0 if out["ok"] else 1
+    if a.cmd == "rollback-commit":
+        out = rollback_commit(a.to, a.reason, deployed=deployed_from(a.deployed or None)[0]
+                              or "", repo=Path(a.repo))
+        print(json.dumps(out, indent=2, sort_keys=True), file=sys.stderr)
+        if out.get("ok"):
+            print(out["commit"])
+        return 0 if out.get("ok") else 1
     if a.cmd == "pre-push":
         out = pre_push(sys.stdin.read().splitlines(), deployed=a.deployed or None,
                        repo=Path(a.repo), record_dir=Path(a.records))

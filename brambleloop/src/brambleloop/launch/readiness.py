@@ -1204,3 +1204,40 @@ def _etsy_exercise_evidence(db) -> dict:
         "drafts_created": len(created),
         "drafts_unmatched": unmatched[:10],
     }
+
+
+# ---- A3-07: one launch assessment, shared by the launch.readiness handler and the packet ----
+
+@dataclass
+class LaunchAssessment:
+    """The launch verdict exactly as the gate computes it.
+
+    `ready` is `readiness.ready` AND the off-device autonomy proof (#195) being PROVEN. The
+    owner's launch packet and the `launch.readiness` job both read this, so the document the
+    owner signs off on is the same computation as the gate -- same providers, same storage
+    durability, same autonomy proof.
+    """
+
+    readiness: Readiness
+    off_device: dict
+    ready: bool
+    providers: list[str]
+    storage_durable: bool
+
+
+def launch_assessment(db, *, phase: str, artifact_dir=None) -> LaunchAssessment:
+    """Read-only: the inputs the handler uses, resolved the way the handler resolves them."""
+    from ..build2 import autonomy
+    from ..core.artifacts import ArtifactStore
+    from ..gateway.model_gateway import available_providers
+
+    try:
+        providers = list(available_providers())
+    except Exception:  # noqa: BLE001 - a gateway problem must not stop the assessment
+        providers = []
+    storage_durable = bool(ArtifactStore(artifact_dir).durable)
+    readiness = assess(db, phase=phase, providers=providers, storage_durable=storage_durable)
+    off_device = autonomy.launch_item(db)
+    ready = bool(readiness.ready) and off_device.get("status") == autonomy.PROVEN
+    return LaunchAssessment(readiness=readiness, off_device=off_device, ready=ready,
+                            providers=providers, storage_durable=storage_durable)

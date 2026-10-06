@@ -1,0 +1,11 @@
+{
+  "kind": "brambleloop.deployed_history",
+  "note": "Commits that have run in production, oldest first. A sanctioned rollback (ops/deploy_guard.py rollback-commit, ops/ROLLBACK_RUNBOOK.md) may only target a SHA listed here. Append an entry after every verified deploy (production /api/status build.commit). Tracked so it is reviewed; never edited to make a rollback pass.",
+  "deployed": [
+    {
+      "sha": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+      "observed": "2026-10-06",
+      "evidence": "brambleloop/research/final_build/CANDIDATE_3be3096.json matrix.basis.production; research/final_build/POSTGRES_MIGRATION_EVIDENCE.md (production fcb982d schema)"
+    }
+  ]
+}

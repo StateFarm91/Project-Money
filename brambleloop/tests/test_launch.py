@@ -787,19 +787,28 @@ def test_an_owner_action_whose_requirement_is_satisfied_closes_itself():
     with db.session() as s:
         # A row for a requirement this assessment does not ask about: the shape of every
         # action whose capability arrived after it was queued.
-        s.add(OwnerAction(requirement_key="a_requirement_since_satisfied",
+        # A3-03: the closer may close only what it owns, on a re-check of its condition.
+        # `physical_calibration` is readiness-owned and its ask is withdrawn (owner parked
+        # it), so the condition behind the row is cleared and the row must close. A key this
+        # assessment does not own must stay open: unknown provenance is not "satisfied".
+        s.add(OwnerAction(requirement_key="physical_calibration",
                           action="Do the thing that is now done", reason="it was needed"))
+        s.add(OwnerAction(requirement_key="a_requirement_since_satisfied",
+                          action="Raised by some other subsystem", reason="it was needed"))
 
     run_readiness("close-2")
     with db.session() as s:
         stale = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == "physical_calibration"))
+        foreign = s.scalar(select(OwnerAction).where(
             OwnerAction.requirement_key == "a_requirement_since_satisfied"))
         still_open = [a.requirement_key for a in s.scalars(
             select(OwnerAction).where(OwnerAction.done == False))]  # noqa: E712
 
     assert stale.done is True, "an action nobody is asking for any more stayed open"
     assert still_open, "closing swept the queue instead of the satisfied row"
-    assert "a_requirement_since_satisfied" not in still_open
+    assert "physical_calibration" not in still_open
+    assert foreign.done is False, "readiness closed an action it does not own (A3-03)"
 
 
 def test_the_owner_is_not_asked_to_crochet_the_calibration_sample():

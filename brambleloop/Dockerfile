@@ -24,6 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-co
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
 
 COPY src ./src
+# A3-05: the tracked release records the runtime boot guard verifies (brambleloop.ops.release_record).
+COPY release ./release
 COPY tests ./tests
 COPY run_tests.sh ./
 
