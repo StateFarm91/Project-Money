@@ -176,9 +176,9 @@ def test_the_real_accountant_passes_through_and_never_shows_unknown_as_zero():
     assert acct["provider"] == "brambleloop.finance.accounting.dashboard.summary", acct
     assert acct["status"] in ("UNKNOWN", "DEGRADED", "OK", "BLOCKED")
     assert acct["sources"], acct
-    items = [i for i in acct["items"] if isinstance(i, dict) and "value_cad" in i]
-    assert items, acct["items"]
-    for it in items:
+    figures = [i for i in acct["items"] if isinstance(i, dict) and "value_cad" in i]
+    assert figures, acct["items"]
+    for it in figures:
         assert it["state"] in ("MEASURED", "ESTIMATED", "MODELLED", "RECORDED", "UNKNOWN",
                                "LOWER_BOUND", "STALE"), it
         assert it["sources"] == [f"finance.accounting.dashboard:{it['metric']}"], it
@@ -187,7 +187,7 @@ def test_the_real_accountant_passes_through_and_never_shows_unknown_as_zero():
             assert it["actual_cad"] is None and it["estimated_cad"] is None, it
         if it["value_cad"] is None:
             assert "0.00" not in it["display"], it
-    by_metric = {i["metric"]: i for i in items}
+    by_metric = {i["metric"]: i for i in figures}
     # No order source and no bank statement on this database: these cannot be numbers.
     for metric in ("gross_sales", "net_sales", "profit", "cash", "expected_payout",
                    "safe_discretionary_budget"):
