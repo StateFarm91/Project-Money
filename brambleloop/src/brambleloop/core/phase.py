@@ -17,6 +17,15 @@ No recorded transition reads as "shadow", so Shadow stays the default and an env
 alone can never take the company out of it. Upward moves go one step at a time and must cite
 readiness and rollback evidence; moving down (rollback) is always allowed with a reason.
 
+rc1-AUTH: a seal alone bound only a row's content, so a copy of an old sealed "production" row
+appended after a rollback restored production (D1). Transitions now form a hash chain
+(`core.sealed_chain`): each row's seal covers a monotonic `seq`, the previous row's id and
+seal, and its `from` must be the previous row's `to`. A replayed, inserted or deleted row
+breaks the chain; a broken chain is no recorded phase (shadow) plus the mismatch incident,
+until the owner records a rebase down to shadow. Upward evidence refs must resolve to real,
+recent `launch.assessed` / `launch.rollback_rehearsed` rows -- passing ones from
+limited_production up (D4).
+
 Nothing here changes the deployed environment, contacts a provider or publishes anything.
 """
 from __future__ import annotations
@@ -86,28 +95,55 @@ def _verify(detail: dict) -> str | None:
     return None
 
 
-def history(db, limit: int = 50) -> list[dict]:
-    """Recorded transitions, newest first, each with whether its seal verifies."""
-    from sqlalchemy import select
+def _link_ok(prev: dict, cur: dict) -> str | None:
+    if prev.get("to") != cur.get("from"):
+        return (f"transition from {cur.get('from')!r} does not continue the previous recorded "
+                f"phase {prev.get('to')!r}")
+    return None
 
-    from .models import AuditLog
+
+def _rebase_ok(cur: dict) -> str | None:
+    if cur.get("to") != DEFAULT:
+        return "a rebase over a broken phase record may only move down to shadow"
+    return None
+
+
+def chain(db) -> dict:
+    """D1: the recorded transitions verified as one hash chain (core.sealed_chain).
+
+    A transition is authority only while every row from the chain's genesis (or the newest
+    owner rebase) to the newest row verifies its seal, names the row before it (id and seal),
+    advances the sequence by one and starts from the phase the previous row recorded. A
+    replayed copy of an old sealed row, an inserted row or a deleted row breaks it.
+    """
+    from . import sealed_chain
 
     with db.session() as s:
-        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == TRANSITION)
-                              .order_by(AuditLog.id.desc()).limit(limit)))
-        out = []
-        for r in rows:
-            detail = dict(r.detail or {})
-            why = _verify(detail)
-            detail.pop("seal", None)
-            out.append({"transition_id": r.id, **detail, "valid": why is None,
-                        "invalid_because": why})
+        rows = sealed_chain.load(s, (TRANSITION,))
+    out = sealed_chain.walk(rows, _verify, link_ok=_link_ok, rebase_ok=_rebase_ok)
+    out["details"] = rows
+    return out
+
+
+def history(db, limit: int = 50) -> list[dict]:
+    """Recorded transitions, newest first, each with whether its seal AND its place in the
+    chain verify (D1: a validly sealed row replayed out of place is not valid)."""
+    c = chain(db)
+    flags = {rid: (ok, why) for rid, ok, why in c["rows"]}
+    out = []
+    for rid, detail in reversed(c["details"][-max(1, int(limit)):] if limit else c["details"]):
+        detail = dict(detail or {})
+        ok, row_why = flags.get(rid, (False, "unverified"))
+        why = None if ok else (row_why or c.get("why") or "phase record chain broken")
+        detail.pop("seal", None)
+        out.append({"transition_id": rid, **detail, "valid": ok, "invalid_because": why})
     return out
 
 
 def latest_recorded(db) -> dict:
     """The newest recorded transition. A newest row that does not verify is not skipped:
-    falling back to an older valid row would let a forged row hide a real rollback."""
+    falling back to an older valid row would let a forged row hide a real rollback -- and
+    since D1 the newest row is valid only when the whole chain up to it verifies."""
     rows = history(db, limit=1)
     if not rows:
         return {"recorded": False, "phase": None, "valid": None, "transition_id": None,
@@ -183,15 +219,62 @@ def _reconcile_incident(db, r: dict) -> None:
                 resolution=f"environment and recorded phase agree on {r['phase']!r}")
 
 
+# D4: what an upward move's evidence refs must resolve to. Each ref is the id of an AuditLog
+# row of the named action, recent enough to describe the system as it is now.
+EVIDENCE_ACTIONS: dict[str, str] = {"readiness": "launch.assessed",
+                                    "rollback": "launch.rollback_rehearsed"}
+EVIDENCE_MAX_AGE_DAYS: dict[str, int] = {"readiness": 7, "rollback": 3}
+# From this phase upward, the cited readiness must say ready and the rehearsal must have held.
+EVIDENCE_MUST_PASS_FROM = Phase.LIMITED_PRODUCTION.value
+
+
+def _resolve_evidence(session, to: str, refs: dict, now: datetime) -> dict:
+    """D4: every required ref names a real, recent record of the right kind (and, for a move
+    into limited_production or production, a passing one). Raises ValueError otherwise."""
+    from .models import AuditLog
+
+    out = {}
+    must_pass = rank(to) >= rank(EVIDENCE_MUST_PASS_FROM)
+    for key in REQUIRED_UPWARD_REFS:
+        action = EVIDENCE_ACTIONS[key]
+        raw = str(refs.get(key, "")).strip()
+        if not raw.isdigit():
+            raise ValueError(f"evidence ref {key!r} must be the id of a recorded {action!r} "
+                             f"row, not {raw[:40]!r}")
+        row = session.get(AuditLog, int(raw))
+        if row is None or row.action != action:
+            raise ValueError(f"evidence ref {key}={raw} does not resolve to a recorded "
+                             f"{action!r} row")
+        at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
+        age_days = (now - at).total_seconds() / 86400
+        if age_days > EVIDENCE_MAX_AGE_DAYS[key] or age_days < -0.01:
+            raise ValueError(f"evidence ref {key}={raw} is {age_days:.1f} days old; it must be "
+                             f"under {EVIDENCE_MAX_AGE_DAYS[key]} days")
+        detail = dict(row.detail or {})
+        verdict = detail.get("ready") if key == "readiness" else detail.get("ok")
+        if must_pass and verdict is not True:
+            raise ValueError(f"evidence ref {key}={raw} does not pass ("
+                             f"{'ready' if key == 'readiness' else 'ok'}={verdict!r}); a move "
+                             f"to {to!r} needs passing readiness and rollback evidence")
+        out[key] = {"id": row.id, "action": action, "at": at.isoformat(),
+                    "passing": verdict is True}
+    return out
+
+
 def record_transition(db, *, authorization, to, reason, evidence_refs=None,
                       env: dict | None = None) -> dict:
-    """Write one sealed PhaseTransition under the owner credential.
+    """Write one sealed, chained PhaseTransition under the owner credential.
 
     `from` is the currently recorded phase (shadow when none). Upward moves go one step at a
-    time and cite `readiness` and `rollback` evidence refs; downward moves (rollback) need a
-    reason only. This records the decision -- the deployment's `BRAMBLELOOP_PHASE` must also be
-    set to the same value before the runtime will run in it.
+    time and cite `readiness` and `rollback` evidence refs that resolve to real records (D4);
+    downward moves (rollback) need a reason only. Each row is chained to the one before it
+    (D1); over a broken chain only a rebase down to shadow may be recorded. This records the
+    decision -- the deployment's `BRAMBLELOOP_PHASE` must also be set to the same value before
+    the runtime will run in it.
     """
+    from . import sealed_chain
+    from .models import AuditLog
+
     opsauth.check(authorization)
     to = str(to or "").strip().lower()
     if to not in ORDER:
@@ -200,36 +283,44 @@ def record_transition(db, *, authorization, to, reason, evidence_refs=None,
         raise ValueError("owner decision reason required")
     refs = evidence_refs if evidence_refs is not None else {}
     if not isinstance(refs, dict) or not all(isinstance(k, str) and isinstance(v, (str, int))
+                                             and not isinstance(v, bool)
                                              and str(v).strip() for k, v in refs.items()):
         raise ValueError("evidence_refs must map evidence kind to a non-empty reference")
-    rec = latest_recorded(db)
-    if rec["recorded"] and not rec["valid"]:
-        # An unverifiable newest row is resolved only by moving down to shadow.
-        current = None
-    else:
-        current = rec["phase"] or DEFAULT
-    if current is None and to != DEFAULT:
-        raise ValueError("newest recorded transition does not verify; record a rollback to "
-                         "shadow before any other move")
-    current = current or DEFAULT
-    if to == current and rec["recorded"] and rec["valid"]:
-        raise ValueError(f"phase is already recorded as {to!r}")
-    if rank(to) > rank(current):
-        if rank(to) != rank(current) + 1:
-            raise ValueError(f"phase moves up one step at a time: {current!r} -> "
-                             f"{ORDER[rank(current) + 1]!r}, not {to!r}")
-        missing = [k for k in REQUIRED_UPWARD_REFS if k not in refs]
-        if missing:
-            raise ValueError(f"an upward phase transition must cite evidence refs {missing}")
-    now = datetime.now(timezone.utc).isoformat()
-    detail = {"principal": PRINCIPAL, "from": current, "to": to, "reason": reason.strip(),
-              "evidence_refs": {k: str(v) for k, v in sorted(refs.items())}, "at": now,
-              "direction": ("up" if rank(to) > rank(current) else
-                            "down" if rank(to) < rank(current) else "reaffirm")}
-    detail["seal"] = _seal(detail)
-    from .models import AuditLog
-
+    now_dt = datetime.now(timezone.utc)
     with db.session() as s:
+        rows = sealed_chain.load(s, (TRANSITION,))
+        c = sealed_chain.walk(rows, _verify, link_ok=_link_ok, rebase_ok=_rebase_ok)
+        if rows and not c["valid"]:
+            # An unverifiable chain is resolved only by an owner rebase down to shadow.
+            if to != DEFAULT:
+                raise ValueError("the recorded phase chain does not verify ("
+                                 f"{c['why']}); record a rollback to shadow before any other "
+                                 "move")
+            current = DEFAULT
+            recorded_valid = False
+        else:
+            current = str(rows[-1][1].get("to")) if rows else DEFAULT
+            recorded_valid = bool(rows)
+        if to == current and recorded_valid:
+            raise ValueError(f"phase is already recorded as {to!r}")
+        evidence = None
+        if rank(to) > rank(current):
+            if rank(to) != rank(current) + 1:
+                raise ValueError(f"phase moves up one step at a time: {current!r} -> "
+                                 f"{ORDER[rank(current) + 1]!r}, not {to!r}")
+            missing = [k for k in REQUIRED_UPWARD_REFS if k not in refs]
+            if missing:
+                raise ValueError(f"an upward phase transition must cite evidence refs {missing}")
+            evidence = _resolve_evidence(s, to, refs, now_dt)
+        detail = {"principal": PRINCIPAL, "from": current, "to": to, "reason": reason.strip(),
+                  "evidence_refs": {k: str(v) for k, v in sorted(refs.items())},
+                  "at": now_dt.isoformat(),
+                  "direction": ("up" if rank(to) > rank(current) else
+                                "down" if rank(to) < rank(current) else "reaffirm"),
+                  **sealed_chain.next_link(rows, c)}
+        if evidence is not None:
+            detail["evidence"] = evidence
+        detail["seal"] = _seal(detail)
         row = AuditLog(actor=PRINCIPAL, action=TRANSITION, artifact=f"phase:{current}->{to}",
                        detail=detail)
         s.add(row)

@@ -522,12 +522,17 @@ def handle_ads_campaign(ctx: JobContext) -> dict:
     state = paid_media.CampaignState(name=slug, spend_today_cad=authority["spent_today_cad"],
                                      spend_month_cad=authority["spent_lifetime_cad"])
     try:
-        paid_media.authorise_spend(state, caps, amount, phase=ctx.phase, owner_granted=True)
+        # rc1-AUTH A1: spend is a protected effect; the phase is re-resolved now (owner's
+        # recorded phase AND environment), never the worker's boot reading.
+        from .worker import protected_phase
+
+        phase_now = protected_phase(ctx)
+        paid_media.authorise_spend(state, caps, amount, phase=phase_now, owner_granted=True)
     except paid_media.PaidMediaNotAuthorised as e:
         detail = {"slug": slug, "amount_cad": amount, "caps": {
             "daily_cad": caps.daily_cad, "campaign_cad": caps.campaign_cad,
             "monthly_cad": caps.monthly_cad, "max_cac_cad": caps.max_cac_cad},
-            "refused_by": str(e), "spent_cad": 0.0, "phase": ctx.phase.value}
+            "refused_by": str(e), "spent_cad": 0.0, "phase": phase_now.value}
         ctx.audit("ads.campaign_planned", artifact=slug, detail=detail)
         return {"planned": True, **detail}
     raise CapabilityNotEnabled(

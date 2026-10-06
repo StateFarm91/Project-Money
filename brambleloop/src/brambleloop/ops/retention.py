@@ -117,6 +117,23 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # persists its own daily reading, so pruning older rows cannot change the series.
     "assets.model_photography": ("windowed",
                                  "visual.drift_series reads WINDOW_DAYS=60 of frames"),
+    # rc1-AUTH D1/D2: owner authority families are sealed hash chains verified from their
+    # genesis on every read; pruning any row of one breaks the chain (fail closed, but it
+    # would refuse every grant and drop the recorded phase to shadow).
+    "owner.phase.transition": ("lifetime_total",
+                               "core.phase.chain verifies every transition from genesis"),
+    "owner.publication.approved": ("lifetime_total",
+                                   "ops.publication_authority grant chain (sealed_chain)"),
+    "owner.publication.revoked": ("lifetime_total",
+                                  "ops.publication_authority grant chain (sealed_chain)"),
+    "owner.publication.rebased": ("lifetime_total",
+                                  "ops.publication_authority grant chain (sealed_chain)"),
+    "owner.activation.approved": ("lifetime_total",
+                                  "ops.activation_authority grant chain (sealed_chain)"),
+    "owner.activation.revoked": ("lifetime_total",
+                                 "ops.activation_authority grant chain (sealed_chain)"),
+    "owner.activation.rebased": ("lifetime_total",
+                                 "ops.activation_authority grant chain (sealed_chain)"),
     "store.published": ("lifetime_total",
                         "app.main /api/verify `nothing_published` counts all of them"),
     "store.publish_refused": ("lifetime_total",

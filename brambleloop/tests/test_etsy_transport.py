@@ -47,6 +47,20 @@ from brambleloop.publish import listing_schema as S  # noqa: E402
 from tests.fake_etsy import FakeEtsy  # noqa: E402
 
 
+def _verified_activation_grant(listing_id: str):
+    """A grant whose database verification is stubbed as passing, for tests of the HTTP
+    sequence only (rc1-AUTH D3). Real verification: tests/test_rc1_auth.py."""
+    from brambleloop.integrations.etsy import OwnerGrant
+
+    class _Verified(OwnerGrant):
+        def refusal(self, *, action, listing_id=""):
+            return None if (action == self.action and str(listing_id) == self.listing_id) \
+                else "grant does not cover this call"
+
+    return _Verified(None, action=OwnerGrant.ACTIVATE, approval_id=1, slug="s", version="1",
+                     listing_id=listing_id)
+
+
 def _client(fake: FakeEtsy, *, phase: str = "shadow", owner: bool = False,
             shadow_writes: bool = True, token: str = "111.live-token",
             provider: object | None = None) -> EtsyClient:
@@ -509,7 +523,8 @@ def test_activation_refuses_a_listing_with_no_image_before_spending_anything():
         client = _client(fake, phase="production", owner=True, shadow_writes=False)
         listing_id = client.create_draft(build_payload(**PAYLOAD))
         try:
-            client.activate(listing_id, launch_authorisation="LAUNCH-0-TEST")
+            client.activate(listing_id, launch_authorisation="LAUNCH-0-TEST",
+                            grant=_verified_activation_grant(listing_id))
         except EtsyRejected as e:
             assert "no image" in str(e), e
         else:
@@ -533,7 +548,8 @@ def test_activation_works_when_it_is_authorised_which_is_why_the_gates_matter():
         client.upload_image(listing_id, filename="cover.png",
                             data=etsy_probe.one_pixel_png())
         client.attach_file(listing_id, filename="pattern.pdf", data=b"%PDF-1.7 bytes")
-        client.activate(listing_id, launch_authorisation="LAUNCH-0-TEST")
+        client.activate(listing_id, launch_authorisation="LAUNCH-0-TEST",
+                            grant=_verified_activation_grant(listing_id))
         assert client.get_listing(listing_id)["state"] == "active"
         # And the safety on deletion holds: an active listing is not a draft.
         try:

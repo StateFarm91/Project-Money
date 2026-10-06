@@ -138,6 +138,11 @@ class PreCreateRefusal(unittest.TestCase):
                                    "expires_at": (now + timedelta(hours=1)).isoformat(),
                                    "seal": "0" * 64}))
         self.assert_refused_before_any_request("invalid")
+        # rc1-AUTH D2: the forged row broke the sealed grant chain, so no new grant can be
+        # recorded on top of it until the owner rebases (which voids every earlier grant).
+        with self.assertRaises(ValueError):
+            self.grant()
+        pa.rebase(self.db, authorization=OWNER_TOKEN, reason="forged row found")
         # A genuine grant whose row is edited afterwards (extended expiry) no longer verifies.
         ident = self.grant()
         with self.db.session() as s:
@@ -146,6 +151,7 @@ class PreCreateRefusal(unittest.TestCase):
             d["expires_at"] = (now + timedelta(days=365)).isoformat()
             row.detail = d
         self.assert_refused_before_any_request("invalid")
+        pa.rebase(self.db, authorization=OWNER_TOKEN, reason="edited row found")
         # A grant sealed under a credential that has since rotated.
         self.grant()
         os.environ["BRAMBLELOOP_OPS_TOKEN"] = OWNER_TOKEN + "-rotated"

@@ -39,7 +39,10 @@ def main() -> int:
     name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"worker-{os.getpid()}"
     log.info("starting worker %s in phase %s", name, phase.value)
 
-    worker = Worker(db, name, phase=phase)
+    # rc1-AUTH A1: the boot-time phase is only the first reading; the worker re-resolves it
+    # for every job (`live_phase`), and protected effects re-resolve it again at their
+    # effect boundaries (`runtime.worker.protected_phase`).
+    worker = Worker(db, name, phase=phase, live_phase=True)
     max_seconds = os.environ.get("BRAMBLELOOP_MAX_SECONDS")
     stats = worker.run(max_seconds=float(max_seconds) if max_seconds else None)
     log.info("worker %s exiting: %s", name, stats)

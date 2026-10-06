@@ -10,7 +10,11 @@ A durable grant is now required at the pre-create boundary:
 * **scoped** -- bound to one `slug@version`, its certified release hash, the digest of the
   certified CIR and the exact listing fields that will be sent (taxonomy included);
 * **expiring** -- 24 hours from approval, never future-dated;
-* **revocable** -- an append-only revocation row, checked at every use;
+* **revocable** -- a sealed revocation row bound to the grant's seal, checked at every use;
+* **chained** (rc1-AUTH D2) -- approvals, revocations and owner rebases form one sealed hash
+  chain (`core.sealed_chain.GrantLedger`). Deleting a revocation or inserting/replaying a row
+  breaks it, which refuses every grant and opens a P1 tamper incident; an unsealed inserted
+  revocation still revokes (fail closed) and is reported as tampering;
 * **audited** -- approval and revocation are `AuditLog` rows under the owner principal.
 
 The environment flag remains only as a global kill-switch: it can additionally DENY (unset
@@ -34,6 +38,7 @@ from ..core.models import AuditLog, Listing, PatternVersion, Product
 
 APPROVED = "owner.publication.approved"
 REVOKED = "owner.publication.revoked"
+REBASED = "owner.publication.rebased"
 PRINCIPAL = "owner:ops-token"
 ACTION = "store.publish"
 KILL_SWITCH_VAR = "BRAMBLELOOP_PUBLISH_AUTHORISED"
@@ -390,22 +395,21 @@ def approve(db, *, authorization, slug, version, release, expected_digest, reaso
               "release": release, "content": content, "digest": digest(content),
               "reason": reason.strip(), "approved_at": now.isoformat(),
               "expires_at": (now + timedelta(hours=GRANT_HOURS)).isoformat()}
-    detail["seal"] = _seal(detail)
-    with db.session() as s:
-        row = AuditLog(actor=PRINCIPAL, action=APPROVED, artifact=f"{slug}@{version}",
-                       detail=detail)
-        s.add(row)
-        s.flush()
-        return {"approval_id": row.id, "digest": detail["digest"],
-                "expires_at": detail["expires_at"], "principal": PRINCIPAL}
+    ident = LEDGER.append(db, action=APPROVED, artifact=f"{slug}@{version}", detail=detail)
+    return {"approval_id": ident, "digest": detail["digest"],
+            "expires_at": detail["expires_at"], "principal": PRINCIPAL}
 
 
 def revoke(db, *, authorization, approval_id):
     opsauth.check(authorization)
-    with db.session() as s:
-        s.add(AuditLog(actor=PRINCIPAL, action=REVOKED, artifact=str(int(approval_id)),
-                       detail={"approval_id": int(approval_id)}))
+    LEDGER.revoke(db, int(approval_id))
     return {"revoked": int(approval_id)}
+
+
+def rebase(db, *, authorization, reason):
+    """Owner re-anchors a broken grant chain. Voids every earlier publication grant."""
+    opsauth.check(authorization)
+    return {"rebase_id": LEDGER.rebase(db, reason), "voids_grants_before": True}
 
 
 def _check_one(db, ident, *, slug, version, release, current):
@@ -415,11 +419,10 @@ def _check_one(db, ident, *, slug, version, release, current):
             return "recorded owner publication grant required"
         if row.artifact != f"{slug}@{version}":
             return "owner publication grant is for another product or version"
-        revoked = s.scalar(select(AuditLog.id).where(AuditLog.action == REVOKED,
-                                                    AuditLog.artifact == str(ident)))
         detail = dict(row.detail or {})
-    if revoked:
-        return "owner publication grant revoked"
+    chained = LEDGER.refusal(db, ident)
+    if chained is not None:
+        return f"owner publication grant refused: {chained}"
     seal = detail.pop("seal", "")
     if not hmac.compare_digest(str(seal), _seal(detail)):
         return "owner publication grant invalid or credential rotated"
@@ -433,6 +436,17 @@ def _check_one(db, ident, *, slug, version, release, current):
     if digest(current) != detail.get("digest"):
         return "owner publication grant does not match current content"
     return None
+
+
+def _make_ledger():
+    from ..core.sealed_chain import GrantLedger
+
+    return GrantLedger(approved=APPROVED, revoked=REVOKED, rebased=REBASED, principal=PRINCIPAL,
+                       seal=_seal, signature=f"authority_chain_tamper:{ACTION}",
+                       label="owner publication grant")
+
+
+LEDGER = _make_ledger()
 
 
 def resolve(db, *, slug, version, release, approval_id=None) -> tuple[str | None, int | None]:

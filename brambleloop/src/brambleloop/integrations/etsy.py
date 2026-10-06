@@ -93,6 +93,71 @@ class EtsyRejected(PermanentError):
     """Etsy refused the listing. The payload is wrong and retrying sends the same payload."""
 
 
+class OwnerGrant:
+    """rc1-AUTH D3: the owner's grant, as the client itself requires it.
+
+    The sealed grant was enforced only at the pipeline call sites; `activate` accepted any
+    non-empty string and `publish` only the phase and the environment flag, so a new caller of
+    the client could bypass the grant. Now `activate` and `publish` require an `OwnerGrant`,
+    and the client calls `refusal()` immediately before the irreversible request. `refusal`
+    does not trust the object: it re-resolves, from the database, the effective runtime phase
+    (`core.phase.effective`: environment AND the owner's recorded, chained transition) and the
+    sealed, content-bound grant (`ops.activation_authority.validate` /
+    `ops.publication_authority.validate`). An id that names no valid grant refuses.
+    """
+
+    ACTIVATE = "store.activate"
+    PUBLISH = "store.publish"
+
+    def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str, version: str,
+                 release: str = "", listing_id: str = "") -> None:
+        if action not in (self.ACTIVATE, self.PUBLISH):
+            raise ValueError(f"unknown grant action {action!r}")
+        self.db, self.action, self.approval_id = db, action, approval_id
+        self.slug, self.version, self.release = slug, version, release
+        self.listing_id = str(listing_id or "")
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return (f"OwnerGrant({self.action} {self.slug}@{self.version} "
+                f"approval={self.approval_id})")
+
+    def refusal(self, *, action: str, listing_id: str = "") -> str | None:
+        """Why this grant does not authorise `action` now, or None. Fails closed."""
+        try:
+            if action != self.action:
+                return f"owner grant is for {self.action}, not {action}"
+            if self.db is None:
+                return "owner grant has no database to be verified against"
+            from ..core.phase import effective
+
+            live = effective(self.db)
+            if live not in PHASES_THAT_MAY_PUBLISH:
+                return (f"the effective runtime phase is {live!r} (environment and the "
+                        f"owner's recorded phase); it does not permit {action}")
+            if action == self.ACTIVATE:
+                if not self.listing_id or str(listing_id) != self.listing_id:
+                    return "owner activation grant names another listing"
+                from ..ops import activation_authority
+
+                return activation_authority.validate(
+                    self.db, self.approval_id, slug=self.slug, version=self.version,
+                    listing_id=self.listing_id, release=self.release)
+            from ..ops import publication_authority
+
+            return publication_authority.validate(
+                self.db, self.approval_id, slug=self.slug, version=self.version,
+                release=self.release)
+        except Exception as exc:  # noqa: BLE001 - an unverifiable grant is no grant
+            return f"owner grant could not be verified: {type(exc).__name__}: {str(exc)[:200]}"
+
+
+def _grant_refusal(grant: Any, *, action: str, listing_id: str = "") -> str | None:
+    if not isinstance(grant, OwnerGrant):
+        return (f"{action} needs a validated owner grant (OwnerGrant) on the call itself; a "
+                f"credential, a phase and an environment flag are not the owner's grant")
+    return grant.refusal(action=action, listing_id=listing_id)
+
+
 def _persisting_on_refresh(db: Any, env: dict[str, str], current_token: str | None = None):
     """The `TokenProvider.on_refresh` hook, wired to the sealed credential store.
 
@@ -1045,7 +1110,8 @@ class EtsyClient:
 
     # ---- activation: the one that costs money ----------------------------
 
-    def activate(self, listing_id: str, *, launch_authorisation: str = "") -> dict[str, Any]:
+    def activate(self, listing_id: str, *, launch_authorisation: str = "",
+                 grant: OwnerGrant | None = None) -> dict[str, Any]:
         """Publish a listing on etsy.com. Implemented, gated, and never yet called.
 
         This is the only method in this system that spends money and the only one whose
@@ -1069,6 +1135,11 @@ class EtsyClient:
                 f"puts a product in front of customers and Etsy charges its listing fee "
                 f"(US${LISTING_FEE_USD:.2f}) at publication, so this is a spend decision, and "
                 f"a spend decision is the owner's.")
+        # rc1-AUTH D3: the client requires the owner's validated grant itself, so no caller
+        # can reach updateListing(state=active) on the strength of a string.
+        if not isinstance(grant, OwnerGrant):
+            raise EtsyNotPermitted(_grant_refusal(grant, action=OwnerGrant.ACTIVATE,
+                                                  listing_id=str(listing_id)))
         current = self.get_listing(listing_id)
         images = current.get("images") or []
         if not images:
@@ -1086,6 +1157,10 @@ class EtsyClient:
                 f"listing {listing_id} is a digital listing with no file attached: 'Digital "
                 f"listings that are not made to order must have a file upload associated "
                 f"with it to be activated.'")
+        # Re-resolved immediately before the one request that spends money and goes public.
+        refused = _grant_refusal(grant, action=OwnerGrant.ACTIVATE, listing_id=str(listing_id))
+        if refused is not None:
+            raise EtsyNotPermitted(f"activation refused at the client: {refused}")
         response = self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",
                               operation="updateListing", authority=Authority.ACTIVATE,
                               form={"state": "active"})
@@ -1095,7 +1170,8 @@ class EtsyClient:
 
     def publish(self, *, payload: ListingPayload, filename: str, data: bytes,
                 images: list[tuple] | None = None,
-                on_created=None, before_create=None) -> PublishOutcome:
+                on_created=None, before_create=None,
+                grant: OwnerGrant | None = None) -> PublishOutcome:
         """Create the draft, attach the file and upload the images, reporting each honestly.
 
         Still creates a draft and still stops there: activation is gated. What has changed is
@@ -1112,9 +1188,19 @@ class EtsyClient:
         reason = self.refusal()
         if reason is not None:
             return PublishOutcome(published=False, problems=[reason])
+        # rc1-AUTH D3: the owner's sealed publication grant, required by the client itself.
+        # No grant object at all is refused before anything else (nothing sent) ...
+        if not isinstance(grant, OwnerGrant):
+            return PublishOutcome(published=False, problems=[
+                _grant_refusal(grant, action=OwnerGrant.PUBLISH)])
 
         if before_create is not None:
             before_create()  # failure aborts before any create request
+        # ... and the grant is re-verified from the database (sealed grant, effective phase)
+        # immediately before the create request, after the caller's own revalidation hook.
+        reason = _grant_refusal(grant, action=OwnerGrant.PUBLISH)
+        if reason is not None:
+            raise EtsyNotPermitted(f"publication refused at the client: {reason}")
         listing_id = self.create_draft(payload)
         # A runtime caller checkpoints the irreversible remote ID before any upload.
         # Callback failure must abort; swallowing it would reopen the duplicate-create gap.

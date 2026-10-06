@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT))
 from brambleloop.core.resilience import TransientError  # noqa: E402
 from brambleloop.integrations.etsy import (  # noqa: E402
     TAG_CHARS_MAX, TAGS_MAX, TITLE_MAX, Credentials, EtsyClient, EtsyNotConfigured,
-    EtsyNotPermitted, EtsyRejected, Response, build_payload,
+    EtsyNotPermitted, EtsyRejected, OwnerGrant, Response, build_payload,
 )
 
 
@@ -78,6 +78,22 @@ CREDS = Credentials(api_key="key", access_token="token", shop_id="shop-1")
 def _granted(transport) -> EtsyClient:
     return EtsyClient(transport, credentials=CREDS, phase="production",
                       owner_authorised=True)
+
+
+class _VerifiedGrantForTransportTests(OwnerGrant):
+    """A grant whose database verification is stubbed as passing, for tests of the HTTP
+    sequence only. The real verification (sealed grant + effective phase) is exercised in
+    tests/test_publish_execution_gate.py and tests/test_rc1_auth.py."""
+
+    def __init__(self, action=OwnerGrant.PUBLISH, listing_id=""):
+        super().__init__(None, action=action, approval_id=1, slug="s", version="1",
+                         listing_id=listing_id)
+
+    def refusal(self, *, action, listing_id=""):
+        return None if action == self.action else "wrong action"
+
+
+GRANT = _VerifiedGrantForTransportTests()
 
 
 # ---- nothing leaves the building ------------------------------------------
@@ -197,7 +213,8 @@ def test_the_payload_says_what_a_digital_pattern_is():
 def test_a_granted_client_creates_a_draft_and_attaches_the_file():
     transport = FakeTransport()
     outcome = _granted(transport).publish(payload=build_payload(**GOOD),
-                                          filename="basket.pdf", data=b"%PDF-1.4 fake")
+                                          filename="basket.pdf", data=b"%PDF-1.4 fake",
+                                          grant=GRANT)
     assert outcome.published is True
     assert outcome.listing_id == "987654321"
     assert outcome.file_uploaded is True
@@ -223,7 +240,8 @@ def test_a_listing_with_no_file_is_reported_as_its_own_outcome():
     nothing. The recovery is to complete or delete it, not to create it again."""
     transport = FakeTransport(file_status=500)
     outcome = _granted(transport).publish(payload=build_payload(**GOOD),
-                                          filename="basket.pdf", data=b"%PDF-1.4 fake")
+                                          filename="basket.pdf", data=b"%PDF-1.4 fake",
+                                          grant=GRANT)
     assert outcome.published is False
     assert outcome.listing_id == "987654321"
     assert outcome.needs_completion is True
@@ -309,20 +327,40 @@ def test_past_shadow_the_client_still_refuses_for_want_of_credentials():
     from brambleloop.runtime.worker import Worker
     from sqlalchemy import select
 
+    import os
+    import sys
+    from pathlib import Path
+    from unittest.mock import patch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from phase_fixture import record_phase_path
+
     tmp = tempfile.mkdtemp()
     db = Database(f"sqlite:///{tmp}/publish2.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
-    JobQueue(db).enqueue("store_operator", "store.publish",
-                         {"slug": "market-basket-trio", "version": "1.0.0"})
-    w = Worker(db, "publish-worker", phase=Phase.PRODUCTION)
-    for _ in range(20):
-        if not w.run_once():
-            break
 
-    with db.session() as s:
-        refusals = [str(r.detail) for r in s.scalars(select(AuditLog))
+    def attempt():
+        JobQueue(db).enqueue("store_operator", "store.publish",
+                             {"slug": "market-basket-trio", "version": "1.0.0"})
+        w = Worker(db, "publish-worker", phase=Phase.PRODUCTION)
+        for _ in range(20):
+            if not w.run_once():
+                break
+        with db.session() as s:
+            return [str(r.detail) for r in s.scalars(select(AuditLog))
                     if r.action == "store.publish_refused"]
+
+    token = "synthetic-owner-ops-credential-for-test-etsy"
+    with patch.dict(os.environ, {"BRAMBLELOOP_OPS_TOKEN": token,
+                                 "BRAMBLELOOP_PHASE": "production"}):
+        # rc1-AUTH A1: a worker started in production with no owner transition recorded
+        # runs the protected effect as shadow -- the boot phase is not authority.
+        refusals = attempt()
+        assert refusals and "shadow mode" in refusals[-1], refusals
+        # With the owner's phase recorded, the phase gate passes and the client refuses.
+        record_phase_path(db, token, "production")
+        refusals = attempt()
     assert refusals, "publishing in production was not even attempted"
     reason = refusals[-1]
     assert "authority matrix" in reason or "credentials" in reason, reason

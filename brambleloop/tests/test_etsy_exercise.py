@@ -226,7 +226,10 @@ def test_a_refused_call_sends_not_one_byte_to_etsy():
 # Activation: unreachable, and pinned
 
 
-ACTIVATE_SOURCE_SHA256 = "1c176679c097260b356ba212d5f1b5868ed3c852f7379a3559dc1ae111975b29"
+# rc1-AUTH D3 (reviewed, deliberate): activate keeps phase, owner authority and the Launch-0
+# string in that order, and adds a fourth gate -- a validated OwnerGrant, type-checked before
+# any request and re-verified from the database immediately before updateListing.
+ACTIVATE_SOURCE_SHA256 = "33fcf6d3c3600c8a41ecf86a48ad684874c873ceb1401934d6da62bf930b973e"
 
 
 def test_activate_keeps_its_three_gates_byte_for_byte():
@@ -244,6 +247,10 @@ def test_activate_keeps_its_three_gates_byte_for_byte():
     assert "self._require(Authority.ACTIVATE)" in source
     assert "if not launch_authorisation.strip():" in source
     assert 'form={"state": "active"}' in source
+    # rc1-AUTH D3: the owner's grant is checked before the request, after the three gates.
+    assert source.index("if not launch_authorisation.strip():") < source.index(
+        "isinstance(grant, OwnerGrant)") < source.index("_grant_refusal(grant") < source.index(
+        'form={"state": "active"}')
 
 
 def test_the_exercise_client_can_never_activate_whatever_the_phase_says():

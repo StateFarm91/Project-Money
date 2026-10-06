@@ -47,8 +47,27 @@ def args():
 def _crash_fixture_publish(*a, **kw):
     # Crash isolation only: fabricated hashes do not establish release approval.
     # Strict final missing-evidence refusals are tested in test_publish_execution_gate.
-    with patch.object(pipeline, "_revalidate_publish_effect", return_value=None):
+    # rc1-AUTH D3: the stock client now re-verifies the owner's sealed grant and the live
+    # phase itself before the create; that check is isolated here for the same reason.
+    from brambleloop.integrations import etsy as _etsy
+    with patch.object(pipeline, "_revalidate_publish_effect", return_value=None), \
+            patch.object(_etsy, "_grant_refusal", return_value=None):
         return pipeline._publish_and_read_back(*a, **kw)
+
+
+def _owner_phase(db):
+    """rc1-AUTH A1: handle_store_publish re-resolves the effective phase (environment AND the
+    owner's recorded transition), so the public-handler leg runs with both saying
+    production, recorded through the real sealed path (synthetic credential)."""
+    import os
+    sys.path.insert(0, str(ROOT / 'tests'))
+    from phase_fixture import record_phase_path
+    token = 'draft-durability-synthetic-owner-credential'
+    env = patch.dict(os.environ, {'BRAMBLELOOP_OPS_TOKEN': token,
+                                  'BRAMBLELOOP_PHASE': 'production'})
+    env.start()
+    record_phase_path(db, token, 'production')
+    return env
 
 
 def crash_case(phase):
@@ -75,8 +94,10 @@ def crash_case(phase):
             if phase=='after_checkpoint':
                 # Existing public handler must stop at the durable Listing.remote ID.
                 # Capability gates are isolated fixtures here, not claimed production PASS.
+                owner_env=_owner_phase(db)
                 with patch.object(pipeline,'_listing_parity',return_value={'verdict':'pass','blocks_release':False}),patch.object(pipeline,'_release_gates',return_value={'blocks_release':False,'reasons':[]}),patch('brambleloop.integrations.etsy.EtsyClient',return_value=remote),patch('brambleloop.integrations.etsy.Credentials.from_env',return_value=None):
-                    result=pipeline.handle_store_publish(ctx(db))
+                    try:result=pipeline.handle_store_publish(ctx(db))
+                    finally:owner_env.stop()
                 assert result['published'] is False and result['etsy_listing_id']=='777'
                 assert remote.creates==1
         finally:db.engine.dispose()

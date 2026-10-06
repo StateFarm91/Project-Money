@@ -70,6 +70,25 @@ class JobContext:
         return self.queue.heartbeat(self.job.id, worker=self.job.leased_by or None)
 
 
+def protected_phase(ctx: "JobContext") -> Phase:
+    """rc1-AUTH A1: the phase a protected external effect may run in, resolved *now*.
+
+    The more restrictive of the phase this job was started with and the effective phase
+    (`core.phase.effective`: the environment AND the owner's latest recorded, chained
+    transition). An owner rollback recorded after the worker booted -- or after the job was
+    claimed -- therefore stops publication, activation and spend at the next effect boundary.
+    Fails closed to shadow.
+    """
+    from ..core import phase as phase_mod
+
+    try:
+        live = phase_mod.effective(ctx.db)
+    except Exception:  # noqa: BLE001 - an unreadable phase is shadow
+        live = phase_mod.DEFAULT
+    started = getattr(ctx.phase, "value", None) or phase_mod.DEFAULT
+    return Phase(phase_mod.more_restrictive(started, live))
+
+
 class HandlerRegistry:
     def __init__(self) -> None:
         self._handlers: dict[str, Handler] = {}
@@ -120,16 +139,29 @@ class Worker:
         job_types: Sequence[str] | None = None,
         registry: HandlerRegistry | None = None,
         lease_seconds: int = 300,
+        live_phase: bool = False,
     ):
         self.db = db
         self.name = name
         self.phase = phase
+        # rc1-AUTH A1: a deployed worker re-resolves the effective phase for every job rather
+        # than keeping the one it booted with, so an owner rollback recorded while it runs
+        # applies to the next job (and `protected_phase` re-checks at each effect boundary).
+        self.live_phase = live_phase
         self.job_types = list(job_types) if job_types else None
         self.queue = JobQueue(db, lease_seconds=lease_seconds)
         self.agents = Registry(db)
         self.handlers = registry or handlers
         self.stats = WorkerStats()
         self._stopping = False
+
+    def _resolve_phase(self) -> Phase:
+        from ..core.phase import effective_phase
+
+        try:
+            return effective_phase(self.db)
+        except Exception:  # noqa: BLE001 - fail closed
+            return Phase.SHADOW
 
     def stop(self, *_a) -> None:
         self._stopping = True
@@ -148,6 +180,8 @@ class Worker:
         if job is None:
             return False
         self.stats.claimed += 1
+        if self.live_phase:
+            self.phase = self._resolve_phase()
 
         # #175: the lane allocation limits how many jobs an agent's lane runs at once. A job
         # over its lane's concurrency goes back to PENDING un-counted (audited swarm.lane_held).
