@@ -124,7 +124,7 @@ TUNABLES: dict[str, Tunable] = {t.name: t for t in (
             why="spacing of a multi-piece hero; tighter pieces are larger in the thumbnail, "
                 "touching pieces merge and fail the verifier's piece count"),
     Tunable("post_grain_sigma", "post_processing", DETERMINISTIC, DISCLOSED_CLASSES,
-            0.0, lo=0.0, hi=6.0, trials=(1.5,),
+            0.0, lo=0.0, hi=6.0, trials=(1.5, 3.0),
             why="film grain after rendering; structure-preserving in `presentation`, but the "
                 "disclosed-render contract refuses off-palette pixels"),
     Tunable("encode_png_level", "encode", DETERMINISTIC, DISCLOSED_CLASSES,
@@ -264,13 +264,18 @@ def label(product_class: str, generation: int, digest: str) -> str:
     return f"{product_class}/g{generation}-{digest[:8]}"
 
 
+def _iso(v) -> str | None:
+    if v is None:
+        return None
+    return (v if v.tzinfo else v.replace(tzinfo=timezone.utc)).isoformat()
+
+
 def _row(r) -> dict:
     return {"id": r.id, "product_class": r.product_class, "generation": r.generation,
             "label": r.label, "params": dict(r.params or {}), "digest": r.digest,
             "parent_id": r.parent_id, "state": r.state, "why": r.why,
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-            "promoted_at": r.promoted_at.isoformat() if r.promoted_at else None,
-            "retired_at": r.retired_at.isoformat() if r.retired_at else None,
+            "created_at": _iso(r.created_at), "promoted_at": _iso(r.promoted_at),
+            "retired_at": _iso(r.retired_at),
             "promoted_on": r.promoted_on}
 
 

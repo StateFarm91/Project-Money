@@ -281,7 +281,9 @@ def _next_work(db) -> list[dict]:
         prod = [j for j in judgements if inc is not None and j.pipeline_id == inc.id
                 and j.arm == "production"]
         if inc is not None and inc.parent_id is not None and inc.promoted_on:
-            since = [j for j in prod if _aware(j.at) >= _aware(inc.promoted_at)]
+            exp = next((e for e in experiments if e.challenger_id == inc.id), None)
+            mark = ((exp.result or {}).get("monitored_through") if exp is not None else None) or 0
+            since = [j for j in prod if _aware(j.at) >= _aware(inc.promoted_at) and j.id > mark]
             if since:
                 items.append(_item("visual.rnd.monitor", f"visual.rnd.monitor:{inc.id}:"
                                    f"{len(since)}", 75,

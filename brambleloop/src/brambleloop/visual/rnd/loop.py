@@ -56,6 +56,9 @@ MARKET_MIN_IMPRESSIONS = 200
 MARKET_MIN_CLICKS = 100
 MARKET_MIN_PURCHASES = 20
 MARKET_Z = 1.96
+# Wall-clock latency on a shared machine jitters by seconds (cold imports, other workers), so
+# the league's latency ratio only blocks when the extra time per task also exceeds this.
+LATENCY_NOISE_FLOOR_S = 5.0
 # A challenger must cut bytes this much (at equal quality and yield) to win on efficiency.
 BYTES_EFFICIENCY = 0.9
 LESSON_MEMORY_DAYS = 30
@@ -268,7 +271,7 @@ def _production(db, version_id: int, *, after=None, arms=("production",)) -> lis
         rows = list(s.scalars(q.order_by(M.VisualJudgement.id)))
         if after is not None:
             rows = [r for r in rows if _aware(r.at) >= _aware(after)]
-        return [{"subject": r.subject, "accepted": r.accepted, "failures": list(r.failures or []),
+        return [{"id": r.id, "subject": r.subject, "accepted": r.accepted, "failures": list(r.failures or []),
                  "score": r.score, "metrics": dict(r.metrics or {}), "at": _aware(r.at),
                  "gates": dict(r.gates or {})} for r in rows]
 
@@ -364,10 +367,12 @@ def compare(inc: dict, ch: dict, *, census: bool) -> dict:
     bytes_ratio = (ch["bytes"] / inc["bytes"]) if inc["bytes"] else 1.0
     efficiency = abs(gain) < 1e-9 and bytes_ratio <= BYTES_EFFICIENCY
     if not blockers and gain <= margin and not efficiency:
-        blockers.append(f"quality gain {gain:+.4f} is within the {margin:.4f} margin for "
+        blockers.append(f"quality gain {gain:+.4f} does not exceed the {margin:.4f} margin for "
                         f"{len(shared)} task(s) and bytes ratio {bytes_ratio:.3f} is no "
                         f"efficiency win")
-    if not blockers and lat_ratio > league.LATENCY_TOLERANCE:
+    lat_extra = (ch["latency_s"] - inc["latency_s"]) / max(1, len(shared))
+    if not blockers and lat_ratio > league.LATENCY_TOLERANCE and \
+            lat_extra > LATENCY_NOISE_FLOOR_S:
         need = margin * 2 * (lat_ratio / league.LATENCY_TOLERANCE)
         if gain <= need:
             blockers.append(f"{lat_ratio:.2f}x the incumbent's latency for {gain:+.4f}, "
@@ -375,6 +380,7 @@ def compare(inc: dict, ch: dict, *, census: bool) -> dict:
     return {"promote": not blockers, "blockers": blockers, "quality_gain": gain,
             "required_margin": round(margin, 4), "census": census,
             "tasks_compared": len(shared), "latency_ratio": round(lat_ratio, 3),
+            "latency_extra_s_per_task": round(lat_extra, 3),
             "bytes_ratio": round(bytes_ratio, 3), "efficiency_win": efficiency and not blockers,
             "incumbent": {k: inc[k] for k in ("version_id", "quality", "yield", "latency_s",
                                                "bytes", "failures")},
@@ -522,6 +528,12 @@ def _experiment_for(db, challenger_id: int):
         return r.id if r is not None else None
 
 
+def _watermark(db, eid: int, through) -> None:
+    with M.session(db) as s:
+        r = s.get(M.VisualExperiment, eid)
+        r.result = {**dict(r.result or {}), "monitored_through": through}
+
+
 def monitor(db, product_class: str, *, now: datetime | None = None) -> dict:
     """MONITOR -> ROLLBACK IF WORSE: production since promotion vs what it replaced."""
     now = now or _now()
@@ -545,11 +557,16 @@ def monitor(db, product_class: str, *, now: datetime | None = None) -> dict:
             rd["quality"] < replaced["quality"] - REGRESSION_TOLERANCE:
         worse.append(f"task score {rd['quality']} < replaced {replaced['quality']} - "
                      f"{REGRESSION_TOLERANCE}")
+    eid = _experiment_for(db, inc["id"])
+    rows = _production(db, inc["id"], after=after)
+    through = max(r["id"] for r in rows) if rows else None
+    if eid:
+        _watermark(db, eid, through)
     if not worse:
-        return {"product_class": product_class, "action": "retain", "readings": rd}
+        return {"product_class": product_class, "action": "retain", "readings": rd,
+                "monitored_through": through}
     why = "production regressed after promotion: " + "; ".join(worse)
     rb = P.rollback(db, product_class, why=why)
-    eid = _experiment_for(db, inc["id"])
     if eid:
         _set_experiment(db, eid, state=ROLLED_BACK, decided_at=now)
     changes = {k: v for k, v in inc["params"].items()
