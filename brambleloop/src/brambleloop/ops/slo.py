@@ -714,18 +714,45 @@ DEPARTMENT_OF_PREFIX: dict[str, str] = {
     "visual": "visual",
     "etsy": "store_commerce", "listing": "store_commerce", "commerce": "store_commerce",
     "store": "store_commerce",
-    "support": "customer_support",
+    "support": "support",
     "finance": "finance",
     "growth": "growth", "ads": "growth",
     "improve": "learn", "learn": "learn",
     "ops": "platform", "model": "platform",
 }
 DEPARTMENTS = ("executive", "intelligence", "product_design", "product_truth", "visual",
-               "store_commerce", "customer_support", "finance", "growth", "learn", "platform")
+               "store_commerce", "support", "finance", "growth", "learn", "platform")
 
 
 def department_of(job_type: str) -> str | None:
+    """Lane A's charter registry is the authority when present; this prefix map otherwise.
+
+    Department keys are the charter keys (`brambleloop.autonomy.charters`), so the two agree.
+    """
+    charter = _charter_lookup()
+    if charter is not None:
+        try:
+            dept = charter(job_type or "")
+            if dept in DEPARTMENTS:
+                return dept
+        except Exception:  # noqa: BLE001
+            pass
     return DEPARTMENT_OF_PREFIX.get((job_type or "").split(".", 1)[0])
+
+
+_CHARTER: list = []
+
+
+def _charter_lookup():
+    """Resolved once per process: a failed import is not retried for every job row."""
+    if not _CHARTER:
+        try:
+            from ..autonomy.charters import department_of as charter_department
+
+            _CHARTER.append(charter_department)
+        except Exception:  # noqa: BLE001 - lane A absent: the fallback map
+            _CHARTER.append(None)
+    return _CHARTER[0]
 
 
 def _self_observing() -> frozenset[str]:
@@ -761,13 +788,23 @@ def departments(s, now: datetime) -> tuple[dict, dict, list[dict]]:
     selfobs = _self_observing()
     judge, judge_src = _did_no_work()
 
+    # Expectations are scaled to how long the company has existed inside the window, from
+    # the first job it ever created. A system started six minutes ago is not 23 hours behind;
+    # judging it against a full day opened an incident per department on the first check
+    # after a fresh start (found by lane I's runtime proof). Under an hour of history the
+    # departments are not judged at all.
+    first_job = _aware(s.scalar(select(func.min(Job.created_at))))
+    span_s = window_s if first_job is None else max(
+        0.0, min(window_s, (now - first_job).total_seconds()))
+    span_hours = int(span_s // 3600)
+
     expected_runs: dict[str, float] = {d: 0.0 for d in DEPARTMENTS}
     fastest: dict[str, int] = {}
     for _name, _agent, job_type, period in cadences:
         dept = department_of(job_type)
         if dept is None or job_type in selfobs:
             continue
-        expected_runs[dept] += window_s / period
+        expected_runs[dept] += span_s / period
         fastest[dept] = min(fastest.get(dept, period), period)
 
     last_attempt: dict[str, datetime] = {}
@@ -801,7 +838,7 @@ def departments(s, now: datetime) -> tuple[dict, dict, list[dict]]:
         hb_window = max(DEPARTMENT_HEARTBEAT_MIN_S, 2 * fastest.get(dept, 0))
         last = last_attempt.get(dept)
         has_hb = last is not None and (now - last).total_seconds() <= hb_window
-        expected_hours = min(slo.window_hours, int(math.ceil(expected_runs[dept])))
+        expected_hours = min(span_hours, int(math.floor(expected_runs[dept])))
         useful = len(useful_hours[dept])
         row = {"department": dept, "last_attempt": last.isoformat() if last else None,
                "heartbeat_window_s": hb_window, "heartbeat": has_hb if last else None,
@@ -810,7 +847,10 @@ def departments(s, now: datetime) -> tuple[dict, dict, list[dict]]:
                "useful_hours_pct": (round(useful / slo.window_hours, 4)),
                "attainment": (round(min(1.0, useful / expected_hours), 4)
                               if expected_hours else None)}
-        if expected_hours and not any(done_counts.values()):
+        if not expected_hours and span_hours < 1 and fastest.get(dept):
+            row["state"] = UNKNOWN
+            row["reason"] = "the company has under an hour of history in the window"
+        elif expected_hours and not any(done_counts.values()):
             # Nothing at all completed in the window: there is no reading, so no department
             # is judged (UNKNOWN, never 0% and never a breach on an empty database).
             row["state"] = UNKNOWN
@@ -823,8 +863,12 @@ def departments(s, now: datetime) -> tuple[dict, dict, list[dict]]:
             attain.append(row["attainment"])
         else:
             row["state"] = UNKNOWN
-            row["reason"] = "no cadence schedules this department; event-driven only"
-        if last is not None or expected_hours:
+            row["reason"] = ("no cadence schedules this department; event-driven only"
+                             if not fastest.get(dept) else
+                             "its cadences are not yet due within the company's history")
+        # A department with no attempt is silent only once it has existed longer than its
+        # own heartbeat window; before that it is not yet judged.
+        if last is not None or (fastest.get(dept) and span_s > hb_window):
             judged_hb += 1
             alive += 1 if has_hb else 0
         rows.append(row)
@@ -837,7 +881,8 @@ def departments(s, now: datetime) -> tuple[dict, dict, list[dict]]:
                      sources=sources)
     else:
         silent = [r["department"] for r in rows
-                  if (r["last_attempt"] or r["expected_hours"]) and not r["heartbeat"]]
+                  if not r["heartbeat"] and (r["last_attempt"] or (
+                      fastest.get(r["department"]) and span_s > r["heartbeat_window_s"]))]
         hb = _result("department_heartbeat", alive / judged_hb, basis="measured",
                      reason=(f"{alive}/{judged_hb} departments attempted work recently"
                              + (f"; silent: {', '.join(silent)}" if silent else "")),
@@ -936,7 +981,10 @@ def check(db, *, now: datetime | None = None) -> dict:
     opened, restated = [], []
     breached: dict[str, dict] = {}
     for key, r in report["slos"].items():
-        if r["state"] == BREACHED:
+        # The useful-work aggregate is the worst department; each department below target
+        # gets its own incident below, so the aggregate would only repeat one of them (F-897:
+        # deduplicated, actionable alerts).
+        if r["state"] == BREACHED and key != "department_useful_work":
             breached[f"{SIG_BREACH}{key}"] = r
     for row in report["departments"]:
         if row.get("state") == BREACHED:
@@ -1042,6 +1090,107 @@ def summary(db) -> dict:
             "basis": "measured" if measured else "unknown", "reason": why, "items": items,
             "sources": sources,
             "definitions": [s.to_dict() for s in SLOS.values()]}
+
+
+# ---------------------------------------------------------------------------
+# Lights-out soak evidence (directive section 16, acceptance section 95 first bullet)
+
+SOAK_MIN_HOURS = 24
+# Actors that mean a human or a development session drove the company during the soak.
+INTERACTIVE_ACTORS = ("owner", "operator", "claude", "codex", "fable", "chatgpt")
+
+
+def soak_report(db, *, start: datetime, end: datetime | None = None) -> dict:
+    """Pass/fail evidence for a lights-out window, computed only from durable rows.
+
+    Refuses to grade a window that has not happened (`end` in the future) and grades a window
+    shorter than 24h as INCOMPLETE rather than PASS: a soak cannot be shortened into a pass.
+    Every criterion names its source; one with no data is UNKNOWN and the verdict is then
+    INCOMPLETE, never PASS.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog, CostEntry, Incident, Job, JobStatus
+
+    real_now = datetime.now(timezone.utc)
+    start = _aware(start)
+    end = _aware(end) or real_now
+    if end > real_now + timedelta(seconds=5):
+        raise ValueError("a soak window cannot end in the future; it has to be lived through")
+    hours = (end - start).total_seconds() / 3600
+    report = evaluate(db, now=end)
+    with _Scope(db) as s:
+        cadence_hours = {int((t - start).total_seconds() // 3600)
+                         for t in _cadence_job_stamps(s, start, end)}
+        done = s.scalar(select(func.count()).select_from(Job).where(
+            Job.status == JobStatus.DONE, Job.finished_at >= start,
+            Job.finished_at <= end)) or 0
+        created = s.scalar(select(func.count()).select_from(Job).where(
+            Job.created_at >= start, Job.created_at <= end)) or 0
+        follow_on = s.scalar(select(func.count()).select_from(Job).where(
+            Job.created_at >= start, Job.created_at <= end,
+            (Job.idempotency_key.is_(None)) | (~Job.idempotency_key.like("cadence:%")))) or 0
+        interactive = [a for (a,) in s.execute(select(AuditLog.actor).where(
+            AuditLog.at >= start, AuditLog.at <= end)).all()
+            if any(a and a.lower().startswith(p) for p in INTERACTIVE_ACTORS)]
+        spent = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                               .where(CostEntry.at >= start, CostEntry.at <= end)) or 0.0)
+        refused = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "spend.refused", AuditLog.at >= start,
+            AuditLog.at <= end)) or 0
+        p1_open = [i.signature for i in s.scalars(select(Incident).where(
+            Incident.severity.in_(["P0", "P1"]), Incident.at >= start, Incident.at <= end))]
+        dup_refusals = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action.in_(["queue.stale_lease_refused", "queue.unfenced_write_refused"]),
+            AuditLog.at >= start, AuditLog.at <= end)) or 0
+    useful_depts = [r["department"] for r in report["departments"] if r["useful_hours"] > 0]
+    slos = report["slos"]
+    expected_hours = max(1, int(math.floor(hours)))
+
+    def crit(name, ok, evidence, source):
+        return {"criterion": name, "result": ("UNKNOWN" if ok is None else
+                                              "PASS" if ok else "FAIL"),
+                "evidence": evidence, "source": source}
+
+    avail = slos["command_center_availability"]
+    criteria = [
+        crit("window lasted at least 24h", hours >= SOAK_MIN_HOURS,
+             {"hours": round(hours, 2)}, "clock"),
+        crit("scheduler kept scheduling (cadence enqueued in every hour)",
+             len(cadence_hours) >= expected_hours,
+             {"hours_with_cadence": len(cadence_hours), "hours": expected_hours},
+             "jobs(idempotency_key LIKE 'cadence:%')"),
+        crit("scheduler freshness SLO met", None if slos["scheduler_freshness"]["sli"] is None
+             else slos["scheduler_freshness"]["state"] in (MET, AT_RISK),
+             {"sli": slos["scheduler_freshness"]["sli"]}, "slo.scheduler_freshness"),
+        crit("work completed (durable cadences executed)", done > 0 if created else None,
+             {"jobs_done": done, "jobs_created": created}, "jobs"),
+        crit("independent departments did useful work", len(useful_depts) >= 3
+             if report["departments"] else None,
+             {"departments_with_useful_work": useful_depts}, "jobs.outputs"),
+        crit("follow-on work was generated by the company itself", follow_on > 0,
+             {"non_cadence_jobs_created": follow_on}, "jobs(idempotency_key)"),
+        crit("no interactive/development actor drove the company", not interactive,
+             {"interactive_audit_rows": len(interactive),
+              "actors": sorted(set(interactive))[:10]}, "audit_log.actor"),
+        crit("owner web surface stayed readable (external probe SLO)",
+             None if avail["state"] == UNKNOWN else avail["state"] in (MET, AT_RISK),
+             {"sli": avail["sli"], "coverage": (avail.get("measure") or {}).get("coverage")},
+             "ops_runtime_samples(probe)"),
+        crit("no duplicated external effect (no fenced double-write)", dup_refusals == 0,
+             {"fenced_refusals": dup_refusals}, "audit_log(queue.*_refused)"),
+        crit("no P0/P1 incident opened", not p1_open, {"p0_p1": p1_open[:10]}, "incidents"),
+    ]
+    verdict = ("FAIL" if any(c["result"] == "FAIL" for c in criteria) else
+               "INCOMPLETE" if any(c["result"] == "UNKNOWN" for c in criteria) else "PASS")
+    if hours < SOAK_MIN_HOURS and verdict == "FAIL" and all(
+            c["result"] != "FAIL" for c in criteria[1:]):
+        verdict = "INCOMPLETE"
+    return {"verdict": verdict, "start": start.isoformat(), "end": end.isoformat(),
+            "hours": round(hours, 2), "criteria": criteria,
+            "spend_cad_in_window": round(spent, 4), "spend_refusals": refused,
+            "basis": "measured from durable rows; nothing in this report is asserted",
+            "slos": {k: {"state": v["state"], "sli": v["sli"]} for k, v in slos.items()}}
 
 
 # ---------------------------------------------------------------------------

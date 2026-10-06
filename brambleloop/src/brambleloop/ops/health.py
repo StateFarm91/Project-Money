@@ -95,7 +95,10 @@ EVIDENCE_WINDOW_S = 12 * 60 * 60
 # looked "fresh" every fifteen minutes and kept `evidence_freshness` green on a system that
 # had produced nothing new. They are excluded from the comparison, not from `progress`:
 # they are real completed work, and none of it is evidence about the business.
-SELF_OBSERVING_JOB_TYPES: frozenset[str] = frozenset({"ops.heartbeat", "ops.health"})
+# `ops.slo` (v1.1, F-924) evaluates objectives over a moving window, so its result differs
+# on every run for the same reason and is excluded for the same reason.
+SELF_OBSERVING_JOB_TYPES: frozenset[str] = frozenset({"ops.heartbeat", "ops.health",
+                                                      "ops.slo"})
 
 # Completed jobs below this in the window means nothing is being achieved.
 PROGRESS_WINDOW_S = 6 * 60 * 60

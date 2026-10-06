@@ -295,11 +295,11 @@ def test_department_useful_work_counts_useful_hours_and_alerts_on_breach():
         hb, uw, rows = slo.departments(s, NOW)
     by = {r["department"]: r for r in rows}
     assert by["finance"]["useful_hours"] == 24 and by["finance"]["state"] == slo.MET, by["finance"]
-    assert by["customer_support"]["useful_hours"] == 0
-    assert by["customer_support"]["state"] == slo.BREACHED
-    assert by["customer_support"]["heartbeat"] is True  # it ran; it just did nothing useful
+    assert by["support"]["useful_hours"] == 0
+    assert by["support"]["state"] == slo.BREACHED
+    assert by["support"]["heartbeat"] is True  # it ran; it just did nothing useful
     report = slo.check(db, now=NOW)
-    sig = f"{slo.SIG_BREACH}department_useful_work:customer_support"
+    sig = f"{slo.SIG_BREACH}department_useful_work:support"
     assert sig in report["incidents"]["opened"], report["incidents"]
     assert _open(db, sig)[0].severity == "P3"
 
@@ -313,6 +313,23 @@ def test_self_observing_jobs_are_never_useful_work():
         _hb, _uw, rows = slo.departments(s, NOW)
     platform = [r for r in rows if r["department"] == "platform"][0]
     assert platform["useful_hours"] == 0 and platform["completed_jobs_window"] == 0
+
+
+def test_a_just_started_company_is_not_judged_against_a_full_day():
+    """Found by the lane I runtime proof: six minutes of history opened twelve incidents."""
+    db = _db()
+    with db.session() as s:
+        t = NOW - timedelta(minutes=6)
+        _job(s, "ops.queue_check", key="cadence:queue_check:1", created=t, started=t,
+             finished=t, outputs={"ran": True, "requeued": 0})
+    with db.session() as s:
+        hb, uw, rows = slo.departments(s, NOW)
+    assert rows
+    for r in rows:
+        assert r["state"] == slo.UNKNOWN, r
+    assert hb["state"] != slo.BREACHED and uw["state"] == slo.UNKNOWN, (hb, uw)
+    report = slo.check(db, now=NOW)
+    assert not [sig for sig in report["incidents"]["opened"] if "department" in sig], report
 
 
 # ---- leases -----------------------------------------------------------------
@@ -356,6 +373,81 @@ def test_prune_removes_only_old_samples():
     slo.record_heartbeat(db, "scheduler", now=NOW - timedelta(days=40))
     slo.record_heartbeat(db, "scheduler", now=NOW - timedelta(days=1))
     assert slo.prune_samples(db, now=NOW) == 1
+
+
+# ---- lights-out soak report ---------------------------------------------------
+
+
+def _soak_rows(db, end, hours, *, actor="orchestrator"):
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        for h in range(hours * 4):
+            t = end - timedelta(minutes=15 * h + 1)
+            _job(s, "ops.heartbeat", key=f"cadence:infra_heartbeat:{h}", created=t, started=t,
+                 finished=t)
+            _job(s, "finance.governor", key=f"cadence:finance_governor:{h}", created=t,
+                 started=t, finished=t, outputs={"ran": True, "moved": 1})
+            _job(s, "support.triage", key=f"cadence:support_triage:{h}", created=t, started=t,
+                 finished=t, outputs={"ran": True, "inspected": 2})
+            _job(s, "improve.mine", key=f"cadence:failure_mine:{h}", created=t, started=t,
+                 finished=t, outputs={"ran": True, "new": 1})
+        _job(s, "growth.follow_on", created=end - timedelta(hours=1))
+        s.add(AuditLog(actor=actor, action="something", at=end - timedelta(hours=2)))
+
+
+def test_soak_cannot_end_in_the_future():
+    db = _db()
+    now = datetime.now(timezone.utc)
+    try:
+        slo.soak_report(db, start=now - timedelta(hours=24), end=now + timedelta(hours=1))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("a soak was graded before it happened")
+
+
+def test_a_short_soak_is_incomplete_never_pass():
+    db = _db()
+    end = datetime.now(timezone.utc)
+    _soak_rows(db, end, 2)
+    r = slo.soak_report(db, start=end - timedelta(hours=2), end=end)
+    assert r["verdict"] == "INCOMPLETE", [(c["criterion"], c["result"]) for c in r["criteria"]]
+
+
+def test_empty_soak_is_not_a_pass():
+    db = _db()
+    end = datetime.now(timezone.utc)
+    r = slo.soak_report(db, start=end - timedelta(hours=25), end=end)
+    assert r["verdict"] != "PASS"
+
+
+def test_a_full_unattended_soak_passes_except_for_unprobed_availability():
+    db = _db()
+    end = datetime.now(timezone.utc)
+    _soak_rows(db, end, 24)
+    r = slo.soak_report(db, start=end - timedelta(hours=24), end=end)
+    res = {c["criterion"]: c["result"] for c in r["criteria"]}
+    assert res["scheduler kept scheduling (cadence enqueued in every hour)"] == "PASS", r
+    assert res["independent departments did useful work"] == "PASS", r
+    assert res["no interactive/development actor drove the company"] == "PASS"
+    # No external probe was recorded, so availability is UNKNOWN and the verdict cannot be PASS.
+    assert res["owner web surface stayed readable (external probe SLO)"] == "UNKNOWN"
+    assert r["verdict"] == "INCOMPLETE"
+    for i in range(24 * 12):
+        slo.record_probe(db, slo.AVAILABILITY_COMPONENT, ok=True,
+                         now=end - timedelta(minutes=5 * i + 1))
+    r = slo.soak_report(db, start=end - timedelta(hours=24), end=end)
+    assert r["verdict"] == "PASS", [(c["criterion"], c["result"], c["evidence"])
+                                    for c in r["criteria"] if c["result"] != "PASS"]
+
+
+def test_an_owner_or_development_session_driving_work_fails_the_soak():
+    db = _db()
+    end = datetime.now(timezone.utc)
+    _soak_rows(db, end, 24, actor="operator")
+    r = slo.soak_report(db, start=end - timedelta(hours=24), end=end)
+    assert r["verdict"] == "FAIL"
 
 
 if __name__ == "__main__":
