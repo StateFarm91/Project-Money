@@ -113,6 +113,17 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # W3 K4/K7: the launch verdict, rollback baseline and stale-artefact sentinel are read as
+    # the newest row only (assurance, owner_queue, command_center.tabs, launch.visibility,
+    # core.phase readiness evidence), so pruning older rows changes nothing they show.
+    "launch.assessed": ("latest", "assurance/owner_queue/cc tabs/launch.visibility/core.phase "
+                                  "read the newest verdict"),
+    "ops.rollback_baseline": ("latest", "ops.assurance reads the newest baseline"),
+    "ops.sentinel": ("latest", "ops.assurance reads the newest sentinel run"),
+    # W3 K4: a product's launch plan/hold is read over ALL rows (launch.demand, launch.readiness
+    # "uncalendared"): a product planned once stays planned, so pruning would un-plan it.
+    "launch.planned": ("lifetime_total", "launch.demand/readiness: ever planned per product"),
+    "launch.held": ("lifetime_total", "launch.demand: ever held per product"),
     # K8: the customer workspace lists the newest 50 defect candidates only, so pruning rows
     # older than the horizon cannot change what it shows.
     "support.defect_candidate": ("windowed",
