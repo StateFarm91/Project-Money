@@ -63,6 +63,16 @@ SAFE_GENERATED: dict[str, str] = {
     "marketing.ads_readiness": "runtime.v11_wiring: eligibility re-evaluated; spends and "
                                "activates nothing (refuses if it ever reports either)",
     "ops.slo": "ops.slo.check: 'The only side effect is incident rows'",
+    # W3 lane D wiring for lane H: the Visual R&D cycle. Deterministic renders and rows only;
+    # paid challengers are planned (queued for an owner decision), never executed; the handler
+    # refuses if a cycle ever reports a paid execution.
+    "visual.rnd.cycle": "autonomy.visual_rnd_job: deterministic, CA$0, no network; paid arms "
+                        "are only planned for the owner",
+    # W3 lane D, closure K15 (F-909/F-916): the accountant's tax pack and handoff pack built
+    # for the last closed month as a memory record. Preparation only: files nothing, writes no
+    # file, moves no money.
+    "finance.accounting.period_pack": "autonomy.period_packs: tax_pack.pack + handoff.pack "
+                                      "read the books; one company_memory row; files nothing",
     "improve.sandbox": "docstring: 'Spends nothing and calls no model'; promotes only a "
                        "pre-authorised tier, every other tier goes to the owner queue",
     "improve.monitor": "docstring: 'GREEN: reads capability points, may revert an "
@@ -146,8 +156,10 @@ CHARTERS: tuple[Charter, ...] = (
        mission="Prioritise company work across departments, keep every department supplied "
                "with the next highest-value safe work, and present only genuine owner "
                "decisions upward (F-893, F-894).",
-       agents=("coo", "orchestrator", "swarm_steward"),
-       prefixes=("autonomy.", "plan.", "swarm.", "portfolio."),
+       agents=("coo", "orchestrator", "swarm_steward", "laura"),
+       # "laura.": Laura's executive tick (W3-D) sits above the COO in the executive
+       # department, so it is never paused (F-889) and never counted as department work.
+       prefixes=("autonomy.", "plan.", "swarm.", "portfolio.", "laura."),
        job_types={"scale.trajectory", "launch.readiness", "launch.plan", "ops.capacity",
                   "build.tick"},
        generatable=("autonomy.morning_handoff", "scale.trajectory",
@@ -223,7 +235,8 @@ CHARTERS: tuple[Charter, ...] = (
        job_types={"creative.image_benchmark", "creative.model_tournament",
                   "creative.model_reference_pack", "creative.model_freeze",
                   "creative.photoreal_calibration", "seasonal.cycle_proof"},
-       generatable=("visual.identity_drift", "autonomy.department_review"),
+       generatable=("visual.identity_drift", "visual.rnd.cycle",
+                    "autonomy.department_review"),
        forbidden=("generate imagery that misrepresents the pattern",
                   "buy renders from idleness (renders stay on their budgeted cadences)"),
        inputs=("pattern_versions", "listing_assets", "model_identities"),
@@ -279,7 +292,7 @@ CHARTERS: tuple[Charter, ...] = (
        job_types=set(),
        generatable=("finance.reconcile", "commerce.order_readings", "commerce.readings",
                     "finance.escalation_check", "finance.accounting.cycle",
-                    "autonomy.department_review"),
+                    "finance.accounting.period_pack", "autonomy.department_review"),
        forbidden=("move money, file tax, borrow, sign contracts or change bank details",
                   "present an estimate as an actual"),
        inputs=("cost_entries", "ledger", "orders", "spend_reservations"),

@@ -782,6 +782,9 @@ JOB_BANDS: dict[str, str] = {
     "learn.scan": "exploration",
     "creative.white_space": "exploration",
     "commerce.readings": "exploration",
+    "listing.outcomes": "exploration",          # W3 K3: same band as commerce.readings
+    # W3 lane H via lane D: learning with no committed value until a challenger wins.
+    "visual.rnd.cycle": "exploration",
     "commerce.orders_ingest": "exploration",
     # F-005: a read-only Etsy taxonomy snapshot, behind the etsy_api gate.
     "listing.taxonomy_refresh": "exploration",
@@ -815,9 +818,12 @@ JOB_BANDS: dict[str, str] = {
     "autonomy.orchestrate": "truth_defect",
     "autonomy.department_review": "housekeeping",
     "autonomy.morning_handoff": "housekeeping",
+    # W3-D: Laura's executive tick sits above the COO; same band as the company loop.
+    "laura.executive_tick": "truth_defect",
     "ops.slo": "truth_defect",
     "seo.cycle": "housekeeping",
     "finance.accounting.cycle": "housekeeping",
+    "finance.accounting.period_pack": "housekeeping",   # W3 K15: accountant pack, prep only
     "marketing.ads_readiness": "housekeeping",
 }
 

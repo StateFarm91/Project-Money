@@ -706,6 +706,20 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # actions become owner approval items, never jobs. `Scheduler.tick` also wakes it at once
     # when the whole queue is empty, so an empty queue never means an idle company.
     ("executive_orchestrator", "coo", "autonomy.orchestrate", 15 * 60),
+    # Wave 3 lane D (D-FB-13): Laura's executive tick -- Laura -> COO -> departments ->
+    # results -> Laura. Deterministic, GREEN, CA$0; she is also woken by the COO when a
+    # mission she delegated closes (laura.executive.results_wake).
+    ("laura_executive", "laura", "laura.executive_tick", 5 * 60),
+    # Wave 3 K3 (F-258), integrator wiring via lane D: the listing-outcome producer, daily.
+    # GREEN: Etsy read-only (getListingsByShop) behind the existing client gate, this database
+    # only; until now it ran inside commerce.readings, which still calls it first.
+    ("listing_outcomes", "cfo", "listing.outcomes", 24 * 60 * 60),
+    # Wave 3 lane H via lane D: the Visual R&D loop (autonomy.visual_rnd_job). Deterministic,
+    # CA$0, ~2-3 min CPU per cycle; paid challengers are only planned for the owner.
+    ("visual_rnd", "publishing", "visual.rnd.cycle", 6 * 60 * 60),
+    # Wave 3 closure K15 (F-909/F-916): the accountant's tax + handoff pack for the last closed
+    # month, kept as a company_memory row (autonomy.period_packs). Prepared, never filed.
+    ("accounting_period_pack", "cfo", "finance.accounting.period_pack", 24 * 60 * 60),
     # v1.1 wiring (integrator). Each handler is registered in runtime.v11_wiring.
     # Lane I (F-924): SLOs evaluated and slo.* incidents raised/closed. Stored notifications
     # only; a watchdog, so it is never thrash-suspended (swarm LIVENESS_JOB_TYPES).
