@@ -32,7 +32,8 @@ from sqlalchemy import select  # noqa: E402
 from brambleloop.core import phase as P  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import AuditLog, Incident, Phase  # noqa: E402
-from phase_fixture import record_phase_path, synthetic_evidence  # noqa: E402
+from phase_fixture import (record_phase_path, synthetic_evidence,  # noqa: E402
+                           synthetic_readiness)
 
 TOKEN = "rc1-auth-synthetic-owner-credential-not-a-secret"
 
@@ -177,7 +178,8 @@ def test_A1_deployed_workers_are_built_live():
 def _record_up_to_production(db):
     for t in P.ORDER[1:]:
         P.record_transition(db, authorization=TOKEN, to=t, reason="up",
-                            evidence_refs=synthetic_evidence(db), env={P.ENV_VAR: t})
+                            evidence_refs=synthetic_evidence(db), env={P.ENV_VAR: t},
+                            readiness_verdict=synthetic_readiness)
 
 
 def test_D1_replayed_old_sealed_production_row_does_not_restore_production():
@@ -231,7 +233,8 @@ def test_D1_deleted_inserted_and_copied_rows_break_the_chain():
         # a copied genesis row appended later is not a genesis
         db = _db()
         P.record_transition(db, authorization=TOKEN, to="staging", reason="up",
-                            evidence_refs=synthetic_evidence(db))
+                            evidence_refs=synthetic_evidence(db),
+                            readiness_verdict=synthetic_readiness)
         P.record_transition(db, authorization=TOKEN, to="shadow", reason="down")
         with db.session() as s:
             first = s.scalar(select(AuditLog).where(AuditLog.action == P.TRANSITION)
@@ -389,7 +392,8 @@ def test_D4_upward_evidence_refs_must_resolve_to_real_recent_passing_records():
     with patch.dict(os.environ, {"BRAMBLELOOP_OPS_TOKEN": TOKEN}):
         def up(to, refs):
             return P.record_transition(db, authorization=TOKEN, to=to, reason="up",
-                                       evidence_refs=refs)
+                                       evidence_refs=refs,
+                                       readiness_verdict=synthetic_readiness)
 
         def refused(to, refs, needle):
             try:

@@ -123,6 +123,12 @@ READINGS: dict[str, Reading] = {
         {"rule": "offsite_ads_mandatory_above_threshold", "text": "participation is optional under US$10,000 in any consecutive 365 days and mandatory for the shop's lifetime once reached", "affects": ["growth", "paid_media"]},
         {"rule": "onsite_etsy_ads", "text": "Etsy Ads (onsite) are a separate daily-budget product; ads may not make claims the listing does not", "affects": ["paid_media"]},
         {"rule": "no_spend_without_owner", "text": "Brambleloop: no paid media until the owner grants ad authority (#242-#245 remain owner-gated)", "affects": ["paid_media"]},
+        # F-264 / F-265 thresholds, held in the watched reading (F-291) so a guidance change
+        # moves the digest and invalidates the assumptions built on them. Their basis is the
+        # owner's master spec v0.8 statement of current Etsy guidance; the Etsy Ads help page
+        # itself was not read (HTTP 403), which `status` says.
+        {"rule": "onsite_ads_min_daily_budget", "text": "Etsy guidance recommends at least US$3-5 per day initially and, when practical, promoting all active listings to gather engagement data", "affects": ["paid_media", "growth"], "status": "UNVERIFIED: owner master spec v0.8 F-264; Etsy Ads help page not read (403)"},
+        {"rule": "onsite_ads_per_listing_controls_threshold", "text": "per-listing strategies (visibility / efficient / lower click cost) need a daily budget of at least US$25; below it those controls are not available", "affects": ["paid_media"], "status": "UNVERIFIED: owner master spec v0.8 F-265; Etsy Ads help page not read (403)"},
     ], [
         ("https://help.etsy.com/hc/en-us/articles/360000338367-How-Etsy-s-Offsite-Ads-Work", "If your shop has made $10,000 USD or more in any consecutive 365-day period, participation in Offsite Ads is required."),
         ("https://help.etsy.com/hc/en-us/articles/360000338367-How-Etsy-s-Offsite-Ads-Work", "you'll be charged a 15% fee on the order total for an order attributed to an Offsite Ad ... a discounted fee of 12%"),
@@ -214,6 +220,30 @@ TOPICS: dict[str, Reading] = {
         ("https://help.etsy.com/hc/en-us/articles/115015628707-How-to-Create-a-Listing", "How to Create a Listing"),
     ]),
 }
+
+
+def _search_guidance() -> Reading:
+    """The search guidance reading (F-242), built from lane G's dated constraint record.
+
+    Every limit the search code enforces (`commerce.search` / `commerce.seo` constants and
+    `publish.listing_schema`'s tag rule) is a conclusion here, with the excerpt and date it
+    rests on, so a changed reading changes this digest and the watch sees it.
+    """
+    from ..seo import constraints as SC
+
+    keys = ("title_max_chars", "tag_max_count", "tag_max_chars", "tag_no_leading_symbol",
+            "attributes_act_like_tags", "search_visibility_page")
+    rows = [SC.BY_KEY[k] for k in keys if k in SC.BY_KEY]
+    return Reading(
+        source="search_guidance", read_on=SC.RETRIEVED_ON, basis=BASIS_EXCERPT,
+        urls=tuple(dict.fromkeys(r.url for r in rows)),
+        conclusions=tuple({"rule": r.key, "text": r.rule, "value": r.value,
+                           "status": r.status, "affects": ["listing", "search"]}
+                          for r in rows),
+        excerpts=tuple(Excerpt(r.url, r.quote) for r in rows if r.quote))
+
+
+READINGS["search_guidance"] = _search_guidance()
 
 
 def all_readings() -> dict[str, Reading]:

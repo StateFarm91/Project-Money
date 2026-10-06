@@ -28,6 +28,12 @@ def synthetic_evidence(db) -> dict:
         return {"readiness": str(ready.id), "rollback": str(rehearsed.id)}
 
 
+def synthetic_readiness(db, to) -> dict:
+    """A synthetic ready verdict for hermetic fixtures. Not a readiness assessment."""
+    return {"ready": True, "synthetic_fixture": True, "assessed_at_phase": to,
+            "questions": {}, "failing": []}
+
+
 def record_phase_path(db, token, to="production"):
     """Idempotent: records only the steps above the currently recorded phase."""
     rec = P.latest_recorded(db)
@@ -36,4 +42,5 @@ def record_phase_path(db, token, to="production"):
         P.record_transition(db, authorization=token, to=target,
                             reason=f"synthetic fixture transition to {target}",
                             evidence_refs=synthetic_evidence(db),
-                            env={P.ENV_VAR: target})
+                            env={P.ENV_VAR: target},
+                            readiness_verdict=synthetic_readiness)

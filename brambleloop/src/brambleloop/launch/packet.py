@@ -127,6 +127,8 @@ def _owner_queue(db, phase: str, artifact_dir=None) -> tuple[dict, str | None]:
                          "blocked_by": q.blocked_by} for q in r.outstanding],
         "buildable": [q.key for q in r.buildable],
         "unknowns": list(r.unknowns)[:40],
+        # F-300: the same verdict, answered as six separate questions.
+        "questions": _guard(lambda: a.questions, {"ready": False, "answers": {}})[0],
     }, None
 
 
@@ -288,6 +290,14 @@ def render_markdown(p: dict) -> str:
     od = q.get("off_device_autonomy_proof") or {}
     L += [f"Off-device autonomy proof (#195, launch-blocking): {od.get('status', UNKNOWN)}"
           + (f" -- unmet: {', '.join(od.get('unmet') or [])}" if od.get("unmet") else ""), ""]
+    qs = (q.get("questions") or {}).get("answers") or {}
+    if qs:
+        L += ["### Launch verdict, question by question (F-300)", "",
+              "| Question | Answer | Failing |", "|---|---|---|"]
+        for ans in qs.values():
+            L.append(f"| {ans['question']} | {'yes' if ans['pass'] else 'NO'} | "
+                     f"{', '.join(ans['failing']) or '-'} |")
+        L.append("")
     if q["owner_actions"]:
         L += ["| Action | Why | Max cost CAD | Minutes | Consequence of waiting |",
               "|---|---|---|---|---|"]

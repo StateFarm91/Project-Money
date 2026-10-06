@@ -44,7 +44,11 @@ def test_a_dotted_literal_in_a_module_without_a_dynamic_import_is_not_an_edge():
         assert name not in edges or R._path_of(name) is None, name
 
 
-def test_without_the_rule_the_provider_modules_were_invisible():
+def test_provider_modules_are_reached_by_ordinary_imports_even_without_the_rule():
+    # Lane D (wave 3) moved the orchestrator and Laura to ordinary imports of the department
+    # status modules, so the provider modules no longer depend on the dotted-literal rule:
+    # they must be reachable with the rule switched off (stronger than the original check,
+    # which asserted the rule was the only thing that made them visible).
     saved = R._DOTTED_MODULE
     try:
         R._DOTTED_MODULE = re.compile(r"(?!x)x")
@@ -56,8 +60,8 @@ def test_without_the_rule_the_provider_modules_were_invisible():
         R._imports_cached.cache_clear()
         R._reachable_cached.cache_clear()
     after = R.reachable()
-    gained = after - before
-    assert set(PROVIDER_MODULES) <= gained, gained
+    assert PROVIDER_MODULES
+    assert set(PROVIDER_MODULES) <= before, set(PROVIDER_MODULES) - before
     assert before <= after
 
 
