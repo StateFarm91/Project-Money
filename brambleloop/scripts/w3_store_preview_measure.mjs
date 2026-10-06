@@ -3,7 +3,7 @@
 // Usage: node scripts/w3_store_preview_measure.mjs <html-dir> <out-dir> [--shots]
 // <html-dir> holds v1_mobile.html, v2_mobile.html, v1_desktop.html, v2_desktop.html (and
 // optionally compare_desktop.html), written by
-// `python -m brambleloop.store_foundation.preview_evidence`. Writes <out-dir>/B_metrics.json
+// scripts/w3_store_preview_evidence.py. Writes <out-dir>/B_metrics.json
 // and, with --shots, small JPEG screenshots. Offline: pages are self-contained (data: URIs).
 import fs from "node:fs";
 import path from "node:path";
@@ -121,7 +121,7 @@ for (const [name, w, h] of pages) {
   if (!name.startsWith("compare")) result[name] = await page.evaluate(measureInPage, { H: h, JARGON });
   if (shots) {
     if (name.startsWith("compare")) {
-      await page.screenshot({ path: path.join(out, `B_${name}.jpg`), type: "jpeg", quality: 62, fullPage: false, clip: { x: 0, y: 0, width: w, height: 1100 } });
+      await page.screenshot({ path: path.join(out, `B_${name}.jpg`), type: "jpeg", quality: 60, fullPage: true, clip: { x: 0, y: 0, width: w, height: 1700 } });
     } else {
       const y = await page.evaluate(() => { const f = document.querySelector(".frame"); return f.getBoundingClientRect().top + scrollY; });
       await page.screenshot({ path: path.join(out, `B_${name}_top.jpg`), type: "jpeg", quality: 62, fullPage: true, clip: { x: 0, y, width: w, height: h } });

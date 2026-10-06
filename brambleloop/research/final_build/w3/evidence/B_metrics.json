@@ -1,0 +1,78 @@
+{
+ "as_of": "2026-10-06T14:42:33.589Z",
+ "basis": "Chromium (Playwright headless), first screen = 844 px (phone) / 800 px (desktop) of the shop below the preview bar",
+ "v1_mobile": {
+  "image_share_pct": 20.2,
+  "words_first_screen": 94,
+  "jargon_first_screen": 7,
+  "jargon_terms": [
+   "compiler",
+   "machine",
+   "checked row by row",
+   "row by row",
+   "arithmetic",
+   "release"
+  ],
+  "distinct_font_sizes": 8,
+  "body_px": 13.5,
+  "headline_px": 22,
+  "headline_to_body_ratio": 1.63,
+  "min_contrast_first_screen": 5.6,
+  "tap_targets": 23,
+  "tap_targets_under_44": 23,
+  "horizontal_overflow_px": 0,
+  "first_screen_text": "Brambleloop Studio Crochet patterns checked row by row before they are sold Canada · Digital crochet patterns · New shop — no reviews yet Message Brambleloop Studio (inactive in preview) Every row's stitch count checked by a compiler Each pattern re-read from the finished text before release Announcement Crochet patterns with the arithmetic checked by machine before release. Charts and written instructions always agree. All items 3 Home & Table 2 Baby & Nursery 1 Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | 3 Sizes | US and UK Terms Cloudline Textured Baby Blanket | Crochet Patte"
+ },
+ "v2_mobile": {
+  "image_share_pct": 28.6,
+  "words_first_screen": 74,
+  "jargon_first_screen": 0,
+  "jargon_terms": [],
+  "distinct_font_sizes": 5,
+  "body_px": 14,
+  "headline_px": 28,
+  "headline_to_body_ratio": 2,
+  "min_contrast_first_screen": 6.31,
+  "tap_targets": 25,
+  "tap_targets_under_44": 0,
+  "horizontal_overflow_px": 0,
+  "first_screen_text": "Brambleloop Studio Crochet patterns for a life you make by hand Canada · Digital crochet patterns · New shop, no reviews yet Follow shop Message Announcement Welcome to Brambleloop. Calm, beautiful crochet patterns for home and nursery, written clearly, with free corrections for every buyer. All 3 Home 2 Baby 1 3 sizes Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | 3 Sizes | US and UK Terms Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms"
+ },
+ "v1_desktop": {
+  "image_share_pct": 15.2,
+  "words_first_screen": 105,
+  "jargon_first_screen": 7,
+  "jargon_terms": [
+   "compiler",
+   "machine",
+   "checked row by row",
+   "row by row",
+   "arithmetic",
+   "release"
+  ],
+  "distinct_font_sizes": 7,
+  "body_px": 12.5,
+  "headline_px": 28,
+  "headline_to_body_ratio": 2.24,
+  "min_contrast_first_screen": 5.6,
+  "tap_targets": 23,
+  "tap_targets_under_44": 23,
+  "horizontal_overflow_px": 0,
+  "first_screen_text": "Brambleloop Studio Crochet patterns checked row by row before they are sold Canada · Digital crochet patterns · New shop — no reviews yet Message Brambleloop Studio (inactive in preview) Every row's stitch count checked by a compiler Each pattern re-read from the finished text before release US and UK terms, as two complete PDFs Corrections sent free to every buyer Sell what you make, by hand or in small batches Every image labelled as a rendering, never a photo Instant PDF download through Etsy Announcement Crochet patterns with the arithmetic checked by machine before release. Charts and wri"
+ },
+ "v2_desktop": {
+  "image_share_pct": 34.4,
+  "words_first_screen": 61,
+  "jargon_first_screen": 0,
+  "jargon_terms": [],
+  "distinct_font_sizes": 9,
+  "body_px": 14,
+  "headline_px": 36,
+  "headline_to_body_ratio": 2.57,
+  "min_contrast_first_screen": 6.31,
+  "tap_targets": 25,
+  "tap_targets_under_44": 0,
+  "horizontal_overflow_px": 0,
+  "first_screen_text": "Digital rendering Digital rendering Brambleloop Studio Crochet patterns for a life you make by hand Canada · Digital crochet patterns · New shop, no reviews yet Follow shop Message Laura Brambleloop's AI founder Internal preview — canonical reference, not publication-approved Announcement Welcome to Brambleloop. Calm, beautiful crochet patterns for home and nursery, written clearly, with free corrections for every buyer. All 3 Home 2 Baby 1 3 sizes"
+ }
+}
