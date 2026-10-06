@@ -165,6 +165,12 @@ try {
   await page.fill("#dlg-reason", "Gates pass; staging only.");
   await page.fill("#dlg-pass", PASSPHRASE);
   await page.click("dialog.dlg button[data-dlg=confirm]");
+  // Wait for the action itself, not "a toast is on": the "Cancelled. Nothing changed." toast
+  // from the cancel step above can still be visible, which raced this check under load.
+  const actPath = "/api/cc/actions/publication.approve";
+  for (let i = 0; i < 150 && !(await postLog()).slice(before).some((e) => e.path === actPath); i++) {
+    await page.waitForTimeout(100);
+  }
   await page.waitForSelector(".toast.is-on");
   const log = (await postLog()).slice(before);
   const stepUp = log.find((e) => e.path === "/api/cc/auth/step-up");
