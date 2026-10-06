@@ -101,9 +101,19 @@ def candidates(db) -> tuple[list[dict], int]:
             Job.status == JobStatus.DONE, Job.finished_at >= since)) or 0
     ensure_tables(db)
     with db.session() as s:
+        # Only refusals that look like an attack count: bad credentials, CSRF, replays and
+        # unauthenticated *mutations*. An expired session reloading a tab, or the owner's own
+        # action refused by an authority, is not a security event worth waking anyone for.
+        from sqlalchemy import and_, or_
+
         refused = s.scalar(select(func.count()).select_from(SecurityEvent).where(
             SecurityEvent.outcome == "refused",
-            SecurityEvent.at >= _now() - timedelta(hours=1))) or 0
+            SecurityEvent.at >= _now() - timedelta(hours=1),
+            or_(SecurityEvent.reason.like("BAD_CREDENTIALS%"),
+                SecurityEvent.reason.like("CSRF%"), SecurityEvent.reason.like("REPLAY%"),
+                SecurityEvent.reason.like("RATE_LIMITED%"),
+                and_(SecurityEvent.reason.like("NOT_AUTHENTICATED%"),
+                     SecurityEvent.method != "GET")))) or 0
     if refused >= SECURITY_BURST:
         hour = _now().strftime("%Y-%m-%dT%H")
         out.append({"dedupe_key": f"security_refusals:{hour}", "severity": "critical",

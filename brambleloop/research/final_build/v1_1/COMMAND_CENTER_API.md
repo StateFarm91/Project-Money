@@ -36,9 +36,9 @@ F-898, F-899, F-925, F-927, F-928, F-929.
   `CSRF` (403), `REPLAY` (409), `STALE_REQUEST` (400), `STEP_UP_REQUIRED` (403),
   `RATE_LIMITED` (429), `LOGIN_NOT_CONFIGURED` (503), `BAD_CREDENTIALS` (401),
   `REFUSED_BY_AUTHORITY` (409: the existing authority mechanism refused — message says why),
-  `BAD_REQUEST` (400), `NOT_FOUND` (404). `503` with `{"error": ...}` means the operator
-  credential (`BRAMBLELOOP_OPS_TOKEN`) is not configured server-side: the whole command
-  center is closed (fail closed).
+  `BAD_REQUEST` (400), `NOT_FOUND` (404), `OPS_UNCONFIGURED` (503: the operator credential
+  `BRAMBLELOOP_OPS_TOKEN` is not configured server-side, so the whole command center is
+  closed — fail closed; `auth/status` still answers).
 * **Every refused attempt is audited** (table `cc_security_events`), visible in ACCOUNT.
 
 ### The status envelope (every tab section / provider)
@@ -54,10 +54,13 @@ Every department section has this shape (the cross-lane provider contract):
 **Rendering rules for the client (F-898):**
 * `status == "UNKNOWN"` → render the word UNKNOWN (with `reason`), never `0`, `$0.00` or `—`
   that could read as zero.
-* A money value is an object `{"value_cad": number|null, "state": "MEASURED|ESTIMATED|
-  MODELLED|UNKNOWN|UNMEASURED", "basis": ..., "display": "CA$12.34"|"UNKNOWN", "sources": [...]}`.
-  Render `display`. `value_cad` is `null` whenever the state is not measured/estimated; the
-  client must never coerce `null` to 0.
+* A money value is an object `{"value_cad": number|null, "state": "MEASURED|RECORDED|
+  ESTIMATED|MODELLED|UNKNOWN|UNMEASURED", "basis": ..., "display": "CA$12.34"|
+  "CA$0.42 (recorded)"|"UNKNOWN"|"UNMEASURED", "sources": [...], "why": "..."}`.
+  Render `display`. `value_cad` is `null` whenever the state is not
+  MEASURED/RECORDED/ESTIMATED/MODELLED; the client must never coerce `null` to 0.
+  `RECORDED` = the sum of rows this system wrote (e.g. governed spend), not a reconciled
+  all-in figure — show the "(recorded)" suffix.
 * `basis` must be shown next to any estimated/modelled figure ("estimated", "modelled").
 
 ## 1. Authentication (F-887, F-888)
@@ -241,3 +244,67 @@ missing; nothing is invented. No model is called (no paid API calls in v1.1 lane
   (no inline script or style — put styles in a `.css` file).
 * Service worker must live at `/cc/sw.js` (scope `/cc/`). Do not cache `/api/cc/*` responses
   as current truth (F-898); show the `as_of` of any cached view as stale.
+
+## 8. Exact response shapes (as implemented — authoritative where §2–§6 summarise)
+
+* `GET /api/cc/home` → `{"tab":"HOME","generated_at","last_seen_at","headline":{
+  "revenue": Money, "profit": Money, "store": {"products","certified","on_etsy","status",
+  "reason"}, "launch": {"phase","status"}, "autonomy": {"status","reason",
+  "jobs_completed_24h"}, "incidents_open": int|null, "owner_decisions": int},
+  "sections": {"changes_since_last_view","autonomy","store","products","money","incidents",
+  "owner_actions","work_24h","launch","opportunities"}}` (every section an envelope).
+  `null` counts mean UNKNOWN.
+* `GET /api/cc/brief/morning?hours=12` (1–72) → `{"tab":"MORNING_BRIEF","window_hours",
+  "since","sections":{"what_changed","completed","money_spent" (+`total`: Money RECORDED),
+  "incidents","discoveries","overnight_autonomy","queued_actions" (+`pending_total`),
+  "decisions_needed"}}`.
+* `GET /api/cc/approvals` → `{"tab":"APPROVALS","status","reason","cards":[ApprovalCard],
+  "open","waiting_on_data","external_capability_unavailable","note","sources"}`.
+  `GET /api/cc/approvals/{card_id}` → one ApprovalCard or 404 `NOT_FOUND`. Card ids contain
+  `:` — URL-encode them. In a PUBLICATION card the `publication.approve` params carry
+  `"expected_digest": "<from publication.preview>"`: call the preview action first and use
+  its `result.digest`.
+* `GET /api/cc/money` → `{"tab":"MONEY","status","reason","revenue":Money,"profit":Money,
+  "recorded_spend":Money (+`by_kind`,`label`),"source_health":{"order_source_measured",
+  "last_read_at","why","warning"},"sections":{"accounting","spend_limits"}}`. When
+  `source_health.warning` is set, show it prominently.
+* `GET /api/cc/money/drill?metric=` → an envelope; `items` are source rows each with
+  `source` (`table:id`). Without lane E only `recorded_spend` drills (cost entries);
+  everything else is UNKNOWN with the reason.
+* `GET /api/cc/operations` → `{"sections":{"slo","autonomy","queue" (+`dead_letters`,
+  `last_job_done_at`),"incidents" (+`open_total`),"agents" (+`paused`)},"emergency":{...}}`.
+* `GET /api/cc/operations/drill?kind=job|incident|audit|agent&id=` → envelope with
+  `items:[row]`, `responsible_agent`, `audit_history:[{id,at,actor,action,artifact,source}]`,
+  `confidence`.
+* `GET /api/cc/autonomy` (= `/learn`) → `{"sections":{"autonomy","improvement","jobs_24h",
+  "hours_since_owner_action","improvements","lessons","experiments"},
+  "last_useful_action":{id,agent,job_type,finished_at,source}|null}`.
+* `GET /api/cc/insights` → `{"sections":{"seo","ads","experiments","lessons","improvements"}}`.
+* `GET /api/cc/timeline?limit=50` (1–200) → `{"events":[{at,actor,action,artifact,summary,
+  source,origin:"audit_log"|"autonomy.status.timeline"}],"sources","autonomy_timeline":
+  {"status","reason"}}` newest first.
+* `GET /api/cc/notifications` → `{"notifications":[Notification],"digest":[Notification],
+  "policy":{quiet_hours,min_severity,digest,channels,external_channels},"quiet_hours_now",
+  "suppressed_count","refresh":{created,deduplicated,resolved,suppressed},"sources"}`.
+* `GET /api/cc/account` → `{"owner":{principal,login_configured,totp_required,
+  stepup_window_seconds},"sessions":[Session],"security_events":[{id,at,kind,outcome,method,
+  route,reason,session_id}],"refused_attempts_24h","model_providers":{configured,note},
+  "authorities":{phase,live_grants},"notification_policy","emergency",
+  "sections":{"connected_services","budgets"}}`.
+* `POST /api/cc/actions/{action}` → `{"ok":true,"action","result":{...},"audit_id":int|null}`
+  (`audit_id` is null for the read-only `*.preview` actions). `publication.preview` →
+  `result = {"content","digest","display":[{section,state,passing,why}]}`.
+  `improvement.approve` / `challenger.approve` take `{"id": int, "why": "at least three
+  words"}`.
+* `GET /api/cc/emergency` → `{"phase":{phase,env,recorded_phase,agree,why},
+  "departments":[{department,agents,registered,paused,paused_agents,pausable,
+  never_paused_because}],"spend":{scopes:[{scope,paused,paused_by_command_center,source}],
+  all_paused,no_scopes_configured},"publishing":{agents,paused,live_grants,grants_status},
+  "paused_by_command_center":{agent:reason},"never_paused":{department:reason},"sources"}`.
+  Departments: executive, intelligence, product_design, product_truth, visual, store,
+  support, finance, growth, learn, platform. Never paused: executive, product_truth,
+  finance, platform.
+* `POST /api/cc/emergency/pause` → `{scope,department,agents_disabled,spend_scopes_paused,
+  grants_revoked,audit_id,still_running}`; `resume` → `{scope,department,agents_enabled,
+  spend_scopes_unpaused,left_alone,audit_id,phase_note}`; `kill` → `{transition,pause,
+  effective_phase,audit_id}`.

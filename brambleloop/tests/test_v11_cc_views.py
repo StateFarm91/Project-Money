@@ -307,6 +307,28 @@ def test_notifications_suppress_routine_noise_and_surface_real_incidents():
     assert n3["policy"]["external_channels"].startswith("GATED")
 
 
+def test_security_notification_counts_attacks_not_expired_tabs():
+    from brambleloop.app.command_center.models import SecurityEvent
+
+    with DB.session() as s:
+        s.query(SecurityEvent).delete()
+    anon = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
+    for _ in range(10):
+        assert anon.get("/api/cc/home").status_code == 401  # an expired tab reloading
+    c, _ = session()
+    keys = [n["dedupe_key"] for n in c.get("/api/cc/notifications").json()["notifications"]]
+    assert not [k for k in keys if k.startswith("security_refusals")], keys
+    prober = TestClient(main.app, base_url="https://testserver",
+                        headers={"user-agent": "credential-prober"})
+    for i in range(5):
+        assert prober.post("/api/cc/auth/login", json={"passphrase": f"x{i}"}).status_code == 401
+    notes = c.get("/api/cc/notifications").json()["notifications"]
+    sec = [n for n in notes if n["dedupe_key"].startswith("security_refusals")]
+    assert sec and sec[0]["severity"] == "critical", notes[:3]
+    with DB.session() as s:
+        s.query(SecurityEvent).filter(SecurityEvent.kind == "login").delete()
+
+
 def test_ask_why_is_a_product_blocked_is_grounded_in_gate_records():
     c, csrf = session()
     with DB.session() as s:
