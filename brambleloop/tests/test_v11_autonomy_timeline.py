@@ -71,13 +71,13 @@ def test_summary_reports_every_department_with_wake_and_blockers():
     assert CONTRACT <= set(out), out
     assert out["status"] in status.STATUSES and out["basis"] == "measured", out["status"]
     json.dumps(out, default=str)
-    items = out["items"]
-    assert len(items) == 11, len(items)
-    for i in items:
+    depts = out["items"]
+    assert depts and len(depts) == 11, len(depts)
+    for i in depts:
         assert i["status"] in status.STATUSES, i
         assert i["next_wake"], i
         assert isinstance(i["blockers"], list)
-    growth = next(i for i in items if i["department"] == "growth")
+    growth = next(i for i in depts if i["department"] == "growth")
     assert growth["status"] == "BLOCKED"
     assert growth["blockers"][0]["owner_action"] == "OA-ADS"
     assert out["orchestrator"]["last_tick"] and out["orchestrator"]["stale"] is False

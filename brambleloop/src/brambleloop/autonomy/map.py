@@ -61,8 +61,8 @@ AUDIT_FINDINGS: list[dict] = [
      "finding": "The queue fenced stale completions by worker NAME only. The embedded runner "
                 "named itself web-<pid>; containers in an overlapping deploy can share a PID, "
                 "so a reclaimed job's original attempt could complete over its successor.",
-     "status": "REPAIRED", "repair": "jobs.lease_token per claim (ported from Codex 8877f05) "
-                                     "+ hostname in the default worker name"},
+     "status": "REPAIRED", "repair": "jobs.lease_token per claim (ported from Codex 8877f05), "
+                                     "checked on complete/fail/heartbeat"},
     {"id": "AM-08", "severity": "medium", "departments": "all", "link": "wake",
      "finding": "An empty queue waited for the next cadence window (up to 15 min for the "
                 "fastest, hours for most departments) instead of waking the company.",

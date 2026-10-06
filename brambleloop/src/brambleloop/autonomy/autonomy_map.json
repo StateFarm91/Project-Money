@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-06T06:37:19.541605+00:00",
+ "generated_at": "2026-10-06T07:01:44.752552+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -2343,7 +2343,7 @@
    "link": "recovery-fencing",
    "finding": "The queue fenced stale completions by worker NAME only. The embedded runner named itself web-<pid>; containers in an overlapping deploy can share a PID, so a reclaimed job's original attempt could complete over its successor.",
    "status": "REPAIRED",
-   "repair": "jobs.lease_token per claim (ported from Codex 8877f05) + hostname in the default worker name"
+   "repair": "jobs.lease_token per claim (ported from Codex 8877f05), checked on complete/fail/heartbeat"
   },
   {
    "id": "AM-08",

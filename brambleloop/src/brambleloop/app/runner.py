@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 import os
-import socket
 import threading
 import time
 from dataclasses import dataclass, field
@@ -261,11 +260,10 @@ def start(db: Database) -> RunnerState:
     from ..core.phase import effective_phase
 
     phase = effective_phase(db)
-    # v1.1 lane A: the hostname as well as the PID. A container's PID is small and repeats
-    # across containers, so two replicas of an overlapping deploy could both be `web-7`; the
-    # lease token fences that case in the queue, and a unique name keeps the audit readable.
-    name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or \
-        f"web-{socket.gethostname()[:40]}-{os.getpid()}"
+    # The PID repeats across containers, so two replicas of an overlapping deploy can both be
+    # `web-7`. v1.1 lane A: the queue's per-claim lease token fences that case, so the name
+    # format (which the independence certification reads) is unchanged.
+    name = os.environ.get("BRAMBLELOOP_WORKER_NAME") or f"web-{os.getpid()}"
     STATE.enabled = True
     from ..swarm.capacity import worker_threads
 
