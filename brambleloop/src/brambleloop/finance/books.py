@@ -39,6 +39,15 @@ so it is always reported.
 Etsy's payment-account ledger replaces them (`finance.reconcile`). The P&L reports platform
 fees split by basis -- measured, modelled, unknown -- and `all_figures_observed` is true
 only when every figure on it was observed.
+
+**v1.1: the double-entry ledger is the accounting source of truth (F-902/F-903).**
+`finance.accounting` posts these same rows into an immutable journal and
+`finance.accounting.reconciliation.compare_with_books` checks this P&L against it every
+Accountant cycle. Where they disagree the LEDGER wins. Known, flagged differences of this
+module: (1) a second `ledger` row for the same external object is summed here and refused by
+the ledger; (2) a `discount` row is subtracted from net sales AND counted in operating costs
+here (double subtraction; no writer emits discount rows today); (3) a sale row whose order
+is unreconciled but not held is summed here, excluded there.
 """
 from __future__ import annotations
 
