@@ -28,6 +28,20 @@ and the minor-unit `amount` below are read from Etsy's OpenAPI document and comm
 examples. `LEDGER_AMOUNT_DIVISOR` and `_FEE_KINDS` are the two places to correct on the
 first real read; an entry that does not match stays unclassified and is reported, never
 silently dropped or silently counted.
+
+**What that means for the figures (RC1 audit E4, E5).** Because the mapping is unverified,
+a fee read through it is not `measured`:
+
+* Classification is an explicit allow-list (`_FEE_EXACT`, `_REFUND_EXACT`). Nothing is
+  matched by substring -- `transaction_fee_refund` once read as a customer refund. An
+  unknown type is `unclassified`, is never counted, and opens `UNCLASSIFIED_SIGNATURE`.
+* An order's fees are `measured` only when every `EXPECTED_PER_ORDER` component has posted
+  AND an owner-recorded verification of this exact mapping exists (`mapping_verified`).
+  With a component missing the order is `partial`: the posted components plus the modelled
+  figure for each missing one. With all present but no verification it is `unverified`
+  (the `unverified_mapping` basis; `fees_basis` is a 12-character column).
+* A fee entry larger than `FEE_ANOMALY_SHARE` of the order's price (a unit error reads as
+  100x) is held as anomalous -- not applied -- and opens `ANOMALY_SIGNATURE`.
 """
 from __future__ import annotations
 
@@ -39,7 +53,8 @@ from typing import Any, Iterable
 # honoured as Money. UNVERIFIED -- see the module docstring.
 LEDGER_AMOUNT_DIVISOR = 100
 
-# ledger_type (lower-cased) -> fee kind. Matched by exact value first, then by substring.
+# ledger_type (lower-cased) -> fee kind. An explicit allow-list: matched by exact value only
+# (RC1 audit E5). Substring matching once booked `transaction_fee_refund` as a customer refund.
 _FEE_EXACT = {
     "transaction": "transaction_fee",
     "transaction_quantity": "transaction_fee",
@@ -57,9 +72,22 @@ _FEE_EXACT = {
     "renew_sold_auto": "listing_fee",
     "renew_expired": "listing_fee",
 }
-_FEE_SUBSTRINGS = (("offsite", "offsite_ads_fee"), ("processing", "processing_fee"),
-                   ("regulatory", "regulatory_fee"), ("conversion", "currency_conversion_fee"))
+# ledger_type (lower-cased) -> a customer refund paid out of the shop's account.
+_REFUND_EXACT = {"refund": "refund"}
 FEE_KINDS = frozenset(_FEE_EXACT.values())
+# Order fee bases that came from Etsy's ledger. `unverified` is the stored form of the
+# `unverified_mapping` basis (the column holds 12 characters).
+MEASURED, PARTIAL_BASIS, UNVERIFIED = "measured", "partial", "unverified"
+UNVERIFIED_MAPPING = "unverified_mapping"
+LEDGER_FEE_BASES = (MEASURED, PARTIAL_BASIS, UNVERIFIED)
+# A single fee entry, or an order's ledger fees in total, above this share of the order's
+# price is held as anomalous. Etsy's fees on a sale (transaction 6.5%, processing ~3% +
+# fixed, Offsite Ads 12-15%, regulatory, conversion) do not approach half the price; a unit
+# error (cents read as dollars) reads as 100x.
+FEE_ANOMALY_SHARE = 0.5
+MAPPING_VERIFIED_ACTION = "owner.etsy_ledger_mapping.verified"
+UNCLASSIFIED_SIGNATURE = "finance.reconciliation.ledger_unclassified"
+ANOMALY_SIGNATURE = "finance.reconciliation.ledger_anomaly"
 # Both of these must be present for an order's fees to count as fully reconciled; with one
 # the state is `partial` (still measured, but the other fee may not have posted yet).
 EXPECTED_PER_ORDER = ("transaction_fee", "processing_fee")
@@ -69,15 +97,66 @@ PARTIAL = "partial_etsy_ledger"
 
 
 def classify(entry: dict) -> str:
+    """Fee kind, `refund`, or `unclassified` -- by the explicit allow-list only."""
     lt = str(entry.get("ledger_type") or "").strip().lower()
     if lt in _FEE_EXACT:
         return _FEE_EXACT[lt]
-    for needle, kind in _FEE_SUBSTRINGS:
-        if needle in lt:
-            return kind
-    if "refund" in lt:
-        return "refund"
+    if lt in _REFUND_EXACT:
+        return _REFUND_EXACT[lt]
     return "unclassified"
+
+
+def mapping_fingerprint() -> str:
+    """A digest of the type allow-list and the amount unit. A verification recorded for one
+    mapping does not carry over to a changed one."""
+    import hashlib
+    import json
+
+    body = json.dumps({"fees": _FEE_EXACT, "refunds": _REFUND_EXACT,
+                       "divisor": LEDGER_AMOUNT_DIVISOR}, sort_keys=True)
+    return hashlib.sha256(body.encode()).hexdigest()[:16]
+
+
+def record_mapping_verification(db, *, by: str, evidence: str) -> dict:
+    """The owner's record that a live ledger read confirmed these type strings and the unit.
+
+    Until one exists for the current `mapping_fingerprint`, fees read through the mapping
+    carry the `unverified_mapping` basis, never `measured`.
+    """
+    from ..core.models import AuditLog
+
+    if not str(by or "").strip() or not str(evidence or "").strip():
+        raise ValueError("a mapping verification needs who verified it and the evidence")
+    detail = {"fingerprint": mapping_fingerprint(), "divisor": LEDGER_AMOUNT_DIVISOR,
+              "fee_types": sorted(_FEE_EXACT), "refund_types": sorted(_REFUND_EXACT),
+              "evidence": str(evidence)[:1000], "by": str(by)[:80]}
+    with db.session() as s:
+        s.add(AuditLog(actor="owner", action=MAPPING_VERIFIED_ACTION, detail=detail))
+    return detail
+
+
+def mapping_verified(db) -> bool:
+    """Whether the owner recorded a verification of exactly the current mapping."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == MAPPING_VERIFIED_ACTION)
+                       .order_by(AuditLog.id.desc()).limit(1))
+        return bool(row is not None and row.actor == "owner"
+                    and (row.detail or {}).get("fingerprint") == mapping_fingerprint())
+
+
+def fee_basis_text(basis: str, kinds, missing) -> str:
+    """The words the order's contribution basis uses for its fees, matching `basis`."""
+    if basis == MEASURED:
+        return "MEASURED fees (Etsy ledger, owner-verified mapping)"
+    if basis == UNVERIFIED:
+        return (f"Etsy-ledger fees under an UNVERIFIED type/unit mapping "
+                f"({UNVERIFIED_MAPPING}); not measured")
+    return (f"PARTIAL fees: Etsy ledger for {', '.join(sorted(kinds)) or 'none'}, MODELLED "
+            f"for {', '.join(sorted(missing)) or 'held anomalous entries'}")
 
 
 def amount(entry: dict) -> tuple[float, str] | None:
@@ -145,6 +224,10 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
 
     applied_orders, matched_ids = [], set()
     attributions = []
+    anomalies: list[dict] = []
+    verified = mapping_verified(db)
+    from ..commerce.pricing import fees as model_fees
+
     with db.session() as s:
         orders = [o for o in s.scalars(select(Order).where(Order.source == source))]
         by_receipt: dict[str, list] = {}
@@ -163,28 +246,69 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
                 detail = dict(o.detail or {})
                 done = set(detail.get("fee_entries") or [])
                 new = [(e, w) for e, w in candidates if e["entry_id"] not in done]
+                matched_ids.update(e["entry_id"] for e, _ in candidates)
                 if not new:
-                    matched_ids.update(e["entry_id"] for e, _ in candidates)
                     continue
+                price = float(o.price_cad or 0.0)
+                cap = FEE_ANOMALY_SHARE * price
                 on = (o.at or datetime.now(timezone.utc)).date()
-                added, offsite, fx_assumed = 0.0, 0.0, False
+                # Per-kind ledger components, cumulative over every applied entry. A row
+                # measured before components were kept carries its total as one lump.
+                comps = {k: float(v) for k, v in (detail.get("fee_components") or {}).items()}
+                if not comps and done:
+                    comps = {"legacy_ledger_total": float(o.fees_cad or 0.0)}
                 kinds = set(detail.get("fee_kinds") or [])
+                held_here, accepted, fx_assumed = [], [], False
                 for e, w in new:
                     cad, measured_rate = _to_cad(e["charge"] * w, e["currency"], on)
+                    if price <= 0 or abs(cad) > cap:
+                        held_here.append((e, cad))
+                    else:
+                        accepted.append((e, cad, measured_rate))
+                trial = dict(comps)
+                for e, cad, _m in accepted:
+                    trial[e["kind"]] = trial.get(e["kind"], 0.0) + cad
+                if accepted and sum(trial.values()) > cap:
+                    # Together they exceed what Etsy could charge on this price: none of
+                    # them is applied on a guess about which one is wrong.
+                    held_here += [(e, cad) for e, cad, _m in accepted]
+                    accepted, trial = [], dict(comps)
+                for e, cad in held_here:
+                    anomalies.append({"entry_id": e["entry_id"], "ledger_type": e["ledger_type"],
+                                      "order": o.external_ref, "charge_cad": round(cad, 4),
+                                      "order_price_cad": price,
+                                      "why": (f"exceeds {FEE_ANOMALY_SHARE:.0%} of the order "
+                                              f"price: held as anomalous (a unit error reads "
+                                              f"as 100x)")})
+                held_ids = sorted(set(detail.get("fee_entries_held") or [])
+                                  | {e["entry_id"] for e, _ in held_here})
+                detail["fee_entries_held"] = held_ids
+                if not accepted and not comps:
+                    # Nothing from the ledger is applied: the fee stays modelled.
+                    o.detail = detail
+                    continue
+                offsite_prior = float(o.offsite_ads_fee_cad or 0.0) \
+                    if "legacy_ledger_total" in comps else 0.0
+                for e, cad, measured_rate in accepted:
                     fx_assumed = fx_assumed or not measured_rate
-                    added += cad
-                    if e["kind"] == "offsite_ads_fee":
-                        offsite += cad
                     kinds.add(e["kind"])
-                    matched_ids.add(e["entry_id"])
-                first_measurement = (o.fees_basis or "unknown") != "measured"
-                fee_total = round(added if first_measurement
-                                  else float(o.fees_cad or 0.0) + added, 4)
-                o.fees_cad = round(fee_total, 2)
-                o.fees_basis = "measured"
-                o.offsite_ads_fee_cad = round(
-                    (0.0 if first_measurement else float(o.offsite_ads_fee_cad or 0.0))
-                    + offsite, 2)
+                comps = {k: round(v, 4) for k, v in trial.items()}
+                model = model_fees(price) if price > 0 else None
+                missing = {}
+                if model is not None:
+                    if "transaction_fee" not in kinds:
+                        missing["transaction_fee"] = model.transaction_fee
+                    if "processing_fee" not in kinds:
+                        missing["processing_fee"] = model.payment_fee
+                complete = not missing and not held_ids
+                basis = (MEASURED if complete and verified else
+                         UNVERIFIED if complete else PARTIAL_BASIS)
+                o.fees_cad = round(sum(comps.values()) + sum(missing.values()), 2)
+                o.fees_basis = basis
+                offsite = offsite_prior + sum(cad for e, cad, _m in accepted
+                                              if e["kind"] == "offsite_ads_fee") \
+                    if "legacy_ledger_total" in comps else comps.get("offsite_ads_fee", 0.0)
+                o.offsite_ads_fee_cad = round(offsite, 2)
                 if o.offsite_ads_fee_cad > 0:
                     o.offsite_ad_attributed = True
                 # `revenue_cad` is already net of every refund the receipt carries (and 0
@@ -192,27 +316,38 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
                 # stayed with Etsy is a loss, and the books keep it (CB2-O07).
                 revenue = float(o.revenue_cad or 0.0)
                 o.contribution_cad = round(revenue - o.fees_cad, 2)
-                state = (RECONCILED if all(k in kinds for k in EXPECTED_PER_ORDER)
-                         else PARTIAL)
-                detail["fee_entries"] = sorted(done | {e["entry_id"] for e, _ in new})
+                state = RECONCILED if not missing and not held_ids else PARTIAL
+                detail["fee_entries"] = sorted(done | {e["entry_id"] for e, _c, _m in accepted})
                 detail["fee_kinds"] = sorted(kinds)
+                detail["fee_components"] = comps
+                detail["fees_modelled_missing"] = {k: round(v, 4) for k, v in missing.items()}
+                detail["fees_mapping"] = "owner_verified" if verified else UNVERIFIED_MAPPING
                 detail["fees_fx_assumed"] = bool(detail.get("fees_fx_assumed") or fx_assumed)
                 detail["fees_reconciliation"] = state
+                money = dict(detail.get("money") or {})
+                fx = (money.get("fx") or {}).get("basis") or "assumed"
+                money["contribution_basis"] = (
+                    "revenue net of refunds less " + fee_basis_text(basis, kinds, missing)
+                    + f"; {fx} FX rate")
+                money["fees"] = {**(money.get("fees") or {}),
+                                 "basis": basis if basis != UNVERIFIED else UNVERIFIED_MAPPING,
+                                 "why": fee_basis_text(basis, kinds, missing)}
+                detail["money"] = money
                 o.detail = detail
                 row = s.scalar(select(LedgerEntry).where(
                     LedgerEntry.evidence_ref == o.external_ref))
                 if row is not None:
                     row.fees_cad = o.fees_cad
-                    row.fees_basis = "measured"
+                    row.fees_basis = basis
                     row.reconciliation_state = state
                 applied_orders.append({"ref": o.external_ref, "fees_cad": o.fees_cad,
                                        "offsite_ads_fee_cad": o.offsite_ads_fee_cad,
-                                       "state": state})
-                if o.offsite_ads_fee_cad > 0 and o.acquisition_source in ("unknown", "etsy",
-                                                                           ""):
-                    attributions.append((o.external_ref, ",".join(
-                        e["entry_id"] for e, _ in new if e["kind"] == "offsite_ads_fee")))
-        refunds = _apply_refunds(s, by_receipt, refund_entries)
+                                       "state": state, "basis": basis})
+                new_offsite = [e["entry_id"] for e, _c, _m in accepted
+                               if e["kind"] == "offsite_ads_fee"]
+                if new_offsite and o.acquisition_source in ("unknown", "etsy", ""):
+                    attributions.append((o.external_ref, ",".join(new_offsite)))
+        refunds = _apply_refunds(s, by_receipt, refund_entries, verified=verified)
     for ref, ids in attributions:
         sources.attribute(db, ref, "offsite_ads", by="finance.reconcile",
                           evidence=f"Etsy payment-account ledger Offsite Ads fee entry "
@@ -228,6 +363,8 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
     orphans += [e for e in refund_entries if e["entry_id"] not in refunds["matched_ids"]
                 and e["reference_type"].lower() in ORDER_REFERENCE_TYPES]
     incident = reconciliation_incident(db, orphans) if orphans else None
+    unclassified = [e for e in norm if e["kind"] == "unclassified"]
+    ledger_incidents = _ledger_incidents(db, unclassified, anomalies)
     return {
         "entries": len(norm), "fee_entries": len(fees),
         "listing_fee_entries_applied": listing_fee_entries,
@@ -245,10 +382,38 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
         "orders_refund_disagreeing": refunds["disagreeing"],
         "orphan_fee_entries": len(orphans),
         "reconciliation_incident": incident,
+        "mapping": "owner_verified" if verified else UNVERIFIED_MAPPING,
+        "anomalous_entries": anomalies[:50],
+        "ledger_incidents": ledger_incidents,
     }
 
 
-def _apply_refunds(s, by_receipt: dict[str, list], refund_entries: list[dict]) -> dict:
+def _ledger_incidents(db, unclassified: list[dict], anomalies: list[dict]) -> dict:
+    """Unknown ledger types and anomalous magnitudes are incidents, never guesses."""
+    from ..ops import incident_lifecycle as lifecycle
+
+    out = {}
+    with db.session() as s:
+        if unclassified:
+            _inc, opened = lifecycle.open_or_restate(
+                s, signature=UNCLASSIFIED_SIGNATURE, severity="P2",
+                summary=(f"{len(unclassified)} Etsy ledger entr(ies) of a type not on the "
+                         f"allow-list: not counted as a fee or a refund"),
+                detail={"ledger_types": sorted({e["ledger_type"] for e in unclassified}),
+                        "entry_ids": sorted({e["entry_id"] for e in unclassified})[:200]})
+            out[UNCLASSIFIED_SIGNATURE] = "opened" if opened else "restated"
+        if anomalies:
+            _inc, opened = lifecycle.open_or_restate(
+                s, signature=ANOMALY_SIGNATURE, severity="P2",
+                summary=(f"{len(anomalies)} Etsy ledger fee entr(ies) implausibly large for "
+                         f"their order: held, not applied"),
+                detail={"entries": anomalies[:50]})
+            out[ANOMALY_SIGNATURE] = "opened" if opened else "restated"
+    return out
+
+
+def _apply_refunds(s, by_receipt: dict[str, list], refund_entries: list[dict], *,
+                   verified: bool = False) -> dict:
     """Etsy ledger refund entries onto the orders they paid back (Codex CB2-O07, FB-2 O).
 
     The receipt's own `refunds[]` is the order's refund (commerce.orders_ingest). The
@@ -300,6 +465,8 @@ def _apply_refunds(s, by_receipt: dict[str, list], refund_entries: list[dict]) -
             current_refund = round(price - float(o.revenue_cad or 0.0), 2)
             detail["refund_entries"] = sorted(done)
             detail["ledger_refund_cad"] = ledger_refund
+            # Read through the same unverified type/unit mapping as the fees (E5).
+            detail["ledger_refund_basis"] = MEASURED if verified else UNVERIFIED_MAPPING
             if ledger_refund > receipt_refund + 0.005:
                 detail["refund_reconciliation"] = "raised_to_etsy_ledger"
                 if ledger_refund <= current_refund + 0.005:
@@ -360,7 +527,8 @@ def reconciliation_incident(db, orphans: list[dict]) -> str:
 
 def fee_basis_summary(rows: Iterable[Any]) -> dict:
     """Sum `fees_cad` by basis over ledger rows: measured, modelled, unknown."""
-    out = {"measured": 0.0, "modelled": 0.0, "unknown": 0.0}
+    out = {"measured": 0.0, "modelled": 0.0, "partial": 0.0, "unverified": 0.0,
+           "unknown": 0.0}
     for r in rows:
         basis = getattr(r, "fees_basis", None) or "unknown"
         out[basis if basis in out else "unknown"] += float(r.fees_cad or 0.0)

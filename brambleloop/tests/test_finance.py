@@ -137,7 +137,8 @@ def test_modelled_fees_are_labelled_and_never_counted_as_observed():
                           evidence_ref="etsy:2:20", fees_basis="measured", basis="measured"))
     d = Books(db).profit_and_loss().to_dict()
     assert d["platform_fees_basis"] == "mixed"
-    assert d["platform_fees_by_basis"] == {"measured": 1.5, "modelled": 1.42, "unknown": 0.0}
+    assert d["platform_fees_by_basis"] == {"measured": 1.5, "modelled": 1.42, "partial": 0.0,
+                                           "unverified": 0.0, "unknown": 0.0}
     assert d["all_figures_observed"] is False
 
 

@@ -293,20 +293,25 @@ def _economics(db, slug, version):
     breakdown = pricing.fees(float(price)).to_dict()
     with db.session() as s:
         try:
-            orders = s.scalar(select(Order.id).where(Order.product_slug == slug).limit(1))
+            # A refunded-in-full or cancelled order is not a sale (RC1 audit G1/E2).
+            orders = next((o.id for o in s.scalars(select(Order).where(
+                Order.product_slug == slug, Order.refunded == False))  # noqa: E712
+                if (o.detail or {}).get("state") not in ("fully_refunded", "cancelled")),
+                None)
         except Exception:  # noqa: BLE001 - schema without the column reads as unmeasured
             orders = None
     return {"state": "MODELLED",
-            "price_cad": round(float(price), 2), "price_basis": "measured",
+            # The price is set by this business, not observed: never "measured" (G1).
+            "price_cad": round(float(price), 2), "price_basis": "set",
             "price_source": "stored Listing.price_cad for this release",
             "fees_cad": breakdown["total_fees"], "net_per_sale_cad": breakdown["net_cad"],
             "fees_basis": "modelled",
             "fee_schedule": breakdown.get("fee_schedule"),
             "unmodelled_fees": breakdown.get("unmodelled_fees"),
             "sales_volume_basis": "measured" if orders else "unknown",
-            "why": ("price is the stored listing price; fees and net are modelled from the "
-                    "recorded fee schedule; sales volume is "
-                    + ("measured from ingested orders" if orders else
+            "why": ("price is the stored listing price (set, not measured); fees and net are "
+                    "modelled from the recorded fee schedule; sales volume is "
+                    + ("measured from ingested orders that were not voided" if orders else
                        "unknown -- no order has been ingested"))}
 
 

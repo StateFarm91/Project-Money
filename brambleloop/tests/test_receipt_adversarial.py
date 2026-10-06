@@ -250,10 +250,19 @@ def _entry(eid, ledger_type, ref_type, ref_id, cents):
             "created_timestamp": int(NOW.timestamp())}
 
 
+def _verify_mapping(db):
+    """The owner's recorded verification of the ledger mapping: without it a ledger fee is
+    `unverified`, never `measured` (RC1 audit E5)."""
+    from brambleloop.finance import reconcile
+
+    reconcile.record_mapping_verification(db, by="owner", evidence="synthetic fixture")
+
+
 def test_O07_reconcile_keeps_a_refunded_sales_measured_fee_as_a_loss():
     """finance.reconcile no longer clamps contribution at zero: a fully refunded sale whose
     measured fees stayed with Etsy is a loss on the order, equal to the ledger's net."""
     db = _db()
+    _verify_mapping(db)
     rows = [receipt(refund=1200)]
     oi.ingest(db, reader=LedgerFeed(rows, [_entry(1, "transaction", "transaction", 10, -78),
                                            _entry(2, "processing_fee", "receipt", 1, -66)]),
@@ -269,6 +278,7 @@ def test_O07_reconcile_keeps_a_refunded_sales_measured_fee_as_a_loss():
 def test_O07_a_later_refund_keeps_the_measured_fee():
     """A receipt reconciled after Etsy's fee was measured moves revenue, not the fee."""
     db = _db()
+    _verify_mapping(db)
     entries = [_entry(1, "transaction", "transaction", 10, -78),
                _entry(2, "processing_fee", "receipt", 1, -66)]
     oi.ingest(db, reader=LedgerFeed([receipt()], entries), now=NOW)
