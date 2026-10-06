@@ -239,14 +239,14 @@ def test_every_cell_owns_a_metric_that_comes_from_rows():
     A rating a cell assigns itself is not a measurement, so every cell names both the number
     and where it comes from.
     """
-    assert len(cells.CELLS) == 12
+    assert len(cells.CELLS) == 13  # twelve + learn (F-799)
     for cell in cells.CELLS:
         assert cell.metric and cell.measure
         assert cell.what_it_means
         assert isinstance(cell.higher_is_better, bool)
     departments = {c.department for c in cells.CELLS}
     assert {"Creativity", "Pattern Engineering", "QA", "Market Radar", "Pricing",
-            "Finance", "Runtime"} <= departments
+            "Finance", "Runtime", "Learn"} <= departments
 
 
 def test_the_retrospective_reports_what_regressed_and_what_was_never_measured():
@@ -261,7 +261,7 @@ def test_the_retrospective_reports_what_regressed_and_what_was_never_measured():
     assert report["capability_movement"]["runtime"]["direction"] == "regressed"
     assert report["capability_movement"]["quality"]["direction"] == "improved"
     assert report["bottleneck"] == "runtime"
-    assert len(report["unmeasured_cells"]) == 10
+    assert len(report["unmeasured_cells"]) == len(cells.CELLS) - 2
     assert "unclaimable rather than unproven" in report["honest_note"]
 
 

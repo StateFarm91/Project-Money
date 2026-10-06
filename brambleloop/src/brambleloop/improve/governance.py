@@ -131,7 +131,7 @@ GATE_OPERATORS: dict[str, tuple[str, ...]] = {
 # and is a change to the self-improvement boundary itself. Every UPPERCASE constant defined in
 # a protected package is found by reading the source (ast, so nothing is imported or run), and
 # naming one is touching the protected surface that module implements.
-_PROTECTED_PACKAGES: tuple[str, ...] = ("gates", "cir", "publish", "quality", "visual",
+_PROTECTED_PACKAGES: tuple[str, ...] = ("gates", "cir", "publish", "quality", "visual", "learn",
                                         "improve")
 
 _MODULE_SURFACE: dict[str, str] = {
@@ -152,6 +152,7 @@ _PACKAGE_SURFACE: dict[str, str] = {
     "quality": "deterministic_validation",
     "visual": "product_truth",
     "improve": "owner_authority",
+    "learn": "deterministic_validation",
 }
 
 

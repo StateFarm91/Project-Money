@@ -5,11 +5,13 @@ attestation, not an automatically measured fact; missing reviewer configuration 
 """
 import hmac
 import os
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Response
 from sqlalchemy import select
 from ..core import opsauth
 from .models import LearnGap, Lesson
 from .service import approved_lesson, graph, link_topics, save_lesson, review_lesson
+from . import swatch as _swatch
+from . import technique as _technique
 
 EDITOR = "learn-operator-editor"
 
@@ -56,6 +58,14 @@ def router(db):
         # the queue (it carries support-case and pattern-version evidence).
         _editor(authorization)
         return graph(db, node)
+
+    @routes.get("/api/learn/metrics")
+    def read_metrics(authorization: str | None = Header(default=None)):
+        # F-799: queue, coverage, gap age, calendar and experiments; editor-only like the
+        # queue because queued items carry pattern/support evidence.
+        _editor(authorization)
+        from .metrics import summary as learn_summary
+        return learn_summary(db)
 
     @routes.post("/api/learn/graph/edges")
     def add_edge(edge: dict, authorization: str | None = Header(default=None)):
@@ -113,9 +123,43 @@ def router(db):
         if lesson is None or (revision is not None and lesson["revision"] != revision):
             raise HTTPException(404, "No approved lesson for this revision")
         spec = lesson["spec"]
-        return {"slug": slug, "revision": lesson["revision"],
-                "learner_problem": spec["learner_problem"], "topics": spec["topics"],
-                "terminology": spec["terminology"], "assumptions": spec["assumptions"],
-                "steps": spec["steps"]}
+        out = {"slug": slug, "revision": lesson["revision"],
+               "learner_problem": spec["learner_problem"], "topics": spec["topics"],
+               "terminology": spec["terminology"], "assumptions": spec["assumptions"],
+               "steps": spec["steps"]}
+        # F-805: swatch text is written from its compiled CIR, never served hand-typed.
+        text = _swatch.written(spec)
+        if text is not None:
+            out["swatch_instructions"] = text
+        # F-806: only generated, verified technique diagrams are linked.
+        diagrams = [{"stitch": a["stitch"], "loop": a.get("loop", "both"),
+                     "href": f"/learn/{slug}/technique/{a['stitch']}.svg?revision="
+                             f"{lesson['revision']}&loop={a.get('loop', 'both')}"}
+                    for a in spec.get("assets", []) if a.get("kind") == "technique_diagram"]
+        if diagrams:
+            out["technique_diagrams"] = diagrams
+        return out
+
+    @routes.get("/learn/{slug}/technique/{stitch}.svg")
+    def read_diagram(slug: str, stitch: str, revision: str | None = None, loop: str = "both"):
+        lesson = approved_lesson(db, slug)
+        if lesson is None or (revision is not None and lesson["revision"] != revision):
+            raise HTTPException(404, "No approved lesson for this revision")
+        declared = [a for a in lesson["spec"].get("assets", [])
+                    if a.get("kind") == "technique_diagram" and a.get("stitch") == stitch
+                    and a.get("loop", "both") == loop]
+        if not declared:
+            raise HTTPException(404, "This lesson declares no such technique diagram")
+        try:
+            svg = _technique.render(stitch, loop)
+            _technique.verify(svg, stitch, loop)
+        except (_technique.UnsupportedTechnique, _technique.DiagramRefused, KeyError):
+            # Fail closed: a diagram that does not verify is never served.
+            raise HTTPException(404, "Technique diagram unavailable")
+        if declared[0].get("sha256") != _technique.hashlib.sha256(svg).hexdigest():
+            raise HTTPException(404, "Technique diagram revision mismatch")
+        return Response(content=svg, media_type="image/svg+xml", headers={
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+            "X-Content-Type-Options": "nosniff"})
 
     return routes

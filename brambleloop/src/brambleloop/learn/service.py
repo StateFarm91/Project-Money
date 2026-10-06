@@ -12,6 +12,8 @@ from sqlalchemy import select
 from ..cir import stitches
 from ..core.models import PatternVersion, Product, SupportCase
 from .models import LearnNode, LearnEdge, LearnGap, Lesson
+from . import swatch as _swatch
+from . import technique as _technique
 
 DIMENSIONS = ("correctness", "completeness", "sequencing", "clarity", "accessibility",
               "visual_accuracy", "executable_skill")
@@ -47,6 +49,103 @@ def topics(value):
         for item in value:
             found.update(topics(item))
     return found
+
+
+def _blocking_topic(cir_json):
+    """How this pattern is blocked, read from the same geometry the writer's finishing uses.
+
+    Flat pieces are pinned out; a measured non-disc revolution is damp-finished upright
+    (`cir.writer.finishing_lines`). A CIR that cannot be measured still needs blocking help,
+    so it files the generic topic rather than none.
+    """
+    try:
+        from ..cir import geometry as _geom
+        from ..cir.compiler import compile_cir
+        from ..cir.model import CIR
+
+        cir = CIR.from_dict(cir_json)
+        result = compile_cir(cir)
+        upright = {rev.shape for rev in _geom.measure_all(cir, result).values()
+                   if rev.shape != _geom.DISC}
+    except Exception:  # noqa: BLE001 - an unmeasurable shape is still a blocking need
+        return "finishing:blocking"
+    return "finishing:blocking_upright" if upright else "finishing:blocking_flat"
+
+
+def pattern_topics(cir_json):
+    """Every learner need a pattern introduces (F-801): stitches and techniques plus finishing.
+
+    `topics` reads stitch/loop/construction/gauge/yarn keys anywhere in the structure. A real
+    CIR (one with `components`) also teaches its finishing, which `topics` never saw: fastening
+    off and weaving in (every Brambleloop pattern prints it), blocking flat or upright, each
+    seam method in its assembly, stuffing, colour changes, a magic-ring start, stitches placed
+    on hold, and a component worked at a second gauge (a gauge issue in its own right). All are
+    read from explicit CIR fields, never from prose.
+    """
+    found = topics(cir_json)
+    if not isinstance(cir_json, dict) or not isinstance(cir_json.get("components"), list):
+        return found
+    found.add("finishing:fasten_off_weave_in_ends")
+    found.add(_blocking_topic(cir_json))
+    if len(cir_json.get("colors") or {}) > 1:
+        found.add("technique:colour_change")
+    main_gauge = cir_json.get("gauge")
+    for comp in cir_json["components"]:
+        if not isinstance(comp, dict):
+            continue
+        if comp.get("foundation_kind") == "magic_ring":
+            found.add("technique:magic_ring")
+        if comp.get("holds"):
+            found.add("technique:stitch_holds")
+        if comp.get("gauge") and comp.get("gauge") != main_gauge:
+            found.add("technique:gauge_change")
+    for seam in cir_json.get("assembly") or []:
+        if isinstance(seam, dict):
+            if isinstance(seam.get("method"), str):
+                found.add("finishing:seam_" + seam["method"])
+            if seam.get("stuff_before_closing"):
+                found.add("finishing:stuffing")
+    return found
+
+
+# Asset kinds a lesson may carry. "prose" is provenance for teaching text; the only image a
+# lesson may carry is a technique diagram this package generated and verified (F-806).
+ASSET_KINDS = ("prose", "technique_diagram")
+
+
+def _asset_problems(spec):
+    errors = []
+    taught = {step.get("stitch") for step in spec.get("steps", [])}
+    for asset in spec.get("assets", []):
+        kind = asset.get("kind", "prose")
+        if kind not in ASSET_KINDS:
+            errors.append(f"asset kind {kind!r} refused: nothing measures loops in a photograph "
+                          f"or generic image, so only a generated, verified technique diagram "
+                          f"may illustrate a stitch (F-806)")
+            continue
+        if kind == "prose":
+            if asset.get("illustrates"):
+                errors.append("an asset that illustrates a stitch must be a verified "
+                              "technique_diagram (F-806)")
+            continue
+        stitch, loop = asset.get("stitch"), asset.get("loop", "both")
+        if not isinstance(stitch, str) or not isinstance(loop, str):
+            errors.append("technique_diagram requires string stitch and loop")
+            continue
+        try:
+            expected = _technique.digest(stitch, loop)
+        except (_technique.UnsupportedTechnique, KeyError, ValueError) as exc:
+            errors.append(f"technique_diagram refused: {exc}")
+            continue
+        if asset.get("sha256") != expected:
+            errors.append(f"technique_diagram for {stitch} ({loop}) is not the canonical "
+                          f"generated diagram; its drawing is unverified (F-806)")
+        if asset.get("rights") != "brambleloop_original":
+            errors.append("a technique diagram is Brambleloop-generated or it is not one")
+        if stitch not in taught:
+            errors.append(f"technique_diagram shows {stitch}, a stitch this lesson's steps do "
+                          f"not teach; a diagram cannot illustrate a different stitch (F-806)")
+    return errors
 
 
 def validate_spec(spec):
@@ -111,6 +210,11 @@ def validate_spec(spec):
                 errors.append("step instruction missing")
         except (KeyError, ValueError, TypeError):
             errors.append("unrecognized or incomplete stitch step")
+    errors.extend(_asset_problems(spec))
+    try:
+        errors.extend(_swatch.problems(spec))
+    except Exception as exc:  # noqa: BLE001 - an uncheckable swatch is refused, never passed
+        errors.append(f"swatch could not be checked ({type(exc).__name__}); refused (F-805)")
     return errors
 
 
@@ -297,7 +401,7 @@ def scan(db):
         sources = []
         for pv, product in s.execute(select(PatternVersion, Product).join(Product)).all():
             source = "pattern:" + str(pv.id) + ":" + digest(pv.cir_json)
-            sources.append((source, "pattern", topics(pv.cir_json),
+            sources.append((source, "pattern", pattern_topics(pv.cir_json),
                             {"pattern_version_id": pv.id, "product_slug": product.slug,
                              "cir_digest": digest(pv.cir_json), "version": pv.version}))
         for case in s.scalars(select(SupportCase)).all():
@@ -372,12 +476,12 @@ def pdf_help_links(db, cir):
     Never put a relative route into a downloadable PDF. With no deployed owned origin,
     return no links; the architecture does not invent a live website.
     """
-    return public_help_links(db, topics(cir))
+    return public_help_links(db, pattern_topics(cir))
 
 
 def listing_help_links(db, cir):
     """Approved lessons for a listing description (F-808); same gate as the PDF."""
-    return public_help_links(db, topics(cir))
+    return public_help_links(db, pattern_topics(cir))
 
 
 def support_help_links(db, cir, specialist=None):
@@ -387,7 +491,7 @@ def support_help_links(db, cir, specialist=None):
     (`support:<specialist>`, the node `scan` files support cases under), widened by the
     graph -- so an edge from `support:troubleshooter` to a technique routes that lesson.
     """
-    wanted = set(topics(cir) if cir is not None else ())
+    wanted = set(pattern_topics(cir) if cir is not None else ())
     if specialist:
         wanted.add("support:" + str(specialist))
     return public_help_links(db, wanted)

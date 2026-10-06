@@ -154,7 +154,14 @@ def _summary(db) -> dict:
         "guardrail": {"protected_invariants": [i.key for i in invariants.PROTECTED_INVARIANTS],
                       "refusals_total": sum(i["refusals"] for i in items)},
         "sources": SOURCES,
+        # F-799: the Learn department's own reading (queue, metrics, calendar, experiments).
+        "department": _department(db),
     }
+
+
+def _department(db) -> dict:
+    from .metrics import summary as learn_summary
+    return learn_summary(db)
 
 
 # ---- next_work -------------------------------------------------------------------------------
