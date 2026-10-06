@@ -41,6 +41,16 @@ PROTECTED_GATES: tuple[str, ...] = (
     "creative_jury",                # one rejection ends a concept
     "benchmark_quarantine",         # competitor files stay unreachable
     "product_truth",                # the fabric works the certified chart, never a guess
+    # W3 K11 (F-708, F-743): the authorities continuous improvement may never silently
+    # alter. None is operated by any department (GATE_OPERATORS maps each to ()), so the loop
+    # can neither propose nor promote a change to one; the owner (or the professional the
+    # owner retains) changes them directly, through their own gates.
+    "publication_authority",        # who/what may publish, activate or update live listings
+    "spend_authority",              # who may spend, and the ceilings
+    "credentials",                  # API keys, tokens, OAuth grants, secrets
+    "legal_tax",                    # legal and tax positions, filings, terms acceptance
+    "customer_remedy",              # refunds, remedies, compensation, customer messages
+    "canonical_identity",           # the canonical model / Laura identity (D-FB-14/D-FB-17)
 )
 
 _FABRICATION = (
@@ -122,6 +132,12 @@ GATE_OPERATORS: dict[str, tuple[str, ...]] = {
     "confidence_ladder": ("finance",),
     "creative_jury": ("product_creativity",),
     "benchmark_quarantine": ("market_radar",),
+    "publication_authority": (),
+    "spend_authority": (),
+    "credentials": (),
+    "legal_tax": (),
+    "customer_remedy": (),
+    "canonical_identity": (),
 }
 
 
@@ -244,7 +260,43 @@ def implied_surfaces(hypothesis: str) -> dict[str, str]:
         out.setdefault("product_truth",
                        "describes the certified chart being replaced by an image, photo, "
                        "model or generator")
+    for surface, pattern in _AUTHORITY_SURFACES:
+        hit = pattern.search((hypothesis or "").lower())
+        if hit:
+            out.setdefault(surface, f"mentions {hit.group(0)!r}")
     return out
+
+
+# W3 K11 (F-708, F-743): the protected authorities described in plain words. A hypothesis
+# that names one is touching it whatever it declared, and since no department operates these
+# surfaces the loop can never change them. Phrases, not single words: "tokens per call" is a
+# model-budget tuning, "access token" is a credential. Rendering technique, prompts, adapters,
+# references and conditioning stay improvable (F-743); only the identity itself is protected.
+_AUTHORITY_SURFACES: tuple[tuple[str, re.Pattern], ...] = (
+    ("credentials", re.compile(
+        r"\b(credentials?|api[ _-]?keys?|access tokens?|refresh tokens?|oauth|secrets?|"
+        r"passwords?|signing keys?|bearer tokens?)\b")),
+    ("legal_tax", re.compile(
+        r"\b(tax (position|treatment|filing|return|rate|registration|remittance)s?|"
+        r"sales tax|gst|hst|vat|legal (position|terms|acceptance)|terms of (service|use|sale)"
+        r"|casl|kyc|filing positions?)\b")),
+    ("customer_remedy", re.compile(
+        r"\b(refunds?|refund policy|customer remed(y|ies)|remedy policy|compensat\w+|"
+        r"chargebacks?|goodwill credits?|replacement policy|customer messag\w+)\b")),
+    ("publication_authority", re.compile(
+        r"\b(publication (authority|approval|rights?|permissions?)|auto[ -]?publish\w*|"
+        r"publish\w* (\w+ ){0,3}(automatically|without (the )?(owner|approval|review))|"
+        r"(who|which agents?|any agent) (may|can) publish|"
+        r"activat\w+ (\w+ ){0,3}(automatically|without (the )?(owner|approval|review)))\b")),
+    ("spend_authority", re.compile(
+        r"\b(spend (authority|ceilings?|caps?|limits?|approval)|daily (cost )?ceilings?|"
+        r"budget (ceilings?|caps?|authority)|ad spend|paid media|spending limits?)\b")),
+    ("canonical_identity", re.compile(
+        r"\b(canonical (identity|model|face|likeness|portrait|reference pack)|"
+        r"identity[ _]id|face hash|face_sha256|laura'?s? (face|likeness|appearance|identity)|"
+        r"(re)?define (the )?(model'?s? )?identity|new canonical|replace the canonical|"
+        r"identity record)\b")),
+)
 
 
 # ---- the lexical net: weakening verbs governing gate objects --------------------------------
@@ -486,7 +538,11 @@ def check_owner_authority(action: str) -> Boundary:
     """Refuse a self-improvement that quietly grants the system an owner-only power."""
     owner_only = ("publish", "kyc", "identity verification", "banking", "payout",
                   "legal acceptance", "advertising budget", "phase to production",
-                  "graduate the phase", "connect etsy")
+                  "graduate the phase", "connect etsy",
+                  # W3 K11 (F-708, F-743)
+                  "credential", "api key", "access token", "tax position", "tax filing",
+                  "refund", "customer remedy", "canonical identity", "canonical model",
+                  "spend authority", "spend ceiling", "grant authority", "authority policy")
     hit = _mentions(action, owner_only)
     if hit:
         return Boundary(False,

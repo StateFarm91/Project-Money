@@ -256,6 +256,24 @@ def review(db, proposal: dict, *, now: datetime | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001 - fail closed
         add("security", "block", f"challenges unreadable ({type(exc).__name__})")
 
+    # W3 K11 (F-700): the Brambleloop Constitution as one check, applied to her proposals as
+    # to every coordinator work item. Fails closed.
+    try:
+        from ...authority import constitution as company
+
+        verdict = company.evaluate(db, {
+            "actor": "laura", "job_type": jt, "department": dept, "cost_cad": cost,
+            **{k: proposal.get(k) for k in (
+                "kind", "title", "description", "hypothesis", "provenance", "claims",
+                "metrics", "customer_harm", "success_metric", "falsified_if", "fingerprint",
+                "addresses_failure", "skip_validation") if proposal.get(k) is not None}},
+            now=now, record_audit=False)
+        for x in verdict["violations"]:
+            add("constitution", "block", f"{x['text']}: {x['why']}"[:400],
+                f"constitution:{x['clause']}")
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        add("constitution", "block", f"company constitution unreadable ({type(exc).__name__})")
+
     blocks = [c for c in checks if c["outcome"] == "block"]
     owner = [c for c in checks if c["outcome"] == "owner_action"]
     outcome = "block" if blocks else "owner_action" if owner else "allow"

@@ -1,0 +1,118 @@
+{
+ "phase": "shadow",
+ "network": "closed",
+ "db": "temp sqlite",
+ "commit": "04b811b",
+ "run1": {
+  "runs": 13,
+  "completed": 13,
+  "denied": 0,
+  "failed": 0,
+  "seconds": 101.5
+ },
+ "after_run1": {
+  "proof:seo": {
+   "state": "enqueued",
+   "reason": "enqueued as jobs:13",
+   "job_id": 13,
+   "evidence": {
+    "dispatched_at": "2026-10-06T18:23:55.144942+00:00"
+   }
+  },
+  "proof:publish": {
+   "state": "awaiting_approval",
+   "reason": "owner approval required (no owner policy); only dependants wait",
+   "job_id": null,
+   "evidence": {}
+  },
+  "proof:promote": {
+   "state": "blocked",
+   "reason": "waiting on ['proof:publish']",
+   "job_id": null,
+   "evidence": {}
+  }
+ },
+ "dag_summary_run1": {
+  "status": "OK",
+  "as_of": "2026-10-06T18:23:55.144942+00:00",
+  "basis": "measured",
+  "reason": "",
+  "counts": {
+   "awaiting_approval": 1,
+   "blocked": 1,
+   "enqueued": 12
+  },
+  "sources": [
+   "company_work_items"
+  ]
+ },
+ "store_publish_jobs": 0,
+ "authority_refusals": {
+  "pricing:pricing.experiment": "'pricing' is GREEN; pricing.experiment is PUBLISH, which a GREEN agent runs only under an owner AuthorityPolicy (F-669)",
+  "orchestrator:store.publish": "agent 'orchestrator' may not run 'store.publish' (allowed: ['scale.trajectory', 'plan.cycle', 'portfolio.review', 'ops.heartbeat', 'ops.queue_check', 'plan.strategy', 'launch.readiness', 'ops.continui",
+  "build_runtime:store_operator:store.publish": "store.publish is PUBLISH; a build runtime (BRAMBLELOOP_RUNTIME_ROLE=build) never executes operate-plane actions (F-497)",
+  "laura_self_grant": "'laura' cannot grant authority: only the owner grants, and agents may never self-grant broader authority (F-703)"
+ },
+ "seo_job_status_before_restart_tick": "done",
+ "run2_after_restart": {
+  "runs": 13,
+  "completed": 13,
+  "denied": 0,
+  "failed": 0,
+  "seconds": 44.2
+ },
+ "after_restart": {
+  "proof:seo": {
+   "state": "done",
+   "reason": "completed",
+   "job_id": 13,
+   "evidence": {
+    "job_id": 13,
+    "job_status": "done",
+    "did_no_work": true,
+    "output_keys": [
+     "attribution_status",
+     "changed",
+     "cycle_fingerprint",
+     "evidence_added",
+     "proposals_unchanged",
+     "proposals_written",
+     "taxonomy",
+     "writes_to_etsy"
+    ],
+    "error": "",
+    "closed_at": "2026-10-06T18:25:36.671977+00:00"
+   }
+  },
+  "proof:publish": {
+   "state": "awaiting_approval",
+   "reason": "owner approval required (no owner policy); only dependants wait",
+   "job_id": null,
+   "evidence": {}
+  },
+  "proof:promote": {
+   "state": "blocked",
+   "reason": "waiting on ['proof:publish']",
+   "job_id": null,
+   "evidence": {}
+  }
+ },
+ "dag_summary_after_restart": {
+  "status": "OK",
+  "as_of": "2026-10-06T18:25:36.671977+00:00",
+  "basis": "measured",
+  "reason": "",
+  "counts": {
+   "awaiting_approval": 1,
+   "blocked": 1,
+   "done": 12,
+   "enqueued": 11
+  },
+  "sources": [
+   "company_work_items"
+  ]
+ },
+ "jobs_total": 26,
+ "jobs_dead": 0,
+ "store_publish_jobs_final": 0
+}

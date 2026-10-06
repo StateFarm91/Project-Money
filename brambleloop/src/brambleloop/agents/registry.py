@@ -529,6 +529,21 @@ class Registry:
                 f"agent {agent_name!r} may not run {job_type!r} "
                 f"(allowed: {agent.allowed_job_types})"
             )
+        # W3 K11 (F-669, F-497, F-703): the action class. A gated class (PUBLISH, SPEND,
+        # CUSTOMER-REMEDY, LEGAL-TAX, CREDENTIALS, DEPLOY) runs only for an agent the code
+        # declares for it at a non-GREEN grade, or under an owner AuthorityPolicy; a database
+        # row widened at runtime is a silent expansion and is refused. Fails closed.
+        try:
+            from ..authority.policy import check_dispatch
+
+            refusal = check_dispatch(self.db, agent, job_type)
+        except Exception as exc:  # noqa: BLE001 - an unreadable authority check refuses
+            from ..authority.classes import is_gated
+
+            refusal = (f"authority check unavailable ({type(exc).__name__}); refusing "
+                       f"{job_type!r}") if is_gated(job_type) else None
+        if refusal:
+            raise PermissionDenied(refusal)
         return agent
 
     # ---- cost ceilings -------------------------------------------------
