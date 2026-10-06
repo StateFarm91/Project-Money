@@ -55,12 +55,41 @@ def current_product() -> str:
     return _CURRENT_PRODUCT.get()
 
 
+class JobSlug(str):
+    """The product slug a job's spend belongs to, carrying the job it was read from.
+
+    `job_product` returns one so that the worker's existing
+    `attributed_to(job_product(db, job))` also opens the paid-call job scope (F-307,
+    `gateway.paid_calls`) without a second argument at the call site. It is an ordinary
+    string everywhere else ("" when the spend is shared)."""
+
+    db = None
+    job = None
+
+    def __new__(cls, value: str, *, db=None, job=None):
+        obj = super().__new__(cls, value)
+        obj.db, obj.job = db, job
+        return obj
+
+
 @contextmanager
-def attributed_to(product_slug: str | None):
-    """Attribute every spend write inside this block to `product_slug` ("" = shared)."""
+def attributed_to(product_slug: str | None, *, job=None, db=None):
+    """Attribute every spend write inside this block to `product_slug` ("" = shared).
+
+    With a job (passed explicitly, or carried by a `JobSlug`), every paid call inside the
+    block is also guarded against re-execution of that job (`gateway.paid_calls`): a reclaimed
+    or retried attempt replays what the earlier one paid for rather than paying again."""
+    job = job if job is not None else getattr(product_slug, "job", None)
+    db = db if db is not None else getattr(product_slug, "db", None)
     token = _CURRENT_PRODUCT.set(str(product_slug or "")[:80])
     try:
-        yield
+        if job is not None and db is not None:
+            from ..gateway import paid_calls
+
+            with paid_calls.job_scope(db, job):
+                yield
+        else:
+            yield
     finally:
         _CURRENT_PRODUCT.reset(token)
 
@@ -79,6 +108,10 @@ def job_product(db, job) -> str:
     every other slug. Unattributable spend is not lost: it stays in platform spend, where
     the ceiling and the forecast still count it.
     """
+    return JobSlug(_job_slug(db, job), db=db, job=job)
+
+
+def _job_slug(db, job) -> str:
     inputs = getattr(job, "inputs", None)
     inputs = inputs if isinstance(inputs, dict) else {}
     cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
@@ -341,12 +374,49 @@ def what_it_bought(db, *, now: datetime | None = None) -> dict:
         "by_agent": _bucket(month, "agent"),
         "by_department": _bucket(month, "department"),
         "by_product": _bucket(month, "product_slug"),
+        # F-303: the closed economic class of every row, one-time creation apart from
+        # recurring operation; unknown purposes counted as `unclassified`, never dropped.
+        "by_economic_class": _economic(month),
         "reconciliation": variance(month),
         "unattributed_note": (
             f"rows with no recorded dimension are counted under {UNATTRIBUTED!r} with their "
             f"dollars intact. Dropping them would show a tidier number that does not match "
             f"the bill, and the gap would be exactly the spending nobody could account for"),
     }
+
+
+def _honesty(db, now) -> dict:
+    from . import spend_hygiene
+
+    month = rows(db, now=now)
+
+    def _billing(r) -> str:
+        return str((r.detail or {}).get("billing") or "") if isinstance(r.detail, dict) else ""
+
+    at_estimate = [r for r in month if "estimate" in _billing(r)]
+    measured = [r for r in month if r not in at_estimate]
+    providers = spend_hygiene.provider_discrepancy(db, now)
+    return {
+        "recorded_cad": round(sum(float(r.amount_cad or 0) for r in measured), 6),
+        "recorded_basis": "provider-reported usage priced at assumed list prices",
+        "counted_at_estimate_cad": round(sum(float(r.amount_cad or 0) for r in at_estimate),
+                                         6),
+        "counted_at_estimate_basis": ("upper bound: outcome UNKNOWN (timeout, missing usage, "
+                                      "worker lost mid-call), counted at the reservation "
+                                      "estimate, never as zero"),
+        "historical_unknown": [{k: p[k] for k in ("provider", "historical_unknown_usd",
+                                                  "reported_at", "stale", "basis")}
+                               for p in providers],
+        "historical_unknown_basis": ("provider-dashboard usage the owner reported that this "
+                                     "ledger never recorded; shown beside, never folded into, "
+                                     "the measured figure"),
+    }
+
+
+def _economic(month) -> dict:
+    from . import economics
+
+    return economics.by_class(month)
 
 
 def per_agent_today(db, *, now: datetime | None = None) -> dict:
@@ -445,6 +515,16 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
         raise ValueError(f"amount_cad {amount_cad!r} must be a finite, non-negative CAD "
                          "amount; a credit or refund is not recorded as a negative cost")
     product_slug, detail = attribution(product_slug, detail)
+    # F-307: tie the row to the write-ahead paid-call intent it bills, and label a replayed
+    # answer (nothing sent, so a zero amount) as exactly that rather than as a free call.
+    from ..gateway import paid_calls
+
+    note = (paid_calls.ledger_note()
+            if "paid_call_key" not in detail and kind in ("llm", "image") else {})
+    if note.get("replayed") and amt > 0:
+        note = {"paid_call_key": note["paid_call_key"]}       # a real bill is never relabelled
+    note.pop("replayed", None)
+    detail.update(note)
     if detail.get("shared_override_of"):
         # F1: the override is audited as well as labelled, so "how much product-job spend
         # was declared shared" is a count rather than a scan of JSON details.
@@ -506,7 +586,16 @@ def estimate_drift(db, *, now: datetime | None = None) -> dict:
     image_keys = _image_provider_keys()
     image_rows = [r for r in month
                   if (r.provider or "") in image_keys or (r.model or "") in image_keys]
-    token_rows = [r for r in month if r not in image_rows]
+    # F-307: a replayed answer (nothing sent, CA$0) and an in-flight orphan (counted at its
+    # estimate) say nothing about whether estimates describe bills, so neither is judged.
+    def _billing(r) -> str:
+        return str((r.detail or {}).get("billing") or "") if isinstance(r.detail, dict) else ""
+
+    replayed = [r for r in month if _billing(r) == "replayed_not_billed"]
+    orphaned = [r for r in month
+                if _billing(r) == "in_flight_when_worker_lost_counted_at_estimate"]
+    token_rows = [r for r in month
+                  if r not in image_rows and r not in replayed and r not in orphaned]
 
     v = variance(token_rows)
     outside = {k: b for k, b in v["by_purpose"].items()
@@ -545,6 +634,10 @@ def estimate_drift(db, *, now: datetime | None = None) -> dict:
         "calls_with_no_reservation_share": unreserved_share,
         "unreserved_share_tolerance": UNRESERVED_SHARE_TOLERANCE,
         "token_priced_calls": len(token_rows),
+        "replayed_not_billed_rows": len(replayed),
+        "in_flight_orphans_counted_at_estimate": {
+            "calls": len(orphaned),
+            "cad": round(sum(float(r.amount_cad or 0.0) for r in orphaned), 6)},
         "image_rows": {"calls": len(image_rows),
                        "cad": round(sum(float(r.amount_cad or 0.0) for r in image_rows), 6),
                        "reconciles_by_construction": True,
@@ -592,6 +685,10 @@ def governance(db, *, now: datetime | None = None) -> dict:
     _part("refusals", lambda: refusals(db, now=now))
     _part("drift", lambda: estimate_drift(db, now=now))
     _part("escalation", lambda: spend_policy.escalation(db, now=now))
+    _part("binding", lambda: spend_policy.binding_ceiling(db, now=now))
+    # F-105: measured, estimated/upper-bound and historical-unknown spend kept apart.
+    _part("honesty", lambda: _honesty(db, now))
+    _part("vocabulary", lambda: spend_policy.vocabulary(db))
 
     def _scoped():
         with db.session() as s:
