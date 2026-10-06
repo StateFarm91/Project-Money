@@ -181,6 +181,9 @@ research/final_build/audit_3be3096/:
 - Audit 3 runtime/security: 1 LAUNCH-BLOCKING (unauthenticated stored XSS on dashboard → ops token in
   localStorage), 4 HIGH (unauthenticated mutating routes, readiness closes live owner actions, buyer
   id leak on 5 open routes, deploy guard unenforced), 5 MEDIUM, 4 LOW.
-- Audit 2 product truth/publishing: running.
+- Audit 2 product truth/publishing: 2 LAUNCH-BLOCKING (basket/coaster listings titled, tagged, priced and
+  categorised as "Mosaic Blanket"; first-customer gate can never clear), 2 HIGH (same-version content
+  replacement at runtime; price from wrong band), 7 MEDIUM, 3 LOW; compile/certify/stitch counts/gauge/
+  safety/upload binding confirmed OK. Repairs: claude/rc1-LST, claude/rc1-PAT (base a034a44).
 Repair workers (local branches, unsigned, not pushed; base 503190e): claude/rc1-AUTH, rc1-SPEND,
 rc1-ORD, rc1-SEC, rc1-OWN. Then: merge → full suite → rehearsal → freeze successor → re-audit.
