@@ -21,7 +21,16 @@ New (each fails on ddf9c6e, passes here — verified in a detached ddf9c6e workt
 `test_r2_product_client_grant` 5, `test_r2_product_policy_alias` 7, `test_r2_product_voice` 2
 (shared runner `tests/_r2_harness.py`).
 Fixture-only updates (grant stubs, rc1-INT pattern; no assertion removed): test_etsy,
-test_etsy_transport, test_etsy_readback_observe, test_rc1_auth.
+test_etsy_transport, test_etsy_readback_observe, test_rc1_auth, test_disclosed_certified_upload
+(fake accepts `grant=`, aliases `_upload_image`), test_draft_creation_durability (fakes accept `grant=`).
+
+Suites run green after the fix: v11_seo_* (29), v11_store_* (33), search_truth 32, v11_learn_loops 18,
+shop_package 18, brand 23, storefront_fb4 17, vacuity 7, secret_scan 6, etsy 17, etsy_transport 44,
+etsy_readback_observe 37, etsy_exercise 31, etsy_capability 9, etsy_surfaces 52, etsy_oauth_callback 41,
+etsy_property_contract 4, rc1_auth 11, publish_execution_gate 1, activation_authority 2,
+first_customer_gate 12, launch 28, launch0 52, launch0_gauge 1, launch0_size_labels 4,
+launch0_listing_truth 14, commerce 53, childrens 40, deliverable_qa 61, product_run 36,
+cert_rebuild_chain 10, disclosed_certified_upload 7, draft_creation_durability 6.
 
 ## Open / not done
 - P-5: `attach_file`, `update_listing`, `set_listing_property` still need only DRAFT_WRITE
