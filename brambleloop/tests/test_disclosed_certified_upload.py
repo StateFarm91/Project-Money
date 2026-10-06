@@ -185,6 +185,7 @@ class _FakeEtsy:
 
     # J-product P-5: publish() uploads through the private, grant-covered `_upload_image`.
     _upload_image = upload_image
+    _attach_file = attach_file   # likewise the grant-covered private file upload
 
 
 def _TransportTestGrant():

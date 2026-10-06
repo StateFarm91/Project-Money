@@ -108,6 +108,10 @@ class OwnerGrant:
 
     ACTIVATE = "store.activate"
     PUBLISH = "store.publish"
+    # J-product P-5 follow-up: a publication grant also covers *completing* the draft it
+    # created (second file, listing properties, images) -- and only that draft. Asked for
+    # with this action name; never a grant action of its own.
+    PUBLISH_COMPLETE = "store.publish.complete"
 
     def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str, version: str,
                  release: str = "", listing_id: str = "") -> None:
@@ -124,6 +128,8 @@ class OwnerGrant:
     def refusal(self, *, action: str, listing_id: str = "") -> str | None:
         """Why this grant does not authorise `action` now, or None. Fails closed."""
         try:
+            if action == self.PUBLISH_COMPLETE and self.action == self.PUBLISH:
+                return self._completion_refusal(str(listing_id or ""))
             if action != self.action:
                 return f"owner grant is for {self.action}, not {action}"
             if self.db is None:
@@ -149,6 +155,101 @@ class OwnerGrant:
                 release=self.release)
         except Exception as exc:  # noqa: BLE001 - an unverifiable grant is no grant
             return f"owner grant could not be verified: {type(exc).__name__}: {str(exc)[:200]}"
+
+
+def _completion_refusal(self, listing_id: str) -> str | None:
+    """May this publication grant complete the draft `listing_id`? Fails closed.
+
+    Re-resolved from the database at every call: the effective phase permits publication;
+    the global kill-switch is on; the listing row for this grant's slug@version is bound to
+    the grant's certified release AND records `listing_id` as the Etsy draft this publication
+    created (the `on_created` checkpoint); and the sealed grant itself is the owner's,
+    unrevoked (chained ledger), unexpired, sealed, and for this release. The content digest is
+    not re-checked here because the grant's snapshot is, by design, of the pre-creation state;
+    the binding to this exact listing id is what stops it reaching any other listing.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, Listing
+    from ..core.phase import effective
+    from ..ops import publication_authority as pa
+
+    if self.db is None:
+        return "owner grant has no database to be verified against"
+    if not listing_id:
+        return "completing a draft needs the listing id the publication created"
+    live = effective(self.db)
+    if live not in PHASES_THAT_MAY_PUBLISH:
+        return (f"the effective runtime phase is {live!r} (environment and the owner's "
+                f"recorded phase); it does not permit {self.PUBLISH_COMPLETE}")
+    killed = pa.kill_switch_refusal()
+    if killed is not None:
+        return killed
+    with self.db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == self.slug,
+                                                 Listing.version == self.version))
+        if listing is None or not self.release or listing.release_hash != self.release:
+            return "no drafted listing bound to this grant's certified release"
+        if str(listing.etsy_listing_id or "") != listing_id:
+            return (f"listing {listing_id} is not the draft this publication created; a "
+                    f"publication grant completes only its own draft")
+    if self.approval_id is not None:
+        try:
+            idents = [int(self.approval_id)]
+        except (TypeError, ValueError):
+            return "recorded owner publication grant required"
+    else:
+        # As `publication_authority.resolve`: the newest grant for slug@version valid now.
+        with self.db.session() as s:
+            idents = list(s.scalars(select(AuditLog.id).where(
+                AuditLog.action == pa.APPROVED,
+                AuditLog.artifact == f"{self.slug}@{self.version}")
+                .order_by(AuditLog.id.desc())))
+        if not idents:
+            return "recorded owner publication grant required"
+    first = None
+    for ident in idents:
+        why = _completion_grant_row_refusal(self, pa, ident)
+        if why is None:
+            return None
+        first = first or why
+    return first
+
+
+def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
+    """`publication_authority._check_one` without the pre-creation content digest."""
+    import hmac
+    from datetime import datetime
+
+    from ..core.models import AuditLog
+
+    with self.db.session() as s:
+        row = s.get(AuditLog, ident)
+        if row is None or row.action != pa.APPROVED or row.actor != pa.PRINCIPAL:
+            return "recorded owner publication grant required"
+        if row.artifact != f"{self.slug}@{self.version}":
+            return "owner publication grant is for another product or version"
+        detail = dict(row.detail or {})
+    chained = pa.LEDGER.refusal(self.db, ident)
+    if chained is not None:
+        return f"owner publication grant refused: {chained}"
+    seal = detail.pop("seal", "")
+    if not hmac.compare_digest(str(seal), pa._seal(detail)):
+        return "owner publication grant invalid or credential rotated"
+    now = pa._now()
+    try:
+        if not (datetime.fromisoformat(detail["approved_at"]) <= now
+                < datetime.fromisoformat(detail["expires_at"])):
+            return "owner publication grant expired or future-dated"
+    except (KeyError, TypeError, ValueError):
+        return "owner publication grant invalid"
+    if (detail.get("action") != pa.ACTION or detail.get("scope") != f"{self.slug}@{self.version}"
+            or detail.get("release") != self.release):
+        return "owner publication grant does not cover this release"
+    return None
+
+
+OwnerGrant._completion_refusal = _completion_refusal  # type: ignore[attr-defined]
 
 
 def _grant_refusal(grant: Any, *, action: str, listing_id: str = "") -> str | None:
@@ -740,9 +841,12 @@ class EtsyClient:
             # A write to a listing that already exists (image, delete) may also ride the
             # owner's activation grant for exactly that listing; a publication grant covers
             # draft creation (ops.publication_authority).
-            action = (OwnerGrant.ACTIVATE if isinstance(grant, OwnerGrant)
-                      and grant.action == OwnerGrant.ACTIVATE and listing_id
-                      else OwnerGrant.PUBLISH)
+            if not listing_id:
+                action = OwnerGrant.PUBLISH
+            elif isinstance(grant, OwnerGrant) and grant.action == OwnerGrant.ACTIVATE:
+                action = OwnerGrant.ACTIVATE
+            else:
+                action = OwnerGrant.PUBLISH_COMPLETE
             reason = _grant_refusal(grant, action=action, listing_id=str(listing_id or ""))
             if reason is not None:
                 raise EtsyNotPermitted(f"{operation} refused at the client: {reason}")
@@ -843,8 +947,10 @@ class EtsyClient:
         results = body.get("results")
         return list(results) if isinstance(results, list) else []
 
-    def set_listing_property(self, listing_id: str, prop: dict) -> dict:
+    def set_listing_property(self, listing_id: str, prop: dict, *,
+                             grant: OwnerGrant | None = None) -> dict:
         creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("updateListingProperty", grant, listing_id=str(listing_id))
         property_id = int(prop["property_id"])
         fields = {"value_ids": list(prop.get("value_ids") or []),
                   "values": list(prop.get("values") or [])}
@@ -1097,7 +1203,8 @@ class EtsyClient:
                                f"listing_image_id: {response.body}")
         return response.body
 
-    def attach_file(self, listing_id: str, *, filename: str, data: bytes) -> bool:
+    def attach_file(self, listing_id: str, *, filename: str, data: bytes,
+                    grant: OwnerGrant | None = None) -> bool:
         """Attach the pattern file to a draft listing.
 
         The digital file is what the customer buys. A listing without one is a product that
@@ -1111,6 +1218,13 @@ class EtsyClient:
         the owner's storage decision.
         """
         creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("uploadListingFile", grant, listing_id=str(listing_id))
+        return self._attach_file(listing_id, filename=filename, data=data)
+
+    def _attach_file(self, listing_id: str, *, filename: str, data: bytes) -> bool:
+        """The upload itself: through `attach_file` (boundary-checked) or inside `publish`,
+        under the grant verified immediately before the draft was created."""
+        creds = self._require(Authority.DRAFT_WRITE)
         if not data:
             raise EtsyRejected(
                 f"no bytes to upload for {filename}: the pattern file is not available to "
@@ -1123,7 +1237,8 @@ class EtsyClient:
                                content_type="application/pdf"))
         return bool(response.body.get("listing_file_id"))
 
-    def update_listing(self, listing_id: str, fields: dict[str, Any]) -> dict[str, Any]:
+    def update_listing(self, listing_id: str, fields: dict[str, Any], *,
+                       grant: OwnerGrant | None = None) -> dict[str, Any]:
         """Change permitted fields on a listing. PATCH, form-encoded, never activation.
 
         `state` is refused here even though Etsy's update schema accepts it, because
@@ -1131,6 +1246,7 @@ class EtsyClient:
         That request has one door, `activate`, and it is locked.
         """
         creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("updateListing", grant, listing_id=str(listing_id))
         if not fields:
             raise EtsyRejected("update_listing was called with no fields. A PATCH that "
                                "changes nothing is a request that can only fail or mislead.")
@@ -1273,7 +1389,7 @@ class EtsyClient:
         if on_created is not None:
             on_created(listing_id)
         try:
-            uploaded = self.attach_file(listing_id, filename=filename, data=data)
+            uploaded = self._attach_file(listing_id, filename=filename, data=data)
         except (TransientError, EtsyRejected) as e:
             return PublishOutcome(published=False, listing_id=listing_id,
                                   file_uploaded=False,
