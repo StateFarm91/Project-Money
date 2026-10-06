@@ -319,6 +319,8 @@ class CustomerExperience:
             # case window -- UNKNOWN, with no deadline computed, while no recorded policy
             # reading states the window in days.
             "readings": support_readings(self.db),
+            # K8 F-689: the one CX workspace, as aggregates (no buyer text or reference).
+            "workspace": _workspace_summary(self.db),
             "note": ("row hotspots are candidate defects, not confirmed ones. Confirmation "
                      "runs through the compiler, not through a vote."),
         }
@@ -482,3 +484,9 @@ def confusion_reading(db) -> dict:
                 "no orders, so there is no rate; the contacts are counted and the rate is "
                 "UNMEASURED rather than zero"),
     }
+
+
+def _workspace_summary(db) -> dict:
+    from .workspace import summary
+
+    return summary(db)

@@ -715,7 +715,19 @@ def read(db, *, today: date | None = None) -> dict:
         "referral": referral_block(db, rows, contribution_per_customer=cohort.get(
             "lifetime_contribution_per_buyer_cad")),
         "loops": loop_block(db, rows),
+        # K8 F-535: every refund, cancellation, case and complaint gets a reason code and
+        # an owner; a repeated cause opens its investigation.
+        "root_cause": _root_cause(db, now),
     }
+
+
+def _root_cause(db, now: datetime) -> dict:
+    from . import cx_root_cause
+
+    try:
+        return cx_root_cause.run(db, now=now)
+    except Exception as e:  # noqa: BLE001 - a failed assignment is reported, not hidden
+        return {"error": f"{type(e).__name__}: {str(e)[:200]}"}
 
 
 def record(db, payload: dict) -> dict:
