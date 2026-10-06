@@ -66,7 +66,11 @@ Small edits outside the owned set (neither file is in the brief's shared table):
 | `test_fb4_launch` | 9/9 |
 | `test_route_auth_default_deny` | 7/7 |
 
-Related files whose results were run in the background are listed in the final message.
+I also ran 18 related test files one at a time; every one passed except `test_launch`:
+
+- **Passed:** `rc1_own_packet`, `rc1_own_closer`, `access`, `cert_growth_ops`, `etsy_readback_observe` (37), `publish_execution_gate`, `cert_publish_gates`, `r2_product_client_grant`, `r2_product_listing_writes`, `draft_creation_durability` (6), `draft_intent_precreate_refusal`, `etsy`, `originality_runtime`, `search_hero_publish` (4), `cert_commerce` (14), `customer_data_auth` (9), `w3_final_master_gate`, `fb4_ops`, `storefront_fb4`.
+- **`test_launch`:** `test_a_company_that_has_done_its_half_is_only_blocked_on_people` fails, but it fails the same way on the unmodified base 3f1a273, so this lane did not introduce it. The failing requirements are `listing_photography`, `opening_grid`, `storefront_preview` and `final_master_closure`.
+- **One mid-run failure, explained.** `test_the_photography_requirement_reads_the_same_source_as_the_coverage_endpoint` failed once because I edited `readiness.py` while that run was in progress, so `inspect.getsource` read lines that had shifted. It passes on a re-run.
 
 ## Runtime proof
 
