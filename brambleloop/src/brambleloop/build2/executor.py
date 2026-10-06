@@ -1125,12 +1125,31 @@ def queue(db, *, limit: int = 25) -> dict:
     by_capability: dict[str, list[int]] = {}
     for r in parked:
         by_capability.setdefault(r["parked_on"] or "unknown", []).append(r["requirement_id"])
+    # F-130: parked work split by what kind of waiting it is -- owner, data or external -- so
+    # "parked" never hides which of the three is holding it. A gate nobody classified is
+    # reported as such rather than filed wherever flatters the count.
+    from . import closure
+
+    by_kind: dict[str, list[int]] = {"owner_gated": [], "data_gated": [],
+                                     "external_blocked": [], "unclassified": []}
+    kind_key = {closure.OWNER_GATED: "owner_gated", closure.DATA_GATED: "data_gated",
+                closure.EXTERNAL_BLOCKED: "external_blocked"}
+    for r in parked:
+        try:
+            k = kind_key.get(closure.kind_of(r["parked_on"] or ""), "unclassified")
+        except closure.ClosureRefused:
+            k = "unclassified"
+        by_kind[k].append(r["requirement_id"])
 
     return {
         "ready": ready[:limit],
         "ready_total": len(ready),
         "parked_total": len(parked),
         "parked_by_capability": by_capability,
+        "parked_by_kind": {k: sorted(v) for k, v in by_kind.items()},
+        "executable_remaining": len(ready) + len(blocked) + len(in_progress),
+        "running_total": len(in_progress),
+        "dependency_waiting_total": len(blocked),
         "blocked_total": len(blocked),
         "blocked": blocked[:limit],
         "in_progress": in_progress,
@@ -1391,6 +1410,15 @@ def watchdog(db, *, now: datetime | None = None,
     }
 
 
+def _final_master_brief() -> dict:
+    from . import final_master
+
+    fm = final_master.summary()
+    return {k: fm.get(k) for k in ("status", "launch_ready", "launch_critical",
+                                   "gated_by_kind", "post_launch_excluded",
+                                   "integrity_violations", "reason", "rule")}
+
+
 def report(db, *, env: dict[str, str] | None = None) -> dict:
     """Everything an absent owner needs to see about the build loop itself."""
     from ..launch import access
@@ -1408,6 +1436,8 @@ def report(db, *, env: dict[str, str] | None = None) -> dict:
         "capabilities": access.statuses(env),
         "dependencies": {str(k): list(v) for k, v in DEPENDENCIES.items()},
         "claim_lease_minutes": CLAIM_LEASE_MINUTES,
+        # F-129 / F-136: the Final Master registry's live re-audit beside Build 2's.
+        "final_master": _final_master_brief(),
         "note": ("The graph, the queue and the parking state live in Postgres, so losing a "
                  "session loses a worker rather than the build. An owner action parks the "
                  "requirements that need it and never holds the queue."),

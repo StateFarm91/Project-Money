@@ -695,8 +695,8 @@ def test_no_owner_facing_string_asks_the_owner_to_crochet():
 
     texts = [json.dumps(l0.pipeline_plan(date(2026, 9, 28)), default=str)]
     texts += [f"{p.owner_of_the_blocker} {' '.join(p.blocked_on)}" for p in l0.PIPELINE]
-    requests = [v for v in vars(rd).values() if isinstance(v, rd.OwnerRequest)
-                and v is not rd.PHYSICAL_SAMPLE]       # kept, parked, never raised
+    # F-086 (K6): the parked PHYSICAL_SAMPLE is scanned too -- reworded to the tester route.
+    requests = [v for v in vars(rd).values() if isinstance(v, rd.OwnerRequest)]
     requests.append(rd.listing_fees_request(3))
     texts += [f"{o.action} {o.reason} {o.blocks}" for o in requests]
     hits = [m.group(0) for t in texts for m in [_OWNER_CROCHET_ASK.search(t)] if m]

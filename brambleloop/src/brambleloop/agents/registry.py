@@ -197,7 +197,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # owner-authorised 2026-09-23 inside a CA$1.00 ceiling. It
                             # adopts nothing: the reference is replaced only on the owner's
                             # visual approval of the side-by-side evidence.
-                            "visual.portrait_repair"],
+                            "visual.portrait_repair",
+                            # W3 lane H: the Visual R&D cycle (deterministic, CA$0; paid
+                            # challengers are only planned for the owner).
+                            "visual.rnd.cycle"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
@@ -246,6 +249,11 @@ DEFAULT_AGENTS: list[dict] = [
                             # C-64: the order ingest (behind the transactions_r gate) and
                             # everything that reads orders.
                             "commerce.orders_ingest", "commerce.order_readings",
+                            # W3 K3 (F-258): listing-outcome producer (read-only).
+                            "listing.outcomes",
+                            # W3 K15 (F-909/F-916): the accountant's tax + handoff pack for
+                            # the last closed month, as a memory row. Files nothing.
+                            "finance.accounting.period_pack",
                             # The four-fifths escalation as a job rather than a page view:
                             # `spend_policy.escalation` was computed only when somebody
                             # fetched /api/spend-report, so a month that reached 80% with

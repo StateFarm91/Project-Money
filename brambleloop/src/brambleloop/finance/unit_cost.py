@@ -83,9 +83,12 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
         # Bounded to the window in SQL (C-80 defect 17): this runs hourly under the governor
         # and both tables grow by the day; every reader below filters on `>= since` anyway.
         produced_actions = sorted({a for art in ARTEFACTS for a in art.actions})
+        entries = list(s.scalars(select(CostEntry).where(CostEntry.at >= since)))
         costs = [(c.agent, c.amount_cad, _aware(c.at), c.job_id,
                   float((c.detail or {}).get("latency_ms") or 0.0), cost_basis(c))
-                 for c in s.scalars(select(CostEntry).where(CostEntry.at >= since))]
+                 for c in entries]
+        staged = [(c.product_slug or "", c.purpose, c.kind, float(c.amount_cad or 0.0))
+                  for c in entries if c.product_slug]
         actions = [(a.action, _aware(a.at), a.job_id, a.detail or {})
                    for a in s.scalars(select(AuditLog).where(
                        AuditLog.at >= since, AuditLog.action.in_(produced_actions)))]
@@ -144,8 +147,19 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
                      if uncosted else ""),
         }
 
+    # F-320: each product's creation cost split by stage (concept, engineering,
+    # certification, imagery, listing, judging), from the closed economics vocabulary.
+    from . import economics
+
+    by_product_stage: dict = {}
+    for slug, purpose, kind, amount in staged:
+        stage = economics.classify(purpose, kind)["stage"] or "unstaged"
+        bucket = by_product_stage.setdefault(slug, {})
+        bucket[stage] = round(bucket.get(stage, 0.0) + amount, 6)
+
     validated = rows["validated_pattern"]["produced"]
     return {
+        "by_product_stage": by_product_stage,
         "window_days": days,
         "cost_basis": basis_summary((c[1],c[5]) for c in window_costs),
         "operating_cost_cad": round(total_cost, 4),

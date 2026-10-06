@@ -62,8 +62,11 @@ def test_tunable_surface_is_declared_and_safe():
                               {name: P.TUNABLES[name].default}) == [], name
     # Laura reproduction varies HOW the canonical Laura is reproduced, never WHO.
     choices = P.TUNABLES["laura_reproduction"].choices
-    assert choices and all(c.startswith("frozen_v15") for c in choices), choices
-    assert "laura-v15-a42aeac7" == canonical.IDENTITY_ID
+    assert choices and all(c.startswith("canonical_") for c in choices), choices
+    # The tunable never names an identity: WHO she is comes only from the owner-authorised
+    # canonical record (D-FB-14 today), which no promotion can change.
+    assert canonical.IDENTITY_ID.startswith("laura-") and canonical.AUTHORISED_IDENTITY_CHANGES
+    assert not any(canonical.IDENTITY_ID in c for c in choices), choices
 
 
 def test_invariant_refuses_every_gate_weakening():
@@ -111,14 +114,24 @@ def test_laura_identity_is_a_hard_independent_gate():
     out = L.record_judgement(db, "laura_on_model", subject="campaign:hero", gates=partial,
                              identity_scored=all_match, source="test:vision-review")
     assert not out["accepted"] and any(f.startswith("ANATOMY:UNKNOWN") for f in out["failures"])
+    # K12 (F-213/F-219/F-677/F-732) tightened this door: one judge's all-match reading with
+    # caller-supplied PASS gates is no longer accepted. Identity needs a proven current
+    # reference, a judge pair and the biometric floor (`visual.identity_gate`); product
+    # truth needs deterministic evidence (`visual.final_image_gate`). The accepted path
+    # with full evidence is tests/test_w3_k12_model_photography.py
+    # ::test_f677_and_f732_rnd_door_overrides_caller_pass.
     out = L.record_judgement(db, "laura_on_model", subject="campaign:hero", gates=good,
                              identity_scored=all_match, source="test:vision-review")
-    assert out["accepted"], out
+    assert not out["accepted"], out
+    assert out["gates"]["laura_identity"]["status"] == "UNKNOWN", out["gates"]
+    assert out["gates"]["product_truth"]["status"] == "UNKNOWN", out["gates"]
     summ = S.summary(db)
     item = next(i for i in summ["items"] if i["product_class"] == "laura_on_model")
-    # Two of the four frames were Laura; only one passed every gate.
-    assert item["laura_identity_consistency"]["value"] == 0.5, item
-    assert item["accepted_image_yield"]["value"] == 0.25, item
+    # Four Laura-bearing frames judged; none is proven Laura and none passed every gate --
+    # measured as 0.0 over four frames, not UNKNOWN.
+    assert item["laura_identity_consistency"]["value"] == 0.0, item
+    assert item["laura_identity_consistency"]["reading"] == "MEASURED", item
+    assert item["accepted_image_yield"]["value"] == 0.0, item
 
 
 def test_paid_challengers_are_planned_never_executed():

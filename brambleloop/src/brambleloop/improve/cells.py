@@ -89,6 +89,10 @@ CELLS: tuple[Cell, ...] = (
     Cell("runtime", "Runtime", "dead_letters_per_day", False,
          "jobs that exhausted their retries",
          "Job rows in the dead state per day"),
+    # F-799: Learn runs under the same RUN/GROW/IMPROVE contract as every other department.
+    Cell("learn", "Learn", "lesson_gap_coverage", True,
+         "share of source-backed learner needs an approved lesson covers",
+         "LearnGap rows COVERED against total LearnGap rows"),
 )
 
 BY_KEY: dict[str, Cell] = {c.key: c for c in CELLS}

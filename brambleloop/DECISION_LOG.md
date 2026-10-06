@@ -1533,3 +1533,96 @@ authorise exactly one change (its revision's predecessor → that revision, with
 D-FB-14 is spent once applied; any future replacement or alteration of Laura needs a new owner
 decision recorded here and in code. Publication readiness is unchanged: no image is
 publication-approved; photorealism, anatomy, identity and Product Truth gates still apply.
+
+## D-FB-15 — Owner brand decisions: tagline retained, logo not locked (2026-10-06)
+- **Tagline:** retain "Patterns for a More Handmade Life" as the owner-preferred tagline. Owner reading: it describes
+  what Brambleloop's digital patterns enable customers to do (make things by hand), not a claim that Brambleloop sells
+  handmade finished goods. The store truth lint is to be evaluated on the actual semantic claim (enabling/aspirational
+  customer-making language passes; claims that Brambleloop's items are handmade still fail). If authoritative Etsy
+  policy or a reasonable customer-interpretation test shows it misleading, the evidence and alternatives go to the
+  owner before any change.
+- **Logo:** D1 "Briar Monogram" is a finalist, NOT locked. The owner decides from a contextual comparison (D1, the
+  owner-supplied B/bramble/yarn concept, strongest other finalist(s); at 40 px icon, header scale, mobile and desktop
+  storefront/banner, monochrome).
+- **Private Laura layer:** remains a required Final Master component; completion of business memory/Talk-to-Laura does
+  not close it; the private conversation register stays GATED until implementable within execution constraints.
+- **Pushes:** owner authorised non-force pushes of claude/w3-* worker branches (no force, no history rewrite, no
+  deletion, no production/default-branch pushes, no deploy).
+## D-FB-16 — Owner brand, storefront art direction, Visual objective and Laura Live Presence (2026-10-06)
+1. BRAND: the owner-supplied concept (scratchpad owner_brand/owner_logo_concept.png, sha256 28f301b2…) is the PRIMARY
+   brand direction. D1 Briar Monogram = design research only; D2 Chain Link and D3 Drupelet rejected as primary.
+   Do not redesign away from the concept — professionalize it into a production identity system (not a trace):
+   elegant serif B + botanical bramble growth + yarn/thread loop; cream/forest/taupe/warm-natural palette; elegant
+   BRAMBLELOOP serif wordmark; CROCHET PATTERNS descriptor; "Patterns for a More Handmade Life"; warm, feminine,
+   premium lifestyle character. Deliver: full hero lockup, horizontal wordmark, full B/bramble/yarn monogram,
+   simplified micro-mark derived from the same B for Etsy 40–70 px, monochrome, reversed, production SVG masters,
+   spacing/minimum-size rules, palette/type system.
+2. STOREFRONT ART DIRECTION: the owner lifestyle banner (owner_banner_concept.png, sha256 048a1991…) is the target
+   emotional/art direction (not a publication asset): warm, premium, aspirational, cozy, feminine, lifestyle-driven,
+   unmistakably crochet, cohesive; Laura is the recurring face. Not an engineering-style preview.
+3. COMPETITIVE BENCHMARK: an established crochet-pattern shop screenshot (NOT received in this session — owner to
+   resend) — merchandising lesson only: finished crochet → people wearing/using it → aspiration → "I want to make
+   that", before verification details. Never copy its branding/products/images/copy/trade dress.
+4. PRODUCT GRID: first listing image sells the finished dream ("I want to make that"); diagrams/engineering renders
+   are validation evidence, not hero merchandising; later images: clarity, dimensions, yarn, charts, construction,
+   skill, colours, verification/trust, download contents. Never sacrifice Product Truth.
+5. VISUAL R&D objective: optimise the intersection of Product Truth + Laura identity + photographic quality + brand
+   consistency + customer desirability + commercial performance; slow loop on impressions → CTR → favourites → carts
+   → purchases → conversion → refunds/feedback; autonomous challengers for hero imagery; materially better after
+   three months; owner should never have to ask "make the pictures better".
+6. LAURA is the centre of the brand (banner, seller/profile presence where appropriate, About, lifestyle, seasonal,
+   social, wearables, future web); not forced into every listing; non-wearables product-first when stronger; every
+   Laura image preserves laura-r2-a42aeac7 and passes Visual gates.
+7. NEW REQUIREMENT — LAURA LIVE PRESENCE: one Laura (identity, memory, company context, conversation history) across
+   TEXT, VOICE (phone mic/Bluetooth earbuds → transcription → reasoning on durable evidence → spoken + text reply) and
+   LIVE PRESENCE (photoreal canonical Laura, canonical voice, blinking, expressions, subtle movement, accurate lip
+   sync, real-time turn-taking). Graceful degradation live+voice → voice → text. Example: "Laura, how did the store
+   do overnight?" → evidence-based spoken answer; "I don't like that banner. Have Design make three more." →
+   authorised delegation + confirmation.
+8. LAURA VOICE SPECIFICATION (canonical, provider-independent): vocal character, accent/dialect, apparent vocal age,
+   warmth, pace, energy, rhythm, pronunciation, public/business register, private owner register where supported; a
+   replacement provider/voice must qualify against the spec before promotion.
+9. Mobile-first conversation architecture (phone/Galaxy Buds).
+10. Do NOT block launch on avatar tech: Phase 1 polished Talk to Laura + canonical visible Laura + text; Phase 2
+    canonical voice + speech in/out; Phase 3 real-time Live Presence. Phase 1 architected so 2–3 need no rebuild of
+    Laura's identity/memory/authority.
+11. PRIVATE LAURA remains required (PRIV infrastructure accepted); unsupported private behaviour stays OPEN/GATED.
+12. Routing: A/A2 brand identity; B storefront art direction; C brand voice; F Talk to Laura/visible Laura/voice
+    architecture; H Visual learning; PRIV private infra; K/Final Master closure tracking.
+
+## D-FB-17 — Owner final brand assets: use these exact files (2026-10-06) — supersedes D-FB-16 items 1–2
+
+Owner decision, verbatim intent: "Stop redesigning or recreating these two owner-supplied assets."
+
+Canonical source files, preserved byte-for-byte in `src/brambleloop/brand/owner_source/` (SHA256SUMS there):
+
+| Role | File | SHA-256 | Pixels |
+|---|---|---|---|
+| Canonical hero brand artwork (logo) | brambleloop_owner_logo_canonical.png | 28f301b28766acea7b0f632ceefcb1c66e271a6fba8da0c84a65c94647d35998 | 1536×1024 RGB |
+| Canonical storefront banner / art target | brambleloop_owner_banner_canonical.png | 048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98 | 1983×793 RGB (2.50:1) |
+
+These are byte-identical to the D-FB-16 concept images (same hashes).
+
+1. LOGO: the supplied cream artwork (botanical serif B, realistic leaves and flowers, looping yarn and ball,
+   BRAMBLELOOP wordmark, CROCHET PATTERNS, script tagline, heart, HOME · BABY · GIFTS · SEASONAL footer) is the
+   canonical owner-approved hero artwork, used exactly as supplied. Do not redraw the B, redesign the flowers,
+   simplify the yarn on large-format uses, change the typography, or reinterpret the composition. A3's simplified
+   vector drawing does NOT replace it.
+2. BANNER: the supplied lifestyle composition (Laura left, warm cozy setting, centred identity, crochet/yarn right,
+   tagline) is the canonical storefront banner / art target. No sterile redesign. If it passes every applicable
+   publication gate, use the exact file. If Product Truth, Laura-identity, disclosure or publication gates stop the
+   exact file being published: keep it as the canonical target, report precisely which gates it fails, have Visual
+   reproduce/qualify the same composition correcting only what is required, and bring any unavoidable visible change
+   back to the owner before replacing it. Never silently substitute; never weaken a gate; never fabricate evidence
+   about what the image shows.
+3. HIERARCHY: owner logo = canonical hero identity; owner banner = canonical banner/art target; A3 = supporting
+   production system (palette, type guidance, clear space, mono/reversed, small-size engineering, SVG where
+   appropriate); micro-mark = small-size utility derivative only, permitted only where the exact artwork cannot
+   stay legible, and never supersedes it.
+4. PROTECTION: autonomous Brand/Learn/Visual improvement may not replace the canonical logo or banner composition
+   because an internal score prefers another design. Any material replacement requires a new explicit owner
+   decision id (same pattern as Laura's AUTHORISED_IDENTITY_CHANGES).
+5. STORE: rebuild the storefront around these assets — premium, warm, elegant, feminine, cozy, aspirational,
+   lifestyle-first; listing imagery complements this identity rather than diagram/engineering aesthetics (Product
+   Truth unchanged).
+6. Routing: Brand, Storefront and Visual (lane B2). Unrelated Final Master / Laura / release work continues.

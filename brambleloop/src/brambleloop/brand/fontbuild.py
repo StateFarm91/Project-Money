@@ -124,3 +124,91 @@ if __name__ == "__main__":  # pragma: no cover - build tool
     print("wrote", OUT, OUT.stat().st_size, "bytes")
     if "--web" in sys.argv:
         print("web subsets:", subset_web(src))
+
+
+# ---- owner-concept identity (D-FB-16): separate data file so the research directions'
+# outlines stay byte-identical ------------------------------------------------------------------
+
+OWNER_OUT = HERE / "data" / "glyphs_owner.json"
+# key -> (source file in src_dir, variable-axis location or None, charset, published file name)
+# The published name is what the outline record cites; its family prefix names the licence
+# file in brand/fonts/ ("PlayfairDisplay-Bold.ttf" -> PlayfairDisplay-OFL.txt).
+OWNER_FONTS = {
+    # the monogram B: one design, two weights (the micro-mark is the heavier cut of the SAME B)
+    "playfair_bold": ("PlayfairDisplay.ttf", {"wght": 700}, "B", "PlayfairDisplay-Bold.ttf"),
+    "playfair_black": ("PlayfairDisplay.ttf", {"wght": 900}, "B", "PlayfairDisplay-Black.ttf"),
+    # the spaced serif wordmark
+    "cormorant_semibold": ("CormorantGaramond.ttf", {"wght": 600},
+                           string.ascii_uppercase + " ", "CormorantGaramond-SemiBold.ttf"),
+    # the script tagline
+    "allison": ("Allison-Regular.ttf", None, string.ascii_letters + " .,'&-",
+                "Allison-Regular.ttf"),
+}
+# Web subsets for live page text (lane B). Playfair Display carries a Reserved Font Name, so it
+# is used ONLY as outlined artwork (the B) and never shipped as a modified (subset) font.
+OWNER_WEB = {"cormorant_semibold": "CormorantGaramond-SemiBold.subset.woff",
+             "allison": "Allison-Regular.subset.woff"}
+
+
+def _owner_font(src_dir: Path, key: str):
+    from fontTools.ttLib import TTFont
+    from fontTools.varLib import instancer
+
+    fname, loc, _cs, _pub = OWNER_FONTS[key]
+    tt = TTFont(str(src_dir / fname))
+    if loc:
+        tt = instancer.instantiateVariableFont(tt, loc)
+    return tt
+
+
+def build_owner(src_dir: Path) -> dict:
+    out: dict = {"_licence": "SIL Open Font License 1.1 (see brand/fonts/*-OFL.txt)",
+                 "_note": "owner-concept identity (D-FB-16); outlines only, nonzero winding",
+                 "fonts": {}}
+    for key, (_f, loc, charset, pub) in OWNER_FONTS.items():
+        tt = _owner_font(src_dir, key)
+        cmap = tt.getBestCmap()
+        gs = tt.getGlyphSet()
+        hmtx = tt["hmtx"]
+        os2 = tt["OS/2"]
+        rec = {"file": pub, "upm": tt["head"].unitsPerEm, "instance": loc or {},
+               "ascender": tt["hhea"].ascent, "descender": tt["hhea"].descent,
+               "cap_height": getattr(os2, "sCapHeight", 0) or 0,
+               "x_height": getattr(os2, "sxHeight", 0) or 0, "glyphs": {}}
+        for ch in charset:
+            gname = cmap.get(ord(ch))
+            if gname is None:
+                continue
+            pen = _ops_pen(gs)
+            gs[gname].draw(pen)
+            rec["glyphs"][ch] = {"adv": hmtx[gname][0],
+                                 "d": "".join(o[0] + " ".join(map(str, o[1:])) + " "
+                                              for o in pen.ops).strip()}
+        out["fonts"][key] = rec
+    return out
+
+
+def subset_owner_web(src_dir: Path) -> list[str]:
+    from fontTools import subset
+
+    made = []
+    for key, dest_name in OWNER_WEB.items():
+        tt = _owner_font(src_dir, key)
+        opts = subset.Options()
+        opts.flavor = "woff"
+        opts.layout_features = ["kern", "liga", "calt", "onum", "lnum"]
+        sub = subset.Subsetter(opts)
+        sub.populate(text=CHARSET + string.punctuation + "“”‘… ")
+        sub.subset(tt)
+        dest = FONT_DIR / dest_name
+        subset.save_font(tt, str(dest), opts)
+        made.append(dest.name)
+    return made
+
+
+def main_owner(src: Path) -> None:  # pragma: no cover - build tool
+    """PYTHONPATH=src python -c 'from brambleloop.brand import fontbuild as f; \
+    f.main_owner(__import__("pathlib").Path("/dir/with/ttfs"))'"""
+    OWNER_OUT.write_text(json.dumps(build_owner(src), separators=(",", ":"), sort_keys=True))
+    print("wrote", OWNER_OUT, OWNER_OUT.stat().st_size, "bytes")
+    print("web subsets:", subset_owner_web(src))

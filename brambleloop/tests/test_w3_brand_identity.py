@@ -6,8 +6,9 @@ What must stay true however the marks are redrawn:
   * the shop icon renders non-blank and distinct at the real Etsy sizes (40 and 70 px), its
     strokes survive at 40 px, it sits inside a circular crop, and it holds in one colour;
   * every text colour role passes WCAG 4.5:1 on its ground; every icon role passes 3:1;
-  * the interface lane B/C read has the documented shape, and the judge's winner is the
-    direction the interface exports (the choice is not asserted independently of the judging);
+  * the interface lane B/C read has the documented shape; the judge's winner among the research
+    directions is D1 (RESEARCH_DIRECTION_ID); the exported PRIMARY is the owner's concept
+    (owner decision D-FB-16), which must pass the same small-size gates (measured here);
   * only open-licence fonts, each with its licence file, no CDN.
 """
 from __future__ import annotations
@@ -43,13 +44,15 @@ def _all_svgs():
 
 
 def test_interface_shape():
-    assert I.DIRECTION_ID in D.DIRECTIONS
+    assert I.DIRECTION_ID in I.ALL_DIRECTIONS and I.RESEARCH_DIRECTION_ID in D.DIRECTIONS
     d = I.to_dict()
     json.dumps(d)  # JSON-serialisable
     for key in ("direction_id", "palette", "roles", "typography", "usage_rules", "svgs",
                 "alternatives", "status", "descriptor"):
         assert key in d, key
-    assert d["status"]["state"] == "RECOMMENDED_PENDING_OWNER_APPROVAL"
+    # D-FB-16: the owner chose their own concept; it is the primary, not a recommendation
+    assert d["status"]["state"] == "OWNER_DIRECTED_PRIMARY"
+    assert d["status"]["decision"] == "D-FB-16"
     assert len(d["usage_rules"]) >= 8
     assert d["palette"]
     for name, hexv in d["palette"].items():
@@ -137,7 +140,9 @@ def test_icons_distinct_from_each_other_and_from_clip_art():
         assert rec["iou_vs_other_directions"], did
         for other, iou in rec["iou_vs_other_directions"].items():
             assert iou < 0.6, (did, other, iou)
-    win = dist[I.DIRECTION_ID]
+    # the judge covers the research directions; its winner is D1 (the primary owner-concept
+    # mark gets the same distinctness gates in tests/test_w3_brand_owner_identity.py)
+    win = dist[I.RESEARCH_DIRECTION_ID]
     assert len(win["iou_vs_generic"]) >= 5
     for ref, iou in win["iou_vs_generic"].items():
         assert iou < 0.55, (ref, iou)
@@ -148,7 +153,8 @@ def test_icons_distinct_from_each_other_and_from_clip_art():
 
 
 def test_winner_survives_tiny_sizes():
-    m = judge.cached_verdict()["metrics"][I.DIRECTION_ID]
+    # the exported primary (owner concept, D-FB-16), measured by the judge's own procedure
+    m = judge.measure_direction(I.direction())
     assert m["stroke_survival_40"] >= 0.5, m
     assert m["thinnest_stroke_px_40"] is None or m["thinnest_stroke_px_40"] >= 1.5, m
     assert m["ink_outside_circle"] < 0.01, m
@@ -167,7 +173,9 @@ def test_mono_variant_is_one_ink():
 
 def test_judge_winner_matches_interface():
     v = judge.verdict()
-    assert v["winner"] == I.DIRECTION_ID, v["ranking"]
+    # the judge ranks research directions; the owner (not the judge) chose the primary
+    assert v["winner"] == I.RESEARCH_DIRECTION_ID, v["ranking"]
+    assert I.DIRECTION_ID not in v["scores"] and I.STATUS["decision"] == "D-FB-16"
     assert set(v["scores"]) == set(D.DIRECTIONS)
     for did, s in v["scores"].items():
         assert 0 <= s["measured"] <= 100 and 0 <= s["judged"] <= 100, (did, s)

@@ -118,6 +118,9 @@ class Task:
     typical_input_tokens: int
     cacheable: bool
     why: str
+    # False: an optional nicety that parks (and its caller falls back to deterministic text)
+    # rather than paying a stronger tier when its own model is down or unaffordable.
+    stronger_fallback: bool = True
 
 
 TASKS: dict[str, Task] = {
@@ -192,6 +195,15 @@ TASKS: dict[str, Task] = {
     "concept_generation": Task(
         "concept_generation", DEEP, 4000, 1600, False,
         "propose a field of concepts for one form in one proven arena (#104, #106-#115)"),
+    # Optional owner-facing phrasing of a business statement Laura already decided in code
+    # (lane F). Cheap tier because the question is rewording, not judgement: every fact, figure
+    # and decision is supplied, and `gateway.laura_phrase` refuses any answer that adds a
+    # number the facts did not contain. Small output budget, no stronger fallback, its own
+    # allocation stop, and a deterministic sentence whenever it is not worth paying for.
+    "laura.business_phrase": Task(
+        "laura.business_phrase", CHEAP, 220, 700, True,
+        "reword a decided business statement in Laura's voice; facts are supplied, so this "
+        "is rephrasing against fixed content rather than judgement", stronger_fallback=False),
     "benchmark_challenge": Task(
         "benchmark_challenge", DEEP, 2500, 6000, False,
         "blinded comparison against category-matched benchmark evidence (#315) — "

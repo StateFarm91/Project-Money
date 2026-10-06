@@ -281,6 +281,77 @@ def _chain_terminal(db, slug) -> bool:
         and not any(r["status"] in ("pending", "running", "failed") for r in rows)
 
 
+STALL_SECONDS = 300      # no progress anywhere in the queue for this long = stalled
+CHAIN_CAP_SECONDS = 1800  # absolute bound on the shadow chain, progress or not
+
+
+def _progress_mark(db, slug) -> tuple:
+    """What counts as progress while waiting for the rehearsed chain to settle.
+
+    The rehearsed product's chain shares one pool worker with everything the runtime
+    schedules itself -- notably `chain.rebuild`, which fans out the other Launch-0 products'
+    release chains at the same band. Under load the product's `store.publish` legitimately
+    waits FIFO behind several minute-long `assets.build` jobs of other products (INT3 root
+    cause of the b9f9243 `store.publish[shadow]` FAILED). Watching only this product's chain
+    jobs read that busy worker as a stall. Progress is therefore: this chain changed, OR any
+    job anywhere reached a terminal state or was claimed, OR a running job renewed its lease
+    (a handler heartbeating between steps). A wedged runtime -- nothing finishes, nothing is
+    claimed, no lease is renewed -- still produces an unchanged mark and is stopped."""
+    from sqlalchemy import func, select
+
+    from brambleloop.core.models import Job, JobStatus
+
+    chain = tuple((r["id"], r["job_type"], r["status"]) for r in _jobs(db, CHAIN, slug))
+    with db.session() as s:
+        settled = s.scalar(select(func.count(Job.id)).where(Job.status.in_(
+            [JobStatus.DONE, JobStatus.DEAD, JobStatus.CANCELLED]))) or 0
+        running = tuple(sorted((j.id, str(j.lease_expires_at), int(j.attempts or 0))
+                               for j in s.scalars(select(Job).where(
+                                   Job.status == JobStatus.RUNNING))))
+    return chain, settled, running
+
+
+def _queue_ahead(db, slug) -> dict:
+    """Evidence for a chain that did not settle: what the worker was doing and what was
+    queued, so a busy worker is distinguishable from a stuck one in the report."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Job, JobStatus
+
+    with db.session() as s:
+        running = [(j.id, j.job_type, (j.inputs or {}).get("slug"))
+                   for j in s.scalars(select(Job).where(Job.status == JobStatus.RUNNING))]
+        pending = [(j.id, j.job_type, j.priority, (j.inputs or {}).get("slug"))
+                   for j in s.scalars(select(Job).where(
+                       Job.status.in_([JobStatus.PENDING, JobStatus.FAILED]))
+                       .order_by(Job.priority, Job.run_after, Job.id).limit(40))]
+    return {"running": running, "pending_by_priority": pending}
+
+
+def _wait_for_chain(db, slug, *, stall: float = STALL_SECONDS, cap: float = CHAIN_CAP_SECONDS,
+                    clock=time.time, sleep=time.sleep, poll: float = 2.0) -> dict:
+    """Wait until the chain is terminal; return why the wait ended and for how long."""
+    start = last = clock()
+    seen = None
+    reason = "cap"
+    while clock() - start < cap:
+        if _chain_terminal(db, slug):
+            reason = "settled"
+            break
+        mark = _progress_mark(db, slug)
+        if mark != seen:
+            seen, last = mark, clock()
+        elif clock() - last > stall:
+            reason = "stalled"
+            break
+        sleep(poll)
+    out = {"reason": reason, "waited_s": round(clock() - start, 1),
+           "stall_s": stall, "cap_s": cap}
+    if reason != "settled":
+        out["queue"] = _queue_ahead(db, slug)
+    return out
+
+
 def run_shadow_chain(rec: Recorder, db, url: str, tmp: Path, artifacts: str, cir, *,
                      fast: bool) -> dict:
     from brambleloop.core.models import Phase
@@ -330,17 +401,7 @@ def run_shadow_chain(rec: Recorder, db, url: str, tmp: Path, artifacts: str, cir
                                    + (tmp / "server.stderr").read_text()[-1500:])
             JobQueue(db).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                                  priority=0, idempotency_key=f"rehearsal:compile:{slug}")
-            start = last = time.time()
-            seen = None
-            while time.time() - start < 1800:
-                if _chain_terminal(db, slug):
-                    break
-                now = [(r["job_type"], r["status"]) for r in _jobs(db, CHAIN, slug)]
-                if now != seen:
-                    seen, last = now, time.time()
-                elif time.time() - last > 300:
-                    break
-                time.sleep(2)
+            ctx["wait"] = _wait_for_chain(db, slug)
         finally:
             _stop(proc)
         log_path = info["log"]
@@ -360,7 +421,7 @@ def record_chain(rec: Recorder, db, cir, ctx: dict) -> dict:
     state: dict = {"slug": slug, "version": version}
     rec.step("chain.jobs", PASS if all_jobs else FAILED,
              expected="the release chain for this product ran inside the runtime",
-             observed={"jobs": len(all_jobs)},
+             observed={"jobs": len(all_jobs), "wait": ctx.get("wait")},
              proof={"jobs": [(j["id"], j["job_type"], j["status"]) for j in all_jobs]})
 
     def job_step(name, expected, ok_pred, proof, *, refused=False, job_type=None):

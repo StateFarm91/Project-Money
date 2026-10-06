@@ -157,6 +157,9 @@ REFUSED_JUSTIFICATION = "the cheaper option was adequate"
 # path, not a quiet downgrade.
 ALLOCATION: dict[str, float] = {
     "gallery_observation": 0.40,
+    # Optional Laura phrasing (lane F): CA$1.00 of a CA$100 month. Past it the Command Center
+    # shows the deterministic sentence, which is complete on its own.
+    "laura.business_phrase@1": 0.01,
 }
 
 # The same stop, per department. Empty on purpose and enforced anyway: the mechanism exists so
@@ -445,7 +448,10 @@ def escalation(db, *, now: datetime | None = None,
         "burn_rate_cad_per_day": produced["burn_rate_cad_per_day"],
         "projected_month_end_cad": produced["projected_month_end_cad"],
         "what_the_money_produced": produced["by_purpose"],
-        "what_is_constrained": constrained or [],
+        # F-110: collected from what the controls actually refused when the caller names
+        # nothing -- an escalation with an empty "constrained" list asks for money blind.
+        "what_is_constrained": (constrained if constrained is not None
+                                else constrained_work(db, now=now)),
         "proposed_ceiling_cad": proposed_ceiling_cad or round(CEILING_CAD * 2, 2),
         "expected_improvement": expected_value or (
             "state what the additional ceiling buys before asking for it. A request with no "
@@ -457,6 +463,124 @@ def escalation(db, *, now: datetime | None = None,
         "consequence_of_waiting": (
             "the named work stops at the ceiling rather than being done worse"),
     }
+
+
+def constrained_work(db, *, now: datetime | None = None) -> list[str]:
+    """F-110: the work the money controls are holding back right now, in words.
+
+    Read from the controls themselves: every purpose allocation that says no, and this
+    month's ceiling refusals grouped by which ceiling refused which purpose. Empty only when
+    nothing is constrained."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+    from . import spend_report
+
+    now = now or datetime.now(timezone.utc)
+    out: list[str] = []
+    for purpose in sorted(ALLOCATION):
+        verdict = may_spend(db, purpose, now=now)
+        if not verdict.get("may_spend", True):
+            out.append(f"{purpose}: stopped by its allocation ({verdict.get('why', '')})")
+    start, end = spend_report._month_bounds(now)
+    grouped: dict[tuple[str, str], int] = {}
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(
+                AuditLog.action == spend_report.REFUSED_ACTION)):
+            at = spend_report._aware(row.at)
+            if at is None or not (start <= at < end):
+                continue
+            d = row.detail or {}
+            k = (str(d.get("purpose") or row.artifact or "unnamed"), str(d.get("which") or "?"))
+            grouped[k] = grouped.get(k, 0) + 1
+    for (purpose, which), n in sorted(grouped.items(), key=lambda kv: -kv[1]):
+        out.append(f"{purpose}: refused {n} time(s) this month by the {which}")
+    return out
+
+
+def binding_ceiling(db, *, now: datetime | None = None) -> dict:
+    """F-184: which of the nested limits binds next, and how they interact.
+
+    Every limit is reported with what remains under it; the one with the least room is the
+    binding one. Precedence is not "the smallest wins" by accident: the monthly ceiling is the
+    authority, and every other limit can only be tighter than it, never a second budget."""
+    from . import reservations, spend_report
+
+    now = now or datetime.now(timezone.utc)
+    produced = spend_report.what_it_bought(db, now=now)
+    held = float(reservations.outstanding(db, now=now).get("cad") or 0.0)
+    limits: list[dict] = [{
+        "limit": "monthly model ceiling", "scope": "company",
+        "ceiling_cad": CEILING_CAD, "used_cad": round(produced["spent_cad"] + held, 4),
+        "remaining_cad": round(CEILING_CAD - produced["spent_cad"] - held, 4)}]
+    for provider, cap in sorted(PROVIDER_CEILINGS_CAD.items()):
+        used = float((produced["by_provider"].get(provider) or {}).get("cad") or 0.0)
+        limits.append({"limit": "provider ceiling", "scope": provider, "ceiling_cad": cap,
+                       "used_cad": round(used, 4), "remaining_cad": round(cap - used, 4)})
+    for dept, share in sorted(DEPARTMENT_ALLOCATION.items()):
+        cap = round(CEILING_CAD * share, 4)
+        used = float((produced["by_department"].get(dept) or {}).get("cad") or 0.0)
+        limits.append({"limit": "department allocation", "scope": dept, "ceiling_cad": cap,
+                       "used_cad": round(used, 4), "remaining_cad": round(cap - used, 4)})
+    for purpose, share in sorted(ALLOCATION.items()):
+        cap = round(CEILING_CAD * share, 4)
+        used = float((produced["by_purpose"].get(purpose) or {}).get("cad") or 0.0)
+        limits.append({"limit": "purpose allocation", "scope": purpose, "ceiling_cad": cap,
+                       "used_cad": round(used, 4), "remaining_cad": round(cap - used, 4)})
+    for a in spend_report.per_agent_today(db, now=now)["agents"]:
+        if a["daily_ceiling_cad"]:
+            limits.append({"limit": "agent daily permission", "scope": a["agent"],
+                           "ceiling_cad": a["daily_ceiling_cad"],
+                           "used_cad": a["spent_today_cad"],
+                           "remaining_cad": round(a["daily_ceiling_cad"]
+                                                  - a["spent_today_cad"], 4)})
+    month_left = limits[0]["remaining_cad"]
+    for row in limits:
+        row["effective_remaining_cad"] = round(min(row["remaining_cad"], month_left), 4)
+    company_wide = [r for r in limits if r["limit"] in ("monthly model ceiling",)]
+    binding = min(limits, key=lambda r: r["effective_remaining_cad"])
+    return {
+        "as_of": now.isoformat(), "binding": binding,
+        "company_binding": company_wide[0], "limits": limits,
+        "precedence": [
+            "1. monthly model ceiling: the authority; nothing spends past it",
+            "2. provider ceilings: tighter caps on one provider inside the month",
+            "3. department allocations: a department's share of the month",
+            "4. purpose allocations: a backlog's share, so one purpose cannot eat the month",
+            "5. agent daily permission: a per-day permission, not a slice of the budget",
+            "A call must fit every limit that applies to it; the effective room under any "
+            "limit is never more than the month's own remaining room."],
+        "unset": {"provider_ceilings": not PROVIDER_CEILINGS_CAD,
+                  "department_allocations": not DEPARTMENT_ALLOCATION},
+    }
+
+
+def vocabulary(db=None) -> list[dict]:
+    """F-183: every spend authority in one table, including the ones that are not model
+    spend and the ones nobody has granted -- so "the ceiling" is never ambiguous."""
+    return [
+        {"term": "monthly model ceiling", "cad": CEILING_CAD, "basis": "enforced",
+         "enforced_by": "gateway.anthropic.check_budget_cad", "period": "calendar month"},
+        {"term": "infrastructure ceiling", "cad": INFRA_CEILING_CAD, "basis": INFRA_BASIS,
+         "declared_monthly_cad": INFRA_MONTHLY_CAD, "enforced_by": None,
+         "period": "calendar month",
+         "note": "declared by the owner; no hosting invoice is read, so not observed"},
+        {"term": "research/benchmark authority", "cad": BENCHMARK_BUDGET_CAD,
+         "basis": "enforced cumulatively", "enforced_by": "gateway.image_bench",
+         "period": "lifetime"},
+        {"term": "purpose allocations", "shares": dict(ALLOCATION), "basis": "enforced",
+         "enforced_by": "spend_policy.may_spend", "period": "calendar month"},
+        {"term": "department allocations", "shares": dict(DEPARTMENT_ALLOCATION),
+         "basis": "enforced when set", "enforced_by": "spend_policy.may_spend",
+         "note": "empty: no department cap has been set (not a cap of zero)"},
+        {"term": "provider ceilings", "cad_by_provider": dict(PROVIDER_CEILINGS_CAD),
+         "basis": "enforced when set", "enforced_by": "gateway.anthropic.check_budget_cad"},
+        {"term": "agent daily permission", "basis": "enforced",
+         "enforced_by": "gateway.anthropic.check_budget_cad", "period": "UTC day"},
+        {"term": "paid-media (ad) authority", "basis": "not granted",
+         "enforced_by": "core.models.SpendLimit scoped caps",
+         "note": "advertising authority has not been granted by the owner; no ad spend"},
+    ]
 
 
 def escalation_key(now: datetime | None = None) -> str:

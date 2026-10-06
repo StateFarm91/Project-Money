@@ -148,10 +148,11 @@ TUNABLES: dict[str, Tunable] = {t.name: t for t in (
             choices=("protected_composite", "depth_from_twin", "edge_from_twin")),
     Tunable("laura_reproduction", "laura_reproduction", PAID,
             ("laura_on_model", "fitted_garments", "loose_garments", "accessories"),
-            "frozen_v15_reference_pack",
-            choices=("frozen_v15_reference_pack", "frozen_v15_pack_plus_stress_set"),
-            why="how the SAME canonical Laura (laura-v15-a42aeac7) is reproduced; every "
-                "choice conditions on her frozen references -- none selects another woman"),
+            "canonical_reference_pack",
+            choices=("canonical_reference_pack", "canonical_pack_plus_stress_set"),
+            why="how the SAME canonical Laura (visual.canonical.IDENTITY_ID, currently "
+                "laura-r2-a42aeac7 per D-FB-14) is reproduced; every choice conditions on her "
+                "canonical references -- none selects another woman"),
 )}
 
 # Names a challenger may never vary even if somebody declared them: gates, the identity, the

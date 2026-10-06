@@ -180,9 +180,11 @@ def review(db, proposal: dict, *, now: datetime | None = None) -> dict:
 
     # authority: from the verified identity record, never from the proposal
     try:
-        rec = identity.load(db)
+        cur = identity.current(db)
+        rec = cur["record"]
         ceiling = float(rec["authority"]["spend_ceiling_cad"])
-        add("authority", "pass", f"identity verified ({identity.GENESIS_SHA256[:12]}...)")
+        add("authority", "pass", f"identity verified (v{cur['version']} "
+            f"{cur['sha256'][:12]}...)")
     except Exception as exc:  # noqa: BLE001
         add("authority", "block", f"identity unverifiable ({type(exc).__name__}); no Laura "
             "action proceeds on an unverified identity")

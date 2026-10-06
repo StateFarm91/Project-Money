@@ -216,4 +216,27 @@ def handle_morning_handoff(ctx: JobContext) -> dict:
 # W3-D: Laura's executive tick handler registers with the runtime here, because this module is
 # the one the runtime already imports for the company loop.
 from ..laura.executive import handlers as _laura_handlers  # noqa: E402,F401
+# W3-D wiring: Visual R&D cycle (lane H) and the accountant period pack (closure K15).
+from . import period_packs as _period_packs  # noqa: E402,F401
+from . import visual_rnd_job as _visual_rnd_job  # noqa: E402,F401
+
+
+def _declare_wired_work_keys() -> None:
+    """Integrator wiring (W3 K3 via lane D): `listing.outcomes` is now a cadence, and every
+    cadence declares its work keys. runtime/pipeline.WORK_KEYS is not lane D's file, so the
+    declaration is made here until the requested line lands there (setdefault: the pipeline's
+    own declaration wins once it exists)."""
+    from ..runtime import pipeline as _pipeline
+
+    _pipeline.WORK_KEYS.setdefault("listing.outcomes",
+                                   ("exports_processed", "recorded_listings"))
+    # W3-D wiring: both handlers state their honest count directly as `work_done`.
+    _pipeline.WORK_KEYS.setdefault("visual.rnd.cycle", ("work_done",))
+    _pipeline.WORK_KEYS.setdefault("finance.accounting.period_pack", ("work_done",))
+
+
+try:
+    _declare_wired_work_keys()
+except Exception:  # noqa: BLE001 - pipeline not importable yet; the judge falls back safely
+    pass
 

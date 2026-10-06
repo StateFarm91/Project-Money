@@ -167,18 +167,37 @@ def record_judgement(db, product_class: str, *, subject: str, gates: dict,
                      score: float | None = None, latency_s: float | None = None,
                      cost_cad: float | None = None, cost_basis: str = "unknown",
                      source: str, arm: str = "production", experiment_id=None,
-                     image_sha256: str = "", metrics: dict | None = None) -> dict:
+                     image_sha256: str = "", metrics: dict | None = None,
+                     identity_evidence: dict | None = None,
+                     product_evidence: dict | None = None) -> dict:
     """Record an image judged outside the deterministic path (a paid generation once
     authorised, a vision judge, an owner review). Gates not supplied are UNKNOWN, which
-    blocks. For model-bearing classes the Laura identity gate is computed here from the
-    per-dimension readings -- a caller cannot hand in a PASS for it."""
+    blocks. For model-bearing classes the Laura identity gate is computed here -- a caller
+    cannot hand in a PASS for it -- by `visual.identity_gate.assess` (K12: F-213 trial
+    validity, F-219 review band, F-732 exact identity) on `identity_evidence`, or on the
+    single per-dimension reading `identity_scored` (one judge: never a pass). A REVIEW-band
+    result opens a human identity review. Product truth and structure for model-bearing
+    images are computed by `visual.final_image_gate.evaluate` on `product_evidence`
+    (F-677): deterministic evidence only; a caller-supplied PASS is overridden."""
     if not (source or "").strip():
         raise ValueError("a judgement names where it came from")
     M.ensure_tables(db)
     version = (P.get(db, pipeline_id) if pipeline_id else P.ensure_incumbent(db, product_class))
     g = {k: dict(v) for k, v in (gates or {}).items()}
+    ident = None
     if product_class in P.MODEL_BEARING_CLASSES:
-        g["laura_identity"] = G.judge_identity(identity_scored)
+        from .. import final_image_gate, identity_gate
+
+        ident = identity_gate.assess(identity_evidence if identity_evidence is not None
+                                     else identity_gate.single_reading(identity_scored))
+        g["laura_identity"] = {"status": ident["status"], "why": ident["why"],
+                               "band": ident["band"], "failed": ident["failed"],
+                               "validity": ident["validity"]["validity"]}
+        truth = final_image_gate.evaluate(product_evidence)
+        for name in ("product_truth", "structure"):
+            g[name] = {"status": truth["status"], "why": truth["why"],
+                       "attributes": truth["attributes"],
+                       "failed": [a for a, v in truth["attributes"].items() if v == "FAIL"]}
     else:
         g.setdefault("laura_identity", {"status": G.NA, "why": "product-only class"})
         g.setdefault("anatomy", {"status": G.NA, "why": "product-only class"})
@@ -198,7 +217,14 @@ def record_judgement(db, product_class: str, *, subject: str, gates: dict,
                   gates=out["gates"], accepted=out["accepted"], failures=out["failures"],
                   score=sc, metrics=out["metrics"], latency_s=latency_s, cost_cad=cost_cad,
                   cost_basis=cost_basis, source=source.strip())
-    return {"id": rid, "pipeline_id": version["id"], **out, "score": sc}
+    review = None
+    if ident is not None and ident.get("review_required"):
+        from .. import identity_gate
+        review = identity_gate.open_review(db, product_class=product_class, subject=subject,
+                                           gate=ident, image_sha256=image_sha256,
+                                           judgement_id=rid)
+    return {"id": rid, "pipeline_id": version["id"], **out, "score": sc,
+            "identity_review": review}
 
 
 # ---------------------------------------------------------------------------- lessons
@@ -431,6 +457,42 @@ def _estimate_cost(changes: dict) -> tuple[float | None, str]:
                            f"images x 2 arms; not a measurement")
 
 
+PAID_PASS_CRITERIA: tuple[str, ...] = (
+    "every applicable non-advisory gate PASS on every challenger image (UNKNOWN blocks)",
+    "accepted-image yield not below the incumbent's on the same task set",
+    "quality gain exceeds improve.league.required_margin for the task count",
+    "model-bearing frames: identity_gate PASS (proven current reference, judge pair, "
+    "biometric floor) and final_image_gate PASS",
+)
+PAID_FAIL_CRITERIA: tuple[str, ...] = (
+    "any gate failure the incumbent does not have",
+    "any Laura identity drift (a similar woman is not Laura)",
+    "any Product Truth change found by the final image gate",
+    "spend would exceed max_spend_cad or calls would exceed call_count (stop, not fail open)",
+)
+
+
+def paid_plan(product_class: str, changes: dict, hypothesis: str) -> dict:
+    """The F-877 plan for one paid visual challenger (`visual.spend_plan`)."""
+    from .. import spend_plan
+
+    est, basis = _estimate_cost(changes)
+    provider = changes.get("provider_model") or ""
+    if not provider:
+        try:
+            from ...gateway import images
+            priced = [p for p in images.PROVIDERS if getattr(p, "usd_per_image", None)]
+            provider = min(priced, key=lambda p: p.usd_per_image).key if priced else ""
+        except Exception:  # noqa: BLE001 - no gateway: the plan says provider missing
+            provider = ""
+    calls = PLANNED_PAID_IMAGES * 2
+    return spend_plan.build(
+        hypothesis=hypothesis or f"{changes} beats the {product_class} incumbent",
+        provider_model=provider, call_count=calls, max_spend_cad=est,
+        price_cad_per_call=(round(est / calls, 6) if est else None),
+        pass_criteria=PAID_PASS_CRITERIA, fail_criteria=PAID_FAIL_CRITERIA, basis=basis)
+
+
 def experiment(db, product_class: str, changes: dict, *, hypothesis: str = "",
                diagnosis: dict | None = None, proposed_by: str = "visual.rnd",
                cirs=None, now: datetime | None = None) -> dict:
@@ -465,12 +527,17 @@ def experiment(db, product_class: str, changes: dict, *, hypothesis: str = "",
         est, basis = _estimate_cost(canon)
         cand = P.new_candidate(db, product_class, inc, canon,
                                f"paid challenger (planned): {canon}")
+        from .. import spend_plan
+        plan = paid_plan(product_class, canon, base["hypothesis"])
         eid = _experiment_row(db, **base, challenger_id=cand["id"], execution=P.PAID,
                               state=GATED_SPEND, estimated_cost_cad=est,
                               result={"paid_stages": paid, "cost_basis": basis,
+                                      "paid_plan": plan,
+                                      "plan_problems": spend_plan.problems(plan),
                                       "gate": paid_execution_gate()})
         return {"experiment": eid, "state": GATED_SPEND, "estimated_cost_cad": est,
-                "cost_basis": basis, "candidate": cand}
+                "cost_basis": basis, "candidate": cand, "paid_plan": plan,
+                "plan_problems": spend_plan.problems(plan)}
     if not cirs:
         return {"experiment": None, "state": "NO_PRODUCTS",
                 "why": f"no certified product in {product_class} to test on"}
@@ -726,15 +793,31 @@ def plan_paid(db, product_class: str, diagnosis: dict | None = None) -> dict:
 
 
 def execute_paid(db, experiment_id: int) -> dict:
-    """The paid executor's door. Closed: returns the refusal, makes no call."""
+    """The paid executor's door. Closed: returns the refusal, makes no call.
+
+    A paid experiment without a complete F-877 plan (hypothesis, provider/model, call count,
+    max spend, pass/fail criteria) is refused before the gate is even consulted, so opening
+    the gate later can never run an unbounded experiment."""
+    from .. import spend_plan
+
+    plan = None
+    with M.session(db) as s:
+        row = s.get(M.VisualExperiment, experiment_id)
+        if row is not None:
+            plan = (row.result or {}).get("paid_plan")
+    found = spend_plan.problems(plan)
+    if found:
+        return {"experiment": experiment_id, "executed": False, "allowed": False,
+                "why": "incomplete paid plan (F-877): " + "; ".join(found),
+                "plan_problems": found}
     gate = paid_execution_gate()
-    return {"experiment": experiment_id, "executed": False, **gate}
+    return {"experiment": experiment_id, "executed": False, **gate, "paid_plan": plan}
 
 
 # ---------------------------------------------------------------------------- the cycle
 
 def cycle(db, *, builds=None, classes=None, now: datetime | None = None,
-          experiments_per_class: int = 1) -> dict:
+          experiments_per_class: int = 1, hero: bool = True) -> dict:
     """One REPEAT of the loop for every class. Deterministic work runs; paid work is queued."""
     M.ensure_tables(db)
     now = now or _now()
@@ -769,5 +852,14 @@ def cycle(db, *, builds=None, classes=None, now: datetime | None = None,
         entry["paid"] = {k: v for k, v in plan_paid(db, cls, diag).items()
                          if k in ("experiment", "state", "new", "estimated_cost_cad")}
         entry["incumbent"] = P.ensure_incumbent(db, cls)["label"]
+        if hero:
+            # Commercial merchandising R&D (D-FB-16): slow loop first (it can overturn), then
+            # free hero challengers on the (possibly new) incumbent pipeline.
+            from . import hero as H
+            entry["hero_calibration"] = H.calibrate(db, cls, now=now)
+            ch = H.challenge(db, cls, cirs=cirs, now=now)
+            entry["hero"] = {k: ch[k] for k in ("evaluated", "queued", "unavailable",
+                                                "refused")} | {
+                "promoted": bool((ch["promotion"] or {}).get("promoted"))}
         report["classes"][cls] = entry
     return report

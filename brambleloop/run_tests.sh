@@ -59,7 +59,39 @@
 #
 # Exit codes: the number of failing suites (unchanged); 2 unknown suite name; 3 dirty tree
 # under REQUIRE_CLEAN; 75 another identical run is in progress; 130 interrupted.
+#
+# ---- Job identity, durable completion, one state per operation (F-331, F-333, F-335, F-341,
+# F-342; wave 3 lane TOOLS) ----
+#
+# IDENTITY. The run id is minted before anything else and the script re-executes itself once
+# with argv[0] = `brambleloop-suite[<run id>]`, so the process carries its own durable job id
+# in its command line. A liveness probe for this run (ops/board.py `alive`) matches that
+# marker, which no observer, waiter or parent shell carries -- the workload is separately
+# identifiable from anything watching it (F-342). The run then enrols itself in the job
+# registry (`../ops/registry.py enrol suite-<run id> ... --role work`; SUITE_REGISTRY=0 opts
+# out, SUITE_REGISTRY_CLI / BRAMBLELOOP_JOB_REGISTRY relocate it) so consumers read the id and
+# its persisted state instead of rediscovering the run by process-name matching (F-331).
+#
+# DURABLE COMPLETION. Every terminal path -- passed, failed, interrupted -- rewrites the JSON
+# record once and then appends `EXIT <code>` as the last line of the run's log: the sentinel
+# board.py/registry.py read. Completion is a fact on disk, independent of whoever was watching
+# (F-335); the record and the sentinel carry the same code, written by the producer only
+# (F-341).
+#
+# ATTACH, DON'T DUPLICATE. ATTACH=1 turns "an identical run is already in progress" from exit 75
+# into observing THAT run: the invocation starts nothing, takes no lock, writes no record, waits
+# (ATTACH_TIMEOUT seconds, default 7200) for the running run's record to become terminal, prints
+# it and exits with its exit code (130 if it was interrupted, 124 on timeout) -- one operation,
+# one state, every observer reading the same record (F-333).
 set -u
+if [ -z "${_BRAMBLELOOP_SUITE_JOB:-}" ]; then
+  export _BRAMBLELOOP_SUITE_JOB="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  exec -a "brambleloop-suite[$_BRAMBLELOOP_SUITE_JOB]" bash "${BASH_SOURCE[0]}" "$@"
+fi
+RUN_ID="$_BRAMBLELOOP_SUITE_JOB"
+# Not inherited: a suite (or a THEN_FULL chain) that starts run_tests.sh again is a new job.
+unset _BRAMBLELOOP_SUITE_JOB
+JOB_MARKER="brambleloop-suite[$RUN_ID]"
 cd "$(dirname "${BASH_SOURCE[0]}")"
 PY="${PY:-.venv/bin/python}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
@@ -79,7 +111,6 @@ proc_start() {
 
 RUN_STARTED="$(utc)"
 RUN_STARTED_EPOCH=$(date +%s)
-RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo UNKNOWN)"
 if porcelain="$(git status --porcelain 2>/dev/null)"; then
   DIRTY_PATHS=$(printf '%s' "$porcelain" | grep -c . || true)
@@ -163,6 +194,34 @@ if [ "$PARALLEL" != "1" ]; then
     fi
     other_pid="$(lock_field pid)"; other_start="$(lock_field pid_start)"
     live_start="$( [ -n "$other_pid" ] && proc_start "$other_pid" || true)"
+    if [ -n "$other_pid" ] && [ -n "$live_start" ] && [ "$live_start" = "$other_start" ] \
+       && [ "${ATTACH:-0}" = "1" ]; then
+      other_record="$(lock_field record)"
+      echo "ATTACHED (observer) to run $(lock_field run_id) for commit $GIT_SHA, scope $SCOPE."
+      echo "Starting nothing; reading its record until it is terminal (F-333)."
+      ATTACH_RECORD="$other_record" ATTACH_TIMEOUT="${ATTACH_TIMEOUT:-7200}" "$PY" - <<'PYEOF'
+import json, os, sys, time
+path, limit = os.environ["ATTACH_RECORD"], float(os.environ["ATTACH_TIMEOUT"])
+deadline = time.time() + limit
+rec = None
+while time.time() < deadline:
+    try:
+        rec = json.load(open(path))
+    except (OSError, ValueError):
+        rec = None
+    if rec and rec.get("status") not in (None, "running"):
+        break
+    time.sleep(0.5)
+else:
+    print(f"ATTACH TIMEOUT after {limit:.0f}s; the run is still {rec and rec.get('status')}")
+    sys.exit(124)
+print(f"ATTACHED RESULT: run {rec['run_id']} {rec['status']}; suites failing "
+      f"{rec.get('suites_failing')}; tests passing {rec.get('tests_passing')}; "
+      f"exit {rec.get('exit_code')}; record {path}")
+sys.exit(int(rec.get("exit_code") if rec.get("exit_code") is not None else 1))
+PYEOF
+      exit $?
+    fi
     if [ -n "$other_pid" ] && [ -n "$live_start" ] && [ "$live_start" = "$other_start" ]; then
       echo "SUITE ALREADY RUNNING for commit $GIT_SHA, scope $SCOPE, this environment."
       echo "Not starting a second one (F-346). Read the running run instead:"
@@ -171,7 +230,7 @@ if [ "$PARALLEL" != "1" ]; then
       if [ -n "$other_record" ] && [ -f "$other_record" ]; then
         echo "   its run record:"; sed 's/^/     /' "$other_record"
       fi
-      echo "Set ALLOW_PARALLEL=1 to run in parallel deliberately."
+      echo "Set ATTACH=1 to wait on it and take its result, or ALLOW_PARALLEL=1 to run in parallel deliberately."
       exit 75
     fi
     # Stale: the process that took it is gone. Move it aside atomically and retry the create
@@ -196,6 +255,7 @@ write_record() {
   RR_STARTED="$RUN_STARTED" RR_SHA="$GIT_SHA" RR_TREE="$TREE_STATE" RR_DIRTY="$DIRTY_PATHS" \
   RR_SCOPE="$SCOPE" RR_SUITES="$(printf '%s\n' "${SUITES[@]}")" RR_PARALLEL="$PARALLEL" \
   RR_TAKEOVER="$TAKEOVER" RR_PY="$PY_REAL" RR_JOBS="$JOBS" RR_LOCK="${LOCK_HELD:+$LOCK_FILE}" \
+  RR_JOB="suite-$RUN_ID" RR_MARKER="$JOB_MARKER" RR_ENROLLED="${ENROLLED:-}" \
   "$PY" - <<'PYEOF'
 import json, os, socket
 e = os.environ
@@ -224,6 +284,13 @@ rec = {
     "host": socket.gethostname(), "python": e["RR_PY"], "jobs": num("RR_JOBS"),
     "parallel_override": e.get("RR_PARALLEL") == "1",
     "lock": e.get("RR_LOCK") or None, "took_over_stale_lock_of": e.get("RR_TAKEOVER") or None,
+    # F-331 / F-342: the durable job identity, the process marker only this run carries, and
+    # where it is enrolled (null when no registry was reachable or SUITE_REGISTRY=0).
+    "job_id": e["RR_JOB"], "role": "work", "process_marker": e["RR_MARKER"],
+    "registry": e.get("RR_ENROLLED") or None,
+    # F-335 / F-341: the producer appends this exact line to the log after the terminal record.
+    "terminal_sentinel": (f"EXIT {num('RR_EXIT')}" if status != "running"
+                          and num("RR_EXIT") is not None else None),
 }
 rec["release_eligible"] = bool(
     status == "passed" and rec["scope"] == "full" and rec["tree"] == "clean"
@@ -270,6 +337,7 @@ _brambleloop_cleanup() {
   if [ -z "$RUN_DONE" ]; then
     kill $(jobs -p) 2>/dev/null
     write_record interrupted "$(utc)" "$(( $(date +%s) - RUN_STARTED_EPOCH ))" 130 2>/dev/null
+    echo "EXIT 130" >> "$LOG_FILE" 2>/dev/null
   fi
   if [ -n "$LOCK_HELD" ] && [ "$(lock_field run_id)" = "$RUN_ID" ]; then rm -f "$LOCK_FILE"; fi
   rm -rf "${outdir:-}" "${BRAMBLELOOP_RUN_TMP:-}"
@@ -292,6 +360,19 @@ header() {
   echo
 }
 header | tee "$LOG_FILE"
+
+# F-331: enrol this run in the durable job registry as the workload, under its own id.
+ENROLLED=""
+REGISTRY_CLI="${SUITE_REGISTRY_CLI:-../ops/registry.py}"
+if [ "${SUITE_REGISTRY:-1}" != "0" ] && [ -f "$REGISTRY_CLI" ]; then
+  if "$PY" "$REGISTRY_CLI" enrol "suite-$RUN_ID" "$PWD/$LOG_FILE" suite \
+       "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo)" "$JOB_MARKER" --role work \
+       >/dev/null 2>&1; then
+    ENROLLED="suite-$RUN_ID"
+    echo "JOB: suite-$RUN_ID enrolled in the job registry (role work)" | tee -a "$LOG_FILE"
+  fi
+fi
+write_record running
 
 # Scheduling order is not the printing order. These six are the ones that take minutes, and
 # a suite that takes six minutes and starts last sets the floor for the entire run, so they
@@ -374,6 +455,8 @@ if [ "$failed" -eq 0 ]; then status=passed; else status=failed; fi
 } | tee -a "$LOG_FILE"
 write_record "$status" "$RUN_FINISHED" "$DURATION" "$failed"
 RUN_DONE=1
+# F-335: the terminal sentinel, last line of the job's own evidence, after the record.
+echo "EXIT $failed" >> "$LOG_FILE"
 
 if [ "$SCOPE" = "filtered" ] && [ "${THEN_FULL:-0}" = "1" ]; then
   if [ "$failed" -ne 0 ]; then

@@ -232,7 +232,8 @@ def calibration_for(cir, assessments: list[SampleAssessment]) -> float:
 # ---- persistence -----------------------------------------------------------
 
 
-def record(db, assessment: SampleAssessment, *, content_hash: str | None = None) -> int:
+def record(db, assessment: SampleAssessment, *, content_hash: str | None = None,
+           evidence_class: str | None = None) -> int:
     """Store the sample. The row is the evidence; the assessment is what we concluded.
 
     `passed` is not "the tester liked it": it is whether this sample can be used, which
@@ -246,6 +247,12 @@ def record(db, assessment: SampleAssessment, *, content_hash: str | None = None)
     if content_hash:
         # The text the tester worked against (F-078): what certification binds evidence to.
         measured["content_hash"] = content_hash
+    # F-072: a swatch and a full make are different evidence and are never substituted. The
+    # class is stamped on the row so binding reads it rather than inferring it later.
+    from ..gates.risk_matrix import scope_to_class
+
+    measured["evidence_class"] = evidence_class or scope_to_class(
+        None, measured_finished_size=assessment.size_agrees is not None)
     with db.session() as s:
         row = PhysicalTest(
             product_slug=assessment.report.product_slug,

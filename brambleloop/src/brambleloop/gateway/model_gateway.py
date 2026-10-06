@@ -54,6 +54,9 @@ class ModelResponse:
     input_tokens: int
     output_tokens: int
     latency_ms: float
+    # True when `paid_calls` served this answer from an earlier attempt of the same job:
+    # nothing was sent, nothing is billed (F-307). Never set by a live call.
+    replayed: bool = False
 
     @property
     def total_tokens(self) -> int:
@@ -341,6 +344,10 @@ class ModelGateway:
           unreachable, open circuit): the provider declined the work and did not bill.
         """
         estimate = float((reservation or {}).get("estimate_cad") or 0.0)
+        if response is not None and getattr(response, "replayed", False):
+            # F-307: an answer the job already paid for, replayed after a reclaim or retry.
+            # Nothing was sent, so nothing is billed -- and it is not "unknown usage" either.
+            return 0, 0, None, "replayed_not_billed"
         if response is not None:
             in_tok = int(getattr(response, "input_tokens", 0) or 0)
             out_tok = int(getattr(response, "output_tokens", 0) or 0)
@@ -363,7 +370,7 @@ class ModelGateway:
                 + out_tok / 1000 * provider.cost_per_1k_output_cad)
         if cost_override is not None:
             cost = max(cost, float(cost_override))
-        billed = ok or billing != "not_billed"
+        billed = (ok or billing != "not_billed") and billing != "replayed_not_billed"
         self.calls.append(CallRecord(
             prompt_ref=prompt.ref, prompt_sha256=prompt.sha256, provider=provider.name,
             model=provider.model, agent=agent, input_tokens=in_tok, output_tokens=out_tok,
@@ -397,6 +404,7 @@ class ModelGateway:
             # the same order that method keeps: write first, then refuse on the agent's day.
             from ..core.models import CostEntry
             from ..finance import spend_report
+            from . import paid_calls
 
             estimated = float((reservation or {}).get("estimate_cad") or 0.0)
             product_slug, attributed = spend_report.attribution(self.product_slug or "", {
@@ -405,6 +413,8 @@ class ModelGateway:
                 "reservation_id": (reservation or {}).get("reservation_id"),
                 "ok": bool(ok), "billing": billing,
                 "price_basis": "assumed",
+                # F-307: the write-ahead intent this bill belongs to (empty outside a job).
+                **paid_calls.ledger_note(),
                 **({"cost_basis_note": "provider billing UNKNOWN; counted at the "
                                        "reservation estimate, never as zero"}
                    if cost_override is not None else {})})

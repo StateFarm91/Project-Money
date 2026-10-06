@@ -733,10 +733,19 @@ def enforce(db, *, days: int = 30, now: datetime | None = None) -> dict:
             fed = alloc.id
 
     throughput = _act_on_unit_cost(db, now=now)
+    # F-305/F-308/F-315/F-326: the waste shapes a daily spike misses (retry storms, a spiking
+    # hour, identical evidence bought by several jobs, untraceable spend, oversized inputs).
+    try:
+        from . import spend_hygiene
+
+        hygiene = spend_hygiene.sweep(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - a detector fault must not stop the governor
+        hygiene = {"error": f"{type(exc).__name__}: {exc}"[:300]}
 
     detail = {
         "at": now.isoformat(),
         "unit_cost": throughput,
+        "hygiene": hygiene,
         "company_anomaly": company,
         "agent_anomalies": {"spiking": agents["spiking"],
                             "unmeasurable": agents["unmeasurable"],
