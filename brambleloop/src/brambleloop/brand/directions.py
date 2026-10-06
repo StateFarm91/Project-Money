@@ -156,6 +156,20 @@ def _moved(e, s: float, tx: float, ty: float):
     return Fill(e.path.transformed(sx=s, tx=tx, ty=ty), e.role)
 
 
+def trim(mark: Mark, pad: float) -> Mark:
+    """Shrink the canvas to the drawn content plus `pad` (so lockups space by ink, not box)."""
+    from .vector import all_points
+
+    pts = list(all_points(mark))
+    x0 = min(p[0] for p in pts) - pad
+    y0 = min(p[1] for p in pts) - pad
+    x1 = max(p[0] for p in pts) + pad
+    y1 = max(p[1] for p in pts) + pad
+    out = Mark(mark.name, x1 - x0, y1 - y0, title=mark.title)
+    out.elements = [_moved(e, 1.0, -x0, -y0) for e in mark.elements]
+    return out
+
+
 def place(mark: Mark, s: float, tx: float, ty: float) -> list:
     return [_moved(e, s, tx, ty) for e in mark.elements]
 
@@ -220,6 +234,7 @@ D1_PALETTE = {
     "sage_mist": "#C9D1BF",  # leaf ribs, quiet rules
     "rose": "#A86B5C",       # yarn (dusty terracotta-rose)
     "rose_deep": "#7E4A3E",  # yarn wraps, small text accents
+    "rose_light": "#D49A8A", # yarn on the dark (reversed) ground: 4.7:1 on forest
     "petal": "#FFFCF6",      # blossom
     "paper": "#F6F0E6",      # warm cream ground
     "berry": "#7A2E3A",      # bramble fruit
@@ -271,18 +286,19 @@ def d1_emblem() -> Mark:
     for t, side, L, W in ((0.1, 1, 104, 30), (0.26, -1, 118, 32), (0.44, 1, 92, 26),
                           (0.6, -1, 112, 30), (0.77, -1, 84, 24), (0.86, 1, 70, 20)):
         (px, py), ang = _along(stem_pts, t)
-        _leaf(m, (px, py), ang + side * 54, L * 1.08, W * 0.78, "leaf", "rib", 3.0,
+        _leaf(m, (px, py), ang + side * 52, L * 1.18, W * 1.0, "leaf", "rib", 3.4,
               bend=0.05 * side)
     _blossom(m, 214, 470, 60, 8, "petal", "leaf", "gold", 5)
-    for (x, y, r) in ((402, 222, 18), (426, 238, 15), (404, 252, 14)):
+    for (x, y, r) in ((402, 222, 18), (426, 238, 15), (404, 252, 14), (382, 240, 12)):
         m.add(Circle(x, y, r, "berry"))
     # lower-right sprig
-    _leaf(m, (640, 812), -4, 112, 15, "leaf", "rib", 3.0, bend=-0.05)
-    _leaf(m, (640, 812), 104, 70, 11, "leaf", "rib", 3.0, bend=0.04)
+    _leaf(m, (640, 812), -6, 128, 22, "leaf", "rib", 3.2, bend=-0.05)
+    _leaf(m, (640, 812), 34, 96, 18, "leaf", "rib", 3.2, bend=0.05)
+    _leaf(m, (640, 812), 110, 76, 15, "leaf", "rib", 3.2, bend=0.04)
     _blossom(m, 628, 812, 46, -14, "petal", "leaf", "gold", 4.5)
     m.add(Knockout([Circle(ball[0], ball[1], 56, "x")]))
     _yarn_ball(m, ball[0], ball[1], 46, "yarn", "yarn_line", 4.5)
-    return m
+    return trim(m, 24)
 
 
 def d1_icon() -> Mark:
@@ -325,16 +341,38 @@ def d1_wordmark() -> Mark:
     return m
 
 
+def _lemniscate(cx: float, cy: float, a: float, b: float, rot_deg: float, t0: float = 0.0,
+                t1: float = 2 * math.pi, n: int = 48) -> list:
+    rot = math.radians(rot_deg)
+    out = []
+    for i in range(n + 1):
+        t = t0 + (t1 - t0) * i / n
+        x = a * math.cos(t) / (1 + math.sin(t) ** 2)
+        y = b * 2 * math.sin(t) * math.cos(t) / (1 + math.sin(t) ** 2)
+        out.append((cx + x * math.cos(rot) - y * math.sin(rot),
+                    cy + x * math.sin(rot) + y * math.cos(rot)))
+    return out
+
+
 def d1_motif() -> Mark:
-    """Seamless tile: a scattered bramble of leaves and yarn loops on the paper ground."""
-    m = Mark("d1-motif", 240, 240, title="Brambleloop bramble pattern")
-    for (x, y, a) in ((40, 60, -30), (160, 180, 150), (170, 40, 20), (60, 190, 200)):
-        _leaf(m, (x, y), a, 46, 13, "leaf", "rib", 1.6)
-    loop = cubic_through([(90, 120), (125, 100), (150, 120), (128, 145), (110, 118),
-                          (140, 92), (185, 98)])
-    m.add(Stroke(loop, 3.2, "yarn"))
-    for (x, y) in ((205, 110), (20, 130)):
-        m.add(Circle(x, y, 5, "berry"))
+    """Seamless tile: leaf pairs, berries and small figure-of-eight loops on a half-drop grid.
+    Every element is drawn at its wrapped neighbours too, so edges join without seams."""
+    W = H = 240.0
+    m = Mark("d1-motif", W, H, title="Brambleloop bramble pattern")
+    els: list = []
+    tmp = Mark("t", W, H)
+    for (x, y, ang) in ((60, 60, -35), (180, 180, 145)):
+        _leaf(tmp, (x, y), ang, 40, 12, "leaf", "rib", 1.4, bend=0.05)
+        _leaf(tmp, (x, y), ang + 70, 32, 10, "leaf", "rib", 1.4, bend=-0.05)
+        tmp.add(Circle(x - 4, y + 8, 4.2, "berry"))
+        tmp.add(Circle(x + 4, y + 11, 3.6, "berry"))
+    for (x, y, r) in ((180, 60, -20), (60, 180, 160)):
+        tmp.add(Stroke(cubic_through(_lemniscate(x, y, 30, 12, r, 0.3, 2 * math.pi - 0.3)),
+                       2.6, "yarn"))
+    els = tmp.elements
+    for dx in (-W, 0.0, W):
+        for dy in (-H, 0.0, H):
+            m.elements += [_moved(e, 1.0, dx, dy) for e in els]
     return m
 
 
@@ -358,8 +396,8 @@ D1 = Direction(
                            "berry": "forest", "accent_text": "forest", "rule": "forest"},
                  "ground": "paper"},
         "reversed": {"roles": {"ink": "paper", "leaf": "sage_mist", "rib": "forest",
-                               "yarn": "rose", "yarn_line": "forest", "petal": "paper",
-                               "gold": "gold", "berry": "rose", "accent_text": "paper",
+                               "yarn": "rose_light", "yarn_line": "forest", "petal": "paper",
+                               "gold": "gold", "berry": "rose_light", "accent_text": "paper",
                                "rule": "sage_mist"},
                      "ground": "forest"},
     },
@@ -381,6 +419,7 @@ D1 = Direction(
     build_emblem=d1_emblem,
     build_wordmark=d1_wordmark,
     build_motif=d1_motif,
+    emblem_scale=0.5,
 )
 
 
