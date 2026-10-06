@@ -385,6 +385,34 @@ def what_it_bought(db, *, now: datetime | None = None) -> dict:
     }
 
 
+def _honesty(db, now) -> dict:
+    from . import spend_hygiene
+
+    month = rows(db, now=now)
+
+    def _billing(r) -> str:
+        return str((r.detail or {}).get("billing") or "") if isinstance(r.detail, dict) else ""
+
+    at_estimate = [r for r in month if "estimate" in _billing(r)]
+    measured = [r for r in month if r not in at_estimate]
+    providers = spend_hygiene.provider_discrepancy(db, now)
+    return {
+        "recorded_cad": round(sum(float(r.amount_cad or 0) for r in measured), 6),
+        "recorded_basis": "provider-reported usage priced at assumed list prices",
+        "counted_at_estimate_cad": round(sum(float(r.amount_cad or 0) for r in at_estimate),
+                                         6),
+        "counted_at_estimate_basis": ("upper bound: outcome UNKNOWN (timeout, missing usage, "
+                                      "worker lost mid-call), counted at the reservation "
+                                      "estimate, never as zero"),
+        "historical_unknown": [{k: p[k] for k in ("provider", "historical_unknown_usd",
+                                                  "reported_at", "stale", "basis")}
+                               for p in providers],
+        "historical_unknown_basis": ("provider-dashboard usage the owner reported that this "
+                                     "ledger never recorded; shown beside, never folded into, "
+                                     "the measured figure"),
+    }
+
+
 def _economic(month) -> dict:
     from . import economics
 
@@ -658,6 +686,8 @@ def governance(db, *, now: datetime | None = None) -> dict:
     _part("drift", lambda: estimate_drift(db, now=now))
     _part("escalation", lambda: spend_policy.escalation(db, now=now))
     _part("binding", lambda: spend_policy.binding_ceiling(db, now=now))
+    # F-105: measured, estimated/upper-bound and historical-unknown spend kept apart.
+    _part("honesty", lambda: _honesty(db, now))
     _part("vocabulary", lambda: spend_policy.vocabulary(db))
 
     def _scoped():

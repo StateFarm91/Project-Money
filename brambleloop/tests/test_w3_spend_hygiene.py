@@ -103,5 +103,31 @@ def test_identical_request_bought_by_several_jobs_is_flagged():
     assert out["repeated_requests"] and out["repeated_requests"][0]["jobs"] == 3, out
 
 
+
+def test_provider_billing_discrepancy_is_an_incident_only_when_current():
+    from brambleloop.finance import spend_hygiene, spend_report
+    from brambleloop.ops import provider_accounts
+
+    db = boot()
+    stale = spend_hygiene.provider_discrepancy(db, NOW)
+    assert stale, "the reported facts are read"
+    for row in stale:
+        assert row["stale"] is True and row["material"] is False, row
+    real = provider_accounts.REPORTED_FACTS
+    provider_accounts.REPORTED_FACTS = real + (provider_accounts.AccountFact(
+        "anthropic", NOW.date().isoformat(), "used", 25.0, "test fact"),)
+    try:
+        out = spend_hygiene.sweep(db, now=NOW)
+        honesty = spend_report.governance(db, now=NOW)["honesty"]
+    finally:
+        provider_accounts.REPORTED_FACTS = real
+    anth = [r for r in out["provider_billing"] if r["provider"] == "anthropic"][0]
+    assert anth["material"] and anth["historical_unknown_usd"] == 25.0, anth
+    assert any(s.startswith(spend_hygiene.SIGNATURES["provider_billing"])
+               for s in _signatures(db))
+    hu = [r for r in honesty["historical_unknown"] if r["provider"] == "anthropic"][0]
+    assert hu["historical_unknown_usd"] == 25.0 and honesty["recorded_cad"] == 0.0, honesty
+
+
 if __name__ == "__main__":
     run_tests(globals())

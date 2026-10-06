@@ -41,7 +41,8 @@ INPUT_TOKEN_ALLOWANCE = 60_000
 SIGNATURES = {"retry_storm": "spend-retry-storm", "hourly_spike": "spend-hourly-spike",
               "repeat_request": "spend-repeat-paid-request",
               "unattributed": "spend-unattributed-over-tolerance",
-              "oversized_input": "spend-oversized-input"}
+              "oversized_input": "spend-oversized-input",
+              "provider_billing": "spend-provider-billing-discrepancy"}
 
 _FAILED_BILLINGS = frozenset({"accepted_then_failed", "unknown_counted_at_estimate",
                               "unknown_usage_counted_at_estimate", "exception_usage"})
@@ -142,6 +143,44 @@ def oversized_inputs(rows, now: datetime) -> list[dict]:
             for p, n in sorted(out.items())]
 
 
+DISCREPANCY_FLOOR_USD = 1.0
+DISCREPANCY_SHARE = 0.10
+
+
+def provider_discrepancy(db, now: datetime) -> list[dict]:
+    """F-106/F-105: provider-reported usage against this ledger, per provider.
+
+    The provider side is what the owner reported from the provider dashboard
+    (`ops.provider_accounts.REPORTED_FACTS`); no provider billing API is read (that needs an
+    admin usage key, an owner action). A figure reported in an earlier month is not compared
+    against this month -- it is labelled stale instead of being read as a discrepancy. The
+    difference is `historical_unknown`: spend the provider saw that the ledger never recorded,
+    never rewritten as measured."""
+    try:
+        from ..ops import provider_accounts
+    except Exception:  # noqa: BLE001
+        return []
+    month = now.strftime("%Y-%m")
+    out = []
+    for name in sorted({f.provider for f in provider_accounts.REPORTED_FACTS}):
+        used = [f for f in provider_accounts.REPORTED_FACTS
+                if f.provider == name and f.kind == "used"]
+        if not used:
+            continue
+        fact = used[-1]
+        ours = provider_accounts.our_spend_usd(db, name)
+        diff = round(float(fact.amount_usd) - float(ours["usd"]), 4)
+        current = fact.at.startswith(month)
+        material = current and abs(diff) >= max(DISCREPANCY_FLOOR_USD,
+                                                DISCREPANCY_SHARE * float(fact.amount_usd))
+        out.append({"provider": name, "reported_used_usd": fact.amount_usd,
+                    "reported_at": fact.at, "ledger_usd": ours["usd"],
+                    "historical_unknown_usd": max(0.0, diff), "difference_usd": diff,
+                    "basis": "owner_reported_vs_ledger",
+                    "stale": not current, "material": material})
+    return out
+
+
 def sweep(db, *, now: datetime | None = None) -> dict:
     """Run every detector and open an incident for each finding. Changes no ceiling."""
     from sqlalchemy import select
@@ -158,7 +197,8 @@ def sweep(db, *, now: datetime | None = None) -> dict:
     found = {"retry_storms": retry_storms(rows, now), "hourly": hourly_spike(rows, now),
              "repeated_requests": repeated_requests(db, now),
              "unattributed": unattributed(rows, now),
-             "oversized_inputs": oversized_inputs(rows, now)}
+             "oversized_inputs": oversized_inputs(rows, now),
+             "provider_billing": provider_discrepancy(db, now)}
     stamp, hour = now.date().isoformat(), now.strftime("%Y-%m-%dT%H")
     incidents = []
 
@@ -192,4 +232,10 @@ def sweep(db, *, now: datetime | None = None) -> dict:
         _open(f"{SIGNATURES['oversized_input']}:{big['purpose']}:{stamp}"[:200],
               f"{big['purpose']} sent {big['max_tokens_in']} input tokens in one call, over "
               f"the {INPUT_TOKEN_ALLOWANCE}-token allowance", big, severity="P3")
+    for pb in found["provider_billing"]:
+        if pb["material"]:
+            _open(f"{SIGNATURES['provider_billing']}:{pb['provider']}:{stamp[:7]}",
+                  f"{pb['provider']} reports US${pb['reported_used_usd']} used; this ledger "
+                  f"records US${pb['ledger_usd']} (difference US${pb['difference_usd']}). "
+                  f"Other usage on the account, or assumed prices that are wrong", pb)
     return {**found, "incidents": incidents, "ceilings_changed": 0}
