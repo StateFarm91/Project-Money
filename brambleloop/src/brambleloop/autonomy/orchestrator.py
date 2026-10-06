@@ -117,8 +117,20 @@ def _enqueue_mission(db, queue, charter: charters.Charter, cand: generators.Cand
                         department=charter.key, actor=COO,
                         summary=f"{charter.name}: {jt} ({cand.source}) -- {cand.reason}",
                         refs=[f"jobs:{job_id}", f"company_memory:{key}"], at=now)
+    # W3 K11 (F-658): the mission is a node of the durable company DAG, so its completion
+    # evidence is reconciled there. Bookkeeping only -- the job above already exists.
+    dag_error = ""
+    try:
+        from ..authority import dag
+
+        dag.record_mission(db, key=key, department=charter.key, job_type=jt, job_id=job_id,
+                           agent=agent, reason=cand.reason, sources=cand.evidence[:10],
+                           now=now)
+    except Exception as exc:  # noqa: BLE001 - never loses the mission itself
+        dag_error = f"{type(exc).__name__}: {exc}"[:200]
     return {"department": charter.key, "job_type": jt, "agent": agent, "job_id": job_id,
-            "created": created, "key": key, "source": cand.source, "reason": cand.reason}
+            "created": created, "key": key, "source": cand.source, "reason": cand.reason,
+            **({"dag_error": dag_error} if dag_error else {})}
 
 
 def _raise_approval(db, charter: charters.Charter, cand: generators.Candidate,
@@ -145,6 +157,20 @@ def _raise_approval(db, charter: charters.Charter, cand: generators.Candidate,
                     subject=a["action"][:200], state="awaiting_owner",
                     body={"job_type": cand.job_type, "reason": cand.reason,
                           "requirement_key": rk}, sources=cand.evidence[:20], now=now)
+    # W3 K11 (F-702, F-721): the protected work is an AWAITING_APPROVAL node of the company
+    # DAG. It blocks only work that depends on it; it is never enqueued until the owner
+    # approves it (and then only in a phase that runs its class). Fails closed: an error
+    # here leaves the owner action above as the only record, and no job.
+    try:
+        from ..authority import dag
+
+        dag.submit(db, key=f"approval:{rk}"[:200], department=charter.key,
+                   job_type=cand.job_type, submitted_by=COO, requires_approval=True,
+                   inputs={**cand.inputs, "requirement_key": rk,
+                           "fingerprint": cand.fingerprint},
+                   title=a["action"][:500], sources=cand.evidence[:20], now=now)
+    except Exception:  # noqa: BLE001
+        pass
     if created:
         memory.record_event(db, f"approval.requested:{rk}:{cand.fingerprint}",
                             kind="approval.requested", department=charter.key, actor=COO,
@@ -289,6 +315,15 @@ def tick(db, queue=None, *, now: datetime | None = None, departments=None) -> di
                                 summary=f"{charter.name} work generation failed: "
                                         f"{type(exc).__name__}", at=now)
 
+    # W3 K11 (F-658, F-702, F-721): recompute the durable company DAG every tick --
+    # reconcile finished nodes with their evidence, recompute READY/BLOCKED/AWAITING_APPROVAL
+    # and dispatch READY work. A node awaiting the owner blocks only its dependants.
+    try:
+        from ..authority import dag
+
+        report["dag"] = dag.tick(db, queue, now=now)
+    except Exception as exc:  # noqa: BLE001 - the DAG never stops the departments
+        report["errors"]["company_dag"] = f"{type(exc).__name__}: {exc}"[:300]
     memory.remember(db, "orchestrator:last_tick", kind="orchestrator", department="executive",
                     subject="last orchestrator tick", state="ok" if not report["errors"]
                     else "degraded",
