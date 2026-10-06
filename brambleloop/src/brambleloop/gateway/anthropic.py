@@ -648,13 +648,13 @@ class AnthropicProvider:
         Inside a job, `paid_calls.guarded` keys the request by job + request bytes +
         occurrence, so a reclaimed or retried attempt replays the answer it already paid for
         instead of paying again; outside a job it is a plain call."""
-        from . import paid_calls
+        from . import paid_calls, routing
 
         return paid_calls.guarded(
             effect, paid_calls.fingerprint(effect, payload.decode("utf-8", "replace")),
             lambda: self._send(payload, key),
             encode=_encode_response, decode=_decode_response, classify=_classify_failure,
-            cost_kind="llm", provider=self.name, model=self.model)
+            cost_kind=routing.COST_KIND, provider=self.name, model=self.model)
 
     def _send(self, payload: bytes, key: str) -> ModelResponse:
         """The HTTP request itself. Tests replace this; no test reaches the network."""

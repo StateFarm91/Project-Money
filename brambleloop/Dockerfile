@@ -26,6 +26,9 @@ RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
 COPY src ./src
 # A3-05: the tracked release records the runtime boot guard verifies (brambleloop.ops.release_record).
 COPY release ./release
+# Owner decisions are runtime provenance: Laura's memory and voice selection resolve
+# `decision:<ID>` against this log (W3 integrator; test_w3_hq_independence).
+COPY DECISION_LOG.md ./
 COPY tests ./tests
 COPY run_tests.sh ./
 

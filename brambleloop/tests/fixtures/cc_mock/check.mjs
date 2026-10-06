@@ -82,7 +82,11 @@ try {
 
   // ---- tab bar ---------------------------------------------------------------------------
   const tabs = await page.$$eval("#tabbar .tab", (els) => els.map((e) => ({ id: e.dataset.tab, h: e.getBoundingClientRect().height, w: e.getBoundingClientRect().width })));
-  check(tabs.length === 5 && tabs.at(-1).id === "more", "tabbar: 4 primary tabs + More", JSON.stringify(tabs.map((t) => t.id)));
+  // W3 lane F / D-FB-16 item 6: Laura is the centre of the brand, so Talk to Laura is the first
+  // primary tab (5 primary + More). The bar must still fit the phone width without overflow.
+  check(tabs.length === 6 && tabs[0].id === "laura" && tabs.at(-1).id === "more", "tabbar: Laura + 4 primary tabs + More", JSON.stringify(tabs.map((t) => t.id)));
+  const barFits = await page.$eval("#tabbar", (el) => el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().right <= window.innerWidth + 1);
+  check(barFits, "tabbar: fits the phone width without horizontal overflow", "");
   check(tabs.length > 0 && tabs.every((t) => t.h >= 44 && t.w >= 44), "tabbar: tap targets >= 44px", JSON.stringify(tabs));
 
   // ---- every tab -------------------------------------------------------------------------
