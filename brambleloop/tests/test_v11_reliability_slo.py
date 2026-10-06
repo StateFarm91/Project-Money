@@ -288,7 +288,7 @@ def test_department_useful_work_counts_useful_hours_and_alerts_on_breach():
         for h in range(24):
             t = NOW - timedelta(hours=h, minutes=30)
             _job(s, "finance.governor", created=t, started=t, finished=t,
-                 outputs={"ran": True, "moved": 1})
+                 outputs={"ran": True, "ceilings_changed": 1})
             _job(s, "support.triage", created=t, started=t, finished=t,
                  outputs={"ran": False})
     with db.session() as s:
@@ -387,11 +387,11 @@ def _soak_rows(db, end, hours, *, actor="orchestrator"):
             _job(s, "ops.heartbeat", key=f"cadence:infra_heartbeat:{h}", created=t, started=t,
                  finished=t)
             _job(s, "finance.governor", key=f"cadence:finance_governor:{h}", created=t,
-                 started=t, finished=t, outputs={"ran": True, "moved": 1})
+                 started=t, finished=t, outputs={"ran": True, "ceilings_changed": 1})
             _job(s, "support.triage", key=f"cadence:support_triage:{h}", created=t, started=t,
-                 finished=t, outputs={"ran": True, "inspected": 2})
+                 finished=t, outputs={"ran": True, "cases": 2})
             _job(s, "improve.mine", key=f"cadence:failure_mine:{h}", created=t, started=t,
-                 finished=t, outputs={"ran": True, "new": 1})
+                 finished=t, outputs={"ran": True, "published": 1})
         _job(s, "growth.follow_on", created=end - timedelta(hours=1))
         s.add(AuditLog(actor=actor, action="something", at=end - timedelta(hours=2)))
 

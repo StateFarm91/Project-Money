@@ -112,7 +112,7 @@ def _summary(db, *, now: datetime) -> dict:
     for ch in charters.CHARTERS:
         mine = [r for r in recent if job_department(r.job_type, r.inputs) == ch.key]
         done = [r for r in mine if getattr(r.status, "value", r.status) == "done"]
-        useful = [r for r in done if not did_no_work(r.outputs)]
+        useful = [r for r in done if not did_no_work(r.outputs, r.job_type)]
         dead = [r for r in mine if getattr(r.status, "value", r.status) == "dead"]
         n_open = sum(1 for jt, inp in open_rows if job_department(jt, inp) == ch.key
                      and jt != "autonomy.orchestrate")

@@ -184,12 +184,13 @@ def reconcile_missions(db, *, now: datetime | None = None) -> dict:
             job = s.get(Job, job_id) if job_id else None
             status = getattr(job.status, "value", None) if job else None
             outputs = dict(job.outputs or {}) if job else {}
+            job_type = job.job_type if job else None
             err = (job.last_error or "")[:300] if job else "job row missing (retention?)"
         if status in ("pending", "running", "failed"):
             counts["open"] += 1
             continue
         if status == "done":
-            state = "noop" if did_no_work(outputs) else "useful"
+            state = "noop" if did_no_work(outputs, job_type) else "useful"
         else:
             state = "failed"
         counts[state] += 1

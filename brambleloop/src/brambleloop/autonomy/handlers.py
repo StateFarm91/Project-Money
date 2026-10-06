@@ -73,6 +73,12 @@ def handle_department_review(ctx: JobContext) -> dict:
         raise PermanentError(f"unknown department {dept!r}")
     reading = kpis.compute(ctx.db, dept, now=now)
     previous = memory.recall(ctx.db, kind="kpi_snapshot", department=dept, limit=1)
+    # Audit ddf9c6e H-1/M-1: a review is useful only when it found something the previous
+    # one did not (content hash over the reading with timestamps/ids removed) or it routed a
+    # lesson. Ten reviews of an unchanged department are one finding, not ten.
+    content = kpis.content_hash(reading)
+    prev_content = kpis.content_hash(previous[0]["body"]) if previous else None
+    new_finding = 1 if content != prev_content else 0
     snap_key = f"kpi:{dept}:{(ctx.job.inputs or {}).get('mission') or ctx.job.id}"[:200]
     memory.remember(ctx.db, snap_key, kind="kpi_snapshot", department=dept,
                     subject=f"{charters.BY_KEY[dept].name} KPIs", state="measured",
@@ -105,7 +111,8 @@ def handle_department_review(ctx: JobContext) -> dict:
                                  + ", ".join(f"{k}={v['status']}:{v['value']}"
                                              for k, v in reading["kpis"].items())),
                         refs=[f"company_memory:{snap_key}"], at=now)
-    return {"ran": True, "department": dept, "snapshot": snap_key, "generated": 1,
+    return {"ran": True, "department": dept, "snapshot": snap_key,
+            "new_finding": new_finding, "content_hash": content,
             "kpis": {k: v["status"] for k, v in reading["kpis"].items()},
             "lessons_routed": lessons}
 
@@ -117,9 +124,12 @@ def build_brief(db, *, now: datetime, hours: int = 12) -> dict:
 
     since = now - timedelta(hours=hours)
     with db.session() as s:
-        done = list(s.execute(select(Job.id, Job.job_type, Job.inputs, Job.outputs)
-                              .where(Job.status == JobStatus.DONE,
-                                     Job.finished_at >= since)).all())
+        # The brief's own runs and the KPI self-reviews measure the company; they are not
+        # company work, and counting them made every brief differ from the last (H-1).
+        done = [r for r in s.execute(select(Job.id, Job.job_type, Job.inputs, Job.outputs)
+                                     .where(Job.status == JobStatus.DONE,
+                                            Job.finished_at >= since)).all()
+                if r.job_type not in kpis.SELF_MEASUREMENT_TYPES]
         dead = list(s.execute(select(Job.id, Job.job_type, Job.last_error)
                               .where(Job.status == JobStatus.DEAD,
                                      Job.finished_at >= since)).all())
@@ -141,7 +151,7 @@ def build_brief(db, *, now: datetime, hours: int = 12) -> dict:
         d = kpis.job_department(r.job_type, r.inputs) or "unassigned"
         e = by_dept.setdefault(d, {"completed": 0, "useful": 0, "generated": 0})
         e["completed"] += 1
-        e["useful"] += 0 if kpis.did_no_work(r.outputs) else 1
+        e["useful"] += 0 if kpis.did_no_work(r.outputs, r.job_type) else 1
         e["generated"] += 1 if (r.inputs or {}).get("source") == "autonomy" else 0
     missions = memory.recall(db, kind="mission", since=since, limit=500)
     blocks = [b for b in memory.recall(db, kind="block", state="active", limit=50)]
@@ -175,6 +185,13 @@ def handle_morning_handoff(ctx: JobContext) -> dict:
     day = morning_window(now)
     brief = build_brief(ctx.db, now=now)
     key = f"brief:{day}"
+    # Audit ddf9c6e H-1: a brief is useful only when its content differs from the last one
+    # (the window's timestamps excluded) -- an unchanged company yields an unchanged brief.
+    previous = memory.recall(ctx.db, kind="morning_brief", limit=1)
+    content = kpis.content_hash({k: v for k, v in brief.items() if k != "window"})
+    prev_content = (kpis.content_hash({k: v for k, v in previous[0]["body"].items()
+                                       if k != "window"}) if previous else None)
+    new_brief = 1 if content != prev_content else 0
     memory.remember(ctx.db, key, kind="morning_brief", department="executive",
                     subject=f"Morning brief {day}", state="ready", body=brief,
                     sources=brief["sources"], now=now)
@@ -184,5 +201,5 @@ def handle_morning_handoff(ctx: JobContext) -> dict:
                                  f"{brief['decisions_needed']['open_owner_actions']} owner "
                                  f"decisions open"),
                         refs=[f"company_memory:{key}"], at=now)
-    return {"ran": True, "brief": key, "generated": 1,
+    return {"ran": True, "brief": key, "new_brief": new_brief, "content_hash": content,
             "completed_total": brief["completed_total"]}

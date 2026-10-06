@@ -369,6 +369,14 @@ class JobQueue:
                 continue
             taken = self._take(s, row.id, row.attempts, worker, now, reclaim=True)
             if taken is not None:
+                # Audit ddf9c6e M-3: a reclaim means the handler body runs again after an
+                # attempt that never finished (killed or stalled). That is the at-least-once
+                # moment; the soak's "no duplicated external effect" criterion reads it.
+                from ..core.models import AuditLog
+
+                s.add(AuditLog(actor="queue", action="queue.lease_reclaimed", job_id=row.id,
+                               detail={"attempt": int(row.attempts) + 1,
+                                       "reclaimed_by": worker[:64]}))
                 return taken
         return None
 

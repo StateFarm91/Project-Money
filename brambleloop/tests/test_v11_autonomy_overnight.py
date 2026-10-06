@@ -86,7 +86,21 @@ def test_an_unattended_night_produces_useful_work_across_departments():
     # Every department with a real generator, except the blocked one, did useful work.
     assert "store_commerce" not in useful_by_dept, useful_by_dept
     assert len(useful_by_dept) >= 10, useful_by_dept
-    assert sum(useful_by_dept.values()) >= 30, useful_by_dept
+    # Audit ddf9c6e H-1: this was ">= 30" when every self-review counted as useful by
+    # construction (`generated: 1`). On an empty database the honest judge counts a review
+    # only when it found something new, so the floor is one useful mission per working
+    # department plus the new findings -- and no department may count more useful reviews
+    # than it produced distinct findings.
+    assert sum(useful_by_dept.values()) >= 15, useful_by_dept
+    with db.session() as s:
+        reviews = [j for j in s.scalars(select(Job).where(
+            Job.job_type == "autonomy.department_review", Job.status == JobStatus.DONE))]
+    assert reviews, "no department review ran"
+    for r in reviews:
+        out = r.outputs or {}
+        assert "generated" not in out, out          # no hardcoded usefulness
+        assert pipeline.did_no_work(out, r.job_type) == (
+            not out.get("new_finding") and not out.get("lessons_routed")), out
 
     # The blocked department stayed blocked and received nothing; nobody else waited on it.
     assert all(t["states"].get("store_commerce") == "BLOCKED" for t in ticks)

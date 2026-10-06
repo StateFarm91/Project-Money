@@ -371,9 +371,19 @@ def test_a_run_that_completed_having_done_nothing_counts_as_a_no_op():
     # Real work is never a no-op, whatever else is zero beside it.
     assert not did_no_work({"ran": True, "listings_known": 438, "new": 0, "reclassified": 0})
     assert not did_no_work({"ran": True, "judged": 12})
-    # A handler that reports no counters at all is not assumed idle.
-    assert not did_no_work({"ran": True})
-    assert not did_no_work({})
+    # Audit ddf9c6e H-1 reversed the old default ("a handler that reports no counters at all
+    # is not assumed idle"): proxy is not measurement, so an output that shows no work is a
+    # no-op for the usefulness judge (KPIs, SLO, soak, mission outcomes)...
+    assert did_no_work({"ran": True})
+    assert did_no_work({})
+    # ...while the narrower once-per-deploy re-drive rule keeps the old reading, so an honest
+    # "nothing to do" is not re-run on every deploy.
+    from brambleloop.runtime.pipeline import reported_no_work
+
+    assert reported_no_work({"ran": True, "proposed": 0, "survivors": 0, "cost_cad": 0.0})
+    assert reported_no_work({"ran": False, "reason": "nothing observed"})
+    assert not reported_no_work({"ran": True})
+    assert not reported_no_work({"ran": True, "listings_known": 438, "new": 0})
 
 
 def test_a_cadence_that_ran_but_did_nothing_is_re_driven_like_one_that_said_so():

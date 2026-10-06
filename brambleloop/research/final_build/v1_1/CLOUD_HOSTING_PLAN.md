@@ -67,6 +67,17 @@ Why this is the simplest durable option:
   (verify in Railway docs; treat as ASSUMED). Continuous liveness is the watchdog (2.2) plus the
   in-process self-exit (WIRING REQUEST W-3 in `handoff_I.md`): if the scheduler thread has not ticked
   for 15 minutes the process exits non-zero and Railway's restart policy brings up a fresh container.
+* **Restart-loop risk (audit ddf9c6e M-2).** Until r2-AUTO, one cadence whose enqueue raised aborted
+  the whole `Scheduler.tick`; the tick never completed, so the self-exit fired ~17 min after every
+  boot — a *deterministic* fault, which a restart cannot fix, turned into a crash loop. With the
+  current `ON_FAILURE` + `restartPolicyMaxRetries: 10` that loop could exhaust the retries and leave
+  the service down (Railway's retry-counter reset semantics are NOT verified; no Railway call was
+  made). Mitigated in code, not in `railway.json` (unchanged): `Scheduler.tick` now isolates each
+  cadence (failure → deduplicated P2 incident `scheduler.cadence_failed:<name>` + audit row, the other
+  cadences still enqueue, the tick completes and heartbeats), and only a tick in which *every*
+  attempted cadence failed raises (a genuinely dead scheduler / database). Residual risk: a fault that
+  fails every enqueue (e.g. the database unreachable) still self-exits each ~15 min; that is the
+  intended behaviour, and the `ALWAYS` proposal above is what keeps it from exhausting retries.
 * **App Sleeping / serverless must be OFF** for this service (owner check, section 7 item 3). A
   sleeping service only wakes on inbound HTTP — which here is the 8-hourly Claude `/api/verify` — and
   would exactly reproduce "the factory stops when nobody pokes it".

@@ -50,11 +50,11 @@ def test_an_empty_database_reads_unknown_never_zero():
 
 def test_duplicate_and_noop_outputs_cannot_farm_the_useful_count():
     db = boot()
-    finished(db, "finance.reconcile", {"pl": {"net": 1}})
+    finished(db, "finance.reconcile", {"pl": {"net_sales_cad": 1}})
     base = kpis.compute(db, "finance")["kpis"]["useful_completions_24h"]["value"]
     assert base == 1, base
     for _ in range(50):     # the same answer fifty times
-        finished(db, "finance.reconcile", {"pl": {"net": 1}, "at": utcnow().isoformat()})
+        finished(db, "finance.reconcile", {"pl": {"net_sales_cad": 1}, "at": utcnow().isoformat()})
     for _ in range(50):     # fifty runs that did nothing
         finished(db, "commerce.readings", {"ran": False})
     for _ in range(20):     # generated work that did nothing
@@ -63,13 +63,13 @@ def test_duplicate_and_noop_outputs_cannot_farm_the_useful_count():
     r = kpis.compute(db, "finance")
     assert r["kpis"]["useful_completions_24h"]["value"] == 1, r["counted"]
     assert r["counted"]["noop"] == 70 and r["counted"]["generated_noop"] == 20, r["counted"]
-    finished(db, "finance.reconcile", {"pl": {"net": 2}})     # genuinely new output
+    finished(db, "finance.reconcile", {"pl": {"net_sales_cad": 2}})     # genuinely new output
     assert kpis.compute(db, "finance")["kpis"]["useful_completions_24h"]["value"] == 2
 
 
 def test_a_refused_job_voids_every_kpi_of_its_department():
     db = boot()
-    finished(db, "finance.reconcile", {"pl": {"net": 1}})
+    finished(db, "finance.reconcile", {"pl": {"net_sales_cad": 1}})
     finished(db, "finance.governor", None, status=JobStatus.DEAD,
              error="budget exceeded: agent 'cfo' would exceed its daily ceiling")
     r = kpis.compute(db, "finance")

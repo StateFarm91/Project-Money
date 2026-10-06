@@ -118,6 +118,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # (hours), both far inside the retention horizon, so pruning older rows changes neither.
     "spend.refused": ("windowed",
                       "spend_report.refusals reads the calendar month; ops.slo soak window"),
+    # Audit ddf9c6e M-3: the soak's "no duplicated external effect" criterion reads reclaims
+    # and guard-refused duplicates inside the soak window only (hours).
+    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window"),
+    "effect.duplicate_refused": ("windowed", "ops.slo.soak_report reads the soak window"),
     # C-60 (#201): the identity drift series reads 60 days of model-bearing frames and
     # persists its own daily reading, so pruning older rows cannot change the series.
     "assets.model_photography": ("windowed",
