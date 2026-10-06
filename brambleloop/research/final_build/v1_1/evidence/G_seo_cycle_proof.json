@@ -1,0 +1,574 @@
+{
+ "generated_at": "2026-10-06T06:23:22.096694+00:00",
+ "git_head_base": "0694fb7385846562c628897989f5644f07232186",
+ "db": "fresh hermetic SQLite (scratch), create_all; no network; BRAMBLELOOP_PHASE unset (shadow)",
+ "summary_before": {
+  "status": "UNKNOWN",
+  "as_of": null,
+  "basis": "unknown",
+  "items": [],
+  "sources": [
+   "seo_keyword_evidence",
+   "seo_proposals",
+   "seo_cycles",
+   "etsy_taxonomy_snapshots",
+   "listing_outcomes",
+   "operating_readings:attribution.stats",
+   "insights_snapshots",
+   "serp_snapshots",
+   "benchmark_listings",
+   "keywords",
+   "listings",
+   "products.launch0",
+   "commerce.search",
+   "commerce.seo"
+  ],
+  "kpis": {},
+  "guardrails": [
+   "F-918: no KPI may be improved by keyword stuffing, untraceable or misleading tags, competitor brand terms or protected IP (seo.truth.validate_listing is blocking)",
+   "a modelled phrase's demand is never reported as measured (evidence basis per row)",
+   "UNKNOWN is never rendered as 0: a term with no Stats row is UNKNOWN",
+   "proposals are never written to Etsy by this department (writes_to_etsy=False)",
+   "F-929: an unconfirmed category stays GATED(etsy_api); no remembered taxonomy id is used"
+  ],
+  "taxonomy": [
+   {
+    "slug": "market-basket-small",
+    "candidate": "nursery-nesting-baskets",
+    "category_intent": "basket",
+    "intent_terms": {
+     "object": [
+      "basket",
+      "storage"
+     ],
+     "family": [
+      "home"
+     ]
+    },
+    "taxonomy_id": null,
+    "path": [],
+    "properties_complete": null,
+    "snapshot": null,
+    "basis": "assumed",
+    "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+    "status": "GATED(etsy_api)",
+    "gated_by": "etsy_api",
+    "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+   },
+   {
+    "slug": "market-basket-medium",
+    "candidate": "nursery-nesting-baskets",
+    "category_intent": "basket",
+    "intent_terms": {
+     "object": [
+      "basket",
+      "storage"
+     ],
+     "family": [
+      "home"
+     ]
+    },
+    "taxonomy_id": null,
+    "path": [],
+    "properties_complete": null,
+    "snapshot": null,
+    "basis": "assumed",
+    "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+    "status": "GATED(etsy_api)",
+    "gated_by": "etsy_api",
+    "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+   },
+   {
+    "slug": "market-basket-large",
+    "candidate": "nursery-nesting-baskets",
+    "category_intent": "basket",
+    "intent_terms": {
+     "object": [
+      "basket",
+      "storage"
+     ],
+     "family": [
+      "home"
+     ]
+    },
+    "taxonomy_id": null,
+    "path": [],
+    "properties_complete": null,
+    "snapshot": null,
+    "basis": "assumed",
+    "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+    "status": "GATED(etsy_api)",
+    "gated_by": "etsy_api",
+    "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+   },
+   {
+    "slug": "cloudline-baby-blanket",
+    "candidate": "cloudline-baby-blanket",
+    "category_intent": "baby",
+    "intent_terms": {
+     "object": [
+      "baby",
+      "blanket"
+     ],
+     "family": [
+      "children",
+      "kids"
+     ]
+    },
+    "taxonomy_id": null,
+    "path": [],
+    "properties_complete": null,
+    "snapshot": null,
+    "basis": "assumed",
+    "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+    "status": "GATED(etsy_api)",
+    "gated_by": "etsy_api",
+    "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+   },
+   {
+    "slug": "hexagon-coaster-set",
+    "candidate": "hexagon-coaster-set",
+    "category_intent": "coaster",
+    "intent_terms": {
+     "object": [
+      "coaster"
+     ],
+     "family": [
+      "kitchen",
+      "home"
+     ]
+    },
+    "taxonomy_id": null,
+    "path": [],
+    "properties_complete": null,
+    "snapshot": null,
+    "basis": "assumed",
+    "note": "2112/2114/2115 are illustrative ids from tests/fixtures_etsy_taxonomy.py, not Etsy's; no Launch-0 category id has been read from Etsy",
+    "status": "GATED(etsy_api)",
+    "gated_by": "etsy_api",
+    "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+   }
+  ],
+  "reason": "seo tables not created: seo.jobs.run_cycle has never run"
+ },
+ "next_work_before": [
+  {
+   "key": "seo.run_cycle",
+   "department": "seo",
+   "title": "Re-evaluate SEO proposals on new evidence",
+   "kind": "internal",
+   "action": "brambleloop.seo.jobs.run_cycle",
+   "priority": 1,
+   "gated_by": null,
+   "why": "seo.jobs.run_cycle has never run",
+   "external_effect": false,
+   "sources": [
+    "seo_keyword_evidence"
+   ]
+  },
+  {
+   "key": "seo.taxonomy_confirm",
+   "department": "seo",
+   "title": "Confirm Launch-0 Etsy categories",
+   "kind": "gated",
+   "action": "listing.taxonomy_refresh",
+   "priority": 2,
+   "gated_by": "etsy_api",
+   "why": "5 variant(s) assume their category (cloudline-baby-blanket, hexagon-coaster-set, market-basket-large, market-basket-medium, market-basket-small); the etsy_api gate is closed",
+   "external_effect": false,
+   "sources": [
+    "etsy_taxonomy_snapshots"
+   ]
+  }
+ ],
+ "cycle_1": {
+  "changed": true,
+  "evidence_added": 104,
+  "evidence_seen": 104,
+  "proposals_written": [
+   "market-basket-small",
+   "market-basket-medium",
+   "market-basket-large",
+   "cloudline-baby-blanket",
+   "hexagon-coaster-set"
+  ],
+  "proposals_unchanged": [],
+  "cycle_fingerprint": "dd40f719f195d850a6e8c3ad53d36e4ae8e89b98eb3692c32a40bdd96e6708e8",
+  "taxonomy": {
+   "GATED(etsy_api)": 5
+  },
+  "attribution_status": "UNKNOWN",
+  "writes_to_etsy": false
+ },
+ "cycle_2_idempotent": {
+  "changed": false,
+  "evidence_added": 0,
+  "evidence_seen": 104,
+  "proposals_written": [],
+  "proposals_unchanged": [
+   "market-basket-small",
+   "market-basket-medium",
+   "market-basket-large",
+   "cloudline-baby-blanket",
+   "hexagon-coaster-set"
+  ],
+  "cycle_fingerprint": "dd40f719f195d850a6e8c3ad53d36e4ae8e89b98eb3692c32a40bdd96e6708e8",
+  "taxonomy": {
+   "GATED(etsy_api)": 5
+  },
+  "attribution_status": "UNKNOWN",
+  "writes_to_etsy": false
+ },
+ "summary_after": {
+  "status": "DEGRADED",
+  "as_of": "2026-10-06T06:23:22.317140+00:00",
+  "basis": "modelled",
+  "reason": "proposals ready; taxonomy not confirmed (GATED(etsy_api))",
+  "items": [
+   {
+    "slug": "cloudline-baby-blanket",
+    "candidate": "cloudline-baby-blanket",
+    "ok": true,
+    "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+    "tags": 13,
+    "tag_basis_counts": {
+     "modelled": 9,
+     "unknown": 4
+    },
+    "blocking": [],
+    "taxonomy_status": "GATED(etsy_api)",
+    "taxonomy_why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated",
+    "proposed_at": "2026-10-06T06:23:22.317140+00:00",
+    "writes_to_etsy": false
+   },
+   {
+    "slug": "hexagon-coaster-set",
+    "candidate": "hexagon-coaster-set",
+    "ok": true,
+    "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+    "tags": 13,
+    "tag_basis_counts": {
+     "unknown": 5,
+     "modelled": 8
+    },
+    "blocking": [],
+    "taxonomy_status": "GATED(etsy_api)",
+    "taxonomy_why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated",
+    "proposed_at": "2026-10-06T06:23:22.317140+00:00",
+    "writes_to_etsy": false
+   },
+   {
+    "slug": "market-basket-large",
+    "candidate": "nursery-nesting-baskets",
+    "ok": true,
+    "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "tags": 13,
+    "tag_basis_counts": {
+     "unknown": 5,
+     "modelled": 8
+    },
+    "blocking": [],
+    "taxonomy_status": "GATED(etsy_api)",
+    "taxonomy_why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated",
+    "proposed_at": "2026-10-06T06:23:22.317140+00:00",
+    "writes_to_etsy": false
+   },
+   {
+    "slug": "market-basket-medium",
+    "candidate": "nursery-nesting-baskets",
+    "ok": true,
+    "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "tags": 13,
+    "tag_basis_counts": {
+     "unknown": 5,
+     "modelled": 8
+    },
+    "blocking": [],
+    "taxonomy_status": "GATED(etsy_api)",
+    "taxonomy_why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated",
+    "proposed_at": "2026-10-06T06:23:22.317140+00:00",
+    "writes_to_etsy": false
+   },
+   {
+    "slug": "market-basket-small",
+    "candidate": "nursery-nesting-baskets",
+    "ok": true,
+    "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "tags": 13,
+    "tag_basis_counts": {
+     "unknown": 5,
+     "modelled": 8
+    },
+    "blocking": [],
+    "taxonomy_status": "GATED(etsy_api)",
+    "taxonomy_why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated",
+    "proposed_at": "2026-10-06T06:23:22.317140+00:00",
+    "writes_to_etsy": false
+   }
+  ],
+  "kpis": {
+   "proposals_passing_truth": {
+    "value": 5,
+    "of": 5,
+    "basis": "measured"
+   },
+   "taxonomy_confirmed": {
+    "value": 0,
+    "of": 5,
+    "basis": "measured"
+   },
+   "tags_with_measured_evidence": {
+    "value": 0,
+    "of": 65,
+    "basis": "measured"
+   },
+   "keyword_evidence_by_basis": {
+    "value": {
+     "measured": 0,
+     "observed": 0,
+     "modelled": 42,
+     "unknown": 0
+    },
+    "basis": "measured"
+   },
+   "search_outcomes": {
+    "value": null,
+    "status": "UNKNOWN",
+    "basis": "unknown",
+    "why": "no live listing outcomes are attributed to keywords yet (see seo.measure)"
+   }
+  },
+  "sources": [
+   "seo_keyword_evidence",
+   "seo_proposals",
+   "seo_cycles",
+   "etsy_taxonomy_snapshots",
+   "listing_outcomes",
+   "operating_readings:attribution.stats",
+   "insights_snapshots",
+   "serp_snapshots",
+   "benchmark_listings",
+   "keywords",
+   "listings",
+   "products.launch0",
+   "commerce.search",
+   "commerce.seo"
+  ],
+  "guardrails": [
+   "F-918: no KPI may be improved by keyword stuffing, untraceable or misleading tags, competitor brand terms or protected IP (seo.truth.validate_listing is blocking)",
+   "a modelled phrase's demand is never reported as measured (evidence basis per row)",
+   "UNKNOWN is never rendered as 0: a term with no Stats row is UNKNOWN",
+   "proposals are never written to Etsy by this department (writes_to_etsy=False)",
+   "F-929: an unconfirmed category stays GATED(etsy_api); no remembered taxonomy id is used"
+  ]
+ },
+ "taxonomy": [
+  {
+   "slug": "market-basket-small",
+   "candidate": "nursery-nesting-baskets",
+   "status": "GATED(etsy_api)",
+   "category_intent": "basket",
+   "taxonomy_id": null,
+   "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+  },
+  {
+   "slug": "market-basket-medium",
+   "candidate": "nursery-nesting-baskets",
+   "status": "GATED(etsy_api)",
+   "category_intent": "basket",
+   "taxonomy_id": null,
+   "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+  },
+  {
+   "slug": "market-basket-large",
+   "candidate": "nursery-nesting-baskets",
+   "status": "GATED(etsy_api)",
+   "category_intent": "basket",
+   "taxonomy_id": null,
+   "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+  },
+  {
+   "slug": "cloudline-baby-blanket",
+   "candidate": "cloudline-baby-blanket",
+   "status": "GATED(etsy_api)",
+   "category_intent": "baby",
+   "taxonomy_id": null,
+   "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+  },
+  {
+   "slug": "hexagon-coaster-set",
+   "candidate": "hexagon-coaster-set",
+   "status": "GATED(etsy_api)",
+   "category_intent": "coaster",
+   "taxonomy_id": null,
+   "why": "etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated"
+  }
+ ],
+ "next_work_after": [
+  {
+   "key": "seo.taxonomy_confirm",
+   "department": "seo",
+   "title": "Confirm Launch-0 Etsy categories",
+   "kind": "gated",
+   "action": "listing.taxonomy_refresh",
+   "priority": 2,
+   "gated_by": "etsy_api",
+   "why": "5 variant(s) assume their category (cloudline-baby-blanket, hexagon-coaster-set, market-basket-large, market-basket-medium, market-basket-small); the etsy_api gate is closed",
+   "external_effect": false,
+   "sources": [
+    "etsy_taxonomy_snapshots"
+   ]
+  },
+  {
+   "key": "seo.stats_export",
+   "department": "seo",
+   "title": "Owner: export Etsy Stats search terms",
+   "kind": "gated",
+   "action": "owner: POST /api/attribution/stats with the CSV",
+   "priority": 3,
+   "gated_by": "live_listings",
+   "why": "no Etsy Stats export is ingested, so every keyword outcome is UNKNOWN; the shop must be live first",
+   "external_effect": false,
+   "sources": [
+    "operating_readings:attribution.stats"
+   ]
+  }
+ ],
+ "proposals": [
+  {
+   "slug": "market-basket-small",
+   "ok": true,
+   "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+   "title_len": 105,
+   "tags": [
+    "basket crochet",
+    "nursery crochet",
+    "nursery basket",
+    "written and chart",
+    "pdf crochet pattern",
+    "diy basket",
+    "digital download",
+    "home decor diy",
+    "instant download pdf",
+    "yarn craft project",
+    "us and uk terms",
+    "printable pdf chart",
+    "fiber art project"
+   ],
+   "tag_basis_counts": {
+    "unknown": 5,
+    "modelled": 8
+   },
+   "blocking": [],
+   "writes_to_etsy": false
+  },
+  {
+   "slug": "market-basket-medium",
+   "ok": true,
+   "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+   "title_len": 107,
+   "tags": [
+    "basket crochet",
+    "nursery crochet",
+    "nursery basket",
+    "written and chart",
+    "pdf crochet pattern",
+    "diy basket",
+    "digital download",
+    "home decor diy",
+    "instant download pdf",
+    "yarn craft project",
+    "us and uk terms",
+    "printable pdf chart",
+    "fiber art project"
+   ],
+   "tag_basis_counts": {
+    "unknown": 5,
+    "modelled": 8
+   },
+   "blocking": [],
+   "writes_to_etsy": false
+  },
+  {
+   "slug": "market-basket-large",
+   "ok": true,
+   "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+   "title_len": 106,
+   "tags": [
+    "basket crochet",
+    "nursery crochet",
+    "nursery basket",
+    "written and chart",
+    "pdf crochet pattern",
+    "diy basket",
+    "digital download",
+    "home decor diy",
+    "instant download pdf",
+    "yarn craft project",
+    "us and uk terms",
+    "printable pdf chart",
+    "fiber art project"
+   ],
+   "tag_basis_counts": {
+    "unknown": 5,
+    "modelled": 8
+   },
+   "blocking": [],
+   "writes_to_etsy": false
+  },
+  {
+   "slug": "cloudline-baby-blanket",
+   "ok": true,
+   "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+   "title_len": 104,
+   "tags": [
+    "baby crochet pattern",
+    "cloudline crochet",
+    "cloudline baby",
+    "written and chart",
+    "pdf crochet pattern",
+    "diy baby",
+    "digital download",
+    "instant download pdf",
+    "yarn craft project",
+    "us and uk terms",
+    "printable pdf chart",
+    "fiber art project",
+    "crochet baby chart"
+   ],
+   "tag_basis_counts": {
+    "modelled": 9,
+    "unknown": 4
+   },
+   "blocking": [],
+   "writes_to_etsy": false
+  },
+  {
+   "slug": "hexagon-coaster-set",
+   "ok": true,
+   "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+   "title_len": 92,
+   "tags": [
+    "coaster crochet",
+    "hexagon crochet",
+    "hexagon coaster",
+    "written and chart",
+    "pdf crochet pattern",
+    "diy coaster",
+    "digital download",
+    "home decor diy",
+    "instant download pdf",
+    "yarn craft project",
+    "us and uk terms",
+    "printable pdf chart",
+    "fiber art project"
+   ],
+   "tag_basis_counts": {
+    "unknown": 5,
+    "modelled": 8
+   },
+   "blocking": [],
+   "writes_to_etsy": false
+  }
+ ]
+}
