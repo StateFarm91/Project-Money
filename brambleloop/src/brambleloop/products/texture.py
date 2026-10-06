@@ -46,7 +46,11 @@ PILLOW_TARGET_CM = (43.8, 43.9)
 # Patterns are software releases: re-deriving the gauge and counts changed the pillow's and
 # the cable throw's content, so their released version moved 1.0.0 -> 1.1.0. The ribbed
 # scarf's content did not change and it stays at 1.0.0 (tests/data/release_fingerprints.tsv).
-DERIVED_VERSION = "1.1.0"
+# 1.2.0 / 1.1.0 (2026-10-06, PT-07/PT-08): the twin now counts each increase's yarn once and
+# measures a row by the stitch-weighted height of the stitches in it, which moved this
+# design's stated yardage and/or size; a customer-visible figure cannot change under a
+# released version (tests/data/release_fingerprints.tsv pins content AND claims).
+DERIVED_VERSION = "1.2.0"
 CABLE_TARGET_CM = (90.0, 128.9)
 
 PINE = {"pine": "#244A3A"}
@@ -81,11 +85,15 @@ def _nearest(target: float, unit: float) -> int:
     return max(1, int(target / unit + 0.5))
 
 
-def _row_height_cm(codes: tuple[str, ...], gauge: Gauge) -> float:
-    """One row's height, as the twin measures it: as tall as its tallest stitch."""
+def _row_height_cm(codes, gauge: Gauge) -> float:
+    """One row's height, as the twin measures it: the stitch-weighted mean of the stitches in
+    it (`cir.geometry.HEIGHT_RULE`, PT-08). `codes` is (stitch, instances) pairs; a bare
+    stitch code counts once."""
+    from ..cir.geometry import mix_height_units
+
     base = _stitches.get(gauge.stitch_type).row_height or 1.0
-    tallest = max(_stitches.get(c).row_height for c in codes)
-    return 10.0 / gauge.rows_per_10cm * (tallest / base)
+    mix = [(c, 1) if isinstance(c, str) else c for c in codes]
+    return 10.0 / gauge.rows_per_10cm * mix_height_units(mix, base)
 
 
 def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
@@ -153,7 +161,7 @@ def build_bobble_pillow(version: str = DERIVED_VERSION) -> CIR:
     width = across * 5
     _check(width, 5, "bobble pillow")
     block_cm = (2 * _row_height_cm(("sc",), WORSTED)
-                + 2 * _row_height_cm(("sc", "bob"), WORSTED))
+                + 2 * _row_height_cm((("sc", 4), ("bob", 1)), WORSTED))
     blocks = _nearest(PILLOW_TARGET_CM[1] - _row_height_cm(("sc",), WORSTED), block_cm)
     panel_cm = across_cm(width, WORSTED)
     # Stated in the sentence below rather than assumed by it: which way round the panel and
@@ -234,8 +242,8 @@ def build_cable_throw(version: str = DERIVED_VERSION) -> CIR:
     plain = [Op("bpdc", 2), Op("fpdc", 4), Op("bpdc", 2)]
     crossing = [Op("bpdc", 2), Op("cable2x2"), Op("bpdc", 2)]
 
-    block_cm = (3 * _row_height_cm(("bpdc", "fpdc"), WORSTED)
-                + _row_height_cm(("bpdc", "cable2x2"), WORSTED))
+    block_cm = (3 * _row_height_cm((("bpdc", 4), ("fpdc", 4)), WORSTED)
+                + _row_height_cm((("bpdc", 4), ("cable2x2", 1)), WORSTED))
     blocks = _nearest(CABLE_TARGET_CM[1] - _row_height_cm(("sc",), WORSTED), block_cm)
     index = 1
     # Four-row blocks: three rows of ribbed columns, then the crossing row.

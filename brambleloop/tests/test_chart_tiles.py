@@ -23,7 +23,7 @@ class ChartTiles(unittest.TestCase):
                     got[ri,ci]=(st,t["grids"][1][ri-t["row_start"]+1][ci-t["column_start"]+1])
         self.assertEqual(got,{(r,c):(st,colors[r][c]) for r,row in enumerate(grid) for c,st in enumerate(row)})
         self.assertEqual(self.cir.fingerprint,self.fingerprint)
-        self.assertEqual(len(got),6930)
+        self.assertEqual(len(got),9900)   # 100 rows x 99 (Cloudline 1.2.0)
 
     def test_every_tile_meets_existing_floor_in_reserved_image_area(self):
         self.assertFalse(self.art["problems"])

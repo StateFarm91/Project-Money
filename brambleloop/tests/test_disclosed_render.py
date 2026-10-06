@@ -92,8 +92,8 @@ def test_manifest_records_the_construction_it_claims():
     assert m["kind"] == "disclosed_render" and m["renderer_version"] == D.RENDERER_VERSION
     assert m["cir_fingerprint"] == c.fingerprint and len(m["twin_digest"]) == 64
     assert len(m["colour_map_digest"]) == 64 and m["view"] == "hero"
-    assert m["finished_dimensions_cm"] == {"width": 79.2, "height": 97.1}
-    assert sum(m["stitch_counts"].values()) == 6930 and m["generated"] is False
+    assert m["finished_dimensions_cm"] == {"width": 79.2, "height": 96.4}
+    assert sum(m["stitch_counts"].values()) == 9900 and m["generated"] is False
     assert all(r["count"] == 99 for r in m["layout"]["rows"])
     assert m["disclosure"] == K.DISCLOSURE
 
@@ -129,8 +129,8 @@ def test_expected_values_are_recomputed_from_the_compiler():
     assert m["base_rounds"] == 10 and m["wall_rounds"] == 12 and m["sides"] == 6
     assert [len(r["seq"]) for r in m["rows"][:3]] == [6, 12, 18]
     b = V.expected_model(cir("cloudline_blanket"))
-    assert len(b["rows"]) == 70 and all(len(r["seq"]) == 99 for r in b["rows"])
-    assert sum(sum(r["raised"]) for r in b["rows"]) == 2376     # every dc, nothing else
+    assert len(b["rows"]) == 100 and all(len(r["seq"]) == 99 for r in b["rows"])
+    assert sum(sum(r["raised"]) for r in b["rows"]) == 3267     # every dc, nothing else
 
 
 # --------------------------------------------------------------------------- adversarial
@@ -259,6 +259,82 @@ def test_disclosure_caption_removed_or_reworded_fails():
     d.text((420, y), "Digital rendering of the pattern's finished design", fill=K.CAPTION,
            font=K.font(K.CAPTION_PX))
     _not_pass(verdict(png(img), "basket_small", "hero"), "disclosure_in_image")
+
+
+# --------------------------------------------------------------------------- annotation text (PT-05)
+
+def _tampered_scale(build="cloudline_blanket", *, size=True, claim=True):
+    """The audit's attack (audit2/atk5.py), redone on the current render: the scale-zone
+    label painted out and re-lettered with a false finished size, and a false material and
+    safety claim added, all in the contract caption colour and face."""
+    f = frame(build, "scale")
+    img = rgb(f.png)
+    d = ImageDraw.Draw(img)
+    d.fontmode = "1"
+    fo = K.font(K.LABEL_PX)
+    zx0, zy0, zx1, zy1 = K.zone_px(K.SCALE_ZONE)
+    if size:
+        d.rectangle([600, zy0, zx1 + 10, zy1], fill=K.BACKGROUND)
+        txt = "Finished size at the stated gauge: 120.0 cm wide x 150.0 cm long"
+        d.text((zx1 - d.textlength(txt, font=fo), zy0), txt, fill=K.CAPTION, font=fo)
+    if claim:
+        d.text((430, 1860), "Pure merino wool - certified safe for newborns - machine washable",
+               fill=K.CAPTION, font=fo)
+    return png(img)
+
+
+def test_false_size_and_claim_text_fail_verification():
+    for size, claim in ((True, True), (True, False), (False, True)):
+        r = verdict(_tampered_scale(size=size, claim=claim), "cloudline_blanket", "scale")
+        _not_pass(r, "annotation_text")
+
+
+def test_the_audits_tampered_image_does_not_pass():
+    """The exact bytes the audit produced (a v1.1.0 render) fail against the certified CIR."""
+    path = Path(__file__).resolve().parent / "data" / "audit2_attack_tampered_scale.png"
+    assert path.exists(), path
+    r = verdict(path.read_bytes(), "cloudline_blanket", "scale")
+    _not_pass(r, "annotation_text")
+
+
+def test_a_single_wrong_figure_in_the_size_label_fails():
+    """'96.4' re-lettered as '99.4' at the same position: one glyph, not a whole line."""
+    f = frame("cloudline_blanket", "scale")
+    lines = f.manifest["layout"]["caption"]["lines"]
+    img = rgb(f.png)
+    d = ImageDraw.Draw(img)
+    d.fontmode = "1"
+    fo = K.font(K.LABEL_PX)
+    zx0, zy0, zx1, zy1 = K.zone_px(K.SCALE_ZONE)
+    d.rectangle([700, zy0, zx1 + 10, zy0 + 34], fill=K.BACKGROUND)
+    bad = lines[0].replace("96.4", "99.4")
+    assert bad != lines[0]
+    d.text((round(zx1 - d.textlength(bad, font=fo)), zy0), bad, fill=K.CAPTION, font=fo)
+    _not_pass(verdict(png(img), "cloudline_blanket", "scale"), "annotation_text")
+
+
+def test_text_in_other_colours_or_inside_the_product_zone_fails():
+    f = frame("hexagon_coasters", "scale")
+    for colour, xy in ((K.LINE, (300, 1880)), (K.SCALE_DARK, (300, 1880)),
+                       (K.CAPTION, (200, 200)), (K.GAP, (200, 200)),
+                       ((250, 0, 0), (300, 1880))):
+        img = rgb(f.png)
+        d = ImageDraw.Draw(img)
+        d.fontmode = "1"
+        d.text(xy, "100% cotton, safe", fill=colour, font=K.font(18))
+        r = verdict(png(img), "hexagon_coasters", "scale")
+        _not_pass(r)
+
+
+def test_honest_frames_letter_the_cirs_own_figures():
+    m = frame("hexagon_coasters", "scale").manifest
+    assert m["layout"]["caption"]["lines"] == [
+        "Finished size at the stated gauge (hexagon):",
+        "9.7 cm across the points, 8.4 cm across the flats"]
+    r = verdict(frame("hexagon_coasters", "scale").png, "hexagon_coasters", "scale")
+    by = {c["check"]: c for c in r["checks"]}
+    assert by["annotation_text"]["status"] == "PASS" and by["annotation_text"]["differing_px"] == 0
+    assert by["dimension_figures"]["status"] == "PASS"
 
 
 # --------------------------------------------------------------------------- the gate

@@ -1,55 +1,62 @@
-# Released catalogue designs: slug <TAB> version <TAB> content fingerprint.
+# Released catalogue designs: slug <TAB> version <TAB> content fingerprint <TAB> claims fingerprint.
 #
-# Patterns are software releases. The fingerprint is CIR.fingerprint (the design content hash
-# the release chain and the certificate's content hash are taken over, CIR.to_dict) with the
-# version blanked, so it measures content alone. tests/test_release_versions.py fails when a
-# design's fingerprint changes while its version does not.
+# Patterns are software releases. The content fingerprint is CIR.fingerprint (the design
+# content hash the release chain and the certificate's content hash are taken over, CIR.to_dict)
+# with the version blanked, so it measures content alone. The claims fingerprint is
+# gates.certificate.claims_fingerprint over the twin block a certificate carries -- finished
+# size, polygon spans, yardage and its tolerance -- because a model change that moves a figure
+# the buyer reads is a content change even when the CIR is unchanged.
+# tests/test_release_versions.py fails when either changes while the version does not.
 #
-# HOW TO UPDATE: when you change a design's content, bump that builder's default version
-# (a new minor, e.g. 1.1.0 -> 1.2.0) AND update its row's version and fingerprint together in
-# the same commit. Print the current rows with:
+# HOW TO UPDATE: when you change a design's content or a figure it states, bump that builder's
+# default version (a new minor, e.g. 1.1.0 -> 1.2.0) AND update its row's version and both
+# fingerprints together in the same commit. Print the current rows with:
 #     cd brambleloop && PYTHONPATH=src python tests/test_release_versions.py --print
 # Never update a fingerprint without bumping the version: that is exactly the change this
 # table exists to refuse (a buyer's "1.0.0" and a new download's "1.0.0" being different).
+# The runtime refuses the same thing at certification (runtime.pipeline handle_certify, PT-03).
 #
 # History: a8ed44f (FB3-G, D-FB-6) re-derived gauge and counts; every design whose content
-# changed moved 1.0.0 -> 1.1.0. Unchanged: chunky-ribbed-scarf, autumn-oak-mosaic-throw
-# (LEGACY_HELD), pebble-raglan-cardigan-*, and the already-1.1.0 vessels and Cloudline.
-autumn-oak-mosaic-throw	1.0.0	2b1e52e04424
-bobble-floor-pillow	1.1.0	7b6443fd10c8
-chunky-ribbed-scarf	1.0.0	f448cc0f7c80
-cloudline-baby-blanket	1.1.0	17d57cac9d58
-cottage-wall-hanging	1.1.0	82f7941f347f
-harbour-drop-shoulder-pullover-2x	1.1.0	c714d44d5925
-harbour-drop-shoulder-pullover-3x	1.1.0	2beee6c991fe
-harbour-drop-shoulder-pullover-4x	1.1.0	cb1cd4350319
-harbour-drop-shoulder-pullover-5x	1.1.0	729e2b23ac64
-harbour-drop-shoulder-pullover-l	1.1.0	45a3acbc6c9e
-harbour-drop-shoulder-pullover-m	1.1.0	fec17e8f74a5
-harbour-drop-shoulder-pullover-s	1.1.0	98425a609c68
-harbour-drop-shoulder-pullover-xl	1.1.0	728218ca78df
-harbour-drop-shoulder-pullover-xs	1.1.0	986d9e45ac8b
-harvest-table-runner	1.1.0	e8b245299595
-heirloom-cable-blanket	1.1.0	16add01242d8
-hexagon-coaster-set	1.1.0	dea4376520f4
-market-basket-large	1.1.0	10409c70d8ff
-market-basket-medium	1.1.0	424297561643
-market-basket-small	1.1.0	57457f1a0fd1
-mosaic-placemat-pair	1.1.0	e9fa9d61b346
-nordic-forest-mosaic-throw-baby	1.1.0	118f25ab4c74
-nordic-forest-mosaic-throw-large	1.1.0	e249de284139
-nordic-forest-mosaic-throw-throw	1.1.0	2b98b3d7fb9b
-nordic-star-ornaments	1.1.0	809366b291e0
-pebble-raglan-cardigan-10	1.0.0	9deb38e98379
-pebble-raglan-cardigan-12	1.0.0	269064052b9a
-pebble-raglan-cardigan-14	1.0.0	07b44d318389
-pebble-raglan-cardigan-16	1.0.0	272ee8aa43dc
-pebble-raglan-cardigan-2	1.0.0	d12b0ab707a0
-pebble-raglan-cardigan-4	1.0.0	c9b4d22c1c9f
-pebble-raglan-cardigan-6	1.0.0	f2e10b9fc314
-pebble-raglan-cardigan-8	1.0.0	ef8f1ec1e47c
-pet-snuggle-mat	1.1.0	e41f88b4ec50
-pressed-flower-motifs	1.1.0	9ba861c8cbd0
-spooky-garland	1.1.0	2af6de7d8d9f
-valentine-heart-garland	1.1.0	565505d99505
-winter-village-graphghan	1.1.0	faac447ffd1e
+# changed moved 1.0.0 -> 1.1.0. 2026-10-06 (PT-07 yardage counted per stitch once, PT-08
+# stitch-weighted row height, PT-09 Cloudline two-row stripes and truthful colour-change notes,
+# PT-10 hexagon spans and titles): every design whose content or stated figures changed moved
+# one minor (1.1.0 -> 1.2.0; autumn-oak and pebble-raglan 1.0.0 -> 1.1.0). Unchanged:
+# chunky-ribbed-scarf.
+autumn-oak-mosaic-throw	1.1.0	c24616643183	b3d865c373bb
+bobble-floor-pillow	1.2.0	87baeed51c10	7f538b0f6102
+chunky-ribbed-scarf	1.0.0	f448cc0f7c80	7d5a5845e3ee
+cloudline-baby-blanket	1.2.0	bbce94ae1e9b	0901f575a487
+cottage-wall-hanging	1.2.0	913d45e8d1c5	ed02b980c1d8
+harbour-drop-shoulder-pullover-2x	1.2.0	c714d44d5925	e74b15fec820
+harbour-drop-shoulder-pullover-3x	1.2.0	2beee6c991fe	bcffec8adbcc
+harbour-drop-shoulder-pullover-4x	1.2.0	cb1cd4350319	679f7187fb28
+harbour-drop-shoulder-pullover-5x	1.2.0	729e2b23ac64	5d29b304d0ed
+harbour-drop-shoulder-pullover-l	1.2.0	45a3acbc6c9e	352836388e80
+harbour-drop-shoulder-pullover-m	1.2.0	fec17e8f74a5	ef6fce0d3d4e
+harbour-drop-shoulder-pullover-s	1.2.0	98425a609c68	227e8cd214de
+harbour-drop-shoulder-pullover-xl	1.2.0	728218ca78df	2c1307f38ab0
+harbour-drop-shoulder-pullover-xs	1.2.0	986d9e45ac8b	b5a468918d86
+harvest-table-runner	1.2.0	7f245d5622f0	aa6deb04bcb6
+heirloom-cable-blanket	1.2.0	16add01242d8	8ee53d0f570c
+hexagon-coaster-set	1.2.0	73804e8d503a	7e7667b8dcbc
+market-basket-large	1.2.0	42994dcaacd8	62e792bcab91
+market-basket-medium	1.2.0	a72f0ce2b325	23571934ac38
+market-basket-small	1.2.0	4c8cbcc80390	65a194bcb784
+mosaic-placemat-pair	1.2.0	86bbcc2b8b18	73c6bf9a5afd
+nordic-forest-mosaic-throw-baby	1.2.0	f7bd97bbfec8	6df656dee69e
+nordic-forest-mosaic-throw-large	1.2.0	4e4b65eeb341	19ef316f3aba
+nordic-forest-mosaic-throw-throw	1.2.0	2837393b8d11	180d69216a7e
+nordic-star-ornaments	1.2.0	be4ec5b67cf8	6c389529f86a
+pebble-raglan-cardigan-10	1.1.0	9deb38e98379	bb2ca4deaba5
+pebble-raglan-cardigan-12	1.1.0	269064052b9a	e11948df77c7
+pebble-raglan-cardigan-14	1.1.0	07b44d318389	41515704a4c1
+pebble-raglan-cardigan-16	1.1.0	272ee8aa43dc	656904aad4b7
+pebble-raglan-cardigan-2	1.1.0	d12b0ab707a0	d5a2c682ca84
+pebble-raglan-cardigan-4	1.1.0	c9b4d22c1c9f	0010c9623c96
+pebble-raglan-cardigan-6	1.1.0	f2e10b9fc314	c1b9a78bf031
+pebble-raglan-cardigan-8	1.1.0	ef8f1ec1e47c	26a26b020f4e
+pet-snuggle-mat	1.2.0	fc8689dc7961	0d35dc313012
+pressed-flower-motifs	1.2.0	552f168f7ffd	4bc8d8584713
+spooky-garland	1.2.0	f7a5d674d703	45c5ce019704
+valentine-heart-garland	1.2.0	ee3a1e962797	2653624f4f47
+winter-village-graphghan	1.2.0	6cba6bc5a36a	c1df630c6c4f

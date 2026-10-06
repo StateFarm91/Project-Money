@@ -32,6 +32,19 @@ COASTER_GAUGE = gauge_for("dk")
 
 PALETTE = {"cream": "#FAF6EB", "wine": "#6E1F2A"}
 
+# 1.2.0 (2026-10-06): PT-07 yardage (increases were counted twice), PT-10 shape and size
+# conventions -- the stacked increases make a hexagon, so the name says so and the size is
+# quoted across the points AND across the flats of that hexagon, computed from the perimeter
+# the stitch count makes rather than from the circle formula (which is neither).
+RELEASE_VERSION = "1.2.0"
+
+
+def hexagon_spans_cm(stitches: int, gauge: Gauge) -> tuple[float, float]:
+    """(across the points, across the flats) of the hexagon a round of `stitches` makes."""
+    from ..cir.geometry import polygon_spans_cm
+
+    return polygon_spans_cm(stitches / gauge.stitches_per_10cm * 10.0, 6)
+
 
 @dataclass(frozen=True)
 class BasketSize:
@@ -104,7 +117,7 @@ def _disc_rounds(base_count: int, color: str, wedges: int = 6,
     return rows
 
 
-def build_basket(size: str = "medium", version: str = "1.1.0") -> CIR:
+def build_basket(size: str = "medium", version: str = RELEASE_VERSION) -> CIR:
     """A basket: a flat disc base, then straight walls at the base's stitch count."""
     spec = next((s for s in BASKET_SIZES if s.key == size), None)
     if spec is None:
@@ -131,7 +144,7 @@ def build_basket(size: str = "medium", version: str = "1.1.0") -> CIR:
 
     return CIR(
         slug=f"market-basket-{spec.key}",
-        title=f"Crochet {spec.label.title()}",
+        title=f"Crochet Hexagonal {spec.label.title()}",
         version=version,
         construction="joined_rounds",
         risk_class="B",
@@ -145,15 +158,20 @@ def build_basket(size: str = "medium", version: str = "1.1.0") -> CIR:
         ],
         components=[Component(name="basket", construction="joined_rounds", rows=rows,
                               foundation=0, foundation_kind="magic_ring",
-                              note="Worked in one piece from the centre of the base.")],
+                              note=("Worked in one piece from the centre of the base. Work "
+                                    "each increase into the second stitch of the previous "
+                                    "round's increase, so the increases stack into six "
+                                    "corners and the base is a hexagon."))],
         designer_notes=(
             "Class B: the arithmetic is verifiable and the geometry is measurable, but how "
             "firmly it stands up depends on the yarn and the maker's tension, so nothing is "
             "claimed about that until a physical sample says so."),
         finished_size_note=(
-            f"About {diameter_cm(base_count, COTTON_GAUGE):.0f} cm across and "
-            f"{wall_rounds * row_cm:.0f} cm tall at the stated gauge, measured from the "
-            f"base."),
+            f"A hexagonal basket: the increases stack at six corners, so the base is a "
+            f"hexagon about {hexagon_spans_cm(base_count, COTTON_GAUGE)[0]:.1f} cm across the "
+            f"points and {hexagon_spans_cm(base_count, COTTON_GAUGE)[1]:.1f} cm across the "
+            f"flats, and the walls stand about {wall_rounds * row_cm:.0f} cm tall, at the "
+            f"stated gauge. Computed, not yet measured on a worked sample."),
         # F-783: a disc base from this module's wedge arithmetic and straight walls.
         provenance=catalogue_provenance(
             "market-basket-trio",
@@ -165,7 +183,7 @@ def build_basket(size: str = "medium", version: str = "1.1.0") -> CIR:
 
 
 def build_hexagon_coaster(across_cm: float = 9.6, make: int = 4,
-                          version: str = "1.1.0") -> CIR:
+                          version: str = RELEASE_VERSION) -> CIR:
     """A six-sided coaster, worked in joined rounds with the increases stacked at the corners."""
     count = base_stitches_for(across_cm, COASTER_GAUGE)
     # The size on the listing is the size the stitch count makes, not the size that was
@@ -195,11 +213,15 @@ def build_hexagon_coaster(across_cm: float = 9.6, make: int = 4,
         ],
         components=[Component(name="coaster", construction="joined_rounds", rows=rows,
                               foundation=0, foundation_kind="magic_ring", make=make,
-                              note="Six wedges, with the increase stacked at each corner.")],
+                              note=("Six wedges. Work each increase into the second "
+                                    "stitch of the previous round's increase, so the "
+                                    "increases stack into six corners."))],
         finished_size_note=(
-            f"About {diameter_cm(count, COASTER_GAUGE):.1f} cm across the points at the "
-            f"stated gauge. Lies flat: the radius grows at one row height per round, which "
-            f"is what makes a flat disc."),
+            f"A hexagon about {hexagon_spans_cm(count, COASTER_GAUGE)[0]:.1f} cm across "
+            f"the points and {hexagon_spans_cm(count, COASTER_GAUGE)[1]:.1f} cm across the "
+            f"flats at the stated gauge. Lies flat: the radius grows at one row height per "
+            f"round, which is what makes a flat piece. Computed, not yet measured on a "
+            f"worked sample."),
         # F-783: the same wedge arithmetic, six increases stacked at the corners.
         provenance=catalogue_provenance(
             "hexie-coaster-set",
@@ -209,6 +231,6 @@ def build_hexagon_coaster(across_cm: float = 9.6, make: int = 4,
     )
 
 
-def build(version: str = "1.1.0") -> CIR:
+def build(version: str = RELEASE_VERSION) -> CIR:
     """The headline basket, for the engineered-design registry."""
     return build_basket("medium", version=version)

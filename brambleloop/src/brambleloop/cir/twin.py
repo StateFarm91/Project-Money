@@ -46,6 +46,13 @@ _YARN_FACTOR = {
     # physical test calibrates them (YARDAGE_TOLERANCE applies).
     "beg_star_st": 26.0, "star_st": 20.5, "end_star_st": 14.0, "hdc_inc": 16.4, "hdc3": 24.6,
 }
+# Each factor is the yarn for ONE instance of the op as written -- one `inc` is two sc worked
+# into one stitch (12.4 = 2 x 6.2), one `cable2x2` is four dc crossing (46.0), one `hdc3` is
+# three hdc (24.6). So the yarn for an op is factor x op.count, never factor x op.produces:
+# multiplying by what the op produces counted every increase's second stitch twice (and a
+# 2x2 cable four times over). That was PT-07 (2026-10-06): the hexagon coaster set was
+# stated at 41.0 m when its own model gives 28.8 m, 43 % over and well outside the +/-20 %
+# the document promises.
 YARDAGE_TOLERANCE = 0.20  # +/- 20% until calibrated by a physical test
 
 
@@ -104,6 +111,15 @@ class TwinModel:
     # Set when a width had to be computed with an assumed chain gauge. A measurement that
     # rests on an assumption must say so wherever it is read, or it gets quoted as measured.
     width_caveat: str = ""
+    # Round pieces whose increases all stack (`geometry.corners` = n >= 3) are n-sided
+    # polygons, and a polygon has two "across" measurements. Both are computed from the
+    # perimeter the stitch count makes; `width_cm` is the across-the-points figure (the
+    # largest extent) and `size_statement` names the convention wherever a size is printed.
+    sides: int | None = None
+    across_points_cm: float | None = None
+    across_flats_cm: float | None = None
+    # The rule row heights were computed by (`geometry.HEIGHT_RULE`).
+    height_rule: str = ""
 
     @property
     def stitch_total(self) -> int:
@@ -190,13 +206,11 @@ def _flat_dimensions(rows: list[ResolvedRow], cir: CIR) -> tuple[float | None, f
     g = cir.gauge
     width_cm = max(row_width_cm(r, g)[0] for r in rows)
 
-    # Row height scales with stitch height relative to the gauge stitch.
-    base = stitches.get(g.stitch_type).row_height or 1.0
-    row_cm = 10.0 / g.rows_per_10cm
-    height_cm = 0.0
-    for r in rows:
-        tallest = max((stitches.get(o.stitch).row_height for o in r.ops), default=base)
-        height_cm += row_cm * (tallest / base)
+    # Each row contributes its own height by the stitches it actually contains
+    # (`geometry.row_height_cm`, the stitch-weighted rule -- PT-08).
+    from .geometry import row_height_cm
+
+    height_cm = sum(row_height_cm(r, cir) for r in rows)
     return round(width_cm, 1), round(height_cm, 1)
 
 
@@ -217,7 +231,7 @@ def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float,
         cm = 0.0
         for op in r.ops:
             factor = _YARN_FACTOR.get(op.stitch, 3.0)
-            cm += factor * stitch_width_cm * op.produces
+            cm += factor * stitch_width_cm * op.count     # per instance: see _YARN_FACTOR
         if r.turning_chain:
             cm += _YARN_FACTOR["ch"] * stitch_width_cm * r.turning_chain
         totals[color] = totals.get(color, 0.0) + cm
@@ -298,6 +312,54 @@ def build_twin(
         model.circumference_cm = round(rev.max_circumference_cm, 1) or None
         model.size_refusal = rev.refusal()
         model.width_cm, model.height_cm = rev.footprint_cm()
+        from .geometry import corners, polygon_spans_cm
+
+        sides = corners(rows)
+        model.sides = sides
+        if sides and sides >= 3 and model.width_cm is not None and rev.rings:
+            # The widest round's perimeter is stitch count x stitch width; a polygon with
+            # that perimeter has these two spans. A disc is points one way, flats the other;
+            # a vessel keeps its axial height.
+            base_ring = max(rev.rings, key=lambda r: r.circumference_cm)
+            points, flats = polygon_spans_cm(base_ring.circumference_cm, sides)
+            model.across_points_cm = round(points, 1)
+            model.across_flats_cm = round(flats, 1)
+            model.width_cm = model.across_points_cm
+            if rev.shape == "disc":
+                model.height_cm = model.across_flats_cm
+    if cir.gauge:
+        from .geometry import HEIGHT_RULE
+
+        model.height_rule = HEIGHT_RULE
 
     model.yarn_metres_by_color = _yardage(rows, cir, calibration, comp.make)
     return model
+
+
+_POLYGON_NAMES = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 8: "octagon"}
+
+
+def size_statement(twin: TwinModel, *, places: int = 1) -> str | None:
+    """The finished size in words that name their own convention (PT-10).
+
+    A flat piece is width x length. A stacked-increase round piece is a polygon and is
+    quoted across the points AND across the flats, with its shape named; a circle is quoted
+    across. A vessel adds its height. None when the twin refuses a size.
+    """
+    if not twin.width_cm:
+        return None
+    f = f"{{:.{places}f}}"
+    if twin.sides and twin.sides >= 3 and twin.across_points_cm:
+        name = _POLYGON_NAMES.get(twin.sides, f"{twin.sides}-sided polygon")
+        spans = (f"{f.format(twin.across_points_cm)} cm across the points, "
+                 f"{f.format(twin.across_flats_cm)} cm across the flats")
+        if twin.shape != "disc" and twin.height_cm:
+            return f"{name} base {spans}; {f.format(twin.height_cm)} cm tall"
+        return f"{name}, {spans}"
+    if twin.shape is not None:
+        if twin.shape == "disc" or not twin.height_cm:
+            return f"{f.format(twin.width_cm)} cm across"
+        return f"{f.format(twin.width_cm)} cm across, {f.format(twin.height_cm)} cm tall"
+    if twin.height_cm:
+        return f"{f.format(twin.width_cm)} x {f.format(twin.height_cm)} cm"
+    return f"{f.format(twin.width_cm)} cm wide"

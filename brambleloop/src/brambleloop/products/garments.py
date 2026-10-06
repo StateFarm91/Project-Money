@@ -454,7 +454,12 @@ RAGLAN_REQUIRES = ("bust", "back_length", "cross_back", "arm_length", "upper_arm
                    "armhole_depth")
 
 
-HARBOUR_VERSION = "1.1.0"
+# 1.2.0 / 1.1.0 (2026-10-06, PT-07/PT-08): the twin now counts each increase's yarn once and
+# measures a row by the stitch-weighted height of the stitches in it, which moved this
+# design's stated yardage and/or size; a customer-visible figure cannot change under a
+# released version (tests/data/release_fingerprints.tsv pins content AND claims).
+HARBOUR_VERSION = "1.2.0"
+PEBBLE_VERSION = "1.1.0"
 
 
 def harbour_pullover() -> GradedDesign:
@@ -494,7 +499,7 @@ def pebble_cardigan() -> GradedDesign:
                     "Seam"),
         measure=built_measures,
         template=lambda g: raglan_top_down(g, key=key, title=title, family=family,
-                                           material=material))
+                                           material=material, version=PEBBLE_VERSION))
 
 
 DESIGNS = {"harbour-drop-shoulder-pullover": harbour_pullover,

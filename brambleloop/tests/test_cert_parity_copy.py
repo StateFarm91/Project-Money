@@ -602,7 +602,7 @@ def test_the_model_photography_handler_records_the_shot_plan_it_renders_from():
     assert plan["render_here"] == ["fit", "detail"]
     assert set(plan["met_by_assets_build"]) == {"construction", "evidence"}
     assert set(plan["uncovered"]) == {"hero", "scale"}
-    assert _audits(db, model_photography.PLAN_ACTION, f"{worn.slug}@1.0.0")
+    assert _audits(db, model_photography.PLAN_ACTION, f"{worn.slug}@{worn.version}")
 
     # Negative: a product-first form plans no model frame, and the sequence renders none.
     out = model_photography.sequence(None, blanket, None, work_dir=_TMP)

@@ -122,10 +122,20 @@ def milestones(cir, twin) -> dict:
         if ring is not None:
             tall = round(ring.axial_cm, 1)
             across = round(ring.diameter_cm, 1)
+            convention = "across"
+            sides = getattr(twin, "sides", None)
+            if sides and sides >= 3:
+                # PT-10: a stacked-increase round is a polygon; quote the measurement a maker
+                # can take, across its points.
+                from ..cir.geometry import polygon_spans_cm
+
+                across = round(polygon_spans_cm(ring.circumference_cm, sides)[0], 1)
+                convention = "across the points"
             # A round is worked around the piece, not across it, and until the wall starts
             # the thing on the hook has no height to measure -- so the measurement offered is
             # the one a maker can actually take.
-            measured = (f"{row.declared_count} stitches around, about {across:.0f} cm across"
+            measured = (f"{row.declared_count} stitches around, about {across:.0f} cm "
+                        f"{convention}"
                         + (f" and {tall:.0f} cm tall" if tall > 0 else ", still flat"))
             label, unit = f"round {index} of {total}", "round"
         else:

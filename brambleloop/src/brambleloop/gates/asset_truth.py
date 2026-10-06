@@ -379,6 +379,26 @@ def check_shape_claims(text: str, cir: CIR, twin: TwinModel,
                     where))
                 break
 
+    # PT-10: a round piece's outline is read from where its increases fall
+    # (`geometry.corners`, carried on the twin as `sides`). A hexagon word needs six stacked
+    # corners; a circle word needs increases that never stack.
+    sides = getattr(twin, "sides", None)
+    if twin.outline is None and sides is not None:
+        named = {"hexagon": 6, "hexie": 6, "hexagonal": 6, "octagon": 8, "octagonal": 8,
+                 "pentagon": 5}
+        m = re.search(_OUTLINE_PATTERNS[0], low)
+        if m and named.get(m.group(1)) != sides:
+            out.append(Finding(
+                ERROR, "CLAIM_SHAPE_UNSUPPORTED",
+                f"name claims a {m.group(0)!r} outline, but the increases make "
+                f"{sides or 'no'} stacked corners", where))
+        m = re.search(r"\b(circle|circular)\b", low) or re.search(_OUTLINE_PATTERNS[2], low)
+        if m and sides != 0:
+            out.append(Finding(
+                ERROR, "CLAIM_SHAPE_UNSUPPORTED",
+                f"name claims a {m.group(0)!r} outline, but the increases stack into "
+                f"{sides} corners, which makes a polygon, not a circle", where))
+
     return out
 
 

@@ -49,9 +49,11 @@ def _wide_cm(stitches: int, gauge) -> float:
 
 
 def _across_points_cm(stitches: int, gauge) -> float:
-    import math
-
-    return _wide_cm(stitches, gauge) / math.pi
+    """Across the points of the hexagon a stacked-increase round makes (PT-10): the perimeter
+    is stitches x stitch width, a regular hexagon's side is a sixth of it and its points are
+    two sides apart. (This helper used the circle formula, perimeter / pi, which is neither
+    the points nor the flats of the hexagon the increases actually make.)"""
+    return _wide_cm(stitches, gauge) / 3.0
 
 
 def _twin(cir):

@@ -550,6 +550,8 @@ def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFac
     the pattern's own facts. A hard-coded "79 x 97 cm" in a safety note is a number that goes
     wrong the first time somebody changes the stitch count.
     """
+    from ..cir.twin import size_statement
+
     fibres, read_from = fibres_named(cir)
     size = ((twin.width_cm, twin.height_cm)
             if twin.width_cm and twin.height_cm else None)
@@ -559,6 +561,7 @@ def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFac
         colours=tuple(sorted(c for c in (cir.colors or {}) if c)),
         fibres=fibres,
         fibre_read_from=read_from,
+        size_text=(size_statement(twin) or "") if twin.shape is not None else "",
     )
 
 
@@ -866,7 +869,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     claims: list[str] = []
     doc.heading("At a glance")
     if twin.width_cm and twin.height_cm:
-        size = f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm at the stated gauge"
+        # PT-10: a round piece names its convention (a hexagon is quoted across the points
+        # and across the flats); a flat piece is width x length. Every figure is computed
+        # from the stated gauge, and says so.
+        from ..cir.twin import size_statement
+
+        if twin.shape is not None and size_statement(twin):
+            size = f"{size_statement(twin)} at the stated gauge"
+        else:
+            size = f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm at the stated gauge"
+        if not twin.calibrated:
+            size += " (computed, not yet measured on a worked sample)"
         doc.kv("finished size", size)
         claims.append(size)
     doc.kv("difficulty", _difficulty(cir, twin))

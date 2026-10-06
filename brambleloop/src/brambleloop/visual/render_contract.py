@@ -15,7 +15,7 @@ a JPEG round-trip or a generated "improvement" fail closed instead of drifting i
 """
 from __future__ import annotations
 
-CONTRACT_VERSION = "disclosed-render-contract/1"
+CONTRACT_VERSION = "disclosed-render-contract/2"
 
 # Square, because the gallery must share one aspect (layout_qa FRAME_RATIOS_DISAGREE) and a
 # square frame survives the mobile grid's centre crop whole. 2000 px is Etsy's recommended
@@ -69,6 +69,71 @@ SCALE_BAR_OUTLINE_PX = 2
 DISCLOSURE = "Digital rendering of the pattern's finished design, not a photograph"
 
 FONT_PATHS = ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",)
+
+# ---- annotations (contract 2, PT-05) -------------------------------------------------------
+#
+# Every word in a disclosed frame is one of three things, and nothing else may be: the
+# disclosure caption, the scale bar's "N cm" label, and the annotation lines below. Their
+# wording is fixed here and their numbers are filled from the CIR -- by the producer from its
+# twin, and independently by the verifier from its own compile of the authoritative CIR -- so
+# the verifier can re-draw exactly the words that may appear and refuse any other pixel of
+# text. Contract 1 protected only the caption, and a scale view re-lettered "120 x 150 cm"
+# with "certified safe for newborns" beside it passed every check.
+SCALE_LABEL_GAP_PX = 24
+SCALE_LABEL_RISE_PX = 8
+ANNOTATION_LINE_STEP_PX = 36
+# The annotation block may not reach further left than this, so it never crosses the bar.
+ANNOTATION_MIN_X_FRACTION = 0.40
+_POLYGON = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 8: "octagon"}
+
+
+def scale_label(segments: int) -> str:
+    return f"{segments} cm"
+
+
+def scale_label_xy(bar_end_px: int, bar_top_px: int) -> tuple[int, int]:
+    """Where the scale bar's label sits: just right of the bar, level with it."""
+    return bar_end_px + SCALE_LABEL_GAP_PX, bar_top_px - SCALE_LABEL_RISE_PX
+
+
+def annotation_lines(view: str, form: str, dims: dict) -> list[str]:
+    """The annotation text a frame of this view and form carries, from its CIR figures.
+
+    `dims` keys: flat -- width, height; rounds -- sides, points, flats, across, height,
+    vessel (bool); detail -- rows, cols (flat) or base_rounds (vessel base)."""
+    n1 = lambda v: f"{float(v):.1f}"  # noqa: E731
+    if view == "detail":
+        if form == "flat":
+            return [f"Detail: first {dims['rows']} rows x {dims['cols']} stitches, "
+                    f"drawn stitch for stitch"]
+        if dims.get("vessel"):
+            return [f"Base from above: all {dims['base_rounds']} base rounds"]
+        return []
+    if view != "scale":
+        return []
+    if form == "flat":
+        return [f"Finished size at the stated gauge: {n1(dims['width'])} cm wide x "
+                f"{n1(dims['height'])} cm long"]
+    sides = dims.get("sides") or 0
+    if sides >= 3:
+        name = _POLYGON.get(sides, f"{sides}-sided")
+        spans = (f"{n1(dims['points'])} cm across the points, {n1(dims['flats'])} cm across "
+                 f"the flats")
+        if dims.get("vessel"):
+            return [f"Finished size at the stated gauge ({name} base):",
+                    f"{spans}, {n1(dims['height'])} cm tall"]
+        return [f"Finished size at the stated gauge ({name}):", spans]
+    if dims.get("vessel"):
+        return [f"Finished size at the stated gauge: {n1(dims['across'])} cm across, "
+                f"{n1(dims['height'])} cm tall"]
+    return [f"Finished size at the stated gauge: {n1(dims['across'])} cm across"]
+
+
+def annotation_xy(line_widths: list[float], canvas: int = CANVAS_PX) -> list[tuple[int, int]]:
+    """Each annotation line right-aligned to the scale zone, one under the other."""
+    _x0, zy0, zx1, _y1 = zone_px(SCALE_ZONE, canvas)
+    return [(round(zx1 - w), zy0 + i * ANNOTATION_LINE_STEP_PX)
+            for i, w in enumerate(line_widths)]
 
 
 def font(size: int):

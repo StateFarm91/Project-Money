@@ -241,6 +241,15 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
     if colours > 1:
         out.append(f"This pattern uses {colours} colours, so there is an end to secure at "
                    f"every join and every change.")
+        # How each change is made, derived from the rows (`cir.colour_changes`, PT-09): a
+        # change can be carried only when the resting colour is at the edge the row starts.
+        from .colour_changes import analyse, instruction
+
+        for plan in analyse(cir).values():
+            line = instruction(plan)
+            if line:
+                out.append(line if len(cir.components) == 1
+                           else f"{plan.component}: {line}")
 
     # "Pin it out and leave it to dry flat" is the one instruction in this document that can
     # destroy a finished object. It is correct for anything that IS flat -- a blanket, a
@@ -272,6 +281,13 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
                    "out would crease the wall: damp-finish it standing up, easing it to the "
                    "stated measurements with your hands and letting it dry in its own shape, "
                    "stuffed lightly with a towel if it needs help standing.")
+    elif width_cm and height_cm and _polygon_disc(cir, result):
+        sides = _polygon_disc(cir, result)
+        out.append(f"Block each piece to {width_cm:.1f} cm across the points and "
+                   f"{height_cm:.1f} cm across the flats, keeping the {sides} corners where "
+                   f"the stacked increases put them: pin it out damp, easing rather than "
+                   f"stretching, and leave it to dry flat. Those are the dimensions this "
+                   f"pattern's gauge produces.")
     elif width_cm and height_cm:
         out.append(f"Block the finished piece to {width_cm:.0f} x {height_cm:.0f} cm: pin "
                    f"it out damp to those measurements, easing rather than stretching, and "
@@ -285,6 +301,22 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
     out.append("Check the ball band before blocking with heat or water. Fibres behave "
                "differently and yours is the one in your hands.")
     return out
+
+
+def _polygon_disc(cir: CIR, result) -> int | None:
+    """The corner count of a flat stacked-increase piece, or None (PT-10)."""
+    if result is None or len(cir.components) != 1:
+        return None
+    comp = cir.components[0]
+    if comp.construction == "flat_rows":
+        return None
+    from . import geometry as _geom
+
+    rev = _geom.measure_all(cir, result).get(comp.name)
+    if rev is None or rev.shape != _geom.DISC:
+        return None
+    sides = _geom.corners([r for r in result.rows if r.component == comp.name])
+    return sides if sides and sides >= 3 else None
 
 
 def fibre_content_phrase(material) -> str:

@@ -1567,8 +1567,10 @@ def test_the_safety_block_derives_its_facts_from_the_pattern_it_is_in():
     b_flat, k_flat = _flat(blanket), _flat(basket)
 
     assert f"{blanket_twin.width_cm:.0f} x {blanket_twin.height_cm:.0f} cm" in b_flat
-    assert "79 x 97 cm at the stated gauge" in b_flat
-    assert "15 x 9 cm at the stated gauge" in k_flat
+    assert "79 x 96 cm at the stated gauge" in b_flat
+    # PT-10: the basket is a hexagonal vessel, quoted in the convention that names it.
+    from brambleloop.cir.twin import size_statement
+    assert f"{size_statement(basket_twin)} at the stated gauge" in k_flat, k_flat
     assert "written for acrylic yarn" in b_flat
     assert "written for cotton yarn" in k_flat
     # The compile date of the safety reading, not today's date.
@@ -1676,7 +1678,12 @@ def test_the_progress_table_reads_the_height_the_twin_measured_rather_than_a_sha
         for mark in progress["milestones"]:
             ring = rings[mark["row"] - 1]
             assert mark["height_so_far_cm"] == round(ring.axial_cm, 1), (cir.slug, mark)
-            assert mark["across_cm"] == round(ring.diameter_cm, 1), (cir.slug, mark)
+            if twin.sides:      # PT-10: a stacked-increase round is quoted across its points
+                from brambleloop.cir.geometry import polygon_spans_cm
+                assert mark["across_cm"] == round(
+                    polygon_spans_cm(ring.circumference_cm, twin.sides)[0], 1), (cir.slug, mark)
+            else:
+                assert mark["across_cm"] == round(ring.diameter_cm, 1), (cir.slug, mark)
             assert "stitches around" in mark["measured"], (cir.slug, mark)
 
     # And the document prints those numbers rather than a second opinion about them. The

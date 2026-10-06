@@ -77,13 +77,17 @@ TARGET_CM: dict[str, tuple[float, float]] = {
 
 
 def _repeat_height_cm(gauge) -> float:
-    """One motif repeat's height at `gauge`, measured as the twin measures it: each row is as
-    tall as its tallest stitch, so a row carrying raised dc is a dc row high."""
+    """One motif repeat's height at `gauge`, measured as the twin measures it: each row by
+    the stitch-weighted mean of the stitches in it (`cir.geometry.HEIGHT_RULE`, PT-08), so a
+    single-crochet row carrying a few raised dc is a little taller than a sc row, not a full
+    dc row. (Until 1.2.0 this used the tallest-stitch rule, and every size came out about
+    40 % shorter than its stated length once the twin measured it truthfully.)"""
     from ..cir import stitches
+    from ..cir.geometry import mix_height_units
 
     base = stitches.get("sc").row_height or 1.0
-    tall = stitches.get("dc").row_height / base
-    return sum((tall if "1" in line else 1.0) for line in MOTIF) * 10.0 / gauge.rows_per_10cm
+    return sum(mix_height_units((("dc", line.count("1")), ("sc", line.count("0"))), base)
+               for line in MOTIF) * 10.0 / gauge.rows_per_10cm
 
 
 def _nearest(target: float, unit: float) -> int:
@@ -94,7 +98,11 @@ def _nearest(target: float, unit: float) -> int:
 # Patterns are software releases: the D-FB-6 re-derivation changed every size's counts and
 # gauge, so the released version moved 1.0.0 -> 1.1.0 (tests/data/release_fingerprints.tsv
 # pins content against version so a content change cannot keep a released number).
-RELEASE_VERSION = "1.1.0"
+# 1.2.0 / 1.1.0 (2026-10-06, PT-07/PT-08): the twin now counts each increase's yarn once and
+# measures a row by the stitch-weighted height of the stitches in it, which moved this
+# design's stated yardage and/or size; a customer-visible figure cannot change under a
+# released version (tests/data/release_fingerprints.tsv pins content AND claims).
+RELEASE_VERSION = "1.2.0"
 
 SIZES: dict[str, tuple[int, int]] = {
     # name: (stitches wide, motif repeats tall), derived from TARGET_CM at GAUGE
@@ -201,8 +209,8 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
                               foundation=width, foundation_kind="chain")],
         designer_notes=(
             f"Overlay mosaic on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
-            f"({repeats} motif repeats). Fir and star bands alternate. Colour changes every "
-            f"row; carry the resting colour up the side."),
+            f"({repeats} motif repeats). Fir and star bands alternate. "
+            + _colour_note(rows, width)),
         # F-783: the fir-and-star motif and the size table are this module's own.
         provenance=catalogue_provenance(
             "nordic-forest-mosaic-throw",
@@ -210,6 +218,26 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
              "repeats": repeats, "motif": list(MOTIF), "palette": dict(PALETTE)},
             ("products.nordic_forest", "products.nordic_forest.MOTIF", "overlay_mosaic")),
     )
+
+
+def _colour_note(rows, width) -> str:
+    """What the colour changes ask of the maker, read off the rows (PT-09).
+
+    This note said "carry the resting colour up the side" on rows that change colour every
+    turned row, where the resting colour is always at the far edge: impossible, and now
+    refused by the certificate (COLOUR_CARRY_IMPOSSIBLE). It states what the rows require."""
+    from ..cir.colour_changes import plan_component
+
+    plan = plan_component(Component(name="blanket", construction="flat_rows", rows=rows,
+                                     foundation=width, foundation_kind="chain"))
+    if not plan.changes:
+        return ""
+    if plan.carry_is_possible:
+        return ("Every colour change falls at the same side edge: carry the resting colour "
+                "loosely up that edge.")
+    return ("Colour changes every row. The rows turn, so the colour not in use is always "
+            "resting at the far edge when it is next needed: cut it and rejoin at each "
+            "change, and weave in the ends (see Finishing).")
 
 
 def all_sizes(version: str = RELEASE_VERSION) -> dict[str, CIR]:

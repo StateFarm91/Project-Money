@@ -173,8 +173,12 @@ def test_a_coaster_reaches_the_twin_as_a_diameter():
     cir = _round_cir(_disc_rounds(8), slug="test-coaster")
     twin = build_twin(cir, compile_cir(cir))
     assert twin.shape == DISC
-    assert twin.width_cm == twin.height_cm
-    assert 7.0 < twin.width_cm < 8.5, twin.width_cm
+    # PT-10: these increases stack (`geometry.corners` = 6), so the disc is a hexagon with a
+    # 24 cm perimeter: 8.0 cm across the points (width) and 6.9 across the flats (height).
+    # The circle formula's 7.6 cm is neither measurement.
+    assert twin.sides == 6
+    assert (twin.width_cm, twin.height_cm) == (8.0, 6.9)
+    assert (twin.across_points_cm, twin.across_flats_cm) == (8.0, 6.9)
 
 
 # ---- fabric that cannot lie flat ------------------------------------------

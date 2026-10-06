@@ -714,6 +714,9 @@ class StatementFacts:
     # true of the *schema*: the fibre below was read out of a free-text yarn name.
     fibre_read_from: str = ""
     compiled_on: str = SNAPSHOT_DATE
+    # The size in words that name their convention, for a piece "w x h" does not describe
+    # (a hexagon: across the points and across the flats -- PT-10). Empty for flat pieces.
+    size_text: str = ""
 
     @property
     def audience_label(self) -> str:
@@ -724,6 +727,8 @@ class StatementFacts:
     def size_label(self) -> str:
         if not self.finished_size_cm:
             return ""
+        if self.size_text:
+            return self.size_text
         w, h = self.finished_size_cm
         return f"{w:.0f} x {h:.0f} cm"
 

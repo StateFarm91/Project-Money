@@ -180,23 +180,60 @@ def assembly_promise(cir: CIR) -> dict:
                     f"{pieces} pieces")}
 
 
-def size_label_backed(label: str, width_cm: float | None, height_cm: float | None) -> dict:
-    """Every centimetre figure a customer reads in a size label is what the twin measures, to
-    the precision the label is written in ("24 cm" to the nearest cm, "9.2 cm" to the mm).
-    A label typed by hand drifts when the design is re-derived; this is the check that it did
-    not. Figures are matched in order against width then height."""
-    import re as _re
+_SIZE_FIGURE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(?:x\s*(\d+(?:\.\d+)?)\s*)?cm"
+    r"(?:\s+(across the points|across the flats|across|tall|wide|long))?")
 
-    measured = [m for m in (width_cm, height_cm) if m is not None]
-    stated = _re.findall(r"(\d+(?:\.\d+)?)\s*(?:x\s*(\d+(?:\.\d+)?)\s*)?cm", label)
-    figures = [f for pair in stated for f in pair if f]
-    if not figures or not measured:
+
+def size_label_backed(label: str, width_cm: float | None, height_cm: float | None,
+                      twin=None) -> dict:
+    """Every centimetre figure a customer reads in a size label is what the twin measures, to
+    the precision the label is written in ("24 cm" to the nearest cm, "9.7 cm" to the mm), and
+    in the convention the label names.
+
+    PT-10 (2026-10-06): a stacked-increase piece is a polygon with two "across" measurements
+    -- across the points and across the flats -- and a bare "15 cm across" on a hexagon is the
+    size of no measurement a maker can take. When the twin is a polygon every figure must name
+    its convention ("across the points", "across the flats", "tall"), and each is checked
+    against the span the twin computes from the perimeter. Without a twin the figures are
+    matched as before: "W x H cm", "across"/"wide" to the width, "tall"/"long" to the height,
+    an unlabelled figure in order against width then height."""
+    if twin is not None:
+        width_cm, height_cm = twin.width_cm, twin.height_cm
+    polygon = bool(twin is not None and getattr(twin, "sides", None)
+                   and twin.sides >= 3 and getattr(twin, "across_points_cm", None))
+    measured_in_order = [m for m in (width_cm, height_cm) if m is not None]
+    figures = []                    # (stated text, convention)
+    for m in _SIZE_FIGURE.finditer(label):
+        first, second, conv = m.group(1), m.group(2), m.group(3)
+        if second:
+            figures += [(first, "width"), (second, "height")]
+        else:
+            figures.append((first, conv or ""))
+    if not figures or not measured_in_order:
         return {"backed": False, "why": "no centimetre figure or no measurement", "label": label}
-    wrong = []
-    for text, value in zip(figures, measured):
+    wrong, unordered = [], 0
+    for text, conv in figures:
+        if polygon and conv not in ("across the points", "across the flats", "tall"):
+            wrong.append({"stated": text, "convention": conv or "unstated",
+                          "why": f"a {twin.sides}-sided piece has two 'across' measurements; "
+                                 f"the label must say across the points or across the flats"})
+            continue
+        value = {"across the points": (twin.across_points_cm if polygon else width_cm),
+                 "across the flats": (twin.across_flats_cm if polygon else None),
+                 "across": width_cm, "wide": width_cm, "width": width_cm,
+                 "tall": height_cm, "long": height_cm, "height": height_cm}.get(conv)
+        if conv == "":
+            value = measured_in_order[min(unordered, len(measured_in_order) - 1)]
+            unordered += 1
+        if value is None:
+            wrong.append({"stated": text, "convention": conv,
+                          "why": "the twin has no measurement in that convention"})
+            continue
         places = len(text.split(".")[1]) if "." in text else 0
         if round(value, places) != float(text):
-            wrong.append({"stated": text, "measured": round(value, 2)})
+            wrong.append({"stated": text, "convention": conv or "in order",
+                          "measured": round(value, 2)})
     return {"backed": not wrong, "wrong": wrong, "label": label}
 
 
@@ -332,8 +369,9 @@ CANDIDATES: tuple[Candidate, ...] = (
         slug="nursery-nesting-baskets",
         title="Nesting Baskets, three sizes",
         what_it_is=(
-            "One pattern, three baskets worked in the round from a flat disc base into "
-            "straight walls: 15 cm, 20 cm and 24 cm across at the stated gauge."),
+            "One pattern, three hexagonal baskets worked in the round from a flat base into "
+            "straight walls: 16.0, 20.8 and 25.6 cm across the points (13.9, 18.0 and 22.2 cm "
+            "across the flats) at the stated gauge."),
         why_at_launch=(
             "The children's research puts nursery decor first on obligation and "
             "verifiability, not on demand, and a basket is the only nursery-decor object in "
@@ -341,9 +379,12 @@ CANDIDATES: tuple[Candidate, ...] = (
             "nothing is applied to it, and the geometry is the kind `cir.geometry` measures "
             "exactly: the base disc sets how wide, the wall rounds set how tall."),
         variants=(
-            Variant("small", "15 cm across, 9 cm tall", "basket_small"),
-            Variant("medium", "20 cm across, 16 cm tall", "basket_medium"),
-            Variant("large", "24 cm across, 23 cm tall", "basket_large"),
+            Variant("small", "16.0 cm across the points, 13.9 cm across the flats, "
+                             "9 cm tall", "basket_small"),
+            Variant("medium", "20.8 cm across the points, 18.0 cm across the flats, "
+                              "16 cm tall", "basket_medium"),
+            Variant("large", "25.6 cm across the points, 22.2 cm across the flats, "
+                             "23 cm tall", "basket_large"),
         ),
         pod="home_decor",
         subcategory="nursery_decor",
@@ -374,15 +415,17 @@ CANDIDATES: tuple[Candidate, ...] = (
         slug="cloudline-baby-blanket",
         title="Cloudline Baby Blanket",
         what_it_is=(
-            "A 79.2 x 97.1 cm baby blanket in two colours, worked flat. The colour changes "
-            "every motif row, with three plain cream rows at each end, and a raised diamond lattice is worked in double crochet against a "
-            "single-crochet ground, so the fabric is a one-row stripe with a relief."),
+            "A 79.2 x 96.4 cm baby blanket in two colours, worked flat. The colour changes "
+            "every two rows, so the colour not in use is carried up one side edge, with six "
+            "plain cream rows at each end, and a raised diamond lattice is worked in double "
+            "crochet against a single-crochet ground, so the fabric is a two-row stripe with "
+            "a relief."),
         why_at_launch=(
             "Keepsake and baby blankets are the research's other first-entry sub-category, and "
             "this is the only blanket in the catalogue whose name does not claim a colourwork "
             "fabric the CIR cannot express. Class A geometry, no fitted sizing, no applied "
             "parts, and the largest single make in Launch-0, which is what carries the price."),
-        variants=(Variant("one_size", "79.2 x 97.1 cm", "cloudline_blanket"),),
+        variants=(Variant("one_size", "79.2 x 96.4 cm", "cloudline_blanket"),),
         pod="blankets",
         subcategory="baby_blanket",
         audience=ch.UNDER_3,
@@ -409,7 +452,8 @@ CANDIDATES: tuple[Candidate, ...] = (
             "is not a baby blanket",
         ),
         aspiration=(
-            "79.2 x 97.1 cm is computed from the stated gauge; twin.calibrated is False",
+            "79.2 x 96.4 cm is computed from the stated gauge with the stitch-weighted row "
+            "height rule (cir.geometry.HEIGHT_RULE); twin.calibrated is False",
             "the children's statement set is rendered by publish/pdf.py and read back out of "
             "the PDF (2026-09-25), so this product now states what it must state. What is "
             "still not stated is a fibre CONTENT: cir.model.Material has no fibre field, so "
@@ -422,7 +466,8 @@ CANDIDATES: tuple[Candidate, ...] = (
         slug="hexagon-coaster-set",
         title="Hexagon Coaster Set (4)",
         what_it_is=(
-            "Four hexagonal coasters, about 9.2 cm across the points, worked in joined rounds "
+            "Four hexagonal coasters, about 9.7 cm across the points and 8.4 cm across the "
+            "flats, worked in joined rounds "
             "with the increases stacked at six corners and a contrast round one in from the "
             "edge."),
         why_at_launch=(
@@ -433,7 +478,8 @@ CANDIDATES: tuple[Candidate, ...] = (
             "safety statement set in the way. Its merchandising value is review velocity and "
             "price structure, not distinctiveness, and saying so is more useful than dressing "
             "it up."),
-        variants=(Variant("set_of_four", "4 pieces, 9.2 cm across", "hexagon_coasters"),),
+        variants=(Variant("set_of_four", "4 pieces, 9.7 cm across the points, 8.4 cm across "
+                                         "the flats", "hexagon_coasters"),),
         pod="home_decor",
         price=PriceBand(
             *_CLUSTER_BAND, proposed_cad=4.00, basis=SOURCED,
@@ -448,7 +494,8 @@ CANDIDATES: tuple[Candidate, ...] = (
             "point of this listing is the bottom of the ladder",
         ),
         aspiration=(
-            "9.2 cm across is arithmetic from the stated gauge; twin.calibrated is False",
+            "9.7 cm across the points is arithmetic from the stated gauge; twin.calibrated "
+            "is False",
             "flatness is predicted by the increase rate and unverified in fabric",
         ),
     ),
@@ -458,12 +505,12 @@ CANDIDATES: tuple[Candidate, ...] = (
     Candidate(
         slug="harvest-table-runner",
         title="Harvest Table Runner",
-        what_it_is="A 32 x 127 cm two-colour runner, worked flat with a chevron relief band.",
+        what_it_is="A 32 x 122 cm two-colour runner, worked flat with a chevron relief band.",
         why_at_launch=(
             "RESERVE, not launched. It passes every gate and adds no position: it repeats the "
             "blanket's construction, it is not a children's product, and Launch-0 is small on "
             "purpose. It is the first thing to add once there is evidence to add against."),
-        variants=(Variant("one_size", "32 x 127 cm", "harvest_runner"),),
+        variants=(Variant("one_size", "32 x 122 cm", "harvest_runner"),),
         pod="home_decor",
         price=PriceBand(*_CLUSTER_BAND, proposed_cad=5.50, basis=SOURCED,
                         why="the CA$4-12 cluster from radar/market.py OBSERVATIONS"),
@@ -707,7 +754,8 @@ def product_truth(cand: Candidate) -> dict:
                 "stitches": twin.stitch_total,
                 "calibrated": twin.calibrated,
                 "fabric_truth": fabric_truth(cir, twin),
-                "size_label": size_label_backed(v.label, twin.width_cm, twin.height_cm),
+                "size_label": size_label_backed(v.label, twin.width_cm, twin.height_cm,
+                                                 twin=twin),
             })
         variants.append(row)
 
