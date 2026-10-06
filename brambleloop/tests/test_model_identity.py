@@ -541,7 +541,12 @@ def test_the_replacement_procedure_is_not_invoked_anywhere_with_a_real_approval(
         text = path.read_text()
         if "replace_canonical(" in text and path.name not in ("model_registry.py",):
             callers.append(path.name)
-    assert callers == ["portrait_repair.py"], callers
+    # D-FB-14 (2026-10-06): the owner approved one identity revision, applied by
+    # `canonical.adopt_revision`, which cites that decision and is refused once spent
+    # (tests/test_canon_manifest.py). No other caller exists.
+    assert sorted(callers) == ["canonical.py", "portrait_repair.py"], callers
+    adopt = (ROOT / "src/brambleloop/visual/canonical.py").read_text()
+    assert '"owner_decision_id": REVISION_DECISION_ID' in adopt
     assert "identity.select(" not in (ROOT / "src/brambleloop/visual/freeze.py").read_text()
 
 

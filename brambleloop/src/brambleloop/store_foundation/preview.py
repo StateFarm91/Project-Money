@@ -32,7 +32,11 @@ VIEWPORTS = {"mobile": 390, "desktop": 1280}
 PREVIEW_LABEL = "Preview — not live"
 # Owner preview alternatives. `brand_face` shows the shop designed around Laura using only her
 # approved canonical portrait (D-FB-11/D-FB-12), every use labelled; it is never publishable.
-VARIANTS = {"standard": "Standard", "brand_face": "With brand face (Laura)"}
+VARIANTS = {"standard": "Standard", "brand_face": "With brand face (Laura)",
+            "v2": "v2 proposal (wave 3)", "compare": "v2 vs v1"}
+# Wave 3 (lane B): "standard" and "brand_face" are the owner-rejected v1 design, kept unchanged
+# as the baseline; "v2" is the proposed storefront and "compare" puts the two side by side
+# (`preview_v2`).
 ABOUT_LAURA_INTRO = ("Laura, Brambleloop's AI founder, is the face of this shop. She is an AI, "
                      "and every pattern here is still checked by code before it is sold.")
 
@@ -489,6 +493,12 @@ def render_preview(db, viewport: str = "mobile", *, now: datetime | None = None,
     viewport = viewport if viewport in VIEWPORTS else "mobile"
     variant = variant if variant in VARIANTS else "standard"
     now = _now(now)
+    if variant in ("v2", "compare"):
+        from . import preview_v2
+
+        if variant == "v2":
+            return preview_v2.render(db, viewport, now=now, today=today)
+        return preview_v2.render_compare(db, viewport, now=now, today=today)
     from . import assets
 
     surfaces, rows, roll = _evaluate(db, today=today)
