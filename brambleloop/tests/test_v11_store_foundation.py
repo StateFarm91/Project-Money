@@ -174,14 +174,15 @@ def test_assets_deterministic_on_palette():
     assert assets.banner_svg() == assets.banner_svg()
     from brambleloop.brand import bible
 
-    palette = {v.upper() for v in bible.PALETTE.values()}
+    # brand palette = the bible plus lane A's identity_system.PALETTE (wave 3)
+    palette = {v.upper() for v in bible.PALETTE.values()} | assets.palette_hexes()
     assert assets.colours_used(assets.icon_svg()) <= palette
     assert assets.colours_used(assets.banner_svg()) <= palette
     assert "<text" not in assets.icon_svg()
     assert "BRAMBLELOOP" in assets.banner_svg()
     for svg_check in (assets.check_icon(), assets.check_banner()):
         assert not [f for f in svg_check if f["severity"] == "fail"], svg_check
-    bad = assets.check_icon(assets.icon_svg().replace("#244A3A", "#FF00FF"))
+    bad = assets.check_icon(assets.icon_svg().replace("#2F3E33", "#FF00FF"))
     assert any(f["code"] == "ASSET_OFF_PALETTE" for f in bad)
     assert any(f["code"] == "ICON_HAS_TEXT" for f in assets.check_icon(
         assets.icon_svg().replace("</svg>", "<text>B</text></svg>")))
