@@ -1,0 +1,121 @@
+{
+ "what": "lane H runtime proof on throwaway sqlite databases; all rows TEST FIXTURES; trust ladder supplied as PASS for the proposal fixtures only; nothing spent",
+ "generated_at": "2026-10-06T06:21:34.646563+00:00",
+ "empty_db_summary": {
+  "status": "UNKNOWN",
+  "basis": "unknown",
+  "items": [],
+  "reason": "no listings on file to read for ads readiness",
+  "spend_executed_cad": 0.0,
+  "execution_capability": "none"
+ },
+ "readiness_fixture_12cad": {
+  "ready": true,
+  "gates": [
+   [
+    "listing_live",
+    "PASS"
+   ],
+   [
+    "listing_certified",
+    "PASS"
+   ],
+   [
+    "product_truth_clear",
+    "PASS"
+   ],
+   [
+    "organic_signal",
+    "PASS"
+   ],
+   [
+    "unit_economics",
+    "PASS"
+   ],
+   [
+    "ads_eligibility",
+    "PASS"
+   ],
+   [
+    "trust_ladder",
+    "PASS"
+   ]
+  ],
+  "economics": {
+   "basis": "modelled",
+   "confidence": "low",
+   "contribution_per_order_cad": 10.582,
+   "contribution_per_order_cad_conservative": 8.344,
+   "break_even_roas": 1.134,
+   "break_even_roas_conservative": 1.4382,
+   "refund_rate": "UNMEASURED"
+  },
+  "offsite": {
+   "fee_per_attributed_order_cad_standard": 1.8,
+   "fee_per_attributed_order_cad_reduced": 1.44,
+   "participation": "UNKNOWN (trailing 365-day sales not measured)",
+   "basis": "modelled"
+  }
+ },
+ "s95_margin_violation": {
+  "proposal_id": 1,
+  "key": "972d4ccab9fa01446e3d5c3f61800781",
+  "status": "FINANCE_BLOCKED",
+  "verdict": "BLOCK",
+  "reasons": [
+   "max CAC CA$40.00 exceeds conservative contribution CA$8.34: every acquired order would lose money (F-530 margin policy)",
+   "Etsy Plus credit balance and cycle dates are unverified (F-614); owner confirms the credit exists before it is relied on"
+  ],
+  "checker": "fallback:growth_ops.ad_authority+paid_media.CONSERVATIVE_CAPS+governor.hold",
+  "ceiling": {
+   "daily_cad": 6.99,
+   "total_cad": 6.99,
+   "basis": "official Etsy Plus entitlement US$5.00/cycle at assumed FX (balance unverified)"
+  },
+  "readiness": "READY",
+  "owner_action_id": null,
+  "executed": false,
+  "challenge_id": 1
+ },
+ "credit_test_inside_policy": {
+  "proposal_id": 2,
+  "key": "903e74360ce71c84b2c90b479da3d178",
+  "status": "AWAITING_OWNER",
+  "verdict": "ESCALATE",
+  "reasons": [
+   "Etsy Plus credit balance and cycle dates are unverified (F-614); owner confirms the credit exists before it is relied on"
+  ],
+  "checker": "fallback:growth_ops.ad_authority+paid_media.CONSERVATIVE_CAPS+governor.hold",
+  "ceiling": {
+   "daily_cad": 6.99,
+   "total_cad": 6.99,
+   "basis": "official Etsy Plus entitlement US$5.00/cycle at assumed FX (balance unverified)"
+  },
+  "readiness": "READY",
+  "owner_action_id": 1,
+  "executed": false,
+  "challenge_id": 2
+ },
+ "summary_after": {
+  "status": "BLOCKED",
+  "basis": "modelled",
+  "reason": "no listing passes every ads readiness gate",
+  "proposals": {
+   "total": 2,
+   "finance_blocked": [
+    1
+   ],
+   "awaiting_owner": [
+    2
+   ],
+   "not_ready": []
+  },
+  "execution_capability": "none",
+  "spend_executed_cad": 0.0,
+  "activation_authorised": false
+ },
+ "real_trust_gate_on_fixture_shop": "FAIL",
+ "next_work_keys": [
+  "ads.eligibility_tick"
+ ]
+}
