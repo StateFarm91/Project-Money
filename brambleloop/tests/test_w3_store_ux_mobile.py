@@ -36,7 +36,14 @@ def check(name: str, fn) -> None:
         print(f"FAIL {name}: {type(exc).__name__}: {exc}")
 
 
+# The REJECTED v1 storefront as the owner saw it (rendered at ead9bfb, before lane C's copy
+# replaced the live "standard" text). Frozen so the comparison keeps measuring the real baseline.
+V1_FIXTURE = ROOT / "tests" / "fixtures" / "store_preview_v1_mobile_rejected.html"
+
+
 def page(vp: str = "mobile", variant: str = "v2") -> str:
+    if (vp, variant) == ("mobile", "standard"):
+        return V1_FIXTURE.read_text()
     if (vp, variant) not in _PAGES:
         _PAGES[(vp, variant)] = preview.render_preview(None, vp, now=NOW, variant=variant)
     return _PAGES[(vp, variant)]
