@@ -8,8 +8,6 @@ new or invented identity. Nothing here can change Laura's identity.
 """
 from __future__ import annotations
 
-from typing import Any
-
 # Laura's authority in a business conversation (spec/07 item 11, D-FB-13): what she may do
 # herself, and what stays with the owner. The follow-on code enforces this; the text is shown.
 AUTHORITY_FALLBACK = {
@@ -22,22 +20,12 @@ AUTHORITY_FALLBACK = {
 }
 
 
-def _call(mod, *names) -> Any:
-    for n in names:
-        v = getattr(mod, n, None)
-        if v is None:
-            continue
-        try:
-            return v() if callable(v) else v
-        except TypeError:
-            continue
-        except Exception:  # noqa: BLE001 - a broken peer reader falls back below
-            return None
-    return None
+def identity(db=None) -> dict:
+    """{identity_id, name, role, public_identity, truthful_identity, authority, voice, source}.
 
-
-def identity() -> dict:
-    """{identity_id, name, role, public_identity, truthful_identity, authority, voice, source}."""
+    With lane D merged: `laura.identity.public_profile()` (nothing owner-private in it) and
+    `AUTHORITY`, and -- given `db` -- the *verified* durable record's version and sha256 via
+    `laura.identity.summary(db)` (a tampered record reports BLOCKED, never a silent pass)."""
     from ...visual import canonical
 
     base = {"identity_id": canonical.IDENTITY_ID, "name": canonical.IDENTITY_NAME,
@@ -49,36 +37,60 @@ def identity() -> dict:
                                   "enthusiasm, no invented personal experiences, no "
                                   "unsupported claims"},
             "source": "brambleloop.visual.canonical (lane D laura.identity not merged)",
+            "sources": ["visual.canonical"], "verified": None,
             "model_independent": True}
     try:
         import importlib
 
         mod = importlib.import_module("brambleloop.laura.identity")
-    except ImportError:
+        prof = mod.public_profile()
+    except Exception:  # noqa: BLE001 - ImportError or a broken peer: owner-ruled constants
         return base
-    rec = _call(mod, "canonical_record", "record", "identity", "canonical", "IDENTITY",
-                "CANONICAL")
     out = dict(base)
     out["source"] = "brambleloop.laura.identity"
-    if isinstance(rec, dict):
-        for k in ("identity_id", "name", "role", "public_identity", "truthful_identity"):
-            if rec.get(k):
-                out[k] = rec[k]
-        # The visual identity id is owner-locked (D-FB-11). If the record names a different
-        # one, the canonical constant wins and the disagreement is reported, never adopted.
-        vis = rec.get("visual_identity_id") or rec.get("identity_id")
-        if vis and vis != canonical.IDENTITY_ID and str(vis).startswith("laura-v"):
-            out["identity_id"] = canonical.IDENTITY_ID
-            out["identity_disagreement"] = str(vis)
-    auth = _call(mod, "authority", "AUTHORITY")
+    out["sources"] = ["laura.core.identity.GENESIS", "visual.canonical"]
+    for k in ("name", "role", "public_identity", "truthful_identity"):
+        if prof.get(k):
+            out[k] = prof[k]
+    if prof.get("kind"):
+        out["role"] = f"{out['role']} ({prof['kind']})"
+    # The visual identity id is owner-locked (D-FB-11). A record that names a different one
+    # is reported as a disagreement; the canonical constant is kept.
+    vis = prof.get("visual_identity_id")
+    if vis and vis != canonical.IDENTITY_ID:
+        out["identity_disagreement"] = str(vis)
+    auth = getattr(mod, "AUTHORITY", None)
     if isinstance(auth, dict):
-        out["authority"] = auth
-    voice = _call(mod, "voice_spec", "voice", "VOICE", "VOICE_SPEC")
+        out["authority"] = {k: auth[k] for k in ("may", "may_not") if k in auth}
+    voice = prof.get("voice")
     if isinstance(voice, dict):
-        # Only the business/public register is shown here; a private register is never read.
         out["voice"] = {k: v for k, v in voice.items()
                         if "private" not in str(k).lower() and "spous" not in str(k).lower()}
+    if db is not None:
+        try:
+            summ = mod.summary(db)
+        except Exception as exc:  # noqa: BLE001
+            summ = {"status": "UNKNOWN", "reason": type(exc).__name__, "items": []}
+        item = (summ.get("items") or [{}])[0] if summ.get("status") == "OK" else {}
+        out["verified"] = {"status": summ.get("status"), "reason": summ.get("reason"),
+                           "identity_version": item.get("identity_version"),
+                           "identity_sha256": item.get("identity_sha256")}
+        if item.get("identity_version"):
+            out["sources"] = [f"laura_identity_versions:{item['identity_version']}",
+                              *out["sources"]]
     return out
+
+
+def voice_findings(text: str) -> list[dict]:
+    """Lane D's deterministic voice check on a business answer, if merged (else [])."""
+    try:
+        from .. import identity as ident_mod
+
+        return [{"rule": f.get("rule"), "match": f.get("match")}
+                for f in ident_mod.voice_lint(text, surface="business")
+                if f.get("rule") not in ("LINT_UNAVAILABLE",)]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def portrait() -> dict:

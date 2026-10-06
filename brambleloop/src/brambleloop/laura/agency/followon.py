@@ -123,6 +123,13 @@ def create(db, turn_id: int, proposal_key: str, *, confirmed_by: str,
     reason = f"Laura (Founder/CEO) follow-on: {prop.get('title')} -- {prop.get('why')}"[:300]
     now = _now()
 
+    verdict = constitution_review(db, dept, jt, str(prop.get("title") or ""))
+    if verdict is not None and verdict.get("outcome") == "block":
+        why = "; ".join(c["why"] for c in verdict.get("checks") or []
+                        if c.get("outcome") == "block")[:400]
+        raise FollowOnRefused(f"blocked by {', '.join(verdict.get('blocked_by') or [])} "
+                              f"(company constitution): {why}")
+
     if protected(jt):
         if not stepped_up:
             raise StepUpRequired(f"{jt} is protected; step up before Laura records it as an "
@@ -177,8 +184,39 @@ def create(db, turn_id: int, proposal_key: str, *, confirmed_by: str,
         s.add(row)
         s.flush()
         fid = row.id
+    detail["constitution"] = (verdict or {}).get("outcome", "not available")
+    detail.update(_remember(db, fid, kind, dept, jt, ref, prop))
     return {"created": True, "kind": kind, "result_ref": ref, "followon_id": fid,
             "department": dept, "job_type": jt, **detail}
+
+
+def constitution_review(db, dept: str, jt: str, title: str) -> dict | None:
+    """Lane D's company constitution (Finance / Product Truth / Security can block Laura).
+
+    None when lane D is not merged; then only this module's own authority checks apply."""
+    try:
+        from ..core import constitution
+    except ImportError:
+        return None
+    return constitution.review(db, {"kind": "delegation", "department": dept,
+                                    "job_type": jt, "cost_cad": 0.0, "title": title})
+
+
+def _remember(db, fid: int, kind: str, dept: str, jt: str, ref: str, prop: dict) -> dict:
+    """Record the follow-on in Laura's operational memory (lane E), citing its row."""
+    try:
+        from .. import memory as lm
+    except ImportError:
+        return {"memory": "laura.memory not built"}
+    try:
+        e = lm.write(db, "operational", f"cc/followon/{fid}",
+                     {"kind": kind, "department": dept, "job_type": jt, "result": ref,
+                      "title": str(prop.get("title") or "")[:200]},
+                     source=[f"laura_cc_followons:{fid}"], actor=lm.Principal.laura(),
+                     subject=f"Command Center follow-on: {prop.get('title')}"[:200])
+        return {"memory_ref": e.get("ref")}
+    except Exception as exc:  # noqa: BLE001 - memory refusal never undoes the follow-on
+        return {"memory": f"not recorded: {type(exc).__name__}: {str(exc)[:160]}"}
 
 
 def recent(db, limit: int = 20) -> list[dict]:

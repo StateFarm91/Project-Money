@@ -75,6 +75,21 @@ def classify(question: str) -> str:
 # ---- intents: which evidence, what Laura says first ---------------------------------------
 
 
+# Which of Laura's memory tiers (lane E) supplements each intent. Memory is supplementary:
+# a memory section with no matching entry is left out rather than reported as UNKNOWN.
+_MEMORY_TIERS = {"working_on": ("operational",), "store": ("brand",),
+                 "learned": ("experience",), "discoveries": ("experience",),
+                 "identity": ("canonical",)}
+
+
+def _with_memory(db, intent: str, sections: list[dict], session_public_id: str) -> list[dict]:
+    tiers = _MEMORY_TIERS.get(intent)
+    if not tiers or not session_public_id:
+        return sections
+    m = ev.memory(db, session_public_id, None, tiers=tiers)
+    return sections + [m] if m["facts"] else sections
+
+
 def _sections(db, intent: str) -> list[dict]:
     if intent == "overnight":
         return [ev.overnight(db, 12), ev.departments(db)]
@@ -230,9 +245,9 @@ def _proposals(intent: str, sections: list[dict]) -> list[dict]:
 # ---- the conversation ----------------------------------------------------------------------
 
 
-def _identity_answer() -> tuple[str, str, list[dict], list[dict]]:
-    ident = identity_view.identity()
-    src = ident.get("source") or "brambleloop.visual.canonical"
+def _identity_answer(db, session_public_id: str) -> tuple[str, str, list[dict], list[dict]]:
+    ident = identity_view.identity(db)
+    src = (ident.get("sources") or [ident.get("source") or "visual.canonical"])[0]
     facts = [ev.fact(f"identity {ident['identity_id']}: {ident['name']}, {ident['role']}", src),
              ev.fact(ident["truthful_identity"][:380], src),
              ev.fact("model-independent: identity, memory and history live in Brambleloop's "
@@ -241,6 +256,14 @@ def _identity_answer() -> tuple[str, str, list[dict], list[dict]]:
               f"not a human; my history is the work my company has actually recorded. I run "
               f"Brambleloop through its departments within my authority, and Finance, Product "
               f"Truth and Security can challenge or block me.")
+    ver = ident.get("verified") or {}
+    if ver.get("status") and ver["status"] != "OK":
+        facts.append(ev.fact(f"durable identity record {ver['status']}: {ver.get('reason')}",
+                             "laura_identity_versions"))
+        answer += f" (My durable identity record reads {ver['status']}; see evidence.)"
+    mem = _with_memory(db, "identity", [], session_public_id)
+    for m in mem:
+        facts.extend(m["facts"][:4])
     return "ANSWERED", answer, facts, []
 
 
@@ -250,7 +273,7 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
 
     ensure_tables(db)
     question = " ".join(str(question or "").split())[:MAX_QUESTION]
-    ident = identity_view.identity()
+    ident = identity_view.identity(db)
     intent = classify(question) if question else "empty"
     sections: list[dict] = []
     proposals: list[dict] = []
@@ -259,7 +282,7 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
         status, answer, facts, unknowns = (UNKNOWN, "Ask me about the business -- for "
                                            "example: " + "; ".join(SUGGESTED[:4]), [], [])
     elif intent == "identity":
-        status, answer, facts, unknowns = _identity_answer()
+        status, answer, facts, unknowns = _identity_answer(db, session_public_id)
     elif intent == "fallback":
         from ...app.command_center import ask as ask_mod
 
@@ -278,7 +301,7 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
                                status="OK" if facts else UNKNOWN,
                                reason=None if facts else answer[:300])]
     else:
-        sections = _sections(db, intent)
+        sections = _with_memory(db, intent, _sections(db, intent), session_public_id)
         status, answer, unknowns = _compose(intent, sections)
         facts = [f for s in sections for f in s["facts"]]
         proposals = _proposals(intent, sections)
@@ -307,7 +330,8 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
             "sources": sources, "unknowns": unknowns, "proposals": proposals,
             "sections": [{k: s_[k] for k in ("key", "title", "status", "reason")} | {
                 "facts": len(s_["facts"])} for s_ in sections],
-            "method": method, "phrasing": meta, "speaker": speaker(ident)}
+            "method": method, "phrasing": meta, "speaker": speaker(ident),
+            "voice_findings": identity_view.voice_findings(answer)}
 
 
 def _iso(v) -> str | None:
@@ -345,7 +369,7 @@ def history(db, limit: int = 20) -> list[dict]:
 
 def overview(db) -> dict:
     """The Laura view's header: who she is, what needs the owner, how the company runs."""
-    ident = identity_view.identity()
+    ident = identity_view.identity(db)
     q = ev.owner_queue(db)
     d = ev.departments(db)
     ph = ev.phase(db)
@@ -359,8 +383,8 @@ def overview(db) -> dict:
             "speaker": speaker(ident),
             "identity": {k: ident.get(k) for k in ("identity_id", "name", "role",
                                                    "public_identity", "truthful_identity",
-                                                   "authority", "source",
-                                                   "identity_disagreement")},
+                                                   "authority", "source", "sources",
+                                                   "verified", "identity_disagreement")},
             "needs_you": {"status": q["status"], "count": len(q["facts"]),
                           "reason": q.get("reason"), "items": q["facts"][:5]},
             "departments": {"status": d["status"], "reason": d.get("reason"),

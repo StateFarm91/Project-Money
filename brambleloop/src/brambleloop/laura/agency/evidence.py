@@ -45,7 +45,9 @@ _LINKS = (
     (("finance", "ledger", "cost_entries", "revenue", "orders", "accounting"), "#/money"),
     (("store_foundation", "products", "pattern_versions", "listings", "seo"), "#/store"),
     (("lessons", "improvement", "experiments", "learn", "visual.rnd", "company_memory",
-      "autonomy.status", "laura.executive"), "#/learn"),
+      "autonomy.status", "laura.executive", "laura_priorities", "laura_decisions",
+      "laura_memory", "laura_identity", "laura.core", "visual.canonical", "decision"),
+     "#/learn"),
     (("growth", "ads"), "#/insights"),
     (("company_timeline", "timeline"), "#/timeline"),
 )
@@ -242,38 +244,69 @@ def working_on(db) -> dict:
 
 
 def executive(db) -> dict:
-    """Laura's own executive priorities and history (lane D `laura.executive`), if merged."""
+    """Laura's own executive priorities and decision history (lane D `laura.executive`)."""
     title = "My executive priorities"
 
     def read():
+        try:
+            from .. import executive as ex
+        except ImportError:
+            return unknown_section("executive", title, "laura.executive not built",
+                                   ["brambleloop.laura.executive"])
         facts = []
-        why_all = []
-        for fn, label in (("priorities", "priority"), ("summary", "summary"),
-                          ("history", "history")):
-            val, why = _optional("brambleloop.laura.executive", fn, db)
-            if why:
-                why_all.append(f"{fn}: {why}")
+        for p in ex.priorities(db, limit=30):
+            if p.get("status") == "closed":
                 continue
-            items = val.get("items") if isinstance(val, dict) else val
-            for it in (items or [])[:8]:
-                if isinstance(it, dict):
-                    text = (it.get("statement") or it.get("title") or it.get("summary")
-                            or it.get("subject") or it.get("priority") or it.get("what"))
-                    if not text:
-                        continue
-                    src = (it.get("source") or (it.get("sources") or [None])[0]
-                           or f"laura.executive.{fn}")
-                    facts.append(fact(f"{label}: {text}", str(src),
-                                      as_of=it.get("at") or it.get("as_of")))
-                elif isinstance(it, str):
-                    facts.append(fact(f"{label}: {it}", f"laura.executive.{fn}"))
-            if facts:
+            facts.append(fact(f"priority ({p.get('department')}, {p.get('status')}): "
+                              f"{p.get('title')}" + (f" -- {p['reason'][:140]}"
+                                                     if p.get("reason") else ""),
+                              f"laura_priorities:{p.get('key')}",
+                              as_of=p.get("updated_at")))
+            if len(facts) >= 6:
                 break
+        for d in ex.history(db, limit=6):
+            facts.append(fact(f"decision ({d.get('kind')}): {d.get('subject')}",
+                              f"laura_decisions:{d.get('id')}", as_of=d.get("at")))
         return section("executive", title, facts,
-                       reason=None if facts else ("laura.executive " +
-                                                  ("; ".join(why_all) or "returned nothing")))
+                       reason=None if facts else "Laura's executive tick has recorded no "
+                                                 "priority or decision here yet",
+                       sources=["laura_priorities", "laura_decisions"])
 
     return _guard("executive", title, read)
+
+
+def memory(db, principal_session: str, query: str, *, tiers=None) -> dict:
+    """Laura's durable business memory (lane E `laura.memory`), read as the owner.
+
+    The principal is the verified owner session (lane E re-verifies it on every call). Only
+    business tiers exist in that API; there is no private tier to read."""
+    title = "My memory"
+
+    def read():
+        try:
+            from .. import memory as lm
+        except ImportError:
+            return unknown_section("memory", title, "laura.memory not built",
+                                   ["brambleloop.laura.memory"])
+        if not principal_session:
+            return unknown_section("memory", title, "no owner session to read memory as",
+                                   ["brambleloop.laura.memory"])
+        ctx = lm.context(db, lm.Principal.owner(principal_session), query,
+                         tiers=tiers or ("canonical", "brand", "operational", "experience"))
+        facts = []
+        for tier, entries in (ctx.get("tiers") or {}).items():
+            for e in entries[:4]:
+                val = e.get("value")
+                text = val if isinstance(val, str) else (e.get("subject") or str(val))
+                facts.append(fact(f"{tier}/{e.get('key')}: {str(text)[:220]}",
+                                  e.get("ref") or f"laura_memory:{tier}:{e.get('key')}",
+                                  as_of=e.get("updated_at"),
+                                  basis="measured" if e.get("authority") != "summary"
+                                  else "estimated"))
+        return section("memory", title, facts[:10],
+                       reason=None if facts else "no memory entry matches")
+
+    return _guard("memory", title, read)
 
 
 # ---- money -----------------------------------------------------------------------------
