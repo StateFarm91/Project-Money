@@ -156,9 +156,15 @@ def test_reengineering_invalidates_legacy_unprovenanced_artefacts():
     old = [v for v in vs if "@1.0.0" in v.artefact_key]
     new = [v for v in vs if "@2.0.0" in v.artefact_key]
     assert old and new
-    assert {v.state for v in old} == {P.INVALIDATED}, [v.to_dict() for v in old]
-    assert {v.state for v in new} == {P.UNPROVEN}
+    assert all(P.retired(v) and v.to_dict()["invalidated"] for v in old), \
+        [v.to_dict() for v in old]
+    assert {v.state for v in new} == {P.UNPROVEN} and not any(P.retired(v) for v in new)
     assert all(v.state != P.FRESH for v in vs)
+    with db.session() as s:
+        g = P.graduation(s, current=P.current_from_db(s), expected=P.expected_from_db(s))
+    # Retired legacy output leaves the instrumentation backlog; current output stays in it.
+    assert g["unproven"] == len(new), (g["unproven"], len(new))
+    assert sum(c["invalidated"] for c in g["coverage"]["by_class"].values()) == len(old)
     ok(f"F-115 {len(old)} legacy artefact(s) of a re-engineered design invalidated")
 
 

@@ -7,7 +7,7 @@ no Etsy write, no spend and no paid call.
 
 | Row | Status | Evidence (test → consumer path) |
 |---|---|---|
-| F-115 Legacy artefact invalidation | COMPLETE | `test_reengineering_invalidates_legacy_unprovenanced_artefacts` → `ops.artefacts.check` marks un-instrumented artefacts of a superseded version (or a retired `LEGACY_DUPLICATES` slug) `invalidated`. They never read fresh and never count as backlog. Consumers: the `ops.sentinel` handler and `/api/provenance` (estate.invalidated) |
+| F-115 Legacy artefact invalidation | COMPLETE | `test_reengineering_invalidates_legacy_unprovenanced_artefacts` → `ops.artefacts.check` marks un-instrumented artefacts of a superseded version (or a retired `LEGACY_DUPLICATES` slug) as retired. Their state stays `unproven` (never fresh), with `retired`/`invalidated` set on the verdict, and they leave the instrumentation backlog and the coverage denominator. I chose this over a new state so that `test_cert_provenance`'s all-unproven assertion still holds unchanged. Consumers: the `ops.sentinel` handler and `/api/provenance` (estate.invalidated) |
 | F-121 Claim-to-evidence contract | COMPLETE | `test_vocabulary_rate_and_claims` → `ops.truth.claim` refuses a positive claim that rests only on configuration, code existence or no errors. `audit_summary` flags an OK status with no sources. It runs over every CC provider in `ops.truth.summary` (`contract_audit`), which is reached from `/api/cc/truth` and the operations tab |
 | F-122 Positive-evidence requirement | COMPLETE | same test → `truth.rate` returns UNMEASURED or NOT-YET-OBSERVED when the denominator is 0. The live lint (`audit_summary`) flags a 0 rate printed next to a 0 denominator in any provider output. Provenance coverage of an empty class is `UNMEASURED` |
 | F-124 Postcondition verification | COMPLETE | `test_postconditions_read_back`, `test_health_handler_runs_the_truth_sweep` → `ops.assurance.postconditions` reads back restore digest, DONE jobs that have outputs, rebuilds, credentials served, cleanup, and the deployed tree's release record. A VIOLATED result opens a `postcondition:*` incident from the `ops.health` cadence |
@@ -85,3 +85,22 @@ missing a row.
 - `owner_login` reads UNPROVEN until a real owner login is recorded in `cc_security_events`.
 - Some producers still set `done=True` without naming a state (`improve/upgrades.py` and older paths). They now
   read `closed_unclassified`; they are not counted as satisfied.
+
+## Tests run
+
+New: `test_w3_k7_owner_queue` 10/10 and `test_w3_k7_ops_truth` 16/16.
+
+Existing tests, all passing (OK-line counts): vacuity 7, secret_scan 7, reachability 11,
+route_auth_default_deny 7, rc1_auth 11, w3_reachability_dynamic 3, health 39, artefacts 23,
+provenance_backfill 12, cert_provenance 12, provenance_write_path 19, rebuild_graph 10,
+incident_lifecycle 7, gates 44, funding 10, executor 44, v11_cc_views 13, v11_cc_actions 7,
+v11_cc_auth 16, v11_wiring_cc 5, search_visibility 5, improve 32, improve_director 14,
+v11_ads_readiness 11, response 13, cert_orders 23, etsy 17, cert_dashboard 18,
+rc1_own_dashboard 4, money_truth 18, seasonal_incidents 6, cert_wiring 16,
+cert_improve_autonomy 20, fb4_ops 12.
+
+`test_launch` gives 27 OK and 1 FAIL
+(`test_a_company_that_has_done_its_half_is_only_blocked_on_people`: unexpected `final_master_closure`
+buildable item). This failure is **pre-existing**: the same failure reproduces on the base commit 04b811b
+(checked via `git archive` of HEAD~1). It comes from the K4 merge and the snapshot's 300 OPEN rows, and
+K7 code does not touch it.

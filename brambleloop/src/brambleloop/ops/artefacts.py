@@ -96,10 +96,14 @@ STALE = "stale"
 UNPROVEN = "unproven"          # no provenance row at all, which is not the same as fresh
 # F-115 / F-167 (wave-3 K7): an un-instrumented artefact describing a release the product has
 # since been re-engineered past (or a retired legacy-duplicate slug) is not a backlog item to
-# fingerprint later: it is legacy output of a superseded design, invalidated and retired. It
-# never reads fresh, never counts toward the instrumentation backlog, and is listed.
+# fingerprint later: it is legacy output of a superseded design, invalidated and retired. Its
+# state stays `unproven` (it is still never fresh) and the verdict carries `retired` = why; it
+# leaves the instrumentation backlog and the coverage denominator, and is listed apart.
 INVALIDATED = "invalidated"
-STATES_ALL = (FRESH, STALE, UNPROVEN, INVALIDATED)
+
+
+def retired(v) -> bool:
+    return v.state == UNPROVEN and bool(getattr(v, "retired", ""))
 _VERSIONED_KEY = re.compile(r"^(?P<slug>[^@:#]+)@(?P<version>[^#]+)")
 GRADUATION_ACTION = "provenance.class_graduated"
 
@@ -424,11 +428,13 @@ class Verdict:
     moved: tuple[str, ...] = ()
     unknown: tuple[str, ...] = ()
     why: str = ""
+    retired: str = ""
 
     def to_dict(self) -> dict:
         return {"artefact_class": self.artefact_class, "artefact_key": self.artefact_key,
                 "product_slug": self.product_slug, "state": self.state,
-                "moved": list(self.moved), "unknown": list(self.unknown), "why": self.why}
+                "moved": list(self.moved), "unknown": list(self.unknown), "why": self.why,
+                **({"retired": self.retired, "invalidated": True} if self.retired else {})}
 
 
 def record(db, *, artefact_class: str, artefact_key: str, product_slug: str,
@@ -552,8 +558,8 @@ def check(db, *, current: dict[str, str],
             continue
         why_retired = superseded(artefact_key, slug)
         if why_retired:
-            verdicts.append(Verdict(artefact_class, artefact_key, slug, INVALIDATED,
-                                    why=why_retired))
+            verdicts.append(Verdict(artefact_class, artefact_key, slug, UNPROVEN,
+                                    why=why_retired, retired=why_retired))
             continue
         verdicts.append(Verdict(
             artefact_class, artefact_key, slug, UNPROVEN,
@@ -609,10 +615,10 @@ def coverage(verdicts: list[Verdict]) -> dict:
     for cls in ARTEFACT_CLASSES:
         vs = [v for v in verdicts if v.artefact_class == cls]
         rowed = sum(1 for v in vs if v.state in (FRESH, STALE))
-        denom = rowed + sum(1 for v in vs if v.state == UNPROVEN)
+        denom = rowed + sum(1 for v in vs if v.state == UNPROVEN and not retired(v))
         out[cls] = {"numerator": rowed, "denominator": denom,
                     "ratio": round(rowed / denom, 4) if denom else "UNMEASURED",
-                    "invalidated": sum(1 for v in vs if v.state == INVALIDATED)}
+                    "invalidated": sum(1 for v in vs if retired(v))}
     num = sum(c["numerator"] for c in out.values())
     den = sum(c["denominator"] for c in out.values())
     return {"by_class": out, "numerator": num, "denominator": den,
@@ -676,7 +682,7 @@ def sweep(db, *, current: dict[str, str],
     from ..core.models import Incident
 
     verdicts = check(db, current=current, expected=expected)
-    bad = [v for v in verdicts if v.state in (STALE, UNPROVEN)]
+    bad = [v for v in verdicts if v.state in (STALE, UNPROVEN) and not retired(v)]
     # F-162: in a class whose graduation was declared, absence is release-blocking.
     graduated = set(graduated_classes(db))
 
@@ -709,7 +715,7 @@ def sweep(db, *, current: dict[str, str],
         if blocking:
             blocked.add(verdict.product_slug)
 
-    unproven = [v for v in verdicts if v.state == UNPROVEN
+    unproven = [v for v in verdicts if v.state == UNPROVEN and not retired(v)
                 and v.artefact_class not in graduated]
     backlog_signature = f"{SENTINEL_SIGNATURE}:backlog"
     backlog_row = db.scalar(select(Incident)
@@ -767,9 +773,9 @@ def sweep(db, *, current: dict[str, str],
                               if v.state == UNPROVEN}),
         "enforcing_unproven": block_unproven,
         "graduated_classes": sorted(graduated),
-        "invalidated": sum(1 for v in verdicts if v.state == INVALIDATED),
+        "invalidated": sum(1 for v in verdicts if retired(v)),
         "retired": sorted({(v.artefact_class, v.artefact_key) for v in verdicts
-                           if v.state == INVALIDATED}),
+                           if retired(v)}),
         "coverage": coverage(verdicts),
         "verdicts": [v.to_dict() for v in verdicts],
         "note": ("an artefact with no provenance is unproven rather than fresh, because it "
@@ -789,7 +795,7 @@ def graduation(db, *, current: dict[str, str],
     condition is a count rather than a judgement, so it can be checked rather than argued.
     """
     verdicts = check(db, current=current, expected=expected)
-    unproven = [v for v in verdicts if v.state == UNPROVEN]
+    unproven = [v for v in verdicts if v.state == UNPROVEN and not retired(v)]
     cov = coverage(verdicts)
     declared = graduated_classes(db)
     return {
@@ -1026,7 +1032,7 @@ def summary(db, *, current: dict[str, str], expected) -> dict:
                    "fresh": sum(1 for v in verdicts if v.state == FRESH),
                    "stale": sum(1 for v in verdicts if v.state == STALE),
                    "unproven": sum(1 for v in verdicts if v.state == UNPROVEN),
-                   "invalidated": sum(1 for v in verdicts if v.state == INVALIDATED)},
+                   "invalidated": sum(1 for v in verdicts if retired(v))},
         "coverage": coverage(verdicts),
         "note": ("`unknown_fields` counts rows that could not say a thing rather than rows "
                  "that said it was unknown by accident: a backfilled row carries "
