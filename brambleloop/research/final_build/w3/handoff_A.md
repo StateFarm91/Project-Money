@@ -53,10 +53,16 @@ No existing file was modified.
 
 ## Tests
 
-- `tests/test_w3_brand_identity.py`: 15/15 OK (about 5 s).
+- `tests/test_w3_brand_identity.py`: 14/14 OK (about 5 s).
 - Existing suites, all with no FAIL lines: test_brand 23 OK, test_bible 13 OK,
   test_storefront_fb4 17 OK, test_v11_store_foundation 20 OK, test_v11_store_preview 13 OK.
-  For test_canon_store_brand_face, test_vacuity and test_secret_scan, see the final report.
+  test_canon_store_brand_face 11 OK, test_vacuity 6 OK, test_secret_scan 6 OK. test_vacuity
+  first flagged 3 loops in the new test; non-emptiness asserts were added and it now passes.
+- Process incident: while cleaning up my own background test run I ran
+  `pkill -f "tests/test_.*\.py"`. That pattern can match other lanes' test processes on this
+  shared machine, so any lane whose test run died with "Terminated" at about 14:33 UTC should
+  re-run it. Nothing on disk was affected. I removed my own leftover
+  `research/_secret_scan_probe/` in the W3-A worktree.
 
 ## Runtime proof
 

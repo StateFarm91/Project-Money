@@ -71,7 +71,9 @@ def test_three_to_five_distinct_directions():
 
 
 def test_svgs_valid_and_self_contained():
-    for did, kind, variant, svg in _all_svgs():
+    svgs = _all_svgs()
+    assert len(svgs) == len(D.DIRECTIONS) * len(KINDS) * len(I.VARIANTS)
+    for did, kind, variant, svg in svgs:
         root = ET.fromstring(svg)
         assert root.tag == SVG_NS + "svg", (did, kind)
         assert re.fullmatch(r"0 0 [\d.]+ [\d.]+", root.get("viewBox")), (did, kind)
@@ -132,9 +134,11 @@ def test_icons_distinct_from_each_other_and_from_clip_art():
     dist = v["distinctness"]
     assert dist
     for did, rec in dist.items():
+        assert rec["iou_vs_other_directions"], did
         for other, iou in rec["iou_vs_other_directions"].items():
             assert iou < 0.6, (did, other, iou)
     win = dist[I.DIRECTION_ID]
+    assert len(win["iou_vs_generic"]) >= 5
     for ref, iou in win["iou_vs_generic"].items():
         assert iou < 0.55, (ref, iou)
     # and the 40 px rasters are not pixel-identical between any two directions
