@@ -25,6 +25,7 @@ Deterministic; no model, no network. Deterministic validation wins even if every
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from ..commerce import seo as seo_mod
@@ -38,6 +39,31 @@ THIRD_PARTY_BRANDS = (
     "lion brand", "red heart", "bernat", "paintbox", "caron", "loops and threads",
     "hooked", "we are knitters", "yarnspirations",
 )
+
+
+def canonical(text: str) -> str:
+    """NFKC-normalise and drop format (Cf) characters such as zero-width spaces.
+
+    `ｄｉｓｎｅｙ` becomes `disney` and `b<ZWSP>est` becomes `best`, so every word check below
+    reads the term a buyer reads (J-product P-1).
+    """
+    folded = unicodedata.normalize("NFKC", text or "")
+    return "".join(c for c in folded if unicodedata.category(c) != "Cf")
+
+
+def _untraceable_content(term: str) -> list[str]:
+    """Content `words()` cannot see: non-Latin letters, symbols, emoji. Refused, never passed."""
+    out: list[str] = []
+    for c in canonical(term):
+        cat = unicodedata.category(c)
+        if c.isascii() and (c.isalnum() or c.isspace()):
+            continue
+        if cat.startswith("L") and unicodedata.name(c, "").startswith("LATIN"):
+            # Accented Latin letters still need to trace; `words()` drops them, so flag.
+            out.append(c)
+        elif cat.startswith(("L", "N", "S")) or cat in ("Co", "Cn"):
+            out.append(c)
+    return sorted(set(out))
 
 
 def _norm(text: str) -> str:
@@ -110,7 +136,18 @@ def check_term(term: str, facts: ProductFacts, *, competitors: list[str] | None 
     from ..commerce import search as search_mod
 
     findings: list[str] = []
+    raw = term
+    term = canonical(term)
+    if term != raw:
+        findings.append(f"TERM_UNTRACEABLE: {raw!r} is written in compatibility or zero-width "
+                        f"characters (normalises to {term!r}); write the plain form")
+    odd = _untraceable_content(term)
+    if odd:
+        findings.append(f"TERM_UNTRACEABLE: {raw!r} contains {odd}, which no CIR attribute or "
+                        f"verified product fact of {facts.slug} can trace")
     norm = _norm(term)
+    if term.strip() and not norm.split():
+        findings.append(f"TERM_UNTRACEABLE: {raw!r} has no traceable word")
     padded = f" {norm} "
     squashed = _squash(term)
     material_text = _norm(" ".join(facts.materials))
@@ -148,7 +185,7 @@ def check_term(term: str, facts: ProductFacts, *, competitors: list[str] | None 
         if src is None and w not in STOPWORDS:
             findings.append(f"TERM_UNTRACEABLE: {w!r} in {term!r} is not traceable to any "
                             f"CIR attribute or verified product fact of {facts.slug}")
-    return TermVerdict(term=term, ok=not findings, findings=findings, trace=trace)
+    return TermVerdict(term=raw, ok=not findings, findings=findings, trace=trace)
 
 
 def validate_listing(title: str, tags: list[str], facts: ProductFacts, *,

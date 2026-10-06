@@ -61,6 +61,20 @@ def _verified_activation_grant(listing_id: str):
                      listing_id=listing_id)
 
 
+def _verified_publication_grant():
+    """J-product P-5: create_draft/upload_image/delete_listing require the owner's grant at
+    the client. Stubbed as verified for tests of the HTTP sequence only (same pattern as
+    `_verified_activation_grant`); the real verification is tests/test_rc1_auth.py and
+    tests/test_r2_product_client_grant.py."""
+    from brambleloop.integrations.etsy import OwnerGrant
+
+    class _Verified(OwnerGrant):
+        def refusal(self, *, action, listing_id=""):
+            return None if action == self.action else "grant does not cover this call"
+
+    return _Verified(None, action=OwnerGrant.PUBLISH, approval_id=1, slug="s", version="1")
+
+
 def _client(fake: FakeEtsy, *, phase: str = "shadow", owner: bool = False,
             shadow_writes: bool = True, token: str = "111.live-token",
             provider: object | None = None) -> EtsyClient:
@@ -497,9 +511,11 @@ def test_activation_refuses_without_a_launch_authorisation_even_when_everything_
     """
     with FakeEtsy() as fake:
         client = _client(fake, phase="production", owner=True, shadow_writes=False)
-        listing_id = client.create_draft(build_payload(**PAYLOAD))
+        listing_id = client.create_draft(build_payload(**PAYLOAD),
+                                         grant=_verified_publication_grant())
         client.upload_image(listing_id, filename="cover.png",
-                            data=etsy_probe.one_pixel_png())
+                            data=etsy_probe.one_pixel_png(),
+                            grant=_verified_activation_grant(listing_id))
         before = len([r for r in fake.requests if r["operation"] == "updateListing"])
         try:
             client.activate(listing_id)
@@ -521,7 +537,8 @@ def test_activation_refuses_a_listing_with_no_image_before_spending_anything():
     """
     with FakeEtsy() as fake:
         client = _client(fake, phase="production", owner=True, shadow_writes=False)
-        listing_id = client.create_draft(build_payload(**PAYLOAD))
+        listing_id = client.create_draft(build_payload(**PAYLOAD),
+                                         grant=_verified_publication_grant())
         try:
             client.activate(listing_id, launch_authorisation="LAUNCH-0-TEST",
                             grant=_verified_activation_grant(listing_id))
@@ -544,16 +561,19 @@ def test_activation_works_when_it_is_authorised_which_is_why_the_gates_matter():
     """
     with FakeEtsy() as fake:
         client = _client(fake, phase="production", owner=True, shadow_writes=False)
-        listing_id = client.create_draft(build_payload(**PAYLOAD))
+        listing_id = client.create_draft(build_payload(**PAYLOAD),
+                                         grant=_verified_publication_grant())
         client.upload_image(listing_id, filename="cover.png",
-                            data=etsy_probe.one_pixel_png())
+                            data=etsy_probe.one_pixel_png(),
+                            grant=_verified_activation_grant(listing_id))
         client.attach_file(listing_id, filename="pattern.pdf", data=b"%PDF-1.7 bytes")
         client.activate(listing_id, launch_authorisation="LAUNCH-0-TEST",
                             grant=_verified_activation_grant(listing_id))
         assert client.get_listing(listing_id)["state"] == "active"
         # And the safety on deletion holds: an active listing is not a draft.
         try:
-            client.delete_listing(listing_id, expect_states=("draft",))
+            client.delete_listing(listing_id, expect_states=("draft",),
+                                  grant=_verified_activation_grant(listing_id))
         except EtsyNotPermitted as e:
             assert "'active'" in str(e), e
         else:

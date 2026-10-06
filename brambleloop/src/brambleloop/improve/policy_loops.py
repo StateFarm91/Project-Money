@@ -263,13 +263,29 @@ def active(db, key: str) -> dict:
         payload = json.loads(row.get("payload") or "{}")
     except (TypeError, ValueError):
         payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
     bad = invariants.check_payload(payload, tunable=lp.tunable())
+    # J-product P-6: read by the same canonical key the guard checked, so an alias spelling
+    # ("Min-Shared") neither raises KeyError in a consumer nor bypasses the guard.
+    canon, _twins = invariants.canonical_payload(payload)
+    param = invariants.canonical_key(lp.param)
+    if not bad and param not in canon:
+        bad = [invariants.Verdict(False, lp.param, "undeclared_surface",
+                                  f"the registry payload does not name {lp.param!r}")]
+    value = None
+    if not bad:
+        try:
+            value = _num(lp, canon[param])
+        except Exception as exc:  # noqa: BLE001 - a malformed incumbent falls back, never breaks
+            bad = [invariants.Verdict(False, lp.param, "malformed_value",
+                                      f"registry value unreadable: {type(exc).__name__}")]
     if bad:
         return {"loop": key, "param": lp.param, "value": _num(lp, lp.default),
                 "config_id": None, "version": None, "source": "code_default",
                 "refused_registry_value": {"config_id": row["config_id"],
                                            "why": bad[0].reason}}
-    return {"loop": key, "param": lp.param, "value": _num(lp, payload[lp.param]),
+    return {"loop": key, "param": lp.param, "value": value,
             "config_id": row["config_id"], "version": row["version"], "source": "registry"}
 
 
@@ -1004,6 +1020,9 @@ def submit(db, key: str, params_to: dict, *, proposed_by: str,
     bad = invariants.check_payload(params_to, tunable=lp.tunable())
     if bad:
         return refuse(db, key, params_to, bad, proposed_by=proposed_by)
+    # Guarded; now read by the canonical key (an alias spelling of the declared param).
+    canon, _twins = invariants.canonical_payload(params_to)
+    params_to = {lp.param: canon[invariants.canonical_key(lp.param)]}
     rows, short = _dataset(db, lp)
     if short:
         pid = _record(db, key, NO_GAIN, proposed_by=proposed_by, params_from={},

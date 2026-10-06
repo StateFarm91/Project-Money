@@ -333,6 +333,33 @@ def offending_characters(text: str, categories: tuple[str, ...], extra: str) -> 
     return bad
 
 
+def _normalisation_problems(text: str, where: str) -> list[str]:
+    """Characters that disguise a word from every downstream word check (J-product P-1).
+
+    A fullwidth `ｄｉｓｎｅｙ` or `ＢＥＳＴ` is letters to Etsy's character set and invisible to
+    every ASCII word check in this system (IP terms, superlatives, competitor names), so it is
+    refused here: NFKC must leave the text unchanged (apart from the allowed marks). A letter
+    outside the Latin script (`最佳`) cannot be traced to any product fact this shop holds and
+    no check here can read it, so it is refused rather than passed.
+    """
+    problems: list[str] = []
+    compat = sorted({c for c in text if c not in _MARKS
+                     and unicodedata.normalize("NFKC", c) != c})
+    if compat:
+        problems.append(
+            f"{where}_COMPATIBILITY_FORM: {compat} normalise (NFKC) to "
+            f"{[unicodedata.normalize('NFKC', c) for c in compat]}; write the plain form so "
+            f"the IP, claim and competitor checks can read it")
+    foreign = sorted({c for c in unicodedata.normalize("NFKC", text)
+                      if unicodedata.category(c) in _LETTER
+                      and not unicodedata.name(c, "").startswith("LATIN")})
+    if foreign:
+        problems.append(
+            f"{where}_UNTRACEABLE_SCRIPT: {foreign} are letters outside the Latin script; "
+            f"no product fact or claim check covers them, so they are refused")
+    return problems
+
+
 def title_problems(title: str) -> list[str]:
     """Etsy's two rules about a title's characters, checked separately because they differ.
 
@@ -351,6 +378,7 @@ def title_problems(title: str) -> list[str]:
             problems.append(
                 f"TITLE_REPEATED_SYMBOL: {char!r} appears {count} times and Etsy allows it "
                 f"once in a title")
+    problems.extend(_normalisation_problems(title, "TITLE"))
     return problems
 
 
@@ -362,6 +390,7 @@ def tag_problems(tags: list[str]) -> list[str]:
             problems.append(
                 f"TAG_CHARACTERS: {tag!r} contains {bad}; Etsy allows letters, numbers, "
                 f"whitespace, hyphen and apostrophe in a tag")
+        problems.extend(_normalisation_problems(tag, "TAG"))
     return problems
 
 

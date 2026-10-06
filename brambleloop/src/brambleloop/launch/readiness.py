@@ -476,14 +476,28 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
     # reported beside the count rather than inside it. The same rule the publish path refuses
     # on (`publish.eligibility.legacy_status`), so the readiness report cannot count a
     # product the publish gate would refuse.
+    #
+    # J-product P-2: the floor counts PRODUCTS, not sizes. A basket sold in three sizes is one
+    # product (three CIR slugs, one Launch-0 candidate); the Master defines no rule that makes
+    # a size a separate product, so sizes collapse onto their product here exactly as
+    # `store_foundation.readiness` counts them.
     counted, legacy_uncleared = _launch_scope_counts(db, certified)
     listed_in_scope = [l for l in listings if l.product_slug in counted["slugs"]]
+    listed_products = sorted({product_of_slug(l.product_slug) for l in listed_in_scope})
+    certified_products = sorted(counted["products"])
     out.append(_build(
         "catalogue_depth",
-        f"at least {MIN_LISTINGS_TO_OPEN} certified launch-scope patterns with listings",
-        len(listed_in_scope) >= MIN_LISTINGS_TO_OPEN
-        and counted["versions"] >= MIN_LISTINGS_TO_OPEN,
-        {"certified_patterns": counted["versions"],
+        f"at least {MIN_LISTINGS_TO_OPEN} certified launch-scope products with listings "
+        f"(sizes are not counted as separate products)",
+        len(listed_products) >= MIN_LISTINGS_TO_OPEN
+        and len(certified_products) >= MIN_LISTINGS_TO_OPEN,
+        {"products_counted": len(certified_products),
+         "products": certified_products,
+         "products_with_listings": listed_products,
+         "counting_rule": ("distinct products: every size/variant CIR slug maps to its "
+                           "Launch-0 candidate (products.launch0.candidate_for_cir); the "
+                           "Master defines no rule that counts sizes as separate products"),
+         "certified_patterns": counted["versions"],
          "certified_in_launch_scope": counted["in_launch_scope"],
          "certified_legacy_recertified": counted["legacy_recertified"],
          "listings": len(listings), "listings_in_scope": len(listed_in_scope),
@@ -903,6 +917,14 @@ def _storefront_items(db) -> list[Requirement]:
     return items
 
 
+def product_of_slug(slug: str) -> str:
+    """The product a CIR slug belongs to: its Launch-0 candidate, else the slug itself."""
+    from ..products import launch0
+
+    cand = launch0.candidate_for_cir(slug or "")
+    return cand.slug if cand is not None else (slug or "")
+
+
 def _launch_scope_counts(db, certified) -> tuple[dict, list[dict]]:
     """Certified versions split into what counts toward launch and legacy that counts zero."""
     from sqlalchemy import select
@@ -913,7 +935,7 @@ def _launch_scope_counts(db, certified) -> tuple[dict, list[dict]]:
     with db.session() as s:
         slug_of = {p.id: p.slug for p in s.scalars(select(Product))}
     counted = {"versions": 0, "in_launch_scope": 0, "legacy_recertified": 0,
-               "slugs": set()}
+               "slugs": set(), "products": set()}
     legacy: list[dict] = []
     for pv in certified:
         slug = slug_of.get(pv.product_id, "")
@@ -923,6 +945,7 @@ def _launch_scope_counts(db, certified) -> tuple[dict, list[dict]]:
             continue
         counted["versions"] += 1
         counted["slugs"].add(slug)
+        counted["products"].add(product_of_slug(slug))
         counted["in_launch_scope" if status["in_launch_scope"] else "legacy_recertified"] += 1
     return counted, legacy
 

@@ -205,8 +205,8 @@ class _Breadcrumbs(EtsyClient):
 
     db: Any = None
 
-    def create_draft(self, payload) -> str:      # type: ignore[override]
-        listing_id = super().create_draft(payload)
+    def create_draft(self, payload, **kw) -> str:      # type: ignore[override]
+        listing_id = super().create_draft(payload, **kw)
         if self.db is not None:
             _audit(self.db, DRAFT_CREATED,
                    {"listing_id": str(listing_id), "title": payload.title,

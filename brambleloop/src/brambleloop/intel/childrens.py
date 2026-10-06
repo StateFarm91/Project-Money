@@ -565,8 +565,8 @@ STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
         # for the other. The statement is about the cot, so it says the thing about the cot.
         text=("This is for supervised, awake use, and it does not belong in an unsupervised "
               "sleep space before 12 months. The American Academy of Pediatrics' 2022 "
-              "recommendations keep soft objects and loose bedding -- blankets, comforters, "
-              "pillows, soft toys -- out of the infant sleep area. Keep this out of the cot, "
+              "recommendations keep soft objects and loose bedding (blankets, comforters, "
+              "pillows, soft toys) out of the infant sleep area. Keep this out of the cot, "
               "and out of reach of a baby who is in one. We know where a soft crocheted "
               "thing in a nursery is most likely to end up, so we say so here rather than "
               "leave it to be assumed."),
@@ -639,7 +639,7 @@ STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
               "laboratory, a Children's Product Certificate, and a tracking label on the "
               "product itself. In Canada it is the Canada Consumer Product Safety Act and, "
               "for a toy, the Toys Regulations SOR/2011-17. We are not your lawyer and this "
-              "is a pointer rather than advice -- and we are not entitled to let you assume "
+              "is a pointer rather than advice, and we are not entitled to let you assume "
               "none of it exists."),
         marker="you become its manufacturer",
         source="cpsc_childrens_product"),
