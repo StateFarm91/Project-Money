@@ -125,7 +125,9 @@ def _verified_publication_grant():
 
     class _Verified(OwnerGrant):
         def refusal(self, *, action, listing_id=""):
-            return None if action == self.action else "grant does not cover this call"
+            # the publication grant also covers completing its own draft (stubbed here)
+            return None if action in (self.action, OwnerGrant.PUBLISH_COMPLETE) \
+                else "grant does not cover this call"
 
     return _Verified(None, action=OwnerGrant.PUBLISH, approval_id=1, slug="s", version="1")
 
@@ -405,7 +407,8 @@ def test_the_client_reads_a_listings_files_through_get_all_listing_files():
                                                 price_cad=9.0, tags=["crochet"],
                                                 materials=["yarn"]),
                                   grant=_verified_publication_grant())
-        client.attach_file(lid, filename="p.pdf", data=b"%PDF" * 10)
+        client.attach_file(lid, filename="p.pdf", data=b"%PDF" * 10,
+                           grant=_verified_publication_grant())
         files = client.get_listing_files(lid)
         assert [(f["filename"], f["size_bytes"]) for f in files] == [("p.pdf", 40)], files
         assert any(r["operation"] == "getAllListingFiles" for r in fake.requests)

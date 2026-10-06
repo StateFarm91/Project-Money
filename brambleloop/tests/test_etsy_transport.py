@@ -566,7 +566,8 @@ def test_activation_works_when_it_is_authorised_which_is_why_the_gates_matter():
         client.upload_image(listing_id, filename="cover.png",
                             data=etsy_probe.one_pixel_png(),
                             grant=_verified_activation_grant(listing_id))
-        client.attach_file(listing_id, filename="pattern.pdf", data=b"%PDF-1.7 bytes")
+        client.attach_file(listing_id, filename="pattern.pdf", data=b"%PDF-1.7 bytes",
+                           grant=_verified_activation_grant(listing_id))
         client.activate(listing_id, launch_authorisation="LAUNCH-0-TEST",
                             grant=_verified_activation_grant(listing_id))
         assert client.get_listing(listing_id)["state"] == "active"

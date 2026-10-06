@@ -41,3 +41,18 @@ cert_rebuild_chain 10, disclosed_certified_upload 7, draft_creation_durability 6
 - Drafted descriptions still trip `TRUTH_SAFETY_CERT` on the regulator citation "CPSC" in the
   mandated children's safety text (pre-existing on ddf9c6e; descriptions are not truth-linted
   by any gate). Not changed.
+
+## Follow-up (integrator request after merge 9e19823)
+`attach_file`, `update_listing`, `set_listing_property` now pass `_authorise_write` like
+create_draft: verified OwnerGrant or the shadow lane under a re-resolved non-publishing phase.
+A publication grant may complete (`OwnerGrant.PUBLISH_COMPLETE`) only the draft it created:
+phase re-resolved, kill-switch on, the Listing row for slug@version bound to the grant's release
+AND recording that exact Etsy listing id, and the sealed grant unrevoked/unexpired/for this
+release (publication_authority's checks minus the pre-creation content digest). An activation
+grant covers only its own listing. `runtime/pipeline.py` passes `grant=` to its
+set_listing_property / attach_file calls; `publish()` attaches its first file through private
+`_attach_file`. etsy_probe/etsy_exercise use the shadow lane (unchanged). New test
+`test_r2_product_listing_writes` (5; fails on ddf9c6e, passes here). Fixture-only updates:
+test_etsy_transport, test_rc1_auth, test_etsy_readback_observe (stub also covers completion),
+test_disclosed_certified_upload / test_draft_creation_durability (fakes alias `_attach_file`).
+The previously open P-5 item is closed.

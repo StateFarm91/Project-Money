@@ -347,7 +347,8 @@ def test_D3_client_activate_requires_a_validated_grant_object():
                                       grant=_verified_publication_grant())
             client.upload_image(lid, filename="cover.png", data=etsy_probe.one_pixel_png(),
                                 grant=_verified_activation_grant(lid))
-            client.attach_file(lid, filename="pattern.pdf", data=b"%PDF-1.7 bytes")
+            client.attach_file(lid, filename="pattern.pdf", data=b"%PDF-1.7 bytes",
+                               grant=_verified_activation_grant(lid))
             # the audit's read-only repro: any non-empty string used to pass
             for grant in (None, "x", 1):
                 try:

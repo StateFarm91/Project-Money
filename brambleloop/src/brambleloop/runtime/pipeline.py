@@ -1729,20 +1729,24 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
             payload=payload, docs=docs, listing_images=listing_images,
             reserved_digest=content_digest, stage="before_create")
 
-    try:
-        from ..integrations.etsy import OwnerGrant
+    from ..integrations.etsy import OwnerGrant
 
+    def _publication_grant():
+        # One grant, resolved anew by the client at every effect boundary (rc1-AUTH D3;
+        # J-product P-5: post-create writes complete only the draft this grant created).
+        return OwnerGrant(ctx.db, action=OwnerGrant.PUBLISH,
+                          approval_id=(ctx.job.inputs or {}).get(
+                              "owner_publication_approval_id"),
+                          slug=slug, version=version, release=release)
+
+    try:
         outcome = client.publish(payload=payload,
                                  filename=f"{slug}-{pattern_filename('US')}",
                                  data=doc.pdf_bytes, images=listing_images["images"],
                                  before_create=before_create,
                                  # rc1-AUTH D3: the client re-verifies the sealed grant and
                                  # the live phase itself, immediately before the create.
-                                 grant=OwnerGrant(
-                                     ctx.db, action=OwnerGrant.PUBLISH,
-                                     approval_id=(ctx.job.inputs or {}).get(
-                                         "owner_publication_approval_id"),
-                                     slug=slug, version=version, release=release),
+                                 grant=_publication_grant(),
                                  on_created=lambda remote_id: draft_intent.checkpoint(
                                      ctx.db,intent_key,intent_token,remote_id))
     except BaseException:
@@ -1776,7 +1780,8 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     if outcome.listing_id:
         for prop in payload.properties:
             try:
-                client.set_listing_property(outcome.listing_id, prop)
+                client.set_listing_property(outcome.listing_id, prop,
+                                            grant=_publication_grant())
             except (TransientError, PermanentError) as e:
                 extra_problems.append(f"listing property {prop['property_id']} write failed: {e}")
 
@@ -1786,7 +1791,7 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                 extra_files[terminology] = client.attach_file(
                     outcome.listing_id,
                     filename=f"{slug}-{pattern_filename(terminology)}",
-                    data=docs[terminology].pdf_bytes)
+                    data=docs[terminology].pdf_bytes, grant=_publication_grant())
             except (TransientError, PermanentError) as e:
                 extra_files[terminology] = False
                 extra_problems.append(
