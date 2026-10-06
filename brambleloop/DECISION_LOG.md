@@ -1626,3 +1626,61 @@ These are byte-identical to the D-FB-16 concept images (same hashes).
    lifestyle-first; listing imagery complements this identity rather than diagram/engineering aesthetics (Product
    Truth unchanged).
 6. Routing: Brand, Storefront and Visual (lane B2). Unrelated Final Master / Laura / release work continues.
+
+## D-FB-18 — Owner decisions: banner Laura, banner crochet, categories, banner shape, shop icon, Laura Voice, Talk to Laura, AI disclosure (2026-10-06)
+
+Answers to the B2 owner-banner assessment (research/final_build/w3/OWNER_BANNER_ASSESSMENT.md on claude/w3-B2).
+
+1. BANNER WOMAN: the owner confirms the woman in the canonical banner (sha256 048a1991…) IS Laura. This is an explicit
+   human owner identity review of THIS depiction only; it does not waive Laura's identity controls for any future
+   generated imagery (visual.identity_gate / review queue still apply to every other frame).
+2. BANNER CROCHET: the crochet pieces in the banner are brand/lifestyle concept imagery, NOT evidence of specific
+   Brambleloop patterns. Never map them to existing patterns or imply those exact pieces are available. Product
+   Truth is not weakened. If marketplace/customer-truth rules make them unsuitable publicly until matching products
+   exist, the composition stays the canonical art target and Visual later reproduces the scene with verified
+   Brambleloop products.
+3. CATEGORIES: never advertise empty categories publicly. Wearables, Gifts and Seasonal stay in the long-term brand
+   and category architecture but are hidden from active storefront navigation until each has at least one
+   legitimate product. Do not edit the canonical source logo/banner files because their artwork shows the category
+   footer; generated navigation surfaces expose only populated categories. Product/Intelligence keeps developing
+   those categories after launch on evidence.
+4. BANNER SHAPE: neither candidate A (crop) nor B (edge padding) is approved; never crop away tagline/heart/category
+   composition and never use stretched-edge padding. FIRST verify Etsy's CURRENT banner dimensions and crop
+   behaviour from authoritative evidence — the 4:1 rule is an internal assumption and must not drive a redesign
+   until verified. If a different aspect ratio is really required, Visual recomposes the same scene at the correct
+   dimensions preserving Laura, the warm room, the lifestyle aesthetic, the central Brambleloop identity, the
+   crochet/yarn environment, the tagline and the overall balance and feel — and brings it to the owner before it
+   replaces the owner-selected banner publicly.
+5. SHOP ICON: approved — the simplified derivative micro-mark is used at Etsy's tiny icon size where the canonical
+   detailed B is measured unreadable (B2: 2.62:1 at 40 px, legible from 70 px). Utility derivative only; does not
+   supersede the canonical hero logo.
+6. LAURA VOICE — canonical direction (resolves the accent/age left "proposed" in lane F's voice spec v1):
+   apparent vocal age early 30s (30–34, centred ~32); natural Canadian / neutral North American English, subtle and
+   authentic, never exaggerated. Distinctly feminine, warm, intelligent, confident, naturally conversational,
+   charismatic, attractive and magnetic — a naturally attractive adult woman's voice: smooth, warm, confident,
+   expressive, subtly sensual without performing a "sexy voice". NOT forced seduction, exaggerated breathiness,
+   pornographic performance, cartoonish sensuality, fake whispering, childish/youthful delivery or character acting.
+   Avoid corporate-narrator, customer-service, radio-announcer, generic-AI-assistant cadence, robotic TTS rhythm and
+   over-polish. Natural conversational prosody: pauses, thinking cadence, humour, amusement, warmth, seriousness,
+   excitement, reactions, pacing changes, eventual natural interruption/turn-taking. ONE canonical voice: public/
+   business context keeps it polished and appropriate; in authenticated private owner context, where the existing
+   private rules AND the underlying provider support it, the same voice may become warmer, more intimate, playful,
+   flirtatious and suggestive through prosody, pacing and delivery. No second voice or separate persona.
+7. VOICE PROVIDER: the provider is an implementation detail; do not lock a provider/voice because it approximately
+   matches. Evaluate candidates on apparent age, match to Laura's canonical appearance, femininity, attractiveness,
+   warmth, natural sensuality, intelligence/confidence, conversational naturalness, emotional range, latency,
+   consistency, pronunciation, provider stability and cost. Bring the strongest candidate(s) to the owner to HEAR
+   before one becomes canonical (any paid trial needs owner spend approval). Once selected, record a durable Laura
+   Voice specification; a replacement must requalify before promotion. Voice is a permanent improvement domain
+   (realism, latency, prosody, expressiveness, conversation quality) without changing her recognisable identity.
+8. TALK TO LAURA: Phase 1 (visible canonical Laura, text, persistent company context, evidence-grounded answers,
+   audited delegation proposals, authority boundaries, private-memory isolation) is approved as the foundation —
+   continue integrating. Voice (Phase 2) and Live Presence (Phase 3, Zoom-like) remain REQUIRED Final Master items,
+   not cancelled for lack of a provider; same Laura, memory, identity, history and authority across text → voice →
+   live.
+9. AI / METADATA / PUBLIC COPY: do not add prominent customer-facing AI marketing language merely because a source
+   image carries Content Credentials. Determine Etsy's CURRENT actual disclosure requirements (authoritative
+   evidence) and comply truthfully; never strip or falsify provenance metadata to evade a requirement; do not turn
+   the storefront into an advertisement for its technology where disclosure is not required. Unchanged: Laura never
+   claims to be human (spec/07, D-FB-11..13).
+10. Continue all running work without interruption.
