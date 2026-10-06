@@ -204,6 +204,13 @@ def replace_canonical(db, *, new_key: str, redesign_approval: dict,
             "there is no canonical identity to replace. A first selection is "
             "`select_canonical`, and it needs the owner too")
     approval = identity.validate_redesign_approval(redesign_approval, existing=current)
+    # D-FB-11: Laura is retired, replaced, regenerated or altered only on an owner decision
+    # recorded in `canonical.AUTHORISED_IDENTITY_CHANGES` (empty). A well-formed approval
+    # record is not that decision; a portrait repair of her changes her face bytes and is
+    # held to the same rule.
+    from . import canonical
+    canonical.require_identity_change_authorised(redesign_approval, current=current,
+                                                 action="replace_canonical")
 
     with db.session() as s:
         old_row = s.scalar(select(ModelIdentity).where(
@@ -658,6 +665,9 @@ def gate_frames(db, frames: list[dict], *, observer=None) -> dict:
                     "is allowed to shrug is the moment it stops being a check"),
         }
 
+    from . import canonical
+
+    laura = canonical.is_laura(pack)
     blocking: list[str] = []
     results: list[dict] = []
     for frame in modelled:
@@ -674,6 +684,17 @@ def gate_frames(db, frames: list[dict], *, observer=None) -> dict:
                   "observation_error": seen.get("error", "")}
         if verdict["blocks_release"]:
             blocking.append(f"{frame.get('role', '?')}: {verdict['reason'] or 'unverifiable'}")
+        elif laura:
+            # D-FB-11: a woman similar to Laura is not Laura. drift_check passes a face
+            # group on a floor of readable dimensions; for Laura every locked face
+            # dimension must be read as a match.
+            strict = canonical.laura_verdict(verdict.get("dimensions") or {})
+            result["laura"] = strict["verdict"]
+            if strict["blocks"]:
+                result["verdict"] = "fail" if strict["verdict"] == "not_laura" else \
+                    "unverifiable"
+                blocking.append(f"{frame.get('role', '?')}: not confirmed as Laura -- "
+                                f"{strict['why']}")
         # Provenance, for a frame that says what it was conditioned on. The drift check
         # asks whether she looks like the pack; this asks whether the reference she was
         # made from *was* the pack, by hash, and a frame that names its conditioning

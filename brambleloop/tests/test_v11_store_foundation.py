@@ -22,6 +22,8 @@ EXPECTED_SURFACES = {
     "policy_returns", "policy_licence", "policy_privacy", "disclosures", "faq",
     "support_contact", "digital_sale_message", "sections", "opening_grid", "trust_signals",
     "voice", "settings_checklist", "search_readiness", "support_readiness",
+    # D-FB-11: Laura, the brand face, is a Store Foundation surface (GATED, never READY).
+    "brand_face",
 }
 
 FAILS = 0

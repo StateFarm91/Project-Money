@@ -254,6 +254,14 @@ def freeze(db, *, owner_approved: bool, key: str = "brambleloop-canonical",
     verdict = freezable(chosen["package"])
     if not verdict["freezable"]:
         raise FreezeRefused(verdict["why"])
+    # D-FB-11: the canonical identity is Laura as frozen from build v15. A (re-)freeze may
+    # reproduce that build -- e.g. into an empty database -- and nothing else without an
+    # owner decision authorising a change to her.
+    from . import canonical
+    try:
+        canonical.require_frozen_build(chosen["pack_version"])
+    except canonical.CanonRefused as exc:
+        raise FreezeRefused(str(exc)) from exc
 
     _refuse_an_unphotographic_pack(db, chosen["package"], judger=realism_judger)
 
@@ -569,9 +577,14 @@ def forbidden_reference_hashes() -> frozenset[str] | None:
     """
     from . import brief, identity
 
+    from . import canonical
+
     try:
-        return frozenset(str(e["sha256"]).lower() for e in brief.asset_manifest()
-                         if e.get("role") in (brief.SUPERSEDED_BODY, brief.OWNER_CONCEPT))
+        top = frozenset(str(e["sha256"]).lower() for e in brief.asset_manifest()
+                        if e.get("role") in (brief.SUPERSEDED_BODY, brief.OWNER_CONCEPT))
+        # D-FB-11: the versioned library's historical frames (v5, v6) are evidence of Laura,
+        # never a reference for her.
+        return top | canonical.forbidden_hashes()
     except identity.IdentityRefused:
         return None
 

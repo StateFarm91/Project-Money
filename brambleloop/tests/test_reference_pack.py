@@ -678,6 +678,11 @@ def test_the_approval_question_reopens_while_a_ready_pack_is_waiting():
                 output_tokens = 1
             return R()
 
+    # D-FB-11: only the approved v15 build of Laura can ever be (re-)frozen; a build under
+    # the current procedure label (v16-...) is refused (tests/test_canon_manifest.py proves
+    # it). This test is about the row's lifecycle, so the fixture is labelled as the
+    # approved build rather than asking the freeze to promote a new body.
+    package["pack_version"] = freeze_mod.OWNER_APPROVAL["approved_pack_version"]
     freeze_mod.freeze(db, owner_approved=True, package=package,
                       realism_judger=_Sound())
     release._reconcile_canonical_model_action(db)
