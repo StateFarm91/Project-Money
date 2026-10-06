@@ -260,10 +260,17 @@ def _visual_item(item: dict) -> tuple[str, str] | None:
     # Visual R&D (W3 lane H): every item is internal and GREEN by contract; one handler,
     # `visual.rnd.cycle`, runs the whole deterministic cycle. Paid challengers never appear as
     # items (they wait for an owner decision), and a provider error is not work.
-    if item.get("green") is not True or item.get("job_type") != "visual.rnd.cycle" or \
-            str(item.get("kind") or "").endswith("provider_error"):
+    # H2 adds hero_calibrate / hero_challenge items (internal, free) run by the same cycle.
+    kind = str(item.get("kind") or "")
+    if item.get("green") is not True or kind.endswith("provider_error") or \
+            "paid" in kind or str(item.get("state") or "") == "GATED_SPEND" or \
+            float(item.get("spend_cad") or 0.0) != 0.0 or item.get("external_effect"):
         return None
-    return "visual.rnd.cycle", str(item.get("key") or item.get("kind"))
+    if item.get("job_type") == "visual.rnd.cycle" or (
+            not item.get("job_type") and kind.split(".")[-1] in ("hero_calibrate",
+                                                                 "hero_challenge")):
+        return "visual.rnd.cycle", str(item.get("key") or kind)
+    return None
 
 
 # department -> [(provider label, module, function, adapter)]

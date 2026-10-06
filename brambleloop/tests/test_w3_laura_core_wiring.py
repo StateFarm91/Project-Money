@@ -81,6 +81,12 @@ def test_visual_provider_feeds_internal_green_work_only():
     assert adapt({**ok, "green": False}) is None
     assert adapt({**ok, "job_type": "visual.provider_trial"}) is None   # a paid/other type
     assert adapt({**ok, "kind": "visual.rnd.provider_error"}) is None
+    hero = {"kind": "visual.rnd.hero_challenge", "key": "visual.rnd.hero_challenge:c:1",
+            "job_type": "visual.rnd.cycle", "green": True}
+    assert adapt(hero) == ("visual.rnd.cycle", hero["key"])
+    assert adapt({**hero, "job_type": None, "kind": "hero_calibrate"})[0] == "visual.rnd.cycle"
+    assert adapt({**hero, "state": "GATED_SPEND"}) is None              # paid stays gated
+    assert adapt({**hero, "spend_cad": 0.4}) is None
     db, _ = boot()
     snap = generators.Snapshot.read(db, datetime.now(timezone.utc))
     cands = generators.provider_candidates(db, charters.BY_KEY["visual"], snap)
