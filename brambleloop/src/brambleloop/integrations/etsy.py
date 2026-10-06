@@ -692,6 +692,45 @@ IMAGE_CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "ima
                        ".gif": "image/gif"}
 
 
+def digital_file_refusals(filename: str, size: int) -> list[str]:
+    """Etsy's published digital-file rules this file breaks (name, type, size), as text.
+
+    From `etsy_constraints` (help article 115015628347): 70 characters of letters, digits,
+    periods, underscores or hyphens; a supported type; 20MB at most. A name Etsy cannot hold
+    is also one it cannot rename later ("We don't have a way of editing the name after
+    uploading"), so it is refused here rather than discovered on the shop.
+    """
+    from .etsy_constraints import digital_file_problems
+
+    return [f["detail"] for f in digital_file_problems([(filename, size)])
+            if f["severity"] == "fail"]
+
+
+def publish_preflight(filename: str, data: bytes, images: list | None) -> list[str]:
+    """Every refusal Etsy's published rules predict for this publish, before anything is sent.
+
+    Only rules Etsy states as requirements fail here; recommendations (2000 px, 1MB) are the
+    listing-asset gate's business and do not stop a draft.
+    """
+    from ..publish.listing_schema import MAX_IMAGES
+
+    problems = digital_file_refusals(filename, len(data or b""))
+    entries = list(images or [])
+    if len(entries) > MAX_IMAGES:
+        problems.append(f"{len(entries)} images; Etsy allows {MAX_IMAGES} per listing")
+    for rank, entry in enumerate(entries, start=1):
+        name = str(entry[0])
+        suffix = name[name.rfind("."):].lower() if "." in name else ""
+        if suffix not in IMAGE_CONTENT_TYPES:
+            problems.append(f"image {rank} ({name}) is not a format Etsy supports for listing "
+                            f"images ({sorted(IMAGE_CONTENT_TYPES)})")
+        alt = entry[2] if len(entry) > 2 else str(getattr(entry, "alt_text", "") or "")
+        if len(alt or "") > ALT_TEXT_MAX:
+            problems.append(f"image {rank} alt text is {len(alt)} characters; Etsy allows "
+                            f"{ALT_TEXT_MAX}")
+    return problems
+
+
 def form_fields(payload: dict[str, Any]) -> dict[str, Any]:
     """Flatten a payload for a form-encoded Etsy write, honouring `ARRAY_ENCODING`.
 
@@ -1237,6 +1276,9 @@ class EtsyClient:
         """The upload itself: through `attach_file` (boundary-checked) or inside `publish`,
         under the grant verified immediately before the draft was created."""
         creds = self._require(Authority.DRAFT_WRITE)
+        refused = digital_file_refusals(filename, len(data))
+        if refused:
+            raise EtsyRejected("; ".join(refused))
         if not data:
             raise EtsyRejected(
                 f"no bytes to upload for {filename}: the pattern file is not available to "
@@ -1387,6 +1429,12 @@ class EtsyClient:
         if not isinstance(grant, OwnerGrant):
             return PublishOutcome(published=False, problems=[
                 _grant_refusal(grant, action=OwnerGrant.PUBLISH)])
+
+        # W3-I: Etsy's published file and image rules, checked before the create so that a
+        # file or image Etsy would refuse cannot leave an orphan draft behind on Etsy.
+        preflight = publish_preflight(filename, data, images)
+        if preflight:
+            return PublishOutcome(published=False, problems=preflight)
 
         if before_create is not None:
             before_create()  # failure aborts before any create request
