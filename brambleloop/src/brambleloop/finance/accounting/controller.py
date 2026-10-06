@@ -52,14 +52,19 @@ def run_cycle(db, *, now: datetime | None = None) -> dict:
     posted_after_match = posting_rules.post_all(db, now=now)
     found = anomalies.detect(db, now=now)
     st = close_mod.status(db, now=now)
-    cl = close_mod.checklist(db, st["previous_period"], now=now) \
+    # The cycle has just matched, posted and detected: the checklist need not refresh again.
+    cl = close_mod.checklist(db, st["previous_period"], now=now, refresh=False) \
         if not st["previous_period_locked"] else None
+    from .ledger import record_anchor
+
+    anchor = record_anchor(db, now=now)
     report = {"at": now.isoformat(), "posting": posted, "matching": matched,
               "posting_after_match": posted_after_match,
               "anomalies": {"findings": len(found["findings"]), "opened": found["opened"]},
               "close": {"period": st["previous_period"],
                         "closable": cl["closable"] if cl else None,
-                        "summary": cl["owner_summary"] if cl else "already locked"}}
+                        "summary": cl["owner_summary"] if cl else "already locked"},
+              "chain_anchor": anchor}
     with db.session() as s:
         key = now.date().isoformat()
         row = s.scalar(select(OperatingReading).where(OperatingReading.kind == CYCLE_KIND,

@@ -430,8 +430,20 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
     whose spend is genuinely shared passes `detail={"attribution": "shared"}` to keep it
     untagged even inside a product job.
     """
+    import math
+
     from ..core.models import CostEntry
 
+    # R2-FIN (audit L2): a cost row is money spent. A negative row would lower the month's
+    # counted spend and re-grant budget under the ceiling; a NaN/inf row cannot be summed.
+    # Both are refused here, before anything is written (a credit is not a cost row).
+    try:
+        amt = float(amount_cad)
+    except (TypeError, ValueError):
+        raise ValueError(f"amount_cad {amount_cad!r} is not a number") from None
+    if not math.isfinite(amt) or amt < 0:
+        raise ValueError(f"amount_cad {amount_cad!r} must be a finite, non-negative CAD "
+                         "amount; a credit or refund is not recorded as a negative cost")
     product_slug, detail = attribution(product_slug, detail)
     if detail.get("shared_override_of"):
         # F1: the override is audited as well as labelled, so "how much product-job spend

@@ -45,8 +45,11 @@ def _money_item(item: dict) -> dict:
                "state": state, "basis": "unknown", "display": state}
     else:
         suffix = "" if state == "MEASURED" else f" ({reading.lower()})"
+        # R2-FIN (audit M6): a `derived` figure (RECORDED here) is arithmetic over other
+        # figures, not a measurement; its basis says so instead of "measured".
         out = {**item, "value_cad": round(float(value), 2), "state": state,
-               "basis": "measured" if state in ("MEASURED", "RECORDED") else state.lower(),
+               "basis": ("measured" if state == "MEASURED" else
+                         "derived" if state == "RECORDED" else state.lower()),
                "display": f"CA${float(value):,.2f}{suffix}"}
     out["provider_reading"] = reading
     out["sources"] = [f"finance.accounting.dashboard:{item.get('metric') or '?'}"]
@@ -68,15 +71,28 @@ def money_section(db) -> dict:
                         if isinstance(i, dict) and i.get("metric") == "profit"
                         and "state" in i), None)
     rev = readers.revenue(db)
-    spent = readers.recorded_spend(db)
+    spent = _spend_with_basis(db, readers.recorded_spend(db))
+    orders = _orders_freshness(db)
+    stale = orders is not None and orders.get("state") == "stale"
+    if stale and rev.get("state") == "MEASURED":
+        # R2-FIN (audit M4): the order source was read, but longer ago than its freshness
+        # bound. The headline is STALE (as of the last read), never MEASURED.
+        rev = {**rev, "value_cad": None, "state": "STALE", "basis": "unknown",
+               "display": "STALE", "stale_value_cad": rev.get("value_cad"),
+               "why": orders.get("why") or "order source read is stale"}
     try:
         from .. import dashboard_truth
 
         src = dashboard_truth._order_source(db)
-        source_health = {"order_source_measured": bool(src.get("measured")),
+        measured = bool(src.get("measured")) and not stale
+        source_health = {"order_source_measured": measured,
+                         "order_source_state": (orders or {}).get("state"),
                          "last_read_at": src.get("last_read_at"),
-                         "why": src.get("why") or "",
-                         "warning": (None if src.get("measured") else
+                         "why": (orders or {}).get("why") if stale else (src.get("why") or ""),
+                         "warning": (None if measured else
+                                     ("order source is STALE: " + str((orders or {}).get("why"))
+                                      + "; revenue, fees and profit are as of that read, not "
+                                      "measured now") if stale else
                                      "order/payment source is not connected-and-read: revenue,"
                                      " fees and profit are UNKNOWN, not CA$0.00")}
     except Exception as exc:  # noqa: BLE001
@@ -95,6 +111,67 @@ def money_section(db) -> dict:
                         "why": acct.get("reason") or "the accountant provider owns profit"}),
             "recorded_spend": spent, "source_health": source_health,
             "reason": acct.get("reason") if acct["status"] == "UNKNOWN" else None}
+
+
+def _orders_freshness(db) -> dict | None:
+    """The accountant's order-source state (measured | stale | never_read | disconnected)."""
+    try:
+        from ...finance.accounting import health as H
+
+        return H.reading(db)["sources"]["orders"]
+    except Exception:  # noqa: BLE001 - unreadable: the caller keeps its own reading
+        return None
+
+
+def _cost_row_bases(db, since: datetime | None = None) -> dict:
+    """CA$ of cost rows per basis (measured | modelled | partial | unknown), from the rows."""
+    from ...core.models import CostEntry
+    from ...finance.listing_costs import cost_basis
+
+    out: dict[str, float] = {}
+    with db.session() as s:
+        q = select(CostEntry)
+        if since is not None:
+            q = q.where(CostEntry.at >= since)
+        for c in s.scalars(q):
+            b = cost_basis(c) or "unknown"
+            out[b] = round(out.get(b, 0.0) + float(c.amount_cad or 0.0), 6)
+    return out
+
+
+def _basis_of(by_basis: dict) -> str:
+    live = {k for k, v in by_basis.items() if v}
+    if not live or live == {"measured"}:
+        return "measured"
+    return "mixed" if "measured" in live else (live.pop() if len(live) == 1 else "mixed")
+
+
+def _spend_with_basis(db, spent: dict) -> dict:
+    """R2-FIN (audit M6): recorded spend's basis is derived from its rows, not hardcoded."""
+    if spent.get("value_cad") is None:
+        return spent
+    try:
+        from ...core.models import LedgerEntry
+
+        by = _cost_row_bases(db)
+        with db.session() as s:
+            for e in s.scalars(select(LedgerEntry).where(
+                    (LedgerEntry.fees_cad > 0) | (LedgerEntry.expense_cad > 0))):
+                fb = (e.fees_basis or "unknown") if e.fees_cad else None
+                if fb:
+                    fb = fb if fb in ("measured", "modelled") else "unknown"
+                    by[fb] = round(by.get(fb, 0.0) + float(e.fees_cad), 6)
+                if e.expense_cad:
+                    eb = e.basis if e.basis in ("measured", "modelled") else "unknown"
+                    by[eb] = round(by.get(eb, 0.0) + float(e.expense_cad), 6)
+    except Exception as exc:  # noqa: BLE001
+        return {**spent, "basis": "unknown",
+                "why": (spent.get("why") or "") + f"; row bases unreadable ({type(exc).__name__})"}
+    basis = _basis_of(by)
+    not_measured = round(sum(v for k, v in by.items() if k != "measured"), 2)
+    return {**spent, "basis": basis, "by_basis_cad": {k: round(v, 4) for k, v in by.items() if v},
+            "display": spent["display"] if basis == "measured" else
+            f"CA${float(spent['value_cad']):,.2f} (recorded; CA${not_measured:,.2f} not measured)"}
 
 
 def money(db) -> dict:
@@ -117,10 +194,36 @@ def money_drill(db, metric: str) -> dict:
             return out if isinstance(out, dict) else {"metric": metric, "rows": out}
         return unknown(why or "drill failed", "finance.accounting.dashboard.drill")
     if metric == "revenue":
-        rev = readers.revenue(db)
+        rev = money_section(db)["revenue"]
         if rev["state"] != "MEASURED":
             return unknown(f"revenue is {rev['state']}: {rev.get('why')}", "readers.revenue",
                            rev["sources"])
+        # R2-FIN (audit L4): the headline's own rows -- measured, reconciled, countable sales
+        # (all time, net of refunds) -- so it can be traced, and said apart from the
+        # accountant's windowed gross_sales.
+        from .. import dashboard_truth
+
+        def read_rev():
+            rows = [r for r in dashboard_truth._sale_rows(db)
+                    if dashboard_truth._reconciled_measured(r)]
+            items = [{"ref": r["ref"], "gross_cad": r["gross"], "refunds_cad": r["refunds"],
+                      "net_cad": round(r["gross"] - r["refunds"], 2), "basis": r["basis"],
+                      "reconciliation": r["recon"], "source": f"ledger:{r['ref']}"}
+                     for r in rows]
+            total = round(sum(i["net_cad"] for i in items), 2)
+            return envelope("OK" if items else "UNKNOWN", items,
+                            [i["source"] for i in items] or ["ledger"],
+                            provider="dashboard_truth.revenue_reading", metric=metric,
+                            value_cad=total, check={"sum_of_rows_cad": total,
+                                                    "headline_cad": rev["value_cad"],
+                                                    "matches": abs(total - (rev["value_cad"] or 0))
+                                                    < 0.005},
+                            note=("headline revenue is all-time measured+reconciled sales net "
+                                  "of refunds; the accountant's gross_sales is the 30-day "
+                                  "accrual gross of every posted sale"),
+                            reason=None if items else "no reconciled measured sale")
+
+        return guard("revenue", read_rev, sources=["ledger"])
     if metric == "recorded_spend":
         from ...core.models import CostEntry
 
@@ -224,16 +327,40 @@ def morning_brief(db, hours: float = 12) -> dict:
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     def spent():
+        from ...finance.listing_costs import cost_basis
+
+        by_kind: dict[str, dict] = {}
         with db.session() as s:
-            rows = list(s.execute(select(CostEntry.kind, func.sum(CostEntry.amount_cad),
-                                         func.count()).where(CostEntry.at >= since)
-                                  .group_by(CostEntry.kind)))
-        items = [{"kind": k or "other", "amount_cad": round(float(v or 0), 4),
-                  "entries": int(n)} for k, v, n in rows]
+            for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
+                k = c.kind or "other"
+                i = by_kind.setdefault(k, {"kind": k, "amount_cad": 0.0, "entries": 0,
+                                           "by_basis_cad": {}})
+                b = cost_basis(c) or "unknown"
+                i["amount_cad"] += float(c.amount_cad or 0.0)
+                i["entries"] += 1
+                i["by_basis_cad"][b] = i["by_basis_cad"].get(b, 0.0) + float(c.amount_cad or 0.0)
+        items = []
+        for i in sorted(by_kind.values(), key=lambda x: x["kind"]):
+            i["amount_cad"] = round(i["amount_cad"], 4)
+            i["by_basis_cad"] = {k: round(v, 4) for k, v in i["by_basis_cad"].items()}
+            i["basis"] = _basis_of(i["by_basis_cad"])
+            items.append(i)
         total = round(sum(i["amount_cad"] for i in items), 2)
+        by: dict[str, float] = {}
+        for i in items:
+            for k, v in i["by_basis_cad"].items():
+                by[k] = by.get(k, 0.0) + v
+        # R2-FIN (audit M6): the total's basis comes from its rows -- a modelled listing fee
+        # or an unknown-basis model call is not "measured" because this system wrote it.
+        basis = _basis_of(by)
+        not_measured = round(sum(v for k, v in by.items() if k != "measured"), 2)
         return envelope("OK", items, ["cost_entries"], provider="cost_entries",
-                        total={"value_cad": total, "state": "RECORDED", "basis": "measured",
-                               "display": f"CA${total:,.2f} (recorded)"})
+                        basis=basis if basis in ("measured", "modelled") else "unknown",
+                        total={"value_cad": total, "state": "RECORDED", "basis": basis,
+                               "by_basis_cad": {k: round(v, 4) for k, v in by.items() if v},
+                               "display": (f"CA${total:,.2f} (recorded)" if basis == "measured"
+                                           else f"CA${total:,.2f} (recorded; "
+                                                f"CA${not_measured:,.2f} not measured)")})
 
     def incidents_opened():
         with db.session() as s:

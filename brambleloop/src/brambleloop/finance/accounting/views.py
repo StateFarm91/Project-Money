@@ -120,8 +120,13 @@ def accrual(db, *, period: str | None = None, since: datetime | None = None,
     revenue_basis = _by_basis(b, (A.SALES,))
     fee_basis = _by_basis(b, (A.MARKETPLACE_FEES,))
     op_basis = _by_basis(b, A.OPERATING_ACCOUNTS)
+    refund_basis = _by_basis(b, (A.REFUNDS,))
     estimated = {k: v for k, v in {**fee_basis}.items() if k != "measured"}
     op_est = {k: v for k, v in op_basis.items() if k != "measured"}
+    # R2-FIN (audit M5): revenue converted at an ASSUMED FX rate is booked `modelled`; it is
+    # an estimate, and the summary must say so rather than label it measured/actual.
+    rev_est = {k: v for k, v in revenue_basis.items() if k != "measured"}
+    refund_est = {k: v for k, v in refund_basis.items() if k != "measured"}
     return {
         "basis_of_accounting": "accrual",
         "period": period, "since": since.isoformat() if since else None,
@@ -144,9 +149,12 @@ def accrual(db, *, period: str | None = None, since: datetime | None = None,
         "revenue_by_basis_cad": revenue_basis,
         "fees_by_basis_cad": fee_basis,
         "operating_by_basis_cad": op_basis,
-        "estimated_components": {"fees": estimated, "operating": op_est},
+        "refunds_by_basis_cad": refund_basis,
+        "estimated_components": {"fees": estimated, "operating": op_est,
+                                 "revenue": rev_est, "refunds": refund_est},
         "all_measured": (sales_reading == "measured" and not estimated and not op_est
-                         and set(revenue_basis) <= {"measured"}),
+                         and set(revenue_basis) <= {"measured"}
+                         and set(refund_basis) <= {"measured"}),
         "tax_reserve_rate": TAX_RESERVE_RATE,
         "tax_reserve_note": ("a management reserve against net sales (finance.books rate); "
                              "not a booked liability -- the GST/HST treatment is for the "

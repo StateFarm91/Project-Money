@@ -494,6 +494,9 @@ def verdict(db, *, now: datetime | None = None) -> dict:
                         "scenarios": {k: v["assumptions"] for k, v in f["scenarios"].items()},
                         "may_only_block": True},
         "measured_orders": measured_orders,
+        # R2-FIN (audit L5): say plainly when no measured order stands behind the verdict:
+        # it is then a pre-launch MODELLED verdict that the assumed volume can only block.
+        "evidenced_by_measured_orders": measured_orders > 0,
         "low_case_needs_owner_top_up": low["net_monthly_cad"] < 0,
         "forecast": f,
         "why": (("MODELLED estimate (no assumed volume granted it): cost coverage complete, "

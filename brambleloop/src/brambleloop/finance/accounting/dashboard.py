@@ -8,7 +8,8 @@ Contracts (lane C reads `summary` / `drill`; lane A's orchestrator reads `next_w
     measured|estimated|modelled|unknown, ``items`` (one dict per metric: ``metric``,
     ``label``, ``value_cad`` (None = UNKNOWN, never 0.0 for unknown), ``reading``
     (measured|stale|lower_bound|estimated|derived|UNKNOWN), ``actual_cad``,
-    ``estimated_cad``, ``drill`` (the metric name to pass to `drill`), ``why``),
+    ``estimated_cad`` (the signed part of the value contributed by non-measured inputs --
+    modelled fees, FX-assumed revenue, unknown-basis costs; ``actual_cad`` is the rest), ``drill`` (the metric name to pass to `drill`), ``why``),
     ``sources`` (provenance strings), ``source_health``, ``window``, ``reason``,
     ``close``, ``exceptions``, ``forecast``. `window` is "30d" (default; the books' window),
     "mtd", "ytd", "all" or a month "YYYY-MM" (booking period). `refresh=True` first runs
@@ -124,11 +125,29 @@ def _summary(db, window, now, refresh):
                 "drill": metric if drill else None, "why": why}
 
     sales_why = acc["sales_why"] if sr != "measured" else ""
+    rev_est = sum(acc["estimated_components"]["revenue"].values())
+    ref_est = sum(acc["estimated_components"]["refunds"].values())
+    net_est = rev_est - ref_est
+    fx_why = ("includes revenue converted at an ASSUMED FX rate (modelled): "
+              + ", ".join(f"{k} CA${v:.2f}" for k, v in
+                          acc["estimated_components"]["revenue"].items())) if rev_est else ""
+
+    def sales_reading(est: float) -> str:
+        # A sales figure is `measured` only when its source is and no part is modelled.
+        return "estimated" if (sr == "measured" and abs(est) > 1e-9) else sr
+
+    def why(*parts):
+        return "; ".join(p for p in parts if p)
+
     items = [
-        item("gross_sales", "Revenue (gross sales)", acc["accrual_gross_sales_cad"], sr,
-             why=sales_why),
-        item("refunds", "Refunds", acc["accrual_refunds_cad"], sr, why=sales_why),
-        item("net_sales", "Net sales", acc["accrual_net_sales_cad"], sr, why=sales_why),
+        item("gross_sales", "Revenue (gross sales)", acc["accrual_gross_sales_cad"],
+             sales_reading(rev_est), estimated=rev_est, why=why(sales_why, fx_why)),
+        item("refunds", "Refunds", acc["accrual_refunds_cad"], sales_reading(ref_est),
+             estimated=ref_est, why=why(sales_why, "refunds of FX-modelled sales are "
+                                        "modelled" if ref_est else "")),
+        item("net_sales", "Net sales", acc["accrual_net_sales_cad"],
+             sales_reading(abs(rev_est) + abs(ref_est)), estimated=net_est,
+             why=why(sales_why, fx_why)),
         item("fees", "Marketplace fees", acc["accrual_platform_fees_cad"],
              "UNKNOWN" if acc["accrual_platform_fees_cad"] is None else
              ("estimated" if fees_est else sr), estimated=fees_est,
@@ -139,12 +158,13 @@ def _summary(db, window, now, refresh):
              else ""),
         item("contribution", "Contribution", acc["accrual_contribution_cad"],
              "UNKNOWN" if acc["accrual_contribution_cad"] is None else
-             ("estimated" if fees_est else sr), estimated=fees_est, why=sales_why),
+             ("estimated" if (fees_est or rev_est or ref_est) else sr),
+             estimated=net_est - fees_est, why=why(sales_why, fx_why)),
         item("profit", "Profit before tax reserve",
              acc["accrual_profit_before_tax_reserve_cad"],
              "UNKNOWN" if acc["accrual_profit_before_tax_reserve_cad"] is None else
-             ("estimated" if (fees_est or op_est) else sr),
-             estimated=fees_est + op_est, why=sales_why),
+             ("estimated" if (fees_est or op_est or rev_est or ref_est) else sr),
+             estimated=net_est - fees_est - op_est, why=why(sales_why, fx_why)),
         item("tax_reserve", "Sales-tax reserve", acc["accrual_tax_reserve_cad"],
              "UNKNOWN" if acc["accrual_tax_reserve_cad"] is None else "estimated",
              estimated=acc["accrual_tax_reserve_cad"] or 0.0, why=acc["tax_reserve_note"]),
@@ -163,17 +183,29 @@ def _summary(db, window, now, refresh):
              "UNKNOWN" if pos["safe_discretionary_budget_cad"] is None else "derived",
              why=pos["safe_discretionary_budget_why"], drill=False),
     ]
+    integrity = _integrity(db)
     status = "OK"
     reasons = []
-    if sr == "UNKNOWN":
+    if not integrity["ok"]:
+        # R2-FIN (audit M12): a tampered journal or a moved locked period is surfaced on
+        # read, not at the next anomaly cycle. Nothing on this page can be relied on.
+        status = "BLOCKED"
+        reasons.append("JOURNAL INTEGRITY FAILURE: " + "; ".join(integrity["problems"][:5]))
+    elif sr == "UNKNOWN":
         status = "UNKNOWN"
         reasons.append("revenue is UNKNOWN: " + acc["sales_why"])
-    elif sr != "measured" or fees_est or op_est or exc or hl["warnings"] or refresh_error:
+    elif (sr != "measured" or fees_est or op_est or rev_est or ref_est or exc
+          or hl["warnings"] or refresh_error or pos["cash_reading"] not in
+          ("measured", "UNKNOWN")):
         status = "DEGRADED"
     if sr in ("lower_bound", "stale"):
         reasons.append(f"sales are {sr}: {acc['sales_why']}")
+    if fx_why:
+        reasons.append(fx_why)
     if exc:
         reasons.append(f"{len(exc)} open accounting exception(s)")
+    if pos["cash_reading"] != "measured" and hl["cash_known"]:
+        reasons.append("cash: " + pos["cash_why"])
     reasons += hl["warnings"]
     if refresh_error:
         reasons.append(refresh_error)
@@ -203,13 +235,34 @@ def _summary(db, window, now, refresh):
         "exceptions": {"open": len(exc), "high": sum(1 for x in exc if x["severity"] == "high"),
                        "top": [{k: x[k] for k in ("key", "kind", "severity", "summary")}
                                for x in exc[:5]]},
-        "reconciliation_health": ("clean" if not exc else
-                                  f"{len(exc)} open exception(s)"),
+        "reconciliation_health": ("TAMPERED" if not integrity["ok"] else "clean" if not exc
+                                  else f"{len(exc)} open exception(s)"),
+        "integrity": integrity,
         "close": close_status,
         "forecast": forecast,
         "totals_micros": {k: m[k] for k in ("gross", "refunds", "fees", "operating",
                                             "net_profit")},
     }
+
+
+def _integrity(db) -> dict:
+    """Verify the journal seal chain and every locked period's trial-balance hash on read."""
+    from . import close as close_mod
+    from .ledger import verify_chain
+
+    problems: list[str] = []
+    try:
+        ch = verify_chain(db)
+        problems += [f"entry {p.get('entry_id')}: {p['problem']}" for p in ch["problems"]]
+        legacy = ch.get("legacy_v1_entries", 0)
+        for period in close_mod.status(db)["locked_periods"]:
+            v = close_mod.verify_lock(db, period)
+            if v.get("locked") and not v.get("intact"):
+                problems.append(f"locked period {period}: figures moved after the lock")
+    except Exception as exc:  # noqa: BLE001 - unverifiable is not verified
+        problems.append(f"integrity check failed: {type(exc).__name__}")
+        legacy = None
+    return {"ok": not problems, "problems": problems[:20], "legacy_v1_entries": legacy}
 
 
 def _load_source(s, table: str, sid: str) -> dict:
@@ -353,10 +406,20 @@ def _drill(db, metric, window, now):
         value_micros = int(round(max(0, total) * TAX_RESERVE_RATE))
         formula = f"{TAX_RESERVE_RATE} x max(0, {formula})"
     sales_dep = metric in SALES_METRICS
-    reading = H.figure_reading(hl["sources"]["orders"]["state"], bool(rows)) if sales_dep \
-        else ("UNKNOWN" if metric == "cash" and not hl["cash_known"] else "derived")
     places = 4 if metric in ("operating_spend", "owner_payable") else 2  # as `summary` shows
-    value = None if reading == "UNKNOWN" else to_cad(value_micros, places)
+    # R2-FIN (audit M3, L3): the drill's reading and the independent figure it is checked
+    # against come from the same providers `summary` uses (views.accrual / cash.position),
+    # not from the rows themselves -- so an UNKNOWN in the summary is UNKNOWN here, and
+    # `check.matches` compares two independently computed numbers.
+    independent, ind_reading, ind_why = _independent(db, metric, window, now, hl)
+    if sales_dep:
+        reading = H.figure_reading(hl["sources"]["orders"]["state"], bool(rows))
+    else:
+        reading = ind_reading
+    value = None if (reading == "UNKNOWN" or (not sales_dep and independent is None)) \
+        else to_cad(value_micros, places)
+    if value is None:
+        reading = "UNKNOWN"
     return {
         "status": "UNKNOWN" if value is None else "OK",
         "as_of": now.isoformat(), "basis": "unknown" if value is None else
@@ -369,11 +432,46 @@ def _drill(db, metric, window, now):
         "check": {"sum_of_rows_cad": to_cad(total, 6),
                   "value_from_rows_cad": to_cad(value_micros, 6),
                   "rounded_to_places": places,
-                  "matches": value is None or abs(to_cad(value_micros, places) - value) < 1e-9},
+                  "independent_value_cad": independent,
+                  "matches": ((value is None and independent is None) or
+                              (value is not None and independent is not None
+                               and abs(value - independent) < 1e-9))},
         "sources": sorted({f"{r['source_table']}:{r['source_id']}" for r in rows}),
         "why": (hl["sources"]["orders"]["why"] if sales_dep and reading != "measured" else
-                hl["sources"]["bank"]["why"] if metric == "cash" else ""),
+                ind_why if metric == "cash" else ""),
     }
+
+
+_ACCRUAL_KEY = {"gross_sales": ("accrual_gross_sales_cad", 2),
+                "refunds": ("accrual_refunds_cad", 2),
+                "discounts": ("accrual_discounts_cad", 2),
+                "net_sales": ("accrual_net_sales_cad", 2),
+                "fees": ("accrual_platform_fees_cad", 2),
+                "operating_spend": ("accrual_operating_costs_cad", 4),
+                "contribution": ("accrual_contribution_cad", 2),
+                "profit": ("accrual_profit_before_tax_reserve_cad", 2),
+                "tax_reserve": ("accrual_tax_reserve_cad", 2)}
+
+
+def _independent(db, metric, window, now, hl) -> tuple[float | None, str, str]:
+    """The metric as `summary` computes it, and the reading it carries there."""
+    from . import cash as cash_mod
+    from . import views
+
+    if metric in BALANCE_METRICS:
+        pos = cash_mod.position(db, now=now, health=hl)
+        if metric == "cash":
+            return pos["cash_on_hand_cad"], pos["cash_reading"], pos["cash_why"]
+        if metric == "expected_payout":
+            v = pos["expected_payout_cad"]
+            return v, "UNKNOWN" if v is None else "derived", pos["expected_payout_reading"]
+        return pos["obligations"]["owner_funded_spend_payable_cad"], "derived", ""
+    w = _window(window, now)
+    kw = {k: w[k] for k in ("period", "since", "until") if k in w}
+    acc = views.accrual(db, health=hl, **kw)
+    key, _ = _ACCRUAL_KEY[metric]
+    return (acc[key], acc["sales_reading"] if metric != "operating_spend" else "derived",
+            acc["sales_why"])
 
 
 def next_work(db, *, now: datetime | None = None) -> list[dict]:
@@ -430,7 +528,7 @@ def _next_work(db, now):
                     "evidence": {"key": x["key"], "evidence": x["evidence"]}})
     st = close_mod.status(db, now=now)
     if not st["previous_period_locked"]:
-        cl = close_mod.checklist(db, st["previous_period"], now=now)
+        cl = close_mod.checklist(db, st["previous_period"], now=now, refresh=False)
         blockers = [x["step"] for x in cl["steps"] if x["outcome"] == "block"]
         out.append({"id": f"finance:close_month:{st['previous_period']}",
                     "department": "finance", "kind": "close_month",

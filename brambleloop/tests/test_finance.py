@@ -184,7 +184,9 @@ def test_tax_is_reserved_and_never_counted_as_ours():
     # Receipt-derived/modelled fees are not observed cash charges.
     assert pl.cash_cad is None
     assert pl.to_dict()["all_figures_observed"] is False
-    # Arithmetic stays independently pinned; a fully measured reading permits the proxy.
+    # Arithmetic stays independently pinned. R2-FIN (audit M10): even a fully measured
+    # reading no longer turns net profit into "cash" -- the books read no bank, so cash
+    # stays UNKNOWN (finance.accounting.cash.position is the bank-measured figure).
     from sqlalchemy import select
     from brambleloop.core.models import LedgerEntry
     with db.session() as session:
@@ -192,7 +194,9 @@ def test_tax_is_reserved_and_never_counted_as_ours():
             entry.fees_basis = "measured"
     pl = Books(db).profit_and_loss()
     pl.sales_reading = "measured"
-    assert pl.cash_cad == pl.net_profit_cad
+    assert pl.all_observed is True
+    assert pl.net_profit_cad == round(125.0 - 14.6 - 0.0 - pl.tax_reserve_cad, 4)
+    assert pl.cash_cad is None and pl.to_dict()["cash_reading"] == "UNKNOWN"
 
 
 def test_contribution_margin_removes_only_the_costs_that_vary_with_selling():
