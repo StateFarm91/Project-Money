@@ -135,6 +135,8 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/etsy/oauth/status",
     "/api/teardown/intake",
     "/api/owner/phase",
+    "/api/owner/phase/verdict",
+    "/api/owner/phase/visibility",
     "/api/owner/ledger-mapping",
     "/api/learn/queue",
     "/api/learn/graph",
