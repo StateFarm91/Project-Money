@@ -225,8 +225,42 @@ def _summary(db) -> dict:
                                             and _plan_problems(e.result)]},
         # F-219: borderline identity results held for a human (open queue, newest first).
         "identity_review": _identity_review(db),
-        "sources": SOURCES,
+        "commercial": _commercial(db),
+        "evolution": _evolution(db),
+        "sources": SOURCES + COMMERCIAL_SOURCES,
     }
+
+
+COMMERCIAL_SOURCES = ["visual_rnd_hero_variants", "listing_outcomes",
+                      "src/brambleloop/visual/rnd/sequence.py",
+                      "src/brambleloop/visual/rnd/objective.py",
+                      "src/brambleloop/visual/rnd/judges.py",
+                      "src/brambleloop/visual/rnd/hero.py",
+                      "src/brambleloop/visual/rnd/commercial.py",
+                      "src/brambleloop/visual/rnd/evolution.py"]
+
+
+def _commercial(db) -> dict:
+    """The commercial merchandising objective: sequence policy, objective, PROXY judges and
+    each class's hero (incumbent, basis, trust, funnel). Never raises."""
+    try:
+        from . import hero as H
+        from . import judges as J
+        from . import objective as O
+        from . import pipeline as P
+        from . import sequence as Q
+
+        return {"objective": O.describe(), "sequence_policy": Q.describe(),
+                "judges": J.describe(),
+                "heroes": {c: H.status(db, c) for c in P.PRODUCT_CLASSES}}
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "UNKNOWN", "reason": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+
+def _evolution(db) -> dict:
+    from .evolution import report
+
+    return report(db)
 
 
 def _plan_problems(result) -> list[str]:
@@ -259,8 +293,9 @@ def next_work(db) -> list[dict]:
     Contract (same shape as `learn.improvement_status.next_work`): kind, key (stable
     idempotency key), priority 1..100, reason, evidence, department "visual", job_type
     ("visual.rnd.cycle" -- one handler runs the whole cycle for the named class), green True.
-    Kinds: visual.rnd.monitor (75), visual.rnd.calibrate (70), visual.rnd.judge_production
-    (60), visual.rnd.experiment (50), visual.rnd.bootstrap (40). Paid challengers never appear.
+    Kinds: visual.rnd.monitor (75), visual.rnd.hero_calibrate (72), visual.rnd.calibrate (70),
+    visual.rnd.judge_production (60), visual.rnd.hero_challenge (55), visual.rnd.experiment
+    (50), visual.rnd.bootstrap (40). Paid challengers never appear.
     """
     try:
         return _next_work(db)
@@ -297,7 +332,24 @@ def _next_work(db) -> list[dict]:
         experiments = list(s.scalars(select(M.VisualExperiment)))
         judgements = list(s.scalars(select(M.VisualJudgement)))
         market = list(s.scalars(select(M.VisualMarketEvidence)))
+    from . import commercial as C
+    from . import hero as H
+
+    hero_rows = H.variants(db)
     for cls in P.PRODUCT_CLASSES:
+        hinc = next((h for h in reversed(hero_rows) if h["product_class"] == cls
+                     and h["state"] == H.INCUMBENT), None)
+        if hinc is not None and hinc["parent_id"] is not None and hinc["basis"] == "proxy":
+            par = next((h for h in hero_rows if h["id"] == hinc["parent_id"]), None)
+            ra = C.outcome_rows(db, style_key=hinc["style_key"])
+            rb = C.outcome_rows(db, style_key=par["style_key"]) if par else []
+            if ra and rb:
+                items.append(_item("visual.rnd.hero_calibrate",
+                                   f"visual.rnd.hero_calibrate:{hinc['id']}:"
+                                   f"{len(ra) + len(rb)}", 72,
+                                   f"{cls}: marketplace outcomes exist for the proxy-promoted "
+                                   f"hero and the hero it replaced; confirm or overturn",
+                                   {"product_class": cls, "hero": hinc["id"]}))
         inc = next((v for v in versions if v.product_class == cls and v.state == P.INCUMBENT),
                    None)
         prod = [j for j in judgements if inc is not None and j.pipeline_id == inc.id
@@ -330,6 +382,14 @@ def _next_work(db) -> list[dict]:
             recent = [e for e in experiments if e.product_class == cls
                       and e.execution == P.DETERMINISTIC
                       and now - _aware(e.created_at) < timedelta(hours=24)]
+            heroes = [h for h in hero_rows if h["product_class"] == cls
+                      and h["execution"] == P.DETERMINISTIC and h["decided_at"]
+                      and now - datetime.fromisoformat(h["decided_at"]) < timedelta(hours=24)]
+            if not heroes and cls in P.DISCLOSED_CLASSES:
+                items.append(_item("visual.rnd.hero_challenge",
+                                   f"visual.rnd.hero_challenge:{cls}:{now.date().isoformat()}",
+                                   55, f"{cls}: no hero challenger decided in 24 h",
+                                   {"product_class": cls}))
             if not recent:
                 items.append(_item("visual.rnd.experiment",
                                    f"visual.rnd.experiment:{cls}:{now.date().isoformat()}", 50,

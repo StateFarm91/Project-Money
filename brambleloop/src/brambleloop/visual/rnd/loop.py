@@ -817,7 +817,7 @@ def execute_paid(db, experiment_id: int) -> dict:
 # ---------------------------------------------------------------------------- the cycle
 
 def cycle(db, *, builds=None, classes=None, now: datetime | None = None,
-          experiments_per_class: int = 1) -> dict:
+          experiments_per_class: int = 1, hero: bool = True) -> dict:
     """One REPEAT of the loop for every class. Deterministic work runs; paid work is queued."""
     M.ensure_tables(db)
     now = now or _now()
@@ -852,5 +852,14 @@ def cycle(db, *, builds=None, classes=None, now: datetime | None = None,
         entry["paid"] = {k: v for k, v in plan_paid(db, cls, diag).items()
                          if k in ("experiment", "state", "new", "estimated_cost_cad")}
         entry["incumbent"] = P.ensure_incumbent(db, cls)["label"]
+        if hero:
+            # Commercial merchandising R&D (D-FB-16): slow loop first (it can overturn), then
+            # free hero challengers on the (possibly new) incumbent pipeline.
+            from . import hero as H
+            entry["hero_calibration"] = H.calibrate(db, cls, now=now)
+            ch = H.challenge(db, cls, cirs=cirs, now=now)
+            entry["hero"] = {k: ch[k] for k in ("evaluated", "queued", "unavailable",
+                                                "refused")} | {
+                "promoted": bool((ch["promotion"] or {}).get("promoted"))}
         report["classes"][cls] = entry
     return report
