@@ -53,16 +53,16 @@ def portfolio_evidence(db) -> dict:
     """Counts the confidence ladder asks callers for, from orders and customers only."""
     from sqlalchemy import func, select
 
-    from ..core.models import Customer, Order
+    from ..core.models import Customer
     from .loops import evidence_summary, from_db
     from .mix import concentration, positions_from_db
 
     with db.session() as s:
-        selling = {o.product_slug for o in s.scalars(select(Order).where(
-            Order.refunded.is_(False)))}
+        from ..commerce import orders_ingest
+
+        selling = {o.product_slug for o in orders_ingest.countable_orders(s)}
         customers = s.scalar(select(func.count()).select_from(Customer)) or 0
-        repeat = s.scalar(select(func.count()).select_from(Order).where(
-            Order.is_repeat.is_(True))) or 0
+        repeat = sum(1 for o in orders_ingest.countable_orders(s) if o.is_repeat)
     conc = concentration(positions_from_db(db))
     return {
         "selling_skus": len(selling),

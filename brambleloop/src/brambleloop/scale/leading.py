@@ -90,13 +90,16 @@ def _facts(db, now: datetime) -> dict:
     with db.session() as s:
         live = s.scalar(select(func.count(Listing.id)).where(
             Listing.etsy_listing_id.is_not(None), Listing.etsy_listing_id != "")) or 0
-        orders = list(s.scalars(select(Order)))
+        from ..commerce import orders_ingest as _oi
+
+        _held = _oi.held_refs(s)
+        orders = _oi.booked_orders(s)  # rc1-ORD2: unreconciled/held orders move nothing
         cases = s.scalar(select(func.count(SupportCase.id))) or 0
         escalated = s.scalar(select(func.count(SupportCase.id)).where(
             SupportCase.escalated == True)) or 0  # noqa: E712
         releases = [_aware(pv.created_at) for pv in s.scalars(
             select(PatternVersion).where(PatternVersion.certified == True))]  # noqa: E712
-        kept = [o for o in orders if not o.refunded]
+        kept = [o for o in orders if _oi.countable(o, _held)]
         order_facts = {
             "orders": len(kept),
             "refunded": len(orders) - len(kept),

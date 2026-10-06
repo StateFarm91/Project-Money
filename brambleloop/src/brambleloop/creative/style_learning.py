@@ -256,9 +256,11 @@ def _orders_for(s, row) -> int:
         return row.orders
     start = datetime.fromisoformat(row.period_start).replace(tzinfo=timezone.utc)
     end = datetime.fromisoformat(row.period_end).replace(tzinfo=timezone.utc)
-    return s.scalar(select(func.count(Order.id)).where(
-        Order.product_slug == row.product_slug, Order.refunded == False,  # noqa: E712
-        Order.at >= start, Order.at < end.replace(hour=23, minute=59, second=59))) or 0
+    from ..commerce import orders_ingest as _oi
+
+    return len(_oi.countable_orders(s, select(Order).where(  # rc1-ORD2
+        Order.product_slug == row.product_slug,
+        Order.at >= start, Order.at < end.replace(hour=23, minute=59, second=59))))
 
 
 def _rows(db) -> tuple[list[dict], dict[str, str]]:

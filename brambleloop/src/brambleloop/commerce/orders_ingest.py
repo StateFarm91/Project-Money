@@ -730,6 +730,79 @@ def _aware(at: datetime) -> datetime:
     return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
 
 
+# ---------------------------------------------------------------------------
+# The one definition of a countable order (rc1-ORD2 item 3)
+#
+# Every reader that counts orders or sums their money -- the books, cohorts, order readings,
+# the per-channel table, the dashboard, growth -- decides through `standing` below, so an
+# order that becomes unreconciled or voided after it was recorded drops out of all of them
+# at once instead of only out of the books.
+#
+# * `countable` -- a live sale: paid or partially refunded, revenue stated by its receipt,
+#   not held. It counts as an order and its revenue and contribution are summed.
+# * `voided`    -- refunded in full or cancelled. Never an order, a customer or revenue; its
+#   contribution (the fee Etsy kept, a loss) stays in contribution sums (CB2-O07, E2).
+# * `unreconciled` / `held` -- revenue UNKNOWN (E1/E3/E6). Nothing of it is counted or summed.
+
+STANDING_COUNTABLE, STANDING_VOIDED = "countable", "voided"
+STANDING_UNRECONCILED, STANDING_HELD = "unreconciled", "held"
+
+
+def held_refs(session) -> frozenset[str]:
+    """References of every unresolved held line, read inside the caller's session."""
+    row = _held_row(session)
+    records = ((row.payload or {}).get("records") or {}) if row is not None else {}
+    return frozenset(ref for ref, r in records.items() if not (r or {}).get("resolved"))
+
+
+def standing(order, held: frozenset[str] | set[str] = frozenset()) -> str:
+    """countable | voided | unreconciled | held for one Order row."""
+    detail = order.detail or {}
+    state = detail.get("state")
+    if order.external_ref in held:
+        return STANDING_HELD
+    if state == UNRECONCILED or detail.get("revenue_unknown"):
+        return STANDING_UNRECONCILED
+    if bool(order.refunded) or state in VOIDED_STATES:
+        return STANDING_VOIDED
+    if state is not None and state not in (PAID, PARTIALLY_REFUNDED):
+        # unpaid / unknown / anything unrecognised is not a sale.
+        return STANDING_UNRECONCILED
+    return STANDING_COUNTABLE
+
+
+def countable(order, held: frozenset[str] | set[str] = frozenset()) -> bool:
+    """Counts as an order, a customer's purchase and revenue."""
+    return standing(order, held) == STANDING_COUNTABLE
+
+
+def in_books(order, held: frozenset[str] | set[str] = frozenset()) -> bool:
+    """Its money is in the sums: countable, or voided (revenue 0, the retained-fee loss)."""
+    return standing(order, held) in (STANDING_COUNTABLE, STANDING_VOIDED)
+
+
+def countable_orders(session, query=None) -> list:
+    """The countable Order rows of `query` (default: every order)."""
+    from sqlalchemy import select
+
+    from ..core.models import Order
+
+    held = held_refs(session)
+    return [o for o in session.scalars(query if query is not None else select(Order))
+            if countable(o, held)]
+
+
+def booked_orders(session, query=None) -> list:
+    """The Order rows of `query` whose money is in the books (countable or voided)."""
+    from sqlalchemy import select
+
+    from ..core.models import Order
+
+    held = held_refs(session)
+    return [o for o in session.scalars(query if query is not None else select(Order))
+            if in_books(o, held)]
+
+
 def _raise_held_incidents(db, refused: list[dict], now: datetime) -> dict:
     """One idempotent incident per held reason, resolved when nothing of it is held."""
     from ..ops import incident_lifecycle as lifecycle

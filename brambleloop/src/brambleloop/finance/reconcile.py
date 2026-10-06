@@ -117,26 +117,101 @@ def mapping_fingerprint() -> str:
     return hashlib.sha256(body.encode()).hexdigest()[:16]
 
 
-def record_mapping_verification(db, *, by: str, evidence: str) -> dict:
+# rc1-ORD2: the verification is owner authority, so it is kept the way the other owner
+# authority families are (core.sealed_chain, rc1-AUTH D1/D2): every row sealed under the owner
+# credential and chained to the one before it. An unsealed, edited, inserted, replayed or
+# deleted row breaks the chain; a broken chain verifies nothing (fees fall back to the
+# `unverified_mapping` basis) and opens a P1 tamper incident until the owner rebases.
+MAPPING_REVOKED_ACTION = "owner.etsy_ledger_mapping.revoked"
+MAPPING_REBASED_ACTION = "owner.etsy_ledger_mapping.rebased"
+MAPPING_ACTIONS = (MAPPING_VERIFIED_ACTION, MAPPING_REVOKED_ACTION, MAPPING_REBASED_ACTION)
+MAPPING_PRINCIPAL = "owner:ops-token"
+MAPPING_TAMPER_SIGNATURE = "authority_chain_tamper:etsy_ledger_mapping"
+
+
+def _json(value) -> str:
+    import json
+
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+                      default=str)
+
+
+def _seal(detail: dict) -> str:
+    import hashlib
+    import hmac
+    import os
+
+    from ..core import opsauth
+
+    if not opsauth.configured():
+        raise ValueError("owner credential unavailable")
+    return hmac.new(os.environ[opsauth.TOKEN_VAR].strip().encode(), _json(detail).encode(),
+                    hashlib.sha256).hexdigest()
+
+
+def _make_mapping_ledger():
+    from ..core.sealed_chain import GrantLedger
+
+    return GrantLedger(approved=MAPPING_VERIFIED_ACTION, revoked=MAPPING_REVOKED_ACTION,
+                       rebased=MAPPING_REBASED_ACTION, principal=MAPPING_PRINCIPAL,
+                       seal=_seal, signature=MAPPING_TAMPER_SIGNATURE,
+                       label="Etsy ledger mapping verification")
+
+
+MAPPING_LEDGER = _make_mapping_ledger()
+
+
+def record_mapping_verification(db, *, authorization, by: str, evidence: str) -> dict:
     """The owner's record that a live ledger read confirmed these type strings and the unit.
 
-    Until one exists for the current `mapping_fingerprint`, fees read through the mapping
-    carry the `unverified_mapping` basis, never `measured`.
+    Written only under the owner credential (`opsauth.check`), sealed and chained
+    (`MAPPING_LEDGER`). Until a verification of the current `mapping_fingerprint` verifies
+    end to end, fees read through the mapping carry the `unverified_mapping` basis, never
+    `measured`. Recording one re-derives every ledger-read fee basis (`sync_fee_bases`).
     """
-    from ..core.models import AuditLog
+    from datetime import datetime, timezone
 
+    from ..core import opsauth
+
+    opsauth.check(authorization)
     if not str(by or "").strip() or not str(evidence or "").strip():
         raise ValueError("a mapping verification needs who verified it and the evidence")
-    detail = {"fingerprint": mapping_fingerprint(), "divisor": LEDGER_AMOUNT_DIVISOR,
+    detail = {"principal": MAPPING_PRINCIPAL, "fingerprint": mapping_fingerprint(),
+              "divisor": LEDGER_AMOUNT_DIVISOR,
               "fee_types": sorted(_FEE_EXACT), "refund_types": sorted(_REFUND_EXACT),
-              "evidence": str(evidence)[:1000], "by": str(by)[:80]}
-    with db.session() as s:
-        s.add(AuditLog(actor="owner", action=MAPPING_VERIFIED_ACTION, detail=detail))
-    return detail
+              "evidence": str(evidence)[:1000], "by": str(by)[:80],
+              "at": datetime.now(timezone.utc).isoformat()}
+    ident = MAPPING_LEDGER.append(db, action=MAPPING_VERIFIED_ACTION,
+                                  artifact=detail["fingerprint"], detail=detail)
+    return {**detail, "verification_id": ident, "fee_bases": sync_fee_bases(db)}
 
 
-def mapping_verified(db) -> bool:
-    """Whether the owner recorded a verification of exactly the current mapping."""
+def revoke_mapping_verification(db, *, authorization, verification_id) -> dict:
+    """Owner withdraws a verification; the fees it made measured revert to unverified."""
+    from ..core import opsauth
+
+    opsauth.check(authorization)
+    MAPPING_LEDGER.revoke(db, int(verification_id))
+    return {"revoked": int(verification_id), "fee_bases": sync_fee_bases(db)}
+
+
+def rebase_mapping_chain(db, *, authorization, reason) -> dict:
+    """Owner re-anchors a broken verification chain. Voids every earlier verification."""
+    from ..core import opsauth
+
+    opsauth.check(authorization)
+    ident = MAPPING_LEDGER.rebase(db, reason)
+    return {"rebase_id": ident, "voids_verifications_before": True,
+            "fee_bases": sync_fee_bases(db)}
+
+
+def mapping_state(db, *, record_incident: bool = True) -> dict:
+    """Whether a verification of exactly the current mapping verifies, and why not.
+
+    Fails closed: no row, a row that does not verify its seal or its place in the chain, a
+    revoked row, a row from before the newest rebase, or one for another fingerprint all
+    read as unverified. A broken chain also opens (or restates) a P1 tamper incident.
+    """
     from sqlalchemy import select
 
     from ..core.models import AuditLog
@@ -144,8 +219,101 @@ def mapping_verified(db) -> bool:
     with db.session() as s:
         row = s.scalar(select(AuditLog).where(AuditLog.action == MAPPING_VERIFIED_ACTION)
                        .order_by(AuditLog.id.desc()).limit(1))
-        return bool(row is not None and row.actor == "owner"
-                    and (row.detail or {}).get("fingerprint") == mapping_fingerprint())
+        newest = (row.id, row.actor, dict(row.detail or {})) if row is not None else None
+    chain = MAPPING_LEDGER.chain(db, record_incident=record_incident)
+    out = {"fingerprint": mapping_fingerprint(), "chain_valid": bool(chain["valid"]),
+           "chain_why": chain.get("why"), "verification_id": None}
+    if newest is None:
+        return {**out, "verified": False, "why": "no owner verification recorded"}
+    ident, actor, detail = newest
+    out["verification_id"] = ident
+    if actor != MAPPING_PRINCIPAL:
+        return {**out, "verified": False,
+                "why": f"newest verification row was not written by {MAPPING_PRINCIPAL}"}
+    refusal = MAPPING_LEDGER.refusal(db, ident) if record_incident else (
+        None if chain["valid"] else "chain does not verify")
+    if refusal is not None:
+        return {**out, "verified": False, "why": refusal}
+    if detail.get("fingerprint") != mapping_fingerprint():
+        return {**out, "verified": False,
+                "why": "the verification is of a different type list / amount unit"}
+    return {**out, "verified": True, "why": ""}
+
+
+def mapping_verified(db) -> bool:
+    """Whether the owner's sealed, chained verification of exactly this mapping holds."""
+    return bool(mapping_state(db)["verified"])
+
+
+def sync_fee_bases(db, *, verified: bool | None = None) -> dict:
+    """Re-derive every ledger-read basis from the verification as it stands now.
+
+    Fail closed (rc1-ORD2): when the verification does not hold -- never recorded, revoked,
+    voided by a type-list or unit change, or its chain tampered -- every fee, ledger refund
+    and listing fee that was `measured` through the mapping reverts to `unverified_mapping`.
+    When it holds, the complete ones read `measured`. Partial and modelled figures are left
+    as they are. Idempotent.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry, LedgerEntry, Order
+
+    if verified is None:
+        verified = mapping_verified(db)
+    to_basis, from_basis = (MEASURED, UNVERIFIED) if verified else (UNVERIFIED, MEASURED)
+    mapping = "owner_verified" if verified else UNVERIFIED_MAPPING
+    orders = listing = 0
+    with db.session() as s:
+        for o in s.scalars(select(Order)):
+            detail = dict(o.detail or {})
+            if not detail.get("fees_mapping"):
+                continue  # never read through the ledger mapping
+            changed = False
+            if o.fees_basis == from_basis:
+                o.fees_basis = to_basis
+                kinds = detail.get("fee_kinds") or []
+                money = dict(detail.get("money") or {})
+                fx = (money.get("fx") or {}).get("basis") or "assumed"
+                money["contribution_basis"] = (
+                    "revenue net of refunds less " + fee_basis_text(to_basis, kinds, {})
+                    + f"; {fx} FX rate")
+                money["fees"] = {**(money.get("fees") or {}),
+                                 "basis": to_basis if to_basis != UNVERIFIED
+                                 else UNVERIFIED_MAPPING,
+                                 "why": fee_basis_text(to_basis, kinds, {})}
+                detail["money"] = money
+                row = s.scalar(select(LedgerEntry).where(
+                    LedgerEntry.evidence_ref == o.external_ref))
+                if row is not None and row.fees_basis in (MEASURED, UNVERIFIED):
+                    row.fees_basis = to_basis
+                changed = True
+            if detail.get("fees_mapping") != mapping:
+                detail["fees_mapping"] = mapping
+                changed = True
+            if detail.get("ledger_refund_basis") in (MEASURED, UNVERIFIED_MAPPING):
+                want = MEASURED if verified else UNVERIFIED_MAPPING
+                if detail["ledger_refund_basis"] != want:
+                    detail["ledger_refund_basis"] = want
+                    changed = True
+            if changed:
+                o.detail = detail
+                orders += 1
+        for r in s.scalars(select(LedgerEntry).where(
+                LedgerEntry.source == LISTING_LEDGER_SOURCE)):
+            if r.basis == from_basis:
+                r.basis = to_basis
+                listing += 1
+        want_cost, from_cost = ((MEASURED, UNVERIFIED_MAPPING) if verified
+                                else (UNVERIFIED_MAPPING, MEASURED))
+        for c in s.scalars(select(CostEntry).where(
+                CostEntry.kind == "etsy_listing_fee_actual")):
+            d = dict(c.detail or {})
+            if d.get("ledger_source") == LISTING_LEDGER_SOURCE and d.get("basis") == from_cost:
+                c.detail = {**d, "basis": want_cost}
+    return {"verified": verified, "orders_rederived": orders, "listing_fees_rederived": listing}
+
+
+LISTING_LEDGER_SOURCE = "etsy_listing_ledger"
 
 
 def fee_basis_text(basis: str, kinds, missing) -> str:
@@ -214,8 +382,12 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
     from . import sources
 
     norm = normalise(entries)
+    verified = mapping_verified(db)
+    # Fail closed before anything new is applied: a verification that no longer holds
+    # reverts what it made measured (rc1-ORD2).
+    sync_fee_bases(db, verified=verified)
     from . import listing_costs
-    listing_fee_entries = listing_costs.ingest_actual(db, norm)
+    listing_fee_entries = listing_costs.ingest_actual(db, norm, verified=verified)
     fees = [e for e in norm if e["kind"] in FEE_KINDS]
     refund_entries = [e for e in norm if e["kind"] == "refund"]
     by_ref: dict[str, list[dict]] = {}
@@ -225,7 +397,6 @@ def apply(db, entries: Iterable[dict], *, source: str = "etsy_receipts") -> dict
     applied_orders, matched_ids = [], set()
     attributions = []
     anomalies: list[dict] = []
-    verified = mapping_verified(db)
     from ..commerce.pricing import fees as model_fees
 
     with db.session() as s:

@@ -223,6 +223,11 @@ class Books:
         from ..core.models import Order
         from . import reconcile, sources
 
+        # rc1-ORD2: fail closed on the ledger mapping verification before reading any fee:
+        # a verification that no longer holds (revoked, voided by a mapping change, or its
+        # sealed chain tampered) reverts what it made measured, and a broken chain opens a
+        # P1 tamper incident.
+        reconcile.sync_fee_bases(self.db)
         held = orders_ingest.held(self.db, since=since, until=until)
         pl.held_orders = [{k: h.get(k) for k in ("ref", "reason", "currency",
                                                  "amount_original", "at", "why")}
@@ -256,10 +261,9 @@ class Books:
             pl.fees_by_basis = reconcile.fee_basis_summary(e for e in entries if e.fees_cad)
             # A customer is a buyer with at least one booked order in the period: not one
             # whose every order was voided, nor one whose only order is held.
-            pl.customers = len({o.customer_id for o in s.scalars(
-                select(Order).where(Order.at >= since, Order.at <= until))
-                if not o.refunded and o.external_ref not in held_refs
-                and (o.detail or {}).get("state") not in ("fully_refunded", "cancelled")})
+            # One predicate for every order reader (orders_ingest.countable, rc1-ORD2).
+            pl.customers = len({o.customer_id for o in orders_ingest.countable_orders(
+                s, select(Order).where(Order.at >= since, Order.at <= until))})
 
             from .listing_costs import cost_basis
             # Exclude only a budget mirror with an exact event identity present in

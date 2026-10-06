@@ -74,11 +74,14 @@ def _window_orders(db, now: datetime, days: int) -> tuple[list, list]:
 
     from ..core.models import Order
 
+    from ..commerce import orders_ingest as _oi
+
     with db.session() as s:
+        held = _oi.held_refs(s)  # rc1-ORD2: booked orders; refunded = not countable
         rows = [(o.product_slug, _aware(o.at), float(o.revenue_cad or 0.0),
-                 float(o.contribution_cad or 0.0), bool(o.refunded), o.acquisition_source,
-                 bool(o.is_repeat), o.category or "")
-                for o in s.scalars(select(Order))]
+                 float(o.contribution_cad or 0.0), not _oi.countable(o, held),
+                 o.acquisition_source, bool(o.is_repeat), o.category or "")
+                for o in _oi.booked_orders(s)]
     last = [r for r in rows if r[1] is not None and now - timedelta(days=days) <= r[1] < now]
     prev = [r for r in rows if r[1] is not None
             and now - timedelta(days=2 * days) <= r[1] < now - timedelta(days=days)]
@@ -301,8 +304,10 @@ def cac(db, *, today: date | None = None, window_days: int = 30) -> dict:
             if _aware(x.at) and _aware(x.at) >= since)
         customers = [c for c in s.scalars(select(Customer))
                      if _aware(c.first_seen_at) and _aware(c.first_seen_at) >= since]
-        orders = [o for o in s.scalars(select(Order))
-                  if _aware(o.at) and _aware(o.at) >= since and not o.refunded]
+        from ..commerce import orders_ingest as _oi
+
+        orders = [o for o in _oi.countable_orders(s)  # rc1-ORD2
+                  if _aware(o.at) and _aware(o.at) >= since]
     any_customers = bool(customers)
     from_ads = sum(1 for c in customers if c.acquisition_source in AD_SOURCES)
     contribution = round(sum(float(o.contribution_cad or 0.0) for o in orders), 2) \
@@ -369,8 +374,12 @@ def calibration(db, *, today: date | None = None) -> dict:
     with db.session() as s:
         forecasts = [dict(r.payload or {}) for r in s.scalars(select(OperatingReading).where(
             OperatingReading.kind == FORECAST_KIND))]
-        orders = [(_aware(o.at).date(), float(o.revenue_cad or 0.0), bool(o.refunded))
-                  for o in s.scalars(select(Order)) if o.at is not None]
+        from ..commerce import orders_ingest as _oi
+
+        _held = _oi.held_refs(s)  # rc1-ORD2: booked orders; refunded = not countable
+        orders = [(_aware(o.at).date(), float(o.revenue_cad or 0.0),
+                   not _oi.countable(o, _held))
+                  for o in _oi.booked_orders(s) if o.at is not None]
         outcomes = [(r.period_start, r.period_end, int(r.impressions or 0),
                      int(r.visits or 0)) for r in s.scalars(select(ListingOutcome))]
         listings = [(_aware(r.created_at).date() if r.created_at else None, r.state)

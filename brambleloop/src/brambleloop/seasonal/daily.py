@@ -114,7 +114,9 @@ def opportunities(db, rolling: dict, catalogue: dict, *, samples: int, today: da
     with db.session() as s:
         insights = list(s.scalars(select(InsightsSnapshot)))
         outcomes = list(s.scalars(select(ListingOutcome)))
-        orders = list(s.scalars(select(Order).where(Order.refunded.is_(False))))
+        from ..commerce import orders_ingest as _oi
+
+        orders = _oi.countable_orders(s)  # rc1-ORD2
     live = orders_source_live(db)["live"]
 
     demand_by_event: dict[str, float] = {}
@@ -202,8 +204,10 @@ def breakouts(db, catalogue: dict, *, today: date) -> dict:
     since = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) \
         - timedelta(days=BREAKOUT_WINDOW_DAYS)
     with db.session() as s:
+        from ..commerce import orders_ingest as _oi
+
         counts: dict[str, int] = {}
-        for o in s.scalars(select(Order).where(Order.refunded.is_(False))):
+        for o in _oi.countable_orders(s):  # rc1-ORD2
             if _aware(o.at) >= since:
                 counts[o.product_slug] = counts.get(o.product_slug, 0) + 1
     rows = []
@@ -364,8 +368,10 @@ def mine_breakouts(db, catalogue: dict, breakout: dict, *, today: date) -> dict:
     if not winners:
         return {"reading": breakout.get("reading", "none"), "mined": [], "requests": []}
     with db.session() as s:
+        from ..commerce import orders_ingest as _oi
+
         counts: dict[str, int] = {}
-        for o in s.scalars(select(Order).where(Order.refunded.is_(False))):
+        for o in _oi.countable_orders(s):  # rc1-ORD2
             counts[o.product_slug] = counts.get(o.product_slug, 0) + 1
     skus = [replication.Sku(slug=slug, orders=counts.get(slug, 0), weeks_live=0,
                             traits=_traits(item)) for slug, item in catalogue.items()]

@@ -44,7 +44,12 @@ def conditions(db, slug: str) -> dict:
         open_severe = [i.signature for i in s.scalars(select(Incident).where(
             Incident.product_slug == slug, Incident.resolved == False))  # noqa: E712
             if i.severity in ("P0", "P1")]
-        orders = list(s.scalars(select(Order).where(Order.product_slug == slug)))
+        from ..commerce import orders_ingest as _oi
+
+        # rc1-ORD2: booked orders only; `_void` are the voided (not countable) ones.
+        _held = _oi.held_refs(s)
+        orders = _oi.booked_orders(s, select(Order).where(Order.product_slug == slug))
+        _void = {o.id for o in orders if not _oi.countable(o, _held)}
         cases = [c for c in s.scalars(select(SupportCase).where(
             SupportCase.product_slug == slug))]
         has_listing = s.scalar(select(Listing).where(Listing.product_slug == slug)) is not None
@@ -55,9 +60,9 @@ def conditions(db, slug: str) -> dict:
         "evidence": {"certified": pv is not None, "open_p0_p1": open_severe}}
     if orders:
         support_rate = len(cases) / len(orders)
-        refund_rate = sum(1 for o in orders if o.refunded) / len(orders)
+        refund_rate = len(_void) / len(orders)
         contribution = sum(float(o.contribution_cad or 0.0) for o in orders
-                           if not o.refunded)
+                           if o.id not in _void)
         attributed = sum(1 for o in orders if (o.acquisition_source or "unknown") != "unknown")
         evidence["support_load_acceptable"] = {
             "met": support_rate <= MAX_SUPPORT_RATE,

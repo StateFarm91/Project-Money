@@ -341,24 +341,31 @@ def members(db, axis: str, value: str) -> list[dict]:
                                   CohortMembership.customer_id == Customer.id)
             .where(CohortMembership.axis == axis, CohortMembership.value == value)
             .order_by(Customer.first_seen_at)).scalars().all()
+        from . import orders_ingest
+
+        held = orders_ingest.held_refs(s)
         out = []
         for c in rows:
-            orders = s.execute(select(Order).where(Order.customer_id == c.id)
-                               .order_by(Order.at)).scalars().all()
-            kept = [o for o in orders if not o.refunded]
+            # rc1-ORD2: one shared predicate. An unreconciled or held order (revenue UNKNOWN)
+            # is in none of these figures; a voided one is not an order and carries no
+            # revenue, and only its retained-fee loss stays in contribution (CB2-O07).
+            orders = [o for o in s.execute(select(Order).where(Order.customer_id == c.id)
+                                           .order_by(Order.at)).scalars().all()
+                      if orders_ingest.in_books(o, held)]
+            kept = [o for o in orders if orders_ingest.countable(o, held)]
             first_at = kept[0].at if kept else None
             second_at = kept[1].at if len(kept) > 1 else None
             # Contribution is summed over every order, refunded ones included: a refunded
             # order's contribution is its retained fees, a loss, and a lifetime contribution
             # that dropped the losses would flatter every cohort (CB2-O07). Revenue is net of
-            # refunds on the row itself, so summing it over all orders is the same figure.
+            # refunds on the row itself; it is summed over countable orders only (a voided row's is 0).
             out.append({
                 "customer_ref": c.customer_ref,
                 "first_seen_at": _aware(c.first_seen_at).isoformat(),
                 "orders": len(kept),
                 "refunded_orders": len(orders) - len(kept),
                 "contribution_cad": round(sum(o.contribution_cad for o in orders), 2),
-                "revenue_cad": round(sum(o.revenue_cad for o in orders), 2),
+                "revenue_cad": round(sum(o.revenue_cad for o in kept), 2),
                 "first_order_at": _aware(first_at) if first_at else None,
                 "second_order_at": _aware(second_at) if second_at else None,
                 "categories": sorted({o.category for o in kept if o.category}),
@@ -462,7 +469,9 @@ def state(db) -> dict:
     """What the customer tables hold, which cohorts exist, and what is gated on the owner."""
     with db.session() as s:
         customers = s.scalar(select(func.count(Customer.id))) or 0
-        orders = s.scalar(select(func.count(Order.id))) or 0
+        from . import orders_ingest
+
+        orders = len(orders_ingest.countable_orders(s))
         occupied = s.execute(
             select(CohortMembership.axis, CohortMembership.value,
                    func.count(CohortMembership.id))

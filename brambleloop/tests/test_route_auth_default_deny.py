@@ -134,7 +134,8 @@ def test_the_allow_lists_name_real_routes():
     registered = {(m, p) for m, p, _ in _mutating()}
     # The routers are in the enumeration (FastAPI 0.14x hides them from `app.routes`).
     for p in ("/api/owner/phase/transition", "/api/owner/publication/approve",
-              "/api/owner/activation/approve", "/api/search-visibility",
+              "/api/owner/activation/approve", "/api/owner/ledger-mapping/verify",
+              "/api/search-visibility",
               "/api/learn/graph/edges"):
         assert ("POST", p) in registered, p
     stale = [k for k in security.PUBLIC_MUTATING_ROUTES if k not in registered]
@@ -150,8 +151,9 @@ def test_the_allow_lists_name_real_routes():
 
 
 def _want(path: str) -> int:
-    """403 on the three owner routers (their established contract), 401 everywhere else."""
-    routers = ("/api/owner/phase", "/api/owner/publication/", "/api/owner/activation/")
+    """403 on the owner routers (their established contract), 401 everywhere else."""
+    routers = ("/api/owner/phase", "/api/owner/publication/", "/api/owner/activation/",
+               "/api/owner/ledger-mapping")
     return 403 if path.startswith(routers) else 401
 
 
@@ -159,6 +161,7 @@ def test_refusal_status_matches_each_routes_contract():
     assert security.refusal_status("/api/owner/decision") == 401
     assert security.refusal_status("/api/owner/phase/transition") == 403
     assert security.refusal_status("/api/owner/publication/{approval_id}/revoke") == 403
+    assert security.refusal_status("/api/owner/ledger-mapping/verify") == 403
     assert security.refusal_status("/api/scheduler/tick") == 401
 
 

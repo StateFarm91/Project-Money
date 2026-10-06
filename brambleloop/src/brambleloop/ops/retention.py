@@ -134,6 +134,17 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                  "ops.activation_authority grant chain (sealed_chain)"),
     "owner.activation.rebased": ("lifetime_total",
                                  "ops.activation_authority grant chain (sealed_chain)"),
+    # rc1-ORD2: the owner's Etsy ledger mapping verification is a sealed chain like the
+    # families above; pruning a row breaks it and every ledger fee reverts to unverified.
+    "owner.etsy_ledger_mapping.verified": ("lifetime_total",
+                                           "finance.reconcile mapping verification chain "
+                                           "(sealed_chain)"),
+    "owner.etsy_ledger_mapping.revoked": ("lifetime_total",
+                                          "finance.reconcile mapping verification chain "
+                                          "(sealed_chain)"),
+    "owner.etsy_ledger_mapping.rebased": ("lifetime_total",
+                                          "finance.reconcile mapping verification chain "
+                                          "(sealed_chain)"),
     "store.published": ("lifetime_total",
                         "app.verify_checks (/api/verify) counts all of them, and in a live "
                         "phase reads each one's read-back verdict"),

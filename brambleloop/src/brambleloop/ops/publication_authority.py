@@ -299,10 +299,11 @@ def _economics(db, slug, version):
     with db.session() as s:
         try:
             # A refunded-in-full or cancelled order is not a sale (RC1 audit G1/E2).
-            orders = next((o.id for o in s.scalars(select(Order).where(
-                Order.product_slug == slug, Order.refunded == False))  # noqa: E712
-                if (o.detail or {}).get("state") not in ("fully_refunded", "cancelled")),
-                None)
+            # rc1-ORD2: the one countable predicate (orders_ingest.countable).
+            from ..commerce import orders_ingest as _oi
+
+            orders = next((o.id for o in _oi.countable_orders(s, select(Order).where(
+                Order.product_slug == slug))), None)
         except Exception:  # noqa: BLE001 - schema without the column reads as unmeasured
             orders = None
     return {"state": "MODELLED",

@@ -445,10 +445,14 @@ def observe_metric(db, row) -> dict:
     with db.session() as s:
         outcomes = [o for o in s.scalars(select(ListingOutcome).where(
             ListingOutcome.product_slug == slug)) if (o.period_start or "") >= since]
-        orders = [o for o in s.scalars(select(Order).where(Order.product_slug == slug))
+        from ..commerce import orders_ingest
+
+        orders = [o for o in orders_ingest.countable_orders(
+                      s, select(Order).where(Order.product_slug == slug))
                   if _aware(o.at) is not None
                   and _aware(o.at).date().isoformat() >= since]
-        attached = [o for o in s.scalars(select(Order).where(Order.cross_sell_of == slug))
+        attached = [o for o in orders_ingest.countable_orders(
+                        s, select(Order).where(Order.cross_sell_of == slug))
                     if _aware(o.at) is not None
                     and _aware(o.at).date().isoformat() >= since]
 
@@ -523,8 +527,11 @@ def estimate_expected_value(db, row, *, today: date | None = None) -> float | No
         today.year, today.month, today.day, tzinfo=timezone.utc)
     since = now - timedelta(days=EV_WINDOW_DAYS)
     with db.session() as s:
-        got = [o for o in s.scalars(select(Order).where(Order.product_slug == row.product_slug))
-               if _aware(o.at) is not None and _aware(o.at) >= since and not o.refunded]
+        from ..commerce import orders_ingest
+
+        got = [o for o in orders_ingest.countable_orders(
+                   s, select(Order).where(Order.product_slug == row.product_slug))
+               if _aware(o.at) is not None and _aware(o.at) >= since]
     if not got:
         return None
     stake = sum(float(o.contribution_cad or 0.0) for o in got)

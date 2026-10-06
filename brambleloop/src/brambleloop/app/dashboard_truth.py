@@ -145,22 +145,36 @@ def _order_source(db) -> dict:
 def _sale_rows(db) -> list[dict]:
     from sqlalchemy import select
 
-    from ..core.models import LedgerEntry
+    from ..commerce import orders_ingest
+    from ..core.models import LedgerEntry, Order
 
     with db.session() as s:
-        return [{"gross": float(g or 0), "refunds": float(r or 0), "ref": (ref or "").strip(),
+        held = orders_ingest.held_refs(s)
+        standing = {o.external_ref: orders_ingest.standing(o, held)
+                    for o in s.scalars(select(Order))}
+        rows = [{"gross": float(g or 0), "refunds": float(r or 0), "ref": (ref or "").strip(),
                  "basis": b or "unknown", "recon": rs or "unreconciled"}
                 for g, r, ref, b, rs in s.execute(select(
                     LedgerEntry.gross_cad, LedgerEntry.refunds_cad, LedgerEntry.evidence_ref,
                     LedgerEntry.basis, LedgerEntry.reconciliation_state)
                     .where(LedgerEntry.gross_cad > 0))]
+    for row in rows:
+        # rc1-ORD2: the order's standing under the one shared predicate. A ledger sale row
+        # with no order row keeps its own reading; a held one is held either way.
+        row["standing"] = (orders_ingest.STANDING_HELD if row["ref"] in held
+                           else standing.get(row["ref"], orders_ingest.STANDING_COUNTABLE))
+    return rows
 
 
 def _reconciled_measured(row: dict) -> bool:
-    """A3-09: a sale counts as evidenced only when measured AND reconciled to Etsy's ledger."""
+    """A3-09: a sale counts as evidenced only when measured AND reconciled to Etsy's ledger,
+    and (rc1-ORD2) only while its order is countable: a voided, unreconciled or held order is
+    never an evidenced sale, whatever its ledger row last said."""
+    from ..commerce.orders_ingest import STANDING_COUNTABLE
     from ..finance.reconcile import RECONCILED
 
-    return bool(row["ref"]) and row["basis"] == "measured" and row["recon"] == RECONCILED
+    return (bool(row["ref"]) and row["basis"] == "measured" and row["recon"] == RECONCILED
+            and row.get("standing", STANDING_COUNTABLE) == STANDING_COUNTABLE)
 
 
 def revenue_reading(db) -> dict:
@@ -221,16 +235,16 @@ def commercial_evidence(db) -> dict:
     and reconciled against Etsy's ledger. A row that merely names a reference is counted as
     recorded-unreconciled. While the order source is not measured the state is UNMEASURED.
     """
-    from sqlalchemy import func, select
-
-    from ..core.models import Order
+    from ..commerce import orders_ingest
 
     source = _order_source(db)
     rows = _sale_rows(db)
     evidenced = [r for r in rows if _reconciled_measured(r)]
-    recorded = [r for r in rows if r["ref"] and not _reconciled_measured(r)]
+    voided = [r for r in rows if r["standing"] == orders_ingest.STANDING_VOIDED]
+    recorded = [r for r in rows if r["ref"] and not _reconciled_measured(r)
+                and r["standing"] != orders_ingest.STANDING_VOIDED]
     with db.session() as s:
-        orders = s.scalar(select(func.count()).select_from(Order)) or 0
+        orders = len(orders_ingest.countable_orders(s))
     if evidenced:
         state = "OBSERVED"
     elif not source.get("measured"):
@@ -240,6 +254,7 @@ def commercial_evidence(db) -> dict:
     return {"evidenced_sales": len(evidenced),
             "evidenced_gross_cad": round(sum(r["gross"] for r in evidenced), 2),
             "recorded_unreconciled_sales": len(recorded),
+            "voided_sales": len(voided),
             "orders": int(orders),
             "order_source_measured": bool(source.get("measured")),
             "state": state,

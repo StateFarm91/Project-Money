@@ -30,7 +30,13 @@ def test_reservation_retries_restart_and_reconciliation_do_not_doublecount():
     pl=Books(db).profit_and_loss()
     assert pl.operating_costs_cad==.58,pl.to_dict()
     assert pl.unresolved_listing_exposure_cad==.27
-    assert pl.operating_costs_by_basis=={'measured':.31,'modelled':.27}
+    # rc1-ORD2: read through the unverified ledger mapping, the charged fee is not measured.
+    assert pl.operating_costs_by_basis=={'unknown':.31,'modelled':.27},pl.operating_costs_by_basis
+    tok='local-owner-test-token-32characters'
+    with patch.dict(os.environ,{'BRAMBLELOOP_OPS_TOKEN':tok}):
+        reconcile.record_mapping_verification(db,authorization=tok,by='owner',evidence='fixture')
+        pl=Books(db).profit_and_loss()
+        assert pl.operating_costs_by_basis=={'measured':.31,'modelled':.27}
     later={**entry,'entry_id':8,'amount':{'amount':-25,'divisor':100,'currency_code':'CAD'}}
     reconcile.apply(db,[entry,later]);reconcile.apply(db,[entry,later])
     assert Books(db).profit_and_loss().operating_costs_cad==.83
@@ -136,10 +142,16 @@ def test_later_renewal_cannot_rewrite_old_period_or_escape_today_budget():
     before=Books(db).profit_and_loss(since=old-timedelta(days=1),until=old+timedelta(days=1))
     e={'kind':'listing_fee','reference_type':'listing','reference_id':'55',
        'entry_id':'later-renewal','at':now.isoformat(),'charge':1.50,'currency':'CAD'}
-    lc.ingest_actual(db,[e]);lc.ingest_actual(Database(str(db.engine.url)),[e])
-    after=Books(db).profit_and_loss(since=old-timedelta(days=1),until=old+timedelta(days=1))
+    # rc1-ORD2: a listing fee is `measured` only under the owner's sealed mapping
+    # verification; this test is about periods and budgets, so it records one first.
+    from brambleloop.finance import reconcile
+    tok='local-owner-test-token-32characters'
+    with patch.dict(os.environ,{'BRAMBLELOOP_OPS_TOKEN':tok}):
+        reconcile.record_mapping_verification(db,authorization=tok,by='owner',evidence='fixture')
+        lc.ingest_actual(db,[e]);lc.ingest_actual(Database(str(db.engine.url)),[e])
+        after=Books(db).profit_and_loss(since=old-timedelta(days=1),until=old+timedelta(days=1))
+        today=Books(db).profit_and_loss(since=now-timedelta(hours=1))
     assert before.operating_costs_cad==after.operating_costs_cad==.27
-    today=Books(db).profit_and_loss(since=now-timedelta(hours=1))
     assert today.operating_costs_cad==1.50 and today.operating_costs_by_basis=={'measured':1.50}
     try:lc.reserve(db,listing_id='66',amount=.27,agent='store_operator',ceiling=1)
     except BudgetExceeded:pass

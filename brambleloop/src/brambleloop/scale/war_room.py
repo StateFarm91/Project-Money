@@ -49,10 +49,12 @@ def _orders(db) -> list[dict]:
 
     from ..core.models import Order
 
+    from ..commerce import orders_ingest as _oi
+
     with db.session() as s:
         return [{"at": _aware(o.at), "slug": o.product_slug, "revenue": o.revenue_cad or 0.0,
                  "contribution": o.contribution_cad or 0.0, "repeat": o.is_repeat}
-                for o in s.scalars(select(Order).where(Order.refunded == False))]  # noqa: E712
+                for o in _oi.countable_orders(s)]  # rc1-ORD2
 
 
 def _observed(db, orders: list[dict], now: datetime):

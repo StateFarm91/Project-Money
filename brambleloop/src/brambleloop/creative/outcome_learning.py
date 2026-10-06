@@ -87,7 +87,9 @@ def outcomes_by_concept(db, concepts: list | None = None) -> list[dict]:
             r["outcome_periods"] += 1
             if o.favourites is not None:
                 r["favourites"] = (r["favourites"] or 0) + o.favourites
-        for order in s.scalars(select(Order).where(Order.refunded == False)):  # noqa: E712
+        from ..commerce import orders_ingest as _oi
+
+        for order in _oi.countable_orders(s):  # rc1-ORD2
             c = _concept_for(order.product_slug, concepts)
             if c is None:
                 continue

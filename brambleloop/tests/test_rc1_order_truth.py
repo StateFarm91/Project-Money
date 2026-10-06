@@ -140,7 +140,10 @@ def incident(db, signature):
 
 
 def verify(db):
-    reconcile.record_mapping_verification(db, by="owner", evidence="synthetic fixture")
+    # rc1-ORD2: recorded only under the owner credential, sealed and chained.
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = "local-owner-ledger-mapping-token-32chars"
+    reconcile.record_mapping_verification(db, authorization="local-owner-ledger-mapping-token-32chars", by="owner",
+                                          evidence="synthetic fixture")
 
 
 # ---------------------------------------------------------------------------

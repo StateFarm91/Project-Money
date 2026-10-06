@@ -131,6 +131,7 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/etsy/oauth/status",
     "/api/teardown/intake",
     "/api/owner/phase",
+    "/api/owner/ledger-mapping",
     "/api/learn/queue",
     "/api/learn/graph",
     "/api/learn/lessons/{slug}",
@@ -149,9 +150,10 @@ PUBLIC_GET_NOTES: dict[str, str] = {
 }
 
 # Routers whose established contract is 403 for a refused credential (phase_api,
-# publication_authority_api, activation_authority_api). Everything else answers 401 --
-# including `/api/owner/decision`, which is an app route, not one of these routers.
-_FORBIDDEN_PREFIXES = ("/api/owner/phase", "/api/owner/publication/", "/api/owner/activation/")
+# publication_authority_api, activation_authority_api, ledger_mapping_api). Everything else
+# answers 401 -- including `/api/owner/decision`, which is an app route, not one of these.
+_FORBIDDEN_PREFIXES = ("/api/owner/phase", "/api/owner/publication/", "/api/owner/activation/",
+                       "/api/owner/ledger-mapping")
 
 
 def refusal_status(route_path: str) -> int:

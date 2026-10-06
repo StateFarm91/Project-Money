@@ -98,7 +98,8 @@ def _rows(db):
     """(costs, listings, orders) as plain tuples."""
     from sqlalchemy import select
 
-    from ..core.models import CostEntry, Listing, Order
+    from ..commerce import orders_ingest
+    from ..core.models import CostEntry, Listing
 
     with db.session() as s:
         costs = [(_aware(c.at), c.kind or "", float(c.amount_cad or 0.0),
@@ -108,8 +109,8 @@ def _rows(db):
                      bool(l.etsy_listing_id), _aware(l.created_at))
                     for l in s.scalars(select(Listing).where(Listing.state != "withdrawn"))]
         orders = [(o.product_slug, _aware(o.at), float(o.contribution_cad or 0.0),
-                   bool(o.refunded), o.fees_basis or "unknown")
-                  for o in s.scalars(select(Order))]
+                   not orders_ingest.countable(o), o.fees_basis or "unknown")
+                  for o in orders_ingest.booked_orders(s)]
     return costs, listings, orders
 
 

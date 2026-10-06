@@ -316,7 +316,9 @@ def revenue_breakdowns(db) -> dict:
     by_season: dict[str, float] = {}
     by_channel: dict[str, float] = {}
     with db.session() as s:
-        for order in s.scalars(select(Order).where(Order.refunded.is_(False))):
+        from ..commerce import orders_ingest
+
+        for order in orders_ingest.countable_orders(s, select(Order)):
             amount = float(order.revenue_cad or 0.0)
             season = season_of.get(order.product_slug, "")
             by_season[season] = by_season.get(season, 0.0) + amount

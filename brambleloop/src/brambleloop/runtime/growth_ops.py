@@ -235,10 +235,15 @@ def _slug_orders(db, slug: str) -> list:
 
     from ..core.models import Order
 
+    from ..commerce import orders_ingest as _oi
+
     with db.session() as s:
-        return [(bool(o.refunded), float(o.revenue_cad or 0.0), float(o.contribution_cad or 0.0),
+        # rc1-ORD2: orders whose money is in the books; `refunded` = not countable.
+        held = _oi.held_refs(s)
+        return [(not _oi.countable(o, held), float(o.revenue_cad or 0.0),
+                 float(o.contribution_cad or 0.0),
                  bool(o.offsite_ad_attributed), _aware(o.at))
-                for o in s.scalars(select(Order).where(Order.product_slug == slug))]
+                for o in _oi.booked_orders(s, select(Order).where(Order.product_slug == slug))]
 
 
 def _allowable_cac(price: float, orders: list) -> dict:
@@ -363,7 +368,9 @@ def ads_plan(db, *, today: date | None = None) -> dict:
 
     # #244: Offsite Ads orders tracked apart, on the policy reading's own terms.
     with db.session() as s:
-        orders_all = [o for o in s.scalars(select(Order)) if not o.refunded]
+        from ..commerce import orders_ingest as _oi
+
+        orders_all = _oi.countable_orders(s)  # rc1-ORD2
     if orders_all:
         revenue = sum(float(o.revenue_cad or 0.0) for o in orders_all)
         contribution = sum(float(o.contribution_cad or 0.0) for o in orders_all)
@@ -648,10 +655,12 @@ def creators_reading(db) -> dict:
         # order ingest writes `creator:<ref>` as the acquisition source. It is measured only
         # once every collaboration has been measured; before that it is None, never zero.
         attributed: dict[str, float] = {}
-        for o in s.scalars(select(Order).where(Order.acquisition_source.like("creator:%"))):
-            if not o.refunded:
-                ref = o.acquisition_source.split(":", 1)[1]
-                attributed[ref] = attributed.get(ref, 0.0) + float(o.contribution_cad or 0.0)
+        from ..commerce import orders_ingest as _oi
+
+        for o in _oi.countable_orders(
+                s, select(Order).where(Order.acquisition_source.like("creator:%"))):
+            ref = o.acquisition_source.split(":", 1)[1]  # rc1-ORD2: countable only
+            attributed[ref] = attributed.get(ref, 0.0) + float(o.contribution_cad or 0.0)
         rels = []
         for ref, cs in sorted(by_ref.items()):
             measured = [c for c in cs if c.conversions is not None and c.measured_on]
@@ -813,7 +822,9 @@ def interviews_reading(db, today: date) -> dict:
     with db.session() as s:
         customers = list(s.scalars(select(Customer)))
         first_order = {}
-        for o in s.scalars(select(Order).order_by(Order.at)):
+        from ..commerce import orders_ingest as _oi
+
+        for o in _oi.countable_orders(s, select(Order).order_by(Order.at)):
             first_order.setdefault(o.customer_id, o)
     gate = interviews.may_open(customers=len(customers))
     invitations, refused = [], []
@@ -1000,9 +1011,15 @@ def benchmark_observations(db) -> tuple[list, list]:
         outcomes: dict[str, list] = {}
         for r in s.scalars(select(ListingOutcome)):
             outcomes.setdefault(r.product_slug, []).append(r)
-        orders_all = list(s.scalars(select(Order)))
+        from ..commerce import orders_ingest as _oi
+
+        # rc1-ORD2: booked orders only (an unreconciled/held one's revenue is UNKNOWN);
+        # `_void` marks the voided ones, which count as refunds but not as orders.
+        _held = _oi.held_refs(s)
+        orders_all = _oi.booked_orders(s)
+        _void = {o.id for o in orders_all if not _oi.countable(o, _held)}
         cases = list(s.scalars(select(SupportCase)))
-    shop_orders = len(orders_all)
+    shop_orders = sum(1 for o in orders_all if o.id not in _void)
     first = min((_aware(r.created_at) for r in listings.values() if r.created_at), default=None)
     days_live = (datetime.now(timezone.utc) - first).days if first else 0
     maturity = benchmarks.maturity_for(days_live=days_live, orders=shop_orders)
@@ -1033,11 +1050,11 @@ def benchmark_observations(db) -> tuple[list, list]:
             favourites=(sum(int(r.favourites) for r in rows if r.favourites is not None)
                         if any(r.favourites is not None for r in rows) else None),
             orders=sum(measured_orders) if measured_orders else None,
-            refunds_and_support=(sum(1 for o in slug_orders if o.refunded)
+            refunds_and_support=(sum(1 for o in slug_orders if o.id in _void)
                                  + sum(1 for c in cases if c.product_slug == slug))
             if slug_orders else None,
             contribution_cad=(round(sum(float(o.contribution_cad or 0.0)
-                                        for o in slug_orders if not o.refunded), 2)
+                                        for o in slug_orders if o.id not in _void), 2)
                               if slug_orders else None)))
         items[slug] = cell
     return observations, skipped

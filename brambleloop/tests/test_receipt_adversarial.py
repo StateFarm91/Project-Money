@@ -255,7 +255,10 @@ def _verify_mapping(db):
     `unverified`, never `measured` (RC1 audit E5)."""
     from brambleloop.finance import reconcile
 
-    reconcile.record_mapping_verification(db, by="owner", evidence="synthetic fixture")
+    # rc1-ORD2: recorded only under the owner credential, sealed and chained.
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = "local-owner-ledger-mapping-token-32chars"
+    reconcile.record_mapping_verification(db, authorization="local-owner-ledger-mapping-token-32chars", by="owner",
+                                          evidence="synthetic fixture")
 
 
 def test_O07_reconcile_keeps_a_refunded_sales_measured_fee_as_a_loss():

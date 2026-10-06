@@ -464,8 +464,11 @@ def north_star_cohorts(db, *, with_proxies: bool = False):
         outcomes: dict[str, list] = {}
         for r in s.scalars(select(ListingOutcome)):
             outcomes.setdefault(r.product_slug, []).append(r)
+        from ..commerce import orders_ingest as _oi
+
+        _held = _oi.held_refs(s)
         orders: dict[str, list] = {}
-        for o in s.scalars(select(Order)):
+        for o in _oi.booked_orders(s):  # rc1-ORD2
             orders.setdefault(o.product_slug, []).append(o)
         cohort_of = {p.slug: month(p.created_at) for p in products}
 
@@ -495,7 +498,7 @@ def north_star_cohorts(db, *, with_proxies: bool = False):
         placed = [o for x in slugs for o in orders.get(x, [])
                   if ((o.detail or {}).get("state") or "paid") in
                   ("paid", "partially_refunded", "fully_refunded")]
-        sold = [o for o in placed if not o.refunded]
+        sold = [o for o in placed if _oi.countable(o, _held)]
         if imps:
             add(m, "ctr", visits / imps)
         if visits:

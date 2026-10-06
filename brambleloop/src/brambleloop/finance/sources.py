@@ -112,11 +112,14 @@ def attribute(db, external_ref: str, source: str, *, evidence: str,
 def table(db, *, since: datetime | None = None, until: datetime | None = None) -> dict:
     """Orders and revenue per channel, every channel present, unattributed explicit.
 
-    Refunded orders are counted (they happened) but add no revenue. The total is the sum of
-    the rows; it is never shown without them.
+    Only countable orders (`orders_ingest.countable`): a voided order (refunded in full or
+    cancelled) is not an order, and an unreconciled or held one has UNKNOWN revenue, so
+    neither moves any channel -- the same rule the books use. The total is the sum of the
+    rows; it is never shown without them.
     """
     from sqlalchemy import select
 
+    from ..commerce import orders_ingest
     from ..core.models import Order
 
     rows = {k: {"orders": 0, "revenue_cad": 0.0, "contribution_cad": 0.0}
@@ -127,12 +130,13 @@ def table(db, *, since: datetime | None = None, until: datetime | None = None) -
             q = q.where(Order.at >= since)
         if until is not None:
             q = q.where(Order.at <= until)
-        for o in s.scalars(q):
+        # rc1-ORD2: only countable orders (orders_ingest.countable) -- a voided, unreconciled
+        # or held order is neither an order nor revenue on any channel.
+        for o in orders_ingest.countable_orders(s, q):
             row = rows[channel(o.acquisition_source)]
             row["orders"] += 1
-            if not o.refunded:
-                row["revenue_cad"] += float(o.revenue_cad or 0.0)
-                row["contribution_cad"] += float(o.contribution_cad or 0.0)
+            row["revenue_cad"] += float(o.revenue_cad or 0.0)
+            row["contribution_cad"] += float(o.contribution_cad or 0.0)
     for row in rows.values():
         row["revenue_cad"] = round(row["revenue_cad"], 2)
         row["contribution_cad"] = round(row["contribution_cad"], 2)
@@ -167,11 +171,6 @@ def first_sale(db) -> dict | None:
         return dict(row.payload or {})
 
 
-def _voided(order) -> bool:
-    return bool(order.refunded) or (order.detail or {}).get("state") in (
-        "fully_refunded", "cancelled")
-
-
 def record_first_sale(db) -> dict | None:
     """Write (once) or refresh the first-sale record from the earliest order.
 
@@ -189,9 +188,14 @@ def record_first_sale(db) -> dict | None:
 
     from ..core.models import OperatingReading, Order
 
+    from ..commerce import orders_ingest as _oi
+
     with db.session() as s:
+        # rc1-ORD2: the first sale is the earliest *countable* order (orders_ingest.countable):
+        # not voided, and not unreconciled/held (revenue UNKNOWN -- listed below by name).
+        held = _oi.held_refs(s)
         order = next((o for o in s.scalars(select(Order).order_by(Order.at, Order.id))
-                      if not _voided(o)), None)
+                      if _oi.countable(o, held)), None)
         row = s.scalar(select(OperatingReading).where(
             OperatingReading.kind == FIRST_SALE_KIND).limit(1))
         if order is None:
@@ -239,7 +243,8 @@ def record_first_sale(db) -> dict | None:
             # earlier one arriving late is kept in the history so the change is visible.
             old_order = s.scalar(select(Order).where(
                 Order.external_ref == old.get("external_ref")))
-            old_voided = old.get("voided") or old_order is None or _voided(old_order)
+            old_voided = (old.get("voided") or old_order is None
+                          or not _oi.countable(old_order, held))
             if old.get("at", "") <= payload["at"] and not old_voided:
                 return {**old, "created": False}
         changed = {k: v for k, v in payload.items() if old.get(k) != v}

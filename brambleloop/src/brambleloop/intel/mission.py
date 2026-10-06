@@ -248,8 +248,10 @@ def mission_status(db, *, benchmark_key: str = benchmarks.MJS_KEY,
                                        "pods": {k: (v or {}).get("verdict")
                                                 for k, v in (d.get("pods") or {}).items()}}
         published = list(s.scalars(select(Listing).where(Listing.state == "published")))
+        from ..commerce import orders_ingest as _oi
+
         orders = [(o.product_slug, float(o.revenue_cad or 0.0))
-                  for o in s.scalars(select(Order).where(Order.refunded == False))]  # noqa: E712
+                  for o in _oi.countable_orders(s)]  # rc1-ORD2
         incidents = [{"id": i.id, "severity": i.severity, "signature": i.signature,
                       "summary": (i.summary or "")[:200]}
                      for i in s.scalars(select(Incident).where(
@@ -257,7 +259,7 @@ def mission_status(db, *, benchmark_key: str = benchmarks.MJS_KEY,
                          (Incident.signature.like("mjs.%")
                           | Incident.signature.like("benchmark.%"))))]
         last_scan = scans[0].at.isoformat() if scans else None
-        n_orders = s.scalar(select(func.count()).select_from(Order)) or 0
+        n_orders = len(_oi.countable_orders(s))
     mission_orders = [o for o in orders if o[0] in winners]
     return {
         "last_successful_scan": last_scan,

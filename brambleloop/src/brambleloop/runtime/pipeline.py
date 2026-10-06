@@ -2145,9 +2145,12 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
             e["clicks"] += int(r.visits or 0)
             e["favourites"] += int(r.favourites or 0)
         sold: dict[str, dict] = {}
-        for o in s.scalars(select(Order)):
+        from ..commerce import orders_ingest as _oi
+
+        _held = _oi.held_refs(s)
+        for o in _oi.booked_orders(s):  # rc1-ORD2: unreconciled/held orders move nothing
             x = sold.setdefault(o.product_slug, {"orders": 0, "revenue": 0.0, "refunds": 0})
-            if o.refunded:
+            if not _oi.countable(o, _held):
                 x["refunds"] += 1
             else:
                 x["orders"] += 1

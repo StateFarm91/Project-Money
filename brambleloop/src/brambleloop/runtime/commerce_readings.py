@@ -138,7 +138,9 @@ def _club_answers(db):
         certified = sorted(pv.created_at for pv in s.scalars(select(PatternVersion).where(
             PatternVersion.certified == True)) if pv.created_at)  # noqa: E712
         customers = list(s.scalars(select(Customer)))
-        repeaters = {o.customer_id for o in s.scalars(select(Order).where(
+        from ..commerce import orders_ingest as _oi
+
+        repeaters = {o.customer_id for o in _oi.countable_orders(s, select(Order).where(
             Order.is_repeat == True))}  # noqa: E712
         cases = s.query(SupportCase).count()
 

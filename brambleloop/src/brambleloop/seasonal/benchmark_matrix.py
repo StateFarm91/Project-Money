@@ -118,10 +118,12 @@ def _our_department(db, department: str, event: str, today: date) -> dict:
             outcomes = list(s.scalars(select(ListingOutcome).where(
                 ListingOutcome.product_slug == p.slug)))
             visits = sum(int(o.visits or 0) for o in outcomes)
-            orders = s.scalar(select(func.count()).select_from(Order).where(
-                Order.product_slug == p.slug, Order.refunded.is_(False))) or 0
-            revenue = s.scalar(select(func.sum(Order.revenue_cad)).where(
-                Order.product_slug == p.slug, Order.refunded.is_(False))) or 0.0
+            from ..commerce import orders_ingest as _oi
+
+            _kept = _oi.countable_orders(s, select(Order).where(  # rc1-ORD2
+                Order.product_slug == p.slug))
+            orders = len(_kept)
+            revenue = sum(float(o.revenue_cad or 0.0) for o in _kept)
             launch = None
             if ev is not None:
                 plan = compile_launch(ev.name, next_occurrence(ev.event_date, today),

@@ -68,9 +68,13 @@ def orders(db) -> list[dict]:
     from sqlalchemy import select
 
     from ..core.models import Customer, Order
+    from . import orders_ingest
 
     with db.session() as s:
         refs = {c.id: c.customer_ref for c in s.scalars(select(Customer))}
+        # rc1-ORD2: only orders whose money is in the books (orders_ingest.in_books). An
+        # unreconciled or held order's revenue is UNKNOWN and appears in no reading; a voided
+        # one stays as a refunded row (no order, its retained-fee loss kept, CB2-O07).
         return [{"customer_ref": refs.get(o.customer_id, ""), "at": _aware(o.at),
                  "product_slug": o.product_slug, "category": o.category,
                  "season": (o.detail or {}).get("season") or _season(o.product_slug),
@@ -78,7 +82,8 @@ def orders(db) -> list[dict]:
                  "revenue_cad": float(o.revenue_cad or 0.0),
                  "contribution_cad": float(o.contribution_cad or 0.0),
                  "acquisition_source": o.acquisition_source or "unknown",
-                 "refunded": bool(o.refunded), "is_repeat": bool(o.is_repeat),
+                 "refunded": not orders_ingest.countable(o),
+                 "is_repeat": bool(o.is_repeat),
                  # The line's reconciled state and refund (CB2-O01); a row written before
                  # states existed reads as paid or fully refunded from its flag.
                  "state": ((o.detail or {}).get("state")
@@ -89,7 +94,7 @@ def orders(db) -> list[dict]:
                                 ).get("basis") or "estimated",
                  "currency": o.currency or "CAD", "fx_measured": bool(o.fx_measured),
                  "fx_usd_per_cad": o.fx_usd_per_cad}
-                for o in s.scalars(select(Order).order_by(Order.at))]
+                for o in orders_ingest.booked_orders(s, select(Order).order_by(Order.at))]
 
 
 def _season(slug: str) -> str:

@@ -76,10 +76,12 @@ app.add_middleware(security.SecurityHeadersMiddleware)
 from .activation_authority_api import make_router as activation_authority_router
 from .publication_authority_api import make_router as publication_authority_router
 from .phase_api import make_router as phase_router
+from .ledger_mapping_api import make_router as ledger_mapping_router
 
 app.include_router(activation_authority_router(db))
 app.include_router(publication_authority_router(db))
 app.include_router(phase_router(db))
+app.include_router(ledger_mapping_router(db))
 from ..learn.api import router as learn_router
 
 app.include_router(learn_router(db))
@@ -3749,7 +3751,9 @@ async def api_attribution_stats(request: Request,
     from ..core.models import Order
 
     with db.session() as s:
-        orders = [o for o in s.scalars(select(Order)) if not o.refunded]
+        from ..commerce import orders_ingest as _oi
+
+        orders = _oi.countable_orders(s)  # rc1-ORD2: the one countable predicate
         revenue = sum(float(o.revenue_cad or 0.0) for o in orders)
         contribution = sum(float(o.contribution_cad or 0.0) for o in orders)
         support: dict[str, int] = {}

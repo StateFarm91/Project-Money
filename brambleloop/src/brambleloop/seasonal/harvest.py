@@ -165,8 +165,10 @@ def harvest(db, event_name: str, *, today: date | None = None,
 
     with db.session() as s:
         orders = []
-        for o in s.scalars(select(Order).where(Order.at >= lo, Order.at <= hi,
-                                               Order.refunded == False)):  # noqa: E712
+        from ..commerce import orders_ingest as _oi
+
+        for o in _oi.countable_orders(s, select(Order).where(Order.at >= lo,  # rc1-ORD2
+                                                             Order.at <= hi)):
             season = (o.detail or {}).get("season") or occasion_for(o.product_slug)
             if season != event.name:
                 continue

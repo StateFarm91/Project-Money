@@ -520,8 +520,10 @@ def _pricing_net_inputs(db, slug: str) -> dict:
     from ..core.models import Order, PriceObservation
     from ..finance import currency
 
+    from ..commerce import orders_ingest as _oi
+
     with db.session() as s:
-        orders = list(s.scalars(select(Order).where(Order.refunded.is_(False))))
+        orders = _oi.countable_orders(s)  # rc1-ORD2: the one countable predicate
         points = [{"price_cad": float(p.price_cad or 0.0), "visits": int(p.visits or 0),
                    "contribution_cad": float(p.contribution_cad or 0.0)}
                   for p in s.scalars(select(PriceObservation).where(

@@ -227,8 +227,9 @@ def attribution_from_db(db, *, today=None) -> dict:
 
     from sqlalchemy import select
 
-    from ..core.models import Listing, Order
+    from ..core.models import Listing
     from ..radar.opportunity import POOL
+    from . import orders_ingest
     from ..scale.runrate import orders_source_live
     from .attribution import Period, amplification_check, bundle_effect
 
@@ -242,7 +243,7 @@ def attribution_from_db(db, *, today=None) -> dict:
     with db.session() as s:
         orders = [(o.product_slug, _aware(o.at), float(o.revenue_cad or 0.0),
                    float(o.contribution_cad or 0.0))
-                  for o in s.scalars(select(Order).where(Order.refunded.is_(False)))]
+                  for o in orders_ingest.countable_orders(s)]
         drafted = {r.product_slug: _aware(r.created_at) for r in s.scalars(select(Listing))}
 
     def _period(slug: str, start, end) -> Period:

@@ -1863,8 +1863,10 @@ def _stage_evidence(db, winner: dict | None, ev, *, tournament_done: bool) -> li
         listing = s.scalar(select(Listing).where(Listing.product_slug == slug)
                            .order_by(Listing.id.desc()).limit(1))
         listing_state = listing.state if listing is not None else None
-        orders = s.scalar(select(func.count()).select_from(Order).where(
-            Order.product_slug == slug, Order.refunded == False)) or 0  # noqa: E712
+        from ..commerce import orders_ingest as _oi
+
+        orders = len(_oi.countable_orders(s, select(Order).where(
+            Order.product_slug == slug)))  # rc1-ORD2
     out.append(("cir_engineering", drafted is not None,
                 f"cir.drafted row {drafted}" if drafted else
                 f"no CIR drafted: the winner intake decided {winner.get('decision')!r}"))
@@ -2011,8 +2013,10 @@ def response_outcomes(db, *, today: date | None = None) -> dict:
             continue
         for slug in detail.get("slugs") or []:
             with db.session() as s:
-                orders = s.scalar(select(func.count()).select_from(Order).where(
-                    Order.product_slug == slug, Order.refunded == False)) or 0  # noqa: E712
+                from ..commerce import orders_ingest as _oi
+
+                orders = len(_oi.countable_orders(s, select(Order).where(
+                    Order.product_slug == slug)))  # rc1-ORD2
                 listing = s.scalar(select(Listing).where(
                     Listing.product_slug == slug, Listing.state == "published")
                     .order_by(Listing.id).limit(1))

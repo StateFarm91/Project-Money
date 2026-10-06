@@ -495,8 +495,13 @@ def observe(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
     with db.session() as s:
         outcomes = [r for r in s.scalars(select(ListingOutcome))
                     if (r.period_end or "") >= since_day]
-        orders = [o for o in s.scalars(select(Order))
+        from ..commerce import orders_ingest as _oi
+
+        # rc1-ORD2: booked orders only; `refunded` below means not countable (voided).
+        _held = _oi.held_refs(s)
+        orders = [o for o in _oi.booked_orders(s)
                   if _aware(o.at) is not None and _aware(o.at) >= since]
+        _void = {o.id for o in orders if not _oi.countable(o, _held)}
         sales = [x for x in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
                  if _aware(x.at) is not None and _aware(x.at) >= since]
         published = sum(1 for r in s.scalars(select(Listing)) if r.state == "published")
@@ -507,12 +512,12 @@ def observe(db, *, today=None, window_days: int = WINDOW_DAYS) -> dict:
     impressions = sum(int(r.impressions or 0) for r in outcomes) if outcomes else None
 
     if source["live"]:
-        kept = [o for o in orders if not o.refunded]
+        kept = [o for o in orders if o.id not in _void]
         n_orders = len(kept)
         revenue = round(sum(float(o.revenue_cad or 0.0) for o in kept), 2)
         contribution = round(sum(float(o.contribution_cad or 0.0) for o in kept), 2)
         repeat = sum(1 for o in kept if o.is_repeat)
-        refund_rate = (sum(1 for o in orders if o.refunded) / len(orders)) if orders else None
+        refund_rate = (len(_void) / len(orders)) if orders else None
         support_rate = (len(support) / len(orders)) if orders else None
     else:
         n_orders = revenue = contribution = repeat = refund_rate = support_rate = None
@@ -580,8 +585,10 @@ def per_visitor_from_db(db, *, today=None, window_days: int = WINDOW_DAYS) -> di
             if (r.period_end or "") >= since.date().isoformat():
                 visits[r.product_slug] = visits.get(r.product_slug, 0) + int(r.visits or 0)
         orders: dict[str, list] = {}
-        for o in s.scalars(select(Order)):
-            if _aware(o.at) is not None and _aware(o.at) >= since and not o.refunded:
+        from ..commerce import orders_ingest as _oi
+
+        for o in _oi.countable_orders(s):  # rc1-ORD2
+            if _aware(o.at) is not None and _aware(o.at) >= since:
                 orders.setdefault(o.product_slug, []).append(
                     (float(o.revenue_cad or 0.0), float(o.contribution_cad or 0.0)))
 

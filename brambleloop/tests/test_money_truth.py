@@ -69,7 +69,10 @@ def _open_gate(db):
 def _verify_mapping(db):
     """The owner's recorded verification of the ledger type/unit mapping (RC1 audit E5).
     Without it, ledger fees carry the `unverified_mapping` basis, never `measured`."""
-    reconcile.record_mapping_verification(db, by="owner", evidence="synthetic test fixture")
+    # rc1-ORD2: recorded only under the owner credential, sealed and chained.
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = "local-owner-ledger-mapping-token-32chars"
+    reconcile.record_mapping_verification(db, authorization="local-owner-ledger-mapping-token-32chars", by="owner",
+                                          evidence="synthetic test fixture")
 
 
 def _receipt(rid, buyer, listing_id, cents, *, days_ago=1, lines=1, status="paid"):

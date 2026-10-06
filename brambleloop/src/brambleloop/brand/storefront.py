@@ -401,8 +401,11 @@ def opening_grid(db, *, today=None, inventory: dict | None = None) -> dict:
                                   .join(PatternVersion, PatternVersion.product_id == Product.id)
                                   .where(PatternVersion.certified.is_(True))):
             certs[(slug, pv.version)] = dict(pv.certificate or {})
-        orders = dict(s.execute(select(Order.product_slug, func.count())
-                                .group_by(Order.product_slug)).all())
+        from ..commerce import orders_ingest as _oi
+
+        orders: dict[str, int] = {}
+        for o in _oi.countable_orders(s):  # rc1-ORD2: countable orders only
+            orders[o.product_slug] = orders.get(o.product_slug, 0) + 1
         heroes = {(a.product_slug, a.version): a.asset_class
                   for a in s.scalars(select(ListingAsset).where(ListingAsset.position == 1))}
         for l in listings:

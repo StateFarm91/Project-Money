@@ -50,9 +50,18 @@ def reserve(db, *, listing_id, amount, agent, ceiling, job_id=None):
         s.add(row);s.flush();return row.id
 
 
-def ingest_actual(db, entries):
-    """Durably ingest only listing-reference fees, retaining original amount and FX basis."""
-    from .reconcile import _to_cad
+def ingest_actual(db, entries, *, verified=None):
+    """Durably ingest only listing-reference fees, retaining original amount and FX basis.
+
+    rc1-ORD2: a listing fee is read through the same unverified ledger type/unit mapping as
+    the order fees, so it is `measured` only while the owner's sealed mapping verification
+    holds (`reconcile.mapping_verified`); until then its basis is `unverified` (the ledger
+    column's 12-character form of `unverified_mapping`) and `reconcile.sync_fee_bases` moves
+    it either way when the verification changes. An assumed FX rate keeps it `modelled`.
+    """
+    from .reconcile import UNVERIFIED, UNVERIFIED_MAPPING, _to_cad, mapping_verified
+    if verified is None:
+        verified = mapping_verified(db)  # read before the write lock is taken
     applied=[]
     with locked(db) as s:
         for e in entries:
@@ -63,10 +72,13 @@ def ingest_actual(db, entries):
                 continue
             at=datetime.fromisoformat(e['at']) if e.get('at') else datetime.now(timezone.utc)
             amount,rate_measured=_to_cad(e['charge'],e['currency'],at.date())
+            basis=('modelled' if not rate_measured else 'measured' if verified else UNVERIFIED)
+            cost_basis_=('modelled' if not rate_measured else
+                         'measured' if verified else UNVERIFIED_MAPPING)
             s.add(LedgerEntry(at=at,category='expense',expense_cad=amount,
                              source='etsy_listing_ledger',external_id=external,
                              evidence_ref=ref,currency=e['currency'],amount_original=e['charge'],
-                             classification='listing_fee',basis='measured' if rate_measured else 'modelled',
+                             classification='listing_fee',basis=basis,
                              reconciliation_state='matched_etsy_ledger',
                              description='Payment-account listing fee; conversion basis retained'))
             # A listing ID identifies a product, not an activation/renewal event.
@@ -75,7 +87,8 @@ def ingest_actual(db, entries):
             s.add(CostEntry(at=at, agent='store_operator', kind='etsy_listing_fee_actual',
                             amount_cad=amount, detail={
                                 'listing_id': str(e['reference_id']),
-                                'basis': 'measured' if rate_measured else 'modelled',
+                                'basis': cost_basis_,
+                                'mapping': 'owner_verified' if verified else UNVERIFIED_MAPPING,
                                 'ledger_source': 'etsy_listing_ledger',
                                 'ledger_external_id': external,
                                 'role': 'budget_mirror',
