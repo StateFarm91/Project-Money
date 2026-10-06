@@ -1,8 +1,46 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Brambleloop Command Center</title>
-</head><body>
-<main><h1>Brambleloop Command Center</h1>
-<p>Placeholder. The mobile web app (lane D) replaces this file. The JSON API is at /api/cc/.</p></main>
-</body></html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#244A3A" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0F1A16" media="(prefers-color-scheme: dark)">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Brambleloop Owner Command Center">
+  <title>Brambleloop Command Center</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body class="is-signed-out">
+  <button class="skip" id="skip" type="button">Skip to content</button>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" src="icons/icon.svg" alt="" width="28" height="28">
+      <div class="brand-text">
+        <span class="brand-name">Brambleloop</span>
+        <h1 class="view-title" id="view-title">Command Center</h1>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="net-off" id="net" role="status" hidden>Offline</span>
+      <span id="phase" class="phase"></span>
+      <button class="icon-btn" id="refresh" type="button" aria-label="Refresh this view">
+        <svg class="icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8M21 3v5h-5"/></svg>
+      </button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="sidenav" id="sidenav" aria-label="Sections"></nav>
+    <main id="main" class="main" tabindex="-1">
+      <noscript><p class="card">The Command Center needs JavaScript enabled.</p></noscript>
+    </main>
+  </div>
+  <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
