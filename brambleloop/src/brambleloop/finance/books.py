@@ -91,6 +91,13 @@ class ProfitAndLoss:
     unresolved_listing_exposure_cad: float = 0.0
     # F-289: orders and revenue per channel, unattributed explicit. None when unmeasured.
     sales_by_source: dict | None = None
+    # RC1 audit E2: sale rows refunded in full or cancelled. Their gross, refund and the fee
+    # Etsy kept stay in the sums (the loss is real); they are not orders or customers.
+    voided_orders: int = 0
+    # RC1 audit E1/E3/E6: lines whose CAD value or refund is UNKNOWN (held by
+    # `orders_ingest`). None of their money is in the sums; while any is held the sales
+    # reading cannot be `measured`.
+    held_orders: list = field(default_factory=list)
 
     @property
     def sales_measured(self) -> bool:
@@ -140,7 +147,8 @@ class ProfitAndLoss:
     @property
     def all_observed(self):
         costs = self.operating_costs_by_basis
-        return (not self.unobserved_operating_rows and not self.unobserved_fee_rows and self.sales_measured and not any(self.fees_by_basis.get(k) for k in ("modelled", "unknown"))
+        return (not self.unobserved_operating_rows and not self.unobserved_fee_rows and self.sales_measured
+                and not any(v for k, v in (self.fees_by_basis or {}).items() if k != "measured")
                 and not any(costs.get(k) for k in ("modelled", "unknown"))
                 and (not self.operating_costs_cad or bool(costs)))
 
@@ -162,6 +170,7 @@ class ProfitAndLoss:
             "operating_cost_reading": "conservative exposure plus ledger expenses; unresolved reservations may overlap fees" if self.unresolved_listing_exposure_cad else "basis-labelled costs",
             "profit_basis": "measured" if observed else "mixed_or_unknown",
             "cash_reading": "derived_cash_proxy" if observed else "UNKNOWN",
+            "held_orders": [dict(h) for h in self.held_orders],
         }
         if self.sales_unmeasured:
             # Sales-dependent figures remain unknown; operating-cost basis is independent.
@@ -195,6 +204,7 @@ class ProfitAndLoss:
             "cash_cad": self.cash_cad,
             "orders": self.orders,
             "customers": self.customers,
+            "voided_orders": self.voided_orders,
         }
 
 
@@ -209,15 +219,22 @@ class Books:
         pl = ProfitAndLoss(period_start=since.date().isoformat(),
                            period_end=until.date().isoformat())
 
-        from sqlalchemy import func
-
         from ..commerce import orders_ingest
         from ..core.models import Order
         from . import reconcile, sources
 
+        held = orders_ingest.held(self.db, since=since, until=until)
+        pl.held_orders = [{k: h.get(k) for k in ("ref", "reason", "currency",
+                                                 "amount_original", "at", "why")}
+                          for h in held]
+        held_refs = {h["ref"] for h in held}
         with self.db.session() as s:
             entries = list(s.scalars(select(LedgerEntry).where(LedgerEntry.at >= since,
                                                                LedgerEntry.at <= until)))
+            # A recorded order held UNRECONCILED has UNKNOWN revenue: its row is reported
+            # in `held_orders`, never summed at a figure nobody stated.
+            entries = [e for e in entries
+                       if not (e.category == "sale" and e.evidence_ref in held_refs)]
             for e in entries:
                 pl.gross_sales_cad += e.gross_cad
                 pl.refunds_cad += e.refunds_cad
@@ -229,13 +246,20 @@ class Books:
                         pl.unobserved_operating_rows += 1
                     pl.operating_costs_by_basis[basis] = pl.operating_costs_by_basis.get(basis, 0.0) + e.expense_cad
                 if e.category == "sale":
-                    pl.orders += 1
+                    if e.gross_cad > 0 and e.refunds_cad >= e.gross_cad - 0.005:
+                        pl.voided_orders += 1
+                    else:
+                        pl.orders += 1
                 elif e.category == "discount":
                     pl.discounts_cad += e.expense_cad
             pl.unobserved_fee_rows = sum(1 for e in entries if e.fees_cad and e.fees_basis != "measured")
             pl.fees_by_basis = reconcile.fee_basis_summary(e for e in entries if e.fees_cad)
-            pl.customers = s.scalar(select(func.count(func.distinct(Order.customer_id)))
-                                    .where(Order.at >= since, Order.at <= until)) or 0
+            # A customer is a buyer with at least one booked order in the period: not one
+            # whose every order was voided, nor one whose only order is held.
+            pl.customers = len({o.customer_id for o in s.scalars(
+                select(Order).where(Order.at >= since, Order.at <= until))
+                if not o.refunded and o.external_ref not in held_refs
+                and (o.detail or {}).get("state") not in ("fully_refunded", "cancelled")})
 
             from .listing_costs import cost_basis
             # Exclude only a budget mirror with an exact event identity present in
@@ -260,13 +284,25 @@ class Books:
         state = orders_ingest.source_state(self.db)
         pl.order_source = {k: state[k] for k in ("open", "last_read_at", "missing",
                                                  "owner_action")}
-        recorded_sales = any(e.category == "sale" for e in entries)
-        if state["measured"]:
+        recorded_sales = any(e.category == "sale" for e in entries) or bool(held)
+        held_why = ""
+        if held:
+            reasons = sorted({h["reason"] for h in held})
+            held_why = (f"{len(held)} sale line(s) are held with UNKNOWN CAD value "
+                        f"({', '.join(reasons)}: "
+                        + ", ".join(f"{h['ref']} {h.get('amount_original')} {h.get('currency')}"
+                                    for h in held[:5])
+                        + "); the recorded figures are a lower bound")
+        if state["measured"] and held:
+            pl.sales_reading = "INCOMPLETE"
+            pl.sales_why = held_why
+        elif state["measured"]:
             pl.sales_reading = "measured"
         elif recorded_sales:
             pl.sales_reading = "INCOMPLETE"
             pl.sales_why = ("sales are recorded but " + state["why"][0].lower()
-                            + state["why"][1:] + "; the recorded figures are a lower bound")
+                            + state["why"][1:] + "; the recorded figures are a lower bound"
+                            + ("; " + held_why if held_why else ""))
         else:
             pl.sales_reading = "UNMEASURED"
             pl.sales_why = state["why"]

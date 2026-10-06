@@ -66,6 +66,12 @@ def _open_gate(db):
                               scopes="listings_r listings_w shops_r transactions_r"))
 
 
+def _verify_mapping(db):
+    """The owner's recorded verification of the ledger type/unit mapping (RC1 audit E5).
+    Without it, ledger fees carry the `unverified_mapping` basis, never `measured`."""
+    reconcile.record_mapping_verification(db, by="owner", evidence="synthetic test fixture")
+
+
 def _receipt(rid, buyer, listing_id, cents, *, days_ago=1, lines=1, status="paid"):
     return {"receipt_id": rid, "buyer_user_id": buyer, "status": status,
             "create_timestamp": int((NOW - timedelta(days=days_ago)).timestamp()),
@@ -217,6 +223,7 @@ def test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attri
     db = _db()
     _listing(db)
     _open_gate(db)
+    _verify_mapping(db)
     feed = LedgerFeed([_receipt(1, 501, "222", 900)], _ledger_entries())
     got = orders_ingest.ingest(db, reader=feed)
     assert got["fees"]["read"] is True and got["fees"]["orders_measured"] == 1
@@ -259,21 +266,31 @@ def test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally():
     db = _db()
     _listing(db)
     _open_gate(db)
+    _verify_mapping(db)
     receipts = [_receipt(1, 501, "222", 900)]
     entries = _ledger_entries()[:1]                  # only the transaction fee has posted
     orders_ingest.ingest(db, reader=LedgerFeed(receipts, entries))
     with db.session() as s:
         order = s.scalar(select(Order))
-    assert order.fees_cad == 0.59 and order.offsite_ad_attributed is False
+    # RC1 audit E4: one component posted is PARTIAL -- the posted fee plus the modelled
+    # processing fee -- never `measured` at 0.59.
+    from brambleloop.commerce.pricing import fees as model_fees
+
+    partial = round(0.59 + model_fees(9.0).payment_fee, 2)
+    assert order.fees_cad == partial and order.offsite_ad_attributed is False
+    assert order.fees_basis == "partial" and order.detail["fee_components"] == {
+        "transaction_fee": 0.59}
     assert order.detail["fees_reconciliation"] == reconcile.PARTIAL
+    assert "PARTIAL fees" in order.detail["money"]["contribution_basis"]
     orders_ingest.ingest(db, reader=LedgerFeed(receipts, entries))          # same window
     with db.session() as s:
-        assert s.scalar(select(Order)).fees_cad == 0.59, "a re-read added nothing"
+        assert s.scalar(select(Order)).fees_cad == partial, "a re-read added nothing"
     orders_ingest.ingest(db, reader=LedgerFeed(receipts, _ledger_entries()))  # later posts
     with db.session() as s:
         order = s.scalar(select(Order))
     assert abs(order.fees_cad - 2.54) < 1e-9 and order.offsite_ads_fee_cad == 1.35
     assert order.detail["fees_reconciliation"] == reconcile.RECONCILED
+    assert order.fees_basis == "measured"
 
 
 def test_a_receipt_level_fee_is_shared_across_its_lines_by_price():
@@ -284,8 +301,11 @@ def test_a_receipt_level_fee_is_shared_across_its_lines_by_price():
                       [_entry(1, "processing_fee", "receipt", 1, -100)])
     orders_ingest.ingest(db, reader=feed)
     with db.session() as s:
-        fees = sorted(o.fees_cad for o in s.scalars(select(Order)))
-    assert fees == [0.5, 0.5]
+        orders = list(s.scalars(select(Order)))
+    # Each line carries half the receipt-level processing fee; the transaction fee has not
+    # posted, so it is modelled on top and the basis is partial (RC1 audit E4).
+    assert sorted(o.detail["fee_components"]["processing_fee"] for o in orders) == [0.5, 0.5]
+    assert all(o.fees_basis == "partial" for o in orders)
 
 
 def test_a_cancelled_receipt_keeps_no_revenue():
@@ -397,6 +417,7 @@ def test_the_books_measure_sales_only_after_a_connected_source_was_read():
     _listing(db)
     assert Books(db).profit_and_loss().to_dict()["sales_reading"] == "UNMEASURED"
     _open_gate(db)
+    _verify_mapping(db)
     orders_ingest.ingest(db, reader=LedgerFeed([_receipt(1, 501, "222", 900)],
                                                _ledger_entries()))
     with db.session() as s:   # what the runtime handler audits after a completed read

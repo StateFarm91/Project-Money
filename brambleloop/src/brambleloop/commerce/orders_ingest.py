@@ -125,6 +125,25 @@ CANCELLED_STATES: frozenset[str] = frozenset({"canceled", "cancelled"})
 # What this module records as the line's state.
 PAID, PARTIALLY_REFUNDED, FULLY_REFUNDED, CANCELLED, UNPAID, UNKNOWN = (
     "paid", "partially_refunded", "fully_refunded", "cancelled", "unpaid", "unknown")
+# A paid receipt whose refund cannot be read (RC1 audit E1, E6): Etsy says "partially
+# refunded" but carries no refund amount, or a refund is in a currency other than the
+# receipt's. Revenue for the order is UNKNOWN -- neither the full price nor zero -- so the
+# line is held (`HELD_KIND`) and a reconciliation incident is raised; it is never booked as
+# a paid sale.
+UNRECONCILED = "unreconciled"
+# Lines that are fully voided: they stay as rows (history and audit) but are never counted
+# as orders, customers or the first sale (RC1 audit E2).
+VOIDED_STATES: frozenset[str] = frozenset({"fully_refunded", "cancelled"})
+# Lines held outside the order tables until they can be booked truthfully: one durable
+# `operating_readings` row whose payload maps order reference -> held record. Read by the
+# books, which refuse to call sales `measured` while any held record is unresolved.
+HELD_KIND = "commerce.orders_held"
+HELD_KEY = "held"
+HELD_UNCONVERTED = "unconverted_currency"     # RC1 audit E3
+HELD_UNRECONCILED = "unreconciled_refund"     # RC1 audit E1, E6
+UNCONVERTED_INCIDENT = "commerce.orders.unconverted_currency"
+UNRECONCILED_INCIDENT = "commerce.orders.unreconciled_receipt"
+ANOMALY_INCIDENT = "commerce.orders.receipt_anomaly"
 # States that are written as orders. Cancelled is written only when a sale was recorded
 # before the cancellation arrived: the row is then voided, not deleted.
 SALE_LINE_STATES: frozenset[str] = frozenset({PAID, PARTIALLY_REFUNDED, FULLY_REFUNDED})
@@ -333,21 +352,33 @@ def receipt_state(receipt: dict) -> tuple[str, str]:
     return UNKNOWN, f"unrecognised status {status!r}"
 
 
-def _refunds(receipt: dict, amounts: dict[str, float]) -> dict[str, float]:
-    """Refunded amount per transaction line, in the receipt's currency.
+def _refunds(receipt: dict, amounts: dict[str, float],
+             currency: str = "") -> tuple[dict[str, float], list[str]]:
+    """(refunded amount per transaction line in the receipt's currency, problems).
 
     A refund naming a transaction is that line's. The rest is the receipt's and is allocated
     across its lines in proportion to their price, capped at each line's amount -- a
     line-appropriate figure rather than "every line refunded" (CB2-O01). A receipt whose
     status is `fully refunded` with no refund rows is treated as refunded in full.
+
+    A refund in another currency than the receipt's is never read as the receipt's currency
+    (RC1 audit E6), and a `partially refunded` status with no readable refund amount is a
+    disagreement (E1): both come back as problems, and the caller holds the receipt.
     """
+    status = str(receipt.get("status") or "").strip().lower()
     out = {tid: 0.0 for tid in amounts}
     pooled = 0.0
+    problems: list[str] = []
     for r in receipt.get("refunds") or []:
         if not isinstance(r, dict):
             continue
         money = _money(r.get("amount"))
         if money is None or money[0] <= 0:
+            continue
+        if currency and money[1] != currency:
+            if status != "fully refunded":
+                problems.append(f"a refund of {money[0]:.2f} {money[1] or '(no currency)'} on "
+                                f"a receipt in {currency}: it is not read as {currency}")
             continue
         tid = r.get("transaction_id")
         if tid is not None and str(tid) in out:
@@ -360,9 +391,12 @@ def _refunds(receipt: dict, amounts: dict[str, float]) -> dict[str, float]:
         share = min(1.0, pooled / total_remaining)
         for tid in amounts:
             out[tid] += remaining[tid] * share
-    if str(receipt.get("status") or "").strip().lower() == "fully refunded":
+    if status == "fully refunded":
         out = {tid: amounts[tid] for tid in amounts}
-    return {tid: round(min(amounts[tid], v), 4) for tid, v in out.items()}
+    elif status == "partially refunded" and sum(out.values()) <= 0.0:
+        problems.append("status 'partially refunded' but the receipt carries no refund "
+                        "amount in its own currency: how much was refunded is UNKNOWN")
+    return {tid: round(min(amounts[tid], v), 4) for tid, v in out.items()}, problems
 
 
 def lines(receipt: dict) -> list[dict]:
@@ -386,8 +420,24 @@ def lines(receipt: dict) -> list[dict]:
                                 f"reconciled against anything")
         qty = max(1, int(t.get("quantity") or 1))
         priced.append((t, round(price[0] * qty, 4), price[1], qty))
+    tids = [str(t.get("transaction_id")) for t, _a, _c, _q in priced]
+    if len(set(tids)) != len(tids):
+        # Two lines with one transaction id cannot both be keyed by it; which one is real is
+        # not knowable here, so the receipt is refused whole and raised (RC1 audit E6).
+        dupes = sorted({x for x in tids if tids.count(x) > 1})
+        raise IngestRefused(f"receipt {rid}: duplicate transaction_id(s) {dupes}; a line "
+                            f"would be silently lost")
+    currencies = {c for _t, _a, c, _q in priced}
+    if len(currencies) > 1:
+        raise IngestRefused(f"receipt {rid}: lines in several currencies {sorted(currencies)}")
     amounts = {str(t.get("transaction_id")): amount for t, amount, _c, _q in priced}
-    refunds = _refunds(receipt, amounts) if state == PAID else {k: 0.0 for k in amounts}
+    problems: list[str] = []
+    if state == PAID:
+        refunds, problems = _refunds(receipt, amounts, next(iter(currencies), ""))
+    else:
+        refunds = {k: 0.0 for k in amounts}
+    if problems:
+        state, why = UNRECONCILED, "; ".join(problems)
     out = []
     for t, amount, currency, qty in priced:
         tid = str(t.get("transaction_id"))
@@ -567,8 +617,13 @@ def _reconcile_existing(s, order, line: dict, money: dict, ledger) -> list[str]:
     # A fee Etsy's ledger already measured (finance.reconcile, F-558) is kept: a refund moves
     # revenue, never the charged fee back to the model. Contribution is revenue net of
     # refunds less whichever fee is on the row, signed -- a loss stays a loss (CB2-O07).
-    measured = (order.fees_basis or "unknown") == "measured"
+    # Any fee taken from Etsy's ledger (measured, partial, or under an unverified mapping)
+    # is kept with the basis and text `finance.reconcile` gave it (RC1 audit E4, E5).
+    from ..finance import reconcile
+
+    measured = (order.fees_basis or "unknown") in reconcile.LEDGER_FEE_BASES
     fees_cad = float(order.fees_cad or 0.0) if measured else money["fees_cad"]
+    prior_money = detail.get("money") or {}
     order.fees_cad = round(fees_cad, 2)
     order.contribution_cad = round(money["revenue_cad"] - fees_cad, 2)
     order.refunded = line["state"] in (FULLY_REFUNDED, CANCELLED)
@@ -579,16 +634,142 @@ def _reconcile_existing(s, order, line: dict, money: dict, ledger) -> list[str]:
                     # showed is `ledger_refund_cad`, and revenue follows the larger.
                     "refund": {"amount_original": line["refund"], "cad": receipt_refund_cad,
                                "currency": line["currency"]},
-                    "money": {"fx": money["fx"], "fees": money["fees"],
+                    "money": {"fx": money["fx"],
+                              "fees": (prior_money.get("fees") or money["fees"]) if measured
+                              else money["fees"],
                               "contribution_basis": (
                                   money["contribution_basis"] if not measured else
-                                  money["contribution_basis"].replace(
-                                      "ESTIMATED fees", "MEASURED fees (Etsy ledger)"))}}
+                                  prior_money.get("contribution_basis")
+                                  or money["contribution_basis"])}}
     if ledger is not None:
         ledger.refunds_cad = money["refund_cad"]
         if not measured:
             ledger.fees_cad = money["fees_cad"]
     return changed or ["revision"]
+
+
+# ---------------------------------------------------------------------------
+# Held lines: recorded, never booked until they can be (RC1 audit E1, E3, E6)
+
+
+def _held_row(s, create: bool = False):
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    row = s.scalar(select(OperatingReading).where(OperatingReading.kind == HELD_KIND,
+                                                  OperatingReading.period_key == HELD_KEY))
+    if row is None and create:
+        row = OperatingReading(kind=HELD_KIND, period_key=HELD_KEY, payload={"records": {}})
+        s.add(row)
+    return row
+
+
+def _hold(s, line: dict, ref: str, reason: str, why: str, *, order_recorded: bool) -> bool:
+    """Record (or refresh) a held line. Returns False when a newer revision is already held.
+
+    The record keeps the receipt's own currency and amount, and CAD as None -- UNKNOWN, never
+    zero. Keyed by order reference, so re-reads are idempotent.
+    """
+    row = _held_row(s, create=True)
+    records = dict((row.payload or {}).get("records") or {})
+    old = records.get(ref) or {}
+    if old and not old.get("resolved") and int(old.get("revision") or 0) > line["revision"]:
+        return False
+    records[ref] = {
+        "ref": ref, "reason": reason, "why": why[:400], "state": line["state"],
+        "receipt_status": line.get("status", ""), "revision": line["revision"],
+        "at": line["paid_at"].isoformat(), "customer_ref": line["customer_ref"],
+        "listing_id": line["listing_id"], "currency": line["currency"],
+        "amount_original": line["amount"], "refund_original": line["refund"],
+        "cad": None, "revenue_cad": None, "order_recorded": order_recorded,
+        "first_held_at": old.get("first_held_at") if old and not old.get("resolved")
+        else datetime.now(timezone.utc).isoformat(),
+        "resolved": False}
+    row.payload = {**(row.payload or {}), "records": records}
+    row.at = datetime.now(timezone.utc)
+    return True
+
+
+def _release(s, ref: str, line: dict, resolution: str) -> bool:
+    """Resolve a held record once the line has been booked at a revision at least as new."""
+    row = _held_row(s)
+    if row is None:
+        return False
+    records = dict((row.payload or {}).get("records") or {})
+    old = records.get(ref)
+    if not old or old.get("resolved") or int(old.get("revision") or 0) > line["revision"]:
+        return False
+    records[ref] = {**old, "resolved": True, "resolution": resolution,
+                    "resolved_at": datetime.now(timezone.utc).isoformat()}
+    row.payload = {**(row.payload or {}), "records": records}
+    return True
+
+
+def held(db, *, since: datetime | None = None, until: datetime | None = None,
+         unresolved_only: bool = True) -> list[dict]:
+    """Held lines, optionally within a sale-time window. Read by the books."""
+    with db.session() as s:
+        row = _held_row(s)
+        records = list(((row.payload or {}).get("records") or {}).values()) if row else []
+    out = []
+    for r in records:
+        if unresolved_only and r.get("resolved"):
+            continue
+        at = datetime.fromisoformat(r["at"]) if r.get("at") else None
+        if at is not None and at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+        if at is not None and ((since is not None and at < _aware(since))
+                               or (until is not None and at > _aware(until))):
+            continue
+        out.append(dict(r))
+    return sorted(out, key=lambda r: (r.get("at") or "", r["ref"]))
+
+
+def _aware(at: datetime) -> datetime:
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+
+def _raise_held_incidents(db, refused: list[dict], now: datetime) -> dict:
+    """One idempotent incident per held reason, resolved when nothing of it is held."""
+    from ..ops import incident_lifecycle as lifecycle
+
+    open_held = held(db)
+    out = {}
+    plan = (
+        (UNCONVERTED_INCIDENT, [r for r in open_held if r["reason"] == HELD_UNCONVERTED],
+         "paid sale(s) in a currency with no rate on file are held unconverted: their CAD "
+         "value is UNKNOWN and sales cannot read as measured until a rate is recorded"),
+        (UNRECONCILED_INCIDENT, [r for r in open_held if r["reason"] == HELD_UNRECONCILED],
+         "receipt(s) whose status and refunds disagree are held UNRECONCILED: revenue for "
+         "those orders is UNKNOWN until Etsy states the refund"),
+    )
+    with db.session() as s:
+        for signature, rows, summary in plan:
+            if rows:
+                _inc, opened = lifecycle.open_or_restate(
+                    s, signature=signature, severity="P2",
+                    summary=f"{len(rows)} {summary}",
+                    detail={"refs": [r["ref"] for r in rows][:200],
+                            "amounts": [{"ref": r["ref"], "currency": r["currency"],
+                                         "amount_original": r["amount_original"],
+                                         "why": r["why"][:200]} for r in rows][:50]},
+                    now=now)
+                out[signature] = "opened" if opened else "restated"
+            elif lifecycle.resolve_signatures(
+                    s, [signature], now=now,
+                    resolution="no held line of this kind remains: every one was booked "
+                               "or voided at a newer receipt revision"):
+                out[signature] = "resolved"
+        if refused:
+            _inc, opened = lifecycle.open_or_restate(
+                s, signature=ANOMALY_INCIDENT, severity="P2",
+                summary=(f"{len(refused)} receipt line(s) could not be placed and were not "
+                         f"written (duplicate transaction ids, no buyer, no currency, an "
+                         f"amount that reconciles to nothing): nothing was guessed"),
+                detail={"refused": refused[:50]}, now=now)
+            out[ANOMALY_INCIDENT] = "opened" if opened else "restated"
+    return out
 
 
 def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
@@ -611,6 +792,26 @@ def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
 
     with db.session() as s:
         existing = s.scalar(select(Order).where(Order.external_ref == ref))
+        if line["state"] == UNRECONCILED:
+            # E1/E6: revenue is UNKNOWN. A new line is held, not booked; a recorded order is
+            # marked unreconciled (its row stays, the books exclude it) -- never rewritten to
+            # a figure nobody stated.
+            if existing is not None:
+                detail = dict(existing.detail or {})
+                if line["revision"] < int(detail.get("source_revision") or 0):
+                    return {"ref": ref, "recorded": True, "order_created": False,
+                            "reconciled": [], "state": detail.get("state"),
+                            "matched_listing": listed["matched"], "version": version,
+                            "version_known": bool(version)}
+                existing.detail = {**detail, "state": UNRECONCILED,
+                                   "state_why": line["state_why"],
+                                   "receipt_status": line.get("status", ""),
+                                   "source_revision": line["revision"],
+                                   "revenue_unknown": True}
+            _hold(s, line, ref, HELD_UNRECONCILED, line["state_why"],
+                  order_recorded=existing is not None)
+            return {"ref": ref, "recorded": existing is not None, "held": UNRECONCILED,
+                    "why": f"{UNRECONCILED}: {line['state_why']}"}
         if line["state"] not in SALE_LINE_STATES and existing is None:
             # Unpaid, cancelled-before-recording or unknown: held, written nowhere.
             return {"ref": ref, "recorded": False, "held": line["state"],
@@ -624,6 +825,18 @@ def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
         try:
             money = money_for(line)
         except Exception as exc:  # noqa: BLE001 - a currency with no rate is recorded, not guessed
+            # E3: a paid sale in a currency with no rate is HELD with its own currency and
+            # amount and CAD as UNKNOWN -- never dropped, never converted at a made-up rate.
+            if line["state"] in SALE_LINE_STATES:
+                _hold(s, line, ref, HELD_UNCONVERTED, str(exc)[:300], order_recorded=False)
+                return {"ref": ref, "recorded": False, "held": HELD_UNCONVERTED,
+                        "currency": line["currency"], "amount_original": line["amount"],
+                        "why": str(exc)[:200]}
+            if line["state"] == CANCELLED and _release(
+                    s, ref, line, "voided: the receipt was cancelled before it could be "
+                                  "converted"):
+                return {"ref": ref, "recorded": False, "held": CANCELLED,
+                        "why": "cancelled; the held unconverted line is voided"}
             return {"ref": ref, "recorded": False, "why": str(exc)[:200]}
 
         detail = {"listing_id": line["listing_id"], "receipt_id": line["receipt_id"],
@@ -679,16 +892,26 @@ def _record_line(db, line: dict, history: dict[str, list[dict]]) -> dict:
                 classification="sale", basis="measured", fees_basis="modelled",
                 reconciliation_state="unreconciled")
             existing_order = s.scalar(select(Order).where(Order.external_ref == ref))
-            if existing_order is not None and existing_order.fees_basis == "measured":
-                # Repairing a ledger row lost to a crash after the fee was measured.
+            from ..finance import reconcile as _rec
+
+            if existing_order is not None and \
+                    existing_order.fees_basis in _rec.LEDGER_FEE_BASES:
+                # Repairing a ledger row lost to a crash after the fee was read from Etsy.
                 ledger_row.fees_cad = float(existing_order.fees_cad or 0.0)
-                ledger_row.fees_basis = "measured"
+                ledger_row.fees_basis = existing_order.fees_basis
             s.add(ledger_row)
             ledger = True
         reconciled: list[str] = []
         if not order.get("created"):
             row = s.scalar(select(Order).where(Order.external_ref == ref))
             reconciled = _reconcile_existing(s, row, line, money, ledger_row)
+        current = s.scalar(select(Order).where(Order.external_ref == ref))
+        if current is not None and (current.detail or {}).get("state") == line["state"]:
+            if (current.detail or {}).get("revenue_unknown"):
+                current.detail = {k: v for k, v in (current.detail or {}).items()
+                                  if k != "revenue_unknown"}
+            _release(s, ref, line, f"booked as {line['state']} at receipt revision "
+                                   f"{line['revision']}")
         cohorts.reconcile_customer(db, line["customer_ref"], session=s)
     return {"ref": ref, "recorded": True, "order_created": bool(order.get("created")),
             "customer_created": bool(customer.get("created")), "ledger": ledger,
@@ -781,7 +1004,7 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
     # longer describes the shop; it closes on this evidence, never on a readiness sweep.
     auth_cleared = resolve_needs_owner(db, operation=OPERATION, now=now)
     history = listing_history(db)
-    written, refused, held = [], [], []
+    written, refused, held_lines = [], [], []
     from .cohorts import CohortRefused
 
     newest = int(datetime.fromisoformat(before["last_modified"]).timestamp()) \
@@ -798,7 +1021,7 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
                                     "transaction_id": line["transaction_id"],
                                     "why": str(exc)[:200]})
                     continue
-                (held if got.get("held") else written).append(got)
+                (held_lines if got.get("held") else written).append(got)
             newest = max(newest, revision(receipt))
         except IngestRefused as exc:
             refused.append({"receipt_id": receipt.get("receipt_id"), "why": str(exc)[:200]})
@@ -813,6 +1036,7 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
     _save_cursor(db, after)
     from . import cohorts
 
+    held_incidents = _raise_held_incidents(db, refused, now)
     validation = cohorts.reconcile_validation_cohort(db) if written else None
     created = [w for w in written if w.get("order_created")]
     fees = _reconcile_fees(db, reader, since=since, now=now)
@@ -836,10 +1060,16 @@ def ingest(db, *, reader=None, now: datetime | None = None) -> dict:
                                    if w.get("recorded") and not w.get("version_known")),
         "unmatched_listings": sorted({w["ref"] for w in written
                                       if w.get("recorded") and not w.get("matched_listing")}),
-        "held": held,
-        "held_by_state": {st: sum(1 for h in held if h["held"] == st)
-                          for st in sorted({h["held"] for h in held})},
+        "held": held_lines,
+        "held_by_state": {st: sum(1 for h in held_lines if h["held"] == st)
+                          for st in sorted({h["held"] for h in held_lines})},
         "not_recorded": [w for w in written if not w.get("recorded")] + refused,
+        # RC1 audit E1/E3/E6: lines held (not booked) because their CAD value or refund is
+        # UNKNOWN. Durable (`held()`), each with an incident; the books read them.
+        "held_unresolved": [{k: r.get(k) for k in ("ref", "reason", "currency",
+                                                     "amount_original", "why")}
+                            for r in held(db)],
+        "held_incidents": held_incidents,
         "fees": fees,
         "first_sale": ({k: first.get(k) for k in ("external_ref", "acquisition_source",
                                                   "created")} if first else None),

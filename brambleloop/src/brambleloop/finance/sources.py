@@ -150,7 +150,11 @@ def table(db, *, since: datetime | None = None, until: datetime | None = None) -
 
 
 def first_sale(db) -> dict | None:
-    """The stored first-sale record, or None when there has been no sale."""
+    """The stored first-sale record, or None when there has been no sale.
+
+    A record whose only sale was voided (refunded in full or cancelled) is kept in the
+    database with its history, but is not a first sale: this returns None for it (E2).
+    """
     from sqlalchemy import select
 
     from ..core.models import OperatingReading
@@ -158,7 +162,14 @@ def first_sale(db) -> dict | None:
     with db.session() as s:
         row = s.scalar(select(OperatingReading).where(
             OperatingReading.kind == FIRST_SALE_KIND).limit(1))
-        return dict(row.payload or {}) if row is not None else None
+        if row is None or (row.payload or {}).get("voided"):
+            return None
+        return dict(row.payload or {})
+
+
+def _voided(order) -> bool:
+    return bool(order.refunded) or (order.detail or {}).get("state") in (
+        "fully_refunded", "cancelled")
 
 
 def record_first_sale(db) -> dict | None:
@@ -167,14 +178,30 @@ def record_first_sale(db) -> dict | None:
     The record is written the first time an order exists and is never replaced by a later
     order. Its source is refreshed from the order, so evidence that arrives after the sale
     (an Offsite Ads fee posted a day later) reaches it, and each change is kept.
+
+    A voided order (refunded in full or cancelled) is not a sale (RC1 audit E2): the record
+    is taken from the earliest order that is not voided, and a recorded first sale that is
+    later voided is replaced by the next one -- the voided one stays in the history. When no
+    order remains that is not voided, the record is kept, marked `voided`, and reads as no
+    first sale.
     """
     from sqlalchemy import select
 
     from ..core.models import OperatingReading, Order
 
     with db.session() as s:
-        order = s.scalar(select(Order).order_by(Order.at, Order.id).limit(1))
+        order = next((o for o in s.scalars(select(Order).order_by(Order.at, Order.id))
+                      if not _voided(o)), None)
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == FIRST_SALE_KIND).limit(1))
         if order is None:
+            if row is not None and not (row.payload or {}).get("voided"):
+                old = dict(row.payload or {})
+                history = list(old.get("history") or [])
+                history.append({"external_ref": old.get("external_ref"), "voided": False,
+                                "why": "the order was refunded in full or cancelled"})
+                row.payload = {**old, "voided": True, "history": history}
+                row.at = datetime.now(timezone.utc)
             return None
         attribution = (order.detail or {}).get("attribution") or {}
         payload = {
@@ -191,8 +218,14 @@ def record_first_sale(db) -> dict | None:
             "order_source": order.source,
             "note": FIRST_SALE_NOTE,
         }
-        row = s.scalar(select(OperatingReading).where(
-            OperatingReading.kind == FIRST_SALE_KIND).limit(1))
+        # A sale held by the ingest (CAD value or refund UNKNOWN, RC1 audit E1/E3) is not an
+        # order row, but it may be the real first sale: the record says so by name.
+        from ..commerce import orders_ingest
+
+        earlier = [h["ref"] for h in orders_ingest.held(db, until=order.at)
+                   if h.get("state") not in ("fully_refunded", "cancelled")]
+        payload["earlier_held_sales"] = earlier
+        payload["first_sale_uncertain"] = bool(earlier)
         if row is None:
             s.add(OperatingReading(kind=FIRST_SALE_KIND, period_key="first",
                                    payload={**payload, "recorded_at":
@@ -200,10 +233,14 @@ def record_first_sale(db) -> dict | None:
                                             "history": []}))
             return {**payload, "created": True}
         old = dict(row.payload or {})
+        payload["voided"] = False
         if old.get("external_ref") != payload["external_ref"]:
-            # Never replaced by a later order; an earlier one arriving late is kept in the
-            # history so the change is visible.
-            if old.get("at", "") <= payload["at"]:
+            # Never replaced by a later order -- unless the recorded one was voided; an
+            # earlier one arriving late is kept in the history so the change is visible.
+            old_order = s.scalar(select(Order).where(
+                Order.external_ref == old.get("external_ref")))
+            old_voided = old.get("voided") or old_order is None or _voided(old_order)
+            if old.get("at", "") <= payload["at"] and not old_voided:
                 return {**old, "created": False}
         changed = {k: v for k, v in payload.items() if old.get(k) != v}
         if changed:
