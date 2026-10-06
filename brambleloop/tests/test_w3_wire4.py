@@ -177,6 +177,24 @@ def test_f5_finance_never_reads_an_unknown_ceiling_as_spend_authority():
         assert ok is True, why
 
 
+def test_finance_a_stated_zero_ceiling_authorises_zero_not_uncapped():
+    """Integrator fix: `if row.max_cost_cad and ...` read a stated CA$0 ceiling as uncapped."""
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.finance.accounting import policy as fpolicy
+
+    with DB.session() as s:
+        s.add(OwnerAction(requirement_key="wire4:zero-ceiling", action="approve a free step",
+                          max_cost_cad=0.0, done=True))
+    with DB.session() as s:
+        ref = {"type": "owner_action", "ref": "wire4:zero-ceiling"}
+        ok, why = fpolicy._authority(s, {"amount_cad": 5.0, "authority": ref})
+        assert ok is False and "at most CA$0.00" in why, why
+        ok, why = fpolicy._authority(s, {"amount_cad": 0.0, "authority": ref})
+        assert ok is True, why
+        ok, why = fpolicy._authority(s, {"amount_cad": float("nan"), "authority": ref})
+        assert ok is False, why
+
+
 # ---- K7: dashboard empty state and as-of lines ----------------------------------------------
 
 def _dashboard_with(inbox: dict) -> str:

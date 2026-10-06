@@ -88,10 +88,15 @@ def _authority(s, proposal: dict) -> tuple[bool, str]:
         # ceiling is neither free nor uncapped.
         return False, (f"owner action {auth['ref']!r} states no cost ceiling (UNKNOWN); a "
                        "spend needs the owner's stated maximum")
-    if row.max_cost_cad and float(proposal.get("amount_cad") or 0) > row.max_cost_cad + 1e-9:
-        return False, (f"owner approved at most CA${row.max_cost_cad:.2f}; proposal asks "
-                       f"CA${float(proposal['amount_cad']):.2f}")
-    return True, f"owner action {auth['ref']!r} approved (max CA${row.max_cost_cad:.2f})"
+    # A stated ceiling of CA$0 authorises CA$0, never "uncapped" (integrator fix after W3-WIRE4).
+    ceiling = float(row.max_cost_known)
+    amount = _finite(proposal.get("amount_cad"))
+    if amount is None:
+        return False, "the proposal's amount is not a finite number"
+    if amount > ceiling + 1e-9:
+        return False, (f"owner approved at most CA${ceiling:.2f}; proposal asks "
+                       f"CA${amount:.2f}")
+    return True, f"owner action {auth['ref']!r} approved (max CA${ceiling:.2f})"
 
 
 def check_spend(db, proposal: dict, *, now: datetime | None = None) -> dict:
