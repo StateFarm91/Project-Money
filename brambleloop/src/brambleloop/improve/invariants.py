@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from . import governance
@@ -94,8 +95,33 @@ class Verdict:
                 "reason": self.reason}
 
 
-def _norm(name: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", (name or "").strip().lower()).strip("_")
+def canonical_key(name) -> str:
+    """One spelling for a parameter name (J-product P-6), used by the guard AND the readers.
+
+    NFKC (fullwidth/compatibility forms fold to ASCII), format characters such as zero-width
+    spaces stripped, lower-cased, and every run of non-alphanumerics (hyphen, space, dot)
+    collapsed to one underscore. "Min-Shared", "min_shared<ZWSP>" and "ｍｉｎ_shared" are all
+    `min_shared` -- so an alias can neither slip past a protected-word match nor reach a
+    reader that looks the key up by its declared name.
+    """
+    text = unicodedata.normalize("NFKC", str(name or ""))
+    text = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_")
+
+
+_norm = canonical_key
+
+
+def canonical_payload(params: dict) -> tuple[dict, list[str]]:
+    """The payload with canonical keys, and the canonical keys more than one key spelled."""
+    out: dict = {}
+    twins: list[str] = []
+    for k, v in (params or {}).items():
+        ck = canonical_key(k)
+        if ck in out:
+            twins.append(ck)
+        out[ck] = v
+    return out, sorted(set(twins))
 
 
 def protected_invariant(param: str) -> Invariant | None:
@@ -148,8 +174,14 @@ def check_payload(params: dict, *, tunable: dict) -> list[Verdict]:
     """Every key of a proposed payload, checked; the refusals only."""
     if not isinstance(params, dict) or not params:
         return [Verdict(False, "", "malformed_value", "a proposal names what it changes")]
-    return [v for v in (check(k, val, tunable=tunable) for k, val in params.items())
-            if not v.ok]
+    out = [v for v in (check(k, val, tunable=tunable) for k, val in params.items())
+           if not v.ok]
+    _canon, twins = canonical_payload(params)
+    for ck in twins:
+        out.append(Verdict(False, ck, "malformed_value",
+                           f"{ck!r} is spelled by more than one key in one payload; an "
+                           f"ambiguous proposal is refused rather than resolved by key order"))
+    return out
 
 
 def describe() -> dict:

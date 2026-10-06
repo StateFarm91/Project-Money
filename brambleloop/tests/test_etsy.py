@@ -251,7 +251,7 @@ def test_a_listing_with_no_file_is_reported_as_its_own_outcome():
 def test_a_rate_limit_is_transient_and_a_rejection_is_not():
     rate_limited = FakeTransport(listing_status=429)
     try:
-        _granted(rate_limited).create_draft(build_payload(**GOOD))
+        _granted(rate_limited).create_draft(build_payload(**GOOD), grant=GRANT)
     except TransientError:
         pass
     else:
@@ -259,7 +259,7 @@ def test_a_rate_limit_is_transient_and_a_rejection_is_not():
 
     rejected = FakeTransport(listing_status=400, listing_body={"error": "bad taxonomy"})
     try:
-        _granted(rejected).create_draft(build_payload(**GOOD))
+        _granted(rejected).create_draft(build_payload(**GOOD), grant=GRANT)
     except EtsyRejected as e:
         assert "bad taxonomy" in str(e)
     else:
@@ -271,7 +271,7 @@ def test_a_success_with_no_listing_id_is_treated_as_a_rejection():
     listing we cannot name is a listing we cannot fix."""
     transport = FakeTransport(listing_body={"ok": True})
     try:
-        _granted(transport).create_draft(build_payload(**GOOD))
+        _granted(transport).create_draft(build_payload(**GOOD), grant=GRANT)
     except EtsyRejected as e:
         assert "no listing_id" in str(e)
         return

@@ -332,7 +332,8 @@ def test_D2_chain_rows_are_protected_from_retention():
 
 
 def test_D3_client_activate_requires_a_validated_grant_object():
-    from test_etsy_transport import FakeEtsy, PAYLOAD, _client
+    from test_etsy_transport import (FakeEtsy, PAYLOAD, _client, _verified_activation_grant,
+                                     _verified_publication_grant)
     from brambleloop.integrations import etsy_probe
     from brambleloop.integrations.etsy import EtsyNotPermitted, OwnerGrant, build_payload
 
@@ -342,8 +343,10 @@ def test_D3_client_activate_requires_a_validated_grant_object():
         record_phase_path(db, TOKEN, "production")
         with FakeEtsy() as fake:
             client = _client(fake, phase="production", owner=True, shadow_writes=False)
-            lid = client.create_draft(build_payload(**PAYLOAD))
-            client.upload_image(lid, filename="cover.png", data=etsy_probe.one_pixel_png())
+            lid = client.create_draft(build_payload(**PAYLOAD),
+                                      grant=_verified_publication_grant())
+            client.upload_image(lid, filename="cover.png", data=etsy_probe.one_pixel_png(),
+                                grant=_verified_activation_grant(lid))
             client.attach_file(lid, filename="pattern.pdf", data=b"%PDF-1.7 bytes")
             # the audit's read-only repro: any non-empty string used to pass
             for grant in (None, "x", 1):

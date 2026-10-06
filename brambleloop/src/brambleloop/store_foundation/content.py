@@ -33,6 +33,28 @@ INTERNAL = "internal_not_a_shop_field"                # a readiness view, not sh
 REPO_ROOT = Path(__file__).resolve().parents[3]       # brambleloop/
 
 
+# Keys whose values are identifiers, provenance or bookkeeping, never shown to a buyer.
+# Everything else is collected for the lint (default-include).
+_INTERNAL_KEYS = frozenset({
+    "key", "slug", "cir_slug", "candidate", "build", "kind", "evidence", "source",
+    "title_basis", "price_basis", "minutes_basis", "basis", "status", "entered_on_etsy",
+    "etsy_handle", "svg", "png", "data_uri", "href", "url", "path", "sha256",
+})
+
+
+def _collect_text(v, parts: list[str]) -> None:
+    if isinstance(v, str):
+        parts.append(v)
+    elif isinstance(v, dict):
+        for k, x in v.items():
+            if str(k) in _INTERNAL_KEYS:
+                continue
+            _collect_text(x, parts)
+    elif isinstance(v, (list, tuple)):
+        for x in v:
+            _collect_text(x, parts)
+
+
 @dataclass
 class Surface:
     key: str
@@ -47,22 +69,16 @@ class Surface:
     notes: list[str] = field(default_factory=list)
 
     def text(self) -> str:
-        """Every customer-readable string in this surface, joined, for the lints."""
-        v = self.value
-        if isinstance(v, str):
-            return v
-        if isinstance(v, dict):
-            return "\n".join(str(x) for x in v.values() if isinstance(x, str))
-        if isinstance(v, list):
-            parts = []
-            for row in v:
-                if isinstance(row, dict):
-                    parts.extend(str(row[k]) for k in ("question", "answer", "text", "name")
-                                 if isinstance(row.get(k), str))
-                else:
-                    parts.append(str(row))
-            return "\n".join(parts)
-        return ""
+        """Every customer-readable string in this surface, joined, for the lints.
+
+        Recursive over dicts and lists (J-product P-4): a grid tile's `title`, a FAQ row's
+        `body` or a story nested in a list are all customer-facing and all linted. Only keys
+        that are internal identifiers or provenance notes (`_INTERNAL_KEYS`) are skipped;
+        an unknown key is linted, so a new field is covered by default.
+        """
+        parts: list[str] = []
+        _collect_text(self.value, parts)
+        return "\n".join(parts)
 
     def to_dict(self) -> dict:
         v = self.value

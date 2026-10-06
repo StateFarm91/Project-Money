@@ -117,6 +117,19 @@ def _product(db, *, frames: int = 3) -> dict:
     return {"slug": cir.slug, "version": cir.version, "shas": shas}
 
 
+def _verified_publication_grant():
+    """J-product P-5: a grant stubbed as verified, for direct create_draft calls that test
+    read-back/census behaviour only (pattern documented in tests/test_etsy.py). Real
+    verification: tests/test_rc1_auth.py, tests/test_r2_product_client_grant.py."""
+    from brambleloop.integrations.etsy import OwnerGrant
+
+    class _Verified(OwnerGrant):
+        def refusal(self, *, action, listing_id=""):
+            return None if action == self.action else "grant does not cover this call"
+
+    return _Verified(None, action=OwnerGrant.PUBLISH, approval_id=1, slug="s", version="1")
+
+
 def _client(fake: FakeEtsy, *, owner: bool = False, phase: str = "limited_production",
             provider=None, token: str = "111.live-token") -> EtsyClient:
     creds = Credentials(api_key=fake.keystring, shared_secret=fake.shared_secret,
@@ -390,7 +403,8 @@ def test_the_client_reads_a_listings_files_through_get_all_listing_files():
 
         lid = client.create_draft(build_payload(title=TITLE, description=DESCRIPTION,
                                                 price_cad=9.0, tags=["crochet"],
-                                                materials=["yarn"]))
+                                                materials=["yarn"]),
+                                  grant=_verified_publication_grant())
         client.attach_file(lid, filename="p.pdf", data=b"%PDF" * 10)
         files = client.get_listing_files(lid)
         assert [(f["filename"], f["size_bytes"]) for f in files] == [("p.pdf", 40)], files
@@ -731,7 +745,8 @@ def test_a_listing_nobody_here_created_is_reported():
         from brambleloop.integrations.etsy import build_payload
 
         stranger = _client(fake, owner=True).create_draft(build_payload(
-            title=TITLE, description=DESCRIPTION, price_cad=3.0, tags=["x"], materials=["y"]))
+            title=TITLE, description=DESCRIPTION, price_cad=3.0, tags=["x"], materials=["y"]),
+            grant=_verified_publication_grant())
         with _Patched(fake):
             job = _run(db, "etsy.listing_census")
     assert job.outputs["unexpected"] == [stranger]

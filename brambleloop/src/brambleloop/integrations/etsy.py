@@ -708,6 +708,58 @@ class EtsyClient:
         assert self.credentials is not None
         return self.credentials
 
+    def _effective_phase(self) -> str:
+        """The phase re-resolved now (core.phase), never the constructor's string.
+
+        With a database: the environment AND the owner's recorded, chained transition, the
+        more restrictive winning. Without one: core.phase resolves an unreadable record as
+        shadow. Fails closed to shadow.
+        """
+        try:
+            from ..core.phase import DEFAULT, effective
+
+            db = getattr(self, "db", None)
+            return effective(db, record_incident=False) if db is not None else DEFAULT
+        except Exception:  # noqa: BLE001 - an unresolvable phase is no authority
+            return "shadow"
+
+    def _authorise_write(self, operation: str, grant: Any, listing_id: str = "") -> None:
+        """J-product P-5: the effect-boundary check for create/upload/delete.
+
+        Two lanes, and nothing else:
+
+        * a verified `OwnerGrant` (the same check `publish` makes: sealed, content-bound
+          publication grant AND the effective runtime phase re-resolved from the database), or
+        * the narrow draft-only lane (`shadow_writes_authorised`) -- only while the phase
+          re-resolved here is a non-publishing one, so the owner's shadow probe keeps working
+          and a publishing-phase write can never ride it.
+
+        The constructor's `phase` string and `owner_authorised` flag authorise nothing here.
+        """
+        if grant is not None:
+            # A write to a listing that already exists (image, delete) may also ride the
+            # owner's activation grant for exactly that listing; a publication grant covers
+            # draft creation (ops.publication_authority).
+            action = (OwnerGrant.ACTIVATE if isinstance(grant, OwnerGrant)
+                      and grant.action == OwnerGrant.ACTIVATE and listing_id
+                      else OwnerGrant.PUBLISH)
+            reason = _grant_refusal(grant, action=action, listing_id=str(listing_id or ""))
+            if reason is not None:
+                raise EtsyNotPermitted(f"{operation} refused at the client: {reason}")
+            return
+        if self.shadow_writes_authorised:
+            live = self._effective_phase()
+            if live not in PHASES_THAT_MAY_PUBLISH:
+                return
+            raise EtsyNotPermitted(
+                f"{operation} refused at the client: the effective runtime phase is {live!r}; "
+                f"the draft-only shadow lane covers non-publishing phases only, and a write "
+                f"in a publishing phase needs the owner's verified grant (OwnerGrant)")
+        raise EtsyNotPermitted(
+            f"{operation} refused at the client: "
+            f"{_grant_refusal(None, action=OwnerGrant.PUBLISH)}. Draft-only writes without "
+            f"a grant need `shadow_writes_authorised` in a non-publishing phase.")
+
     # ---- requests --------------------------------------------------------
 
     def _call(self, method: str, path: str, *, operation: str,
@@ -961,7 +1013,7 @@ class EtsyClient:
 
     # ---- draft writes ----------------------------------------------------
 
-    def create_draft(self, payload: ListingPayload) -> str:
+    def create_draft(self, payload: ListingPayload, *, grant: OwnerGrant | None = None) -> str:
         """Create the listing as a draft. Draft, always: activation is a separate decision.
 
         Form-encoded, because `application/x-www-form-urlencoded` is the only media type
@@ -974,6 +1026,7 @@ class EtsyClient:
         a hope.
         """
         creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("createDraftListing", grant)
         fields = payload.to_dict()
         fields.pop("state", None)
         response = self._call("POST", f"/shops/{creds.shop_id}/listings",
@@ -986,7 +1039,8 @@ class EtsyClient:
 
     def upload_image(self, listing_id: str, *, filename: str, data: bytes,
                      rank: int = 1, alt_text: str = "",
-                     overwrite: bool = False) -> dict[str, Any]:
+                     overwrite: bool = False,
+                     grant: OwnerGrant | None = None) -> dict[str, Any]:
         """Upload a listing image. The step whose absence made every draft unactivatable.
 
         Etsy: "Setting a `draft` listing to `active` will also publish the listing on
@@ -999,6 +1053,16 @@ class EtsyClient:
         old transport hard-coded `file` for every upload; an image sent that way is a request
         Etsy accepts the shape of and finds no image in.
         """
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("uploadListingImage", grant, listing_id=str(listing_id))
+        return self._upload_image(listing_id, filename=filename, data=data, rank=rank,
+                                  alt_text=alt_text, overwrite=overwrite)
+
+    def _upload_image(self, listing_id: str, *, filename: str, data: bytes, rank: int = 1,
+                      alt_text: str = "", overwrite: bool = False) -> dict[str, Any]:
+        """The upload itself. Reached only through `upload_image` (boundary-checked) or from
+        inside `publish`, whose grant was verified immediately before the draft it uploads to
+        was created -- the publication grant covers that one draft and nothing after it."""
         creds = self._require(Authority.DRAFT_WRITE)
         if not data:
             raise EtsyRejected(
@@ -1088,7 +1152,8 @@ class EtsyClient:
         return response.body
 
     def delete_listing(self, listing_id: str, *,
-                       expect_states: tuple[str, ...] = ("draft", "inactive")) -> bool:
+                       expect_states: tuple[str, ...] = ("draft", "inactive"),
+                       grant: OwnerGrant | None = None) -> bool:
         """Delete a listing, after reading it back and refusing if it is not what we expect.
 
         The read first is the point. `deleteListing` takes an id and deletes whatever that id
@@ -1097,6 +1162,7 @@ class EtsyClient:
         deletes. A wrong id then costs a refusal instead of a product.
         """
         self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("deleteListing", grant, listing_id=str(listing_id))
         current = self.get_listing(listing_id, includes=())
         state = str(current.get("state", "")).lower()
         if state not in expect_states:
@@ -1201,7 +1267,7 @@ class EtsyClient:
         reason = _grant_refusal(grant, action=OwnerGrant.PUBLISH)
         if reason is not None:
             raise EtsyNotPermitted(f"publication refused at the client: {reason}")
-        listing_id = self.create_draft(payload)
+        listing_id = self.create_draft(payload, grant=grant)
         # A runtime caller checkpoints the irreversible remote ID before any upload.
         # Callback failure must abort; swallowing it would reopen the duplicate-create gap.
         if on_created is not None:
@@ -1223,8 +1289,8 @@ class EtsyClient:
             image_name, image_bytes = entry[0], entry[1]
             image_alt = entry[2] if len(entry) > 2 else str(getattr(entry, "alt_text", "") or "")
             try:
-                self.upload_image(listing_id, filename=image_name, data=image_bytes,
-                                  rank=rank, alt_text=image_alt)
+                self._upload_image(listing_id, filename=image_name, data=image_bytes,
+                                   rank=rank, alt_text=image_alt)
                 images_uploaded += 1
             except (TransientError, EtsyRejected) as e:
                 problems.append(f"image {rank} ({image_name}) was not uploaded: {e}")

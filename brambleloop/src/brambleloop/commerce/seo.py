@@ -252,7 +252,7 @@ def build_description(product_title: str, *, size_label: str | None,
     # claim was unsupportable on both counts. `assets.build` now renders and stores both
     # documents and `store.publish` attaches both, so the claim is true and is stated as the
     # thing the buyer can count: two files.
-    out.append(f"- Two PDFs, one in US terms and one in UK terms -- the same pattern, each "
+    out.append(f"- Two PDFs, one in US terms and one in UK terms — the same pattern, each "
                f"written throughout in its own terminology, with a stitch key to match")
     if pages:
         out.append(f"- {pages}-page PDF, laid out to be readable on a phone or printed")

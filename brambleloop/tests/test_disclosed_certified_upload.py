@@ -172,7 +172,7 @@ class _FakeEtsy:
     def refusal(self):
         return None
 
-    def create_draft(self, payload):
+    def create_draft(self, payload, **kw):   # J-product P-5: publish passes grant=
         return "L1"
 
     def attach_file(self, listing_id, *, filename, data):
@@ -182,6 +182,9 @@ class _FakeEtsy:
         self.uploads.append({"filename": filename, "rank": rank, "alt_text": alt_text,
                              "bytes": len(data)})
         return {}
+
+    # J-product P-5: publish() uploads through the private, grant-covered `_upload_image`.
+    _upload_image = upload_image
 
 
 def _TransportTestGrant():

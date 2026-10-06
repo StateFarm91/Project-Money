@@ -19,7 +19,7 @@ class Crash(RuntimeError):pass
 class FakeRemote(EtsyClient):
     def __init__(self,db,fail):self.db=db;self.fail=fail;self.creates=0;self.uploads=0
     def refusal(self):return None
-    def create_draft(self,payload):
+    def create_draft(self,payload,**kw):  # J-product P-5: publish passes grant=
         if self.fail=='before_create':raise Crash('before create request')
         self.creates+=1
         if self.fail=='after_create':raise Crash('remote created; response lost')
@@ -172,7 +172,7 @@ if __name__=='__main__':
         import os
         db=setup(Path(sys.argv[2]))
         remote=FakeRemote(db,'after_create')
-        def die(payload):
+        def die(payload, **kw):
             Path(sys.argv[3]).write_text('one remote create')
             os._exit(23)
         remote.create_draft=die

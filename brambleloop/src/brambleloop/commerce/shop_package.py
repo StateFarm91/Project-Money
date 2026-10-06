@@ -310,12 +310,12 @@ RETURNS = (
     "after. What we do instead, and will do without argument: if a pattern contains an "
     "error, we correct the pattern itself, re-issue it, and send the corrected file to "
     "everyone who bought it. If you cannot open or download your file, we will get it to "
-    "you. If a pattern turns out not to be what the listing led you to expect, tell us -- "
+    "you. If a pattern turns out not to be what the listing led you to expect, tell us — "
     "that is a listing we need to fix, and we will make it right with you.")
 
 PRIVACY = (
     "We only see what Etsy shares with us to fulfil your order. We do not sell or share "
-    "your information, and buying something does not put you on a mailing list -- we only "
+    "your information, and buying something does not put you on a mailing list — we only "
     "email people who asked us to, and every email we send can be stopped in one click.")
 
 
@@ -378,7 +378,7 @@ def faq(terms: customer_terms.Terms | None = None) -> list[dict]:
         "sell_what_i_make": (
             "Can I sell what I make from this pattern?",
             f"Yes: {sell}. You do not owe us a percentage and you do not need to ask. What "
-            f"you may not do is pass on the pattern itself -- {share}."),
+            f"you may not do is pass on the pattern itself — {share}."),
         "is_it_a_finished_item": (
             "Am I buying a blanket or a pattern?",
             "A pattern. You receive instructions and charts as a PDF; you make the item "
@@ -407,8 +407,8 @@ def faq(terms: customer_terms.Terms | None = None) -> list[dict]:
         "can_i_get_a_refund": (
             "Can I get a refund?",
             "Digital patterns are not returnable, and Etsy does not allow a seller to "
-            "accept a return on a digital listing. If something is wrong -- a file that "
-            "will not open, an error in the pattern, a listing that misled you -- message "
+            "accept a return on a digital listing. If something is wrong — a file that "
+            "will not open, an error in the pattern, a listing that misled you — message "
             "us and we will put it right."),
         "was_ai_used": (
             "Was this designed by AI?",
@@ -441,7 +441,7 @@ SHOP_TEXT_FIELDS: tuple[str, ...] = ("title", "announcement", "sale_message",
 DIGITAL_SALE_MESSAGE = (
     "Thank you. Your pattern is ready now: open your Etsy account, go to Purchases and "
     "downloads, and the PDF is there. Etsy has emailed you a link as well.\n\n"
-    "Two things worth knowing. You may sell the items you make from this pattern -- you do "
+    "Two things worth knowing. You may sell the items you make from this pattern — you do "
     "not owe us anything and you do not need to ask. And if anything in the pattern does "
     "not add up, reply to this message with the pattern name and the row number: we correct "
     "the pattern itself, re-issue it, and send the corrected file to everyone who bought "
