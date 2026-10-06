@@ -9,13 +9,15 @@ banner, announcement and grid tell one story.
 
 This module checks those things on the actual assets and words:
 
-* icon  -- lane A's `brand.identity_system.icon_raster(px)` rasterised at 40 and 70 px
-           (Etsy's display sizes as the repo models them) and measured: contrast of mark
-           against ground, coverage, and a stroke that survives;
-* banner-- lane A's stacked lockup in the v2 banner composition (`preview_v2._geometry`)
-           against the banner canvas from lane I's Etsy constraints: lockup inside the phone
-           window, rendered tall enough on a 390 px phone; and whether a raster export for
-           upload exists (it does not yet: an honest FAIL, not a pass on a description);
+* icon  -- the owner's exact artwork where measured legible at 40 and 70 px (Etsy's display
+           sizes as the repo models them), else lane A's micro-mark
+           (`brand.identity_system.icon_raster`), labelled a derivative; measured: contrast of
+           mark against ground, coverage, and a stroke that survives;
+* banner-- the owner's canonical banner file (D-FB-17, `brand.canonical_assets`) through
+           every applicable publication gate (`owner_banner.assess`): Etsy size/format, the
+           4:1 canvas, the identity block inside the crop, Laura identity and publication
+           status, AI-imagery disclosure, Product Truth, nav and copy truth. Each gate that
+           stops the exact file is named; UNKNOWN blocks and is never a pass;
 * copy  -- lane C's `store_foundation.copy_v2` (falling back to the drafted surfaces in
            `store_foundation.content`) through `store_foundation.lint` truth rules, plus the
            buyer-question coverage F-234 names and the jargon rule for the top surfaces.
@@ -108,12 +110,32 @@ def icon_legibility(arr, size: int) -> dict:
 
 
 def check_icon() -> tuple[list[dict], dict]:
+    """The shop icon by the D-FB-17 hierarchy: the owner's exact artwork where it is measured
+    legible at every display size, otherwise lane A's micro-mark -- a small-size derivative,
+    labelled so, with the failing measurement as the reason. Either way the icon actually
+    used is measured here."""
+    owner = None
+    try:
+        from ..brand import canonical_assets as CA
+
+        owner = CA.shop_icon_choice(ICON_SIZES)
+    except Exception as exc:  # noqa: BLE001 - absent/altered owner file: say so, use A3
+        owner = {"asset": "a3_micro_mark", "derivative": True,
+                 "why": f"owner artwork unavailable: {type(exc).__name__}: {str(exc)[:120]}"}
+    choice = {k: v for k, v in owner.items() if k != "report"}
+    if owner.get("asset") == "owner_monogram_crop":
+        sizes = {px: owner["report"]["measurements"]["owner_monogram_crop"][px]
+                 for px in ICON_SIZES}
+        out = [_f("F-233", "STORE_ICON_ILLEGIBLE", f"icon at {px} px: {p}")
+               for px, m in sizes.items() for p in m["problems"]]
+        return out, {"rendered": True, "sizes": sizes, "choice": choice,
+                     "direction": "owner canonical artwork (D-FB-17)"}
     mod = S._import("brambleloop.brand.identity_system")
     fn = getattr(mod, "icon_raster", None) if mod is not None else None
     if not callable(fn):
         return ([_f("F-233", "STORE_ICON_NOT_RENDERED",
                     "no rendered icon asset: brand.identity_system.icon_raster is absent; a "
-                    "brief is not an icon")], {"rendered": False})
+                    "brief is not an icon")], {"rendered": False, "choice": choice})
     out, sizes = [], {}
     for px in ICON_SIZES:
         try:
@@ -125,49 +147,34 @@ def check_icon() -> tuple[list[dict], dict]:
         sizes[px] = m
         for p in m["problems"]:
             out.append(_f("F-233", "STORE_ICON_ILLEGIBLE", f"icon at {px} px: {p}"))
-    return out, {"rendered": True, "sizes": sizes,
+    return out, {"rendered": True, "sizes": sizes, "choice": choice,
                  "direction": getattr(mod, "DIRECTION_ID", None)}
 
 
 # ---- banner ----------------------------------------------------------------------------------
 
-def check_banner(tagline: str) -> tuple[list[dict], dict]:
-    from . import preview_v2
+def check_banner(tagline: str = "") -> tuple[list[dict], dict]:
+    """The storefront banner is the owner's canonical file (D-FB-17), assessed through every
+    applicable publication gate by `owner_banner.assess`. Each FAIL or UNKNOWN gate is one
+    finding naming that gate; a missing or altered owner file is
+    STORE_BANNER_CANONICAL_UNVERIFIED. `tagline` is unused: the banner's words are the
+    owner's pixels (kept for callers)."""
+    from . import owner_banner
 
-    out: list[dict] = []
+    try:
+        r = owner_banner.assess()
+    except Exception as exc:  # noqa: BLE001 - the gate fails closed
+        return ([_f("F-233", "STORE_BANNER_ASSESSMENT_ERROR",
+                    f"owner banner assessment failed: {type(exc).__name__}: {str(exc)[:160]}")],
+                {"assessed": False})
     spec = S.banner_spec()
-    g = preview_v2._geometry(spec.value)
-    lockup = S.lockup_svg(tagline)
-    info = {"canvas": list(spec.value["canvas"]), "canvas_source": spec.source,
-            "basis": spec.value["basis"], "lockup": bool(lockup)}
-    if not lockup:
-        out.append(_f("F-233", "STORE_BANNER_NOT_RENDERED",
-                      "no banner lockup asset: brand.identity_system.lockup_stacked_svg is "
-                      "absent; a brief is not a banner"))
-        return out, info
-    m = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', lockup)
-    aspect = float(m.group(1)) / float(m.group(2)) if m else 1.6
-    lo, hi = g["win"]
-    a, b = g["lock"]
-    if not (lo - 1e-9 <= a and b <= hi + 1e-9):
-        out.append(_f("F-233", "STORE_BANNER_LOCKUP_CROPPED",
-                      "the lockup leaves the phone crop window"))
-    w, h = spec.value["canvas"]
-    canvas_px = PHONE_WIDTH / (hi - lo)             # canvas width when the window is 390 px
-    box_w, box_h = (b - a) * canvas_px, canvas_px / (w / h) * 0.86
-    lock_h = min(box_w / aspect, box_h)
-    info["lockup_phone_px"] = round(lock_h, 1)
-    if lock_h < LOCKUP_MIN_PHONE_PX:
-        out.append(_f("F-233", "STORE_BANNER_LOCKUP_SMALL",
-                      f"lockup {lock_h:.0f} px tall on a {PHONE_WIDTH} px phone, under "
-                      f"{LOCKUP_MIN_PHONE_PX} px"))
-    exporter = getattr(S._import("brambleloop.brand.identity_system"), "banner_png", None)
-    info["raster_export"] = callable(exporter)
-    if not callable(exporter):
-        out.append(_f("F-233", "STORE_BANNER_NOT_EXPORTED",
-                      f"no {w}x{h} raster banner exists for upload (the composition renders "
-                      f"in the owner preview only); export without Laura until her imagery "
-                      f"is publication-approved"))
+    info = {"assessed": True, "asset": r["asset"]["file"], "sha256": r["asset"]["sha256"],
+            "decision": r["decision"], "status": r["status"], "passed": r["passed"],
+            "failed": r["failed"], "unknown": r["unknown"],
+            "unverified_assumptions": r.get("unverified_assumptions", []),
+            "canvas": list(spec.value["canvas"]), "canvas_source": spec.source,
+            "basis": spec.value["basis"]}
+    out = owner_banner.storefront_findings(r)
     if spec.source != S.PEER:
         out.append(_f("F-233", "STORE_BANNER_SIZE_UNSOURCED",
                       "banner canvas size not read from lane I's Etsy constraints"))

@@ -151,9 +151,13 @@ def _inner(svg: str, x: float, y: float, w: float, h: float) -> str:
 
 
 def banner_svg() -> str:
-    """The shop banner. With lane A's identity system: the horizontal lockup centred in
-    `WORDMARK_BOX` on paper, the bramble motif in the wings only (outside the phone crop),
-    no Laura (her imagery is not publication-approved). Otherwise the legacy drawing."""
+    """A drawn utility banner (v1 readiness checks). NOT the storefront banner: under D-FB-17
+    the storefront banner is the owner's canonical file (`brand.canonical_assets`, assessed by
+    `store_foundation.owner_banner`); this drawing may never be substituted for it.
+
+    With lane A's identity system: the horizontal lockup centred in `WORDMARK_BOX` on paper,
+    the bramble motif in the wings only (outside the phone crop), no Laura (her imagery is
+    not publication-approved). Otherwise the legacy drawing."""
     ident = _identity()
     if ident is None:
         return _legacy_banner_svg()

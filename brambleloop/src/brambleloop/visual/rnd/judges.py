@@ -10,10 +10,13 @@ input to `objective.evaluate`, which only ranks candidates that already passed e
 * `thumbnail_desirability` -- at the 170 px search-grid size: subject prominence, local
   contrast, colourfulness, warmth and centring. A thumbnail that reads as a warm, vivid,
   prominent object is a better *bet*; whether it sells is the slow loop's question.
-* `brand_consistency` -- share of the frame's pixels near the owner's concept palette
-  (cream / forest / taupe / warm-natural, D-FB-16 item 1) plus warmth. The palette is read from
-  `brand.identity_system` when lane A exports the owner-concept palette; until then it is the
-  provisional palette sampled from the owner's concept images (labelled so).
+* `brand_consistency` -- share of the frame's pixels near the brand palette plus warmth. The
+  brand TARGET is the owner's canonical files (D-FB-17, `brand.canonical_assets`: the hero
+  logo and the storefront banner, verified by sha256 on every read); the palette is the one
+  sampled from them (`brand.identity_system` / `owner_identity.CONCEPT_SAMPLES`, re-sampled
+  from the files by its tests), or the provisional palette sampled from the same files when
+  that interface is absent. If the canonical files fail verification the reading is UNKNOWN:
+  a brand score with no verified target is not a brand score.
 * `blind_benchmark` -- a slot, UNKNOWN until observed benchmark galleries and a blind vision
   review exist. Never invented.
 * `photographic_quality` -- N/A for disclosed renders (they say they are not photographs);
@@ -42,15 +45,33 @@ PROVISIONAL_OWNER_PALETTE: dict[str, str] = {
 PALETTE_RADIUS = 52.0   # RGB euclidean distance counted as "on palette"
 
 
+def brand_target() -> dict:
+    """The canonical brand target (D-FB-17): the owner's two files, re-hashed. The banner is
+    also the registered art target for any banner reproduction work."""
+    try:
+        from ...brand import canonical_assets as CA
+
+        v = CA.verify()
+        return {"decision": CA.DECISION_ID, "verified": v["ok"], "problems": v["problems"],
+                "assets": {r: {"file": a.file, "sha256": a.sha256, "size": list(a.size)}
+                           for r, a in CA.ASSETS.items()},
+                "banner_art_target": CA.ASSETS[CA.STOREFRONT_BANNER].sha256}
+    except Exception as exc:  # noqa: BLE001 - no target -> UNKNOWN brand readings
+        return {"verified": False, "problems": [f"{type(exc).__name__}: {str(exc)[:120]}"],
+                "assets": {}}
+
+
 def brand_palette() -> tuple[dict[str, str], str]:
-    """(palette, provenance). Lane A's owner-concept palette when exported, else provisional."""
+    """(palette, provenance). The palette sampled from the canonical owner files (lane A's
+    export of it when present, else the provisional samples of the same files)."""
     try:
         from ...brand import identity_system as I
         pal = getattr(I, "OWNER_CONCEPT_PALETTE", None)
         if not pal and "owner" in str(getattr(I, "DIRECTION_ID", "")).lower():
             pal = getattr(I, "PALETTE", None)
         if pal:
-            return dict(pal), "brand.identity_system (owner concept, lane A)"
+            return dict(pal), ("brand.identity_system palette sampled from the canonical owner "
+                               "files (D-FB-17)")
     except Exception:  # noqa: BLE001 - absent interface -> provisional palette
         pass
     return dict(PROVISIONAL_OWNER_PALETTE), ("provisional: sampled from the owner concept "
@@ -117,7 +138,11 @@ def thumbnail_desirability(png: bytes) -> dict:
 def brand_consistency(png: bytes) -> dict:
     import numpy as np
 
-    name, ver = "brand_consistency", "brand-palette-proxy/1"
+    name, ver = "brand_consistency", "brand-palette-proxy/2"
+    target = brand_target()
+    if not target["verified"]:
+        return _reading(name, ver, None, "canonical brand target unverified (D-FB-17): "
+                        + "; ".join(target["problems"])[:200])
     pal, prov = brand_palette()
     try:
         a = _rgb(png, 128).reshape(-1, 3)
@@ -129,9 +154,10 @@ def brand_consistency(png: bytes) -> dict:
     on = float((d <= PALETTE_RADIUS).mean())
     warmth = float(np.clip((a[:, 0].mean() - a[:, 2].mean()) / 40.0 + 0.5, 0, 1))
     value = 0.8 * on + 0.2 * warmth
-    return _reading(name, ver, value, f"palette share vs owner concept palette ({prov})",
-                    on_palette_share=round(on, 4), warmth=round(warmth, 4),
-                    palette_provenance=prov)
+    return _reading(name, ver, value, f"palette share vs the canonical owner assets' palette "
+                    f"({prov})", on_palette_share=round(on, 4), warmth=round(warmth, 4),
+                    palette_provenance=prov, brand_target=target["assets"],
+                    brand_target_decision=target.get("decision"))
 
 
 def blind_benchmark(png: bytes | None = None) -> dict:
@@ -172,5 +198,6 @@ def describe() -> dict:
     pal, prov = brand_palette()
     return {"judges": list(JUDGES), "basis": PROXY, "label": PROXY_LABEL,
             "thumb_px": THUMB_PX, "palette": pal, "palette_provenance": prov,
+            "brand_target": brand_target(),
             "note": "internal fast-loop proxies; marketplace evidence (slow loop) overrides "
                     "them and lowers their trust when it disagrees"}

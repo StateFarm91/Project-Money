@@ -145,6 +145,26 @@ def summary(db, *, verify_images: bool = False, now: datetime | None = None) -> 
                       "entry": "listing upload", "etsy_location": "listing images",
                       "source": "visual.disclosed_render + visual.render_verification",
                       "entered_on_etsy": C.UNKNOWN, "basis": "unknown"})
+    try:  # D-FB-17: the canonical owner banner and the gates that stop the exact file
+        from . import owner_banner
+
+        ob = owner_banner.assess()
+        items.append({"key": "storefront_banner", "label": "Shop banner (owner's canonical "
+                      "file, D-FB-17)", "group": "brand",
+                      "status": R.READY if ob["publishable"] else R.FAIL,
+                      "findings": len(ob["failed"]) + len(ob["unknown"]),
+                      "top_findings": [f"{g['gate']}: {g['status']}" for g in ob["gates"]
+                                       if g["status"] != "PASS"][:6],
+                      "entry": "big banner upload", "etsy_location": "Shop Manager > "
+                      "Settings > Info & Appearance", "source": "store_foundation.owner_banner",
+                      "entered_on_etsy": C.UNKNOWN, "basis": "measured",
+                      "failed": ob["failed"], "unknown": ob["unknown"]})
+    except Exception as exc:  # noqa: BLE001 - the provider never raises
+        items.append({"key": "storefront_banner", "label": "Shop banner (owner's canonical "
+                      "file, D-FB-17)", "group": "brand", "status": "UNKNOWN", "findings": 0,
+                      "top_findings": [f"assessment unavailable: {type(exc).__name__}"],
+                      "entry": "big banner upload", "etsy_location": "", "basis": "unknown",
+                      "source": "store_foundation.owner_banner", "entered_on_etsy": C.UNKNOWN})
     return {
         "status": status, "as_of": as_of, "basis": "measured", "items": items,
         "sources": sorted({r["source"] for r in rows} | {"products.launch0",

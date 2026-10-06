@@ -1,0 +1,780 @@
+{
+ "assessment": {
+  "asset": {
+   "decision": "D-FB-17",
+   "file": "brambleloop_owner_banner_canonical.png",
+   "path": "src/brambleloop/brand/owner_source/brambleloop_owner_banner_canonical.png",
+   "role": "storefront_banner",
+   "sha256": "048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98",
+   "size": [
+    1983,
+    793
+   ],
+   "use": "the exact file where every applicable publication gate passes; otherwise the target that any owner-reviewed correction must keep",
+   "what": "canonical storefront banner / art target"
+  },
+  "db_used": false,
+  "decision": "D-FB-17",
+  "declared_content": "Laura left, warm cozy setting, centred identity, crochet/yarn right, tagline (DECISION_LOG D-FB-17 item 2)",
+  "etsy_evidence": [
+   {
+    "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/115015663347.json",
+    "edited_at": "2026-05-04T19:20:43Z",
+    "key": "big_banner_size",
+    "quotes": [
+     "The minimum required size for big shop banners is 1200 x 300px.",
+     "The recommended size is 1600 x 400px.",
+     "Image sizes are optimized for mobile displays."
+    ],
+    "retrieved_at": "2026-10-06T18:29:18Z",
+    "source_label": "Etsy Help Center article 115015663347 (images in your shop)",
+    "status": "VERIFIED_HELP_CENTER",
+    "url": "https://help.etsy.com/hc/en-us/articles/115015663347-Requirements-and-Best-Practices-for-Images-in-Your-Etsy-Shop"
+   },
+   {
+    "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/115015663247.json",
+    "edited_at": "2026-05-05T14:06:33Z",
+    "key": "banner_display",
+    "quotes": [
+     "Big Banner: A large image with a minimum size of 1200 x 300 pixels.",
+     "This image appears when shoppers view your shop on the standard view of the website as well as on mobile devices."
+    ],
+    "retrieved_at": "2026-10-06T18:29:18Z",
+    "source_label": "Etsy Help Center article 115015663247 (shop appearance)",
+    "status": "VERIFIED_HELP_CENTER",
+    "url": "https://help.etsy.com/hc/en-us/articles/115015663247-How-to-Customize-Your-Shop-s-Appearance"
+   },
+   {
+    "key": "banner_aspect_or_crop",
+    "note": "neither article states a required aspect ratio, a crop rule or a safe zone for the big banner; 1600x400 is a recommendation",
+    "quotes": [],
+    "retrieved_at": "2026-10-06T18:29:18Z",
+    "source_label": "Etsy Help Center articles 115015663347 and 115015663247",
+    "status": "NOT_STATED",
+    "url": "(both articles above)"
+   },
+   {
+    "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/360024112614.json",
+    "edited_at": "2025-09-17T18:36:53Z",
+    "key": "ai_disclosure",
+    "note": "the rule is about items offered for sale; no fetched text addresses shop banners or branding imagery",
+    "quotes": [
+     "As a seller, you can offer your original design as a digital download, or use a third party to produce or print your design onto a physical item. This category also includes seller-prompted AI creations.",
+     "Seller-prompted AI creations must disclose the use of AI."
+    ],
+    "retrieved_at": "2026-10-06T18:29:57Z",
+    "source_label": "Etsy Help Center article 360024112614 (what can I sell)",
+    "status": "VERIFIED_HELP_CENTER",
+    "url": "https://help.etsy.com/hc/en-us/articles/360024112614-What-Can-I-Sell-on-Etsy"
+   },
+   {
+    "key": "seller_policy_and_creativity_standards",
+    "note": "HTTP 403 (bot protection) on all three; their content stays UNVERIFIED here (gates.policy_knowledge holds search-engine excerpts: AI disclosure 'in your relevant listings')",
+    "quotes": [],
+    "retrieved_at": "2026-10-06T18:29:36Z",
+    "source_label": "Etsy Seller Policy, Creativity Standards and seller handbook article 1275449912004",
+    "status": "BLOCKED_403",
+    "url": "https://www.etsy.com/legal/sellers/ ; https://www.etsy.com/legal/creativity ; https://www.etsy.com/seller-handbook/article/1275449912004"
+   }
+  ],
+  "failed": [
+   "laura_publication_status",
+   "nav_categories_truth"
+  ],
+  "gates": [
+   {
+    "basis": "measured: sha256 of the repository copy",
+    "evidence": {
+     "sha256": "048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98",
+     "verify": "re-hashed, size and SHA256SUMS agree"
+    },
+    "gate": "canonical_integrity",
+    "rule": "D-FB-17: the owner files are immutable",
+    "status": "PASS",
+    "why": "the file is byte-identical to what the owner supplied"
+   },
+   {
+    "basis": "measured file vs Etsy Help Center text re-read 2026-10-06 (published, not enforcement-observed; no upload made)",
+    "evidence": {
+     "etsy": {
+      "banner_mobile_crop": {
+       "basis": "UNKNOWN",
+       "note": "Etsy says only that the banner 'appears when shoppers view your shop on the standard view of the website as well as on mobile devices' and that 'Image sizes are optimized for mobile displays'. No crop geometry or safe zone is published. Third-party 'safe zones' (e.g. 1200x300 central) are not evidence. Keep text/marks centred with generous margins and check the real crop in the Etsy app after upload (checklist B2).",
+       "value": null
+      },
+      "big_banner_min_px": {
+       "basis": "VERIFIED_HELP_CENTER",
+       "quote": "The minimum required size for big shop banners is 1200 x 300px.",
+       "value": [
+        1200,
+        300
+       ]
+      },
+      "big_banner_recommended_px": {
+       "basis": "VERIFIED_HELP_CENTER",
+       "quote": "The recommended size is 1600 x 400px.",
+       "value": [
+        1600,
+        400
+       ]
+      },
+      "meaning": "VERIFIED_HELP_CENTER = a sentence in Etsy's Help Center states it (what Etsy publishes); no upload has been made, so Etsy's handling of this file is not observed",
+      "retrieved_on": "2026-10-06"
+     },
+     "etsy_live": [
+      {
+       "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/115015663347.json",
+       "edited_at": "2026-05-04T19:20:43Z",
+       "key": "big_banner_size",
+       "quotes": [
+        "The minimum required size for big shop banners is 1200 x 300px.",
+        "The recommended size is 1600 x 400px.",
+        "Image sizes are optimized for mobile displays."
+       ],
+       "retrieved_at": "2026-10-06T18:29:18Z",
+       "source_label": "Etsy Help Center article 115015663347 (images in your shop)",
+       "status": "VERIFIED_HELP_CENTER",
+       "url": "https://help.etsy.com/hc/en-us/articles/115015663347-Requirements-and-Best-Practices-for-Images-in-Your-Etsy-Shop"
+      },
+      {
+       "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/115015663247.json",
+       "edited_at": "2026-05-05T14:06:33Z",
+       "key": "banner_display",
+       "quotes": [
+        "Big Banner: A large image with a minimum size of 1200 x 300 pixels.",
+        "This image appears when shoppers view your shop on the standard view of the website as well as on mobile devices."
+       ],
+       "retrieved_at": "2026-10-06T18:29:18Z",
+       "source_label": "Etsy Help Center article 115015663247 (shop appearance)",
+       "status": "VERIFIED_HELP_CENTER",
+       "url": "https://help.etsy.com/hc/en-us/articles/115015663247-How-to-Customize-Your-Shop-s-Appearance"
+      }
+     ],
+     "findings": [],
+     "format": "png",
+     "size": [
+      1983,
+      793
+     ],
+     "transparent": false
+    },
+    "gate": "etsy_banner_minimum_and_format",
+    "rule": "integrations.etsy_constraints.image_problems('big_banner')",
+    "status": "PASS",
+    "why": "1983x793 PNG, opaque: at or above Etsy's published minimum 1200x300 and recommended 1600x400; PNG is a supported type"
+   },
+   {
+    "basis": "measured aspect vs an UNVERIFIED assumption",
+    "evidence": {
+     "aspect": 2.501,
+     "canvas": [
+      1600,
+      400
+     ],
+     "canvas_aspect": 4.0,
+     "canvas_basis": "1600x400 is asserted in this repo (brand.storefront.BANNER_SIZE) and quoted from Etsy's Help Center by lane I as the *recommended* size; how Etsy fits a 2.50:1 upload into it is NOT published (UNVERIFIED) -- it may crop or scale",
+     "etsy_finding": [
+      {
+       "basis": "VERIFIED_HELP_CENTER",
+       "code": "BANNER_ASPECT_DIFFERS",
+       "constraint": "big_banner_recommended_px",
+       "detail": "big_banner aspect 2.501 differs from Etsy's recommended 1600x400 (4.000); Etsy will crop",
+       "severity": "warn",
+       "source": "https://help.etsy.com/hc/en-us/articles/115015663347-Requirements-and-Best-Practices-for-Images-in-Your-Etsy-Shop"
+      }
+     ]
+    },
+    "gate": "f233_banner_canvas_4to1",
+    "review": "owner: after an owner-approved upload, look at the banner in the Etsy app and on desktop; reopen VT-B2-2 only if it is cropped badly",
+    "rule": "storefront_gate F-233 assumed a 4:1 canvas; Etsy states only a minimum (1200x300) and a recommended size (1600x400) -- no required ratio or crop rule",
+    "status": "UNVERIFIED_ASSUMPTION",
+    "why": "the file is 2.50:1 against a 4:1 *recommendation*. Etsy publishes no required aspect ratio and no crop behaviour (re-read 2026-10-06), so this is not a failure; it drives no redesign (D-FB-18 item 4)"
+   },
+   {
+    "basis": "measured (ink rows) under the ASSUMED 4:1 centre crop (Etsy states no crop)",
+    "evidence": {
+     "any_full_width_4to1_crop_fits": false,
+     "centre_crop_rows": [
+      148,
+      643
+     ],
+     "elements": 6,
+     "full_width_4to1_height_px": 496,
+     "identity_block_height_px": 593,
+     "identity_block_rows": [
+      44,
+      636
+     ],
+     "procedure": "rows whose central band (40%-60% of the width) is >= 0.4% darker than luminance 170; consecutive runs from the top until the first run > 50% dark (furniture); width from the widest run's central column cluster",
+     "rows_lost_bottom": 0,
+     "rows_lost_top": 104
+    },
+    "gate": "f233_identity_block_survives_4to1",
+    "review": "owner: in-app check after an owner-approved upload",
+    "rule": "storefront_gate F-233: the mark stays whole inside the canvas",
+    "status": "UNVERIFIED_ASSUMPTION",
+    "why": "the centred identity block is 593 px tall (rows 44-636); a full-width 4:1 crop is 496 px tall, so no 4:1 crop of the exact file keeps all of it; a centre crop (rows 148-643) cuts 104 px from the top of the monogram -- IF Etsy crops to 4:1, which it does not state"
+   },
+   {
+    "basis": "measured block vs an ASSUMED 2:1 centre window",
+    "evidence": {
+     "assumed_phone_window_cols": [
+      495,
+      1486
+     ],
+     "horizontally_inside_assumed_window": true,
+     "identity_block_cols": [
+      630,
+      1431
+     ],
+     "phone_crop_basis": "UNKNOWN"
+    },
+    "gate": "f233_identity_block_in_phone_window",
+    "review": "owner: check the real phone crop after upload (checklist B2)",
+    "rule": "storefront_gate F-233: the mark inside the phone window",
+    "status": "UNVERIFIED_ASSUMPTION",
+    "why": "inside the assumed 2:1 centre window horizontally (True); Etsy says only that the banner shows on mobile and sizes are 'optimized for mobile displays' -- no crop geometry, so this cannot pass; check in the Etsy app after an owner-approved upload"
+   },
+   {
+    "basis": "owner human identity review (D-FB-18), bound to these exact bytes; no machine reading claimed",
+    "evidence": {
+     "identity_id": "laura-r2-a42aeac7",
+     "machine_reading": {
+      "biometric": {
+       "similarity": null,
+       "status": "UNMEASURED",
+       "why": "no qualified face-embedding model; the biometric floor is gated on installing and qualifying one"
+      },
+      "conditioning_receipt": null,
+      "identity_gate": {
+       "band": "INVALID",
+       "gate_version": "identity-gate/1",
+       "status": "UNKNOWN",
+       "why": "no identity reading: an unconfirmed likeness is not Laura"
+      },
+      "qualified_embedders": []
+     },
+     "owner_human_review": {
+      "decision": "D-FB-18",
+      "identity": "laura-r2-a42aeac7",
+      "item": 1,
+      "kind": "human_identity_review",
+      "not": "not a publication approval and not a waiver of Laura's identity controls for any other or future image",
+      "result": "confirmed_same_person",
+      "reviewed_on": "2026-10-06",
+      "reviewer": "owner",
+      "scope": "this depiction only (the canonical storefront banner bytes)"
+     },
+     "sha256": "048a199133f7589cc243cb876a7ee5b0f68b5d6530929a922c79de9eda64eb98"
+    },
+    "gate": "laura_identity",
+    "rule": "F-732 / F-219: identity by a human review where the machine floor is unmeasured; the review covers this depiction only",
+    "status": "PASS",
+    "why": "the owner confirmed the woman in this banner is Laura (laura-r2-a42aeac7) -- D-FB-18 item 1, this depiction only (the canonical storefront banner bytes). Every other frame keeps the identity gate and its review queue"
+   },
+   {
+    "basis": "measured: visual.canonical.asset_status / customer_ready on the file's sha256",
+    "evidence": {
+     "asset_status": "not_for_publication",
+     "customer_facing_gates": [
+      "canonical_identity",
+      "photorealism",
+      "anatomy",
+      "product_truth_if_product_shown",
+      "composition_brand_qa",
+      "disclosure_policy",
+      "publication_gate"
+     ],
+     "customer_ready": {
+      "blocking": [
+       "photorealism",
+       "anatomy",
+       "product_truth_if_product_shown",
+       "composition_brand_qa",
+       "disclosure_policy",
+       "publication_gate"
+      ],
+      "customer_ready": false,
+      "gates": [
+       "canonical_identity",
+       "photorealism",
+       "anatomy",
+       "product_truth_if_product_shown",
+       "composition_brand_qa",
+       "disclosure_policy",
+       "publication_gate"
+      ],
+      "passed": [
+       "canonical_identity"
+      ],
+      "status": "GATED",
+      "why": "no Laura image is publication_approved. Canonical references define her; they are not customer imagery. Photorealism failures on the frozen pack (B-657) remain valid, and the repair path is task #59: make the visual system reproduce her at customer quality, then pass every gate in order"
+     },
+     "publication_approved": []
+    },
+    "gate": "laura_publication_status",
+    "review": "owner publication decision + a per-surface approval in visual.canonical (WIRING REQUEST)",
+    "rule": "no Laura image reaches customers until publication_approved",
+    "status": "FAIL",
+    "why": "the file's bytes are 'not_for_publication'. D-FB-18 confirmed her identity, not publication. The publication model (visual.canonical.PUBLICATION_APPROVED) is a per-asset sha set with no surface scope and implies every CUSTOMER_FACING_GATE passed; it cannot express 'owner-approved for the storefront banner only', and photorealism/anatomy are unjudged. Not flipped (visual.canonical is read-only here)"
+   },
+   {
+    "basis": "no vision-judge reading exists for this file",
+    "evidence": {
+     "vision_reading": null
+    },
+    "gate": "laura_photorealism_anatomy",
+    "review": "vision judge + human",
+    "rule": "visual.canonical CUSTOMER_FACING_GATES: photorealism, anatomy",
+    "status": "UNKNOWN",
+    "why": "not judged: no reading is invented"
+   },
+   {
+    "basis": "Etsy Help Center text re-read 2026-10-06 + the file's C2PA manifest",
+    "evidence": {
+     "c2pa": {
+      "actions": [
+       "converted",
+       "created"
+      ],
+      "ai_generated_declared": true,
+      "basis": "parsed from the file's embedded C2PA manifest (caBX chunk); its signature is not verified here -- the file's own declaration",
+      "bytes": 23654,
+      "digital_source_types": [
+       "trainedAlgorithmicMedia"
+      ],
+      "generator_names": [
+       "ChatGPT",
+       "OpenAI Media Service API"
+      ],
+      "generator_versions": [
+       "gpt-image"
+      ],
+      "present": true,
+      "signature_verified": false,
+      "signer_strings": [
+       "OpenAI Media Service",
+       "OpenAI OpCo, LLC",
+       "OpenAI TSA Issuing CA",
+       "OpenAI TSA Leaf",
+       "OpenAI TSA Root CA"
+      ],
+      "timestamps": [
+       "2026-10-06T14:07:05"
+      ]
+     },
+     "etsy_blocked": {
+      "key": "seller_policy_and_creativity_standards",
+      "note": "HTTP 403 (bot protection) on all three; their content stays UNVERIFIED here (gates.policy_knowledge holds search-engine excerpts: AI disclosure 'in your relevant listings')",
+      "quotes": [],
+      "retrieved_at": "2026-10-06T18:29:36Z",
+      "source_label": "Etsy Seller Policy, Creativity Standards and seller handbook article 1275449912004",
+      "status": "BLOCKED_403",
+      "url": "https://www.etsy.com/legal/sellers/ ; https://www.etsy.com/legal/creativity ; https://www.etsy.com/seller-handbook/article/1275449912004"
+     },
+     "etsy_rule": {
+      "api_url": "https://help.etsy.com/api/v2/help_center/en-us/articles/360024112614.json",
+      "edited_at": "2025-09-17T18:36:53Z",
+      "key": "ai_disclosure",
+      "note": "the rule is about items offered for sale; no fetched text addresses shop banners or branding imagery",
+      "quotes": [
+       "As a seller, you can offer your original design as a digital download, or use a third party to produce or print your design onto a physical item. This category also includes seller-prompted AI creations.",
+       "Seller-prompted AI creations must disclose the use of AI."
+      ],
+      "retrieved_at": "2026-10-06T18:29:57Z",
+      "source_label": "Etsy Help Center article 360024112614 (what can I sell)",
+      "status": "VERIFIED_HELP_CENTER",
+      "url": "https://help.etsy.com/hc/en-us/articles/360024112614-What-Can-I-Sell-on-Etsy"
+     },
+     "marketing_sentence_required": false,
+     "png_chunks": [
+      "IDAT",
+      "IEND",
+      "IHDR",
+      "caBX"
+     ],
+     "provenance_kept": true,
+     "store_disclosure_has_generated_imagery_line": false,
+     "store_disclosure_has_laura_ai_line": true
+    },
+    "gate": "ai_generated_imagery_disclosure",
+    "review": "owner or a human page reading of Etsy's Seller Policy / Creativity Standards for shop banners",
+    "rule": "Etsy (Help Center 360024112614): 'Seller-prompted AI creations must disclose the use of AI.' -- a rule about items for sale; D-FB-18 item 9: no AI marketing language merely because of Content Credentials; never strip provenance",
+    "status": "UNKNOWN",
+    "why": "the file's own manifest declares it AI-generated (signature not verified). Etsy's verified text requires AI disclosure for items offered for sale; no fetched Etsy text addresses shop banners or branding imagery, and the Seller Policy / Creativity Standards pages returned 403. So what (if anything) a banner requires is UNVERIFIED: nothing is added to customer copy on this basis, and the C2PA metadata stays in the file"
+   },
+   {
+    "basis": "lint TRUTH_LAURA_HUMAN_CLAIM over the transcribed words",
+    "evidence": {
+     "lint_hits": {
+      "book_spine_1": [],
+      "book_spine_2": [],
+      "book_spine_3": [],
+      "descriptor": [],
+      "mug": [],
+      "nav": [],
+      "sign_left": [],
+      "sign_right": [],
+      "tagline": [],
+      "wordmark": []
+     },
+     "scope": "the transcribed words only",
+     "text_source": "transcription in the lane B2 brief (2026-10-06) and DECISION_LOG D-FB-17; not OCR -- completeness unverified"
+    },
+    "gate": "laura_never_claims_human_in_text",
+    "rule": "Laura is never presented as human",
+    "status": "PASS",
+    "why": "no transcribed word claims she is human"
+   },
+   {
+    "basis": "measured: store disclosure and About text (copy_v2)",
+    "evidence": {
+     "about_names_laura_as_ai": true,
+     "etsy_banner_caption": "Etsy publishes no caption field for a big banner",
+     "in_image_disclosure": false,
+     "store_level_disclosure": true
+    },
+    "gate": "laura_ai_disclosure_at_banner",
+    "rule": "spec/07 + D-FB-11..13: Laura is disclosed as an AI where she is presented; never claims to be human (Etsy's own banner requirement: see ai_generated_imagery_disclosure)",
+    "status": "PASS",
+    "why": "the shop's disclosure and About both say Laura is an AI; the banner adds no human claim. In-image AI wording is not required by any verified rule"
+   },
+   {
+    "basis": "final_image_gate on the file + the catalogue + the repo's marketplace rules",
+    "evidence": {
+     "catalogue_products": [
+      {
+       "build": "basket_medium",
+       "section": "home",
+       "title": "Hexagonal Storage Basket"
+      },
+      {
+       "build": "cloudline_blanket",
+       "section": "baby",
+       "title": "Cloudline Textured Baby Blanket"
+      },
+      {
+       "build": "hexagon_coasters",
+       "section": "home",
+       "title": "Hexagon Coaster Set"
+      }
+     ],
+     "crochet_classification": {
+      "class": "brand_lifestyle_concept",
+      "decision": "D-FB-18 item 2",
+      "mapped_to_patterns": [],
+      "rule": "never mapped to existing patterns; never implies those pieces are available"
+     },
+     "declared_content": "Laura left, warm cozy setting, centred identity, crochet/yarn right, tagline (DECISION_LOG D-FB-17 item 2)",
+     "final_image_gate": {
+      "gate_version": "final-image-gate/1",
+      "status": "UNKNOWN",
+      "why": "no verified source render: a generated or photographed image has no deterministic Product Truth evidence, and a vision reading cannot pass it"
+     },
+     "rules_consulted": {
+      "etsy_help_center": "no fetched Etsy text addresses what a shop banner may depict (ETSY_EVIDENCE)",
+      "platform_policy (module rule)": "a generated image may not misrepresent what the buyer receives",
+      "platform_policy.ASSET_ROLES['mood_frame']": [
+       "generated_permitted",
+       "an atmosphere frame that makes no claim about the object"
+      ]
+     },
+     "visual_task": "VT-B2-1"
+    },
+    "gate": "product_truth",
+    "review": "human: would a shopper take any crochet shown (or the book spines) for something this shop sells?",
+    "rule": "Product Truth (unweakened): an image may not present a product that does not exist. platform_policy permits a generated 'mood_frame' only as a listing image that makes no claim about the object; no rule covers concept crochet on a storefront banner",
+    "status": "UNKNOWN",
+    "why": "D-FB-18 classifies the banner's crochet as brand/lifestyle concept imagery, mapped to no pattern (3 patterns exist: Hexagonal Storage Basket, Cloudline Textured Baby Blanket, Hexagon Coaster Set). Whether concept crochet is acceptable on a public storefront banner cannot be proven from the repo's rules or Etsy's fetched text, and whether a shopper would read it as for sale is unmeasured -- so UNKNOWN (blocks). The composition stays the canonical art target; VT-B2-1 (GATED) reproduces the scene with verified products when warranted"
+   },
+   {
+    "basis": "transcribed nav words vs measured catalogue sections",
+    "evidence": {
+     "banner_nav": [
+      {
+       "listings": 2,
+       "nav": "Home",
+       "section_slug": "home"
+      },
+      {
+       "listings": 1,
+       "nav": "Baby",
+       "section_slug": "baby"
+      },
+      {
+       "listings": 0,
+       "nav": "Wearables",
+       "section_slug": "wear"
+      },
+      {
+       "listings": 0,
+       "nav": "Gifts",
+       "section_slug": "collections"
+      },
+      {
+       "listings": 0,
+       "nav": "Seasonal",
+       "section_slug": "seasonal"
+      }
+     ],
+     "empty": [
+      "Wearables",
+      "Gifts",
+      "Seasonal"
+     ],
+     "text_source": "transcription in the lane B2 brief (2026-10-06) and DECISION_LOG D-FB-17; not OCR -- completeness unverified"
+    },
+    "gate": "nav_categories_truth",
+    "review": "owner: publish the banner only once those categories hold products, or accept/decide otherwise; the canonical PNG is never edited",
+    "rule": "D-FB-18 item 3: never advertise empty categories publicly; generated navigation shows only populated categories (store_foundation.navigation)",
+    "status": "FAIL",
+    "why": "the banner's baked-in nav names Wearables, Gifts, Seasonal, which hold no pattern today. The owner chose not to alter the source file, so this stays a reported truth finding for the banner; every generated surface hides those categories until populated"
+   },
+   {
+    "basis": "store_foundation.lint truth rules over the transcribed words",
+    "evidence": {
+     "strings": {
+      "book_spine_1": "CROCHET",
+      "book_spine_2": "A CALMER HOME",
+      "book_spine_3": "A BRIGHTER YOU",
+      "descriptor": "CROCHET PATTERNS",
+      "mug": "Crochet a Brighter Everyday",
+      "nav": "HOME | BABY | WEARABLES | GIFTS | SEASONAL",
+      "sign_left": "Good Things Take Time",
+      "sign_right": "SAME YARN MORE HAPPY",
+      "tagline": "Patterns for a More Handmade Life",
+      "wordmark": "BRAMBLELOOP"
+     },
+     "text_source": "transcription in the lane B2 brief (2026-10-06) and DECISION_LOG D-FB-17; not OCR -- completeness unverified",
+     "truth_findings": {
+      "book_spine_1": [],
+      "book_spine_2": [],
+      "book_spine_3": [],
+      "descriptor": [],
+      "mug": [],
+      "nav": [],
+      "sign_left": [],
+      "sign_right": [],
+      "tagline": [],
+      "wordmark": []
+     },
+     "voice_advisories": {
+      "book_spine_1": [
+       "VOICE_SHOUTING"
+      ],
+      "book_spine_2": [
+       "VOICE_SHOUTING"
+      ],
+      "book_spine_3": [
+       "VOICE_SHOUTING"
+      ],
+      "descriptor": [
+       "VOICE_SHOUTING"
+      ],
+      "nav": [
+       "VOICE_SHOUTING"
+      ],
+      "sign_right": [
+       "VOICE_SHOUTING"
+      ]
+     }
+    },
+    "gate": "public_copy_truth_lint",
+    "rule": "customer copy truth lint",
+    "status": "PASS",
+    "why": "no truth rule fires on any transcribed word (all-caps voice advisories are typography in the artwork, not copy)"
+   },
+   {
+    "basis": "no OCR in this build",
+    "evidence": {
+     "ocr_installed": false,
+     "strings_checked": 10
+    },
+    "gate": "visible_text_complete",
+    "review": "human: confirm the transcription is complete",
+    "rule": "every word a shopper reads is linted",
+    "status": "UNKNOWN",
+    "why": "the lint covers the transcription; nobody has machine-checked that it is every word in the image"
+   }
+  ],
+  "identity_block": {
+   "cols": [
+    630,
+    1431
+   ],
+   "height_px": 593,
+   "rows": [
+    44,
+    636
+   ],
+   "width_px": 802
+  },
+  "non_dimensional_failures": [
+   "laura_publication_status",
+   "nav_categories_truth"
+  ],
+  "only_dimensional_failures": false,
+  "passed": [
+   "canonical_integrity",
+   "etsy_banner_minimum_and_format",
+   "laura_identity",
+   "laura_never_claims_human_in_text",
+   "laura_ai_disclosure_at_banner",
+   "public_copy_truth_lint"
+  ],
+  "publishable": false,
+  "rule": "D-FB-17/18: the exact file is used only if every applicable gate passes; UNKNOWN blocks like FAIL and is never reported as PASS; an UNVERIFIED_ASSUMPTION is advisory -- never a pass, never a verified failure",
+  "status": "BLOCKED",
+  "unknown": [
+   "laura_photorealism_anatomy",
+   "ai_generated_imagery_disclosure",
+   "product_truth",
+   "visible_text_complete"
+  ],
+  "unverified_assumptions": [
+   "f233_banner_canvas_4to1",
+   "f233_identity_block_survives_4to1",
+   "f233_identity_block_in_phone_window"
+  ],
+  "version": "owner-banner-assessment/2",
+  "visible_text_source": "transcription in the lane B2 brief (2026-10-06) and DECISION_LOG D-FB-17; not OCR -- completeness unverified",
+  "visual_tasks": [
+   {
+    "decision": "D-FB-18 item 2",
+    "gated_on": [
+     "owner spend approval for generation",
+     "owner review"
+    ],
+    "id": "VT-B2-1",
+    "status": "GATED",
+    "task": "reproduce the banner scene with verified Brambleloop products in place of the concept crochet, preserving Laura, the warm room, the central identity, the tagline and the feel; owner review before any public replacement",
+    "trigger": "Product Truth review concludes concept crochet is unsuitable on the public banner, or matching products exist"
+   },
+   {
+    "decision": "D-FB-18 item 4",
+    "gated_on": [
+     "verified requirement",
+     "owner spend approval",
+     "owner review"
+    ],
+    "id": "VT-B2-2",
+    "status": "NOT_REQUIRED_BY_EVIDENCE",
+    "task": "recompose the same scene at Etsy's verified banner dimensions, preserving Laura, the warm room, the lifestyle aesthetic, the central identity, the crochet/yarn environment, the tagline, balance and feel; owner review before public replacement",
+    "trigger": "only if Etsy evidence (or the owner's in-app check after an owner-approved upload) shows a different ratio is required or the composition is cropped"
+   }
+  ]
+ },
+ "candidates": [
+  {
+   "adopted": false,
+   "aspect": 3.998,
+   "changes": {
+    "identity_elements_kept": 3,
+    "identity_rows_cut": [
+     [
+      473,
+      540
+     ],
+     [
+      550,
+      594
+     ],
+     [
+      619,
+      636
+     ]
+    ],
+    "owner_pixels_altered": 0,
+    "pixels_added": 0,
+    "rows_kept": [
+     44,
+     539
+    ],
+    "rows_removed_bottom": 253,
+    "rows_removed_top": 44
+   },
+   "does_not_fix": [
+    "f233_identity_block_survives_4to1 (heart and category line are cut)",
+    "laura_publication_status",
+    "laura_identity",
+    "product_truth",
+    "nav_categories_truth",
+    "ai_generated_imagery_disclosure",
+    "laura_ai_disclosure_at_banner"
+   ],
+   "fixes": [
+    "f233_banner_canvas_4to1"
+   ],
+   "id": "A_crop_4x1_top_anchored",
+   "note": "full-width crop to 1983x496 (3.998:1), rows 44-539: keeps the monogram, wordmark, descriptor and most of the script line; identity rows beyond 539 are cut ([[473, 540], [550, 594], [619, 636]]) -- per the ink runs that is the last row of the script line, the heart and the category line. Everything below row 539 is removed. Whether the person's face stays whole is NOT measured (no face detector): owner to look",
+   "rejected_by": "D-FB-18 item 4",
+   "review_copy_note": "resampled (LANCZOS) for review; the full-size candidate is regenerated deterministically by owner_banner.candidates()",
+   "review_file": "research/final_build/w3/owner_banner_candidates/A_crop_4x1_top_anchored.png",
+   "review_file_bytes": 271009,
+   "review_file_px": [
+    800,
+    200
+   ],
+   "review_file_sha256": "97d253a69bdd1b1bce55f8cddd4f478806687d266c6f4a1a42d8fd0380fa95d9",
+   "size": [
+    1983,
+    496
+   ],
+   "status": "REJECTED_BY_OWNER"
+  },
+  {
+   "adopted": false,
+   "aspect": 4.0,
+   "changes": {
+    "columns_added_left": 594,
+    "columns_added_right": 595,
+    "fill": "per-row mean of the 4 outermost columns, 201-row box smoothed",
+    "owner_pixels_altered": 0,
+    "owner_pixels_kept": 1572519,
+    "pixels_added": 942877
+   },
+   "does_not_fix": [
+    "laura_publication_status",
+    "laura_identity",
+    "product_truth",
+    "nav_categories_truth",
+    "ai_generated_imagery_disclosure",
+    "laura_ai_disclosure_at_banner"
+   ],
+   "fixes": [
+    "f233_banner_canvas_4to1",
+    "f233_identity_block_survives_4to1"
+   ],
+   "id": "B_pad_4x1_edge_colour",
+   "note": "every owner pixel kept unchanged at its own size; 594 px added left and 595 px right in the image's own edge colours to reach 3172x793 (4:1). Visible change: side bands that are a soft vertical gradient of each edge's own colours (no new imagery); the artwork occupies the centre 63% of the width. Under the ASSUMED 2:1 phone window the owner columns 199-1784 show",
+   "rejected_by": "D-FB-18 item 4",
+   "review_copy_note": "resampled (LANCZOS) for review; the full-size candidate is regenerated deterministically by owner_banner.candidates()",
+   "review_file": "research/final_build/w3/owner_banner_candidates/B_pad_4x1_edge_colour.png",
+   "review_file_bytes": 290505,
+   "review_file_px": [
+    1000,
+    250
+   ],
+   "review_file_sha256": "a511889e133cf6971918b378c84f8fa514add22468e42687d89f08112987d5d6",
+   "size": [
+    3172,
+    793
+   ],
+   "status": "REJECTED_BY_OWNER"
+  }
+ ],
+ "generated_at": "2026-10-06T18:40:00+00:00",
+ "simulation": {
+  "bytes": 284125,
+  "file": "research/final_build/w3/owner_banner_candidates/simulation_centre_crop_4x1.png",
+  "px": [
+   800,
+   200
+  ],
+  "rows": [
+   148,
+   643
+  ],
+  "what": "a plain 4:1 centre crop of the exact file -- one possible Etsy behaviour, not a candidate"
+ }
+}

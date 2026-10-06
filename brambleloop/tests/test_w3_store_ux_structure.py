@@ -117,9 +117,13 @@ def test_laura_is_never_released_for_customers():
 
 
 def test_owner_concept_image_is_not_embedded():
+    # D-FB-17/18: the owner's canonical banner (not the scratchpad concept file) is shown,
+    # labelled internal and not publication-approved; its Laura is owner-confirmed for that
+    # banner only
     html = page("desktop")
     assert "owner_banner_concept" not in html
-    assert "not verified as Laura" in html
+    assert "confirmed by the owner's review of this banner (D-FB-18)" in html
+    assert "not publication-approved" in html
 
 
 def test_listing_images_are_only_verified_disclosed_renders():

@@ -48,7 +48,11 @@ def test_missing_assets_fail_closed_not_on_briefs():
     finally:
         S._import = real
     c = codes(r)
-    assert {"STORE_ICON_NOT_RENDERED", "STORE_BANNER_NOT_RENDERED", "STORE_COPY_INTERIM"} <= c
+    # D-FB-17: the icon falls back to lane A's micro-mark only where the owner artwork is
+    # measured illegible, so with lane A absent the icon is NOT_RENDERED; the banner is the
+    # owner's canonical file and still fails closed on the gates that stop it.
+    assert {"STORE_ICON_NOT_RENDERED", "STORE_COPY_INTERIM"} <= c
+    assert any(x.startswith("STORE_BANNER_") for x in c), c
     assert r["rows"]["F-233"]["status"] == "FAIL" and not r["ok"]
     assert G.problems.__doc__ and all(isinstance(p, str) for p in G.problems())
 
@@ -82,16 +86,21 @@ def test_lane_a_icon_passes_when_present():
         assert m["ok"], (px, m)
 
 
-def test_banner_checks_geometry_and_export():
+def test_banner_checks_the_owner_canonical_file():
+    # D-FB-17: the banner is the owner's exact file; each gate that stops it is named
     f, info = G.check_banner("Crochet patterns for a calmer, cosier home")
     c = {x["code"] for x in f}
-    if not info["lockup"]:
-        assert "STORE_BANNER_NOT_RENDERED" in c
-        return
-    assert info["lockup_phone_px"] >= G.LOCKUP_MIN_PHONE_PX
-    assert "STORE_BANNER_LOCKUP_CROPPED" not in c
-    # no raster export exists yet: that is a FAIL, not a pass on a description
-    assert ("STORE_BANNER_NOT_EXPORTED" in c) == (not info["raster_export"])
+    assert info["assessed"] and info["sha256"].startswith("048a1991"), info
+    assert "STORE_BANNER_NOT_EXPORTED" not in c and "STORE_BANNER_NOT_RENDERED" not in c
+    assert info["failed"] or info["unknown"]
+    for g in info["failed"]:
+        assert f"STORE_BANNER_OWNER_{g.upper()}_FAIL" in c, (g, c)
+    for g in info["unknown"]:
+        assert f"STORE_BANNER_OWNER_{g.upper()}_UNKNOWN" in c, (g, c)
+    # D-FB-18: 4:1 is an unverified assumption (Etsy states only min/recommended sizes), so
+    # the 2.50:1 file is reported as advisory, never as a verified failure or a pass
+    assert "f233_banner_canvas_4to1" in info["unverified_assumptions"], info
+    assert not [x for x in c if "F233_BANNER_CANVAS_4TO1" in x], c
 
 
 def test_untrue_or_technical_copy_fails():
@@ -165,11 +174,13 @@ def test_current_state_is_reported_honestly():
     r = G.evaluate()
     for row in ("F-234", "F-235", "F-237", "F-279"):
         assert r["rows"][row]["status"] == "PASS", (row, r["rows"][row]["findings"])
-    # the only open storefront finding today is the banner raster export (or a missing peer)
-    allowed = {"STORE_BANNER_NOT_EXPORTED", "STORE_ICON_NOT_RENDERED",
-               "STORE_BANNER_NOT_RENDERED", "STORE_COPY_INTERIM", "STORE_BANNER_SIZE_UNSOURCED"}
-    assert codes(r) <= allowed, codes(r)
-    assert "STORE_BANNER_NOT_EXPORTED" in codes(r) or "STORE_BANNER_NOT_RENDERED" in codes(r)
+    # the only open storefront findings today are the owner banner's publication gates
+    # (D-FB-17: each names the gate that stops the exact file) or a missing peer
+    allowed = {"STORE_ICON_NOT_RENDERED", "STORE_COPY_INTERIM", "STORE_BANNER_SIZE_UNSOURCED"}
+    other = {c for c in codes(r) if not c.startswith("STORE_BANNER_OWNER_")}
+    assert other <= allowed, other
+    assert any(c.startswith("STORE_BANNER_OWNER_") for c in codes(r)), codes(r)
+    assert r["rows"]["F-233"]["status"] == "FAIL" and not r["ok"]
 
 
 _TESTS = [(n, f) for n, f in list(globals().items()) if n.startswith("test_") and callable(f)]
