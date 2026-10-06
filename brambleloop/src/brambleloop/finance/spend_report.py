@@ -374,12 +374,21 @@ def what_it_bought(db, *, now: datetime | None = None) -> dict:
         "by_agent": _bucket(month, "agent"),
         "by_department": _bucket(month, "department"),
         "by_product": _bucket(month, "product_slug"),
+        # F-303: the closed economic class of every row, one-time creation apart from
+        # recurring operation; unknown purposes counted as `unclassified`, never dropped.
+        "by_economic_class": _economic(month),
         "reconciliation": variance(month),
         "unattributed_note": (
             f"rows with no recorded dimension are counted under {UNATTRIBUTED!r} with their "
             f"dollars intact. Dropping them would show a tidier number that does not match "
             f"the bill, and the gap would be exactly the spending nobody could account for"),
     }
+
+
+def _economic(month) -> dict:
+    from . import economics
+
+    return economics.by_class(month)
 
 
 def per_agent_today(db, *, now: datetime | None = None) -> dict:
@@ -648,6 +657,8 @@ def governance(db, *, now: datetime | None = None) -> dict:
     _part("refusals", lambda: refusals(db, now=now))
     _part("drift", lambda: estimate_drift(db, now=now))
     _part("escalation", lambda: spend_policy.escalation(db, now=now))
+    _part("binding", lambda: spend_policy.binding_ceiling(db, now=now))
+    _part("vocabulary", lambda: spend_policy.vocabulary(db))
 
     def _scoped():
         with db.session() as s:
