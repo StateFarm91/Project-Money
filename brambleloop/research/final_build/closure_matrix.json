@@ -11,7 +11,7 @@
    "rows_on_base": 472,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD f5f9ced reachability; production fcb982d",
+  "reachability": "HEAD f0c2d12 reachability; production fcb982d",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json"
  },

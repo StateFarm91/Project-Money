@@ -8,15 +8,17 @@ system so it reproduces *this* woman; it never authorises a different one.
 
 What this module pins, and why each is separate:
 
-* `IDENTITY_ID` -- the canonical identity: Laura, frozen identity build v15, face sha256
-  a42aeac7.... It is *not* `reference_pack.PACK_VERSION`, which labels the pack-building
-  procedure (currently v16-...). A newer procedure label never means a newer woman.
+* `IDENTITY_ID` -- the canonical identity: Laura, revision 2 (`laura-r2-a42aeac7`, owner
+  decision D-FB-14): the unchanged approved face a42aeac7... plus the owner-approved v6 revised
+  torso and full-length. Revision 1 (`laura-v15-a42aeac7`, frozen build v15) and its missing
+  frames stay as history in `REVISIONS` and the manifest. Neither is
+  `reference_pack.PACK_VERSION`, which labels the pack-building procedure.
 * the asset manifest (`assets/MANIFEST.json`, version 2) -- every committed image with its
   sha256, bytes, dimensions, role and provenance, plus the frozen v15 frames whose bytes exist
   only in production (`missing_canonical`). `verify()` fails on any byte change, deletion or
   identity-id change without a recorded owner decision.
-* `AUTHORISED_IDENTITY_CHANGES` -- the owner decision ids that authorise replacing or altering
-  her. Empty: the owner has authorised none. `require_identity_change_authorised` is called
+* `AUTHORISED_IDENTITY_CHANGES` -- the owner decision ids that each authorise exactly one
+  change (D-FB-14: revision 1 -> 2, spent once applied). `require_identity_change_authorised` is called
   by every path that can retire or create a canonical identity.
 * `IDENTITY_RULE` -- "An image depicting a woman similar to Laura is NOT Laura and fails the
   identity gate." `laura_verdict` applies it on top of `identity.drift_check`: every locked
@@ -41,10 +43,29 @@ from pathlib import Path
 
 IDENTITY_NAME = "Laura"
 FACE_SHA256 = "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9"
+# The build frozen in production on 2026-09-22 (registry version 1). Revision 1 of her identity
+# was this build; a fresh database may still only ever freeze this build (`freeze.freeze`).
 FROZEN_IDENTITY_VERSION = "v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is"
 FROZEN_PACK_NUMBER = 15
-IDENTITY_ID = f"laura-v{FROZEN_PACK_NUMBER}-{FACE_SHA256[:8]}"
+PRIOR_IDENTITY_ID = f"laura-v{FROZEN_PACK_NUMBER}-{FACE_SHA256[:8]}"
 REGISTRY_KEY = "brambleloop-canonical"
+
+# Revision 2 (owner decision D-FB-14, 2026-10-06): the unchanged approved face plus the v6
+# bust-revision run's torso and full-length frames, approved by the owner as her canonical
+# body/proportion references going forward. Their provenance stays what it is -- the v6 run
+# of 2026-09-21 -- and they are NOT the missing frozen-v15 frames, which stay recorded as
+# missing on revision 1.
+TORSO_SHA256 = "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db"
+FULL_LENGTH_SHA256 = "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
+REVISION_NUMBER = 2
+REVISION_DECISION_ID = "D-FB-14"
+IDENTITY_ID = f"laura-r{REVISION_NUMBER}-{FACE_SHA256[:8]}"
+CURRENT_REFERENCE_HASHES: dict[str, str] = {
+    "neutral_portrait": FACE_SHA256,
+    "torso_fit_reference": TORSO_SHA256,
+    "full_length_standing": FULL_LENGTH_SHA256,
+}
+REVISION_FIELD = "canonical_revision"
 
 OWNER_RULING_ID = "D-FB-11"
 OWNER_RULING_AT = "2026-10-06"
@@ -53,9 +74,25 @@ OWNER_RULING_AT = "2026-10-06"
 # both must appear in DECISION_LOG.md (tests/test_canon_manifest.py checks all three).
 AGENT_RULING_ID = "D-FB-12"
 FOUNDER_RULING_ID = "D-FB-13"
-IDENTITY_DECISIONS: tuple[str, ...] = (OWNER_RULING_ID, AGENT_RULING_ID, FOUNDER_RULING_ID)
-# Owner decisions that authorise replacing, regenerating or altering her. None exist.
-AUTHORISED_IDENTITY_CHANGES: tuple[str, ...] = ()
+IDENTITY_DECISIONS: tuple[str, ...] = (OWNER_RULING_ID, AGENT_RULING_ID, FOUNDER_RULING_ID,
+                                       REVISION_DECISION_ID)
+# The protected-authority mechanism. Each entry is an owner decision (recorded in
+# DECISION_LOG.md) that authorises exactly one identity change, described by the revision in
+# REVISIONS that cites it: from the revision it supersedes to that revision, with exactly
+# those reference hashes. A spent decision authorises nothing further, so any future change
+# to Laura needs a NEW owner decision id here, a new revision, and a DECISION_LOG entry.
+AUTHORISED_IDENTITY_CHANGES: tuple[str, ...] = (REVISION_DECISION_ID,)
+REVISIONS: tuple[dict, ...] = (
+    {"identity_id": PRIOR_IDENTITY_ID, "revision": 1, "decision": OWNER_RULING_ID,
+     "supersedes": None, "status": "superseded",
+     "basis": f"frozen build {FROZEN_IDENTITY_VERSION} (production registry version 1)",
+     "reference_hashes": {"neutral_portrait": FACE_SHA256}},
+    {"identity_id": IDENTITY_ID, "revision": REVISION_NUMBER,
+     "decision": REVISION_DECISION_ID, "supersedes": PRIOR_IDENTITY_ID, "status": "current",
+     "basis": ("approved face a42aeac7 + v6 bust-revision run torso and full-length "
+               "(2026-09-21), owner-approved as canonical body references 2026-10-06"),
+     "reference_hashes": dict(CURRENT_REFERENCE_HASHES)},
+)
 
 IDENTITY_RULE = ("An image depicting a woman similar to Laura is NOT Laura and fails the "
                  "identity gate.")
@@ -101,7 +138,7 @@ PUBLICATION_APPROVED: frozenset[str] = frozenset()
 
 ROLES_V2: tuple[str, ...] = (
     "approved_face", "canonical_reference_pack", "canonical_stress_set", "superseded_body",
-    "historical", "owner_concept", "missing_canonical")
+    "historical", "owner_concept", "missing_canonical", "prior_revision_reference")
 REFERENCE_FRAMES: tuple[str, ...] = (
     "neutral_portrait", "torso_fit_reference", "full_length_standing")
 STRESS_FRAMES: tuple[str, ...] = (
@@ -177,8 +214,20 @@ def verify(m: dict | None = None) -> dict:
         problems.append(f"identity name is {ident.get('name')!r}, not {IDENTITY_NAME!r}")
     if ident.get("face_sha256") != FACE_SHA256:
         problems.append("identity face_sha256 differs from the approved face")
-    if ident.get("frozen_identity_version") != FROZEN_IDENTITY_VERSION:
-        problems.append("frozen_identity_version differs from the frozen v15 build")
+    if ident.get("revision") != REVISION_NUMBER or \
+            ident.get("revision_decision") != REVISION_DECISION_ID:
+        problems.append(f"identity revision is {ident.get('revision')!r} on "
+                        f"{ident.get('revision_decision')!r}, not {REVISION_NUMBER} on "
+                        f"{REVISION_DECISION_ID}")
+    if ident.get("prior_identity_id") != PRIOR_IDENTITY_ID or \
+            ident.get("prior_frozen_identity_version") != FROZEN_IDENTITY_VERSION:
+        problems.append("the prior revision (frozen v15 build) is not recorded")
+    if dict(ident.get("reference_hashes") or {}) != CURRENT_REFERENCE_HASHES:
+        problems.append("identity reference_hashes differ from the approved revision")
+    listed = [(r.get("identity_id"), r.get("decision"), r.get("supersedes"))
+              for r in m.get("revisions") or []]
+    if listed != [(r["identity_id"], r["decision"], r["supersedes"]) for r in REVISIONS]:
+        problems.append(f"revision history {listed} differs from canonical.REVISIONS")
     cited = set(ident.get("owner_decision_ids") or [])
     if not cited or not cited <= set(IDENTITY_DECISIONS) | set(AUTHORISED_IDENTITY_CHANGES):
         problems.append(f"identity cites decisions {sorted(cited)} not recorded in code "
@@ -214,10 +263,20 @@ def verify(m: dict | None = None) -> dict:
         if e.get("role") in ("superseded_body", "historical", "owner_concept") and \
                 not e.get("forbidden_as_fallback"):
             problems.append(f"{rel}: a {e['role']} asset must be forbidden as a fallback")
-    pack_face = [e for e in entries if e.get("role") == "canonical_reference_pack"
-                 and e.get("frame") == "neutral_portrait"]
-    if len(pack_face) != 1 or pack_face[0].get("sha256") != FACE_SHA256:
-        problems.append("the canonical reference pack's face frame is not the approved face")
+    pack = {e.get("frame"): e.get("sha256") for e in entries
+            if e.get("role") == "canonical_reference_pack"
+            and e.get("identity_id") == IDENTITY_ID}
+    if pack != CURRENT_REFERENCE_HASHES:
+        problems.append(f"the canonical reference pack of {IDENTITY_ID} is "
+                        f"{ {k: str(v)[:8] for k, v in pack.items()} }, not the approved "
+                        f"face + revised torso + revised full-length")
+    stray = [e.get("file") for e in entries if e.get("role") == "canonical_reference_pack"
+             and e.get("identity_id") != IDENTITY_ID]
+    if stray:
+        problems.append(f"canonical_reference_pack entries outside {IDENTITY_ID}: {stray}")
+    for e in entries:
+        if e.get("sha256") in CURRENT_REFERENCE_HASHES.values() and e.get("forbidden_as_fallback"):
+            problems.append(f"{e.get('file')}: a current canonical reference is marked forbidden")
 
     missing = m.get("missing_canonical") or []
     declared = {(x.get("group"), x.get("frame")) for x in missing}
@@ -232,6 +291,14 @@ def verify(m: dict | None = None) -> dict:
     for x in missing:
         if x.get("role") != "missing_canonical" or x.get("sha256") and not x.get("sha256_known"):
             problems.append(f"missing {x.get('frame')}: malformed entry")
+        # The v15 frames stay missing history of revision 1. A file standing in for one is a
+        # relabel, which the owner ruled out (D-FB-14).
+        if x.get("identity_id") != PRIOR_IDENTITY_ID:
+            problems.append(f"missing {x.get('frame')}: belongs to {x.get('identity_id')!r}, "
+                            f"not the prior revision {PRIOR_IDENTITY_ID}")
+    for x in ("torso_fit_reference", "full_length_standing"):
+        if ("reference_pack", x) not in declared:
+            problems.append(f"the missing frozen-v15 {x} is no longer recorded as missing")
     return {"ok": not problems, "problems": problems, "identity_id": IDENTITY_ID,
             "assets": len(entries), "missing_canonical": len(missing)}
 
@@ -286,25 +353,105 @@ def is_laura(pack) -> bool:
     return pack is not None and face_hash_of(pack) == FACE_SHA256
 
 
+def revision_of(pack) -> str:
+    """Which identity revision a registry pack holds. A Laura pack with no record is r1."""
+    if pack is None:
+        return ""
+    recorded = str(dict(getattr(pack, "fields", None) or {}).get(REVISION_FIELD) or "")
+    return recorded or (PRIOR_IDENTITY_ID if is_laura(pack) else "")
+
+
 def require_identity_change_authorised(approval: dict | None, *, current=None,
-                                       action: str = "replace") -> None:
+                                       action: str = "replace",
+                                       reference_hashes: dict | None = None) -> None:
     """Refuse to retire, replace, regenerate or alter Laura without a recorded owner decision.
 
     Applies when `current` is Laura's pack (or no pack is given, for paths that would create a
-    canonical identity). `approval['owner_decision_id']` must be one of
-    `AUTHORISED_IDENTITY_CHANGES`, which the owner alone populates and which is empty.
+    canonical identity). `approval['owner_decision_id']` must be in
+    `AUTHORISED_IDENTITY_CHANGES` AND name the one change its revision describes: from the
+    revision `current` holds to the next, with exactly that revision's reference hashes. A
+    decision that has been applied, or is offered for any other change, authorises nothing.
     """
     if current is not None and not is_laura(current):
         return
     decision = str((approval or {}).get("owner_decision_id") or "").strip()
-    if decision and decision in AUTHORISED_IDENTITY_CHANGES:
-        return
+    rev = next((r for r in REVISIONS if r["decision"] == decision and r["supersedes"]), None)
+    if decision and decision in AUTHORISED_IDENTITY_CHANGES and rev is not None:
+        want = {k: str(v).lower() for k, v in rev["reference_hashes"].items()}
+        got = {k: str(v).lower() for k, v in (reference_hashes or {}).items()}
+        if current is not None and revision_of(current) == rev["supersedes"] and got == want:
+            return
+        raise CanonRefused(
+            f"{action} refused: {decision} authorises exactly one change, "
+            f"{rev['supersedes']} -> {rev['identity_id']} with its recorded reference hashes. "
+            f"The canonical pack holds {revision_of(current) or 'nothing'} and the change "
+            f"offered does not match, so the decision is spent or misapplied. A further "
+            f"change to Laura needs a new owner decision")
     raise CanonRefused(
         f"{action} refused: Laura ({IDENTITY_ID}) is the canonical face of Brambleloop "
         f"({OWNER_RULING_ID}). Replacing, regenerating or altering her needs an owner "
         f"decision recorded in DECISION_LOG and listed in "
         f"canonical.AUTHORISED_IDENTITY_CHANGES; got {decision or 'none'}. "
         f"Task #59 means repairing the image system so it reproduces her, not a new woman")
+
+
+def reference_file(frame: str) -> str:
+    """The committed file for one frame of the current revision, verified by its bytes.
+
+    '' when the frame is not part of the revision or the file's bytes are not the recorded
+    bytes -- the caller's answer is then "no approved reference", never a substitute.
+    """
+    want = CURRENT_REFERENCE_HASHES.get(frame)
+    if not want:
+        return ""
+    try:
+        entries = all_entries()
+    except CanonRefused:
+        return ""
+    for e in entries:
+        if (e.get("role") == "canonical_reference_pack" and e.get("identity_id") == IDENTITY_ID
+                and e.get("frame") == frame and e.get("sha256") == want):
+            path = _assets_dir() / str(e["file"])
+            return str(path) if _sha(path) == want else ""
+    return ""
+
+
+def adopt_revision(db, *, approved_by: str = "owner") -> dict:
+    """Move a registry holding revision 1 of Laura to the current revision (D-FB-14).
+
+    The face is unchanged; the body references become the owner-approved v6 frames, pinned by
+    hash. Refused unless the registry holds Laura at the revision this one supersedes, so it
+    applies once. Nothing in the repository calls it; it is the deploy step the decision
+    authorises.
+    """
+    from . import brief, model_registry
+
+    current = model_registry.canonical_pack(db)
+    rev = next(r for r in REVISIONS if r["identity_id"] == IDENTITY_ID)
+    if current is None or revision_of(current) != rev["supersedes"]:
+        raise CanonRefused(
+            f"adopt_revision refused: the registry holds {revision_of(current) or 'nothing'}, "
+            f"and {REVISION_DECISION_ID} moves {rev['supersedes']} only")
+    refs = [brief.approved_portrait(), reference_file("torso_fit_reference"),
+            reference_file("full_length_standing")]
+    if not all(refs):
+        raise CanonRefused("a revision reference file does not verify; nothing adopted")
+    fields = {k: v for k, v in current.fields.items()
+              if k not in ("reference_image", "reference_hashes")}
+    fields[REVISION_FIELD] = IDENTITY_ID
+    pack = model_registry.replace_canonical(
+        db, new_key=f"{REGISTRY_KEY}-{IDENTITY_ID}", fields=fields, image_refs=refs,
+        reference_hashes=dict(CURRENT_REFERENCE_HASHES),
+        redesign_approval={
+            "at": "2026-10-06", "scope": "reference_revision", "approved_by": approved_by,
+            "supersedes_version": current.version, "owner_decision_id": REVISION_DECISION_ID,
+            "decision": ("owner-approved canonical identity revision: approved face "
+                         "unchanged, v6 revised torso and full-length as canonical body "
+                         "references")},
+        note=(f"{IDENTITY_ID}: {REVISION_DECISION_ID}. Body references are the v6 "
+              f"bust-revision run of 2026-09-21, not the missing frozen-v15 frames"))
+    return {"identity_id": IDENTITY_ID, "version": pack.version,
+            "reference_hashes": dict(CURRENT_REFERENCE_HASHES)}
 
 
 def require_frozen_build(pack_version) -> None:

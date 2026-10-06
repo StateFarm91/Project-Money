@@ -329,6 +329,11 @@ def ads_plan(db, *, today: date | None = None) -> dict:
     per_visitor = runrate.per_visitor_from_db(db, today=today)
     cpv = {r["slug"]: r["contribution_per_visitor"] for r in per_visitor.get("ranked") or []}
     events = _events(today)
+    # #297 (F-297): no automated paid optimisation before listing measurement is proven --
+    # an organic and a paid listing reading recorded by the intake and read back intact.
+    from ..commerce.listing_outcomes import measurement_status
+
+    measured = measurement_status(db)
 
     products = []
     for slug, item in sorted(catalogue(db).items()):
@@ -352,6 +357,9 @@ def ads_plan(db, *, today: date | None = None) -> dict:
             reasons.append(f"allowable CAC (#243): {cac.get('why') or cac.get('note')}")
         if window["seasonal"] and window["status"] not in ("learning_window_open",):
             reasons.append(f"pre-season window (#294): {window['status']}")
+        if not (measured["organic"] and measured["paid"]):
+            reasons.append("measurement before optimisation (#297): "
+                           + (measured["paid_why"] if measured["organic"] else measured["why"]))
         products.append({
             "slug": slug, "price_cad": price,
             "contribution_per_visitor": cpv.get(slug, UNMEASURED),
@@ -419,6 +427,7 @@ def ads_plan(db, *, today: date | None = None) -> dict:
         "eligible": [p["slug"] for p in eligible],
         "winners": winners,
         "escalations": escalations,
+        "measurement": measured,
         "spend_cad": 0.0,
     }
 
@@ -1235,6 +1244,14 @@ def steer(db, *, today: date | None = None) -> dict:
     board = war_board(db)["board"]
     winners = {w["product"] for w in (board["winner_alerts"].get("value") or [])} \
         if board["winner_alerts"]["status"] == "measured" else set()
+    # #297 (F-297): the winner credit is optimisation on measured performance; it is held
+    # until organic listing measurement has been recorded and read back by the intake.
+    from ..commerce.listing_outcomes import measurement_status
+
+    measured = measurement_status(db)
+    winners_held = sorted(winners) if not measured["organic"] else []
+    if not measured["organic"]:
+        winners = set()
 
     # A job is steered once: the ids moved in the last fortnight are not moved again, so a
     # job that waits does not drift further every hour it waits. Read from the immutable
@@ -1315,6 +1332,8 @@ def steer(db, *, today: date | None = None) -> dict:
                          "owners": sorted(toward), "why": realloc.get("why")},
         "rollforward": {"up": sorted(seasons_up), "down": sorted(seasons_down)},
         "fast_lane_admitted": sorted(admitted),
+        "measurement": {"organic": measured["organic"], "why": measured["why"],
+                        "winner_credit_held": winners_held},
         "board": {"winners": sorted(winners),
                   "primary_constraint": board["primary_constraint"].get("value"),
                   "top_actions_status": board["top_actions"]["status"]},
