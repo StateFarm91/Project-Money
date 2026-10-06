@@ -236,7 +236,7 @@ def test_protected_work_becomes_an_owner_action_never_a_job():
 
 def test_the_tick_is_a_scheduled_cadence_run_by_the_real_worker():
     names = [c for c in CADENCES if c[2] == executive.EXEC_JOB]
-    assert names == [("laura_executive", "laura", executive.EXEC_JOB, 600)], names
+    assert names == [("laura_executive", "laura", executive.EXEC_JOB, 300)], names
     db = boot()
     enq = Scheduler(db).tick()
     assert "laura_executive" in enq, enq

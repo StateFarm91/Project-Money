@@ -26,7 +26,7 @@ def laura_section(db) -> dict:
     from sqlalchemy import select
 
     from ...autonomy import charters
-    from ...core.models import Job
+    from ...core.models import Job, JobStatus
     from ...runtime.pipeline import did_no_work
     from .. import identity
     from . import loop
@@ -51,9 +51,20 @@ def laura_section(db) -> dict:
                      "decisions_by_kind": out.get("decisions_by_kind"),
                      "delegated": out.get("delegated"), "reviewed": out.get("reviewed"),
                      "idle": out.get("idle"), "error": (t.last_error or "")[:200]})
+        coo = [{"id": j.id, "status": getattr(j.status, "value", str(j.status)),
+                "created": j.created_at.isoformat() if j.created_at else None,
+                "run_after": j.run_after.isoformat() if j.run_after else None,
+                "started": j.started_at.isoformat() if j.started_at else None,
+                "attempts": j.attempts, "error": (j.last_error or "")[:200]}
+               for j in s.scalars(select(Job).where(Job.job_type == "autonomy.orchestrate"))]
+        running = [{"id": j.id, "job_type": j.job_type,
+                    "started": j.started_at.isoformat() if j.started_at else None}
+                   for j in s.scalars(select(Job).where(Job.status == JobStatus.RUNNING))]
     summ = loop.summary(db)
     return {
         "identity": identity.summary(db),
+        "coo_orchestrate_jobs": coo,
+        "running_at_end": running,
         "ticks": rows,
         "ticks_total": len(rows),
         "ticks_useful": sum(r["verdict"] == "useful" for r in rows),
