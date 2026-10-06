@@ -454,9 +454,43 @@ def certified_frames(db, slug: str, version: str, *, release: str = "") -> dict:
         frames = sorted((rec.certificate or {}).get("frames") or [],
                         key=lambda f: int(f.get("position") or 0))
         problems = []
-        if release and rec.release_hash and rec.release_hash != release:
+        # PT-13: an empty hash on either side used to skip the binding. A caller that names
+        # no release is bound to the release on file for slug@version; a certificate bound to
+        # no release, or a release nobody can name, refuses.
+        if not release:
+            from ..core.models import PatternVersion, Product
+
+            product = s.scalar(select(Product).where(Product.slug == slug))
+            pv = None if product is None else s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id, PatternVersion.version == version))
+            release = (pv.release_hash or "") if pv is not None and pv.certified else ""
+        if not rec.release_hash:
+            problems.append(f"the valid listing-set certificate {rec.id} is bound to no "
+                            f"release hash, so it cannot be checked against the release "
+                            f"being published")
+        elif not release:
+            problems.append(f"no certified release hash is on file for {slug}@{version} to "
+                            f"bind listing-set certificate {rec.id} to")
+        elif rec.release_hash != release:
             problems.append(f"the valid listing-set certificate {rec.id} was issued for "
                             f"release {rec.release_hash[:12]}, not {release[:12]}")
+        # F-757 / PT-13: the certified set must show the configuration the release encodes.
+        declared = (rec.certificate or {}).get("represented_variant")
+        if declared and release:
+            from ..core.models import PatternVersion, Product
+            from ..cir.model import CIR
+
+            product = s.scalar(select(Product).where(Product.slug == slug))
+            pv = None if product is None else s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id, PatternVersion.version == version))
+            if pv is not None and pv.cir_json:
+                try:
+                    encoded = CIR.from_dict(pv.cir_json).variant_key
+                except Exception:  # noqa: BLE001 - an unparsable release binds nothing
+                    encoded = None
+                if encoded is None or encoded != declared:
+                    problems.append(f"listing-set certificate {rec.id} certifies configuration "
+                                    f"{declared!r}; the release encodes {encoded!r} (F-757)")
         if not frames:
             problems.append(f"listing-set certificate {rec.id} names no frame")
         return {"frames": frames, "record_id": rec.id, "problems": problems}
@@ -568,11 +602,41 @@ def file_expectations(docs_by_name: dict[str, bytes],
             for name, data in sorted(docs_by_name.items())]
 
 
+def images_read_back(client, listing_id: str, expected_alt_texts: list[str]) -> dict:
+    """PT-12: the listing's images as Etsy holds them, rank by rank, against the alt text sent.
+
+    The disclosure lives in each disclosed frame's alt text (D-FB-9), and the upload response
+    is not the listing: if Etsy dropped or truncated it, only a read of the listing's images
+    shows it. Compared exactly, in rank order; a failed read is unverified, never a pass.
+    """
+    try:
+        remote = client.get_listing_images(listing_id)
+    except Exception as e:  # noqa: BLE001 - a failed read is an unverified write
+        from ..integrations.etsy_oauth import EtsyAuthNeedsOwner
+
+        if isinstance(e, EtsyAuthNeedsOwner):
+            raise
+        return {"verified": False, "problems": [
+            f"listing images read failed: {type(e).__name__}: {str(e)[:200]}"]}
+    ordered = sorted(remote or [], key=lambda r: int(r.get("rank") or 0))
+    held = [str(r.get("alt_text") or "") for r in ordered]
+    problems = []
+    if len(held) != len(expected_alt_texts):
+        problems.append(f"images: sent {len(expected_alt_texts)}, Etsy holds {len(held)}")
+    for rank, (sent_alt, got) in enumerate(zip(expected_alt_texts, held), start=1):
+        if (sent_alt or "") != got:
+            problems.append(f"image rank {rank} alt_text: sent {sent_alt!r}, Etsy holds "
+                            f"{got!r}")
+    return {"verified": not problems, "problems": problems, "alt_texts_on_etsy": held}
+
+
 def read_back(client, listing_id: str, *, sent: dict, expected_files: list[dict],
-              expected_images: int) -> dict:
+              expected_images: int, expected_alt_texts: list[str] | None = None) -> dict:
     """F-542 / F-559: getListing and getAllListingFiles after the writes, judged.
 
     A read that fails is reported as unverified with the reason, never as verified.
+    `expected_alt_texts` (PT-12) are the certified frames' alt texts in upload order; when
+    given, the listing's images are read back and compared rank by rank.
     """
     from ..integrations import etsy_verify
 
@@ -599,14 +663,18 @@ def read_back(client, listing_id: str, *, sent: dict, expected_files: list[dict]
     fields = etsy_verify.verify(sent, remote, listing_id=listing_id, expect_state="draft",
                                 expect_images=expected_images)
     files = etsy_verify.verify_files(expected_files, remote_files, listing_id=listing_id)
-    verified = fields.verified and files.verified
+    images = (images_read_back(client, listing_id, list(expected_alt_texts))
+              if expected_alt_texts is not None else None)
+    verified = fields.verified and files.verified and (images is None or images["verified"])
     return {"verified": verified, "fields": fields.summary(), "files": files.summary(),
+            "images": images,
             "read_error": read_error,
             "reasons": (list(fields.summary()["problems"])
                         + [f"{m['field']}: sent {m['sent']!r}, Etsy holds {m['remote']!r}"
                            for m in fields.summary()["mismatched"]]
                         + [f"{f}: not returned" for f in fields.summary()["not_returned"]]
                         + list(files.problems)
+                        + (list(images["problems"]) if images else [])
                         + ([f"read failed: {read_error}"] if read_error else []))}
 
 

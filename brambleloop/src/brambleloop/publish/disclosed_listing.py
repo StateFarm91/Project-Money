@@ -386,15 +386,25 @@ def record(db, rec: dict) -> None:
 
 
 def last_asset(db, *, slug: str = "") -> dict | None:
-    """The most recent disclosed set on file for a product."""
+    """The most recent disclosed set on file for a product.
+
+    PT-06: with a slug the query is by that product's own rows (`slug@version` artifacts),
+    not the newest fifty rows across the catalogue -- fifty rebuilds of one product used to
+    make every other product's disclosed set vanish. Without a slug it reads the newest row
+    of any product, as before.
+    """
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog
     from ..visual.disclosed_render import RENDERER_VERSION
 
+    query = select(AuditLog).where(AuditLog.action == ACTION)
+    if slug:
+        query = query.where(AuditLog.artifact.startswith(f"{slug}@", autoescape=True))
+    else:
+        query = query.limit(50)
     with db.session() as s:
-        for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
-                             .order_by(desc(AuditLog.id)).limit(50)):
+        for row in s.scalars(query.order_by(desc(AuditLog.id))):
             detail = row.detail or {}
             if (detail.get("made") and detail.get("method_version") == RENDERER_VERSION
                     and (not slug or detail.get("slug") == slug)):

@@ -156,7 +156,12 @@ def test_the_catalogue_covers_the_release_candidates():
     selected = select_portfolio(today=date(2026, 9, 17)).selected
     # Every slug that has a real design: generated from the motif library, or engineered in
     # a module of its own (the flagship and the round-worked pieces).
-    engineered = set(CATALOGUE) | set(ENGINEERED)
+    # PT-11: a retired concept slug is routed by `cir.draft` to the engineered Launch-0
+    # variants that superseded it, every one of which must itself be engineered.
+    from brambleloop.products.launch0 import LEGACY_DUPLICATES
+
+    assert all(t in ENGINEERED for d in LEGACY_DUPLICATES.values() for t in d["superseded_by"])
+    engineered = set(CATALOGUE) | set(ENGINEERED) | set(LEGACY_DUPLICATES)
     missing = [c.slug for c in selected
                if not c.seed.is_bundle and c.slug not in engineered]
     assert not missing, f"these candidates would ship the striped template: {missing}"

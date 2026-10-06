@@ -268,6 +268,39 @@ class Variant:
 
 
 @dataclass(frozen=True)
+class ListingIdentity:
+    """What a Launch-0 listing says the product IS, held on the product's own record.
+
+    PT-01: the listing chain used to look a product up in the radar's concept pool by slug
+    prefix, and when no seed matched -- `market-basket-small` is not `market-basket-trio`,
+    `hexagon-coaster-set` is not `hexie-coaster-set` -- it fell back to `mosaic_blanket`. A
+    basket pattern was titled "Market Mosaic Blanket", tagged "mosaic blanket", priced from the
+    blanket band and filed under Blankets & Afghans, and every gate passed it. There is no
+    default product type any more: a Launch-0 product names its own kind, its Etsy category
+    intent and the words its listing may use, and a product nobody described is refused.
+
+    `kind` is the product noun ("basket"). `etsy_category` is the `commerce.category` key
+    whose node terms decide the taxonomy node. `nouns` are the product-type words the title
+    and tags may use, and every one of them must appear in the CIR the listing sells
+    (`gates.first_customer.product_type_words_in_cir`). `qualifiers` replace the slug-derived
+    "motifs" (a size word like "small" is not a motif). `techniques` gate the technique tag
+    families, and are only what the fabric actually does.
+    """
+
+    kind: str
+    etsy_category: str
+    nouns: tuple[str, ...]
+    qualifiers: tuple[str, ...] = ()
+    techniques: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.kind or not self.etsy_category:
+            raise ValueError("a listing identity with no kind or no category is a default")
+        if self.kind not in self.nouns:
+            raise ValueError(f"the kind {self.kind!r} must be one of its own nouns {self.nouns}")
+
+
+@dataclass(frozen=True)
 class Candidate:
     """A product proposed for Launch-0, described so that the gates can be run on it.
 
@@ -293,19 +326,31 @@ class Candidate:
     # Statements we commit the deliverable to carrying. Held separately from what it carries
     # today, which is nothing, so the gap is visible instead of assumed away.
     committed_statements: tuple[str, ...] = ()
+    # PT-01: what the listing says this product is. None is refused by the listing chain --
+    # never filled in with somebody else's product type.
+    listing: ListingIdentity | None = None
 
 
+def _v(version: str | None) -> dict:
+    return {} if version is None else {"version": version}
+
+
+# Each builder takes an optional `version` (PT-11: the planner re-drafts a Launch-0 product at
+# its stored release number, as it does every engineered design). No version is the builder's
+# own released version.
 BUILDERS: dict[str, object] = {
-    "basket_small": lambda: vessels.build_basket("small"),
-    "basket_medium": lambda: vessels.build_basket("medium"),
-    "basket_large": lambda: vessels.build_basket("large"),
-    "hexagon_coasters": vessels.build_hexagon_coaster,
-    "cloudline_blanket": lambda: flat.for_slug("cloudline-baby-blanket"),
-    "harvest_runner": lambda: flat.for_slug("harvest-table-runner"),
+    "basket_small": lambda version=None: vessels.build_basket("small", **_v(version)),
+    "basket_medium": lambda version=None: vessels.build_basket("medium", **_v(version)),
+    "basket_large": lambda version=None: vessels.build_basket("large", **_v(version)),
+    "hexagon_coasters": lambda version=None: vessels.build_hexagon_coaster(**_v(version)),
+    "cloudline_blanket": lambda version=None: flat.for_slug("cloudline-baby-blanket",
+                                                            **_v(version)),
+    "harvest_runner": lambda version=None: flat.for_slug("harvest-table-runner",
+                                                         **_v(version)),
 }
 
 
-def cir_for(build_key: str) -> CIR:
+def cir_for(build_key: str, version: str | None = None) -> CIR:
     """The CIR a variant names, built fresh.
 
     Measures: nothing. Why it exists: the registry is a dict of explicit callables rather than
@@ -315,7 +360,41 @@ def cir_for(build_key: str) -> CIR:
     fn = BUILDERS.get(build_key)
     if fn is None:
         raise KeyError(f"no builder named {build_key!r}; have {sorted(BUILDERS)}")
-    return fn()          # type: ignore[operator]
+    return fn(version)          # type: ignore[operator]
+
+
+def build_key_for(cir_slug: str) -> str | None:
+    """The builder key whose CIR carries this slug, for the Launch-0 variants only."""
+    for slug in LAUNCH0_SLUGS:
+        for v in candidate(slug).variants:
+            if cir_for(v.build).slug == cir_slug:
+                return v.build
+    return None
+
+
+# PT-11: the radar concepts whose engineered pattern IS a Launch-0 variant under another slug.
+# `market-basket-trio` was `vessels.build("medium")` -- the medium nesting basket -- and
+# `hexie-coaster-set` was `vessels.build_hexagon_coaster()` -- the Launch-0 coaster set --
+# published under the concept's slug, outside Launch-0 scope: no first-customer gate, no
+# disclosed imagery, and the same pattern listed twice. They are retired as products: the
+# planner routes them to the Launch-0 slugs below and publication refuses them by name.
+LEGACY_DUPLICATES: dict[str, dict] = {
+    "market-basket-trio": {
+        "candidate": "nursery-nesting-baskets",
+        "superseded_by": ("market-basket-small", "market-basket-medium",
+                          "market-basket-large"),
+        "why": ("the engineered 'market-basket-trio' design is the medium Launch-0 basket "
+                "under a concept slug; the baskets are sold as the Launch-0 nesting baskets"),
+        "retired_on": "2026-10-06",
+    },
+    "hexie-coaster-set": {
+        "candidate": "hexagon-coaster-set",
+        "superseded_by": ("hexagon-coaster-set",),
+        "why": ("the engineered 'hexie-coaster-set' design is the Launch-0 hexagon coaster set "
+                "under a concept slug; the coasters are sold as hexagon-coaster-set"),
+        "retired_on": "2026-10-06",
+    },
+}
 
 
 # The observed price evidence, from `radar/market.py`, which recorded it on 2026-09-17 against
@@ -346,6 +425,8 @@ CANDIDATES: tuple[Candidate, ...] = (
             Variant("large", "24 cm across, 23 cm tall", "basket_large"),
         ),
         pod="home_decor",
+        listing=ListingIdentity(kind="basket", etsy_category="basket", nouns=("basket",),
+                                qualifiers=("nursery",)),
         subcategory="nursery_decor",
         audience=ch.UNDER_3,
         committed_statements=_NURSERY_STATEMENTS,
@@ -384,6 +465,8 @@ CANDIDATES: tuple[Candidate, ...] = (
             "parts, and the largest single make in Launch-0, which is what carries the price."),
         variants=(Variant("one_size", "79.2 x 97.1 cm", "cloudline_blanket"),),
         pod="blankets",
+        listing=ListingIdentity(kind="blanket", etsy_category="baby", nouns=("blanket",),
+                                qualifiers=("cloudline", "baby"), techniques=("texture",)),
         subcategory="baby_blanket",
         audience=ch.UNDER_3,
         committed_statements=_BABY_BLANKET_STATEMENTS,
@@ -435,6 +518,8 @@ CANDIDATES: tuple[Candidate, ...] = (
             "it up."),
         variants=(Variant("set_of_four", "4 pieces, 9.2 cm across", "hexagon_coasters"),),
         pod="home_decor",
+        listing=ListingIdentity(kind="coaster", etsy_category="coaster", nouns=("coaster",),
+                                qualifiers=("hexagon",)),
         price=PriceBand(
             *_CLUSTER_BAND, proposed_cad=4.00, basis=SOURCED,
             why=("the CA$4-12 cluster from radar/market.py OBSERVATIONS, at its floor. "
@@ -465,6 +550,8 @@ CANDIDATES: tuple[Candidate, ...] = (
             "purpose. It is the first thing to add once there is evidence to add against."),
         variants=(Variant("one_size", "32 x 127 cm", "harvest_runner"),),
         pod="home_decor",
+        listing=ListingIdentity(kind="runner", etsy_category="runner", nouns=("runner",),
+                                qualifiers=("harvest",)),
         price=PriceBand(*_CLUSTER_BAND, proposed_cad=5.50, basis=SOURCED,
                         why="the CA$4-12 cluster from radar/market.py OBSERVATIONS"),
         disqualifiers=("nothing measured; it is held back on assortment grounds rather than "
@@ -500,6 +587,67 @@ def launch_scope_slugs() -> frozenset[str]:
                 slugs.add(cir_for(v.build).slug)
         _LAUNCH_SCOPE = frozenset(slugs)
     return _LAUNCH_SCOPE
+
+
+_CANDIDATE_OF_CIR: dict[str, str] | None = None
+
+
+def candidate_for_cir(slug: str) -> Candidate | None:
+    """The Launch-0 candidate a CIR slug (or a candidate slug) belongs to, or None.
+
+    Measures: every candidate's variant CIR slugs, built once. Why: the listing chain works on
+    CIR slugs (`market-basket-small`) and the merchandising facts live on the candidate
+    (`nursery-nesting-baskets`); a prefix match against the radar pool is what produced the
+    "Market Mosaic Blanket" basket (PT-01), so the mapping is exact or it is nothing.
+    """
+    global _CANDIDATE_OF_CIR
+    if _CANDIDATE_OF_CIR is None:
+        out: dict[str, str] = {}
+        for cand in CANDIDATES:
+            out[cand.slug] = cand.slug
+            for v in cand.variants:
+                out[cir_for(v.build).slug] = cand.slug
+        _CANDIDATE_OF_CIR = out
+    key = _CANDIDATE_OF_CIR.get(slug)
+    return candidate(key) if key else None
+
+
+def listing_identity(slug: str) -> ListingIdentity | None:
+    """The product's own listing identity for a Launch-0 CIR slug, or None outside Launch-0.
+
+    A Launch-0 candidate with no identity raises: inside Launch-0 an undescribed product is a
+    defect in this module, not a reason to borrow another product's type (PT-01).
+    """
+    cand = candidate_for_cir(slug)
+    if cand is None:
+        return None
+    if cand.listing is None and cand.slug in LAUNCH0_SLUGS:
+        raise KeyError(f"Launch-0 candidate {cand.slug!r} declares no listing identity; the "
+                       f"listing chain refuses rather than defaulting a product type")
+    return cand.listing
+
+
+def launch_price(slug: str) -> dict | None:
+    """The Launch-0 price for a CIR slug, from its own candidate's plan, with its basis (PT-04).
+
+    Measures: `price_plan(candidate)`, which runs the candidate's own band and proposal through
+    `commerce.pricing.decide_price`. Why: `pricing.position` used to read the radar pool's
+    category band, and a Launch-0 product the pool did not name priced from `mosaic_blanket`
+    (CA$14 for a coaster set planned at CA$4). None outside Launch-0.
+    """
+    cand = candidate_for_cir(slug)
+    if cand is None or slug not in launch_scope_slugs():
+        return None
+    plan = price_plan(cand)
+    low, high = plan["band_cad"]
+    # Inside the candidate's band, or below its floor only where the plan itself proposed
+    # that price on purpose (the blanket's CA$7.50, recorded in its PriceBand.why).
+    price = plan["price_cad"]
+    within = price <= high and (price >= low or price == plan["proposed_cad"])
+    return {**plan, "candidate": cand.slug, "cir_slug": slug, "within_plan_band": within,
+            "basis": (f"products.launch0.price_plan({cand.slug}): band "
+                      f"CA${low:.2f}-{high:.2f} ({plan['band_basis']}), proposal "
+                      f"CA${plan['proposed_cad']:.2f}, decided by commerce.pricing")}
 
 
 def candidate(slug: str) -> Candidate:

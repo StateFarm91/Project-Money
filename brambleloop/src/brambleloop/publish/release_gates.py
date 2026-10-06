@@ -640,7 +640,10 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
         certificate = ls.certify_disclosed(
             slug=slug, version=version, rec=rec, images=images, geometry=geometry,
             claims=claims, policy_version=POLICY_VERSION, platform_policy=policy_stamp(db),
-            dimensions_ok=dim["ok"]) if not reasons else None
+            dimensions_ok=dim["ok"],
+            # F-757 / PT-13: the configuration the certified release encodes is what the
+            # listing sells; the set must have been rendered for it.
+            listing_variant=cir.variant_key) if not reasons else None
     except ls.ListingSetRefused as e:
         certificate = None
         reasons.append(f"listing-set certificate (#70): {str(e)[:400]}")
@@ -678,6 +681,12 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
     from ..core.models import ListingSetCertificateRecord
 
     hashes = {f.position: f.sha256 for f in cert.frames}
+    if not release_hash:
+        # PT-13: a certificate bound to no release is one the upload path cannot check
+        # against the release it publishes, so it is never filed.
+        return {"valid": False, "issued": False, "rechecked": rechecked,
+                "why": (f"{cert.slug}@{cert.version} has no release hash on file, so a "
+                        f"listing-set certificate would bind to nothing; refused")}
     with db.session() as s:
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == cert.slug,

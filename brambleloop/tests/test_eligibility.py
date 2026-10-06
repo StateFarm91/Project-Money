@@ -23,7 +23,10 @@ from brambleloop.publish import eligibility as E  # noqa: E402
 
 
 def _cand(**kw) -> E.Candidate:
-    args = dict(asset_id="a1", medium=AssetClass.AI_LIFESTYLE_CONCEPT,
+    # A twin render doing conversion work: the gate mechanics below are about the four gates
+    # and the label. An AI concept is refused in every role on its own (F-852 / PT-14), which
+    # `test_generated_product_imagery_is_refused_in_every_listing_role` asserts.
+    args = dict(asset_id="a1", medium=AssetClass.DIGITAL_TWIN_RENDER,
                 purpose=E.CONVERSION_CREATIVE, job=E.DESIRE, position=1)
     args.update(kw)
     return E.Candidate(**args)
@@ -174,6 +177,22 @@ def test_all_four_gates_passing_exports():
     out = E.may_export(_cand(), _all_gates())
     assert out["may_export"] is True
     assert out["blockers"] == []
+
+
+def test_generated_product_imagery_is_refused_in_every_listing_role():
+    """F-852 / PT-14: an AI concept passing all four gates still never exports, in any role
+    its medium can be classified into, hero or not."""
+    for job, position in ((E.DESIRE, 1), (E.DESIRE, 2), (E.DETAIL, 3), (E.SCALE, 4),
+                          (E.CROSS_SELL, 5)):
+        concept = _cand(asset_id=f"ai-{job}", medium=AssetClass.AI_LIFESTYLE_CONCEPT,
+                        purpose=E.CONVERSION_CREATIVE, job=job, position=position)
+        out = E.may_export(concept, _all_gates(), truth_verdict=E.PASSED)
+        assert out["may_export"] is False, (job, out)
+        assert any("F-852" in b for b in out["blockers"]), out["blockers"]
+    # The same gates on a render of the CIR export: the refusal is about the medium.
+    render = _cand(medium=AssetClass.DIGITAL_TWIN_RENDER, purpose=E.CONVERSION_CREATIVE,
+                   job=E.DESIRE, position=1)
+    assert E.may_export(render, _all_gates())["may_export"] is True
 
 
 def test_a_gate_that_never_ran_has_not_passed():
