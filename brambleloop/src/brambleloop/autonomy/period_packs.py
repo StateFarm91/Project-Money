@@ -1,7 +1,7 @@
 """`finance.accounting.period_pack`: the accountant's packs get a runtime caller (closure K15).
 
 F-909 (`finance.accounting.tax_pack`) and F-916 (`finance.accounting.handoff`) were built and
-tested but nothing at runtime ever called them. This daily job builds both for the LAST CLOSED
+tested but nothing at runtime ever called them; F-907 (`attribution`) was unreached. This daily job builds both for the LAST CLOSED
 calendar month and keeps the result as one `company_memory` row per period
 (`finance.period_pack:<YYYY-MM>`): status, CAD summary, open exceptions, the handoff file
 manifest (a SHA-256 per file) and a content fingerprint. The Command Center and Laura read the
@@ -36,15 +36,19 @@ def last_closed_month(now: datetime) -> str:
 
 
 def build(db, *, now: datetime | None = None, spec: str | None = None) -> dict:
-    from ..finance.accounting import handoff, tax_pack
+    from ..finance.accounting import attribution, handoff, tax_pack
     from . import memory
 
     now = now or datetime.now(timezone.utc)
     spec = spec or last_closed_month(now)
     tp = tax_pack.pack(db, spec, now=now)
     hp = handoff.pack(db, spec, now=now)
+    # F-907: where the period's money went (by product/department/provider/...), with the
+    # unattributed share as a first-class number -- part of what the accountant receives.
+    attr = attribution.report(db, period=spec)
     content = {"files": {k: v for k, v in hp["manifest"].items() if k not in _TIMESTAMPED},
-               "summary_cad": tp.get("summary_cad"), "periods": tp.get("periods")}
+               "summary_cad": tp.get("summary_cad"), "periods": tp.get("periods"),
+               "attribution": attr}
     fp = hashlib.sha256(json.dumps(content, sort_keys=True, default=str).encode()
                         ).hexdigest()[:32]
     key = f"finance.period_pack:{spec}"
@@ -56,6 +60,8 @@ def build(db, *, now: datetime | None = None, spec: str | None = None) -> dict:
             "open_exceptions": len(hp.get("open_exceptions") or []),
             "questions_for_accountant": len(tp.get("questions_for_accountant") or []),
             "manifest": hp["manifest"], "files": sorted(hp["files"]),
+            "cost_attribution": {k: attr.get(k) for k in (
+                "total_cad", "by_basis_cad", "unattributed_cad", "unattributed_share", "by")},
             "export": "finance.accounting.handoff.export(db, out_dir, spec) -- owner/accountant"}
     if changed:
         memory.remember(db, key, kind="finance.period_pack", department="finance",
@@ -63,6 +69,7 @@ def build(db, *, now: datetime | None = None, spec: str | None = None) -> dict:
                         state="prepared", body=body,
                         sources=["finance.accounting.tax_pack.pack",
                                  "finance.accounting.handoff.pack",
+                                 "finance.accounting.attribution.report",
                                  f"acct_journal_entries:period={spec}"], now=now)
         memory.record_event(db, f"finance.period_pack:{spec}:{fp}", kind="finance.period_pack",
                             department="finance", actor="cfo",

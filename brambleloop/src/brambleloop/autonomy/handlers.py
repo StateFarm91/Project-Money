@@ -230,6 +230,9 @@ def _declare_wired_work_keys() -> None:
 
     _pipeline.WORK_KEYS.setdefault("listing.outcomes",
                                    ("exports_processed", "recorded_listings"))
+    # W3-D wiring: both handlers state their honest count directly as `work_done`.
+    _pipeline.WORK_KEYS.setdefault("visual.rnd.cycle", ("work_done",))
+    _pipeline.WORK_KEYS.setdefault("finance.accounting.period_pack", ("work_done",))
 
 
 try:
