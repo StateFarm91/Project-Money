@@ -123,7 +123,7 @@ CONSTRAINTS: dict[str, Constraint] = _constraints()
 # Preference order. The first candidate that passes every check below is the chosen tagline.
 TAGLINE_CANDIDATES: tuple[str, ...] = (
     "Crochet patterns for a more handmade life",          # owner's line, with the category
-    "Crochet patterns for a life you make by hand",       # same meaning, lint-clean wording
+    "Crochet patterns for a life you make by hand",       # same meaning, fallback wording
     "Crochet patterns worth making, clearly written",
     "Beautiful crochet patterns, written to be followed",
     "Crochet patterns for a warmer, calmer home",
@@ -206,18 +206,23 @@ def _chosen(rows: list[dict]) -> str:
 
 TAGLINE: str = _chosen(tagline_candidates())
 
-# Lint finding the integrator should know about: the owner's line is truthful (the
-# "handmade life" is the customer's, made with the pattern), but TRUTH_PHYSICAL_MAKING's
-# `hand[- ]?made` alternative refuses it because Brambleloop itself makes nothing by hand.
-# The rule is not weakened here; the next candidate is used and the case is reported in the
-# lane C handoff for a narrowly scoped rule decision.
+# The owner's line, resolved (owner decision 2026-10-06, relayed to lane C): "handmade" here
+# describes the life and home the customer makes with a pattern, not anything Brambleloop
+# sells. `lint.TRUTH_PHYSICAL_MAKING` was refined (not removed) to pass exactly that
+# customer-aspiration reading ("a more handmade life", "your handmade home") while every
+# claim that the shop's products are handmade or hand-crocheted still fails. With that, the
+# owner's line is the first candidate that passes and is chosen automatically. Kept as data
+# so the decision trail stays visible.
 LINT_MISFIRES: tuple[dict, ...] = (
     {"text": "Patterns for a More Handmade Life", "rule": "TRUTH_PHYSICAL_MAKING",
+     "status": "resolved",
      "why_truthful": ("'handmade' describes the maker's life and the items the customer makes "
                       "with the pattern, not a claim that Brambleloop hand-makes anything"),
-     "proposal": ("allow 'handmade' only in the fixed phrases 'handmade life' / 'more handmade' "
-                  "/ 'handmade home', keeping every seller-made reading refused; integrator "
-                  "decision, not applied by lane C")},
+     "resolution": ("owner decision 2026-10-06: rule refined with a narrow customer-aspiration "
+                    "exemption (lint._ASPIRATIONAL_HANDMADE); seller-made readings still "
+                    "refused. Etsy help 360024112614 checked: its handmade rule concerns "
+                    "listing an item as handmade, and every Brambleloop listing is "
+                    "'Designed by'")},
 )
 
 BANNER: dict = {
@@ -300,14 +305,15 @@ ABOUT_PARAGRAPHS: tuple[str, ...] = (
      "comes as two complete PDFs, one in US terms and one in UK terms, so you never have to "
      "translate in your head."),
     ("Behind that is an unusual amount of checking. Every design is drawn up stitch by stitch "
-     "before a word of the pattern is written, and the arithmetic of every row is verified "
-     "before release: the counts add up, the repeats divide evenly, and the chart matches the "
+     "before a word of the pattern is written, and every row's stitch count is checked "
+     "before the pattern goes on sale: the counts add up, the repeats divide evenly, and the chart matches the "
      "text. Then a separate check reads only the finished pattern, the way you will, and "
-     "rebuilds the design from it. If the two disagree anywhere, the pattern is not released. "
+     "rebuilds the design from it. If the two disagree anywhere, the pattern does not go on "
+     "sale. "
      "It exists for one reason: so you never reach row 94 of a blanket and wonder whether "
      "the mistake is yours."),
-    ("The designs are developed with AI, and the arithmetic is verified by code; neither "
-     "replaces the other. The pictures are digital renderings of each finished design, not "
+    ("The designs are developed with AI, and every stitch count is then verified exactly, "
+     "by a separate step that does no guessing; one never stands in for the other. The pictures are digital renderings of each finished design, not "
      "photographs. No sample has been photographed, and we have not yet worked a physical "
      "sample, so make a gauge swatch first: your yarn, hook and tension decide the finished "
      "size."),
@@ -593,7 +599,7 @@ class TrustSignal:
 
 # Customer value first; each still has a mechanism or decision behind it (evidence paths).
 TRUST_SIGNALS: tuple[TrustSignal, ...] = (
-    TrustSignal("compiler_checked", "Clear instructions, checked row by row before release",
+    TrustSignal("compiler_checked", "Clear instructions, with every stitch count checked",
                 "verified_process",
                 ("src/brambleloop/cir/compiler.py", "src/brambleloop/gates/certificate.py")),
     TrustSignal("reverse_checked", "Charts that say exactly what the words say",

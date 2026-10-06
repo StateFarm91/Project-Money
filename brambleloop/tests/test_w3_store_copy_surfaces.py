@@ -63,23 +63,26 @@ def test_every_customer_string_is_lint_clean_truth_and_voice():
         assert not found, (key, [(f["code"], f["match"]) for f in found])
 
 
-def test_chosen_tagline_is_lint_clean_and_owner_line_is_reported_not_forced():
+def test_owner_tagline_is_chosen_and_lint_clean():
+    # Owner decision 2026-10-06: "Patterns for a More Handmade Life" is retained; the lint
+    # rule was refined for the customer-aspiration reading, not weakened for product claims.
     rows = V.tagline_candidates()
     assert len(rows) >= 3
     chosen = [r for r in rows if r["chosen"]]
     assert len(chosen) == 1 and chosen[0]["text"] == V.TAGLINE and not chosen[0]["problems"]
-    assert lint.is_truthful(V.TAGLINE)
     owner = rows[0]
-    assert owner["owner_concept"] and "handmade" in owner["text"].lower()
-    if owner["problems"]:
-        # The lint refuses the owner's line; it is reported to the integrator, never forced
-        # through and never "fixed" by weakening the rule.
-        assert not owner["chosen"]
-        assert any(m["rule"] == "TRUTH_PHYSICAL_MAKING" for m in V.LINT_MISFIRES)
-        assert not lint.is_truthful(owner["text"])
+    assert owner["owner_concept"] and owner["chosen"]
+    assert V.TAGLINE == "Crochet patterns for a more handmade life"
+    assert lint.is_truthful(V.TAGLINE)
     assert V.BANNER["descriptor"] == "Crochet Patterns"
     assert V.BANNER["owner_line"] == "Patterns for a More Handmade Life"
+    assert V.BANNER["line"] == V.BANNER["owner_line"]
     assert not lint.lint(V.BANNER["line"])
+    assert all(m["status"] == "resolved" for m in V.LINT_MISFIRES)
+    # the aspiration wording never drifts into a product claim anywhere in the copy
+    for key, text in V.customer_copy().items():
+        assert not re.search(r"handmade (pattern|item|product|piece|gift|basket|blanket)",
+                             text, re.I), key
 
 
 def test_lengths_within_recorded_constraints():
