@@ -5,6 +5,7 @@ Run: cd brambleloop && PYTHONPATH=src python3 tests/test_canon_store_brand_face.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import re
 import sys
 from datetime import datetime, timezone

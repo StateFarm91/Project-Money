@@ -1,4 +1,5 @@
 """A3-10: /api/verify's publication checks are phase-aware and see draft writes."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import shutil
 import sys

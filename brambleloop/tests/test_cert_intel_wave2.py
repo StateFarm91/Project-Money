@@ -9,6 +9,7 @@ Rows: #39 #64 #116 #125 #126 #128 #139 #201 #210 #287 #299.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import hashlib
 import os
 import sys

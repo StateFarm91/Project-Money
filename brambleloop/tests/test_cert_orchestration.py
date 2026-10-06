@@ -9,6 +9,7 @@ second process and an in-memory database is per-connection.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import subprocess
 import sys

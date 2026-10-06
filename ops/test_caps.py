@@ -1,8 +1,10 @@
-import csv, pathlib, sys, tempfile, importlib
+import atexit, csv, pathlib, shutil, sys, tempfile, importlib
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import caps
 def write_ledger(rows):
-    p = pathlib.Path(tempfile.mkdtemp()) / "L.csv"
+    d = tempfile.mkdtemp(prefix="opscaps-")
+    atexit.register(shutil.rmtree, d, True)  # removed at exit, success or exception (W3-HYG)
+    p = pathlib.Path(d) / "L.csv"
     with p.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["id","datetime_utc","description","business_product_channel","revenue_cad","expense_cad","platform_payment_fees_cad","advertising_cad","refunds_chargebacks_cad","net_contribution_cad","running_available_cash_cad","capital_deployed_committed_cad","evidence_ref"]); w.writeheader()
         for r in rows: w.writerow({**{k: "0" for k in w.fieldnames}, **r})

@@ -7,6 +7,7 @@ the listing's own conversion data reports that Christmas blankets do not sell.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from datetime import date, timedelta
 from pathlib import Path

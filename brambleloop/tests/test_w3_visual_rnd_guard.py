@@ -4,6 +4,7 @@ reports UNKNOWN rather than zeros. Fast: nothing here renders an image.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import os
 import shutil

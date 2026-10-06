@@ -1,4 +1,5 @@
 """Hermetic adversarial authority checks; no provider or production calls."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os, sys, tempfile
 from pathlib import Path
 from datetime import timedelta

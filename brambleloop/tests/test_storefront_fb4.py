@@ -7,6 +7,7 @@ Run: cd brambleloop && PYTHONPATH=src $PY tests/test_storefront_fb4.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import io
 import sys
 import tempfile

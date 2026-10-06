@@ -7,6 +7,7 @@ shared; each control works on its own copy of the evidence.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import copy
 import os
 import socket

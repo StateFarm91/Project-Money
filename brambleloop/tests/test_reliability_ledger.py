@@ -9,6 +9,7 @@ Against real files in a temp dir and this repository's own git history. No netwo
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import io
 import json
 import os

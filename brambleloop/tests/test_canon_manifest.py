@@ -16,6 +16,7 @@ Run: cd brambleloop && PYTHONPATH=src python3 tests/test_canon_manifest.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import hashlib
 import json
 import shutil

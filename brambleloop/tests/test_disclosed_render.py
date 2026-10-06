@@ -5,6 +5,7 @@ FAIL or UNKNOWN -- never PASS -- and every honest Launch-0 frame must PASS.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import hashlib
 import io
 import os

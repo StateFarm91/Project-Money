@@ -13,6 +13,7 @@ Run: cd brambleloop && $PY tests/test_cert_dashboard.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import os
 import re

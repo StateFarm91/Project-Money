@@ -1,4 +1,5 @@
 """Hermetic operating-cost basis and listing exposure tests."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys,os,tempfile
 from pathlib import Path
 from unittest.mock import patch

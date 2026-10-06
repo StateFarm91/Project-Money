@@ -13,6 +13,7 @@ path's back. The gap it used to codify is closed here, by a real run.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import sys
 import tempfile

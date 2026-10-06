@@ -5,6 +5,7 @@ never written. Tests that expose a defect are left failing on purpose.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import hashlib
 import json
 import os

@@ -8,6 +8,7 @@ and a promise audit that does not resolve its unknowns in the seller's favour or
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import io
 import sys
 import zipfile

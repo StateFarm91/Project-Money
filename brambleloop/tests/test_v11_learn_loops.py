@@ -15,6 +15,7 @@ takes on its next call -- not a library's return value.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import sys
 import tempfile

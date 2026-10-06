@@ -256,6 +256,7 @@ write_record() {
   RR_SCOPE="$SCOPE" RR_SUITES="$(printf '%s\n' "${SUITES[@]}")" RR_PARALLEL="$PARALLEL" \
   RR_TAKEOVER="$TAKEOVER" RR_PY="$PY_REAL" RR_JOBS="$JOBS" RR_LOCK="${LOCK_HELD:+$LOCK_FILE}" \
   RR_JOB="suite-$RUN_ID" RR_MARKER="$JOB_MARKER" RR_ENROLLED="${ENROLLED:-}" \
+  RR_LEAK_N="${leak_entries:-}" RR_LEAK_B="${leak_bytes:-}" RR_LEAKING="${leak_list:-}" \
   "$PY" - <<'PYEOF'
 import json, os, socket
 e = os.environ
@@ -288,6 +289,10 @@ rec = {
     # where it is enrolled (null when no registry was reachable or SUITE_REGISTRY=0).
     "job_id": e["RR_JOB"], "role": "work", "process_marker": e["RR_MARKER"],
     "registry": e.get("RR_ENROLLED") or None,
+    # W3-HYG: temp entries suites left in their own TMPDIR (counted, then removed).
+    "tmp_leak_entries": num("RR_LEAK_N") if status != "running" else None,
+    "tmp_leak_bytes": num("RR_LEAK_B") if status != "running" else None,
+    "tmp_leaking_suites": lines("RR_LEAKING"),
     # F-335 / F-341: the producer appends this exact line to the log after the terminal record.
     "terminal_sentinel": (f"EXIT {num('RR_EXIT')}" if status != "running"
                           and num("RR_EXIT") is not None else None),
@@ -330,7 +335,21 @@ PYEOF
 # the old `trap ... EXIT INT TERM`, an interrupt ran the cleanup and then carried on waiting.)
 # The cleanup releases the lock only if this run holds it, and a record still marked running
 # is rewritten as interrupted, so a killed run never looks like a live one.
+# A run killed with SIGKILL (or a host OOM kill) never reaches its trap, so its directory
+# would survive. Each run therefore writes its owner (pid + process start time) into the
+# directory, and every new run removes the run directories whose owner is provably gone --
+# only directories this script made and stamped; an unstamped one is left alone (W3-HYG).
+for _stale in "${TMPDIR:-/tmp}"/brambleloop-run-*; do
+  [ -f "$_stale/.owner" ] || continue
+  read -r _opid _ostart < "$_stale/.owner" 2>/dev/null || continue
+  _olive="$( [ -n "${_opid:-}" ] && proc_start "$_opid" || true)"
+  if [ -z "$_olive" ] || [ "$_olive" != "${_ostart:-}" ]; then
+    echo "TMP: removing the run directory of a dead run ($_stale, pid ${_opid:-?})"
+    rm -rf "$_stale"
+  fi
+done
 BRAMBLELOOP_RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/brambleloop-run-XXXXXXXX")"
+echo "$$ $MY_START" > "$BRAMBLELOOP_RUN_TMP/.owner"
 export TMPDIR="$BRAMBLELOOP_RUN_TMP"
 RUN_DONE=""
 _brambleloop_cleanup() {
@@ -385,10 +404,26 @@ SLOW=(
 
 outdir=$(mktemp -d)   # inside the run's own TMPDIR; cleaned by the trap set above
 
+# Per-suite TMPDIR and a leak census (W3-HYG, 2026-10-06). The run-level directory above stops
+# leaks accumulating ACROSS runs; this makes them visible WITHIN one. Each suite gets its own
+# directory under the run's, and when the suite exits whatever it left there is counted
+# (entries, bytes) into $outdir/<suite>.leak and removed straight away, so one leaky suite
+# cannot fill the disk for the rest of a twenty-minute run either. The count is printed per
+# suite and in total, and written to the run record; TMP_LEAK_STRICT=1 makes a leaking suite
+# a failing one. Test files clean up after themselves through tests/_tmp.py, so a non-zero
+# count here is a regression -- tests/test_w3_tmp_hygiene.py fails on the known ones.
 schedule() {
   local t="$1" safe
   safe="${t//\//_}"
-  ( "$PY" "$t" >"$outdir/$safe.out" 2>&1; echo $? >"$outdir/$safe.code" ) &
+  (
+    st="$BRAMBLELOOP_RUN_TMP/suite-$safe"
+    mkdir -p "$st"
+    TMPDIR="$st" "$PY" "$t" >"$outdir/$safe.out" 2>&1; echo $? >"$outdir/$safe.code"
+    n=$(find "$st" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
+    b=$(find "$st" -mindepth 1 -type f -printf '%s\n' 2>/dev/null | awk '{s+=$1} END {print s+0}')
+    echo "$n $b" >"$outdir/$safe.leak"
+    rm -rf "$st"
+  ) &
 }
 
 order=()
@@ -410,6 +445,7 @@ done
 wait
 
 total=0; failed=0; fail_tests=0; skip_tests=0; failing_list=""; nopass_list=""
+leak_entries=0; leak_bytes=0; leak_list=""
 {
 for t in "${SUITES[@]}"; do
   safe="${t//\//_}"
@@ -432,6 +468,16 @@ for t in "${SUITES[@]}"; do
   # counted as zero here for a whole session -- exit codes still caught their failures, so
   # nothing was broken and the headline number was quietly wrong, which is the harder fault
   # to notice. Counted as a failure so the log says so on the line somebody reads.
+  # W3-HYG: what the suite left in its own TMPDIR (already removed by schedule()).
+  read -r ln lb < "$outdir/$safe.leak" 2>/dev/null || { ln=0; lb=0; }
+  if [ "${ln:-0}" -gt 0 ]; then
+    echo "   TMP LEAK: $ln entries, $lb bytes left in this suite's TMPDIR (removed by the harness)"
+    leak_entries=$((leak_entries+ln)); leak_bytes=$((leak_bytes+lb)); leak_list+="$t"$'\n'
+    if [ "${TMP_LEAK_STRICT:-0}" = "1" ] && [ "$code" -eq 0 ]; then
+      echo "   TMP_LEAK_STRICT=1: a suite that leaks temporary files is a failing suite"
+      failed=$((failed+1)); failing_list+="$t"$'\n'
+    fi
+  fi
   if [ "$code" -eq 0 ] && [ "$n" -eq 0 ]; then
     echo "   SUITE REPORTED NO PASSES: its results are not reaching the total"
     failed=$((failed+1)); failing_list+="$t"$'\n'; nopass_list+="$t"$'\n'
@@ -447,6 +493,7 @@ if [ "$failed" -eq 0 ]; then status=passed; else status=failed; fi
   cat "$outdir/report"
   echo
   echo "TOTAL PASSING: $total ; suites failing: $failed"
+  echo "TMP LEAKED: $leak_entries entries, $leak_bytes bytes across $(printf '%s' "$leak_list" | grep -c . || true) suites (removed; TMPDIR was $BRAMBLELOOP_RUN_TMP)"
   echo "RUN FINISHED: $RUN_FINISHED"
   echo "DURATION: ${DURATION}s"
   echo "GIT SHA: $GIT_SHA (tree $TREE_STATE at start)"

@@ -13,6 +13,7 @@ Run: cd brambleloop && $PY tests/test_etsy_readback_observe.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import hashlib
 import os
 import sys

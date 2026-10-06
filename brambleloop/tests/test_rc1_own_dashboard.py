@@ -1,4 +1,5 @@
 """A3-09: the dashboard headline never shows unmeasured money as a measured zero."""
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import shutil
 import sys

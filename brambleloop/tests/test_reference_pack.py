@@ -7,6 +7,7 @@ than as two of eight dimensions averaged in with the rest.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 

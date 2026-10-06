@@ -11,6 +11,7 @@ queue, and every owner action carries the five things the directive asks for.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import sys
 import tempfile

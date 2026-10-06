@@ -3,6 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 _TMP = tempfile.mkdtemp(prefix="J_fin_")
+import atexit, shutil; atexit.register(shutil.rmtree, _TMP, True)  # W3-HYG: removed at exit
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = os.path.join(_TMP, "artifacts")
 def _nn(*a, **k): raise OSError("network refused")
 socket.socket.connect = _nn; socket.create_connection = _nn

@@ -5,6 +5,7 @@ deliberately do NOT test that the result looks photographic, because it does not
 BUILD_STATE 2026-09-24 and B-704. A test asserting "looks real" would either be a vision call
 in the suite or a lie.
 """
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 

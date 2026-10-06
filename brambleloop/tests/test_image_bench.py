@@ -7,6 +7,7 @@ a budget, or by scoring a partial rubric and averaging the gaps away.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import sys
 from pathlib import Path
