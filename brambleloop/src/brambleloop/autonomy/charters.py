@@ -146,8 +146,10 @@ CHARTERS: tuple[Charter, ...] = (
        mission="Prioritise company work across departments, keep every department supplied "
                "with the next highest-value safe work, and present only genuine owner "
                "decisions upward (F-893, F-894).",
-       agents=("coo", "orchestrator", "swarm_steward"),
-       prefixes=("autonomy.", "plan.", "swarm.", "portfolio."),
+       agents=("coo", "orchestrator", "swarm_steward", "laura"),
+       # "laura.": Laura's executive tick (W3-D) sits above the COO in the executive
+       # department, so it is never paused (F-889) and never counted as department work.
+       prefixes=("autonomy.", "plan.", "swarm.", "portfolio.", "laura."),
        job_types={"scale.trajectory", "launch.readiness", "launch.plan", "ops.capacity",
                   "build.tick"},
        generatable=("autonomy.morning_handoff", "scale.trajectory",
