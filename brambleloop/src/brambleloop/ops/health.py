@@ -642,7 +642,11 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # `visual.milestone_d`'s plied curve file, written to check the render's geometry and
     # removed with the check. The registry test caught this one the day it was written --
     # the guard working as recorded in the 2026-09-25 wave verification.
-    "brambleloop-d-")
+    "brambleloop-d-",
+    # Laura executive runtime proof (`laura.executive.proof`): a TemporaryDirectory scoped to
+    # one proof run. Added by W3-HYG (2026-10-06) -- it was in `src/` and not counted, which
+    # `test_cost_governance_wave2` refuses.
+    "bl-laura-proof-")
 
 
 def disk_facts() -> dict:
