@@ -296,7 +296,8 @@ def disclosed_frames(rec: dict, images: list[tuple[str, bytes, str]], *,
 def certify_disclosed(*, slug: str, version: str, rec: dict,
                       images: list[tuple[str, bytes, str]], geometry: dict, claims: dict,
                       policy_version: str, platform_policy: dict | None = None,
-                      dimensions_ok: bool | None) -> ListingCertificate:
+                      dimensions_ok: bool | None,
+                      listing_variant: str | None = None) -> ListingCertificate:
     """Certify a disclosed-render listing set through the same `certify` every set goes through.
 
     Nothing is relaxed: the four gates must each have run and passed, the frames are bound by
@@ -309,7 +310,21 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
     if not rec.get("usable_as_listing_asset"):
         raise ListingSetRefused(f"{slug}: the disclosed set is launch-blocked: "
                                 f"{(rec.get('launch_blocked') or [])[:3]}")
+    # F-757 / PT-13: the configuration the LISTING declares -- the certified release's own
+    # variant, supplied by the caller -- must be the one the set was rendered for. Taking it
+    # from the record alone compared the record with itself.
+    filed = rec.get("represented_variant") or SINGLE_VARIANT
+    if listing_variant is not None and listing_variant != filed:
+        raise ListingSetRefused(
+            f"{slug}@{version}: the listing declares configuration {listing_variant!r} and the "
+            f"disclosed set was rendered for {filed!r}; a listing may only show the "
+            f"configuration it sells (F-757)")
     frames = disclosed_frames(rec, images, slug=slug)
+    shown = {f.represented_variant for f in frames}
+    if listing_variant is not None and shown - {listing_variant}:
+        raise ListingSetRefused(
+            f"{slug}@{version}: frames show {sorted(shown)}, the listing declares "
+            f"{listing_variant!r} (F-757)")
     from .disclosed_listing import DISCLOSURE
 
     return certify(slug=slug, version=version, frames=frames,
@@ -317,7 +332,7 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
                                                        dimensions_ok=dimensions_ok),
                    geometry=geometry, claims=claims, policy_version=policy_version,
                    platform_policy=platform_policy, disclosures=(DISCLOSURE,),
-                   variant=rec.get("represented_variant") or SINGLE_VARIANT)
+                   variant=listing_variant if listing_variant is not None else filed)
 
 
 VALID = "valid"

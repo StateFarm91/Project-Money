@@ -35,6 +35,12 @@ a caller that wants a yes has to go and ask a person for it.
 sample has been crocheted. This gate reports that as UNRESOLVED against the claims that need it
 and has no code path that could set it True. Physical validation stays unresolved and must be
 explicitly resolved before a claim requiring measurement is published.
+
+**It can clear on evidence (PT-02).** On the publication path the gate is handed the database:
+its twin is built with the stored calibration, the size claims clear only on a passed physical
+sample bound to this exact content by the certificate's own `bind_physical_evidence`, and the
+imagery is read from the disclosed set and the valid listing-set certificate that covers it.
+A gate that no owner action could ever clear invites somebody to weaken it under pressure.
 """
 from __future__ import annotations
 
@@ -264,7 +270,27 @@ def check_counts_and_construction(cir, result, twin) -> Check:
                  "cir.compiler, cir.reverse on both rendered texts, launch0 promise gates")
 
 
-def check_gauge_and_size_claims(cir, twin) -> Check:
+def physical_binding(db, cir, result=None) -> dict:
+    """The stored physical samples bound to exactly this content, as certification binds them.
+
+    PT-02: the gate built its twin with the default calibration, so a recorded sample could
+    never reach it. This reads the same evidence `gate.certify` reads -- the stored
+    PhysicalTest rows (`runtime.pipeline.physical_evidence_rows`) -- and binds it with the
+    certificate's own `bind_physical_evidence` against the content hash of this CIR's written
+    pattern, so a sample of another text, an unfinished sample or a failed one binds nothing.
+    """
+    from ..cir.compiler import compile_cir
+    from ..cir.writer import write_pattern
+    from ..runtime.pipeline import physical_evidence_rows
+    from .certificate import _release_hash, bind_physical_evidence
+
+    result = result if result is not None else compile_cir(cir)
+    content = _release_hash(cir, write_pattern(cir, result, "US"))
+    return bind_physical_evidence(physical_evidence_rows(db, cir.slug), slug=cir.slug,
+                                  version=cir.version, content_hash=content)
+
+
+def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Check:
     """Every size in the document is arithmetic from a gauge nobody has crocheted.
 
     This is the area that must not be allowed to go green by being forgotten. `twin.calibrated`
@@ -273,6 +299,30 @@ def check_gauge_and_size_claims(cir, twin) -> Check:
     print -- the documents label it -- and it is NOT the same as a measured size, so the state
     is UNRESOLVED rather than PASS, and nothing here can set `calibrated` True.
     """
+    if physical is not None:
+        # PT-02: the runtime path. Only a passed, completed sample bound to this exact
+        # content clears this area; the twin's calibration factor is reported with it.
+        if not physical.get("passed"):
+            unbound = "; ".join(f"{u.get('id')}: {u.get('why')}"
+                                for u in (physical.get("unbound") or [])[:3])
+            return Check("gauge_and_size_claims", UNRESOLVED,
+                         "no passed physical sample is bound to this content "
+                         f"({str(physical.get('content_hash') or '')[:12]})"
+                         + (f"; samples on file that do not bind: {unbound}" if unbound
+                            else "; none on file")
+                         + ". Every finished dimension is arithmetic from the stated gauge "
+                           "until somebody works this text",
+                         "gates.certificate.bind_physical_evidence on stored PhysicalTest rows")
+        if twin.width_caveat:
+            return Check("gauge_and_size_claims", FAIL,
+                         f"a width rests on an assumed chain gauge: {twin.width_caveat}",
+                         "TwinModel.width_caveat")
+        return Check("gauge_and_size_claims", PASS,
+                     f"physical sample(s) {physical.get('bound')} passed against this exact "
+                     f"content ({str(physical.get('content_hash'))[:12]}); twin calibrated="
+                     f"{twin.calibrated}; {twin.width_cm:.1f} x {twin.height_cm:.1f} cm",
+                     "gates.certificate.bind_physical_evidence on stored PhysicalTest rows, "
+                     "twin built with quality.physical.calibration_from_db")
     if not twin.calibrated:
         return Check("gauge_and_size_claims", UNRESOLVED,
                      "twin.calibrated is False: every finished dimension is arithmetic from "
@@ -289,7 +339,95 @@ def check_gauge_and_size_claims(cir, twin) -> Check:
                  f"{twin.height_cm:.1f} cm", "TwinModel, calibrated")
 
 
-def check_listing_claims(cir, twin, listing) -> Check:
+# ---- what the listing says the product IS (PT-01) ----------------------------------------
+#
+# A closed vocabulary of product-type words, grouped into families of words that name the same
+# object. Closed on purpose, for the same reason `launch0.COLOURWORK_CLAIMS` is: an open
+# detector argues with prose, and these are nouns that mean one specific object. A word in a
+# listing's title or tags that names a family the CIR does not name is a listing for another
+# product -- the basket titled "Market Mosaic Blanket" that every gate passed.
+
+PRODUCT_TYPE_FAMILIES: dict[str, tuple[str, ...]] = {
+    "blanket": ("blanket", "afghan", "throw", "graphghan"),
+    "basket": ("basket",),
+    "coaster": ("coaster",),
+    "placemat": ("placemat",),
+    "runner": ("runner",),
+    "pillow": ("pillow", "cushion"),
+    "scarf": ("scarf", "scarves", "cowl"),
+    "hat": ("hat", "beanie"),
+    "shawl": ("shawl",),
+    "bag": ("bag", "tote", "purse"),
+    "ornament": ("ornament",),
+    "stocking": ("stocking",),
+    "garland": ("garland", "bunting"),
+    "mobile": ("mobile",),
+    "wreath": ("wreath",),
+    "toy": ("toy", "amigurumi", "doll", "lovey"),
+    "garment": ("sweater", "cardigan", "pullover"),
+    "rug": ("rug",),
+    "wall_hanging": ("wall hanging",),
+}
+
+
+def _family_hits(text: str) -> dict[str, list[str]]:
+    import re
+
+    low = " ".join(str(text or "").lower().replace("-", " ").split())
+    out: dict[str, list[str]] = {}
+    for family, words in PRODUCT_TYPE_FAMILIES.items():
+        for w in words:
+            if re.search(rf"\b{re.escape(w)}(?:s|es)?\b", low):
+                out.setdefault(family, []).append(w)
+    return out
+
+
+def product_type_words_in_cir(cir) -> frozenset[str]:
+    """The product-type families the CIR itself names: its title and its component names."""
+    text = " ".join([cir.title or ""] + [c.name or "" for c in cir.components])
+    return frozenset(_family_hits(text))
+
+
+def product_type_findings(cir, *, title: str, tags=()) -> list[str]:
+    """Product-type words in a listing's title or tags that the CIR does not name (PT-01).
+
+    The description is not read: a children's statement may name a blanket or a toy as the
+    thing this product is NOT, and that is a statement, not a type claim.
+    """
+    own = product_type_words_in_cir(cir)
+    out = []
+    for where, text in [("title", title)] + [(f"tag {t!r}", t) for t in (tags or ())]:
+        for family, words in sorted(_family_hits(text).items()):
+            if family not in own:
+                out.append(f"LISTING_PRODUCT_TYPE_UNSUPPORTED: the {where} names a "
+                           f"{words[0]!r}, and the CIR ({cir.slug}) makes "
+                           f"{sorted(own) or 'no named product type'}")
+    return out
+
+
+def colourwork_findings(cir, twin, *, title: str, tags=()) -> list[str]:
+    """A colourwork technique in the title or tags that the fabric cannot make (PT-01).
+
+    `launch0.fabric_truth` measures colours per row; a mosaic needs two in one row and a CIR
+    row carries one colour, so the claim is refused unless the twin shows otherwise.
+    """
+    from ..products import launch0 as l0
+
+    grid = twin.color_grid() if twin is not None else []
+    per_row = max((len({c for c in row}) for row in grid), default=0)
+    if per_row >= 2:
+        return []
+    out = []
+    for where, text in [("title", title)] + [(f"tag {t!r}", t) for t in (tags or ())]:
+        low = str(text or "").lower()
+        hit = next((c for c in l0.COLOURWORK_CLAIMS if c in low), None)
+        if hit:
+            out.append(f"LISTING_COLOURWORK_UNSUPPORTED: the {where} claims {hit!r}; the "
+                       f"fabric puts at most {per_row} colour(s) in any one row")
+    return out
+
+
+def check_listing_claims(cir, twin, listing, *, physically_evidenced: bool | None = None) -> Check:
     """What the listing says, against what the pattern is -- and a listing must exist.
 
     `listing` is the assembled draft. A product with no listing text is UNVERIFIABLE here, not
@@ -313,7 +451,8 @@ def check_listing_claims(cir, twin, listing) -> Check:
     # either is refused there rather than argued about here.
     proof = {"deterministic_validation": True,
              "independent_reverse_compilation": True,
-             "physical_tester_example": bool(twin.calibrated),
+             "physical_tester_example": bool(twin.calibrated if physically_evidenced is None
+                                             else physically_evidenced),
              "customer_project": False,
              "repeat_purchase": False}
     findings = [f for f in check_listing(draft, cir, proof_states=proof) if f.is_error]
@@ -327,13 +466,76 @@ def check_listing_claims(cir, twin, listing) -> Check:
         return Check("listing_claims", FAIL,
                      f"{[f.code for f in findings]}: {findings[0].message[:160]}",
                      "gates.policy.check_listing and gates.asset_truth claim checks")
+    # PT-01: the listing must name the product the CIR makes, and no fabric it cannot make.
+    wrong = (product_type_findings(cir, title=draft.title, tags=draft.tags)
+             + colourwork_findings(cir, twin, title=draft.title, tags=draft.tags))
+    if wrong:
+        return Check("listing_claims", FAIL, "; ".join(wrong[:3])[:400],
+                     "gates.first_customer.product_type_findings and colourwork_findings on "
+                     "the listing's title and tags")
     return Check("listing_claims", PASS,
                  "the listing's shape, technique and proof claims are all backed by the twin "
                  "and by this release's own evidence",
                  "gates.policy.check_listing and gates.asset_truth on the assembled draft")
 
 
-def check_imagery(cir, twin, frames) -> Check:
+def disclosed_imagery(db, slug: str, version: str) -> dict | None:
+    """The disclosed listing set for this release and the certificate that covers it (PT-02).
+
+    D-FB-7 made the disclosed render set the Launch-0 imagery, and the gate only ever read the
+    legacy frame plan, so imagery read UNVERIFIABLE with a certified set on file. This reads
+    what publication actually uploads: `disclosed_listing.usable_set` (every frame's bound
+    bytes structurally PASS now) and the current valid listing-set certificate for the
+    release, which must cover exactly those frames as disclosed renders, bound to a release
+    hash. None when no disclosed set is on file for this release.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import ListingSetCertificateRecord
+    from ..publish import disclosed_listing
+
+    rec = disclosed_listing.last_asset(db, slug=slug)
+    if rec is None or rec.get("version") != version:
+        return None
+    usable = disclosed_listing.usable_set(db, slug=slug, version=version)
+    if usable is None:
+        return {"state": FAIL, "detail": (
+            "a disclosed set is on file for this release and is not usable: "
+            + ("; ".join(rec.get("launch_blocked") or [])[:300]
+               or "structural truth is not PASS on every frame's bytes"))}
+    with db.session() as s:
+        cert = s.scalar(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.product_slug == slug,
+            ListingSetCertificateRecord.version == version,
+            ListingSetCertificateRecord.state == "valid")
+            .order_by(desc(ListingSetCertificateRecord.id)).limit(1))
+        cert_frames = list((cert.certificate or {}).get("frames") or []) if cert else []
+        cert_release = (cert.release_hash or "") if cert else ""
+        cert_id = cert.id if cert else None
+    if cert is None:
+        return {"state": FAIL, "detail": (
+            "the disclosed set is usable but no valid listing-set certificate covers it; "
+            "imagery is certified by release_gates.listing_set before it is published")}
+    on_file = {(f.get("image") or {}).get("sha256") for f in usable.get("frames") or []}
+    certified = {f.get("sha256") for f in cert_frames}
+    problems = []
+    if not cert_release:
+        problems.append(f"certificate {cert_id} is bound to no release hash")
+    if certified != on_file:
+        problems.append(f"certificate {cert_id} covers {len(certified)} frame(s) that are not "
+                        f"exactly the {len(on_file)} disclosed frame(s) on file")
+    if any(f.get("kind") != "disclosed_render" for f in cert_frames):
+        problems.append(f"certificate {cert_id} does not certify every frame as a disclosed "
+                        f"render")
+    if problems:
+        return {"state": FAIL, "detail": "; ".join(problems)}
+    return {"state": PASS, "detail": (
+        f"{len(on_file)} disclosed frames, structurally PASS on their bound bytes, covered "
+        f"by valid listing-set certificate {cert_id} for release {cert_release[:12]}"),
+        "certificate": cert_id}
+
+
+def check_imagery(cir, twin, frames, disclosed: dict | None = None) -> Check:
     """The images a buyer scrolls, and the structural rules that come before Asset Truth.
 
     `frames` is what `publish.listing_assets.build_frames` produced. None means no imagery has
@@ -344,6 +546,10 @@ def check_imagery(cir, twin, frames) -> Check:
     """
     from ..publish.listing_assets import check_frame_plan
 
+    if disclosed is not None:
+        return Check("imagery", disclosed["state"], disclosed["detail"],
+                     "publish.disclosed_listing.usable_set and the valid "
+                     "ListingSetCertificateRecord for this release")
     if not frames:
         return Check("imagery", UNVERIFIABLE,
                      "no listing frames have been built for this product, so there is nothing "
@@ -451,7 +657,8 @@ def check_licence_and_safety_statements(cir, docs: dict, assignment) -> Check:
 # The driver.
 
 
-def gate_product(cir, *, listing=None, frames=None, store=None) -> ProductGate:
+def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
+                 version: str | None = None) -> ProductGate:
     """All nine areas for one product, measured on what it actually produces.
 
     `listing` and `frames` are passed in rather than built here on purpose: this gate reports
@@ -471,7 +678,20 @@ def gate_product(cir, *, listing=None, frames=None, store=None) -> ProductGate:
         return ProductGate(cir.slug, tuple(
             Check(area, FAIL, why, "cir.compiler.compile_cir") for area in AREAS))
 
-    twin = build_twin(cir, result)
+    # PT-02: with a database, the twin carries the stored calibration and the size claims are
+    # judged on content-bound physical evidence; the imagery is the disclosed set and its
+    # certificate. Without one (a report, a test of the artefacts alone) both stay as they
+    # were: uncalibrated and unbuilt, which block.
+    physical = disclosed = None
+    if db is not None:
+        from ..quality.physical import calibration_from_db
+
+        twin = build_twin(cir, result, calibration=calibration_from_db(db, cir))
+        physical = physical_binding(db, cir, result)
+        disclosed = disclosed_imagery(db, cir.slug, version or cir.version)
+    else:
+        twin = build_twin(cir, result)
+    evidenced = None if physical is None else bool(physical.get("passed"))
     docs, refusals = _documents(cir, twin, result)
     assignment = l0.childrens_assignment(cir.slug)
 
@@ -486,9 +706,9 @@ def gate_product(cir, *, listing=None, frames=None, store=None) -> ProductGate:
                          f"({unreadable})", "publish.pdf.build_pattern_pdf refusal")
                    for a in from_docs]
         checks.append(check_counts_and_construction(cir, result, twin))
-        checks.append(check_gauge_and_size_claims(cir, twin))
-        checks.append(check_listing_claims(cir, twin, listing))
-        checks.append(check_imagery(cir, twin, frames))
+        checks.append(check_gauge_and_size_claims(cir, twin, physical))
+        checks.append(check_listing_claims(cir, twin, listing, physically_evidenced=evidenced))
+        checks.append(check_imagery(cir, twin, frames, disclosed))
         checks.append(check_etsy_remote_state())
         checks.append(check_fulfilment_and_download(store))
         return ProductGate(cir.slug, tuple(checks))
@@ -497,16 +717,17 @@ def gate_product(cir, *, listing=None, frames=None, store=None) -> ProductGate:
         check_final_pdf(cir, docs, refusals),
         check_terminology(cir, docs),
         check_counts_and_construction(cir, result, twin),
-        check_gauge_and_size_claims(cir, twin),
-        check_listing_claims(cir, twin, listing),
-        check_imagery(cir, twin, frames),
+        check_gauge_and_size_claims(cir, twin, physical),
+        check_listing_claims(cir, twin, listing, physically_evidenced=evidenced),
+        check_imagery(cir, twin, frames, disclosed),
         check_etsy_remote_state(),
         check_fulfilment_and_download(store),
         check_licence_and_safety_statements(cir, docs, assignment),
     ))
 
 
-def blocking(cir, *, listing=None, frames=None, store=None) -> list[dict]:
+def blocking(cir, *, listing=None, frames=None, store=None, db=None,
+             version: str | None = None) -> list[dict]:
     """What still stops this product's first listing, as the runtime reads it (F-118).
 
     The nine-area gate had no runtime caller: it reported UNRESOLVED physical claims to a test
@@ -515,7 +736,8 @@ def blocking(cir, *, listing=None, frames=None, store=None) -> list[dict]:
     unbuilt image set or an unread Etsy listing refuses publication instead of being a line
     in a report. Empty means ready for *owner review*, never authorised: see NEVER_AUTHORISES.
     """
-    gate = gate_product(cir, listing=listing, frames=frames, store=store)
+    gate = gate_product(cir, listing=listing, frames=frames, store=store, db=db,
+                        version=version)
     return [c.to_dict() for c in gate.blocking]
 
 

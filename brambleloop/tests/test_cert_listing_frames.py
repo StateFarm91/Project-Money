@@ -32,9 +32,9 @@ from brambleloop.runtime.worker import Worker  # noqa: E402
 
 # CB2-P06 fixture: nordic-forest-mosaic-throw no longer certifies under the strict gauge gate
 # (GAUGE_OUTSIDE_DECLARED_YARN_BAND, 6747ddd), so assets.build refused to run at all. These
-# tests need *a* certified Launch-0 release; hexie-coaster-set certifies as built. The gate is
-# unchanged.
-SLUG = "hexie-coaster-set"
+# tests need *a* certified Launch-0 release; hexagon-coaster-set certifies as built (PT-11
+# retired its old alias hexie-coaster-set). The gate is unchanged.
+SLUG = "hexagon-coaster-set"
 
 
 def _certified():

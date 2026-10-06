@@ -74,6 +74,11 @@ MEDIUM_PURPOSES: dict[AssetClass, tuple[str, ...]] = {
     AssetClass.PATTERN_PREVIEW: (ENGINEERING_EVIDENCE, CUSTOMER_INFORMATION),
 }
 
+# Media that are generated pictures of the product rather than renders of the CIR or a
+# photograph of a made object. Kept as a purpose-capable medium above (it can be *classified*),
+# and refused by `may_export` in every role (F-852): classifying is not exporting.
+GENERATED_MEDIA: frozenset[AssetClass] = frozenset({AssetClass.AI_LIFESTYLE_CONCEPT})
+
 # ---- what a frame is for (#65) --------------------------------------------
 
 DESIRE = "DESIRE"
@@ -372,6 +377,14 @@ def may_export(candidate: Candidate, results: list[GateResult], *,
         blockers.append(serves["why"])
     if label["required"] and not label["label"]:
         blockers.append("an honesty label is required here and none is defined for this medium")
+    if candidate.medium in GENERATED_MEDIA:
+        # F-852 / PT-14: a generated picture of the product is refused in every listing role,
+        # explicitly and here, rather than relying on an upstream truth finding to have
+        # caught it. A label does not change this: the object in the picture does not exist.
+        blockers.append(
+            f"F-852: a {candidate.medium.value} is generated imagery of an object nobody has "
+            f"made, and generated product imagery is refused in every listing role "
+            f"({candidate.job} here). A disclaimer is not permission")
     if truth_verdict == FAILED:
         blockers.append(
             "the asset truth gate refused this asset. The honesty label is consulted "
@@ -407,6 +420,7 @@ def state() -> dict:
             "two frames doing the same job, which no image comparison would find",
             "an export while any of the four gates has not run",
             "two verdicts for one gate, which lets somebody choose which to read",
+            "generated product imagery (an AI concept) in any listing role (F-852)",
         ],
         "note": ("AssetClass says what an asset is made of; purpose says what it is allowed "
                  "to do. A technically correct chart cannot be promoted to hero merely "
@@ -439,6 +453,7 @@ def state() -> dict:
 LEGACY_PRE_CALIBRATION = "LEGACY_PRE_CALIBRATION"
 FIRST_CUSTOMER_BLOCKING = "FIRST_CUSTOMER_BLOCKING"
 NOT_CERTIFIED = "NOT_CERTIFIED"
+RETIRED_DUPLICATE = "RETIRED_DUPLICATE"
 
 
 def legacy_status(slug: str, certificate: dict | None) -> dict:
@@ -486,6 +501,15 @@ def product_publication(db, slug: str, version: str, *, listing=None, frames=Non
     if not certified:
         reasons.append({"code": NOT_CERTIFIED,
                         "why": f"{slug}@{version} has no certified release on file"})
+    # PT-11: a retired concept slug whose pattern is a Launch-0 variant is never published --
+    # the same pattern under two slugs, one of them outside the first-customer gate.
+    from ..products.launch0 import LEGACY_DUPLICATES
+
+    retired = LEGACY_DUPLICATES.get(slug)
+    if retired is not None:
+        reasons.append({"code": RETIRED_DUPLICATE, "why": (
+            f"{slug} is retired ({retired['retired_on']}): {retired['why']}. Publish "
+            f"{', '.join(retired['superseded_by'])} instead")})
     legacy = legacy_status(slug, certificate)
     if not legacy["cleared"]:
         reasons.append({"code": LEGACY_PRE_CALIBRATION, "why": legacy["why"]})
@@ -494,8 +518,11 @@ def product_publication(db, slug: str, version: str, *, listing=None, frames=Non
     if legacy["in_launch_scope"] and cir_json:
         if first_customer is None:
             from ..gates.first_customer import blocking as first_customer
+        # PT-02: the gate reads the database -- the stored calibration and content-bound
+        # physical samples, and the disclosed set with its certificate -- so evidence the
+        # owner produces can clear it. Without it the gate could never clear.
         blocking = first_customer(CIR.from_dict(cir_json), listing=listing, frames=frames,
-                                  store=store)
+                                  store=store, db=db, version=version)
         for check in blocking:
             reasons.append({"code": FIRST_CUSTOMER_BLOCKING,
                             "why": f"{check['area']}: {check['state']} -- "

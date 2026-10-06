@@ -40,7 +40,8 @@ def _db():
 
 # CB2-P05 fixture: these tests certified nordic-forest-mosaic-throw, which no longer certifies
 # under the strict gauge gate (GAUGE_OUTSIDE_DECLARED_YARN_BAND, 6747ddd). They use
-# hexie-coaster-set, a Launch-0 product that certifies as built. The gate is unchanged.
+# hexagon-coaster-set, a Launch-0 product that certifies as built (PT-11 retired its old
+# alias hexie-coaster-set). The gate is unchanged.
 def _certify(db, slug):
     from brambleloop.runtime.pipeline import _engineered_cir
 
@@ -66,7 +67,7 @@ def test_a_release_whose_advantages_every_benchmark_matches_is_withheld_and_not_
     db = _db()
     _benchmark(db, {"pattern_correctness_evidence": 5, "listing_promise_alignment": 5,
                     "materials_clarity": 5, "support_experience": 5, "chart_quality": 5})
-    cir, out = _certify(db, "hexie-coaster-set")
+    cir, out = _certify(db, "hexagon-coaster-set")
     assert out["granted"] and out.get("withheld") is True, out
     with db.session() as s:
         pv = s.scalar(select(PatternVersion))
@@ -89,10 +90,10 @@ def test_an_advantage_beyond_the_best_benchmark_lets_the_release_proceed():
     # CB2-P04: "beyond" needs this release's own measured score on the same dimension, above
     # the benchmark's. A self-teardown finding (fixture) supplies it.
     with db.session() as s:
-        s.add(TeardownFinding(benchmark_ref=f"{lab.SELF_PREFIX}hexie-coaster-set",
+        s.add(TeardownFinding(benchmark_ref=f"{lab.SELF_PREFIX}hexagon-coaster-set",
                               dimension="pattern_correctness_evidence", score=4,
                               mechanism="fixture", improvement="fixture"))
-    cir, out = _certify(db, "hexie-coaster-set")
+    cir, out = _certify(db, "hexagon-coaster-set")
     assert not out.get("withheld"), out
     with db.session() as s:
         qa = [r.detail for r in s.scalars(select(AuditLog).where(
@@ -137,7 +138,7 @@ def test_a_low_benchmark_without_our_own_score_is_unmeasured_not_beyond():
 
 def test_with_no_benchmark_scored_the_comparison_is_unmeasured_not_a_pass():
     db = _db()
-    cir, out = _certify(db, "hexie-coaster-set")
+    cir, out = _certify(db, "hexagon-coaster-set")
     with db.session() as s:
         qa = [r.detail for r in s.scalars(select(AuditLog).where(
             AuditLog.action == lab.ACTION_QA))][-1]
@@ -148,7 +149,7 @@ def test_with_no_benchmark_scored_the_comparison_is_unmeasured_not_a_pass():
 
 def test_delight_is_measured_from_the_products_artefacts_and_the_weakest_is_acted_on():
     db = _db()
-    cir, out = _certify(db, "hexie-coaster-set")
+    cir, out = _certify(db, "hexagon-coaster-set")
     qa = lab.product_qa(db, cir.slug)
     delight = qa["delight"]
     assert delight["answerable"] is True
@@ -171,7 +172,7 @@ def test_customization_and_support_are_read_from_this_releases_own_artefacts():
     from brambleloop.core.models import ArtefactProvenance
 
     db = _db()
-    cir, out = _certify(db, "hexie-coaster-set")
+    cir, out = _certify(db, "hexagon-coaster-set")
     scores = lab.measured_self_scores(db, cir.slug)
     assert scores["customization"]["score"] == 3
     assert "one certified size" in scores["customization"]["evidence"]

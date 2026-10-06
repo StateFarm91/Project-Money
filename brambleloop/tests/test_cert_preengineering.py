@@ -252,8 +252,10 @@ def test_cir_draft_refuses_a_new_concept_enqueued_directly():
 
 
 def test_cir_draft_still_rebuilds_an_established_design():
+    # PT-11: the coaster is engineered under its Launch-0 slug; the retired concept slug
+    # `hexie-coaster-set` is routed to it (tests/test_launch0_listing_truth.py).
     db = _db()
-    out = _run(db, "crochet_engineer", "cir.draft", {"slug": "hexie-coaster-set"})
+    out = _run(db, "crochet_engineer", "cir.draft", {"slug": "hexagon-coaster-set"})
     assert out.get("engineered") is True
     assert _jobs(db, "cir.compile")
 
@@ -400,7 +402,7 @@ def _certify(db, slug: str) -> None:
 
 def test_gate_lanes_routes_certified_products_and_plans_their_testing():
     db = _db()
-    for slug in ("hexie-coaster-set", "market-basket-trio", "nordic-forest-mosaic-throw"):
+    for slug in ("hexagon-coaster-set", "market-basket-medium", "nordic-forest-mosaic-throw"):
         _certify(db, slug)
     with db.session() as s:
         assert len(list(s.scalars(select(PatternVersion)
@@ -411,7 +413,7 @@ def test_gate_lanes_routes_certified_products_and_plans_their_testing():
     assert out["products"] == 3
     acts = _actions(db)
     routed = {r.artifact.split("@")[0]: r.detail for r in acts["gate.lane_routed"]}
-    assert set(routed) == {"hexie-coaster-set", "market-basket-trio",
+    assert set(routed) == {"hexagon-coaster-set", "market-basket-medium",
                            "nordic-forest-mosaic-throw"}
     for detail in routed.values():
         assert detail["release"]["ok"] is True, detail["release"]
@@ -433,36 +435,36 @@ def test_gate_lanes_routes_certified_products_and_plans_their_testing():
 
 def test_gate_lanes_assigns_a_qualified_tester_and_never_outside_a_specialty():
     db = _db()
-    _certify(db, "market-basket-trio")
-    _certify(db, "hexie-coaster-set")
+    _certify(db, "market-basket-medium")
+    _certify(db, "hexagon-coaster-set")
     with db.session() as s:
         # Fixture testers: one who has tested a coaster (kitchen_bath) twice.
         for i in range(2):
-            s.add(PhysicalTest(product_slug="hexie-coaster-set", version="1.0.0",
+            s.add(PhysicalTest(product_slug="hexagon-coaster-set", version="1.0.0",
                                tester_ref="fixture-tester-a", passed=True))
     handlers.get("gate.lanes")(_ctx(db, "quality_director", "gate.lanes",
                                     {"as_of": TODAY.isoformat()}))
     plan = _actions(db)["quality.tester_plan"][0].detail
-    basket = next(d for d in plan["demands"] if d["product_slug"] == "market-basket-trio")
+    basket = next(d for d in plan["demands"] if d["product_slug"] == "market-basket-medium")
     assigned = {a["product_slug"] for a in plan["assignments"]}
     if basket["specialty"] != "kitchen_bath":
-        assert "market-basket-trio" not in assigned, "assigned outside the tester's specialty"
-        assert any(u["product_slug"] == "market-basket-trio" for u in plan["unassigned"])
+        assert "market-basket-medium" not in assigned, "assigned outside the tester's specialty"
+        assert any(u["product_slug"] == "market-basket-medium" for u in plan["unassigned"])
 
 
 def test_gate_lanes_withdraws_a_release_that_skipped_an_owed_gate():
     db = _db()
-    _certify(db, "hexie-coaster-set")
+    _certify(db, "hexagon-coaster-set")
     with db.session() as s:
         pv = s.scalar(select(PatternVersion))
         cert = dict(pv.certificate)
         cert["stages_run"] = [x for x in cert["stages_run"] if x != "reverse"]
         pv.certificate = cert
-        s.add(Listing(product_slug="hexie-coaster-set", version=pv.version, title="t",
+        s.add(Listing(product_slug="hexagon-coaster-set", version=pv.version, title="t",
                       description="", tags=[], price_cad=4.5))
     out = handlers.get("gate.lanes")(_ctx(db, "quality_director", "gate.lanes",
                                           {"as_of": TODAY.isoformat()}))
-    assert out["release_refused"] == ["hexie-coaster-set"]
+    assert out["release_refused"] == ["hexagon-coaster-set"]
     assert "reverse" in _actions(db)["gate.lane_release_refused"][0].detail["why"]
     with db.session() as s:
         states = {row.state for row in s.scalars(select(Listing))}

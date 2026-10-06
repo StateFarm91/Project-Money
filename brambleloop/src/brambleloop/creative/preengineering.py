@@ -114,6 +114,13 @@ def established(db, slug: str) -> str | None:
 
     if slug in ENGINEERED:
         return "an engineered catalogue design: re-drafting it is a rebuild, not a new concept"
+    from ..products.launch0 import LEGACY_DUPLICATES
+
+    # PT-11: a retired concept slug whose design is a Launch-0 variant is not a new concept
+    # either; `cir.draft` routes it to the Launch-0 slugs instead of drafting it.
+    if slug in LEGACY_DUPLICATES:
+        return ("a retired alias of an engineered Launch-0 design: re-drafting it routes to "
+                f"{', '.join(LEGACY_DUPLICATES[slug]['superseded_by'])}, not a new concept")
     if any(design.slug == slug for design in CATALOGUE.values()):
         return "a generated catalogue design: re-drafting it is a rebuild, not a new concept"
     if db is not None:

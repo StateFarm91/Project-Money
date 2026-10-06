@@ -407,8 +407,16 @@ ENGINEERED: dict[str, str] = {
     # Both of these were flat rectangles named for shapes they did not make: the basket was a
     # side panel with no seaming instructions, the "hexagon" coaster had the same stitch
     # count on every row. They are worked in the round now (B-059).
-    "market-basket-trio": "brambleloop.products.vessels:build",
-    "hexie-coaster-set": "brambleloop.products.vessels:build_hexagon_coaster",
+    #
+    # PT-11: they were registered here under the radar concepts' slugs (`market-basket-trio`,
+    # `hexie-coaster-set`), which made the medium Launch-0 basket and the Launch-0 coaster set
+    # buildable as second, out-of-scope products. The Launch-0 variants are the engineered
+    # designs now, under their own slugs; the concept slugs are retired
+    # (`products.launch0.LEGACY_DUPLICATES`) and routed to these by `cir.draft`.
+    "market-basket-small": "launch0:basket_small",
+    "market-basket-medium": "launch0:basket_medium",
+    "market-basket-large": "launch0:basket_large",
+    "hexagon-coaster-set": "launch0:hexagon_coasters",
     # And three more named for techniques their patterns could not contain: a cable throw
     # with no crossing, a bobble pillow with no bobble, a ribbed scarf with no rib. All three
     # were plain sc/dc colourwork (B-080).
@@ -424,6 +432,11 @@ def _engineered_cir(slug: str, version: str | None = None) -> CIR | None:
     releases), and a caller defaulting to "1.0.0" here would stamp new content with the old
     release number."""
     module_path = ENGINEERED.get(slug)
+    if module_path and module_path.startswith("launch0:"):
+        # A Launch-0 variant keeps its own slug: it is the product, not a concept's headline.
+        from ..products import launch0 as l0
+
+        return l0.cir_for(module_path.partition(":")[2], version)
     if module_path:
         import importlib
 
@@ -443,6 +456,26 @@ def _engineered_cir(slug: str, version: str | None = None) -> CIR | None:
 @handlers.register("cir.draft")
 def handle_cir_draft(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
+
+    # PT-11: a retired concept slug whose design is a Launch-0 variant is routed to the
+    # Launch-0 slugs, recorded, and never drafted under its own name.
+    from ..products import launch0 as _l0
+
+    retired = _l0.LEGACY_DUPLICATES.get(slug)
+    if retired is not None:
+        routed = []
+        for target in retired["superseded_by"]:
+            cir = _engineered_cir(target)
+            if cir is None:      # pragma: no cover - every target is in ENGINEERED
+                continue
+            ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                        idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+            routed.append(f"{cir.slug}@{cir.version}")
+        ctx.audit("cir.draft_routed", artifact=slug,
+                  detail={"retired_alias": slug, "candidate": retired["candidate"],
+                          "routed_to": routed, "why": retired["why"]})
+        return {"artifact": slug, "drafted": False, "retired_alias": True,
+                "routed_to": routed}
 
     # A bundle is not a pattern. Drafting one produced a certified "Nordic Forest Collection
     # Bundle" whose PDF was a twelve-row striped panel -- a product that would have been sold
@@ -629,6 +662,71 @@ def handle_cir_compile(ctx: JobContext) -> dict:
             "counts": result.counts(cir.components[0].name)}
 
 
+def _certify_listing(ctx: JobContext, cir: CIR):
+    """The listing copy the certificate examines, and a record of where it came from (PT-01).
+
+    This was a hard-coded placeholder tagged "mosaic blanket" and priced CA$11.99 for every
+    product, so the certificate never saw the copy a buyer would read. Now, in order:
+
+    1. the REAL stored listing for this slug@version, when one exists and names the product
+       the CIR makes (`first_customer.product_type_findings`). A stored copy that names
+       another product is recorded as refused -- the publish gate refuses it too -- and is
+       not attested; listing.seo re-drafts it after a grant.
+    2. otherwise a draft from the product's own record: its Launch-0 identity or its radar
+       seed, with that record's kind and price. No default product type.
+    3. with no record at all, no listing is examined (None), and that is recorded.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..gates import first_customer
+    from ..products import launch0 as l0
+
+    with ctx.db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == cir.slug,
+                                             Listing.version == cir.version))
+        stored = None if row is None else {
+            "title": row.title or "", "description": row.description or "",
+            "tags": list(row.tags or []), "price_cad": float(row.price_cad or 0.0)}
+    refused: list[str] = []
+    if stored is not None:
+        refused = first_customer.product_type_findings(cir, title=stored["title"],
+                                                       tags=stored["tags"])
+        if not refused:
+            return (ListingDraft(**stored),
+                    {"source": "stored Listing row", "title": stored["title"][:140]})
+        ctx.audit("gate.listing_copy_refused", artifact=f"{cir.slug}@{cir.version}",
+                  detail={"findings": refused[:5], "title": stored["title"][:140],
+                          "tags": stored["tags"][:13],
+                          "why": "the stored copy names a product the CIR does not make; it "
+                                 "is not attested and publication refuses it"})
+
+    identity = l0.listing_identity(cir.slug)
+    seed = _seed_for(cir.slug)
+    if identity is not None:
+        launch = l0.launch_price(cir.slug) or {}
+        kind, price = identity.kind, launch.get("price_cad") or l0.candidate_for_cir(
+            cir.slug).price.proposed_cad
+        source = "products.launch0 listing identity"
+    elif seed is not None:
+        kind, price = seed.category.replace("_", " "), seed.price_cad
+        source = f"radar.pool:{seed.slug}"
+    else:
+        return None, {"source": None, "stored_copy_refused": refused,
+                      "why": "no stored listing and no product record: no copy examined"}
+    draft = ListingDraft(
+        title=f"{cir.title} | Crochet Pattern PDF with Charts",
+        description=(f"{cir.title}. Written pattern with stitch counts for every row, "
+                     f"as two PDFs -- one written throughout in US terms and one in UK "
+                     f"terms. Drafted and checked with AI assistance and validated by an "
+                     f"automated pattern compiler before release."),
+        # The product's own kind, as a tag (Etsy caps a tag at 20 characters).
+        tags=["crochet pattern", kind[:20].strip(), "pdf pattern"],
+        price_cad=float(price),
+    )
+    return draft, {"source": source, "title": draft.title, "stored_copy_refused": refused}
+
+
 @handlers.register("gate.certify")
 def handle_certify(ctx: JobContext) -> dict:
     cir = CIR.from_dict(ctx.job.inputs["cir"])
@@ -651,15 +749,7 @@ def handle_certify(ctx: JobContext) -> dict:
         is_hero=True,
         claims=Claims(materials=[m.name for m in cir.materials]),
     )
-    listing = ListingDraft(
-        title=f"{cir.title} | Crochet Pattern PDF with Charts",
-        description=(f"{cir.title}. Written pattern with stitch counts for every row, "
-                     f"as two PDFs -- one written throughout in US terms and one in UK "
-                     f"terms. Drafted and checked with AI assistance and validated by an "
-                     f"automated pattern compiler before release."),
-        tags=["crochet pattern", "mosaic blanket", "pdf pattern"],
-        price_cad=11.99,
-    )
+    listing, listing_reading = _certify_listing(ctx, cir)
 
     from ..quality.physical import calibration_from_db
 
@@ -685,6 +775,8 @@ def handle_certify(ctx: JobContext) -> dict:
               # `content_hash` is recorded granted or not: it is what a tester's sample,
               # recorded later without a hash of its own, is bound to (F-078).
               detail={"granted": cert.granted, "reasons": cert.blocking_reasons[:5],
+                      # PT-01: which listing copy the certificate examined, and why.
+                      "listing_examined": listing_reading,
                       "content_hash": cert.content_hash,
                       "physical_test_required": cert.physical_test_required,
                       "physical_evidence": cert.physical_evidence})
@@ -1655,7 +1747,11 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     if outcome.listing_id:
         readback = etsy_ops.read_back(
             client, outcome.listing_id, sent=etsy_ops.sent_fields(payload),
-            expected_files=expected_files, expected_images=len(listing_images["images"]))
+            expected_files=expected_files, expected_images=len(listing_images["images"]),
+            # PT-12: the certified alt text (the disclosure) is read back from Etsy too.
+            expected_alt_texts=[str(getattr(e, "alt_text", "") or
+                                    (e[2] if len(e) > 2 else "") or "")
+                                for e in listing_images["images"]])
     published = bool(outcome.published and outcome.activatable and not extra_problems
                      and readback["verified"])
 

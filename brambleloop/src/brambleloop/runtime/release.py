@@ -218,6 +218,39 @@ def _seed_for(slug: str):
     return next((s for s in POOL if slug.startswith(s.slug) or s.slug == slug), None)
 
 
+UNKNOWN_PRODUCT = "UNKNOWN_PRODUCT"
+
+
+def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
+    """What this product IS, read from its own record -- never a default (PT-01).
+
+    A Launch-0 product answers from `products.launch0.listing_identity`: its kind, its Etsy
+    category intent and its listing vocabulary, keyed exactly on the CIR slug. Anything else
+    answers from its radar seed, or from a category the job was explicitly handed. None means
+    nobody has said what this product is, and the caller refuses: this used to fall back to
+    `mosaic_blanket`, which is how a basket was titled, tagged, priced and filed as a blanket.
+    """
+    identity = products_launch0.listing_identity(slug)
+    if identity is not None:
+        cand = products_launch0.candidate_for_cir(slug)
+        return {"category": identity.etsy_category, "kind": identity.kind,
+                "nouns": list(identity.nouns), "motifs": list(identity.qualifiers),
+                "techniques": list(identity.techniques), "season": None,
+                "launch0": slug in products_launch0.launch_scope_slugs(),
+                "source": f"products.launch0:{cand.slug if cand else slug}"}
+    seed = _seed_for(slug)
+    if seed is not None:
+        return {"category": seed.category, "kind": seed.category, "nouns": [],
+                "motifs": _motifs_for(slug), "techniques": None, "season": seed.season,
+                "launch0": False, "source": f"radar.pool:{seed.slug}"}
+    category = (inputs or {}).get("category")
+    if category:
+        return {"category": str(category), "kind": str(category), "nouns": [],
+                "motifs": _motifs_for(slug), "techniques": None, "season": None,
+                "launch0": False, "source": "job inputs"}
+    return None
+
+
 @handlers.register("assets.build")
 def handle_assets_build(ctx: JobContext) -> dict:
     """Render the customer PDF and charts from the certified CIR, and record their hashes.
@@ -547,8 +580,20 @@ def _pricing_net_inputs(db, slug: str) -> dict:
 def handle_pricing_position(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
+    record = _product_record(slug, i)
+    if record is None:
+        # PT-01: no default product type, so no default price band either.
+        ctx.audit("pricing.refused", artifact=slug, detail={
+            "code": UNKNOWN_PRODUCT, "stopped": "listing.seo not enqueued",
+            "why": "no product record names what this product is (no Launch-0 identity, no "
+                   "radar seed, no category in the job): it is not priced from another "
+                   "product's band"})
+        return {"slug": slug, "refused": True, "code": UNKNOWN_PRODUCT, "stopped": True}
+    launch = products_launch0.launch_price(slug) if record["launch0"] else None
+    if record["launch0"]:
+        return _price_launch0(ctx, i, slug, record, launch)
     seed = _seed_for(slug)
-    category = seed.category if seed else "mosaic_blanket"
+    category = record["category"]
     band = CATEGORY_BANDS_CAD.get(category, DEFAULT_BAND)
     sizes = len(ctx.job.inputs.get("sizes") or []) or 1
     is_bundle = bool(seed and seed.is_bundle)
@@ -631,6 +676,59 @@ def handle_pricing_position(ctx: JobContext) -> dict:
                 idempotency_key=chain_key("seo", slug, i["version"], i.get("release", ""),
                                           i.get("rebuild", "")))
     return decision.to_dict()
+
+
+def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
+                   launch: dict | None) -> dict:
+    """PT-04: a Launch-0 product is priced from its own plan, with the basis recorded.
+
+    `products.launch0.price_plan` runs the candidate's researched band and proposal through
+    `commerce.pricing.decide_price` (floor, ceiling, fee arithmetic). The radar category band,
+    the outcome anchor and the per-visitor guard are not consulted: they priced a CA$4 coaster
+    set at CA$14. A plan price outside the candidate's band, or one the pricing module
+    refused, stops the chain here rather than reaching a listing.
+    """
+    if launch is None or launch.get("price_cad") is None:
+        ctx.audit("pricing.refused", artifact=slug, detail={
+            "code": UNKNOWN_PRODUCT, "stopped": "listing.seo not enqueued",
+            "why": f"Launch-0 product {slug} has no price plan on its candidate"})
+        return {"slug": slug, "refused": True, "code": UNKNOWN_PRODUCT, "stopped": True}
+    if not launch["within_plan_band"]:
+        ctx.audit("pricing.refused", artifact=slug, detail={
+            **{k: launch[k] for k in ("price_cad", "band_cad", "proposed_cad", "basis")},
+            "code": "OUTSIDE_PLAN_BAND", "stopped": "listing.seo not enqueued"})
+        return {"slug": slug, "refused": True, "code": "OUTSIDE_PLAN_BAND", "stopped": True,
+                "price_cad": launch["price_cad"], "band_cad": launch["band_cad"]}
+
+    from ..commerce import elasticity
+    from ..commerce.order_readings import directives
+
+    guard = directives(ctx.db)
+    sale_allowed = not (slug in guard["discount_refused"]
+                        or slug in guard["promotion_do_not_repeat"])
+    if not sale_allowed:
+        i.pop("promotion", None)
+    i["sale_allowed"] = sale_allowed
+    price = float(launch["price_cad"])
+    pricing_mod.check_no_fake_discount(price, None, ever_charged=False)
+    price_point = elasticity.record_price_set(
+        ctx.db, product_slug=slug, category=record["category"], price_cad=price,
+        season="evergreen")
+    detail = {"price_cad": price, "net_cad": launch["net_cad_after_fees"],
+              "band_cad": list(launch["band_cad"]), "band_basis": launch["band_basis"],
+              "proposed_cad": launch["proposed_cad"], "basis": launch["basis"],
+              "candidate": launch["candidate"], "reasons": list(launch["reasons"]),
+              "warnings": list(launch["warnings"]), "price_point": price_point,
+              "product_record": record["source"]}
+    ctx.audit("pricing.positioned", artifact=slug, detail=detail)
+    i.update({"price_cad": price, "net_cad": launch["net_cad_after_fees"],
+              "pricing_reasons": list(launch["reasons"]),
+              "pricing_warnings": list(launch["warnings"]),
+              "pricing_basis": launch["basis"], "category": record["category"]})
+    ctx.enqueue("listing", "listing.seo", i,
+                idempotency_key=chain_key("seo", slug, i["version"], i.get("release", ""),
+                                          i.get("rebuild", "")))
+    return detail
 
 
 OUTCOME_ANCHOR_MIN_LISTINGS = 5
@@ -721,15 +819,25 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     cir = _load_cir(ctx, slug, version)
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
-    seed = _seed_for(slug)
-    category = i.get("category") or (seed.category if seed else "mosaic_blanket")
-    season = seed.season if seed else None
+    # PT-01: the title, tags and category come from the product's own record. A product
+    # nobody has described is refused here -- there is no default product type.
+    record = _product_record(slug, i)
+    if record is None:
+        why = (f"{UNKNOWN_PRODUCT}: no product record names what {slug} is (no Launch-0 "
+               f"identity, no radar seed, no category in the job); no listing is drafted "
+               f"under another product's type")
+        ctx.audit("listing.seo_blocked", artifact=f"{slug}@{version}",
+                  detail={"blocking": [why], "code": UNKNOWN_PRODUCT})
+        return {"slug": slug, "version": version, "ok": False, "blocking": [why]}
+    category = (record["category"] if record["launch0"]
+                else (i.get("category") or record["category"]))
+    season = record["season"]
     # #297: a pivot to evergreen removes the seasonal premise from the copy -- no season in
     # the title and none in the query set -- rather than relabelling a Christmas listing.
     evergreen = i.get("positioning") == "evergreen"
     if evergreen:
         season = None
-    motifs = _motifs_for(slug)
+    motifs = list(record["motifs"])
 
     tolerance_pct = int(twin.yardage_tolerance * 100)
     yardage_lines = [
@@ -763,7 +871,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # Tags come from the query model rather than a fixed template: thirteen slots are
     # scarce, and spending them on head terms a shop with no history cannot place for is the
     # most common way a new listing is invisible.
-    techniques = ["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]
+    techniques = (list(record["techniques"]) if record["techniques"] is not None else
+                  (["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]))
     queries = search_mod.build_query_set(category, motifs, season, techniques,
                                          difficulty=difficulty)
     # #293: the phrases buyers were observed using for this product's facets join the query
@@ -937,8 +1046,21 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     tag_problems = search_mod.tags_truth(copy.tags, difficulty=difficulty)
     attribute_problems = search_mod.attribute_truth(attributes, difficulty=difficulty,
                                                     colors=colors, season=season)
+    # PT-01: the title and tags name the product the CIR makes, and no fabric it cannot make.
+    # Blocking for Launch-0 (the first customer's listings); recorded for the rest of the
+    # catalogue, whose CIR titles predate the vocabulary.
+    from ..gates import first_customer as _fc
+
+    identity_problems = (_fc.product_type_findings(cir, title=copy.title, tags=copy.tags)
+                         + _fc.colourwork_findings(cir, twin, title=copy.title, tags=copy.tags))
+    if record["launch0"] and record["kind"] not in _fc.product_type_words_in_cir(cir):
+        identity_problems.append(
+            f"LISTING_PRODUCT_TYPE_UNSUPPORTED: {record['source']} declares a "
+            f"{record['kind']!r} and the CIR ({cir.slug}) names "
+            f"{sorted(_fc.product_type_words_in_cir(cir))}")
     blocking = (structural + [str(f) for f in policy if f.is_error] + class_problems
-                + rights_problems + copy_gate["blocking"] + tag_problems + attribute_problems)
+                + rights_problems + copy_gate["blocking"] + tag_problems + attribute_problems
+                + (identity_problems if record["launch0"] else []))
 
     # F-004: the holistic search certificate. Category, properties, copy, tags and the
     # description must all pass; the hero is completed at publish by release_gates.
@@ -982,7 +1104,10 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                       "buyer_language": {k: v for k, v in buyer.items() if k != "queries"},
                       "disclosures_owed": (classification.disclosures
                                            if classification else None),
-                      "rights_screen": rights_reading})
+                      "rights_screen": rights_reading,
+                      "product_record": {k: record[k] for k in ("source", "kind", "category",
+                                                                "launch0")},
+                      "product_identity_findings": identity_problems[:5]})
     if blocking:
         return {"slug": slug, "version": version, "ok": False, "blocking": blocking}
 
@@ -1861,9 +1986,17 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
         f"{name} about {m * (1 - tol):.0f}-{m * (1 + tol):.0f} m"
         for name, m in sorted(twin.yarn_metres_by_color.items())) or "see the pattern"
 
+    record = _product_record(slug, i)
+    if record is None:
+        why = f"{UNKNOWN_PRODUCT}: no product record names what {slug} is"
+        ctx.audit("marketing.blocked", artifact=f"{slug}@{version}",
+                  detail={"reasons": [why], "published": False})
+        return {"slug": slug, "version": version, "pieces": 0, "blocked": True,
+                "problems": [why], "published": False}
     facts = content_mod.ProductFacts(
         slug=slug, title=cir.title,
-        category=seed.category if seed else "mosaic_blanket",
+        category=(record["category"] if record["launch0"]
+                  else (i.get("category") or record["category"])),
         size_label=i.get("size_label"),
         difficulty=_difficulty(twin, cir),
         stitches=sorted(twin.stitch_types_used),
@@ -6558,7 +6691,8 @@ def handle_lane_routing(ctx: JobContext) -> dict:
     seeds = {seed.slug: seed for seed in POOL}
     demand_rows = []
     for card in routed["products"]:
-        profile, seed = card.get("profile"), seeds.get(card["slug"])
+        profile, seed = card.get("profile"), (seeds.get(card["slug"])
+                                              or lanes._launch0_seed(card["slug"]))
         if not profile or seed is None:
             continue
         event = _event(seed.season) if seed.season else None

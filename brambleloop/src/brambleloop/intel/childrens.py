@@ -601,12 +601,13 @@ STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
                     "for this audience rather than a convenience"),
         heading="Fibre and washing",
         text=("This pattern is written for {fibres} yarn{colour_clause}. For a child's item "
-              "washability is hygiene rather than convenience: it will be mouthed, dribbled "
-              "on and washed far more often than an adult's version of the same object, so "
-              "choose a yarn you can machine wash, and wash the finished item before it is "
-              "used. What governs your own item is the yarn you actually bought -- follow "
-              "its ball band for temperature, drying and pressing. We state the fibre this "
-              "pattern was written for; we do not state a fibre content for your finished "
+              "washability is hygiene rather than convenience: anything kept near a small "
+              "child can end up within reach of hands and mouths, and is washed more often "
+              "than an adult's version of the same object, so choose a yarn you can "
+              "machine wash, and wash the finished item before it is used. What governs "
+              "your own item is the yarn you actually bought -- follow its ball band for "
+              "temperature, drying and pressing. We state the fibre this pattern was "
+              "written for; we do not state a fibre content for your finished "
               "item, because the yarn in your hands is what decides that."),
         marker="washability is hygiene rather than convenience",
         source=None,
