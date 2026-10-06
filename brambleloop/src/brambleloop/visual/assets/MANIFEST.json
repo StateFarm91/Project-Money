@@ -1,25 +1,23 @@
 {
-  "_what_this_is": "Every image committed under visual/assets, with the sha256 of the bytes and the role those bytes play. brief.asset_manifest() reads it; brief.approved_portrait() refuses to hand out a face whose bytes do not match the approved_face entry; freeze.reference_paths() refuses any reference whose bytes do not match the frozen pack's reference_hashes. Roles: approved_face is the one face the owner approved on 2026-09-22 and the only committed asset a render may be conditioned on; superseded_body frames are the pre-revision body the owner replaced and are never a fallback reference; owner_concept is the owner's own generated concept, the direction the pack was built from, and not the model. MANIFEST v2 (2026-10-06, D-FB-11): `identity` names the canonical identity (Laura, laura-v15-a42aeac7); `assets` keeps the five top-level files brief.py reads, now with bytes/dimensions/provenance/forbidden_as_fallback; `library` lists the versioned canonical/ and historical/ frames under canonical/<identity_id>/; `missing_canonical` lists the frozen v15 frames whose bytes exist only in production; `not_committed_historical` records hashes of held frames deliberately left out. visual/canonical.py verifies all of it and tests/test_canon_manifest.py fails on any change.",
+  "_what_this_is": "Every image committed under visual/assets, with the sha256 of the bytes and the role those bytes play. brief.asset_manifest() reads it; brief.approved_portrait() refuses to hand out a face whose bytes do not match the approved_face entry; freeze.reference_paths() refuses any reference whose bytes do not match the frozen pack's reference_hashes. Roles: approved_face is the one face the owner approved on 2026-09-22 and the only committed asset a render may be conditioned on; superseded_body frames are the pre-revision body the owner replaced and are never a fallback reference; owner_concept is the owner's own generated concept, the direction the pack was built from, and not the model. MANIFEST v2 (2026-10-06, D-FB-11): `identity` names the canonical identity (Laura, laura-v15-a42aeac7); `assets` keeps the five top-level files brief.py reads, now with bytes/dimensions/provenance/forbidden_as_fallback; `library` lists the versioned canonical/ and historical/ frames under canonical/<identity_id>/; `missing_canonical` lists the frozen v15 frames whose bytes exist only in production; `not_committed_historical` records hashes of held frames deliberately left out. visual/canonical.py verifies all of it and tests/test_canon_manifest.py fails on any change. Revision 2 (D-FB-14, 2026-10-06): identity laura-r2-a42aeac7 = approved face + owner-approved v6 torso/full-length (moved, byte-identical, from the v6 historical folder into canonical/laura-r2-a42aeac7/reference_pack/); revision 1 (laura-v15-a42aeac7) and its missing frames are kept as history in `revisions` and `missing_canonical`.",
   "manifest_version": 2,
   "identity": {
-    "identity_id": "laura-v15-a42aeac7",
+    "identity_id": "laura-r2-a42aeac7",
     "name": "Laura",
     "what_she_is": "Laura is a persistent AI person and the Founder/CEO of Brambleloop (D-FB-13; supersedes the narrower AI Brand & Customer Experience Director role of D-FB-12). The approved woman is her permanent visual identity and the canonical face of the company (D-FB-11). Her identity, memory, role and history persist independently of any underlying model. Publicly disclosed as an AI; never claimed to be biologically human; no fabricated human experiences. Permanent unless the human owner explicitly changes that decision.",
     "face_sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
-    "frozen_identity_version": "v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is",
-    "frozen_identity_pack_number": 15,
-    "frozen_pack_candidate_fingerprint": "914ee7da716baef7",
-    "frozen_pack_candidate_fingerprint_source": "production GET /api/model-identity/freezable, read 2026-10-06 (unauthenticated, read-only): the v15 build row",
     "registry_row": {
       "key": "brambleloop-canonical",
       "version": 1,
-      "approved_by_owner_at": "2026-09-22T03:52:53.589208+00:00"
+      "approved_by_owner_at": "2026-09-22T03:52:53.589208+00:00",
+      "note": "production registry holds revision 1 (version 1); canonical.adopt_revision moves it to revision 2 under D-FB-14"
     },
     "pack_procedure_version_note": "reference_pack.PACK_VERSION in code (currently v16-...) labels the pack-BUILD procedure, not her identity. The identity is the frozen v15 build. A newer procedure label never means a newer woman.",
     "owner_decision_ids": [
       "D-FB-11",
       "D-FB-12",
-      "D-FB-13"
+      "D-FB-13",
+      "D-FB-14"
     ],
     "identity_rule": "An image depicting a woman similar to Laura is NOT Laura and fails the identity gate.",
     "locked": [
@@ -43,7 +41,24 @@
       "publication_gate"
     ],
     "publication_approved_assets": [],
-    "ruling_spec": "spec/07_Laura_Owner_Ruling_2026-10-06.md"
+    "ruling_spec": "spec/07_Laura_Owner_Ruling_2026-10-06.md",
+    "revision": 2,
+    "revision_decision": "D-FB-14",
+    "revision_approved": {
+      "by": "owner",
+      "at": "2026-10-06",
+      "decision_id": "D-FB-14"
+    },
+    "reference_hashes": {
+      "neutral_portrait": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+      "torso_fit_reference": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+      "full_length_standing": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
+    },
+    "prior_identity_id": "laura-v15-a42aeac7",
+    "prior_frozen_identity_version": "v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is",
+    "prior_frozen_pack_candidate_fingerprint": "914ee7da716baef7",
+    "prior_frozen_pack_candidate_fingerprint_source": "production GET /api/model-identity/freezable, read 2026-10-06 (unauthenticated, read-only): the v15 build row",
+    "change_authority": "Any future change to Laura's canonical identity needs a new owner decision recorded in DECISION_LOG.md and listed in visual/canonical.py AUTHORISED_IDENTITY_CHANGES with its own revision; D-FB-14 is spent once applied."
   },
   "assets": [
     {
@@ -59,7 +74,7 @@
         1024
       ],
       "format": "JPEG",
-      "identity_id": "laura-v15-a42aeac7",
+      "identity_id": "laura-r2-a42aeac7",
       "publication_status": "canonical_reference",
       "forbidden_as_fallback": false,
       "provenance": {
@@ -68,9 +83,13 @@
         "decision_ids": [
           "B-587",
           "B-616",
-          "D-FB-11"
+          "D-FB-11",
+          "D-FB-14"
         ]
-      }
+      },
+      "also_face_of": [
+        "laura-v15-a42aeac7"
+      ]
     },
     {
       "file": "identity_torso_v5.jpg",
@@ -186,7 +205,7 @@
         1024
       ],
       "format": "JPEG",
-      "role": "canonical_reference_pack",
+      "role": "prior_revision_reference",
       "frame": "neutral_portrait",
       "identity_id": "laura-v15-a42aeac7",
       "publication_status": "canonical_reference",
@@ -200,59 +219,7 @@
           "D-FB-11"
         ]
       },
-      "note": "the face frame of the frozen pack. Conditioning still goes through brief.approved_portrait(); this copy exists so the canonical folder is complete"
-    },
-    {
-      "file": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/torso_fit_reference.png",
-      "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
-      "bytes": 1264368,
-      "dimensions": [
-        1024,
-        1024
-      ],
-      "format": "PNG",
-      "role": "historical",
-      "frame": "torso_fit_reference",
-      "historical_label": "v6_post_bust_revision_local_run",
-      "identity_id": "laura-v15-a42aeac7",
-      "publication_status": "not_for_publication",
-      "forbidden_as_fallback": true,
-      "provenance": {
-        "date": "2026-09-21T21:45Z",
-        "run": "pack v6-targeted-bust-revision-measured-against-the-approved-body (local operator run; neutral_portrait carried = a42aeac7)",
-        "decision_ids": [
-          "B-586",
-          "B-587",
-          "D-FB-11"
-        ]
-      },
-      "note": "post-revision evidence with the canonical face carried. NOT proven to be the frozen v15 frame: no recorded sha256 of any v15 body or scene frame exists in the repository, and these bytes do not match the public v16 hashes either"
-    },
-    {
-      "file": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/full_length_standing.png",
-      "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
-      "bytes": 1398003,
-      "dimensions": [
-        1024,
-        1024
-      ],
-      "format": "PNG",
-      "role": "historical",
-      "frame": "full_length_standing",
-      "historical_label": "v6_post_bust_revision_local_run",
-      "identity_id": "laura-v15-a42aeac7",
-      "publication_status": "not_for_publication",
-      "forbidden_as_fallback": true,
-      "provenance": {
-        "date": "2026-09-21T21:45Z",
-        "run": "pack v6-targeted-bust-revision-measured-against-the-approved-body (local operator run; neutral_portrait carried = a42aeac7)",
-        "decision_ids": [
-          "B-586",
-          "B-587",
-          "D-FB-11"
-        ]
-      },
-      "note": "post-revision evidence with the canonical face carried. NOT proven to be the frozen v15 frame: no recorded sha256 of any v15 body or scene frame exists in the repository, and these bytes do not match the public v16 hashes either"
+      "note": "face frame of revision 1 (laura-v15-a42aeac7), superseded by laura-r2-a42aeac7 on D-FB-14; same bytes as the approved face, so not forbidden"
     },
     {
       "file": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/fitted_garment.png",
@@ -278,7 +245,7 @@
           "D-FB-11"
         ]
       },
-      "note": "post-revision evidence with the canonical face carried. NOT proven to be the frozen v15 frame: no recorded sha256 of any v15 body or scene frame exists in the repository, and these bytes do not match the public v16 hashes either"
+      "note": "v6 stress scene, not approved as canonical by D-FB-14 (only the v6 torso and full-length were); historical evidence. NOT proven to be a frozen-v15 frame"
     },
     {
       "file": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/fitted_garment_close.png",
@@ -304,7 +271,7 @@
           "D-FB-11"
         ]
       },
-      "note": "post-revision evidence with the canonical face carried. NOT proven to be the frozen v15 frame: no recorded sha256 of any v15 body or scene frame exists in the repository, and these bytes do not match the public v16 hashes either"
+      "note": "v6 stress scene, not approved as canonical by D-FB-14 (only the v6 torso and full-length were); historical evidence. NOT proven to be a frozen-v15 frame"
     },
     {
       "file": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/loose_layered_garment.png",
@@ -330,7 +297,7 @@
           "D-FB-11"
         ]
       },
-      "note": "post-revision evidence with the canonical face carried. NOT proven to be the frozen v15 frame: no recorded sha256 of any v15 body or scene frame exists in the repository, and these bytes do not match the public v16 hashes either"
+      "note": "v6 stress scene, not approved as canonical by D-FB-14 (only the v6 torso and full-length were); historical evidence. NOT proven to be a frozen-v15 frame"
     },
     {
       "file": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/non_garment_lifestyle.png",
@@ -356,7 +323,7 @@
           "D-FB-11"
         ]
       },
-      "note": "post-revision evidence with the canonical face carried. NOT proven to be the frozen v15 frame: no recorded sha256 of any v15 body or scene frame exists in the repository, and these bytes do not match the public v16 hashes either"
+      "note": "v6 stress scene, not approved as canonical by D-FB-14 (only the v6 torso and full-length were); historical evidence. NOT proven to be a frozen-v15 frame"
     },
     {
       "file": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/winter_seasonal.png",
@@ -382,7 +349,7 @@
           "D-FB-11"
         ]
       },
-      "note": "post-revision evidence with the canonical face carried. NOT proven to be the frozen v15 frame: no recorded sha256 of any v15 body or scene frame exists in the repository, and these bytes do not match the public v16 hashes either"
+      "note": "v6 stress scene, not approved as canonical by D-FB-14 (only the v6 torso and full-length were); historical evidence. NOT proven to be a frozen-v15 frame"
     },
     {
       "file": "canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/neutral_portrait.png",
@@ -539,6 +506,85 @@
         ]
       },
       "note": "pre-revision body (superseded bust); kept as owner-viewed identity evidence across scenes"
+    },
+    {
+      "file": "canonical/laura-r2-a42aeac7/reference_pack/neutral_portrait.jpg",
+      "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+      "bytes": 229232,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "format": "JPEG",
+      "role": "canonical_reference_pack",
+      "frame": "neutral_portrait",
+      "identity_id": "laura-r2-a42aeac7",
+      "publication_status": "canonical_reference",
+      "forbidden_as_fallback": false,
+      "provenance": {
+        "date": "2026-09-21",
+        "run": "byte-identical copy of identity_portrait.jpg, the approved face (unchanged by D-FB-14)",
+        "decision_ids": [
+          "B-587",
+          "D-FB-11",
+          "D-FB-14"
+        ]
+      },
+      "note": "face frame of revision 2. Conditioning still goes through brief.approved_portrait()"
+    },
+    {
+      "file": "canonical/laura-r2-a42aeac7/reference_pack/torso_fit_reference.png",
+      "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+      "bytes": 1264368,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "format": "PNG",
+      "role": "canonical_reference_pack",
+      "frame": "torso_fit_reference",
+      "identity_id": "laura-r2-a42aeac7",
+      "publication_status": "canonical_reference",
+      "forbidden_as_fallback": false,
+      "provenance": {
+        "date": "2026-09-21T21:45Z",
+        "run": "pack v6-targeted-bust-revision-measured-against-the-approved-body (local operator run; face carried = a42aeac7). v6 bust-revision run 2026-09-21, owner-approved as canonical body references 2026-10-06",
+        "approved_as_canonical": "2026-10-06",
+        "approved_by": "owner",
+        "decision_ids": [
+          "B-586",
+          "D-FB-14"
+        ],
+        "moved_from": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/torso_fit_reference.png"
+      },
+      "note": "canonical body/proportion reference of revision 2 by owner decision D-FB-14. These are the v6 run's frames, NOT the missing frozen-v15 frames (still recorded as missing_canonical of revision 1)"
+    },
+    {
+      "file": "canonical/laura-r2-a42aeac7/reference_pack/full_length_standing.png",
+      "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
+      "bytes": 1398003,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "format": "PNG",
+      "role": "canonical_reference_pack",
+      "frame": "full_length_standing",
+      "identity_id": "laura-r2-a42aeac7",
+      "publication_status": "canonical_reference",
+      "forbidden_as_fallback": false,
+      "provenance": {
+        "date": "2026-09-21T21:45Z",
+        "run": "pack v6-targeted-bust-revision-measured-against-the-approved-body (local operator run; face carried = a42aeac7). v6 bust-revision run 2026-09-21, owner-approved as canonical body references 2026-10-06",
+        "approved_as_canonical": "2026-10-06",
+        "approved_by": "owner",
+        "decision_ids": [
+          "B-586",
+          "D-FB-14"
+        ],
+        "moved_from": "canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/full_length_standing.png"
+      },
+      "note": "canonical body/proportion reference of revision 2 by owner decision D-FB-14. These are the v6 run's frames, NOT the missing frozen-v15 frames (still recorded as missing_canonical of revision 1)"
     }
   ],
   "missing_canonical": [
@@ -553,7 +599,8 @@
       "why_missing": "no sha256 of this v15 frame is recorded anywhere in the repository; the public endpoints (/api/model-pack, /api/model-identity/freezable, read 2026-10-06) expose only the newest pack (v16, not frozen) and strip the v15 package. Never synthesized",
       "recovery": "owner action OA-CANON-1 (see BUILD_STATE): read the sha256 values from the v15 audit row, then GET /api/model-tournament/image/{sha256} for each (public, digest-addressed)",
       "forbidden_as_fallback": false,
-      "publication_status": "canonical_reference"
+      "publication_status": "canonical_reference",
+      "note": "historical: missing frame of revision 1 (laura-v15-a42aeac7). D-FB-14 did not recover it and the v6 frames are not it; revision 2 uses the owner-approved v6 body frames instead"
     },
     {
       "frame": "full_length_standing",
@@ -566,7 +613,8 @@
       "why_missing": "no sha256 of this v15 frame is recorded anywhere in the repository; the public endpoints (/api/model-pack, /api/model-identity/freezable, read 2026-10-06) expose only the newest pack (v16, not frozen) and strip the v15 package. Never synthesized",
       "recovery": "owner action OA-CANON-1 (see BUILD_STATE): read the sha256 values from the v15 audit row, then GET /api/model-tournament/image/{sha256} for each (public, digest-addressed)",
       "forbidden_as_fallback": false,
-      "publication_status": "canonical_reference"
+      "publication_status": "canonical_reference",
+      "note": "historical: missing frame of revision 1 (laura-v15-a42aeac7). D-FB-14 did not recover it and the v6 frames are not it; revision 2 uses the owner-approved v6 body frames instead"
     },
     {
       "frame": "fitted_garment",
@@ -579,7 +627,8 @@
       "why_missing": "no sha256 of this v15 frame is recorded anywhere in the repository; the public endpoints (/api/model-pack, /api/model-identity/freezable, read 2026-10-06) expose only the newest pack (v16, not frozen) and strip the v15 package. Never synthesized",
       "recovery": "owner action OA-CANON-1 (see BUILD_STATE): read the sha256 values from the v15 audit row, then GET /api/model-tournament/image/{sha256} for each (public, digest-addressed)",
       "forbidden_as_fallback": false,
-      "publication_status": "canonical_reference"
+      "publication_status": "canonical_reference",
+      "note": "historical: missing frame of revision 1 (laura-v15-a42aeac7). D-FB-14 did not recover it and the v6 frames are not it; revision 2 uses the owner-approved v6 body frames instead"
     },
     {
       "frame": "fitted_garment_close",
@@ -592,7 +641,8 @@
       "why_missing": "no sha256 of this v15 frame is recorded anywhere in the repository; the public endpoints (/api/model-pack, /api/model-identity/freezable, read 2026-10-06) expose only the newest pack (v16, not frozen) and strip the v15 package. Never synthesized",
       "recovery": "owner action OA-CANON-1 (see BUILD_STATE): read the sha256 values from the v15 audit row, then GET /api/model-tournament/image/{sha256} for each (public, digest-addressed)",
       "forbidden_as_fallback": false,
-      "publication_status": "canonical_reference"
+      "publication_status": "canonical_reference",
+      "note": "historical: missing frame of revision 1 (laura-v15-a42aeac7). D-FB-14 did not recover it and the v6 frames are not it; revision 2 uses the owner-approved v6 body frames instead"
     },
     {
       "frame": "loose_layered_garment",
@@ -605,7 +655,8 @@
       "why_missing": "no sha256 of this v15 frame is recorded anywhere in the repository; the public endpoints (/api/model-pack, /api/model-identity/freezable, read 2026-10-06) expose only the newest pack (v16, not frozen) and strip the v15 package. Never synthesized",
       "recovery": "owner action OA-CANON-1 (see BUILD_STATE): read the sha256 values from the v15 audit row, then GET /api/model-tournament/image/{sha256} for each (public, digest-addressed)",
       "forbidden_as_fallback": false,
-      "publication_status": "canonical_reference"
+      "publication_status": "canonical_reference",
+      "note": "historical: missing frame of revision 1 (laura-v15-a42aeac7). D-FB-14 did not recover it and the v6 frames are not it; revision 2 uses the owner-approved v6 body frames instead"
     },
     {
       "frame": "non_garment_lifestyle",
@@ -618,7 +669,8 @@
       "why_missing": "no sha256 of this v15 frame is recorded anywhere in the repository; the public endpoints (/api/model-pack, /api/model-identity/freezable, read 2026-10-06) expose only the newest pack (v16, not frozen) and strip the v15 package. Never synthesized",
       "recovery": "owner action OA-CANON-1 (see BUILD_STATE): read the sha256 values from the v15 audit row, then GET /api/model-tournament/image/{sha256} for each (public, digest-addressed)",
       "forbidden_as_fallback": false,
-      "publication_status": "canonical_reference"
+      "publication_status": "canonical_reference",
+      "note": "historical: missing frame of revision 1 (laura-v15-a42aeac7). D-FB-14 did not recover it and the v6 frames are not it; revision 2 uses the owner-approved v6 body frames instead"
     },
     {
       "frame": "winter_seasonal",
@@ -631,7 +683,8 @@
       "why_missing": "no sha256 of this v15 frame is recorded anywhere in the repository; the public endpoints (/api/model-pack, /api/model-identity/freezable, read 2026-10-06) expose only the newest pack (v16, not frozen) and strip the v15 package. Never synthesized",
       "recovery": "owner action OA-CANON-1 (see BUILD_STATE): read the sha256 values from the v15 audit row, then GET /api/model-tournament/image/{sha256} for each (public, digest-addressed)",
       "forbidden_as_fallback": false,
-      "publication_status": "canonical_reference"
+      "publication_status": "canonical_reference",
+      "note": "historical: missing frame of revision 1 (laura-v15-a42aeac7). D-FB-14 did not recover it and the v6 frames are not it; revision 2 uses the owner-approved v6 body frames instead"
     }
   ],
   "not_committed_historical": [
@@ -670,6 +723,34 @@
         "v6/revised-scenes.jpg": "7a352b2d9ca7bfe0b8752d8b6a2185b814523344eed69dc9d820458e0c391f94",
         "v6/bust-before-after.jpg": "867ba4a306c2c98596e62543ad19069b98514a860c0b1260250dcc5d862cf4e8"
       }
+    }
+  ],
+  "revisions": [
+    {
+      "identity_id": "laura-v15-a42aeac7",
+      "revision": 1,
+      "decision": "D-FB-11",
+      "supersedes": null,
+      "status": "superseded",
+      "basis": "frozen build v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is (production registry version 1, frozen 2026-09-22T03:52:53Z)",
+      "reference_hashes": {
+        "neutral_portrait": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9"
+      },
+      "missing_frames": "torso_fit_reference, full_length_standing and the 5-frame stress set: see missing_canonical"
+    },
+    {
+      "identity_id": "laura-r2-a42aeac7",
+      "revision": 2,
+      "decision": "D-FB-14",
+      "supersedes": "laura-v15-a42aeac7",
+      "status": "current",
+      "basis": "approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68; owner-approved 2026-10-06; established identity rules unchanged",
+      "reference_hashes": {
+        "neutral_portrait": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
+        "torso_fit_reference": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db",
+        "full_length_standing": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
+      },
+      "not_publication_approval": "does not make any image publication-approved and does not waive photorealism, identity or Product Truth gates"
     }
   ]
 }
