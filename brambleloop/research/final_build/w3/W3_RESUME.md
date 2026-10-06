@@ -71,3 +71,12 @@ cd /home/user/Project-Money/.claude/worktrees/visual-investigation && git log --
 then: fix the visual_rnd_guard identity defect, merge w3-B and w3-F (after D re-pin), relaunch partial lanes
 (C, D, K6, K8, K10, SPEND, TOOLS, INT3) from their branch tips, launch K1/K4/K7/K11/K12/K15 lanes, keep load
 moderate (≤ ~8 concurrent workers), then full suite + rehearsal on an uncontended machine → freeze → lane J.
+
+## Session 2 progress (2026-10-06T16:10Z)
+- INT3 merged: publish stall root cause = contention + FIFO behind other products' assets.build at the same band;
+  stall detector now counts any queue progress (wedged queue still stops at 300 s). Not a runtime defect.
+- Visual R&D guard defect fixed (Laura reproduction derives from canonical IDENTITY_ID). w3-B merged.
+- Relaunched (≤8 concurrent): D (resume + genesis re-pin for laura-r2 + K3/H wiring + K15), C (resume), K6, K8,
+  K10, SPEND, TOOLS (resume), PRIV (new: neutral owner-private context infrastructure with sentinel data;
+  conversational register stays GATED). F resumes after D re-pins.
+- Still to launch: K1, K4, K7, K11, K12, then J certification after full suite + rehearsal on an uncontended machine.
