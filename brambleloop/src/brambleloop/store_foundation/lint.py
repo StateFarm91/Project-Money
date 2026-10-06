@@ -96,6 +96,9 @@ def _voice_rules() -> tuple[Rule, ...]:
              "marketplace filler the brand bible bans in names; it reads as a generic shop"),
         Rule("VOICE_EXCLAMATION", VOICE, re.compile(r"!"),
              "exclamation marks; the brand voice is calm and specific"),
+        Rule("VOICE_DOUBLE_HYPHEN", VOICE, re.compile(r" -- "),
+             "a typewriter double hyphen where a premium shop sets a dash; Etsy shows it "
+             "verbatim"),
         Rule("VOICE_EMOJI", VOICE,
              re.compile("[\U0001F300-\U0001FAFF☀-➿\U0001F000-\U0001F2FF]"),
              "emoji; the brand voice carries no decoration in text"),

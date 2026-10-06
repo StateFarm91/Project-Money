@@ -100,8 +100,9 @@ def check_length(limit_key: str | None, text: str) -> list[dict]:
     n = len(text or "")
     if lim.basis == UNKNOWN:
         return [{"code": "LIMIT_UNVERIFIED", "severity": "unverified",
-                 "detail": f"{lim.what}: {n} characters; Etsy's limit is not on file "
-                           f"({lim.source}). Check the counter in Shop Manager at entry."}]
+                 "detail": (f"{lim.what}: {n} characters; Etsy's limit is not on file"
+                            + ("" if lim.source == "not on file" else f" ({lim.source})")
+                            + ". Check the counter in Shop Manager at entry.")}]
     if n <= lim.max_chars:
         if lim.basis == REPO_ASSERTED:
             return [{"code": "LIMIT_REPO_ASSERTED", "severity": "unverified",
