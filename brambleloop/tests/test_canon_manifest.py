@@ -33,6 +33,9 @@ from brambleloop.visual import model_registry as M  # noqa: E402
 ASSETS = Path(brief.ASSETS_DIR)
 REAL_ASSETS_DIR = brief.ASSETS_DIR
 FACE = "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9"
+# D-FB-14: the owner-approved v6 body references, computed from the files independently below.
+TORSO = "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db"
+FULL = "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0"
 FAILS = 0
 
 
@@ -89,10 +92,15 @@ def test_the_manifest_verifies_and_names_laura():
     assert out["ok"], out["problems"]
     m = _manifest()
     assert m["manifest_version"] == 2
-    assert m["identity"]["identity_id"] == canonical.IDENTITY_ID == "laura-v15-a42aeac7"
+    assert m["identity"]["identity_id"] == canonical.IDENTITY_ID == "laura-r2-a42aeac7"
     assert m["identity"]["name"] == "Laura"
     assert m["identity"]["face_sha256"] == FACE
-    assert m["identity"]["frozen_identity_version"].startswith("v15-")
+    assert m["identity"]["revision"] == 2 and m["identity"]["revision_decision"] == "D-FB-14"
+    assert m["identity"]["prior_identity_id"] == "laura-v15-a42aeac7"
+    assert m["identity"]["prior_frozen_identity_version"].startswith("v15-")
+    assert m["identity"]["reference_hashes"] == {
+        "neutral_portrait": FACE, "torso_fit_reference": TORSO,
+        "full_length_standing": FULL}
 
 
 def test_every_entry_hashes_sizes_and_measures_independently():
@@ -121,6 +129,18 @@ def test_every_file_under_canonical_is_listed():
         assert str(p.relative_to(ASSETS)) in listed, p
 
 
+def test_revision_two_is_the_face_plus_the_approved_v6_body_by_bytes():
+    pack = ASSETS / "canonical" / "laura-r2-a42aeac7" / "reference_pack"
+    assert _sha(pack / "neutral_portrait.jpg") == FACE
+    assert _sha(pack / "torso_fit_reference.png") == TORSO
+    assert _sha(pack / "full_length_standing.png") == FULL
+    assert canonical.CURRENT_REFERENCE_HASHES == {
+        "neutral_portrait": FACE, "torso_fit_reference": TORSO, "full_length_standing": FULL}
+    revs = _manifest()["revisions"]
+    assert [r["identity_id"] for r in revs] == ["laura-v15-a42aeac7", "laura-r2-a42aeac7"]
+    assert revs[1]["supersedes"] == "laura-v15-a42aeac7" and revs[1]["decision"] == "D-FB-14"
+
+
 def test_the_approved_face_is_unchanged_and_is_the_pack_face():
     assert _sha(ASSETS / "identity_portrait.jpg") == FACE
     assert brief.approved_portrait() == str(ASSETS / "identity_portrait.jpg")
@@ -144,10 +164,22 @@ def test_missing_v15_frames_are_declared_not_synthesised():
 
 def test_v6_is_never_claimed_to_be_v15():
     v6 = [e for e in _entries() if "v6_" in e["file"]]
-    assert len(v6) == 7
+    assert len(v6) == 5      # the stress scenes D-FB-14 did not approve stay historical
     for e in v6:
         assert e["role"] == "historical" and e["forbidden_as_fallback"] is True
         assert "NOT proven" in e["note"]
+    body = [e for e in _entries() if e["sha256"] in (TORSO, FULL)]
+    assert len(body) == 2
+    for e in body:
+        assert e["identity_id"] == "laura-r2-a42aeac7"
+        assert "v6 bust-revision run 2026-09-21" in e["provenance"]["run"]
+        assert "v15" not in e["provenance"]["run"].replace("v15 frames", "")
+        assert "NOT the missing frozen-v15" in e["note"]
+    # The v15 frames are still missing history of revision 1, never filled by v6 bytes.
+    missing = _manifest()["missing_canonical"]
+    assert len(missing) == 7
+    for x in missing:
+        assert x["identity_id"] == "laura-v15-a42aeac7" and x["sha256"] is None
 
 
 # --- tamper evidence --------------------------------------------------------------------------
@@ -198,8 +230,20 @@ def test_identity_decisions_are_recorded_in_the_decision_log():
     assert canonical.IDENTITY_DECISIONS
     for d in canonical.IDENTITY_DECISIONS + canonical.AUTHORISED_IDENTITY_CHANGES:
         assert f"## {d} " in log, d
-    assert canonical.AUTHORISED_IDENTITY_CHANGES == (), \
-        "an identity change was authorised in code; it must cite an owner decision"
+    # The protected-authority mechanism: the current identity's revision cites an owner
+    # decision that is recorded, authorised in code and spent by exactly one revision; no
+    # authorisation exists that no revision accounts for.
+    current = [r for r in canonical.REVISIONS if r["identity_id"] == canonical.IDENTITY_ID]
+    assert len(current) == 1 and current[0]["status"] == "current"
+    assert current[0]["decision"] == canonical.REVISION_DECISION_ID == "D-FB-14"
+    assert f"## {current[0]['decision']} " in log
+    entry = log.split("## D-FB-14 ", 1)[1].split("\n## ", 1)[0]
+    for sha in (FACE, TORSO, FULL):
+        assert sha in entry, sha
+    for d in canonical.AUTHORISED_IDENTITY_CHANGES:
+        assert [r for r in canonical.REVISIONS if r["decision"] == d and r["supersedes"]], d
+    assert set(canonical.AUTHORISED_IDENTITY_CHANGES) == {
+        r["decision"] for r in canonical.REVISIONS if r["supersedes"]}
     assert (ROOT / "spec" / "07_Laura_Owner_Ruling_2026-10-06.md").is_file()
 
 
@@ -214,6 +258,12 @@ def test_historical_and_superseded_hashes_are_forbidden_references():
     for e in hist:
         assert e["sha256"] in forbidden, e["file"]
     assert FACE not in forbidden
+    # D-FB-14: the revised body frames are canonical now; the v5 body frames stay forbidden.
+    assert TORSO not in forbidden and FULL not in forbidden
+    v5 = [e for e in _entries() if "v5" in e["file"] and e["sha256"] != FACE]
+    assert v5
+    for e in v5:
+        assert e["sha256"] in forbidden and e["forbidden_as_fallback"], e["file"]
 
 
 def test_a_historical_frame_is_never_returned_as_a_verified_reference():
@@ -258,11 +308,14 @@ def test_laura_cannot_be_replaced_or_redesigned_without_an_owner_decision():
     M.record_candidate(db, "someone-similar", fields={f: "x" for f in identity.IDENTITY_FIELDS})
     for record in (_approval(), _approval(scope="portrait_repair"),
                    _approval(owner_decision_id="D-FB-11"),
-                   _approval(owner_decision_id="made-up")):
+                   _approval(owner_decision_id="made-up"),
+                   # the revision decision, offered for a different change, authorises nothing
+                   _approval(owner_decision_id="D-FB-14"),
+                   _approval(owner_decision_id="D-FB-14", scope="reference_revision")):
         try:
             M.replace_canonical(db, new_key="someone-similar", redesign_approval=record)
         except canonical.CanonRefused as exc:
-            assert "AUTHORISED_IDENTITY_CHANGES" in str(exc)
+            assert "AUTHORISED_IDENTITY_CHANGES" in str(exc) or "new owner decision" in str(exc)
             continue
         raise AssertionError(f"Laura was replaced on {record!r}")
     pack = M.canonical_pack(db)
@@ -303,7 +356,63 @@ def test_the_pack_procedure_label_is_not_the_identity():
     from brambleloop.visual import reference_pack
 
     assert canonical.FROZEN_IDENTITY_VERSION != reference_pack.PACK_VERSION
-    assert canonical.IDENTITY_ID.startswith("laura-v15-")
+    assert canonical.IDENTITY_ID.startswith("laura-r2-")
+    assert canonical.PRIOR_IDENTITY_ID.startswith("laura-v15-")
+
+
+# --- revision 2 in the registry (D-FB-14) ----------------------------------------------------
+
+def test_the_revision_is_adopted_once_and_only_as_recorded():
+    from brambleloop.visual import freeze as F
+
+    db = _laura_db()
+    assert canonical.revision_of(M.canonical_pack(db)) == canonical.PRIOR_IDENTITY_ID
+    out = canonical.adopt_revision(db)
+    pack = M.canonical_pack(db)
+    assert out["identity_id"] == canonical.IDENTITY_ID and pack.version == 2
+    assert canonical.revision_of(pack) == canonical.IDENTITY_ID and canonical.is_laura(pack)
+    assert pack.fields["reference_hashes"] == canonical.CURRENT_REFERENCE_HASHES
+    # The identity gate's references are the new pack's, by bytes.
+    paths = F.reference_paths(db)
+    assert paths["hashes"] == canonical.CURRENT_REFERENCE_HASHES, paths["hashes"]
+    assert paths["body"].endswith("laura-r2-a42aeac7/reference_pack/torso_fit_reference.png")
+    # Spent: neither a second adoption nor a replace citing D-FB-14 changes her again.
+    for attempt in (lambda: canonical.adopt_revision(db),
+                    lambda: M.replace_canonical(
+                        db, new_key="again", reference_hashes=dict(canonical.CURRENT_REFERENCE_HASHES),
+                        redesign_approval=_approval(owner_decision_id="D-FB-14",
+                                                    scope="reference_revision",
+                                                    supersedes_version=2))):
+        try:
+            attempt()
+        except canonical.CanonRefused:
+            continue
+        raise AssertionError("D-FB-14 was applied twice")
+    assert M.canonical_pack(db).version == 2
+
+
+def test_the_revision_decision_cannot_carry_other_bytes():
+    db = _laura_db()
+    wrong = dict(canonical.CURRENT_REFERENCE_HASHES, torso_fit_reference="7" * 64)
+    try:
+        M.replace_canonical(db, new_key="other-body", reference_hashes=wrong,
+                            redesign_approval=_approval(owner_decision_id="D-FB-14",
+                                                        scope="reference_revision"))
+    except canonical.CanonRefused:
+        pass
+    else:
+        raise AssertionError("D-FB-14 authorised a body it did not approve")
+    assert canonical.revision_of(M.canonical_pack(db)) == canonical.PRIOR_IDENTITY_ID
+
+
+def test_the_revision_approves_no_publication_and_waives_no_gate():
+    for sha in (FACE, TORSO, FULL):
+        ready = canonical.customer_ready(sha)
+        assert ready["customer_ready"] is False and ready["status"] == "GATED"
+        assert {"photorealism", "anatomy", "product_truth_if_product_shown"} <= \
+            set(ready["blocking"])
+        assert canonical.asset_status(sha) == canonical.CANONICAL_REFERENCE
+    assert "not_publication_approval" in _manifest()["revisions"][1]
 
 
 # --- the identity gate ------------------------------------------------------------------------

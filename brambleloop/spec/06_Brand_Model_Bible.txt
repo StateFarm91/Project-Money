@@ -48,32 +48,29 @@ WHO SHE IS
 - The first-class Laura agent (Founder/CEO executive layer, memory, Command Center presence,
   cadences) is QUEUED for a later build; this bible records only her identity and public rules.
 
-CANONICAL IDENTITY (what defines her)
-- Identity id: laura-v15-a42aeac7 = Laura + frozen identity build v15
-  ("v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is", production freeze
-  2026-09-22T03:52:53Z, registry key brambleloop-canonical version 1, v15 candidate
-  fingerprint 914ee7da716baef7) + approved face sha256 a42aeac72ba5733e....
-- reference_pack.PACK_VERSION in code (v16-...) is the pack-BUILD PROCEDURE label, not her
-  identity. A newer procedure label never means a newer Laura; v16 was never frozen.
-- Defining assets, all under brambleloop/src/brambleloop/visual/assets/ (MANIFEST.json v2
-  lists sha256, bytes, dimensions, role, provenance and forbidden_as_fallback for each):
-    approved_face            identity_portrait.jpg (a42aeac7…) — the only image any render
-                             may be conditioned on for her face
-    canonical_reference_pack canonical/laura-v15-a42aeac7/reference_pack/neutral_portrait.jpg
-                             (byte-identical to the approved face)
-    missing_canonical        v15 torso_fit_reference, v15 full_length_standing and the v15
-                             5-frame stress set (fitted_garment, fitted_garment_close,
-                             loose_layered_garment, non_garment_lifestyle, winter_seasonal):
-                             bytes exist only in production (durable_artifacts, referenced by
-                             the v15 audit_log 'model.reference_pack' row). Owner action
-                             OA-CANON-1 recovers them. Never synthesise replacements.
+CANONICAL IDENTITY (what defines her) — revision 2, owner decision D-FB-14 (2026-10-06)
+- Identity id: laura-r2-a42aeac7 = Laura + approved face a42aeac7… (unchanged) + the v6 revised
+  torso afe6191f… and v6 revised full-length f32bac68…, approved by the owner as her canonical
+  body/proportion references going forward. Established identity rules unchanged.
+- Files (brambleloop/src/brambleloop/visual/assets/, MANIFEST.json v2 lists sha256, bytes,
+  dimensions, role, provenance, forbidden_as_fallback for each):
+    approved_face            identity_portrait.jpg (a42aeac7…) — the face every render conditions on
+    canonical_reference_pack canonical/laura-r2-a42aeac7/reference_pack/{neutral_portrait.jpg,
+                             torso_fit_reference.png, full_length_standing.png}
+                             (body frames: v6 bust-revision run 2026-09-21, owner-approved 2026-10-06)
+- Revision 1 (history): laura-v15-a42aeac7 = frozen build v15 (production registry version 1,
+  frozen 2026-09-22). Its v15 torso, full-length and 5-frame stress set are still recorded as
+  missing_canonical; the v6 frames are NOT those files and are never labelled as recovered v15.
+- reference_pack.PACK_VERSION in code (v16-...) is the pack-BUILD PROCEDURE label, not her identity.
 - Historical (evidence of her, NEVER a reference or fallback; forbidden_as_fallback=true):
     superseded_body  identity_torso_v5.jpg, identity_full_length_v5.jpg (pre-bust-revision)
     historical       canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/
-                     (lossless PNG source of the approved face + the 5 owner-viewed stress scenes)
                      canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/
-                     (post-revision local run, face carried; NOT proven to be the v15 frames)
+                     (the 5 v6 stress scenes; not approved as canonical)
     owner_concept    owner_candidate_concept.jpg, owner_candidate_reference.png (direction, not her)
+- Protected authority: any future change to her canonical identity needs a new owner decision in
+  DECISION_LOG and canonical.AUTHORISED_IDENTITY_CHANGES; D-FB-14 authorised exactly one change.
+- Revision 2 does not make any image publication-approved and waives no gate.
 
 IDENTITY RULE (enforced in visual/canonical.py and model_registry.gate_frames)
 - "An image depicting a woman similar to Laura is NOT Laura and fails the identity gate."
@@ -81,8 +78,8 @@ IDENTITY RULE (enforced in visual/canonical.py and model_registry.gate_frames)
   established, the canonical 3-frame pack, the 5-frame stress set, the frozen body evidence.
 - Every frame meant to depict her is compared against the canonical identity; every locked
   face dimension must be read as a match. Drift = not Laura; unread = not verified; both block.
-- Replacing, regenerating or altering her (including a "portrait repair" of her face) needs an
-  owner decision listed in canonical.AUTHORISED_IDENTITY_CHANGES (empty today).
+- Replacing, regenerating or altering her (including a "portrait repair" of her face) needs a
+  new owner decision listed in canonical.AUTHORISED_IDENTITY_CHANGES (only D-FB-14, spent).
 
 CUSTOMER-FACING GATES (unchanged, in order)
 canonical identity → photorealism → anatomy → Product Truth (if a product is shown) →

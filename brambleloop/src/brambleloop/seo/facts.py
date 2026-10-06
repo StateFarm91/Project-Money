@@ -196,3 +196,108 @@ def launch0_facts() -> list[ProductFacts]:
         for v in cand.variants:
             out.append(for_variant(cand, v))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Product-level facts (wave 3): one listing per Launch-0 *product*, not per CIR variant.
+#
+# The owner's Launch-0 ruling sells the nesting baskets as ONE product in three sizes. A
+# product-level listing may use a word only when it is true of every size it sells, or when it
+# names the set of sizes itself. Its vocabulary is therefore the union of what the variants share
+# plus the product record's own words, each licensed below against a cited, code-held source
+# text that must actually contain the word (so the licence cannot drift away from the record).
+
+# word -> (source attribute path, why). The word must occur in that source's text at call time.
+PRODUCT_LICENCES: dict[str, dict[str, tuple[str, str]]] = {
+    "nursery-nesting-baskets": {
+        "nesting": ("candidate.title", "the product record names them Nesting Baskets"),
+        "three": ("candidate.title", "the product record sells three sizes"),
+    },
+    "cloudline-baby-blanket": {
+        "diamond": ("cir.designer_notes", "the CIR's motif is a diamond lattice"),
+        "lattice": ("cir.designer_notes", "the CIR's motif is a diamond lattice"),
+        "raised": ("cir.designer_notes", "every raised stitch touches another"),
+        "relief": ("cir.designer_notes", "the lattice is a relief"),
+        "stripe": ("candidate.what_it_is", "the colour changes every two rows: a two-row "
+                                           "stripe"),
+    },
+    "hexagon-coaster-set": {},
+}
+
+# Inflections a licensed word carries with it ("stripe" licenses "striped").
+LICENCE_FORMS: dict[str, tuple[str, ...]] = {"stripe": ("striped", "stripes")}
+
+# Category synonyms the repo's own category vocabulary already treats as the same object
+# (`commerce.category.CATEGORY_NODE_TERMS`): licensed only where the listing's object is one.
+CATEGORY_SYNONYMS: dict[str, tuple[str, str]] = {
+    "afghan": ("blanket", "commerce.category.CATEGORY_NODE_TERMS['blanket'].object"),
+}
+
+
+def _licence_source_text(cand, cir, path: str) -> str:
+    if path == "candidate.title":
+        return cand.title or ""
+    if path == "candidate.what_it_is":
+        return cand.what_it_is or ""
+    if path == "cir.designer_notes":
+        return getattr(cir, "designer_notes", "") or ""
+    raise KeyError(path)
+
+
+def for_product(cand) -> ProductFacts:
+    """Facts for one Launch-0 *product* (every variant it sells), for a single listing.
+
+    - vocabulary = words true of EVERY variant (intersection), plus variant/size words, plus
+      the licensed product-record words (each checked against its source text), plus the
+      category synonyms the repo already treats as the same object.
+    - numbers that differ by variant (width/height) are reported per variant in
+      `variant_labels`; the product-level width/height are None (no single size is true).
+    - `cir`/`twin` are the first variant's, for the product-type / colourwork gates; callers
+      that need every variant's gates run them over `variant_facts`.
+    """
+    from ..commerce import category as category_mod
+
+    variants = [for_variant(cand, v) for v in cand.variants]
+    base = variants[0]
+    if len(variants) == 1:
+        vocab = dict(base.vocabulary)
+    else:
+        shared = set(base.vocabulary)
+        for f in variants[1:]:
+            shared &= set(f.vocabulary)
+        vocab = {w: base.vocabulary[w] for w in sorted(shared)}
+        n = len(variants)
+        _add(vocab, f"size sizes {n} " + " ".join(v.key for v in cand.variants),
+             "variants")
+    for word, (path, why) in PRODUCT_LICENCES.get(cand.slug, {}).items():
+        text = _licence_source_text(cand, base.cir, path).lower()
+        if word in words(text) or stem(word) in {stem(w) for w in words(text)}:
+            for form in {word, stem(word), *LICENCE_FORMS.get(word, ())}:
+                vocab.setdefault(form, f"product_record:{path} ({why})")
+    for syn, (obj, src) in CATEGORY_SYNONYMS.items():
+        if obj in base.nouns and syn in category_mod.CATEGORY_NODE_TERMS.get(
+                obj, {}).get("object", ()):
+            vocab.setdefault(syn, src)
+    if len(base.colors) == 2:
+        _add(vocab, "two color colour", "cir.colors (two colours)")
+    labels = [f"{v.key}: {v.label}" for v in cand.variants]
+    out = ProductFacts(
+        slug=cand.slug, candidate=cand.slug, cir_title=cand.title,
+        kind=base.kind, category=base.category, nouns=list(base.nouns),
+        qualifiers=list(base.qualifiers), techniques=list(base.techniques),
+        difficulty=base.difficulty, colors=list(base.colors),
+        colour_families=list(base.colour_families), materials=list(base.materials),
+        stitches=sorted({s for f in variants for s in f.stitches}),
+        width_cm=base.width_cm if len(variants) == 1 else None,
+        height_cm=base.height_cm if len(variants) == 1 else None,
+        makes=base.makes, season=base.season, variant_labels=labels, vocabulary=vocab,
+        cir=base.cir, twin=base.twin)
+    out.variant_facts = variants          # type: ignore[attr-defined]
+    return out
+
+
+def launch0_product_facts() -> list[ProductFacts]:
+    """One ProductFacts per Launch-0 product (baskets are one product with three sizes)."""
+    from ..products import launch0 as L
+
+    return [for_product(L.candidate(slug)) for slug in L.LAUNCH0_SLUGS]

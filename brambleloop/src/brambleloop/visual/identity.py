@@ -193,7 +193,10 @@ def canonical(packs: list[ReferencePack] | None = None) -> ReferencePack | None:
 # record must not be attributed to the owner by a default.
 REDESIGN_APPROVAL_KEYS: tuple[str, ...] = ("at", "decision", "supersedes_version", "scope",
                                            "approved_by")
-REDESIGN_SCOPES: frozenset[str] = frozenset({"portrait_repair", "redesign"})
+# `reference_revision` (D-FB-14): the same woman, a revised body/proportion reference set
+# approved by the owner; still gated by `canonical.require_identity_change_authorised`.
+REDESIGN_SCOPES: frozenset[str] = frozenset({"portrait_repair", "redesign",
+                                             "reference_revision"})
 
 
 def validate_redesign_approval(record: dict | None, *, existing: ReferencePack) -> dict:
