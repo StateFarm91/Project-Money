@@ -6,6 +6,7 @@ Failing checks are findings; do not weaken them. UNKNOWN is never PASS.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import atexit
 import copy
 import json

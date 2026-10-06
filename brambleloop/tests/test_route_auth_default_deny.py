@@ -21,6 +21,7 @@ Run: cd brambleloop && PYTHONPATH=src $PY tests/test_route_auth_default_deny.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import re
 import shutil

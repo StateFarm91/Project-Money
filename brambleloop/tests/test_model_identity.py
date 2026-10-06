@@ -11,6 +11,7 @@ canonical without the owner, and an unverifiable identity is never a pass.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from pathlib import Path
 

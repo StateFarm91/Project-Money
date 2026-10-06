@@ -10,6 +10,7 @@ tests/test_run_tests_script.py; nothing but the dummies ever runs.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import os
 import shutil

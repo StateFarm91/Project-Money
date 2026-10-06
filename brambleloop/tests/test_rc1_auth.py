@@ -14,6 +14,7 @@ evidence, a fake Etsy and a temporary SQLite database; no provider, model or net
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import copy
 import os
 import sys

@@ -18,6 +18,7 @@ against a CA$100 month is not an over-commitment and nothing here treats it as o
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import re
 import sys

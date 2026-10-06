@@ -6,6 +6,7 @@ difference between having a picture and claiming to have made the thing in it.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import sys
 import tempfile as _tempfile

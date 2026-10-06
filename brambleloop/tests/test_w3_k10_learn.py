@@ -4,6 +4,7 @@ Hermetic: no network, no model, no secret. Each test names the row it closes.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import copy
 import hashlib
 import os

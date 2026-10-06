@@ -7,6 +7,7 @@ Run: cd brambleloop && PYTHONPATH=src python3 tests/test_v11_accounting_money.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import json
 import os
 import socket

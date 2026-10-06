@@ -2,6 +2,7 @@
 and taken through the release chain -- no person calling a template, no purchased pattern."""
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import sys
 import tempfile

@@ -44,6 +44,7 @@ import os
 import signal
 import socket
 import subprocess
+import shutil
 import sys
 import tempfile
 import time
@@ -785,12 +786,25 @@ def run_commerce(rec: Recorder, db, state: dict, draft_id) -> None:
 
 def rehearse(product: str = LAUNCH0_DEFAULT, *, fast: bool = False,
              out: Path | None = None) -> dict:
+    """Run the rehearsal in a scratch directory that is removed afterwards.
+
+    The evidence has always said "fresh sqlite file (discarded after the run)"; until W3-HYG
+    (2026-10-06) it was not -- `mkdtemp` left the database, the rendered assets and the server
+    log behind on every run. The directory is now removed on success and on exception.
+    """
+    tmp = Path(tempfile.mkdtemp(prefix="shadow_rehearsal_"))
+    try:
+        return _rehearse(tmp, product, fast=fast, out=out)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
     sys.path.insert(0, str(SRC))
     sys.path.insert(0, str(ROOT))
     started = _utc()
     head = _git("rev-parse", "HEAD")
     dirty = bool(_git("status", "--porcelain", "--untracked-files=no"))
-    tmp = Path(tempfile.mkdtemp(prefix="shadow_rehearsal_"))
     artifacts = str(tmp / "artifacts")
     os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = artifacts
     os.environ["BRAMBLELOOP_PHASE"] = "shadow"

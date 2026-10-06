@@ -10,6 +10,7 @@ Rows: #2 #15 #165 #208 #211 #215 #219 #227 #268.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import sys
 import tempfile

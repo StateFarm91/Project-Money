@@ -7,6 +7,7 @@ health check calls that healthy, which is how a week of achieving nothing passes
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path

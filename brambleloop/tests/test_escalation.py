@@ -3,6 +3,7 @@ month, not a number that exists only when somebody opens /api/spend-report (Buil
 cost governance). No ceiling is changed here; the CA$100 figure is the owner's."""
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import sys
 import tempfile

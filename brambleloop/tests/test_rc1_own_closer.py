@@ -3,6 +3,7 @@
 Repro of the independent audit (audit3/close.py): seven owner actions raised by other
 subsystems, whose conditions still hold, were all marked done by one readiness run.
 """
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import shutil
 import sys

@@ -20,6 +20,7 @@ Run: cd brambleloop && PYTHONPATH=src $PY tests/test_rc1_order_truth.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import copy
 import os
 import shutil

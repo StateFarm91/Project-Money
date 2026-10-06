@@ -3,6 +3,7 @@
 Before: packet.build called assess() without providers/storage durability and omitted the
 off-device autonomy proof (#195), so it could read READY where the gate said NOT PROVEN.
 """
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import os
 import shutil
 import sys

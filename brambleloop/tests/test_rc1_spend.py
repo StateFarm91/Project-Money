@@ -14,6 +14,7 @@ fixed code and asserts the opposite of what the audit observed:
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
 import base64
 import os
 import shutil
