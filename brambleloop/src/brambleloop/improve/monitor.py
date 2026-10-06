@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from .cells import PROMOTED, monitor
+from .cells import PROMOTED, is_trial_metric, monitor
 
 ACTION = "improve.monitor"
 
@@ -139,14 +139,24 @@ def sweep(db, *, now: datetime | None = None) -> dict:
     seen = last_seen(db)
 
     with db.session() as s:
-        promoted = [(r.id, r.cell, _aware(r.promoted_at or r.at))
+        promoted = [(r.id, r.cell, _aware(r.promoted_at or r.at), is_trial_metric(r))
                     for r in s.scalars(select(Improvement).where(
                         Improvement.state == PROMOTED).order_by(Improvement.id))]
         points = [(p.id, p.cell, _aware(p.at), p.value, (p.detail or {}).get("from", ""))
                   for p in s.scalars(select(CapabilityPoint).order_by(CapabilityPoint.id))]
 
-    held, reverted, waiting, unchanged = [], [], [], []
-    for improvement_id, cell, promoted_at in promoted:
+    held, reverted, waiting, unchanged, elsewhere = [], [], [], [], []
+    for improvement_id, cell, promoted_at, trial_judged in promoted:
+        if trial_judged:
+            # D-B1 (v1.1 lane B): a trial-metric promotion (job-priority replay, self-audit
+            # floor, policy loop) is in its trial's units, not the cell's. Judging it here
+            # compared a replay's on-time share with dead letters per day, and `cells.monitor`
+            # then wrote REVERTED without running the rollback executor -- a row saying
+            # "reverted" while the promoted configuration kept running (the C-81 failure).
+            # These are judged by `runner.monitor_trials`, which executes and verifies.
+            elsewhere.append({"improvement": improvement_id, "cell": cell,
+                              "why": "trial-metric promotion; judged by runner.monitor_trials"})
+            continue
         own = f"improvement:{improvement_id}"
         production = [(pid, at, value) for pid, c, at, value, source in points
                       if c == cell and at >= promoted_at and source != own
@@ -179,6 +189,7 @@ def sweep(db, *, now: datetime | None = None) -> dict:
         "promoted": len(promoted),
         "judged": len(held) + len(reverted),
         "held": held, "reverted": reverted, "waiting": waiting, "unchanged": unchanged,
+        "trial_judged_elsewhere": elsewhere,
         "seen": seen,
         "note": (f"{len(promoted)} promoted change(s): {len(held)} held, {len(reverted)} "
                  f"reverted, {len(waiting)} waiting for a production reading, "

@@ -1,0 +1,31 @@
+# Lane B test results (2026-10-06T06:34:51Z, commit 5d397d0 + evidence), python3 3.11.15, PYTHONPATH=src
+test_v11_learn_loops: OK=18 FAIL=0
+test_cert_improve_wave: OK=24 FAIL=0
+test_cert_improve_autonomy: OK=18 FAIL=2
+    FAIL test_higher_tier_goes_to_one_owner_card_and_promotes_only_on_the_owners_record: ModuleNotFoundError: No module named 'numpy'
+    FAIL test_launch_readiness_carries_the_off_device_proof_as_a_blocking_item: ModuleNotFoundError: No module named 'numpy'
+test_improve_director: OK=14 FAIL=0
+test_improve: OK=32 FAIL=0
+test_improve_handlers: OK=8 FAIL=0
+test_cert_learning: OK=15 FAIL=0
+test_learn_launch: OK=13 FAIL=0
+test_learn_input_shapes: OK=1 FAIL=0
+test_learn_publish_contract: OK=3 FAIL=0
+test_learning: OK=18 FAIL=0
+test_outcome_learning: OK=5 FAIL=0
+test_roles: OK=35 FAIL=0
+test_swarm_runtime: OK=10 FAIL=0
+test_vacuity: OK=6 FAIL=1
+    FAIL test_no_new_vacuous_risk_loop_anywhere_in_the_suite AssertionError("loops that assert over a possibly empty iterable (add a non-emptiness assertion, or `# vacuity-ok: <reason>` if emptiness is the behaviour):\n  tes
+test_secret_scan: OK=5 FAIL=1
+    FAIL test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts AssertionError('credential-shaped strings found (values withheld):\n  brambleloop/tests/test_rc1_ord2.py:169 bearer_token fp=8738b1a6
+
+# Notes
+- test_cert_improve_autonomy: the 2 FAILs are ModuleNotFoundError numpy (launch.readiness -> visual.render_verification); identical on the base worktree with the same interpreter. No interpreter on this machine has both numpy and sqlalchemy (.venv has numpy, not sqlalchemy).
+- test_vacuity / test_secret_scan: remaining findings are in files lane B did not touch at base 0694fb7:
+    vacuity: test_launch0_listing_truth.py:272
+    vacuity: test_pattern_truth.py:125
+    vacuity: test_web_security.py:272
+    secret_scan: brambleloop/tests/test_rc1_ord2.py:169
+  git diff 0694fb7 --stat for those files: 0 lines (unchanged). Both suites pass on claude/visual-investigation@cddf7d1, i.e. already repaired upstream by rc1-INT.
+- test_v11_learn_loops.py no longer appears in the vacuity findings.

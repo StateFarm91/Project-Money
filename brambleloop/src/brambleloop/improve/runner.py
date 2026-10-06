@@ -159,10 +159,23 @@ def trial_self_audit(db, improvement_id: int) -> dict:
 SELF_AUDIT_IMPLEMENTS = "standard"          # a floor at the release gate, not an artefact change
 LEAGUE_REPLAY_IMPLEMENTS = "job_priority_policy"   # the one configuration the replay produces runs for
 
+def trial_policy_loop(db, improvement_id: int) -> dict:
+    """A policy-loop challenger re-derived from the frozen decision rows it was proposed on."""
+    from . import policy_loops
+
+    return policy_loops.trial(db, improvement_id)
+
+
+# v1.1 lane B: the five launch policy loops (listing/SEO, support, pattern defects, visual
+# gate, cost per release). What a promotion executes is the registry incumbent the
+# consumer reads (`policy_loops.active`).
+POLICY_LOOP_IMPLEMENTS = "policy_loop_parameter"
+
 TRIALS: dict[str, Callable[..., dict]] = {
     "counterfactual_rollback": trial_counterfactual_rollback,
     "league_replay": trial_league_replay,
     "self_audit": trial_self_audit,
+    "policy_loop": trial_policy_loop,
 }
 
 
@@ -264,19 +277,47 @@ def _verify_league_replay(db, iid: int) -> dict:
     return replay.rollback_verified(db, iid)
 
 
+def _execute_policy_loop(db, iid: int) -> dict:
+    from . import policy_loops
+
+    return policy_loops.execute(db, iid)
+
+
+def _monitor_policy_loop(db, iid: int) -> dict:
+    from . import policy_loops
+
+    return policy_loops.monitor(db, iid)
+
+
+def _rollback_policy_loop(db, iid: int, *, why: str) -> dict:
+    from . import policy_loops
+
+    return policy_loops.rollback(db, iid, why=why)
+
+
+def _verify_policy_loop(db, iid: int) -> dict:
+    from . import policy_loops
+
+    return policy_loops.rollback_verified(db, iid)
+
+
 EXECUTORS: dict[str, Callable[..., dict]] = {
-    "league_replay": _execute_league_replay, "self_audit": _execute_self_audit}
+    "league_replay": _execute_league_replay, "self_audit": _execute_self_audit,
+    "policy_loop": _execute_policy_loop}
 MONITORS: dict[str, Callable[..., dict]] = {
-    "league_replay": _monitor_league_replay, "self_audit": _monitor_self_audit}
+    "league_replay": _monitor_league_replay, "self_audit": _monitor_self_audit,
+    "policy_loop": _monitor_policy_loop}
 # Rollback executors are idempotent: run twice, the second run finds the previous version
 # already the incumbent (or the floor already gone) and changes nothing. That is what lets a
 # rollback interrupted at any point be resumed by the next pass (C-81).
 ROLLBACKS: dict[str, Callable[..., dict]] = {
-    "league_replay": _rollback_league_replay, "self_audit": _rollback_self_audit}
+    "league_replay": _rollback_league_replay, "self_audit": _rollback_self_audit,
+    "policy_loop": _rollback_policy_loop}
 # What each rollback must be shown to have done before the row may say REVERTED: the active
 # job-priority configuration is the version it replaced; the adopted floor is gone.
 VERIFIERS: dict[str, Callable[..., dict]] = {
-    "league_replay": _verify_league_replay, "self_audit": _verify_self_audit}
+    "league_replay": _verify_league_replay, "self_audit": _verify_self_audit,
+    "policy_loop": _verify_policy_loop}
 
 # Which trial answers which self-review proposal kind.
 TRIAL_FOR_KIND: dict[str, str] = {"declining_capability": "counterfactual_rollback"}
@@ -438,6 +479,15 @@ def discipline(db, *, now: datetime) -> dict:
 def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
     """One pass: sandbox what a trial can evaluate, test, judge, then promote or route."""
     now = now or datetime.now(timezone.utc)
+    # 0. OBSERVE + PROPOSE (v1.1 lane B): the policy loops read the outcomes recorded since
+    #    the last pass and open at most one guarded, challenged proposal. Isolated: a loop's
+    #    failure is reported in its own entry and never stops the sandbox pass.
+    from . import policy_loops
+
+    try:
+        loops = policy_loops.cycle(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - reported, never silent
+        loops = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     sandboxed, waiting, tested, approved, promoted, carded, held = [], [], [], [], [], [], []
     anchored, rejected, executed = [], [], []
     rules = discipline(db, now=now)
@@ -571,6 +621,9 @@ def run(db, *, now: datetime | None = None, regression_dir=None) -> dict:
             "prioritised": ordering["ranked"], "unprioritised": ordering["unprioritised"],
             "discipline": rules,
             "trials": sorted(TRIALS),
+            "policy_loops": {k: {kk: v.get(kk) for kk in ("reading", "why")}
+                             | {"state": (v.get("outcome") or {}).get("state")}
+                             for k, v in (loops.get("loops") or {}).items()},
             "note": (f"{len(sandboxed)} sandboxed, {len(tested)} tested, {len(approved)} "
                      f"approved by {JUDGE}, {len(promoted)} promoted, {len(carded)} routed to "
                      f"the owner, {len(waiting)} waiting for a trial that can evaluate them")}
@@ -792,6 +845,10 @@ def state() -> dict:
             "league_replay": (f"{LEAGUE_REPLAY_IMPLEMENTS}: the registry incumbent the "
                               f"runtime's priority_for reads; the only configuration this "
                               f"engine replays"),
+            "policy_loop": (f"{POLICY_LOOP_IMPLEMENTS}: the registry incumbent of one launch "
+                            f"policy loop, read by its consumer (improve.consume.matching for "
+                            f"SEO and support; watchlists read by learn.improvement_status."
+                            f"next_work for pattern defects, visual pre-check and cost)"),
         },
         "does_not_execute": [
             "model, prompt or tool challengers (compared by improve.league on runs recorded "

@@ -44,19 +44,58 @@ def words(text: str) -> set[str]:
     return {w for w in _WORD.findall((text or "").lower()) if w not in _STOP}
 
 
+def policy(db, cell: str, call_site_min_shared: int) -> dict:
+    """The match threshold this cell uses now (v1.1 lane B, directive §4).
+
+    For a cell with a measured policy loop (`policy_loops.LOOP_FOR_CELL`) the registry
+    incumbent decides once one is recorded -- the call-site value is the code default the
+    loop's first version was registered from. A cell with no loop keeps its call-site value.
+    """
+    from . import policy_loops
+
+    key = policy_loops.LOOP_FOR_CELL.get(cell)
+    if key is None:
+        return {"loop": None, "value": call_site_min_shared, "config_id": None,
+                "source": "call_site"}
+    current = policy_loops.active(db, key)
+    if current["source"] != "registry":
+        return {**current, "value": call_site_min_shared, "source": "call_site"}
+    return current
+
+
 def matching(db, cell: str, text: str, *, min_shared: int = 2,
-             subjects: frozenset[str] | None = None) -> list[dict]:
-    """Lessons routed to (or published by) this cell that apply to `text`."""
+             subjects: frozenset[str] | None = None,
+             subject: str | None = None) -> list[dict]:
+    """Lessons routed to (or published by) this cell that apply to `text`.
+
+    `subject` names what the decision is about (a product slug, `support_case:<id>`). When
+    given, and the cell has a policy loop, the decision is logged with the feature it was
+    taken on, so its outcome can later be attributed and the threshold evaluated (§4).
+    """
+    current = policy(db, cell, min_shared)
+    threshold = int(current["value"])
     want = words(text)
     out = []
+    best = 0
+    candidates = 0
     for lesson in bus.inbox(db, cell, unacted_only=False, include_own=False):
         if subjects is not None and lesson["subject"] not in subjects:
             continue
         shared = sorted(words(lesson["statement"]) & want)
-        if len(shared) >= min_shared:
+        candidates += 1
+        best = max(best, len(shared))
+        if len(shared) >= threshold:
             out.append({**lesson, "shared": shared,
                         "direction": (1 if lesson["subject"] in FAVOURS else
                                       -1 if lesson["subject"] in DISFAVOURS else 0)})
+    if subject and current.get("loop"):
+        from . import policy_loops
+
+        policy_loops.record_decision(
+            db, current["loop"], subject,
+            features={"max_shared": best, "candidates": candidates},
+            action={"applied": bool(out), "lessons": [int(x["id"]) for x in out]},
+            config_id=current.get("config_id"), params={"min_shared": threshold})
     return out
 
 
