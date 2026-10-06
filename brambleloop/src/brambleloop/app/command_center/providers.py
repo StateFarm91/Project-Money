@@ -73,12 +73,20 @@ def _invoke(fn, db, *args, **kwargs):
     session = db.new_session()
     try:
         try:
-            return fn(session, *args, **kwargs)
+            out = fn(session, *args, **kwargs)
         except AttributeError as exc:
             if "session" not in str(exc):
                 raise
             session.rollback()
             return fn(db, *args, **kwargs)
+        # W3-F: a provider that needs the `Database` facade but catches its own exceptions
+        # reports "'Session' object has no attribute 'session'" as an UNKNOWN reason instead
+        # of raising. That is the same contract mismatch; retry once with the facade.
+        if (isinstance(out, dict) and out.get("status") == "UNKNOWN"
+                and "has no attribute 'session'" in str(out.get("reason") or "")):
+            session.rollback()
+            return fn(db, *args, **kwargs)
+        return out
     finally:
         try:
             session.rollback()

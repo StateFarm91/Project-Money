@@ -82,6 +82,11 @@ export const ENDPOINTS = {
   emergencyKill: () => `${API_BASE}/emergency/kill`,
   emergencyResume: () => `${API_BASE}/emergency/resume`,
   ask: () => `${API_BASE}/ask`,
+  laura: () => `${API_BASE}/laura`,
+  lauraConversation: (limit = 20) => `${API_BASE}/laura/conversation${q({ limit })}`,
+  lauraAsk: () => `${API_BASE}/laura/ask`,
+  lauraFollowOn: () => `${API_BASE}/laura/follow-on`,
+  lauraPortrait: () => `${API_BASE}/laura/portrait`,
 };
 
 export class ApiError extends Error {
@@ -267,4 +272,8 @@ export const api = {
   kill: (reason) => post(ENDPOINTS.emergencyKill(), { reason }),
   resume: (scope, reason, department) => post(ENDPOINTS.emergencyResume(), { scope, reason, ...(department ? { department } : {}) }),
   ask: (question) => post(ENDPOINTS.ask(), { question }),
+  laura: () => get(ENDPOINTS.laura()),
+  lauraConversation: (limit) => get(ENDPOINTS.lauraConversation(limit)),
+  lauraAsk: (question) => post(ENDPOINTS.lauraAsk(), { question }),
+  lauraFollowOn: (turnId, proposalKey) => post(ENDPOINTS.lauraFollowOn(), { turn_id: turnId, proposal_key: proposalKey, confirm: true }),
 };

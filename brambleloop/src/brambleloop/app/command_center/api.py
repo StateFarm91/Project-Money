@@ -419,6 +419,98 @@ def make_router(db) -> APIRouter:
         body = await body_of(request)
         return ok(await run_in_threadpool(ask_mod.ask, db, str(body.get("question") or "")))
 
+    # ---- Talk to Laura (W3 lane F; D-FB-13, spec/07 item 9) ------------------------------
+    # Under /api/cc/, so `auth.gate` has already required a live owner session, and for the
+    # POSTs CSRF + a fresh nonce + timestamp. A protected follow-on additionally needs
+    # step-up. Business register only.
+
+    @router.get("/laura")
+    def laura_overview(request: Request):
+        from ...laura.agency import talk
+
+        return ok(talk.overview(db))
+
+    @router.get("/laura/conversation")
+    def laura_conversation(request: Request, limit: int = 20):
+        from ...laura.agency import talk
+
+        return ok({"register": "business", "turns": talk.history(db, limit)})
+
+    @router.post("/laura/ask")
+    async def laura_ask(request: Request):
+        from ...laura.agency import talk
+
+        body = await body_of(request)
+        question = body.get("question")
+        if not isinstance(question, str):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "question must be a string")
+        pid = auth.current_public_id(request)
+        return ok(await run_in_threadpool(
+            lambda: talk.converse(db, question, session_public_id=pid)))
+
+    @router.post("/laura/follow-on")
+    async def laura_follow_on(request: Request):
+        from ...laura.agency import followon
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        if body.get("confirm") is not True:
+            raise auth.refuse(db, request, 400, "CONFIRMATION_REQUIRED",
+                              "confirm the follow-on explicitly ({\"confirm\": true})",
+                              kind="action", session_public_id=pid)
+        try:
+            turn_id = int(body.get("turn_id"))
+        except (TypeError, ValueError):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "turn_id must be an integer",
+                              kind="action", session_public_id=pid) from None
+        key = str(body.get("proposal_key") or "")[:120]
+        prop = await run_in_threadpool(_laura_proposal, turn_id, key)
+        if prop is None:
+            raise auth.refuse(db, request, 404, "NOT_FOUND",
+                              f"turn {turn_id} has no proposal {key!r}", kind="action",
+                              session_public_id=pid)
+        protected = followon.protected(str(prop.get("job_type") or ""))
+        if protected:
+            auth.require_stepup(db, request, f"laura.follow_on.{prop.get('job_type')}")
+        try:
+            out = await run_in_threadpool(lambda: followon.create(
+                db, turn_id, key, confirmed_by=actor(request), stepped_up=protected))
+        except followon.FollowOnNotFound as exc:
+            raise auth.refuse(db, request, 404, "NOT_FOUND", str(exc), kind="action",
+                              session_public_id=pid) from None
+        except followon.FollowOnRefused as exc:
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc),
+                              kind="action", session_public_id=pid) from None
+        return ok({"ok": True, **out})
+
+    def _laura_proposal(turn_id: int, key: str):
+        from ...laura.agency.models import LauraTurn, ensure_tables
+
+        ensure_tables(db)
+        with db.session() as s:
+            turn = s.get(LauraTurn, turn_id)
+            if turn is None:
+                return None
+            return next((dict(p) for p in turn.proposals or []
+                         if isinstance(p, dict) and p.get("key") == key), None)
+
+    @router.get("/laura/portrait")
+    def laura_portrait(request: Request):
+        """Laura's canonical portrait, for the owner's Laura view only. Internal: it is a
+        canonical reference, not publication-approved (D-FB-11 / directive item 7)."""
+        from fastapi.responses import Response
+
+        from ...laura.agency import identity_view
+
+        try:
+            p = identity_view.portrait()
+        except Exception:  # noqa: BLE001 - no portrait is shown rather than a substitute
+            return ok({"error": "canonical portrait unavailable", "code": "NOT_FOUND"}, 404)
+        return Response(p["bytes"], media_type="image/jpeg", headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "X-Laura-Identity": p["identity_id"],
+            "X-Laura-Image-Status": f"{p['status']}; internal; not publication-approved"})
+
     return router
 
 
@@ -454,10 +546,18 @@ def store_preview_handler(db):
     """
     from fastapi.responses import HTMLResponse
 
-    def owner_store_preview(request: Request, viewport: str = "mobile"):
+    def owner_store_preview(request: Request, viewport: str = "mobile",
+                            variant: str = "standard"):
         from ...store_foundation import preview as store_preview_mod
 
-        return HTMLResponse(store_preview_mod.render_preview(db, viewport),
+        # `variant` is passed through; the preview module validates it against its own
+        # VARIANTS (an unknown name renders the standard variant), so lane B owns the names.
+        variant = str(variant or "standard")[:40]
+        try:
+            html = store_preview_mod.render_preview(db, viewport, variant=variant)
+        except TypeError:  # a preview module without variants
+            html = store_preview_mod.render_preview(db, viewport)
+        return HTMLResponse(html,
                             headers={"Cache-Control": "no-store",
                                      "X-Robots-Tag": "noindex, nofollow"})
 
