@@ -784,7 +784,7 @@ GOOD_SHOP = {"shop_name": "Brambleloop", "title": "Crochet patterns",
              "announcement": "Open", "digital_sale_message": "Thank you",
              "icon_url_fullxfull": "https://i/icon", "image_url_760x100": "https://i/banner",
              "policy_payment": "p", "policy_shipping": "s", "policy_refunds": "r",
-             "policy_privacy": "v", "policy_additional": "a",
+             "policy_privacy": "v", "policy_additional": "",  # EU-only field: empty on a Canadian shop
              "is_etsy_payments_onboarded": True, "is_vacation": False,
              "currency_code": "CAD", "digital_listing_count": 3}
 
