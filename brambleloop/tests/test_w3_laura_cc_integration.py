@@ -145,7 +145,8 @@ def test_unverifiable_identity_blocks_every_follow_on():
     def tampered(_db):
         raise ident.IdentityTampered("simulated: record does not match its pin")
 
-    with patch.object(ident, "load", tampered):
+    # `current`/`load` both verify through `ensure`; tamper at that single choke point.
+    with patch.object(ident, "ensure", tampered):
         r = H.post(c, csrf, "/api/cc/laura/follow-on",
                    {"turn_id": t["turn_id"], "proposal_key": prop["key"], "confirm": True})
     assert r.status_code == 409 and "identity unverifiable" in r.json()["error"], r.text

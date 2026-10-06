@@ -60,31 +60,10 @@ DB = main.db
 from brambleloop.visual import canonical as _canonical  # noqa: E402
 
 CANON_ID = _canonical.IDENTITY_ID
+# Lane D now applies the D-FB-14 r2 amendment inside laura genesis `ensure()` (pinned
+# CURRENT_SHA256), so this harness no longer re-pins anything: lane D's own verification runs
+# unmodified, and a stale pin would fail these suites closed (IdentityTampered).
 LANE_D_REPINNED = False
-
-
-def repin_lane_d_if_stale() -> bool:
-    """Lane D pins Laura's genesis record by hash. The integration branch carries the
-    owner-approved identity revision 2 (D-FB-14), which changes that record, and lane D has
-    not re-pinned yet -- so lane D's own `ensure` fails closed (IdentityTampered) and the
-    constitution blocks every Laura action. That fail-closed behaviour is proved separately
-    (test_w3_laura_cc_integration); for the rest of these suites the harness applies the
-    re-pin lane D owes (WIRING/DEFECT for lane D), in-process only, and says so."""
-    global LANE_D_REPINNED
-    try:
-        from brambleloop.laura.core import identity as _ident
-    except ImportError:
-        return False
-    actual = _ident.sha256_of(_ident.genesis())
-    if actual != _ident.GENESIS_SHA256:
-        print(f"WARN lane D genesis pin stale ({_ident.GENESIS_SHA256[:12]} != {actual[:12]}); "
-              f"re-pinned in-process for this suite")
-        _ident.GENESIS_SHA256 = actual
-        LANE_D_REPINNED = True
-    return LANE_D_REPINNED
-
-
-repin_lane_d_if_stale()
 
 
 def now() -> datetime:

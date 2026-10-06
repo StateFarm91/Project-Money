@@ -88,6 +88,11 @@ app.include_router(learn_router(db))
 from .storefront_api import make_router as storefront_router
 
 app.include_router(storefront_router(db))
+# W3 K8 W1 (applied by lane F): the Etsy estate and CX workspace routes. Customer-bearing
+# reads in it are operator-only (its own CUSTOMER_DATA_ROUTES, merged into ours below).
+from ..commerce.estate_api import make_router as estate_router
+
+app.include_router(estate_router(db))
 # v1.1 Owner Command Center (lane C): `/api/cc/*` behind the owner-session gate (registered
 # into `security.operator_gate`) and the PWA's static files at `/cc/` under a strict CSP.
 from . import command_center
@@ -760,6 +765,7 @@ def api_finance() -> dict:
 # until it is listed here.
 CUSTOMER_DATA_ROUTES: frozenset[str] = frozenset({
     "/api/support",
+    "/api/cx/workspace",          # W3 K8 (commerce.estate_api), operator credential
 })
 
 

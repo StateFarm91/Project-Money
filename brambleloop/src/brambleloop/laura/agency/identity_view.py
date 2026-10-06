@@ -108,3 +108,59 @@ def portrait() -> dict:
             "status": canonical.asset_status(sha),
             "customer_ready": bool(canonical.customer_ready(sha).get("customer_ready")),
             "label": brand_face.PREVIEW_IMAGE_LABEL}
+
+
+# The frames the owner's Laura view may show: exactly the current canonical revision's
+# owner-approved reference pack (D-FB-14), verified by bytes. Historical, superseded, concept
+# and forbidden images are never displayed, and nothing here is publication-approved.
+DISPLAY_FRAMES = ("neutral_portrait", "torso_fit_reference", "full_length_standing")
+FRAME_LABEL = "Internal — owner-approved canonical reference, not publication-approved"
+
+
+def visible_identity() -> dict:
+    """The honest display state of canonical Laura for the owner (no image bytes)."""
+    from ...visual import canonical
+
+    try:
+        summ = canonical.summary()
+    except Exception as exc:  # noqa: BLE001 - shown as UNKNOWN, never a substitute image
+        return {"identity_id": canonical.IDENTITY_ID, "status": "UNKNOWN",
+                "why": f"canonical manifest unreadable: {type(exc).__name__}", "frames": []}
+    frames = []
+    for name in DISPLAY_FRAMES:
+        ok = bool(canonical.reference_file(name))
+        sha = canonical.CURRENT_REFERENCE_HASHES.get(name, "")
+        frames.append({"frame": name, "displayable_to_owner": ok,
+                       "path": f"/api/cc/laura/frame/{name}" if ok else None,
+                       "sha256": sha, "status": canonical.asset_status(sha) if ok else
+                       "MISSING (bytes do not verify; not shown)",
+                       "publication_approved": False, "label": FRAME_LABEL})
+    approved = list(summ.get("publication_approved") or [])
+    return {"identity_id": canonical.IDENTITY_ID, "status": "OK" if summ.get("ok") else
+            "DEGRADED", "problems": summ.get("problems") or [],
+            "frames": frames, "publication_approved_frames": len(approved),
+            "customer_ready": False,
+            "state": ("No Laura image is publication-approved. The owner view shows her "
+                      "owner-approved canonical reference frames, labelled internal; customer "
+                      "surfaces show none until every Visual gate passes."
+                      if not approved else f"{len(approved)} publication-approved frame(s)"),
+            "missing_canonical_history": summ.get("missing_canonical") or [],
+            "source": "visual.canonical (manifest v2, D-FB-11/D-FB-14)"}
+
+
+def frame_bytes(name: str) -> dict:
+    """One display frame's verified bytes, or raises LookupError (never a substitute)."""
+    from pathlib import Path
+
+    from ...visual import canonical
+
+    if name not in DISPLAY_FRAMES:
+        raise LookupError("not a display frame")
+    path = canonical.reference_file(name)
+    if not path:
+        raise LookupError("frame bytes do not verify")
+    data = Path(path).read_bytes()
+    mime = "image/png" if path.endswith(".png") else "image/jpeg"
+    return {"bytes": data, "mime": mime, "identity_id": canonical.IDENTITY_ID,
+            "sha256": canonical.CURRENT_REFERENCE_HASHES[name],
+            "status": canonical.asset_status(canonical.CURRENT_REFERENCE_HASHES[name])}

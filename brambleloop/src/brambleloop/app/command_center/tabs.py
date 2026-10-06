@@ -433,6 +433,10 @@ def store(db) -> dict:
     return _tab("STORE", {"store_foundation": providers.call("store_foundation", db),
                           "seo": seo, "seo_w3": _seo_w3(seo),
                           "products": readers.products(db),
+                          "launch_verdict": guard("launch_verdict", lambda: launch_verdict(db),
+                                                  sources=["audit_log"]),
+                          "visibility": providers.call("visibility", db),
+                          "search_evidence": providers.call("search_evidence", db),
                           "publication_candidates": guard(
                               "publication_candidates", lambda: envelope(
                                   "OK", approvals._publication_cards(db),
@@ -554,6 +558,104 @@ def visual_rnd_section(db) -> dict:
     return {**e, "items": rows, "provider_items": len(e.get("items") or [])}
 
 
+def visual_rnd_governance(db) -> dict:
+    """The parts of lane H's provider that are not per-class readings: borderline identity
+    results held for a human (F-219), paid challengers whose spend plan is incomplete
+    (F-877), the commercial merchandising objective and the evolution report. Each part is
+    its own row; a missing part is UNKNOWN with its reason, never an empty OK."""
+    e = providers.call("visual_rnd", db)
+    if e.get("status") == "UNKNOWN" and not e.get("items"):
+        return {**e, "items": []}
+    rows = []
+
+    def row(title, status, text, why=None, **extra):
+        rows.append({"title": title, "status": status, "detail": text, "why": why,
+                     "source": "brambleloop.visual.rnd.status", **extra})
+
+    idr = e.get("identity_review")
+    if isinstance(idr, dict) and idr.get("reading") == "MEASURED":
+        n = idr.get("open_listed")
+        row("Laura identity review queue", "DEGRADED" if n else "OK",
+            f"{n} borderline identity result(s) held for a human (newest {idr.get('limit')} "
+            f"listed); a review never makes an image publication-approved",
+            open_listed=n)
+    else:
+        row("Laura identity review queue", "UNKNOWN", "UNKNOWN",
+            why=(idr or {}).get("why") if isinstance(idr, dict) else "not reported")
+    spend = e.get("spend") if isinstance(e.get("spend"), dict) else None
+    if spend is not None and isinstance(spend.get("paid_plans_incomplete"), list):
+        bad = spend["paid_plans_incomplete"]
+        pe = spend.get("paid_execution")
+        row("Paid challengers: spend plans", "DEGRADED" if bad else "OK",
+            (f"{len(bad)} queued paid challenger(s) have an incomplete plan: "
+             f"{', '.join(str(x) for x in bad[:10])}" if bad else
+             "every queued paid challenger carries a complete plan")
+            + f"; paid execution: {pe if isinstance(pe, str) else (pe or {}).get('state', pe)}",
+            paid_plans_incomplete=bad)
+    else:
+        row("Paid challengers: spend plans", "UNKNOWN", "UNKNOWN", why="not reported")
+    com = e.get("commercial")
+    if isinstance(com, dict) and isinstance(com.get("heroes"), dict):
+        heroes = com["heroes"]
+        txt = "; ".join(f"{c}: {(h or {}).get('incumbent_reading', 'UNKNOWN')}"
+                        for c, h in sorted(heroes.items()))
+        row("Commercial hero objective", "OK" if heroes else "UNKNOWN", txt or "UNKNOWN",
+            why=None if heroes else "no product class reported a hero")
+    else:
+        row("Commercial hero objective", "UNKNOWN", "UNKNOWN",
+            why=(com or {}).get("reason") if isinstance(com, dict) else "not reported")
+    evo = e.get("evolution")
+    if isinstance(evo, dict) and isinstance(evo.get("classes"), dict) and evo["classes"]:
+        verdicts = {}
+        for c, v in evo["classes"].items():
+            verdicts[c] = (v or {}).get("verdict") or "UNKNOWN"
+        txt = "; ".join(f"{c}: {v}" for c, v in sorted(verdicts.items()))
+        row("Evolution (is Visual getting better?)",
+            "OK" if any(v not in ("UNKNOWN",) for v in verdicts.values()) else "UNKNOWN", txt,
+            why=None if any(v != "UNKNOWN" for v in verdicts.values()) else
+            "no measured trend yet (needs live listings and marketplace exports)")
+    else:
+        row("Evolution (is Visual getting better?)", "UNKNOWN", "UNKNOWN",
+            why=(evo or {}).get("reason") if isinstance(evo, dict) else "not reported")
+    worst = ("UNKNOWN" if all(r["status"] == "UNKNOWN" for r in rows) else
+             "DEGRADED" if any(r["status"] in ("DEGRADED", "UNKNOWN") for r in rows) else "OK")
+    return envelope(worst, rows, list(e.get("sources") or []), basis=e.get("basis") or "unknown",
+                    provider="brambleloop.visual.rnd.status (governance)",
+                    as_of=e.get("as_of"),
+                    reason=("; ".join(f"{r['title']}: {r['why']}" for r in rows if r.get("why"))
+                            [:300] or None))
+
+
+def launch_verdict(db) -> dict:
+    """The newest `launch.assessed` audit row (runtime.release): PASS/FAIL with the blockers.
+    Never run -> UNKNOWN; anything but `ready is True` is FAIL, never a pass."""
+    from ...core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == "launch.assessed")
+                       .order_by(AuditLog.id.desc()).limit(1))
+        if row is None:
+            return unknown("launch.readiness has never run (no launch.assessed row)",
+                           "audit_log (launch.assessed)", ["audit_log"])
+        d = dict(row.detail or {})
+        at = _aware(row.at).isoformat() if row.at else None
+        rid = row.id
+    ready = d.get("ready") is True
+    items = [{"title": "Launch verdict", "status": "OK" if ready else "BLOCKED",
+              "verdict": "PASS" if ready else "FAIL", "assessed_at": at,
+              "source": f"audit_log:{rid}"}]
+    for label, key in (("Ours to do", "ours_to_do"), ("Blocked on owner", "blocked_on_owner"),
+                       ("Blocked on integration", "blocked_on_integration")):
+        vals = d.get(key)
+        if isinstance(vals, list):
+            items.append({"title": label, "status": "OK" if not vals else "DEGRADED",
+                          "count": len(vals), "detail": ", ".join(map(str, vals[:12])),
+                          "source": f"audit_log:{rid}"})
+    return envelope("OK" if ready else "BLOCKED", items, [f"audit_log:{rid}"],
+                    basis="measured", provider="audit_log (launch.assessed)", as_of=at,
+                    reason=None if ready else "the latest launch assessment is not ready")
+
+
 def autonomy(db) -> dict:
     from ...core.models import AuditLog
 
@@ -580,7 +682,9 @@ def autonomy(db) -> dict:
                              "lessons": readers.lessons(db),
                              "experiments": readers.experiments(db),
                              "visual_rnd": guard("visual_rnd",
-                                                 lambda: visual_rnd_section(db))},
+                                                 lambda: visual_rnd_section(db)),
+                             "visual_rnd_governance": guard(
+                                 "visual_rnd_governance", lambda: visual_rnd_governance(db))},
                 last_useful_action=jw.get("last_useful_action"))
 
 

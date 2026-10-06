@@ -98,6 +98,9 @@ def create(db, turn_id: int, proposal_key: str, *, confirmed_by: str,
     from ...queue.durable import JobQueue
     from .models import LauraFollowOn, LauraTurn, ensure_tables
 
+    from ..private.firewall import reject_private
+
+    reject_private((turn_id, proposal_key, confirmed_by), context="laura.followon")
     ensure_tables(db)
     with db.session() as s:
         turn = s.get(LauraTurn, int(turn_id))
@@ -160,7 +163,10 @@ def create(db, turn_id: int, proposal_key: str, *, confirmed_by: str,
             department=dept, job_type=jt, value=50, source="laura", reason=reason,
             fingerprint=fp, evidence=evidence,
             inputs={"requested_by": LAURA_ACTOR, "laura_turn": int(turn_id),
-                    "confirmed_by": confirmed_by[:80], "question": question[:200]})
+                    "confirmed_by": confirmed_by[:80], "question": question[:200],
+                    # a delegation's brief travels with the job (talk._delegation_answer)
+                    **({"brief": prop["brief"]} if isinstance(prop.get("brief"), dict)
+                       else {})})
         try:
             out = orchestrator._enqueue_mission(db, JobQueue(db), ch, cand, now)
         except orchestrator.ProtectedActionRefused as exc:
@@ -174,6 +180,8 @@ def create(db, turn_id: int, proposal_key: str, *, confirmed_by: str,
                         severity="decision" if kind == OWNER_ACTION else "info",
                         summary=f"Laura created a follow-on ({kind}): {prop.get('title')}",
                         refs=[ref, f"laura_cc_turns:{turn_id}"], at=now)
+    if prop.get("delegation"):
+        detail["delegation"] = True
     _audit(db, f"laura.followon.{kind}", ref,
            {"turn_id": int(turn_id), "proposal": proposal_key, "confirmed_by": confirmed_by,
             "department": dept, "job_type": jt, **detail})

@@ -7,7 +7,10 @@ import { card } from "../components.js";
 import { sectionsOf, pageMeta, renderAll } from "./_shared.js";
 
 const ORDER = [["store_foundation", "Store foundation"], ["products", "Products, releases & listings"],
-  ["publication_candidates", "Ready for publication review"], ["seo", "Search & SEO"], ["launch_packet", "Launch packet"]];
+  ["publication_candidates", "Ready for publication review"], ["launch_verdict", "Launch verdict"],
+  ["visibility", "Launch visibility: storefront, search, funnel, traffic"], ["seo", "Search & SEO"],
+  ["seo_w3", "Search: Etsy constraints & strategy"], ["search_evidence", "Search evidence per listing"],
+  ["launch_packet", "Launch packet"]];
 
 function findPreview(data, s) {
   const cands = [data.preview_url, data.preview_path];

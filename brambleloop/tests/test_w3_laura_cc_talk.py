@@ -181,7 +181,9 @@ def test_no_private_register_in_business_conversation():
     files = list(pkg.glob("*.py"))
     assert files
     for f in files:
-        src = f.read_text()
+        # The only private module a business path may import is the stdlib-only firewall
+        # (`reject_private`, PRIV contract) -- never the store, access, crypto or models.
+        src = f.read_text().replace("from ..private.firewall import reject_private", "")
         assert "laura.private" not in src and "from ..private" not in src, f.name
 
 

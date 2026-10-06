@@ -87,6 +87,15 @@ export const ENDPOINTS = {
   lauraAsk: () => `${API_BASE}/laura/ask`,
   lauraFollowOn: () => `${API_BASE}/laura/follow-on`,
   lauraPortrait: () => `${API_BASE}/laura/portrait`,
+  lauraPresence: () => `${API_BASE}/laura/presence`,
+  lauraVoiceSpec: () => `${API_BASE}/laura/voice-spec`,
+  privateStatus: () => `${API_BASE}/private/status`,
+  privateOpen: () => `${API_BASE}/private/open`,
+  privateClose: () => `${API_BASE}/private/close`,
+  privateView: () => `${API_BASE}/private/view`,
+  privateRemember: () => `${API_BASE}/private/remember`,
+  privateTurn: () => `${API_BASE}/private/turn`,
+  privateForget: () => `${API_BASE}/private/forget`,
 };
 
 export class ApiError extends Error {
@@ -275,5 +284,16 @@ export const api = {
   laura: () => get(ENDPOINTS.laura()),
   lauraConversation: (limit) => get(ENDPOINTS.lauraConversation(limit)),
   lauraAsk: (question) => post(ENDPOINTS.lauraAsk(), { question }),
+  lauraPresence: () => get(ENDPOINTS.lauraPresence()),
+  lauraVoiceSpec: () => get(ENDPOINTS.lauraVoiceSpec()),
+  // Owner-private context: status is non-content; every content call is a POST, so nothing
+  // private enters this tab's GET memory or any cache.
+  privateStatus: () => get(ENDPOINTS.privateStatus()),
+  privateOpen: () => post(ENDPOINTS.privateOpen(), {}),
+  privateClose: () => post(ENDPOINTS.privateClose(), {}),
+  privateView: () => post(ENDPOINTS.privateView(), {}),
+  privateRemember: (key, text) => post(ENDPOINTS.privateRemember(), { key, text }),
+  privateTurn: (text) => post(ENDPOINTS.privateTurn(), { text }),
+  privateForget: (id) => post(ENDPOINTS.privateForget(), { id }),
   lauraFollowOn: (turnId, proposalKey) => post(ENDPOINTS.lauraFollowOn(), { turn_id: turnId, proposal_key: proposalKey, confirm: true }),
 };

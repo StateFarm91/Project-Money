@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from . import approvals, ask as ask_mod, auth, emergency, notifications, tabs
+from . import private_context
 
 
 def make_router(db) -> APIRouter:
@@ -104,6 +105,7 @@ def make_router(db) -> APIRouter:
     def logout(request: Request):
         pid = auth.current_public_id(request)
         auth.revoke_session(db, pid, "logged out")
+        private_context.on_session_revoked(db, pid, "logged_out")
         auth.record(db, kind="logout", outcome="ok", request=request, session_public_id=pid)
         resp = ok({"logged_out": True})
         resp.delete_cookie(auth.COOKIE, path="/", secure=True, httponly=True,
@@ -225,6 +227,7 @@ def make_router(db) -> APIRouter:
         for s_ in auth.list_sessions(db, me, limit=500):
             if not s_["current"] and s_["revoked_at"] is None:
                 n += int(auth.revoke_session(db, s_["session_id"], f"revoked by {me}"))
+                private_context.on_session_revoked(db, s_["session_id"])
         auth.record(db, kind="session_revoke", outcome="ok", request=request,
                     session_public_id=me, detail={"revoked": n})
         return ok({"revoked": n})
@@ -234,6 +237,7 @@ def make_router(db) -> APIRouter:
         me = auth.current_public_id(request)
         if not auth.revoke_session(db, session_id, f"revoked by {me}"):
             return ok({"error": f"no live session {session_id!r}", "code": "NOT_FOUND"}, 404)
+        private_context.on_session_revoked(db, session_id)
         auth.record(db, kind="session_revoke", outcome="ok", request=request,
                     session_public_id=me, detail={"revoked": session_id})
         return ok({"revoked": session_id})
@@ -463,9 +467,15 @@ def make_router(db) -> APIRouter:
         question = body.get("question")
         if not isinstance(question, str):
             raise auth.refuse(db, request, 400, "BAD_REQUEST", "question must be a string")
+        from ...laura.agency import presence
+
+        modes = body.get("modes")
+        modes = [str(m) for m in modes][:3] if isinstance(modes, list) else None
         pid = auth.current_public_id(request)
-        return ok(await run_in_threadpool(
-            lambda: talk.converse(db, question, session_public_id=pid)))
+        turn = await run_in_threadpool(
+            lambda: talk.converse(db, question, session_public_id=pid))
+        # Phase 1 delivers text; a richer mode requested degrades with its reason (D-FB-16).
+        return ok({**turn, "delivery": presence.negotiate(modes)})
 
     @router.post("/laura/follow-on")
     async def laura_follow_on(request: Request):
@@ -529,6 +539,113 @@ def make_router(db) -> APIRouter:
             "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
             "X-Laura-Identity": p["identity_id"],
             "X-Laura-Image-Status": f"{p['status']}; internal; not publication-approved"})
+
+    # ---- Laura presence: visible identity, voice spec, modes (D-FB-16 items 7-10) ---------
+
+    @router.get("/laura/presence")
+    def laura_presence(request: Request):
+        from ...laura.agency import identity_view, presence
+
+        return ok({"capabilities": presence.capabilities(),
+                   "visible_identity": identity_view.visible_identity()})
+
+    @router.get("/laura/voice-spec")
+    def laura_voice_spec(request: Request):
+        from ...laura.agency import voice_spec
+
+        return ok(voice_spec.public_view())
+
+    @router.get("/laura/frame/{frame}")
+    def laura_frame(frame: str, request: Request):
+        """One owner-approved canonical reference frame (D-FB-14), verified by bytes,
+        internal only. Anything else is 404 -- never a substitute image."""
+        from fastapi.responses import Response
+
+        from ...laura.agency import identity_view
+
+        try:
+            f = identity_view.frame_bytes(frame)
+        except Exception:  # noqa: BLE001
+            return ok({"error": "no such canonical frame", "code": "NOT_FOUND"}, 404)
+        return Response(f["bytes"], media_type=f["mime"], headers={
+            "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow",
+            "X-Laura-Identity": f["identity_id"],
+            "X-Laura-Image-Status": f"{f['status']}; internal; not publication-approved"})
+
+    @router.post("/laura/voice")
+    async def laura_voice(request: Request):
+        """Phase 2 entry point (speech in). GATED until an STT provider is configured: the
+        request is refused with the exact needs; nothing is guessed from audio."""
+        import base64
+        import binascii
+
+        from ...laura.agency import presence
+
+        body = await body_of(request)
+        pid = auth.current_public_id(request)
+        try:
+            audio = base64.b64decode(str(body.get("audio_b64") or ""), validate=True)
+        except (binascii.Error, ValueError):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "audio_b64 must be base64",
+                              session_public_id=pid) from None
+        if not audio or len(audio) > 2_000_000:
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "audio must be 1 B .. 2 MB",
+                              session_public_id=pid)
+        out = await run_in_threadpool(lambda: presence.respond(
+            db, audio=audio, audio_mime=str(body.get("mime") or "")[:60],
+            modes=[presence.VOICE, presence.TEXT], session_public_id=pid))
+        if out["status"] == "REFUSED":
+            return ok({"error": out["error"], "code": "VOICE_GATED",
+                       "capabilities": presence.capabilities()}, 503)
+        return ok(out)
+
+    # ---- owner-private context (PRIV contract; private_context is the only gateway) -------
+    # Under /api/cc/, so a live owner session + CSRF + nonce + timestamp are already enforced.
+    # Every private route is POST (no GET cache anywhere) and answers `no-store`.
+
+    def _private(request: Request, fn):
+        pid = auth.current_public_id(request)
+        try:
+            return ok(fn(pid))
+        except private_context.PrivateUnavailable as exc:
+            raise auth.refuse(db, request, exc.status, exc.code,
+                              f"private context unavailable ({exc.exc_name})",
+                              kind="private_context", session_public_id=pid) from None
+
+    @router.get("/private/status")
+    def private_status(request: Request):
+        return ok(private_context.status(db, auth.current_public_id(request)))
+
+    @router.post("/private/open")
+    def private_open(request: Request):
+        auth.require_stepup(db, request, "private.open")
+        return _private(request, lambda pid: private_context.open_(db, pid))
+
+    @router.post("/private/close")
+    def private_close(request: Request):
+        return _private(request, lambda pid: private_context.close(db, pid))
+
+    @router.post("/private/view")
+    def private_view(request: Request):
+        return _private(request, lambda pid: private_context.view(db, pid))
+
+    @router.post("/private/remember")
+    async def private_remember(request: Request):
+        body = await body_of(request)
+        return _private(request, lambda pid: private_context.remember(
+            db, pid, body.get("key"), body.get("text")))
+
+    @router.post("/private/turn")
+    async def private_turn(request: Request):
+        body = await body_of(request)
+        return _private(request, lambda pid: private_context.owner_turn(
+            db, pid, body.get("text")))
+
+    @router.post("/private/forget")
+    async def private_forget(request: Request):
+        body = await body_of(request)
+        return _private(request, lambda pid: private_context.forget(
+            db, pid, body.get("id")))
 
     return router
 

@@ -16,26 +16,20 @@ durable state; swapping or removing the model changes wording at most, never con
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 
-from ...gateway import prompts as prompt_registry
+from ...gateway import laura_phrase
 
 PHRASING_ENV = "BRAMBLELOOP_LAURA_PHRASING"
 AGENT = "orchestrator"   # billed against an existing registry agent's ceiling
 ROUTING_TASK = "laura.business_phrase"
 
-PROMPT = prompt_registry.register(prompt_registry.Prompt(
-    name="laura.business_phrase", version="1",
-    system=("You are the wording layer for Laura, the AI Founder/CEO of Brambleloop, speaking "
-            "to the company owner about the business. Rephrase the ANSWER in her voice: warm, "
-            "intelligent, confident, calm, concise, first person. You may reorder and "
-            "rephrase. You may not add, remove or change any fact, number, date, name or the "
-            "word UNKNOWN; you may not add claims, feelings presented as experiences, or "
-            "advice that is not in the answer. Never claim to be human or to have done "
-            "physical things. Reply with JSON only."),
-    template=("ANSWER:\n{answer}\n\nJSON: {{\"text\": \"...\", \"changed_facts\": false}}"),
-    output_schema=("text", "changed_facts"), max_output_tokens=600))
+# One prompt for Laura's business phrasing: lane SPEND's `gateway.laura_phrase` registers
+# `laura.business_phrase@1` (its own allocation stop, cheap tier). Registering a second text
+# under the same ref would raise `PromptIsImmutable` the moment both modules are imported.
+PROMPT = laura_phrase.PROMPT
 
 _NUM = re.compile(r"\d+(?:[.,]\d+)*")
 
@@ -58,28 +52,38 @@ def preserves_facts(original: str, phrased: str) -> bool:
     return True
 
 
-def phrase(db, answer: str, *, gateway=None) -> tuple[str, dict]:
-    """(text, meta). Falls back to `answer` on any refusal, error or fact drift."""
+def phrase(db, answer: str, *, gateway=None, facts: dict | None = None) -> tuple[str, dict]:
+    """(text, meta). Falls back to `answer` on any refusal, error or fact drift.
+
+    Production path (no `gateway` handed in): lane SPEND's `gateway.laura_phrase.phrase` --
+    the registered `laura.business_phrase` routing task with its own allocation stop, month
+    ceiling, agent cap, health parking, content cache and deterministic validation. Its
+    answer must then also pass this module's own check (every number and UNKNOWN kept)."""
     meta = {"phrased": False, "method": "deterministic template"}
     if gateway is None:
         if not enabled():
             return answer, meta
         try:
-            from ...agents.registry import Registry
-            from ...gateway import failover
-
-            # Routed, budgeted and parked like every other model task. Until a routing task
-            # named ROUTING_TASK is registered (a gateway-owner wiring item), routing refuses
-            # and the deterministic answer stands.
-            gateway, _decision = failover.gateway_for(db, ROUTING_TASK, registry=Registry(db),
-                                                      agent=AGENT)
-            if gateway is None:
-                raise LookupError("cached decision has no gateway")
-        except Exception as exc:  # noqa: BLE001 - no gateway: deterministic answer stands
-            meta["phrasing_skipped"] = f"no gateway: {type(exc).__name__}"
+            out = laura_phrase.phrase(db, statement=answer, facts=dict(facts or {}),
+                                      agent=AGENT)
+        except Exception as exc:  # noqa: BLE001 - deterministic answer stands
+            meta["phrasing_skipped"] = f"laura_phrase failed: {type(exc).__name__}"
             return answer, meta
+        text = str(out.get("text") or "")
+        if out.get("source") not in ("model", "cache"):
+            meta["phrasing_skipped"] = str(out.get("reason") or "deterministic")[:200]
+            return answer, meta
+        if not preserves_facts(answer, text):
+            meta["phrasing_skipped"] = "rephrasing changed facts; deterministic answer kept"
+            meta["cost_cad"] = out.get("cost_cad")
+            return answer, meta
+        return text, {"phrased": True, "method": f"deterministic facts, phrased via gateway "
+                                                  f"{laura_phrase.PROMPT.ref} ({out['source']})",
+                      "cost_cad": out.get("cost_cad")}
     try:
-        out = gateway.complete_json(PROMPT.ref, agent=AGENT, values={"answer": answer})
+        out = gateway.complete_json(PROMPT.ref, agent=AGENT, values={
+            "statement": answer,
+            "facts": json.dumps(dict(facts or {}), sort_keys=True, default=str)})
     except Exception as exc:  # noqa: BLE001 - budget refusal, provider down, bad JSON
         meta["phrasing_skipped"] = f"gateway refused or failed: {type(exc).__name__}"
         return answer, meta

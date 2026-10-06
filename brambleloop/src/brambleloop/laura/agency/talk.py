@@ -25,7 +25,7 @@ import re
 from datetime import datetime, timezone
 
 from . import evidence as ev
-from . import followon, identity_view
+from . import delegation, followon, identity_view
 
 METHOD = "deterministic retrieval over durable state + fixed templates (no model call)"
 UNKNOWN = "UNKNOWN"
@@ -64,7 +64,12 @@ _RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def classify(question: str) -> str:
-    """Keywords match at a word start ("learn" never matches "earn")."""
+    """Keywords match at a word start ("learn" never matches "earn"). An instruction to a
+    department ("have Design make three more banners") is a delegation, checked first."""
+    from . import delegation
+
+    if delegation.parse(question):
+        return "delegate"
     low = " ".join(str(question or "").lower().replace("’", "'").split())
     for intent, words in _RULES:
         if any(re.search(r"(?<![a-z])" + re.escape(w), low) for w in words):
@@ -267,10 +272,78 @@ def _identity_answer(db, session_public_id: str) -> tuple[str, str, list[dict], 
     return "ANSWERED", answer, facts, []
 
 
+def _delegation_answer(db, question: str) -> tuple[str, str, list[dict], list[dict],
+                                                   list[dict]]:
+    """(status, answer, facts, unknowns, proposals) for an instruction to a department."""
+    from ...autonomy import charters, memory
+
+    d = delegation.parse(question) or {}
+    if not d.get("department"):
+        names = ", ".join(sorted({c.name for c in charters.BY_KEY.values()}))
+        return (UNKNOWN, f"UNKNOWN: I don't have a department called "
+                         f"\"{d.get('spoken_department')}\". My departments are: {names}.",
+                [], [{"section": "delegation", "title": "Department",
+                      "reason": f"no department {d.get('spoken_department')!r}"}], [])
+    p = delegation.plan(d)
+    ch = charters.BY_KEY.get(p["department"])
+    if ch is None:
+        return (UNKNOWN, f"UNKNOWN: department {p['department']} has no charter.", [],
+                [{"section": "delegation", "title": "Department charter",
+                  "reason": f"no charter for {p['department']}"}], [])
+    facts = [ev.fact(f"{ch.name} holds GREEN authority for: "
+                     f"{', '.join(sorted(ch.generatable))}", f"autonomy.charters:{ch.key}"),
+             ev.fact("Protected work (publish, activate, live listing changes, pricing, ads, "
+                     "customer messages) only ever becomes an owner decision",
+                     "autonomy.charters.PROTECTED_JOB_TYPES")]
+    if p["route"] == "refused":
+        facts.append(ev.fact(f"Refused: {p['why']}", "DECISION_LOG (company constitution)"))
+        return ("ANSWERED", f"I won't hand that to {ch.name}: {p['why']}. That decision is "
+                            f"yours; nothing has been queued.", facts, [], [])
+    block = memory.active_block(db, ch.key)
+    if block:
+        facts.append(ev.fact(f"{ch.name} is blocked by the owner: "
+                             f"{(block.get('body') or {}).get('reason') or 'no reason given'}",
+                             f"company_memory:{block.get('key') or 'block'}"))
+    for need in p.get("gated") or []:
+        facts.append(ev.fact(f"GATED: {need}", "visual.rnd.status (spend.paid_execution)",
+                             basis="unknown"))
+    if "banner" in p["task"].lower() or "logo" in p["task"].lower():
+        facts.append(ev.fact("The owner's canonical banner and logo stay the art target; new "
+                             "work is a candidate for your review, never a silent replacement",
+                             "DECISION_LOG D-FB-17"))
+    n = p.get("count")
+    what = f"{p['task']}" + ("" if n is None else f" (count: {n})")
+    title = f"Delegate to {ch.name}: {p['task']}"[:200]
+    prop = followon.proposal(p["department"], p["job_type"], title, p["why"],
+                             [f"autonomy.charters:{ch.key}", f"laura instruction: {question}"],
+                             subject=("delegation:" + re.sub(r"[^a-z0-9]+", "-",
+                                                             p["task"].lower()))[:80])
+    if prop is None:
+        return ("ANSWERED", f"{ch.name} has no authority I can delegate that under; nothing "
+                            f"has been queued.", facts, [], [])
+    prop = {**prop, "delegation": True, "brief": delegation.brief(p, question)}
+    if p["route"] == "owner_action":
+        answer = (f"That's protected ({p['job_type']}), so I can't just hand it to "
+                  f"{ch.name}. Confirm with step-up and I'll record it as your decision in "
+                  f"Approvals; the act itself still needs its own grant.")
+    else:
+        answer = (f"I'll give this to {ch.name}: {what}. Confirm and it goes on their queue as "
+                  f"internal work -- no publishing, no spending, no customer contact.")
+        if p.get("gated"):
+            answer += " Honest limit: " + "; ".join(p["gated"]) + "."
+        if block:
+            answer += f" {ch.name} is currently blocked by you, so I won't route around it."
+    return "ANSWERED", answer, facts, [], [prop]
+
+
 def converse(db, question: str, *, session_public_id: str = "", gateway=None) -> dict:
     """Answer one business question as Laura, persist the turn, return it."""
+    from ..private.firewall import reject_private
     from .models import REGISTER, LauraTurn, ensure_tables
 
+    # PRIV: owner-private values never enter a business conversation (stdlib-only firewall;
+    # raises PrivateInputRefused for anything tagged private, however nested).
+    reject_private(question, context="laura.business")
     ensure_tables(db)
     question = " ".join(str(question or "").split())[:MAX_QUESTION]
     ident = identity_view.identity(db)
@@ -283,6 +356,10 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
                                            "example: " + "; ".join(SUGGESTED[:4]), [], [])
     elif intent == "identity":
         status, answer, facts, unknowns = _identity_answer(db, session_public_id)
+    elif intent == "delegate":
+        status, answer, facts, unknowns, proposals = _delegation_answer(db, question)
+        sections = [ev.section("delegation", "Delegation", facts,
+                               status="OK" if facts else UNKNOWN)]
     elif intent == "fallback":
         from ...app.command_center import ask as ask_mod
 
@@ -310,7 +387,9 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
     if facts and status != UNKNOWN:
         from . import phrasing
 
-        answer, meta = phrasing.phrase(db, answer, gateway=gateway)
+        answer, meta = phrasing.phrase(
+            db, answer, gateway=gateway,
+            facts={f"f{i}": f["statement"] for i, f in enumerate(facts[:20])})
         if meta.get("phrased"):
             method = f"{METHOD}; {meta['method']}"
     sources = list(dict.fromkeys(f["source"] for f in facts))

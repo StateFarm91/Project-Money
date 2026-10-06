@@ -330,3 +330,8 @@ details.card[open] > summary { margin-bottom: 8px; }
   .laura-portrait { flex-basis: auto; grid-template-columns: 72px 1fr; align-items: center; }
   .laura-portrait img { width: 72px; height: 72px; }
 }
+
+.laura-frame-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.laura-frame { margin: 0; flex: 0 0 120px; display: grid; gap: 4px; }
+.laura-frame img { width: 120px; height: 160px; object-fit: cover; border-radius: 12px; border: 2px dashed var(--warn); background: var(--surface-2); }
+.laura-private .ask-form input { min-width: 0; }
