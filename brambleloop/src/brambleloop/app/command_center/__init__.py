@@ -65,6 +65,11 @@ def install(app, db) -> None:
 
     app.add_api_route(STORE_PREVIEW_PATH, store_preview_handler(db), methods=["GET"],
                       include_in_schema=False)
+    # Operator-credential gated (not under /api/cc/): owner lockout recovery (M1).
+    from .api import LOGIN_RECOVERY_PATH, login_recovery_handler
+
+    app.add_api_route(LOGIN_RECOVERY_PATH, login_recovery_handler(db), methods=["POST"],
+                      include_in_schema=False)
     STATIC_DIR.mkdir(exist_ok=True)
     app.mount("/cc", _StrictStatic(StaticFiles(directory=str(STATIC_DIR), html=True)),
               name="command_center_static")

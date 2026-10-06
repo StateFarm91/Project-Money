@@ -59,23 +59,45 @@ def make_router(db) -> APIRouter:
         if "application/json" not in (request.headers.get("content-type") or ""):
             raise auth.refuse(db, request, 400, "BAD_REQUEST", "JSON body required",
                               kind="login")
-        if await run_in_threadpool(auth.login_rate_limited, db, request):
-            raise auth.refuse(db, request, 429, "RATE_LIMITED",
-                              "too many failed logins; wait 15 minutes", kind="login")
         body = await body_of(request)
+        # Lockout resistance (audit ddf9c6e M1): a browser that signed in before is limited per
+        # device, a valid operator-minted recovery code is not limited; everyone else per
+        # client address, then globally. Only wrong credentials count toward any limit.
+        device_id = await run_in_threadpool(auth.trusted_device, db, request)
+        recovery = False
+        if device_id is None and body.get("recovery_code") is not None:
+            recovery = await run_in_threadpool(auth.consume_recovery_code, db,
+                                               body.get("recovery_code"))
+        limited = await run_in_threadpool(
+            lambda: auth.login_throttle(db, request, device_id=device_id, recovery=recovery))
+        if limited:
+            message = "too many failed logins; wait 15 minutes"
+            if limited == "global":
+                message += (" (a browser that has signed in before is not affected; the "
+                            "operator can mint a one-time recovery code)")
+            raise auth.refuse(db, request, 429, "RATE_LIMITED", message, kind="login",
+                              session_public_id=device_id or "", detail={"limit": limited})
         good = await run_in_threadpool(auth.verify_owner, body.get("passphrase"),
                                        body.get("totp"))
         if not good:
-            raise auth.refuse(db, request, 401, "BAD_CREDENTIALS",
-                              "passphrase or code not accepted", kind="login")
+            raise auth.refuse(db, request, 401, auth.FAILED_LOGIN_CODE,
+                              "passphrase or code not accepted", kind="login",
+                              session_public_id=device_id or "",
+                              detail={"recovery_code": recovery} if recovery else None)
         token, view = await run_in_threadpool(auth.create_session, db, request,
                                               device_label=str(body.get("device_label") or ""))
         auth.record(db, kind="login", outcome="ok", request=request,
-                    session_public_id=view["session_id"])
+                    session_public_id=view["session_id"],
+                    detail={"trusted_device": bool(device_id), "recovery_code": recovery})
         resp = ok({"authenticated": True, "csrf_token": auth.csrf_for(token), "session": view,
                    "stepup_valid_until": view["stepup_valid_until"]})
         resp.set_cookie(auth.COOKIE, token, max_age=int(auth.SESSION_TTL.total_seconds()),
                         path="/", secure=True, httponly=True, samesite="strict")
+        if device_id is None:
+            dev_token, _dev_id = await run_in_threadpool(auth.issue_device, db)
+            resp.set_cookie(auth.DEVICE_COOKIE, dev_token,
+                            max_age=int(auth.DEVICE_TTL.total_seconds()), path="/",
+                            secure=True, httponly=True, samesite="strict")
         return resp
 
     @router.post("/auth/logout")
@@ -229,10 +251,14 @@ def make_router(db) -> APIRouter:
         try:
             out = await run_in_threadpool(approvals.execute, db, action, body,
                                           actor=actor(request))
+        except approvals.ActionNotFound as exc:
+            raise auth.refuse(db, request, 404, "NOT_FOUND", str(exc), kind="action",
+                              session_public_id=auth.current_public_id(request)) from None
         except approvals.ActionRefused as exc:
             raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", str(exc),
                               kind="action",
-                              session_public_id=auth.current_public_id(request)) from None
+                              session_public_id=auth.current_public_id(request),
+                              detail=exc.detail) from None
         return ok({"ok": True, "action": action, **out})
 
     # ---- emergency -------------------------------------------------------------------
@@ -362,6 +388,11 @@ def make_router(db) -> APIRouter:
 
         dept = _department(request, department)
         body = await body_of(request)
+        never = emergency.never_paused_refusal(dept)
+        if never:
+            # Same rule as emergency pause (F-889): blocking these would blind the company.
+            raise auth.refuse(db, request, 409, "REFUSED_BY_AUTHORITY", never, kind="action",
+                              session_public_id=auth.current_public_id(request))
         reason = _str(body, "reason") or "blocked by the owner from the command center"
         who = actor(request)
         await run_in_threadpool(lambda: memory.block_department(db, dept,
@@ -392,6 +423,26 @@ def make_router(db) -> APIRouter:
 
 
 STORE_PREVIEW_PATH = "/cc/store-preview"
+LOGIN_RECOVERY_PATH = "/api/owner/cc/login-recovery"
+
+
+def login_recovery_handler(db):
+    """Owner lockout recovery (audit ddf9c6e M1): a single-use, 15-minute login code.
+
+    Mounted by `install` at `/api/owner/cc/login-recovery` (POST). It is *not* under
+    `/api/cc/`, so the application-wide `security.operator_gate` requires the operator bearer
+    credential (default-deny for every non-GET route). The code lets one login from a new
+    device past the per-client and global failure limits; the passphrase (and TOTP) is still
+    required, and the code is spent on first use.
+    """
+
+    def mint_login_recovery(request: Request):
+        out = auth.mint_recovery_code(db)
+        auth.record(db, kind="login_recovery", outcome="ok", request=request,
+                    detail={"expires_at": out["expires_at"]})
+        return JSONResponse(out, headers={"Cache-Control": "no-store"})
+
+    return mint_login_recovery
 
 
 def store_preview_handler(db):

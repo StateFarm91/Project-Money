@@ -50,6 +50,19 @@ NEVER_PAUSED: dict[str, str] = {
     "finance": "reconciliation and spend challenge are monitoring",
     "platform": "reliability and recovery must keep running",
 }
+
+
+def never_paused_refusal(department) -> str | None:
+    """The single F-889 rule: why `department` may not be paused or blocked, or None.
+
+    Used by `pause` (emergency), by the command center's department block, and by the
+    autonomy orchestrator (which keeps running these departments even if a block row exists),
+    so the three can never disagree (audit ddf9c6e M3)."""
+    if department in NEVER_PAUSED:
+        return f"{department} is never paused: {NEVER_PAUSED[department]}"
+    return None
+
+
 PUBLISHING_AGENTS = ("store_operator",)
 SPEND_AGENTS = ("ads",)
 STATE_KEY = "emergency_state"
@@ -188,8 +201,9 @@ def pause(db, *, scope: str, department: str | None, reason: str, actor: str) ->
         if department not in DEPARTMENTS:
             raise EmergencyRefused(f"unknown department {department!r}; one of "
                                    f"{list(DEPARTMENTS)}")
-        if department in NEVER_PAUSED:
-            raise EmergencyRefused(f"{department} is never paused: {NEVER_PAUSED[department]}")
+        never = never_paused_refusal(department)
+        if never:
+            raise EmergencyRefused(never)
     out: dict = {"scope": scope, "department": department, "agents_disabled": [],
                  "spend_scopes_paused": [], "grants_revoked": []}
     tag = f"{scope}{':' + department if department else ''}: {reason.strip()[:200]}"

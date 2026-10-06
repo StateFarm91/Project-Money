@@ -16,6 +16,15 @@ read it, and it controls the whole company), so the owner gets a *session* inste
 * **Step-up** -- consequential actions require a re-authentication within the last 5 minutes;
   five failed step-ups revoke the session.
 * **Rate limits** -- login failures per client and globally, mutating requests per session.
+  Only a wrong credential (``BAD_CREDENTIALS``) counts; a refusal for being rate limited,
+  cross-site or malformed never extends a lockout. The client is the socket peer unless the
+  operator configures the trusted proxy (`BRAMBLELOOP_TRUSTED_PROXY_HOPS`, or
+  `BRAMBLELOOP_CLIENT_IP_HEADER`): a client-supplied `X-Forwarded-For` is never trusted on its
+  own. The *global* limit refuses unknown devices before the credential is checked, but cannot
+  lock the owner out: a browser that has logged in before carries a trusted-device cookie
+  (`__Host-bl_dev`, only its hash stored) and is limited per device instead, and a single-use
+  recovery code minted with the operator credential (`POST /api/owner/cc/login-recovery`)
+  lets a new device past the client and global limits. Neither replaces the passphrase/TOTP.
 * **Audit** -- every refusal (and every login/step-up) is a `cc_security_events` row.
 
 The application-wide `security.operator_gate` calls `gate()` for every `/api/cc/*` route, so the
@@ -27,6 +36,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import logging
+import math
 import os
 import re
 import secrets
@@ -39,11 +50,20 @@ from sqlalchemy.exc import IntegrityError
 
 from ...core import opsauth
 from .. import security
-from .models import OwnerSession, RequestNonce, SecurityEvent, ensure_tables
+from .models import (OwnerSession, RequestNonce, SecurityEvent, ensure_tables, kv_get,
+                     kv_set)
+
+log = logging.getLogger("brambleloop.cc.auth")
 
 PASSPHRASE_VAR = "BRAMBLELOOP_OWNER_PASSPHRASE_HASH"
 TOTP_VAR = "BRAMBLELOOP_OWNER_TOTP_SECRET"
 COOKIE = "__Host-bl_cc"
+DEVICE_COOKIE = "__Host-bl_dev"
+# Trusted-proxy configuration (see `client_ip`). Railway terminates TLS at one edge proxy that
+# appends the address it saw to X-Forwarded-For, so production sets HOPS=1.
+TRUSTED_HOPS_VAR = "BRAMBLELOOP_TRUSTED_PROXY_HOPS"
+CLIENT_IP_HEADER_VAR = "BRAMBLELOOP_CLIENT_IP_HEADER"
+PUBLIC_ORIGIN_VAR = "BRAMBLELOOP_PUBLIC_ORIGIN"
 CSRF_HEADER = "x-csrf-token"
 NONCE_HEADER = "x-cc-nonce"
 TS_HEADER = "x-cc-timestamp"
@@ -56,10 +76,21 @@ NONCE_RETENTION = timedelta(minutes=10)
 LOGIN_WINDOW = timedelta(minutes=15)
 LOGIN_FAILS_PER_CLIENT = 5
 LOGIN_FAILS_GLOBAL = 20
+LOGIN_FAILS_PER_DEVICE = 5
+DEVICE_TTL = timedelta(days=90)
+MAX_TRUSTED_DEVICES = 20
+RECOVERY_TTL = timedelta(minutes=15)
+DEVICES_KEY = "cc_trusted_devices"
+RECOVERY_KEY = "cc_login_recovery"
+FAILED_LOGIN_CODE = "BAD_CREDENTIALS"
 MUTATIONS_PER_MINUTE = 30
 STEPUP_FAILS_REVOKE = 5
 PBKDF2_ITERATIONS = 600_000
 _NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+# A nonce row must outlive every timestamp that could still pass the freshness check, or a
+# purged nonce becomes replayable (audit ddf9c6e M2). Checked at import, not by `assert`.
+if NONCE_RETENTION <= timedelta(seconds=2 * NONCE_SKEW_SECONDS):
+    raise RuntimeError("NONCE_RETENTION must exceed twice NONCE_SKEW_SECONDS")
 
 PREFIX = "/api/cc/"
 # Command-center routes reachable without a session, each with the reason (kept short).
@@ -185,11 +216,50 @@ def csrf_for(token: str) -> str:
                     hashlib.sha256).hexdigest()
 
 
+def _trusted_hops() -> int:
+    try:
+        return max(0, min(int((os.environ.get(TRUSTED_HOPS_VAR) or "0").strip()), 10))
+    except ValueError:
+        return 0
+
+
+def client_ip(request) -> str:
+    """The client address, trusting forwarding headers only as far as the operator configured.
+
+    * default (no configuration): the socket peer. `X-Forwarded-For` is attacker-controlled
+      and is ignored, so rotating it cannot mint fresh rate-limit buckets.
+    * `BRAMBLELOOP_CLIENT_IP_HEADER=<name>`: that header, for a platform that overwrites it.
+    * `BRAMBLELOOP_TRUSTED_PROXY_HOPS=N`: the N-th entry from the right of X-Forwarded-For.
+      Each trusted proxy appends the address it saw, so the right-most N entries were written
+      by our own proxies and everything to their left is client-supplied. Railway: N=1.
+      Fewer entries than N means the request did not come through the proxies: socket peer.
+    """
+    peer = request.client.host if request.client else ""
+    header = (os.environ.get(CLIENT_IP_HEADER_VAR) or "").strip().lower()
+    if header:
+        value = (request.headers.get(header) or "").split(",")[-1].strip()
+        return value[:64] or peer
+    hops = _trusted_hops()
+    if hops == 0:
+        return peer
+    raw = ",".join(request.headers.getlist("x-forwarded-for"))
+    entries = [e.strip() for e in raw.split(",") if e.strip()]
+    if len(entries) < hops:
+        return peer
+    return entries[-hops][:64]
+
+
+def client_key(request) -> str:
+    """Rate-limit key: the client address only (a user agent is attacker-chosen)."""
+    return hashlib.sha256(f"ip|{client_ip(request)}".encode("utf-8", "replace")
+                          ).hexdigest()[:32]
+
+
 def client_hash(request) -> str:
-    fwd = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-    host = fwd or (request.client.host if request.client else "")
+    """Session fingerprint shown to the owner (address + user agent)."""
     ua = request.headers.get("user-agent") or ""
-    return hashlib.sha256(f"{host}|{ua}".encode("utf-8", "replace")).hexdigest()[:32]
+    return hashlib.sha256(f"{client_ip(request)}|{ua}".encode("utf-8", "replace")
+                          ).hexdigest()[:32]
 
 
 # ---- audit ------------------------------------------------------------------
@@ -207,7 +277,7 @@ def record(db, *, kind: str, outcome: str, request=None, reason: str = "",
             r = request.scope.get("route")
             route = getattr(r, "path", None) or request.url.path
             method = request.method
-            ch = client_hash(request)
+            ch = client_key(request)
         with db.session() as s:
             s.add(SecurityEvent(kind=kind, outcome=outcome, method=method[:8],
                                 route=str(route)[:200], reason=str(reason)[:300],
@@ -218,9 +288,9 @@ def record(db, *, kind: str, outcome: str, request=None, reason: str = "",
 
 
 def refuse(db, request, status: int, code: str, message: str, *, kind: str = "request",
-           session_public_id: str = "") -> CCRefused:
+           session_public_id: str = "", detail: dict | None = None) -> CCRefused:
     record(db, kind=kind, outcome="refused", request=request, reason=f"{code}: {message}",
-           session_public_id=session_public_id)
+           session_public_id=session_public_id, detail=detail)
     return CCRefused(status, message, code)
 
 
@@ -330,20 +400,166 @@ def failed_stepup(db, public_id: str) -> bool:
 # ---- rate limits ------------------------------------------------------------
 
 
-def login_rate_limited(db, request) -> bool:
+def _failed_logins():
+    """Wrong-credential login refusals inside the window. Nothing else counts: a 429, a CSRF or
+    a malformed-body refusal is not a guess, and counting it let an attacker keep a lockout
+    alive with refused requests alone (audit ddf9c6e M1)."""
+    return select(func.count()).select_from(SecurityEvent).where(
+        SecurityEvent.kind == "login", SecurityEvent.outcome == "refused",
+        SecurityEvent.reason.like(f"{FAILED_LOGIN_CODE}:%"),
+        SecurityEvent.at >= _now() - LOGIN_WINDOW)
+
+
+def login_throttle(db, request, *, device_id: str | None = None,
+                   recovery: bool = False) -> str | None:
+    """Why this login may not even be verified now, or None.
+
+    * a trusted device (cookie from an earlier successful login) is limited per device only;
+    * a valid single-use recovery code (minted with the operator credential) is not limited;
+    * anything else is limited per client address, then globally.
+    The passphrase (and TOTP) is still required in every case."""
     ensure_tables(db)
-    since = _now() - LOGIN_WINDOW
-    ch = client_hash(request)
     with db.session() as s:
-        base = select(func.count()).select_from(SecurityEvent).where(
-            SecurityEvent.kind == "login", SecurityEvent.outcome == "refused",
-            SecurityEvent.at >= since)
-        mine = s.scalar(base.where(SecurityEvent.client_hash == ch)) or 0
-        total = s.scalar(base) or 0
-    return mine >= LOGIN_FAILS_PER_CLIENT or total >= LOGIN_FAILS_GLOBAL
+        if device_id:
+            n = s.scalar(_failed_logins().where(
+                SecurityEvent.session_public_id == device_id)) or 0
+            return "device" if n >= LOGIN_FAILS_PER_DEVICE else None
+        if recovery:
+            return None
+        mine = s.scalar(_failed_logins().where(
+            SecurityEvent.client_hash == client_key(request))) or 0
+        if mine >= LOGIN_FAILS_PER_CLIENT:
+            return "client"
+        total = s.scalar(_failed_logins()) or 0
+    return "global" if total >= LOGIN_FAILS_GLOBAL else None
+
+
+def login_rate_limited(db, request) -> bool:
+    """Back-compatible boolean form for a request with no device cookie or recovery code."""
+    return login_throttle(db, request) is not None
+
+
+# ---- trusted devices and recovery codes (lockout resistance, audit ddf9c6e M1) --------
+
+
+def _kv_update(db, key: str, fn):
+    ensure_tables(db)
+    with db.session() as s:
+        value = dict(kv_get(s, key, {}) or {})
+        out = fn(value)
+        kv_set(s, key, value)
+        return out
+
+
+def trusted_device(db, request) -> str | None:
+    """The public id of the trusted device this request's cookie names, or None."""
+    token = request.cookies.get(DEVICE_COOKIE) or ""
+    if not token or len(token) > 200:
+        return None
+    ensure_tables(db)
+    with db.session() as s:
+        devices = (kv_get(s, DEVICES_KEY, {}) or {}).get("devices") or {}
+    entry = devices.get(_token_hash(token))
+    if not isinstance(entry, dict):
+        return None
+    try:
+        if datetime.fromisoformat(entry["expires_at"]) <= _now():
+            return None
+    except (KeyError, TypeError, ValueError):
+        return None
+    return str(entry.get("id") or "") or None
+
+
+def issue_device(db) -> tuple[str, str]:
+    """(cookie token, device id) for a browser that just logged in successfully."""
+    token = secrets.token_urlsafe(32)
+    device_id = "d_" + secrets.token_hex(8)
+    now = _now()
+
+    def add(value):
+        devices = dict(value.get("devices") or {})
+        devices[_token_hash(token)] = {"id": device_id, "created_at": now.isoformat(),
+                                       "expires_at": (now + DEVICE_TTL).isoformat()}
+        live = sorted(((k, v) for k, v in devices.items()
+                       if str(v.get("expires_at", "")) > now.isoformat()),
+                      key=lambda kv: kv[1].get("created_at", ""))[-MAX_TRUSTED_DEVICES:]
+        value["devices"] = dict(live)
+
+    _kv_update(db, DEVICES_KEY, add)
+    return token, device_id
+
+
+def mint_recovery_code(db) -> dict:
+    """A single-use, 15-minute login recovery code. Caller must hold the operator credential."""
+    code = secrets.token_urlsafe(24)
+    now = _now()
+    expires = now + RECOVERY_TTL
+
+    def add(value):
+        codes = {k: v for k, v in dict(value.get("codes") or {}).items()
+                 if str(v.get("expires_at", "")) > now.isoformat()}
+        codes[_token_hash(code)] = {"expires_at": expires.isoformat()}
+        value["codes"] = dict(list(codes.items())[-5:])
+
+    _kv_update(db, RECOVERY_KEY, add)
+    return {"recovery_code": code, "expires_at": expires.isoformat(), "single_use": True}
+
+
+def consume_recovery_code(db, code) -> bool:
+    """True if `code` is a live recovery code; it is spent either way (single use)."""
+    if not isinstance(code, str) or not code or len(code) > 200:
+        return False
+    h = _token_hash(code)
+    now = _now().isoformat()
+
+    def take(value):
+        codes = dict(value.get("codes") or {})
+        entry = codes.pop(h, None)
+        value["codes"] = codes
+        return isinstance(entry, dict) and str(entry.get("expires_at", "")) > now
+
+    return bool(_kv_update(db, RECOVERY_KEY, take))
 
 
 # ---- the gate ---------------------------------------------------------------
+
+
+_DEFAULT_PORTS = {"https": 443, "http": 80}
+_LOOPBACK = ("localhost", "127.0.0.1", "::1")
+
+
+def _origin_tuple(value: str):
+    """(scheme, host, port) of an origin, or None when it is not a usable http(s) origin."""
+    from urllib.parse import urlsplit
+
+    try:
+        u = urlsplit(value.strip())
+        scheme = u.scheme.lower()
+        if scheme not in _DEFAULT_PORTS or not u.hostname:
+            return None
+        return scheme, u.hostname.lower(), u.port or _DEFAULT_PORTS[scheme]
+    except ValueError:
+        return None
+
+
+def expected_origin(request):
+    """The one origin the command center is served from: scheme + host + port.
+
+    `BRAMBLELOOP_PUBLIC_ORIGIN` (e.g. https://brambleloop.example) wins when set. Otherwise the
+    origin is https on the request's Host -- the session cookie is `__Host-`/Secure, so the
+    command center only works over https; a plain-http origin is accepted only for a loopback
+    host served over http (local development). TLS terminates at the platform proxy, so the
+    scheme the app itself sees is not evidence of what the browser used.
+    """
+    configured = (os.environ.get(PUBLIC_ORIGIN_VAR) or "").strip()
+    if configured:
+        return _origin_tuple(configured)
+    host = request.headers.get("host") or request.url.netloc
+    scheme = "https"
+    probe = _origin_tuple(f"https://{host}")
+    if probe and probe[1] in _LOOPBACK and request.url.scheme == "http":
+        scheme = "http"
+    return _origin_tuple(f"{scheme}://{host}")
 
 
 def _same_origin(request) -> bool:
@@ -352,10 +568,8 @@ def _same_origin(request) -> bool:
         return False
     origin = request.headers.get("origin")
     if origin:
-        from urllib.parse import urlsplit
-
-        host = request.headers.get("host") or request.url.netloc
-        if urlsplit(origin).netloc.lower() != host.lower():
+        got, want = _origin_tuple(origin), expected_origin(request)
+        if got is None or want is None or got != want:
             return False
     return True
 
@@ -368,8 +582,10 @@ def _check_freshness(db, request, public_id: str) -> None:
                      "X-CC-Nonce (16-128 chars of A-Za-z0-9_-) required",
                      session_public_id=public_id)
     try:
-        skew = abs(time.time() - float(ts))
-    except (TypeError, ValueError):
+        stamp = float(ts)
+        # nan compares False with everything, so `nan > N` let it through (audit ddf9c6e M2).
+        skew = abs(time.time() - stamp) if math.isfinite(stamp) else None
+    except (TypeError, ValueError, OverflowError):
         skew = None
     if skew is None or skew > NONCE_SKEW_SECONDS:
         raise refuse(db, request, 400, "STALE_REQUEST",
