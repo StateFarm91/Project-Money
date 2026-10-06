@@ -111,6 +111,38 @@ TRUTH_RULES: tuple[Rule, ...] = (
             r"(ourselves|myself)\b|\bmade with love\b"),
          "a physical-making or photography claim; no sample has been made and the images "
          "are disclosed renders", negatable=True),
+    # D-FB-11..13: Laura is a persistent AI person and Brambleloop's Founder/CEO. Publicly she
+    # is named with the AI disclosure ("Brambleloop's AI founder"); she is never claimed to be
+    # biologically human, given human experiences, made the physical maker/designer/tester,
+    # or used to state legal ownership or who the seller of record is.
+    Rule("TRUTH_LAURA_HUMAN_CLAIM", TRUTH,
+         _r(r"\blaura(?:'s)?[ \t]+(?:(?:personally|herself|lovingly|carefully|also|always|"
+            r"has|had|first|still|once|herself)[ \t]+)*(?:hand[- ]?)?(?:crochets|crocheted"
+            r"|crocheting|knits|knitted|stitches|stitched|designs|designed|tests|tested"
+            r"|founded|owns|owned|runs|ran|makes|made|grew up|was born|lives|lived|learned"
+            r"|learnt|taught)\b"
+            r"|\b(?:designed|crocheted|hand[- ]?crocheted|made|tested|stitched|knitted"
+            r"|founded|owned|run|created|written|photographed|worked)[ \t]+by[ \t]+laura\b"
+            r"|\b(?:our|the)[ \t]+(?:founder|owner|designer|maker|tester|pattern designer)"
+            r"[ \t,]+laura\b|\blaura[ \t]*,[ \t]*(?:our|the)[ \t]+(?:founder|owner|"
+            r"designer|maker|tester)\b"
+            # Founder/CEO wording only with AI disclosure (D-FB-13), and never a legal
+            # ownership or seller-of-record statement made in Laura copy.
+            r"|\blaura(?:[ \t]+is|[ \t]*,)[ \t]+(?:the|our|brambleloop'?s|a)[ \t]+"
+            r"(?:co-?founder|founder|ceo|chief executive|owner|legal owner|seller|proprietor)\b"
+            r"|(?<!ai )\b(?:founder|ceo|owner|co-?founder)[ \t]+laura\b"
+            r"|\b(?:owned|operated|sold)[ \t]+by[ \t]+laura\b"
+            r"|\blaura[ \t]+(?:is|was)[ \t]+(?:a[ \t]+)?(?:real|human|biologically human)"
+            r"(?:[ \t]+(?:person|woman|human|designer|maker))?\b"
+            r"|\bi[ \t]+(?:crochet|knit|stitch|grew up|was born|live in|lived in|learned"
+            r"|learnt|hand[- ]?crochet|test every|tested every|design every|made every)\b"
+            r"|\bmy[ \t]+(?:childhood|hometown|husband|kids|children|daughter|son"
+            r"|grandmother|grandma|mother|mum|mom|family|home town)\b"
+            r"|\bwhen i was (?:a )?(?:little|young|child|girl|kid)\b"),
+         "a claim that Laura is human or has human experiences, that she physically made, "
+         "designed or tested anything, an undisclosed founder/CEO claim, or a legal-ownership "
+         "or seller statement. She is Brambleloop's AI founder (D-FB-13): say so, with the AI "
+         "disclosure", negatable=True),
     Rule("TRUTH_SCARCITY", TRUTH,
          _r(r"\blimited time\b|\bonly \d+ left\b|\bselling fast\b|\bhurry\b"
             r"|\bsale ends\b|\bwhile stocks last\b|\b\d+% off\b|\bdon'?t miss out\b"

@@ -315,7 +315,7 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
     from ..brand import storefront
     from ..commerce import shop_package
     from ..gates import platform_policy
-    from . import assets
+    from . import assets, brand_face
 
     store = None
     takeover_note = None
@@ -348,6 +348,11 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
           "store_foundation.assets.banner_svg (brief: brand.storefront._banner_brief)",
           "Shop Manager > Settings > Info & appearance", OWNER_MANUAL, "banner_px",
           customer_facing=False),
+        S("brand_face", "Brand face (Laura)", "identity", brand_face.brand_face(),
+          "store_foundation.brand_face (visual.canonical, D-FB-11/D-FB-12)",
+          "Shop Manager > Settings > About > Shop owner photo; banner; About; seasonal",
+          OWNER_MANUAL, customer_facing=False,
+          notes=[brand_face.PREVIEW_IMAGE_LABEL]),
         S("shop_title", "Shop title (tagline)", "text", text["title"],
           "commerce.shop_package.shop_text()['title']",
           "Shop Manager > Settings > Info & appearance", API_WRITABLE, "shop_title"),

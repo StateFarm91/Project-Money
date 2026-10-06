@@ -1,3 +1,50 @@
+> **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
+> `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
+> committed under `visual/assets/canonical/laura-r2-a42aeac7/reference_pack/` with their real provenance (v6 run
+> 2026-09-21). Revision 1 `laura-v15-a42aeac7` and its missing v15 frames stay as history (OA-CANON-1 still open for
+> the v15 bytes as evidence). `canonical.adopt_revision(db)` moves the production registry from revision 1 to 2 once —
+> **not yet run** (deploy step). Further changes need a new owner decision in `AUTHORISED_IDENTITY_CHANGES`. No image
+> is publication-approved; photorealism/identity/Product Truth gates unchanged.
+
+> **2026-10-06 — LAURA: canonical brand face preserved and protected (D-FB-11..13; branch `claude/v11-CANON`, not deployed).**
+> Owner rulings: the frozen model is **Laura**, a persistent AI person and the **Founder/CEO of Brambleloop**; the
+> approved woman is her permanent visual identity (`spec/07_Laura_Owner_Ruling_2026-10-06.md`). **Task #59
+> reinterpreted:** "re-make the canonical model" = repair the Visual system so it reproduces *Laura*; it never
+> authorises a new woman. Canonical identity id `laura-v15-a42aeac7` (Laura + frozen build v15 + face a42aeac7…);
+> `reference_pack.PACK_VERSION` v16-… is the pack-procedure label, not her identity.
+> - **Preserved (byte-verified):** approved face `visual/assets/identity_portrait.jpg` unchanged; copy as
+>   `canonical/laura-v15-a42aeac7/reference_pack/neutral_portrait.jpg`; historical v6 post-revision local run (7 frames)
+>   and v5 owner-viewed set (lossless face PNG + 5 stress scenes), all `forbidden_as_fallback`. MANIFEST.json v2
+>   records sha256/bytes/dimensions/role/provenance/publication_status for all 19 committed images.
+> - **MISSING canonical (not synthesised):** v15 torso_fit_reference, full_length_standing and the 5-frame stress set.
+>   Bytes live only in production (`durable_artifacts`, referenced by the v15 `audit_log` `model.reference_pack` row,
+>   built 2026-09-22T01:02:49Z, fingerprint 914ee7da716baef7). Public read-only endpoints expose only v16 (not frozen)
+>   hashes. v6 files are NOT proven to be v15 (no v15 hash recorded anywhere).
+> - **OWNER ACTION OA-CANON-1 (≈10 min, CA$0, read-only):** in Railway → Postgres → Query, run
+>   `SELECT detail->'reference_frames', detail->'scenes' FROM audit_log WHERE action='model.reference_pack' AND
+>   detail->>'pack_version' LIKE 'v15-%';` and paste the sha256 values to the session (or GET
+>   `/api/model-tournament/image/{sha256}` for each, which is public once the hash is known). Why: the frozen body
+>   and stress evidence of Laura exist only in one database; a lost DB loses them permanently. Waiting costs nothing
+>   until production storage is at risk.
+> - **Safeguards:** `visual/canonical.py` (identity id, `verify()`, forbidden hashes, `laura_verdict`: "a woman similar
+>   to Laura is NOT Laura"); `model_registry.replace_canonical`/`portrait_repair.adopt` refuse to retire/alter Laura
+>   and `freeze.freeze` refuses any build but v15 without an owner decision in `AUTHORISED_IDENTITY_CHANGES` (empty);
+>   `gate_frames` requires every locked face dimension to match for Laura; historical frames join
+>   `freeze.forbidden_reference_hashes`.
+> - **Store Foundation gap closed for preview only:** `store_foundation/brand_face.py` (placements; icon = logo mark,
+>   Laura = seller portrait/banner/About/seasonal; non-wearables product-first), surface `brand_face` (GATED, never
+>   READY), Owner Store Preview `variant=brand_face` (every Laura image labelled "Internal preview — canonical
+>   reference, not publication-approved"), lint rule `TRUTH_LAURA_HUMAN_CLAIM`. **Customer-facing still gated:**
+>   identity → photorealism (B-657 failure stands) → anatomy → Product Truth → brand QA → disclosure → publication;
+>   no Laura image is `publication_approved`. Public wording: "Laura, Brambleloop's AI founder" (AI disclosure always;
+>   never human; no legal-ownership/seller statements in Laura copy).
+> - **QUEUED (not built): the Laura agent, target per D-FB-13** — persistent identity + Founder/CEO executive layer +
+>   durable company memory/history + canonical visual identity + 24/7 executive agency + Command Center presence +
+>   inter-department orchestration + Learn-controlled self-improvement + separately protected spouse relationship
+>   context (isolated from all public/protected functions; human-Laura consent stays human-gated), reusing the
+>   Executive/COO orchestrator, departments, memory, Learn and authority framework.
+> - Tests: test_canon_manifest 21, test_canon_store_brand_face 11. Handoff: `research/final_build/v1_1/handoff_CANON.md`.
+
 > **2026-09-28 ~14:30Z — FINAL BUILD HANDOFF (usage limit).** Wave FB-1 clusters F, D, C, E integrated on `claude/visual-investigation` (targeted suites green; no full suite yet on FB-1 commits). A finished and awaiting integration; B and G in progress (branches pushed). Resume from `research/final_build/FINAL_BUILD_RESUME_MANIFEST.md`. Nothing deployed, published or spent.
 
 > **2026-09-28 — FINAL BUILD (Master v1.0) PHASE 0 COMPLETE: baseline audit written.** Registry of 866 requirement records (859 IDs; F-631..F-650 absent; F-514..F-520 defined twice, both kept) mapped to evidence and adjudicated: launch-critical 446 / mature 413 / NA 7; launch-critical maturity MISSING 63 · IMPLEMENTED 34 · TESTED 26 · INTEGRATED 129 · DEPLOYED 175 · EXERCISED 19; nothing production-observed or commercially evidenced. 52 launch-critical rows satisfied end to end; 103 below INTEGRATED with no gate; 87 carry a defect (e.g. store.publish sends no images, `/api/support` readable unauthenticated, one hard-coded Etsy taxonomy, P&L reads CA$0.00 while orders are disconnected). See `research/final_build/FINAL_BUILD_BASELINE_AUDIT.md` and `FINAL_BUILD_STATE.md`. Engineering baseline 019ebf0 unchanged; production fcb982d; nothing deployed, published or spent.

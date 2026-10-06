@@ -30,6 +30,11 @@ from . import readiness as R
 PREVIEW_PATH = "/cc/store-preview"
 VIEWPORTS = {"mobile": 390, "desktop": 1280}
 PREVIEW_LABEL = "Preview — not live"
+# Owner preview alternatives. `brand_face` shows the shop designed around Laura using only her
+# approved canonical portrait (D-FB-11/D-FB-12), every use labelled; it is never publishable.
+VARIANTS = {"standard": "Standard", "brand_face": "With brand face (Laura)"}
+ABOUT_LAURA_INTRO = ("Laura, Brambleloop's AI founder, is the face of this shop. She is an AI, "
+                     "and every pattern here is still checked by code before it is sold.")
 
 _FRAMES: dict[tuple[str, str], dict] = {}
 
@@ -143,6 +148,7 @@ def summary(db, *, verify_images: bool = False, now: datetime | None = None) -> 
         "counts": roll["counts"], "owner_actions": roll["owner_actions"],
         "products": len(products), "sizes_counted_as_products": False,
         "preview_path": PREVIEW_PATH, "preview_viewports": sorted(VIEWPORTS),
+        "preview_variants": sorted(VARIANTS),
         "live": False, "published": False,
         "note": ("Readiness of prepared drafts, measured by deterministic checks. Nothing is "
                  "entered on Etsy by this system; the live shop's state is UNKNOWN here."),
@@ -331,7 +337,7 @@ def _tile(p: dict, frame: dict | None) -> str:
             f'<div class="disc">Digital rendering, not a photograph</div></article>')
 
 
-def _owner_panel(rows, roll, surfaces, frames, now, viewport) -> str:
+def _owner_panel(rows, roll, surfaces, frames, now, viewport, bf_board: str = "") -> str:
     status_rows = []
     for r in rows:
         worst = [f for f in r["findings"]
@@ -365,13 +371,123 @@ def _owner_panel(rows, roll, surfaces, frames, now, viewport) -> str:
         f'<h3>Settings that need the owner signed in</h3><ol>{settings}</ol>'
         f'<h3>Listing images (rendered and verified at load)</h3><ul>{imgs}</ul>'
         f'<h3>Where titles and prices come from</h3><ul>{titles}</ul>'
+        f'{bf_board}'
         f'</section>')
 
 
+# ---- the brand-face variant (owner preview only) -----------------------------------------
+
+_BF_CSS = """
+.pv-tag{position:absolute;left:6px;bottom:6px;z-index:3;background:rgba(110,31,42,.92);
+color:#FAF6EB;font-size:10.5px;line-height:1.25;padding:3px 6px;border-radius:4px;
+max-width:calc(100% - 12px)}
+.laura{background-image:var(--laura);background-size:cover;background-position:50% 22%;
+background-repeat:no-repeat;background-color:var(--soft)}
+.bfb{position:relative;aspect-ratio:2/1}
+.bfc{position:absolute;top:0;height:100%;width:200%;left:-50%}
+.bfc .layer{position:absolute;inset:0;width:100%;height:100%;display:block}
+.bfc .lp{position:absolute;top:0;height:100%;left:50.75%;width:21.125%}
+.seller{display:flex;gap:14px;align-items:center;margin:0 0 16px}
+.seller .sp{position:relative;width:96px;height:96px;border-radius:50%;flex:none;
+border:3px solid var(--paper);box-shadow:0 1px 4px rgba(26,43,60,.2)}
+.seller figcaption{font-size:13px}
+.seller small{display:block;color:var(--wine);font-size:11px;margin-top:2px}
+.board{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin:8px 0}
+.board figure{margin:0;font-size:11.5px;color:var(--muted);max-width:100%}
+.board .cell{position:relative;overflow:hidden;border:1px solid var(--line)}
+.board .ic40{width:40px;height:40px}.board .ic70{width:70px;height:70px}
+.board .sq120{width:120px;height:120px}.board .c72{width:72px;height:72px;border-radius:50%}
+.board .bd{width:360px;max-width:100%;aspect-ratio:4/1}
+.board .bd .bfc{width:100%;left:0}
+.board .bp{width:240px;aspect-ratio:2/1}
+.board .pv-tag{font-size:9px;padding:2px 4px}
+.board img.mark{display:block;width:100%;height:100%}
+@media (min-width:900px){.vp-desktop .bfb{aspect-ratio:4/1}
+.vp-desktop .bfb .bfc{width:100%;left:0}
+.vp-desktop .board .bd{width:640px}}
+"""
+
+
+def _laura_css(uri: str) -> str:
+    return ":root{--laura:url(\"" + uri + "\")}" + _BF_CSS
+
+
+def _bf_banner(season: str, *, label: str, cls: str = "banner bfb") -> str:
+    from . import assets, brand_face
+
+    layer = assets.data_uri(brand_face.banner_overlay_svg(season))
+    return (f'<div class="{cls}" role="img" aria-label="{_esc(f"{season} banner with Laura. {label}")}">'
+            f'<div class="bfc"><img class="layer" src="{_esc(layer)}" alt="Brambleloop '
+            f'wordmark and crochet fabric layer"><div class="lp laura"></div></div>'
+            f'<span class="pv-tag">{_esc(label)}</span></div>')
+
+
+def _bf_board(bf: dict, icon_uri: str) -> str:
+    from ..brand import storefront_preview as sp
+    from . import brand_face
+
+    label = brand_face.PREVIEW_IMAGE_LABEL
+    crops = brand_face.banner_crops()
+    s40, s70 = sp.ICON_SIZES
+    tag = f'<span class="pv-tag">{_esc(label)}</span>'
+    icon = "".join(
+        f'<figure><div class="cell ic{n}"><img class="mark" src="{_esc(icon_uri)}" '
+        f'alt="shop icon at {n} px"></div>{n} px (logo mark)</figure>' for n in (s40, s70))
+    face40 = (f'<figure><div class="cell ic40 laura" role="img" aria-label="Laura at 40 px. '
+              f'{_esc(label)}"></div>Laura at 40 px: why the icon is the mark</figure>')
+    seller = (f'<figure><div class="cell sq120 laura" role="img" aria-label="Seller portrait '
+              f'square. {_esc(label)}">{tag}</div>Seller portrait, square crop (Etsy size '
+              f'UNVERIFIED)</figure><figure><div class="cell c72 laura" role="img" '
+              f'aria-label="Seller portrait circle. {_esc(label)}"></div>circle at 72 px '
+              f'(UNVERIFIED)</figure>')
+    banners = (f'<figure>{_bf_banner("evergreen", label=label, cls="cell bd")}Desktop banner '
+               f'4:1 (canvas 1600x400, repo-asserted)</figure>'
+               f'<figure>{_bf_banner("evergreen", label=label, cls="cell bp")}Phone centre '
+               f'crop 2:1 (ASSUMED)</figure>'
+               f'<figure>{_bf_banner("winter", label=label, cls="cell bd")}Seasonal extension: '
+               f'winter, desktop</figure>'
+               f'<figure>{_bf_banner("winter", label=label, cls="cell bp")}Seasonal '
+               f'extension: winter, phone crop</figure>')
+    crop_rows = "".join(
+        f"<li>{_esc(k)}: wordmark {_esc(v['wordmark_height_px'])} px tall, inside safe area "
+        f"{_esc(v['inside_safe_area'])}; Laura inside safe area "
+        f"{_esc(v['laura_inside_safe_area'])}</li>"
+        for k, v in crops.items() if isinstance(v, dict))
+    gates = "".join(f'<tr><td>{_esc(g["gate"])}</td><td><span class="st st-'
+                    f'{_esc("READY" if g["status"] == "PASS" else "FAIL" if g["status"] == "FAIL" else "GATED")}">'
+                    f'{_esc(g["status"])}</span></td><td>{_esc(g["why"])}</td></tr>'
+                    for g in bf.get("gates") or [])
+    places = "".join(f"<tr><td>{_esc(p['where'])}</td><td>{_esc(p['laura'])}</td>"
+                     f"<td>{_esc(p['why'])}</td></tr>" for p in bf.get("placements") or [])
+    return (
+        f'<h3>Brand face: Laura (identity {_esc(bf.get("identity_id"))})</h3>'
+        f'<p><b>{_esc(label)}.</b> Every Laura image on this page is her approved canonical '
+        f'portrait (sha256 <code>{_esc(str(bf.get("portrait_sha256", ""))[:16])}</code>, status '
+        f'<code>{_esc(bf.get("portrait_status"))}</code>), verified by its bytes. None is '
+        f'publication-approved; this variant can never be published. '
+        f'{_esc(bf.get("identity_rule", ""))}</p>'
+        f'<div class="board">{icon}{face40}{seller}</div>'
+        f'<div class="board">{banners}</div><ul>{crop_rows}<li>{_esc(crops.get("basis"))}'
+        f'</li></ul>'
+        f'<p>Listing thumbnails stay product-first for comprehension at grid size; Laura '
+        f'carries continuity through the banner, About, seasonal and wearable frames.</p>'
+        f'<h3>Customer-facing gates for Laura imagery</h3><table><thead><tr><th>Gate</th>'
+        f'<th>Status</th><th>Why</th></tr></thead><tbody>{gates}</tbody></table>'
+        f'<h3>Where Laura appears</h3><table><thead><tr><th>Surface</th><th>Laura</th>'
+        f'<th>Why</th></tr></thead><tbody>{places}</tbody></table>')
+
+
 def render_preview(db, viewport: str = "mobile", *, now: datetime | None = None,
-                   today=None) -> str:
-    """The Owner Store Preview as one escaped, script-free HTML document."""
+                   today=None, variant: str = "standard") -> str:
+    """The Owner Store Preview as one escaped, script-free HTML document.
+
+    `variant="brand_face"` is the owner alternative designed around Laura (D-FB-11): banner,
+    seller portrait, About and a brand-face board at Etsy's crops, every Laura image her
+    approved canonical portrait labelled "Internal preview -- canonical reference, not
+    publication-approved". It is a preview of a direction, never a publishable asset.
+    """
     viewport = viewport if viewport in VIEWPORTS else "mobile"
+    variant = variant if variant in VARIANTS else "standard"
     now = _now(now)
     from . import assets
 
@@ -384,6 +500,23 @@ def render_preview(db, viewport: str = "mobile", *, now: datetime | None = None,
     banner = assets.data_uri(surfaces["banner"].value)
     icon = assets.data_uri(surfaces["icon"].value)
     trust = "".join(f"<li>{_esc(t['text'])}</li>" for t in surfaces["trust_signals"].value)
+    extra_css, banner_html, seller_html, bf_board = "", "", "", ""
+    if variant == "brand_face":
+        from . import brand_face
+
+        laura = brand_face.image_for("owner_store_preview", for_customers=False)
+        label = brand_face.PREVIEW_IMAGE_LABEL
+        extra_css = _laura_css(laura["data_uri"])
+        banner_html = _bf_banner("evergreen", label=label)
+        seller_html = (f'<figure class="seller"><div class="sp laura" role="img" '
+                       f'aria-label="Laura, seller portrait. {_esc(label)}"></div>'
+                       f'<figcaption><b>Laura</b> · Brambleloop\'s AI founder'
+                       f'<small>{_esc(label)}</small></figcaption></figure>'
+                       f'<p>{_esc(ABOUT_LAURA_INTRO)}</p>')
+        bf_board = _bf_board(surfaces["brand_face"].value, icon)
+    if not banner_html:
+        banner_html = (f'<div class="banner"><img src="{_esc(banner)}" alt="{_esc(name)} '
+                       f'banner"></div>')
     shown_sections = [s for s in surfaces["sections"].value if s["shown"]]
     sections = (f'<li class="on">All items<span class="n">{len(products)}</span></li>'
                 + "".join(f'<li>{_esc(s["name"])}<span class="n">{_esc(s["listings"])}'
@@ -411,17 +544,18 @@ def render_preview(db, viewport: str = "mobile", *, now: datetime | None = None,
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>{_esc(name)} — Owner Store Preview (not live)</title>
-<style>{_CSS}</style></head>
+<style>{_CSS}{extra_css}</style></head>
 <body class="vp-{_esc(viewport)}">
 <div class="ribbon" role="note"><strong>{_esc(PREVIEW_LABEL)}</strong>Owner Store Preview —
 a mock-up built from Brambleloop's own drafts. Nothing here is published on Etsy, and the
 layout is Brambleloop's approximation of a shop page, not Etsy's.</div>
 <nav class="chrome" aria-label="Preview width">Preview width:
-<a href="?viewport=mobile" class="{'on' if viewport == 'mobile' else ''}">Phone 390 px</a>
-<a href="?viewport=desktop" class="{'on' if viewport == 'desktop' else ''}">Desktop 1280 px</a>
+<a href="?viewport=mobile&amp;variant={_esc(variant)}" class="{'on' if viewport == 'mobile' else ''}">Phone 390 px</a>
+<a href="?viewport=desktop&amp;variant={_esc(variant)}" class="{'on' if viewport == 'desktop' else ''}">Desktop 1280 px</a>
+{"".join(f'<a href="?viewport={_esc(viewport)}&amp;variant={_esc(k)}" class="{"on" if k == variant else ""}">{_esc(v)}</a>' for k, v in VARIANTS.items())}
 </nav>
 <div class="frame">
-<div class="banner"><img src="{_esc(banner)}" alt="{_esc(name)} banner"></div>
+{banner_html}
 <header class="head"><img class="icon" src="{_esc(icon)}" alt="{_esc(name)} shop icon">
 <div><h1>{_esc(name)}</h1><p class="tagline">{_esc(surfaces['shop_title'].value)}</p>
 <p class="meta">Canada · Digital crochet patterns · <b>New shop — no reviews
@@ -434,7 +568,7 @@ preview)</small></span></header>
 <div class="shop"><aside><ul class="sections" aria-label="Shop sections">{sections}</ul>
 <div class="side-extra">{_esc(C.SUPPORT_CONTACT.split(':')[0])}.</div></aside>
 <main class="grid" aria-label="Items">{tiles}</main></div>
-<section class="about"><div><h2>About {_esc(name)}</h2>{_paras(surfaces['about'].value)}
+<section class="about"><div><h2>About {_esc(name)}</h2>{seller_html}{_paras(surfaces['about'].value)}
 </div><ul class="glance" aria-label="Shop at a glance">{glance}</ul></section>
 <section class="policies"><h2>Shop policies</h2>{policy_blocks}</section>
 <section class="policies"><h2>Frequently asked questions</h2>{faq}</section>
@@ -442,6 +576,6 @@ preview)</small></span></header>
 <div class="foot">{_esc(PREVIEW_LABEL)} · {_esc(name)} · prices in CAD ·
 taxes are handled by Etsy at checkout</div>
 </div>
-{_owner_panel(rows, roll, surfaces, frames, now, viewport)}
+{_owner_panel(rows, roll, surfaces, frames, now, viewport, bf_board)}
 </body></html>"""
     return body

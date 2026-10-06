@@ -319,7 +319,14 @@ def _check_support_readiness(s: C.Surface, surfaces) -> list[dict]:
     return out
 
 
+def _check_brand_face(s: C.Surface) -> list[dict]:
+    from . import brand_face
+
+    return brand_face.check(s.value)
+
+
 _CHECKS = {
+    "brand_face": _check_brand_face,
     "shop_name": _check_shop_name, "icon": _check_icon, "banner": _check_banner,
     "announcement": _check_announcement, "about": _check_about,
     "policy_returns": _check_returns, "policy_delivery": _check_delivery,
