@@ -60,6 +60,11 @@ def install(app, db) -> None:
     security.register_owner_session_gate(lambda request, path: auth.gate(db, request, path))
     app.add_exception_handler(auth.CCRefused, auth.refused_handler)
     app.include_router(make_router(db))
+    # Before the static mount, so the route wins; owner-session gated (security.py).
+    from .api import STORE_PREVIEW_PATH, store_preview_handler
+
+    app.add_api_route(STORE_PREVIEW_PATH, store_preview_handler(db), methods=["GET"],
+                      include_in_schema=False)
     STATIC_DIR.mkdir(exist_ok=True)
     app.mount("/cc", _StrictStatic(StaticFiles(directory=str(STATIC_DIR), html=True)),
               name="command_center_static")

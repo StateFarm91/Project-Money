@@ -49,7 +49,7 @@ from ..finance.spend_policy import BENCHMARK_BUDGET_CAD as BENCHMARK_CEILING_CAD
 # the reason it is five rather than as many as the ceiling would allow.
 SAMPLES_PER_TRIAL = 5
 
-USD_TO_CAD = 1.37
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402 - single source
 
 
 @dataclass(frozen=True)

@@ -79,7 +79,14 @@ AUDIT_FINDINGS: list[dict] = [
                 "content.draft, store.update, pricing.experiment, "
                 "radar.competitor_snapshot). Agents asset_truth and policy hold only "
                 "unhandled job types, so they can never run anything.",
-     "status": "OPEN", "repair": "outside lane A's files (gates/, cir/ handlers); reported"},
+     "status": "DECIDED (v1.1 wiring): kept as declared-but-unbuilt",
+     "repair": "gate.quality/gate.policy/gate.asset_truth/cir.twin/cir.reverse already "
+               "execute in-process inside gate.certify (gates.certificate.certify: "
+               "build_twin, reverse_compare, check_assets, check_listing), so standalone "
+               "handlers would be a second, uncertified verdict path; the rest are unbuilt "
+               "capabilities (store.update and pricing.experiment are protected). The set "
+               "is pinned by tests/test_roles.py DECLARED_BUT_UNBUILT (recorded decision). "
+               "See research/final_build/v1_1/WIRING_REPORT.md"},
     {"id": "AM-11", "severity": "info", "departments": "support",
      "link": "evidence-inputs",
      "finding": "Customer Support is woken hourly but the customers gate is closed; its "

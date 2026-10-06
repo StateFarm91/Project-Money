@@ -57,7 +57,8 @@ PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 DEFAULT_MODEL = "claude-sonnet-5"
 
 # Assumed, not fetched. A rate this company does not control and does not measure.
-USD_TO_CAD = 1.37
+# Single source (core.fx): the reciprocal of the 0.715 USD/CAD the ceiling check uses.
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402
 
 # Applied to every estimate before it is checked against the ceiling. A ceiling that trusts an
 # optimistic estimate is crossed before anybody notices.
@@ -1016,8 +1017,8 @@ def state(db) -> dict:
         "spent_this_month_cad": spent_this_month_cad(db),
         "monthly_ceiling_cad": monthly_ceiling_cad(),
         "price_basis": "assumed: provider list prices read at build time, USD converted at "
-                       f"an assumed {USD_TO_CAD} and padded {ESTIMATE_PADDING}x before any "
-                       "ceiling check",
+                       f"an assumed {USD_TO_CAD:.4f} CAD/USD and padded "
+                       f"{ESTIMATE_PADDING}x before any ceiling check",
         "note": ("no probe has been run, so whether this key can serve a request is unknown "
                  "-- which is not the same as unavailable"
                  if probe_state is None else

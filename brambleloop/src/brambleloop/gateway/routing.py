@@ -37,7 +37,7 @@ from datetime import datetime, timezone
 # Anthropic's published first-party rates, USD per million tokens, and the exchange rate used
 # to express the ceiling in the owner's currency. The rate is an assumption and is labelled
 # one: it moves, and a ceiling quoted in CAD against a bill charged in USD has to say so.
-USD_PER_CAD = 0.715
+from ..core.fx import ASSUMED_USD_PER_CAD as USD_PER_CAD  # the single assumed rate
 FX_NOTE = ("model prices are published in USD; the ceiling is quoted in CAD, converted at an "
            "assumed 0.715 USD/CAD and checked against the converted figure, so a weaker "
            "dollar spends the ceiling faster rather than silently exceeding it")

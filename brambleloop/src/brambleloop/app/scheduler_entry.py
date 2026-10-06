@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+import socket
 import sys
 import time
 
@@ -32,8 +33,27 @@ def main() -> int:
     sched = Scheduler(db)
     once = os.environ.get("BRAMBLELOOP_SCHEDULER_ONCE", "1") == "1"
     interval = float(os.environ.get("BRAMBLELOOP_SCHEDULER_INTERVAL", "60"))
+    from ..ops import slo as _slo
+
+    holder = f"scheduler-{socket.gethostname()}-{os.getpid()}"
     while True:
+        # v1.1 lane I W-1: in the split (looping) topology a lease makes a second scheduler
+        # idle instead of double-ticking; the once/cron path keeps its idempotent windows.
+        if not once:
+            try:
+                leader = _slo.acquire_lease(db, "scheduler", holder, ttl_s=180)
+            except Exception:  # noqa: BLE001 - a lease read failure must not stop scheduling
+                log.exception("scheduler lease unavailable; ticking (windows are idempotent)")
+                leader = True
+            if not leader:
+                time.sleep(interval)
+                continue
         enqueued = sched.tick()
+        try:
+            _slo.record_heartbeat(db, "scheduler", instance=holder,
+                                  detail={"enqueued": len(enqueued)})
+        except Exception:  # noqa: BLE001 - liveness evidence must never stop scheduling
+            log.exception("scheduler heartbeat row not written")
         if enqueued:
             log.info("enqueued cadences: %s", ", ".join(enqueued))
         if once:

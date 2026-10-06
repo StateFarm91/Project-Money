@@ -82,7 +82,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "ops.retention",
                             # #95 #180 #187: deterministic job replay (the league's runs);
                             # #153-#161: teardown requirements enforced and routed.
-                            "improve.replay", "teardown.enforce"],
+                            "improve.replay", "teardown.enforce",
+                            # v1.1 lane I (F-924): SLO evaluation and slo.* incidents.
+                            "ops.slo"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
@@ -203,7 +205,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # C-60: distribution planning and the buyer-journey audit (GREEN).
                             "growth.distribution", "growth.journey",
                             # #4: concept posts prepared and checked; nothing posted (GREEN).
-                            "growth.preproduction"],
+                            "growth.preproduction",
+                            # v1.1 lane H (F-686): ads eligibility re-evaluated; spends and
+                            # activates nothing (a due refresh is an owner action).
+                            "marketing.ads_readiness"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="listing", description="Drafts listings and SEO. Cannot spend ad money.",
@@ -214,7 +219,10 @@ DEFAULT_AGENTS: list[dict] = [
                             "listing.taxonomy_refresh",
                             # F-280: launch-week Search Visibility owner card (no-op in
                             # shadow; reads the database and writes one owner card).
-                            "listing.search_visibility_watch"],
+                            "listing.search_visibility_watch",
+                            # v1.1 lane G (§11): the SEO cycle -- proposals only, no Etsy
+                            # write, no spend.
+                            "seo.cycle"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",
@@ -244,7 +252,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # nobody looking reached the first refusal with nobody told
                             # (2026-09-26). Reads the ledger, writes at most one owner
                             # action a month, spends nothing.
-                            "finance.escalation_check"],
+                            "finance.escalation_check",
+                            # v1.1 lane E (F-901): the Accountant cycle. Rows only; moves no
+                            # money, files nothing, no network.
+                            "finance.accounting.cycle"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
 ]

@@ -15,17 +15,8 @@ from ..runtime.worker import JobContext, handlers
 from . import charters, kpis, memory, orchestrator
 from .generators import morning_window
 
-# #187: every runnable job type has a band somebody decided. The orchestrator is liveness --
-# "is the company actually working" is the system's claim about itself, the same band as
-# ops.heartbeat / ops.health. Reviews and the brief are housekeeping. WIRING REQUEST: move
-# these three literals into swarm.orchestrate.JOB_BANDS; until then they are declared here,
-# at import, before anything can enqueue them.
-from ..swarm import orchestrate as _swarm
-
-for _jt, _kind in (("autonomy.orchestrate", "truth_defect"),
-                   ("autonomy.department_review", "housekeeping"),
-                   ("autonomy.morning_handoff", "housekeeping")):
-    _swarm.JOB_BANDS.setdefault(_jt, _kind)
+# #187: the three autonomy job types' bands are declared in swarm.orchestrate.JOB_BANDS
+# (moved there by the v1.1 integrator wiring).
 
 
 def _now(ctx: JobContext) -> datetime:

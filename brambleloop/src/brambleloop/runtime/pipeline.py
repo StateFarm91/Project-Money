@@ -2009,7 +2009,8 @@ def handle_store_activate(ctx: JobContext) -> dict:
             ctx.db, authorisation, slug=slug, version=version,
             listing_id=listing_id, release=i.get("release", ""))
     from ..finance import listing_costs
-    fee_cad = round(LISTING_FEE_USD * 1.37, 2)
+    from ..core.fx import ASSUMED_CAD_PER_USD
+    fee_cad = round(LISTING_FEE_USD * ASSUMED_CAD_PER_USD, 2)
     pending_fee = listing_costs.pending(ctx.db, listing_id, fee_cad)
     if refusal is None:
         agent = ctx.registry.get(ctx.job.agent)
@@ -2757,3 +2758,6 @@ from ..learn import runtime as learn_runtime  # noqa: E402,F401; Learn launch sc
 # autonomy.morning_handoff). Imported here because this module is the one every runtime entry
 # point (runner, worker_entry) imports to register handlers.
 from ..autonomy import handlers as _autonomy_handlers  # noqa: E402,F401
+# v1.1 integrator wiring: seo.cycle (G), finance.accounting.cycle (E), ops.slo (I) and
+# marketing.ads_readiness (H).
+from . import v11_wiring as _v11_wiring  # noqa: E402,F401
