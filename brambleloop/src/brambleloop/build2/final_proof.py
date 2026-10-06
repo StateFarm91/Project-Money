@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 STAGES = ("producer", "durable_state", "consumer", "decision", "effect", "result")
+FIXTURE_SEGMENTS = frozenset({"tests", "test", "fixtures", "fixture", "testdata"})
 
 
 def _module_of(ref):
@@ -48,6 +49,13 @@ def _validate(row: dict, packet: dict, *, head: str, root: Path, reach=None) -> 
         artifacts = {}
     for name, item in artifacts.items():
         try:
+            # F-836: the evidence class is also DERIVED, not only asserted. An artifact whose
+            # path places it among tests or fixtures is fixture evidence whatever the packet's
+            # author declared; the declaration can only lower the class, never raise it.
+            parts = {seg.lower() for seg in re.split(r"[\\/]", str(item["path"]))}
+            if parts & FIXTURE_SEGMENTS or re.search(r"fixture|synthetic",
+                                                     str(item["path"]), re.I):
+                errors.append(f"fixture-derived artifact:{name}")
             path = (root / item["path"]).resolve()
             path.relative_to(root.resolve())
             need(path.is_file(), f"missing artifact:{name}")
@@ -114,6 +122,9 @@ def _validate(row: dict, packet: dict, *, head: str, root: Path, reach=None) -> 
     need(bool(packet.get("implementer")) and bool(review.get("reviewer"))
          and review.get("reviewer") != packet.get("implementer"), "worker self-review")
     need(review.get("verdict") == "supported", "independent review not supportive")
+    # F-837: directness is attested by the independent reviewer, not by the packet's author.
+    need(review.get("direct_confirmed") is True,
+         "directness not confirmed by the independent reviewer")
     need(review.get("result") == stages.get("result", {}).get("identity"), "review does not bind result")
     return {"uid": row.get("uid"), "head": head,
             "verdict": "BLOCKED" if errors else "REVIEWABLE", "errors": errors,

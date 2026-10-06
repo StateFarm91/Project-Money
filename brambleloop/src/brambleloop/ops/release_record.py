@@ -190,16 +190,57 @@ def apply_at_import(env=None, root: Path = ROOT) -> dict:
     return result
 
 
+HISTORY_FILE = "DEPLOYED_HISTORY.json"
+
+
+def known_good_predecessor(running_commit: str | None, root: Path = ROOT) -> dict:
+    """F-381: the newest commit in the shipped deployed history that is not this build.
+
+    `release/DEPLOYED_HISTORY.json` is tracked and copied into the image; the sanctioned
+    rollback (`ops/deploy_guard.py rollback-commit`, ops/ROLLBACK_RUNBOOK.md) may only target a
+    SHA listed there. Recording it at every boot means the rollback target is named in the
+    runtime's own audit trail before it is needed, not reconstructed during an incident.
+    """
+    try:
+        dep = json.loads((root / RELEASE_DIR_NAME / HISTORY_FILE).read_text()).get(
+            "deployed") or []
+    except (OSError, ValueError):
+        return {"sha": None, "why": f"{HISTORY_FILE} absent or unreadable in this build"}
+    for entry in reversed(dep):
+        sha = str(entry.get("sha") or "")
+        if sha and sha != (running_commit or ""):
+            return {"sha": sha, "observed": entry.get("observed"),
+                    "how": "ops/deploy_guard.py rollback-commit --to <sha> (ROLLBACK_RUNBOOK)"}
+    return {"sha": None, "why": "no previously deployed commit other than this build"}
+
+
 def record_incident(db, result: dict | None = None) -> str:
-    """At startup: open (or resolve) the P1 incident for an unproven hosted build."""
+    """At startup: open (or resolve) the P1 incident for an unproven hosted build.
+
+    F-380: every boot also appends one `release.boot_verdict` audit row -- the deploy evidence
+    as the runtime itself observed it (proven or not, which record, which tree digest, whether
+    enforcement applied, the action taken) plus the known-good predecessor (F-381). The deploy
+    guard is client-side and skippable; this row is written by whatever code actually booted.
+    """
     from sqlalchemy import select
 
-    from ..core.models import Incident
+    from ..core.models import AuditLog, Incident
 
     result = BOOT if result is None else result
     if not result:
         return "not_run"
     with db.session() as s:
+        s.add(AuditLog(actor="release_guard", action="release.boot_verdict",
+                       artifact=(result.get("record") or {}).get("file"),
+                       detail={"ok": bool(result.get("ok")),
+                               "enforced": bool(result.get("enforced")),
+                               "action": result.get("action"),
+                               "record": result.get("record"),
+                               "tree_sha256": result.get("tree_sha256"),
+                               "running_commit": result.get("running_commit"),
+                               "reasons": (result.get("reasons") or [])[:5],
+                               "known_good_predecessor": known_good_predecessor(
+                                   result.get("running_commit"))}))
         open_row = s.scalar(select(Incident).where(Incident.signature == INCIDENT_SIGNATURE,
                                                    Incident.resolved == False))  # noqa: E712
         if result.get("enforced") and not result.get("ok"):
