@@ -204,6 +204,7 @@ def test_f806_every_supported_diagram_verifies_and_is_deterministic():
     assert codes
     for code in codes:
         loops = ("both", "front", "back") if code in ("sc", "hdc", "dc", "tr") else ("both",)
+        assert loops
         for loop in loops:
             svg = T.render(code, loop)
             assert svg == T.render(code, loop)

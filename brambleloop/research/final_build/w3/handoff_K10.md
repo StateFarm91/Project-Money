@@ -1,6 +1,7 @@
 # Wave-3 lane K10 — Learn residuals (F-799, F-801, F-805, F-806, F-826)
 
-Branch `claude/w3-K10` from `claude/v11-CANON` @ f0c2d12. Worktree `.claude/worktrees/W3-K10`.
+Branch `claude/w3-K10` from `claude/v11-CANON` @ f0c2d12; merged `claude/visual-investigation` @ cfb19b5
+(lanes A,B,E,G,H,I,K,K3,CANON,INT3) with no conflicts — no other lane touched learn/** or improve/**. Worktree `.claude/worktrees/W3-K10`.
 Shadow phase, no network, no spend. No shared file edited (app/main.py already mounts
 `learn.api.router`; `runtime/worker.py` already has the `learn.scan` and `improve.measure`
 cadences).
@@ -44,13 +45,14 @@ cadences).
 
 ## Tests
 
-`tests/test_w3_k10_learn.py`: 23 OK, 0 FAIL.
+`tests/test_w3_k10_learn.py`: 23 OK, 0 FAIL (post-merge). test_vacuity 0 FAIL (one loop got a
+non-emptiness assertion), test_secret_scan 0 FAIL.
 
-Regression (focused, this worktree): test_learn_launch 13, test_learn_input_shapes 3 (unittest),
+Regression (focused, this worktree, re-run after the merge): test_learn_launch 13, test_learn_input_shapes 3 (unittest),
 test_learn_publish_contract 3, test_v11_learn_loops 18, test_fb4_lc 16, test_measure 7,
 test_freshness 24, test_profiles 16, test_improve 32, test_improve_director 14,
 test_improve_handlers 8, test_cert_learning 15, test_cert_improve_autonomy 20,
-test_teardown_audits 21, test_cert_residue 6 — all 0 FAIL. test_cert_wiring: WIRING_RESULT.
+test_teardown_audits 21, test_cert_residue 6 — all 0 FAIL. test_cert_wiring 16/16 and test_route_auth_default_deny 7/7 (post-merge).
 
 ## Not verified / limits
 
