@@ -682,6 +682,15 @@ def reference_paths(db, *, package: dict | None = None) -> dict:
     body = _verified(_materialise(db, frames.get(BODY_FRAME)), expected.get(BODY_FRAME))
     full_length = _verified(_materialise(db, frames.get(FULL_LENGTH_FRAME)),
                             expected.get(FULL_LENGTH_FRAME))
+    # D-FB-14: the current canonical revision's body references are committed files. When the
+    # pack pins exactly those hashes, the committed bytes answer (still hash-verified).
+    from . import canonical
+
+    if not body:
+        body = _verified(canonical.reference_file(BODY_FRAME), expected.get(BODY_FRAME))
+    if not full_length:
+        full_length = _verified(canonical.reference_file(FULL_LENGTH_FRAME),
+                                expected.get(FULL_LENGTH_FRAME))
 
     hashes = {name: expected[name] for name, path in
               ((FACE_FRAME, face), (BODY_FRAME, body), (FULL_LENGTH_FRAME, full_length))

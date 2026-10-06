@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from . import listing_outcomes as _listing_outcomes  # noqa: F401 - registers listing.outcomes
 from .worker import JobContext, handlers
 
 ACTION = "commerce.readings"
@@ -237,9 +238,18 @@ def _category(theme: str) -> str | None:
 def handle_commerce_readings(ctx: JobContext) -> dict:
     as_of = ctx.job.inputs.get("as_of")
     today = date.fromisoformat(as_of) if as_of else None
+    # K3 (F-258): listing outcomes are produced first -- queued owner exports recorded, the
+    # read-only Etsy snapshot taken -- so every reading below reads today's funnel. A failure
+    # here is recorded and never stops the readings; an unread funnel is UNKNOWN.
+    try:
+        outcomes = _listing_outcomes.summary(_listing_outcomes.run(ctx.db, ctx.phase.value))
+    except Exception as e:  # noqa: BLE001
+        outcomes = {"error": f"{type(e).__name__}: {str(e)[:200]}", "api": "UNKNOWN"}
+    ctx.audit(_listing_outcomes.ACTION, detail=outcomes)
     reading = read(ctx.db, today=today)
     acted = act(ctx.db, reading)
     summary = {
+        "listing_outcomes": outcomes,
         "acted": acted,
         "review_stars": reading["reviews"]["stars"].get("reviews"),
         "club_cadence_fits": reading["club"]["cadence"].get("fits"),
