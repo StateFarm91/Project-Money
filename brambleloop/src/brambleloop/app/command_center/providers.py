@@ -29,6 +29,16 @@ PROVIDERS: dict[str, tuple[str, str]] = {
     "seo": ("brambleloop.seo.status", "summary"),
     "ads": ("brambleloop.growth.ads_readiness", "summary"),
     "slo": ("brambleloop.ops.slo", "summary"),
+    "visual_rnd": ("brambleloop.visual.rnd.status", "summary"),
+    # W3 K4 (F-287): launch visibility -- storefront, search, funnel, traffic sources and the
+    # six-question launch verdict. K4 may not be merged yet: ImportError -> UNKNOWN "not built".
+    "visibility": ("brambleloop.launch.visibility", "summary"),
+    # W3 K1 (optional): the search evidence dashboard (supremacy gate per listing). Same
+    # tolerance while K1 is unmerged.
+    "search_evidence": ("brambleloop.commerce.search_evidence", "summary"),
+    # W3 lane F (D-FB-18 item 8): Laura's REQUIRED roadmap rows (voice, live presence,
+    # private register, voice improvement domain) -- GATED, never cancelled.
+    "laura_roadmap": ("brambleloop.laura.agency.roadmap", "summary"),
 }
 
 
@@ -53,10 +63,28 @@ def envelope(status: str, items: list, sources: list, *, basis: str = "measured"
     return out
 
 
+def _import(mod_name: str):
+    """Lane D's `autonomy.generators.provider_module`: STATIC imports for every provider the
+    orchestrator and Laura call, so the reachability rule (C-65) sees the Command Center's
+    providers too (closure K15: F-913/F-914/F-915/F-927); unknown modules fall back to
+    importlib inside it. If lane D's resolver itself cannot load, importlib directly."""
+    import sys
+
+    if mod_name in sys.modules:
+        # Already resolved (or deliberately replaced/disabled in sys.modules): importlib
+        # honours that entry, including `None` -> ImportError -> UNKNOWN "not built".
+        return importlib.import_module(mod_name)
+    try:
+        from ...autonomy.generators import provider_module
+    except ImportError:
+        return importlib.import_module(mod_name)
+    return provider_module(mod_name)
+
+
 def _resolve(key: str):
     mod_name, fn_name = PROVIDERS[key]
     try:
-        mod = importlib.import_module(mod_name)
+        mod = _import(mod_name)
     except ImportError:
         return None, f"{mod_name}.{fn_name}", "not built"
     fn = getattr(mod, fn_name, None)
@@ -73,12 +101,20 @@ def _invoke(fn, db, *args, **kwargs):
     session = db.new_session()
     try:
         try:
-            return fn(session, *args, **kwargs)
+            out = fn(session, *args, **kwargs)
         except AttributeError as exc:
             if "session" not in str(exc):
                 raise
             session.rollback()
             return fn(db, *args, **kwargs)
+        # W3-F: a provider that needs the `Database` facade but catches its own exceptions
+        # reports "'Session' object has no attribute 'session'" as an UNKNOWN reason instead
+        # of raising. That is the same contract mismatch; retry once with the facade.
+        if (isinstance(out, dict) and out.get("status") == "UNKNOWN"
+                and "has no attribute 'session'" in str(out.get("reason") or "")):
+            session.rollback()
+            return fn(db, *args, **kwargs)
+        return out
     finally:
         try:
             session.rollback()

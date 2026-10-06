@@ -1,6 +1,7 @@
 // Navigation model. `primary` tabs sit in the phone bottom bar; the rest live under "More".
 // Each id maps to js/views/<id>.js.
 export const TABS = [
+  { id: "laura", label: "Laura", icon: "laura", primary: true },
   { id: "home", label: "Home", icon: "home", primary: true },
   { id: "approvals", label: "Approvals", icon: "approvals", primary: true },
   { id: "money", label: "Money", icon: "money", primary: true },

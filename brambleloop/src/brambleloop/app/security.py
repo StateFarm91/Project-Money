@@ -141,6 +141,10 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     "/api/learn/queue",
     "/api/learn/graph",
     "/api/learn/lessons/{slug}",
+    # W3 K8 (commerce.estate_api, mounted by lane F): per-buyer CX workspace and the open
+    # policy-violation incidents carry customer/shop-case content -> operator credential.
+    "/api/cx/workspace",
+    "/api/etsy/policy-violations",
 })
 
 # GETs that are deliberately public, with the reason. Everything not listed here and not in

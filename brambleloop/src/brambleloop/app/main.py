@@ -88,11 +88,38 @@ app.include_router(learn_router(db))
 from .storefront_api import make_router as storefront_router
 
 app.include_router(storefront_router(db))
+# W3 K8 W1 (applied by lane F): the Etsy estate and CX workspace routes. Customer-bearing
+# reads in it are operator-only (its own CUSTOMER_DATA_ROUTES, merged into ours below).
+from ..commerce.estate_api import make_router as estate_router
+
+app.include_router(estate_router(db))
 # v1.1 Owner Command Center (lane C): `/api/cc/*` behind the owner-session gate (registered
 # into `security.operator_gate`) and the PWA's static files at `/cc/` under a strict CSP.
 from . import command_center
 
 command_center.install(app, db)
+
+
+# W3 lane A wiring: the brand's bundled font subsets, for `brand.identity_system.font_face_css(
+# "/brand/")`. Public, read-only, allow-listed by file name (no path is ever joined from the
+# request), served under the application CSP (`font-src 'self'`).
+_BRAND_FONT_TYPES = {".woff": "font/woff", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8"}
+
+
+@app.get("/brand/fonts/{name}", include_in_schema=False)
+def brand_font(name: str):
+    from fastapi.responses import Response
+
+    from ..brand import identity_system
+
+    allowed = {p.name: p for p in identity_system.FONT_DIR.iterdir()
+               if p.is_file() and p.suffix.lower() in _BRAND_FONT_TYPES}
+    path = allowed.get(name)
+    if path is None:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return Response(path.read_bytes(), media_type=_BRAND_FONT_TYPES[path.suffix.lower()],
+                    headers={"Cache-Control": "public, max-age=86400",
+                             "X-Content-Type-Options": "nosniff"})
 
 
 # What the last boot's enqueues did, readable from /health.
@@ -738,6 +765,7 @@ def api_finance() -> dict:
 # until it is listed here.
 CUSTOMER_DATA_ROUTES: frozenset[str] = frozenset({
     "/api/support",
+    "/api/cx/workspace",          # W3 K8 (commerce.estate_api), operator credential
 })
 
 
@@ -3722,6 +3750,33 @@ def api_benchmarks() -> dict:
     out["skipped"] = reading["skipped"]
     out["opportunities"] = reading["opportunities"]
     return out
+
+
+@app.post("/api/listing-outcomes")
+async def api_listing_outcomes(request: Request, period_start: str = "", period_end: str = "",
+                               authorization: str = Header(default="")) -> JSONResponse:
+    """Owner listing-level Stats export intake (W3 lane K3 wiring). Authenticated.
+
+    The body is the CSV. `commerce.listing_outcomes.submit_export` validates the whole export
+    synchronously (shape, counts, period, every listing resolved to one of ours) and queues it
+    for the producer; any refusal is a 400 naming what is wrong. The owner-session equivalent
+    (CSRF + nonce) is `POST /api/cc/listing-outcomes`.
+    """
+    try:
+        opsauth.check(authorization)
+    except opsauth.OpsAuthUnavailable as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+    except opsauth.OpsAuthRefused:
+        return JSONResponse({"error": "operator credential required"}, status_code=401)
+    from ..commerce import listing_outcomes
+
+    text = (await request.body()).decode("utf-8", errors="replace")
+    try:
+        out = listing_outcomes.submit_export(db, text, period_start=period_start,
+                                             period_end=period_end, submitted_by="operator")
+    except listing_outcomes.OutcomeRefused as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    return JSONResponse(out)
 
 
 @app.post("/api/attribution/stats")

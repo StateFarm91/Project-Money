@@ -94,7 +94,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 
 /* ---- bottom tab bar ---- */
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-template-columns: repeat(5, 1fr);
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   background: var(--surface); border-top: 1px solid var(--border);
   padding: 4px 4px env(safe-area-inset-bottom); min-height: var(--tabbar-h);
 }
@@ -313,3 +313,25 @@ details.card[open] > summary { margin-bottom: 8px; }
 .review { margin-top: 8px; }
 .review > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-weight: 650; color: var(--accent); }
 .hero a.tile { color: var(--text); }
+
+/* ---- Talk to Laura (W3 lane F) ---- */
+.laura-id { display: flex; gap: 14px; align-items: flex-start; }
+.laura-id > div { min-width: 0; }
+.laura-portrait { margin: 0; flex: 0 0 96px; display: grid; gap: 4px; }
+.laura-portrait img { width: 96px; height: 96px; object-fit: cover; border-radius: 14px; border: 2px dashed var(--warn); background: var(--surface-2); }
+.laura-internal { font-size: 11px; line-height: 1.3; font-weight: 700; color: var(--warn); background: var(--warn-bg); padding: 3px 6px; border-radius: 6px; }
+.laura-thread { display: grid; gap: 12px; }
+.laura-turn { display: grid; gap: 6px; }
+.laura-q { justify-self: end; max-width: 90%; margin: 0; padding: 10px 12px; border-radius: 14px 14px 4px 14px; background: var(--accent-soft); overflow-wrap: anywhere; }
+.laura-a { border-radius: 14px 14px 14px 4px; }
+.laura-evidence summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; font-weight: 600; }
+@media (max-width: 420px) {
+  .laura-id { flex-direction: column; }
+  .laura-portrait { flex-basis: auto; grid-template-columns: 72px 1fr; align-items: center; }
+  .laura-portrait img { width: 72px; height: 72px; }
+}
+
+.laura-frame-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.laura-frame { margin: 0; flex: 0 0 120px; display: grid; gap: 4px; }
+.laura-frame img { width: 120px; height: 160px; object-fit: cover; border-radius: 12px; border: 2px dashed var(--warn); background: var(--surface-2); }
+.laura-private .ask-form input { min-width: 0; }
