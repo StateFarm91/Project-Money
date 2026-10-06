@@ -240,3 +240,14 @@ uncounted prefix; `spend.refused` read by ops.slo with no retention decision; mo
 routing.TASKS (gateway/failover, accounting shadow_dataset). Fixed in the next commit (no test
 or invariant weakened; failover ranks now derive from routing.TIERS; accounting keeps its
 no-gateway-import guardrail and uses synthetic labels). Re-running the full suite.
+
+## RELEASE CANDIDATE FROZEN — final-candidate-ddf9c6e (2026-10-06 ~10:05Z)
+Successor to the not-shippable 3be3096. Contains rc1 repairs + all v1.1 lanes A–I + WIRE +
+invariant fixes. Release-eligible full suite: 6,384 passing / 0 failing / 398 suites
+(evidence/suite_ddf9c6e.json). Production-mode shadow rehearsal on the exact SHA
+(evidence/shadow_rehearsal_ddf9c6e.json): boot, compile, certify, assets, seo, orders, support,
+ledger PASS; shadow publish refused as expected; past-shadow publish blocked only by the gated
+Etsy taxonomy read (etsy_api) → category UNKNOWN → search certificate REFUSED → grant snapshot
+refused; identical to 3be3096. Files: CANDIDATE_ddf9c6e.json, DEFECT_LEDGER_ddf9c6e.json.
+Next: independent adversarial certification (lane J, different model) of this exact SHA.
+Repairs land on a successor, never on this tag. Not pushed (classifier); not deployed.

@@ -1,0 +1,142 @@
+{
+ "candidate": "ddf9c6ed5a3077c38df93412381adc24c64107f0",
+ "tag": "final-candidate-ddf9c6e",
+ "frozen_at": "2026-10-06T10:02:41Z",
+ "pushed": false,
+ "suite_record": {
+  "path": "brambleloop/artifacts/suite_runs/20261006T085446Z-20366.json",
+  "sha256": "b311736e67fb74a5629f609139fe57572c4846ef42868f507c5bb47c93958f23"
+ },
+ "matrix": {
+  "path": "brambleloop/research/final_build/closure_matrix.json",
+  "sha256": "6393d4213dc28e1e67018d9dfa2c8d0e2e3e9f0d6c07265c419b7a8e8d618ee3",
+  "basis": {
+   "mapping": {
+    "base": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
+    "remaps": {
+     "6f9a2f7": {
+      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+      "rows": 394
+     }
+    },
+    "rows_on_base": 472,
+    "per_row": "matrix[].mapped_on"
+   },
+   "reachability": "HEAD f5f9ced reachability; production fcb982d",
+   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+   "registry": "master_registry.json"
+  },
+  "summary": {
+   "rows": 866,
+   "unmapped": [],
+   "problems": [],
+   "maturity": {
+    "DEPLOYED": 248,
+    "MISSING": 115,
+    "INTEGRATED": 366,
+    "IMPLEMENTED": 58,
+    "TESTED": 60,
+    "EXERCISED": 19
+   },
+   "maturity_claimed": {
+    "EXERCISED": 122,
+    "MISSING": 115,
+    "INTEGRATED": 378,
+    "DEPLOYED": 150,
+    "IMPLEMENTED": 47,
+    "TESTED": 54
+   },
+   "launch_class": {
+    "LAUNCH-CRITICAL": 439,
+    "MATURE": 420,
+    "NA": 7
+   },
+   "launch_critical_maturity": {
+    "DEPLOYED": 176,
+    "MISSING": 11,
+    "INTEGRATED": 190,
+    "IMPLEMENTED": 6,
+    "EXERCISED": 19,
+    "TESTED": 37
+   },
+   "gate_kind": {
+    "none": 598,
+    "owner": 150,
+    "data": 81,
+    "external": 37
+   },
+   "launch_critical_gate_kind": {
+    "none": 335,
+    "owner": 63,
+    "external": 27,
+    "data": 14
+   },
+   "coverage": {
+    "PARTIAL": 706,
+    "FULL": 160
+   },
+   "downgraded": 119,
+   "defects": 108,
+   "wave_reported": {
+    "PARTIAL": 50,
+    "DONE": 55,
+    "NOT_STARTED": 1
+   },
+   "completion": {
+    "OPEN": 300,
+    "COMPLETE": 73,
+    "GATED": 66,
+    "POST-LAUNCH": 420,
+    "NOT-APPLICABLE": 7
+   },
+   "launch_critical_completion": {
+    "OPEN": 300,
+    "COMPLETE": 73,
+    "GATED": 66
+   },
+   "launch_critical_open": 300,
+   "launch_critical_open_reasons": {
+    "coverage PARTIAL": 279,
+    "defect recorded": 84,
+    "maturity MISSING": 6,
+    "maturity TESTED": 36,
+    "maturity IMPLEMENTED": 5
+   },
+   "protected_action_applicability": {
+    "protected": 563,
+    "unprotected": 303
+   },
+   "capped_by_unwritten_state": 1,
+   "capped_by_proxy_evidence": 0,
+   "mapped_on": {
+    "6f9a2f7": 394,
+    "019ebf0": 472
+   }
+  },
+  "launch_critical_open": 300
+ },
+ "rehearsal": {
+  "path": "brambleloop/artifacts/rehearsals/shadow_rehearsal_ddf9c6e.json",
+  "sha256": "547945ed57552899eac2e17155a7a6f8472cf738acaaf5f3bd16d06c19722a47",
+  "binding": "exact",
+  "complete": false,
+  "outcomes": {
+   "boot": "PASS",
+   "chain.jobs": "PASS",
+   "cir.compile": "PASS",
+   "gate.certify": "PASS",
+   "assets.build": "PASS",
+   "listing.seo": "PASS",
+   "store.publish[shadow]": "REFUSED_AS_EXPECTED",
+   "network[shadow]": "PASS",
+   "owner_publication_grant": "BLOCKED",
+   "store.publish[past-shadow]": "BLOCKED",
+   "network[past-shadow]": "PASS",
+   "orders.ingest": "PASS",
+   "support.case": "PASS",
+   "ledger": "PASS"
+  }
+ },
+ "defect_ledger": "brambleloop/research/final_build/DEFECT_LEDGER_ddf9c6e.json",
+ "next": "independent audit of this exact SHA by a different model/session (F-846); repairs land on a successor candidate, never on this tag"
+}
