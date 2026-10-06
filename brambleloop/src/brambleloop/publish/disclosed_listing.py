@@ -393,14 +393,17 @@ def last_asset(db, *, slug: str = "") -> dict | None:
     make every other product's disclosed set vanish. Without a slug it reads the newest row
     of any product, as before.
     """
-    from sqlalchemy import desc, select
+    from sqlalchemy import desc, or_, select
 
     from ..core.models import AuditLog
     from ..visual.disclosed_render import RENDERER_VERSION
 
     query = select(AuditLog).where(AuditLog.action == ACTION)
     if slug:
-        query = query.where(AuditLog.artifact.startswith(f"{slug}@", autoescape=True))
+        # `record` files `slug@version`; `listing_asset.make` files the same record with no
+        # artifact, so those rows are read too and matched on the detail's own slug below.
+        query = query.where(or_(AuditLog.artifact.startswith(f"{slug}@", autoescape=True),
+                                AuditLog.artifact.is_(None), AuditLog.artifact == ""))
     else:
         query = query.limit(50)
     with db.session() as s:

@@ -720,7 +720,8 @@ def _certify_listing(ctx: JobContext, cir: CIR):
                      f"as two PDFs -- one written throughout in US terms and one in UK "
                      f"terms. Drafted and checked with AI assistance and validated by an "
                      f"automated pattern compiler before release."),
-        tags=["crochet pattern", f"crochet {kind}", "pdf pattern"],
+        # The product's own kind, as a tag (Etsy caps a tag at 20 characters).
+        tags=["crochet pattern", kind[:20].strip(), "pdf pattern"],
         price_cad=float(price),
     )
     return draft, {"source": source, "title": draft.title, "stored_copy_refused": refused}

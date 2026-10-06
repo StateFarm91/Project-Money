@@ -273,6 +273,10 @@ def test_the_planner_routes_retired_concept_slugs_to_the_launch0_slugs():
             cir = pipeline._engineered_cir(target)
             assert cir is not None and cir.slug == target, target
             assert target in L.launch_scope_slugs()
+        # radar.score treats the retired slug as established, so the planner reaches
+        # cir.draft (which routes it) instead of gating it as a brand-new concept.
+        from brambleloop.creative import preengineering as pe
+        assert pe.established(None, legacy), legacy
     db = _db("planner")
     job = _run(db, "crochet_engineer", "cir.draft", {"slug": "hexie-coaster-set"}, "d")
     assert job.outputs.get("retired_alias") and job.outputs["routed_to"] == [
@@ -298,10 +302,17 @@ def test_disclosed_last_asset_is_read_per_product_not_from_a_global_window():
     for slug in ("market-basket-small", "cloudline-baby-blanket"):
         DL.record(db, {"slug": slug, "version": "1.1.0", "made": True,
                        "method_version": RENDERER_VERSION, "frames": []})
+    # `listing_asset.make` files the same record with no artifact column.
+    with db.session() as s:
+        s.add(AuditLog(actor="publishing", action=DL.ACTION,
+                       detail={"slug": "market-basket-large", "version": "1.1.0",
+                               "made": True, "method_version": RENDERER_VERSION,
+                               "frames": []}))
     for _ in range(60):
         DL.record(db, {"slug": "hexagon-coaster-set", "version": "1.1.0", "made": True,
                        "method_version": RENDERER_VERSION, "frames": []})
-    for slug in ("market-basket-small", "cloudline-baby-blanket", "hexagon-coaster-set"):
+    for slug in ("market-basket-small", "cloudline-baby-blanket", "hexagon-coaster-set",
+                 "market-basket-large"):
         rec = DL.last_asset(db, slug=slug)
         assert rec is not None and rec["slug"] == slug, slug
     # A slug that is a prefix of another is not confused with it.

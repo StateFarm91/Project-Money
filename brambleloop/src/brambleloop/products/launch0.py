@@ -627,6 +627,23 @@ def listing_identity(slug: str) -> ListingIdentity | None:
     return cand.listing
 
 
+def make_hours(cir_slug: str) -> float | None:
+    """The estimated make hours of one Launch-0 variant, from `make_time` (ESTIMATED).
+
+    PT-11: once the Launch-0 variants are the engineered designs under their own slugs, the
+    lane router needs a make time for them that is not a radar seed's; this is the twin's
+    stitch count at the assumed rate, labelled as such by `make_time`.
+    """
+    cand = candidate_for_cir(cir_slug)
+    if cand is None:
+        return None
+    for v in cand.variants:
+        if cir_for(v.build).slug == cir_slug:
+            row = next((r for r in make_time(cand)["variants"] if r["variant"] == v.key), None)
+            return None if row is None else row.get("hours_total")
+    return None
+
+
 def launch_price(slug: str) -> dict | None:
     """The Launch-0 price for a CIR slug, from its own candidate's plan, with its basis (PT-04).
 

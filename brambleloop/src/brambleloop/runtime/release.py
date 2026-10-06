@@ -6700,7 +6700,8 @@ def handle_lane_routing(ctx: JobContext) -> dict:
     seeds = {seed.slug: seed for seed in POOL}
     demand_rows = []
     for card in routed["products"]:
-        profile, seed = card.get("profile"), seeds.get(card["slug"])
+        profile, seed = card.get("profile"), (seeds.get(card["slug"])
+                                              or lanes._launch0_seed(card["slug"]))
         if not profile or seed is None:
             continue
         event = _event(seed.season) if seed.season else None

@@ -567,6 +567,25 @@ def _sizes_of(cir_json: dict, catalogue: dict[str, dict] | None = None) -> int:
     return int(run["sizes"]) if run["sizes"] is not None else 1
 
 
+def _launch0_seed(slug: str):
+    """A Launch-0 variant's make time, from its own candidate (PT-11), or None.
+
+    The Launch-0 variants are engineered under their own slugs, which no radar seed names;
+    without this they would never be routed or have their owed gates checked here.
+    """
+    from types import SimpleNamespace
+
+    from ..products import launch0 as l0
+
+    if slug not in l0.launch_scope_slugs():
+        return None
+    hours = l0.make_hours(slug)
+    if not hours:
+        return None
+    return SimpleNamespace(slug=slug, maker_hours=(hours, hours), family=None, season=None,
+                           is_bundle=False)
+
+
 def route_certified(db, *, today=None) -> dict:
     """Route every certified release to its queue and check it kept every gate (#5).
 
@@ -626,7 +645,7 @@ def route_certified(db, *, today=None) -> dict:
 
     cards: list[dict] = []
     for slug, (title, version, cir, cert) in sorted(latest.items()):
-        seed = seeds.get(slug)
+        seed = seeds.get(slug) or _launch0_seed(slug)
         base = {"slug": slug, "version": version}
         if cir is None:
             cards.append({**base, "lane": None, "routed": False,
