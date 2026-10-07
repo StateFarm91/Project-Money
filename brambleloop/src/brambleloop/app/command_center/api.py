@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from . import approvals, ask as ask_mod, auth, emergency, notifications, providers, tabs
+from . import company as company_mod
 from . import private_context
 
 
@@ -193,6 +194,16 @@ def make_router(db) -> APIRouter:
     @router.get("/learn")
     def learn(request: Request):
         return ok(tabs.autonomy(db))
+
+    # W4-CC: the company overview and the completion-effort board (read-only, owner session).
+    @router.get("/company")
+    def company_view(request: Request):
+        return ok(company_mod.company(db))
+
+    @router.get("/completion")
+    def completion_view(request: Request):
+        return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
+                   "sections": {"board": company_mod.completion(db)}})
 
     @router.get("/insights")
     def insights(request: Request):

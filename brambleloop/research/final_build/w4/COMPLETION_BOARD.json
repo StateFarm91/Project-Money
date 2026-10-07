@@ -1,0 +1,80 @@
+{
+  "kind": "brambleloop.completion_board",
+  "schema_version": 1,
+  "updated_at": "2026-10-07T00:05:00+00:00",
+  "updated_by": "W4-CC (seed); the integrator owns every later update",
+  "wave": "W4",
+  "schema": {
+    "doc": "Read by app/command_center/company.py (GET /api/cc/completion, Command Center 'Completion' tab). Validated by company.validate_board and tests/test_w4_cc_company.py. Timestamps ISO 8601 UTC. A null is UNKNOWN, never zero.",
+    "lane": "string, unique: the lane id (e.g. W4-CC)",
+    "worker": "string: the responsible worker (session / agent / person)",
+    "task": "string: what the lane is finishing",
+    "status": "QUEUED | RUNNING | BLOCKED | REVIEW | MERGED | DONE | ABANDONED | UNKNOWN",
+    "started_at": "ISO 8601 or null (unknown)",
+    "last_update_at": "ISO 8601 or null (unknown); a RUNNING lane older than 3 h shows STALE",
+    "useful_output": "string or null: the latest verified output (commit, test, artefact)",
+    "blocker": "string or null: the exact gate holding the lane",
+    "next_action": "string or null",
+    "rows_closed": "null (unknown) or {count: int|null, ids: [row ids]}",
+    "branch": "optional string",
+    "head_sha": "optional string: last pushed head"
+  },
+  "lanes": [
+    {
+      "lane": "W4-CC",
+      "worker": "Claude lane W4-CC",
+      "task": "Owner Command Center online: company overview, completion board, deploy-readiness package",
+      "status": "RUNNING",
+      "started_at": "2026-10-06T23:40:00+00:00",
+      "last_update_at": "2026-10-07T00:05:00+00:00",
+      "useful_output": "GET /api/cc/company and /api/cc/completion behind the owner session; Company and Completion views in the PWA",
+      "blocker": null,
+      "next_action": "tests, deploy package, push claude/w4-CC",
+      "rows_closed": null,
+      "branch": "claude/w4-CC",
+      "head_sha": null
+    },
+    {
+      "lane": "W4-AUTO",
+      "worker": "Claude lane W4-AUTO",
+      "task": "autonomy runtime: cadences, pipeline, orchestrator, autonomy.status provider",
+      "status": "UNKNOWN",
+      "started_at": null,
+      "last_update_at": null,
+      "useful_output": null,
+      "blocker": null,
+      "next_action": "integrator records this lane's state",
+      "rows_closed": null,
+      "branch": "claude/w4-AUTO",
+      "head_sha": null
+    },
+    {
+      "lane": "W4-B2",
+      "worker": "Claude lane W4-B2",
+      "task": "Build 2 closure (requirements.json mapping, closure.py, maturity.py)",
+      "status": "UNKNOWN",
+      "started_at": null,
+      "last_update_at": null,
+      "useful_output": null,
+      "blocker": null,
+      "next_action": "integrator records this lane's state",
+      "rows_closed": null,
+      "branch": "claude/w4-B2",
+      "head_sha": null
+    },
+    {
+      "lane": "W4-FM",
+      "worker": "Claude lane W4-FM",
+      "task": "Final Master closure (master registry, final_master snapshot)",
+      "status": "UNKNOWN",
+      "started_at": null,
+      "last_update_at": null,
+      "useful_output": null,
+      "blocker": null,
+      "next_action": "integrator records this lane's state",
+      "rows_closed": null,
+      "branch": "claude/w4-FM",
+      "head_sha": null
+    }
+  ]
+}
