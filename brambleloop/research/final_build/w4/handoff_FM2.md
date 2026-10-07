@@ -12,7 +12,7 @@ Folded (all cited tests green in this lane's sequential run, `w4/close_fm2_test_
 - F-914 COMPLETE (v11_map.py; CC ?period= reaches dashboard.summary(window=), test_w4_cc_company).
 - F-416 COMPLETE at INTEGRATED: producer ops/release_record.apply_at_import (requirements.lock is in the boot-guard tree
   digest; an unrecorded lock forces SHADOW at app import) + scripts/supply_chain verify --strict (integrator's digest/apt pin).
-  tests/test_w4_fm2_lock_boot_guard.py 3/3. OVERRIDES_PROPOSED_FM2.json withdrawn (empty).
+  tests/test_w4_fm2_lock_boot_guard.py 3/3. F-416 override withdrawn (OVERRIDES_PROPOSED_FM2.json now holds only F-123).
 - F-030/F-254 refreshed, stay OPEN: CONTENTS certified on coasters/ornaments/graphghan; missing on blanket + baskets
   (VISUAL2: re-run w4/visual/proof_contents_gallery.py for them); LIFESTYLE owner-gated VB-1.
 - Earlier: F-233, F-263, F-159, F-213/219/677 COMPLETE; F-732, F-518, F-926 GATED.
