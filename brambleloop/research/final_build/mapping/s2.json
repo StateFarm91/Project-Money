@@ -1456,34 +1456,37 @@
   "launch_class_reason": "recovery/idempotence: a dead worker must not duplicate consequential effects",
   "maturity": "DEPLOYED",
   "coverage": "PARTIAL",
-  "missing_part": "Lease expiry and fencing are tested (job queue SIGKILL test, executor claim lease) and live in production, but no drill has killed a production worker mid-requirement and recorded the outcome.",
+  "missing_part": "no lease-recovery drill has been recorded against the deployed production worker",
   "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
   "durable_state": "jobs.leased_by/lease_expires_at; build_tasks.claimed_at",
   "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
   "protected_effect": "a reclaimed job's original worker cannot complete it; duplicate spend/publication prevented by idempotency keys",
   "tests": [
-   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_acceptance_gates.py",
    "tests/test_chaos.py::test_a_reclaimed_jobs_original_worker_cannot_complete_it",
    "tests/test_chaos.py::test_duplicate_spend_job_cannot_double_charge",
    "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
-   "tests/test_acceptance_gates.py"
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_v11_autonomy_recovery.py::test_same_named_workers_cannot_complete_each_others_attempt",
+   "tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects"
   ],
   "evidence": [
    "C-11, C-12, C-13 FIXED",
-   "queue/durable.py in production fcb982d"
+   "queue/durable.py in production fcb982d",
+   "w4-FM close on 8b67414 (FOLD): lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "none",
-   "key": "",
-   "detail": ""
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "the drill runs on the deployed candidate"
   },
   "defect": null,
-  "next_action": "Add a staging/production drill script (ops) that enqueues a no-op consequential-shaped job, kills the worker mid-handler, and records lease reclaim + single completion as an audit row; run it after final deploy.",
+  "next_action": "owner gate production_window: after the deploy, kill the worker mid-job once and record lease reclaim + single completion",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-136",

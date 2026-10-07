@@ -611,6 +611,39 @@
    ]
   },
   {
+   "uid": "F-135",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "DEPLOYED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "the drill runs on the deployed candidate"
+   },
+   "checked": "lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed",
+   "test_files": [
+    "tests/test_acceptance_gates.py",
+    "tests/test_chaos.py",
+    "tests/test_executor.py",
+    "tests/test_persistence.py",
+    "tests/test_v11_autonomy_recovery.py"
+   ]
+  },
+  {
+   "uid": "F-416",
+   "source": "FOLD",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)",
+   "test_files": [
+    "tests/test_dependency_lock.py",
+    "tests/test_w3_supply_chain.py"
+   ]
+  },
+  {
    "uid": "F-030",
    "source": "FOLD",
    "verdict": "OPEN",
@@ -691,12 +724,12 @@
  ],
  "kept_open": [],
  "counts": {
-  "written": 42,
+  "written": 44,
   "kept": 0,
   "by_verdict": {
-   "GATED": 29,
+   "GATED": 30,
    "COMPLETE": 10,
-   "OPEN": 3
+   "OPEN": 4
   }
  }
 }

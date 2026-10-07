@@ -10,22 +10,22 @@ Reachability: HEAD 8b67414 reachability; production fcb982d
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 78 | 34 | 7 | 381 | 141 | 276 |
-| launch-critical | 13 | 25 | 0 | 132 | 67 | 253 |
+| all rows | 78 | 34 | 7 | 331 | 150 | 317 |
+| launch-critical | 13 | 25 | 0 | 82 | 76 | 294 |
 | post-launch (not blocking) | 65 | 9 | 0 | 249 | 74 | 23 |
 
-Launch-critical OPEN-DEFECT: **132**
+Launch-critical OPEN-DEFECT: **82**
 
 ## Open clusters (launch-critical)
 
 | Cluster | Lane | Rows | Title |
 |---|---|---|---|
-| FOLD | FM | 7 | Wave-3 claims COMPLETE, canonical mapping not re-mapped: verify tests + reachabi |
+| FOLD | FM | 4 | Wave-3 claims COMPLETE, canonical mapping not re-mapped: verify tests + reachabi |
 | FOLD-R | FM | 4 | Wave-3 audit (lane K) re-checked as resolved on f0c2d12; never re-mapped into th |
 | K12 | VISUAL | 4 | Visual residuals (model photography path; not Launch-0) |
 | K13 | FM | 2 | Closure/certification tooling in code |
-| K14 | FM | 2 | Supply chain, deploy & operator-tooling residuals |
-| K15 | FM | 4 | v1.1 wiring: provider reachability + library-only accounting modules |
+| K14 | FM | 1 | Supply chain, deploy & operator-tooling residuals |
+| K15 | FM | 1 | v1.1 wiring: provider reachability + library-only accounting modules |
 | K16 | STORE | 1 | Store preview v2 (owner rejected v1) |
 | K2 | STORE | 2 | Storefront completion & shop trust gate |
 | K5a | FM | 8 | Spend attribution & finance reporting residuals |
@@ -34,7 +34,6 @@ Launch-critical OPEN-DEFECT: **132**
 | K9 | PIPE | 18 | Pattern product-truth residuals (graded/garments; not Launch-0) |
 | PROCESS | integrator | 10 | PROCESS |
 | STRUCTURAL | FM | 12 | STRUCTURAL |
-| V11-MAP | FM | 43 | v1.1 rows (F-880..F-930) absent from the canonical matrix and the runtime snapsh |
 
 ## Launch-critical rows not PROVEN
 
@@ -61,7 +60,7 @@ Launch-critical OPEN-DEFECT: **132**
 | F-106 Provider Billing Reconciliation | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Reconciliation compares our ledger to owner-REPORTED dashboard figures only (ops/provider_accounts.REPORTED_FACTS in code) |
 | F-118 Risk-Based Physical Escalation | OWNER-GATED | INTEGRATED | owner:tester_roster |
 | F-123 Vacuous-Test Detector | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Detector is a syntactic heuristic; 109 pre-existing vacuous-risk loops remain in  |
-| F-135 Lease-Recovery Drill | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Lease expiry and fencing are tested (job queue SIGKILL test, executor claim lease) and live in production, but no drill ha |
+| F-135 Lease-Recovery Drill | OWNER-GATED | DEPLOYED | owner:production_window |
 | F-144 Production Readback Gate | OWNER-GATED | DEPLOYED | owner:production_deploy |
 | F-152 Scratch Non-Authority | OWNER-GATED | DEPLOYED | owner:offsite_storage |
 | F-158 Dependency Integrity Audit | OWNER-GATED | TESTED | owner:production_window |
@@ -142,7 +141,7 @@ Launch-critical OPEN-DEFECT: **132**
 | F-380 Code Change Governance | OWNER-GATED | DEPLOYED | owner:production_window |
 | F-381 Rollback First-Class | OWNER-GATED | INTEGRATED | owner:production_window |
 | F-396 PC-Off Improvement Continuity | OWNER-GATED | DEPLOYED | owner:production_window |
-| F-416 Security / Supply-Chain Review | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Python dependencies are exact-pinned and sha256-hashed and the Dockerfile install |
+| F-416 Security / Supply-Chain Review | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: the Dockerfile base image is tag-pinned (python:3.11-slim), not digest-pinned, an |
 | F-437 Primary Documentation for Integrations | OWNER-GATED | DEPLOYED | owner:etsy_api |
 | F-461 Deploy Serialization | OWNER-GATED | TESTED | owner:deploy_trigger_config |
 | F-472 Provider Concurrency Governance | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: spend is centralised (gateway + reservations + per-provider/purpose caps) and retries are queue-governed, but circuit-brea |
@@ -226,57 +225,16 @@ Launch-critical OPEN-DEFECT: **132**
 | F-871 Provider Funding Is Authority | OWNER-GATED | EXERCISED | owner:model_provider |
 | F-872 Etsy Scope Reauthorization | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-878 Launch Packet | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: launch readiness assesses listings, owner actions, launch package (disclosure, FAQ, pricing plan, calendar, baseline, roll |
-| F-880 Cloud-Resident Always-On Runtime | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-881 No Development-Chat Dependency | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-882 Mobile-First Owner Command Center | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-883 PWA / Home-Screen Mode | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-884 Owner Home Brief | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-885 Evidence-Backed Approval Inbox | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-886 One-Tap Owner Actions | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-887 Owner Action Authentication | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-888 Account & Security Tab | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-889 Emergency Controls | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-890 24/7 Department Agents | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-891 Agent Intelligence Standard | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-892 Agent Role Charters | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-893 Executive Orchestrator | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-894 Work Never Waits on the Owner Without Ca | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-895 Overnight Autonomy | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-896 Morning Handoff | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-897 Smart Notification Policy | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-898 Web Surface Uses Real Production State | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-899 Operational Drill-Down | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-900 Remote Health & Recovery | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-901 Accountant Agent | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-902 Accounting Source of Truth | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-903 Double-Entry Ledger | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-904 Bank/Etsy/Processor Reconciliation | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-905 Accrual vs Cash Views | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-906 Product & Channel Profitability | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-907 Cost Attribution | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-908 Cash & Runway Intelligence | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-909 Tax-Ready Evidence Pack | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-910 Month-End Close | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-911 Financial Anomaly Detection | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-912 Spend Governor Integration | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-913 Financial Forecast Honesty | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-914 Owner Money Dashboard | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-915 Financial Drill-Through | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-916 Human Accountant Handoff | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-917 Accounting Guardrails | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-918 Department KPIs With Anti-Gaming | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-919 Cross-Agent Challenge | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-920 Persistent Company Memory | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-921 Model/Agent Failover | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-922 Cost-Aware Intelligence Routing | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-923 Owner Availability SLO | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-924 Production Autonomy SLO | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-925 No Terminal for Normal Operations | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-926 Store Preview Mode | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-927 Company Timeline | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-928 Owner Search / Ask Company | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-929 No Autonomous Hallucinated Action | OPEN-DEFECT | MISSING | v1.1 row not mapped |
-| F-930 24/7 Does Not Mean Reckless | OPEN-DEFECT | MISSING | v1.1 row not mapped |
+| F-880 Cloud-Resident Always-On Runtime | OWNER-GATED | INTEGRATED | owner:production_window |
+| F-881 No Development-Chat Dependency | OWNER-GATED | INTEGRATED | owner:production_window |
+| F-895 Overnight Autonomy | OWNER-GATED | INTEGRATED | owner:production_window |
+| F-897 Smart Notification Policy | OWNER-GATED | INTEGRATED | owner:casl_notification_authority |
+| F-904 Bank/Etsy/Processor Reconciliation | OWNER-GATED | INTEGRATED | owner:bank_and_payment_ledger_feed |
+| F-908 Cash & Runway Intelligence | OWNER-GATED | INTEGRATED | owner:bank_and_payment_ledger_feed |
+| F-914 Owner Money Dashboard | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: period controls do not work: the Money tab sends ?period= but GET /api/cc/money ignores it and providers.call('accounting' |
+| F-923 Owner Availability SLO | OWNER-GATED | INTEGRATED | owner:production_window |
+| F-924 Production Autonomy SLO | OWNER-GATED | INTEGRATED | owner:hosted_operating_history |
+| F-926 Store Preview Mode | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: the owner rejected preview v1 (wave-3 K16); preview v2 is lane STORE work and the real Etsy shop settings it should mirror |
 
 ## Modules with no runtime caller (regenerated reachability)
 

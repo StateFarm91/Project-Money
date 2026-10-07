@@ -8,17 +8,17 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 276,
-   "OWNER-GATED": 141,
-   "OPEN-DEFECT": 381,
+   "PROVEN": 317,
+   "OWNER-GATED": 150,
+   "OPEN-DEFECT": 331,
    "DATA-GATED": 78,
    "EXTERNAL-GATED": 34,
    "NOT-APPLICABLE": 7
   },
   "status_launch_critical": {
-   "PROVEN": 253,
-   "OWNER-GATED": 67,
-   "OPEN-DEFECT": 132,
+   "PROVEN": 294,
+   "OWNER-GATED": 76,
+   "OPEN-DEFECT": 82,
    "EXTERNAL-GATED": 25,
    "DATA-GATED": 13
   },
@@ -29,7 +29,7 @@
    "EXTERNAL-GATED": 9,
    "PROVEN": 23
   },
-  "launch_critical_open": 132,
+  "launch_critical_open": 82,
   "reachability_basis": "HEAD 8b67414 reachability; production fcb982d",
   "unreached_modules": [
    "autonomy/map.py",
@@ -3767,25 +3767,31 @@
    "title": "Lease-Recovery Drill",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "OWNER-GATED",
    "maturity": "DEPLOYED",
    "maturity_claimed": "DEPLOYED",
    "coverage": "PARTIAL",
    "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
    "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
    "tests": [
-    "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+    "tests/test_acceptance_gates.py",
     "tests/test_chaos.py::test_a_reclaimed_jobs_original_worker_cannot_complete_it",
     "tests/test_chaos.py::test_duplicate_spend_job_cannot_double_charge",
     "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
-    "tests/test_acceptance_gates.py"
+    "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+    "tests/test_v11_autonomy_recovery.py::test_same_named_workers_cannot_complete_each_others_attempt",
+    "tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects"
    ],
-   "gate": null,
+   "gate": {
+    "kind": "owner",
+    "key": "production_window"
+   },
    "reasons": [
-    "coverage PARTIAL: Lease expiry and fencing are tested (job queue SIGKILL test, executor claim lease) and live in production, but no drill has killed a production worker mid-requi"
+    "owner gate 'production_window'",
+    "coverage PARTIAL: no lease-recovery drill has been recorded against the deployed production worker"
    ],
-   "next_action": "Add a staging/production drill script (ops) that enqueues a no-op consequential-shaped job, kills the worker mid-handler, and records lease reclaim + single completion as an audit row; run it after final deploy.",
-   "mapped_on": "6f9a2f7",
+   "next_action": "owner gate production_window: after the deploy, kill the worker mid-job once and record lease reclaim + single completion",
+   "mapped_on": "8b67414",
    "w3_triage": "O",
    "w3_cluster": "K14",
    "claims": [
@@ -11709,18 +11715,19 @@
    "producer": "brambleloop/requirements.lock + Dockerfile (pip install --require-hashes --no-deps -r requirements.lock)",
    "consumer": "Docker image build (railway.json builder DOCKERFILE)",
    "tests": [
-    "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
-    "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
     "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
-    "tests/test_dependency_lock.py::test_every_requirements_txt_entry_is_pinned_in_the_lock_at_a_satisfying_version"
+    "tests/test_dependency_lock.py::test_every_requirements_txt_entry_is_pinned_in_the_lock_at_a_satisfying_version",
+    "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
+    "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+    "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named"
    ],
    "gate": null,
    "reasons": [
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Python dependencies are exact-pinned and sha256-hashed and the Dockerfile installs only the lock with --require-hashes --no-deps (an unused `requests` was remov"
+    "coverage PARTIAL: the Dockerfile base image is tag-pinned (python:3.11-slim), not digest-pinned, and apt fonts-dejavu-core is unpinned; no provenance review record exists for ext"
    ],
-   "next_action": "Pin the base image by digest (FROM python:3.11-slim@sha256:...) and apt package version in Dockerfile; add a supply-chain register (e.g. src/brambleloop/core/supply_chain.py or ops/SUPPLY_CHAIN.json) listing every external service/model/binary with provenance, review date and reviewer, and a test that every provider used by gateway/integrations is registered; optionally pip-audit in run_tests.sh.",
-   "mapped_on": "6f9a2f7",
+   "next_action": "WIRING REQUEST (integrator, Dockerfile): FROM python:3.11-slim@sha256:<digest resolved at release> and pin the apt version, then run supply_chain.py verify --strict; add a reviewed register of external services/models (provider, purpose, review date)",
+   "mapped_on": "8b67414",
    "w3_triage": "O",
    "w3_cluster": "K14",
    "claims": [
@@ -24113,19 +24120,31 @@
    "title": "Cloud-Resident Always-On Runtime",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/runtime/worker.py::Worker.run_once (embedded runner + app/scheduler_entry)",
+   "consumer": "app/scheduler_entry.main (runtime loop) and the app's embedded runner",
+   "tests": [
+    "tests/test_v11_reliability_slo.py::test_a_full_unattended_soak_passes_except_for_unprobed_availability",
+    "tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects",
+    "tests/test_v11_wiring.py::test_scheduler_and_worker_heartbeats_are_durable_rows_the_slo_reads"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "reasons": [
+    "owner gate 'production_window'",
+    "coverage PARTIAL: hosted 24/7 operation of the v1.1 candidate is unproven: the §95 24h PC-off soak needs the candidate deployed (v1_1/CLOUD_HOSTING_PLAN.md)"
+   ],
+   "next_action": "owner gate production_window: deploy the candidate, run the 24h soak and grade it with ops/slo soak grading",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-881",
@@ -24133,19 +24152,30 @@
    "title": "No Development-Chat Dependency",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/ops/slo.py::record_heartbeat (scheduler heartbeats; soak grading)",
+   "consumer": "app/scheduler_entry.main (runtime loop) -> ops/slo",
+   "tests": [
+    "tests/test_v11_reliability_slo.py::test_an_owner_or_development_session_driving_work_fails_the_soak",
+    "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "reasons": [
+    "owner gate 'production_window'",
+    "coverage PARTIAL: nothing in the runtime loop needs a session (tested); that production's scheduler runs unpoked on the v1.1 candidate is unproven until it is deployed"
+   ],
+   "next_action": "owner gate production_window: deploy, then grade a soak in which no development session drives work",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-882",
@@ -24153,19 +24183,25 @@
    "title": "Mobile-First Owner Command Center",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/api.py::make_router (+ /cc/ static PWA)",
+   "consumer": "GET/POST /api/cc/* (app/command_center/api.make_router, installed by app/main.py)",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_every_tab_answers_and_carries_status_envelopes",
+    "tests/test_v11_pwa_static.py::test_structure",
+    "tests/test_v11_cc_auth.py::test_route_enumeration_covers_the_contract"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-883",
@@ -24173,19 +24209,25 @@
    "title": "PWA / Home-Screen Mode",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/api.py::make_router (/cc/ static mount: manifest + service worker)",
+   "consumer": "/cc/ static PWA served by app/main.py",
+   "tests": [
+    "tests/test_v11_pwa_static.py::test_manifest",
+    "tests/test_v11_pwa_static.py::test_service_worker_never_caches_api",
+    "tests/test_v11_pwa_static.py::test_api_client_security"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-884",
@@ -24193,19 +24235,23 @@
    "title": "Owner Home Brief",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/tabs.py::home / mark_seen",
+   "consumer": "GET /api/cc/home, POST /api/cc/home/seen (Command Center Home)",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_home_and_morning_brief_come_from_real_database_state"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-885",
@@ -24213,19 +24259,23 @@
    "title": "Evidence-Backed Approval Inbox",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/approvals.py::inbox / card",
+   "consumer": "GET /api/cc/approvals (build2.executor.approval_inbox + publication evidence)",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_approval_cards_carry_the_f885_fields"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-886",
@@ -24233,19 +24283,25 @@
    "title": "One-Tap Owner Actions",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/approvals.py::execute",
+   "consumer": "POST /api/cc/approvals/* (session + CSRF + nonce + step-up)",
+   "tests": [
+    "tests/test_v11_cc_actions.py::test_activation_grant_via_command_center_then_revoke_before_execution_refuses",
+    "tests/test_v11_cc_actions.py::test_improvement_approval_routes_through_cells",
+    "tests/test_v11_cc_actions.py::test_authority_refusals_are_audited"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-887",
@@ -24253,19 +24309,26 @@
    "title": "Owner Action Authentication",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/auth.py::verify_owner (session, CSRF, nonce, step-up)",
+   "consumer": "every non-public /api/cc route (app/command_center/api)",
+   "tests": [
+    "tests/test_v11_cc_auth.py::test_unauthenticated_high_impact_approval_is_refused_and_audited",
+    "tests/test_v11_cc_auth.py::test_mutating_routes_need_csrf_nonce_and_same_origin",
+    "tests/test_v11_cc_auth.py::test_replayed_nonce_is_refused",
+    "tests/test_v11_cc_auth.py::test_consequential_actions_need_step_up_but_pausing_does_not"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-888",
@@ -24273,19 +24336,24 @@
    "title": "Account & Security Tab",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/tabs.py (account view) + auth.py sessions",
+   "consumer": "GET /api/cc/account; session list/revoke routes",
+   "tests": [
+    "tests/test_v11_cc_auth.py::test_cookie_flags_and_session_listing_and_revocation",
+    "tests/test_v11_cc_views.py::test_every_tab_answers_and_carries_status_envelopes"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-889",
@@ -24293,19 +24361,26 @@
    "title": "Emergency Controls",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/emergency.py::pause / resume / kill_to_shadow",
+   "consumer": "POST /api/cc/emergency/* -> Agent.enabled, SpendLimit.paused, grant revoke, core.phase transition",
+   "tests": [
+    "tests/test_v11_cc_actions.py::test_department_pause_stops_the_worker_authorising_its_jobs_but_not_monitoring",
+    "tests/test_v11_cc_actions.py::test_spend_pause_refuses_spend_and_resume_leaves_breach_pauses_alone",
+    "tests/test_v11_cc_actions.py::test_kill_switch_records_shadow_and_pauses_the_company",
+    "tests/test_v11_cc_actions.py::test_publication_grant_is_revoked_by_the_publishing_pause"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-890",
@@ -24313,19 +24388,25 @@
    "title": "24/7 Department Agents",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/orchestrator.py::tick (11 charters, autonomy/charters.py)",
+   "consumer": "executive_orchestrator cadence (runtime/worker.py, 15 min) -> autonomy/handlers",
+   "tests": [
+    "tests/test_v11_autonomy_orchestrator.py::test_eleven_charters_are_valid_and_cover_every_wired_job_type",
+    "tests/test_v11_autonomy_orchestrator.py::test_the_orchestrator_is_a_scheduled_cadence_with_a_permitted_agent",
+    "tests/test_v11_wiring.py::test_every_wired_job_type_has_cadence_handler_permission_band_and_department"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-891",
@@ -24333,19 +24414,26 @@
    "title": "Agent Intelligence Standard",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/gateway/failover.py::decide (declared-tier routing) + autonomy/charters.py (evidence requirement, escalation)",
+   "consumer": "gateway/failover.job_gateway (every billed release handler) and the orchestrator's evidence-backed missions",
+   "tests": [
+    "tests/test_v11_reliability_gateway.py::test_deep_task_with_its_model_down_parks_rather_than_degrading",
+    "tests/test_v11_reliability_gateway.py::test_fallbacks_only_go_up_and_deep_has_none",
+    "tests/test_v11_autonomy_orchestrator.py::test_every_idle_department_is_given_evidence_backed_work",
+    "tests/test_w3_spend_gateway_w8.py::test_the_four_release_handlers_use_job_gateway"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-892",
@@ -24353,19 +24441,25 @@
    "title": "Agent Role Charters",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/charters.py::validate (mission, agents, allowlist, forbidden, inputs, outputs, KPIs, escalation, evidence, handoffs)",
+   "consumer": "autonomy/orchestrator.tick and the enqueue boundary",
+   "tests": [
+    "tests/test_v11_autonomy_orchestrator.py::test_every_charter_has_kpis_with_guardrails_and_a_generator",
+    "tests/test_v11_autonomy_orchestrator.py::test_no_protected_job_type_is_ever_generatable_and_coo_is_structurally_forbidden",
+    "tests/test_v11_autonomy_orchestrator.py::test_the_enqueue_boundary_refuses_protected_and_out_of_charter_work"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-893",
@@ -24373,19 +24467,25 @@
    "title": "Executive Orchestrator",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/orchestrator.py::tick",
+   "consumer": "executive_orchestrator cadence (runtime/worker.py, 15 min)",
+   "tests": [
+    "tests/test_v11_autonomy_orchestrator.py::test_protected_work_becomes_one_owner_approval_never_a_job",
+    "tests/test_v11_autonomy_orchestrator.py::test_handoff_evidence_outranks_routine_work",
+    "tests/test_v11_autonomy_orchestrator.py::test_the_orchestrate_job_runs_through_the_worker_and_permission_layer"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-894",
@@ -24393,19 +24493,24 @@
    "title": "Work Never Waits on the Owner Without Cause",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/orchestrator.py::tick (blocked departments skipped)",
+   "consumer": "executive_orchestrator cadence; autonomy/memory.block_department via /api/cc department block",
+   "tests": [
+    "tests/test_v11_autonomy_orchestrator.py::test_blocked_and_failing_departments_do_not_stop_the_others",
+    "tests/test_v11_wiring_cc.py::test_department_block_without_stepup_unblock_with_and_the_orchestrator_obeys"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-895",
@@ -24413,19 +24518,29 @@
    "title": "Overnight Autonomy",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/autonomy/orchestrator.py::tick (idle_wake, SAFE_GENERATED work)",
+   "consumer": "executive_orchestrator cadence",
+   "tests": [
+    "tests/test_v11_autonomy_overnight.py::test_an_unattended_night_produces_useful_work_across_departments"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "reasons": [
+    "owner gate 'production_window'",
+    "coverage PARTIAL: overnight autonomy is proven in simulation only; hosted overnight evidence needs the candidate deployed"
+   ],
+   "next_action": "owner gate production_window: deploy, then read one unattended night's useful work per department from ops/slo department useful-work",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-896",
@@ -24433,19 +24548,23 @@
    "title": "Morning Handoff",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/handlers.py::handle_morning_handoff",
+   "consumer": "morning handoff cadence (runtime/worker.py) -> company_memory morning_brief; GET /api/cc/brief/morning (Home)",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_home_and_morning_brief_come_from_real_database_state"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-897",
@@ -24453,19 +24572,30 @@
    "title": "Smart Notification Policy",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/app/command_center/notifications.py::refresh (dedup, severity, quiet hours, digest)",
+   "consumer": "GET /api/cc/notifications; notification refresh on the ops cadence",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_notifications_suppress_routine_noise_and_surface_real_incidents",
+    "tests/test_v11_cc_views.py::test_security_notification_counts_attacks_not_expired_tabs"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "casl_notification_authority"
+   },
+   "reasons": [
+    "owner gate 'casl_notification_authority'",
+    "coverage PARTIAL: notifications are in-app only; an external channel (email/SMS/push) that reaches the owner away from the page needs CASL review and owner authority"
+   ],
+   "next_action": "owner gate casl_notification_authority: approve one external channel; the deduplicated severity-ranked queue then feeds it",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-898",
@@ -24473,19 +24603,25 @@
    "title": "Web Surface Uses Real Production State",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/readers.py (production tables; UNKNOWN never 0)",
+   "consumer": "GET/POST /api/cc/* (app/command_center/api.make_router, installed by app/main.py)",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_no_fixture_or_demo_data_in_production_paths",
+    "tests/test_v11_cc_views.py::test_money_is_unknown_not_zero_when_the_accountant_is_absent",
+    "tests/test_v11_cc_views.py::test_provider_output_passes_through_with_provenance"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-899",
@@ -24493,19 +24629,24 @@
    "title": "Operational Drill-Down",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/tabs.py::operations_drill / money_drill (-> finance/accounting/dashboard.drill)",
+   "consumer": "GET /api/cc/operations/drill and /api/cc/money/drill",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_timeline_and_drill_down_carry_provenance",
+    "tests/test_v11_accounting_drill.py::test_every_dashboard_metric_drills_and_sums"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-900",
@@ -24513,19 +24654,25 @@
    "title": "Remote Health & Recovery",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/ops/recovery.py::restart_stuck_job / release_stale_lease / rerun_department_cycle (+ ops/slo summary)",
+   "consumer": "Command Center operations recovery routes (step-up) and the operations tab",
+   "tests": [
+    "tests/test_v11_reliability_recovery.py::test_restart_stuck_job_is_idempotent_and_audited",
+    "tests/test_v11_reliability_recovery.py::test_restart_refuses_a_job_on_a_live_lease_and_audits_the_refusal",
+    "tests/test_v11_wiring_cc.py::test_recovery_routes_need_stepup_and_refuse_unsafe_cases"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-901",
@@ -24533,19 +24680,24 @@
    "title": "Accountant Agent",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/controller.py::run_cycle",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle",
+   "tests": [
+    "tests/test_v11_accounting_controller.py::test_controller_cycle_is_idempotent_and_next_work_follows_the_contract",
+    "tests/test_v11_accounting_controller.py::test_the_cycle_runs_as_a_worker_job"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-902",
@@ -24553,19 +24705,25 @@
    "title": "Accounting Source of Truth",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/health.py (source health) + posting_rules.py",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle; GET /api/cc/money and /api/cc/money/drill (Command Center Money tab, providers.PROVIDERS)",
+   "tests": [
+    "tests/test_v11_accounting_money.py::test_disconnecting_the_order_source_turns_money_unknown_not_zero",
+    "tests/test_v11_accounting_money.py::test_empty_database_is_unknown_never_zero_and_never_raises",
+    "tests/test_v11_accounting_money.py::test_a_stale_source_is_labelled_stale"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-903",
@@ -24573,19 +24731,26 @@
    "title": "Double-Entry Ledger",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/ledger.py (balanced, sealed, append-only journal)",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle",
+   "tests": [
+    "tests/test_v11_accounting_ledger.py::test_entries_are_idempotent_by_key_and_balanced_to_the_micro",
+    "tests/test_v11_accounting_ledger.py::test_posted_records_are_immutable_through_the_orm",
+    "tests/test_v11_accounting_ledger.py::test_a_correction_is_a_reversal_plus_a_new_version_never_an_edit",
+    "tests/test_v11_accounting_ledger.py::test_locked_period_never_moves_late_changes_book_in_the_next_open_period"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-904",
@@ -24593,19 +24758,31 @@
    "title": "Bank/Etsy/Processor Reconciliation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/finance/accounting/reconciliation.py::match / import_statement",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle",
+   "tests": [
+    "tests/test_v11_accounting_reconciliation.py::test_injected_duplicate_fee_payment_and_refund_are_detected_and_not_double_counted",
+    "tests/test_v11_accounting_reconciliation.py::test_payout_matches_bank_deposit_and_unmatched_lines_become_exceptions",
+    "tests/test_v11_accounting_reconciliation.py::test_a_replayed_statement_is_imported_once"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "bank_and_payment_ledger_feed"
+   },
+   "reasons": [
+    "owner gate 'bank_and_payment_ledger_feed'",
+    "coverage PARTIAL: reconciliation runs on imported statements; no bank, Etsy payment-ledger or processor statement has ever been imported"
+   ],
+   "next_action": "owner gate bank_and_payment_ledger_feed: connect or export a statement feed",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-905",
@@ -24613,19 +24790,23 @@
    "title": "Accrual vs Cash Views",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/views.py::accrual / cash",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle; GET /api/cc/money and /api/cc/money/drill (Command Center Money tab, providers.PROVIDERS)",
+   "tests": [
+    "tests/test_v11_accounting_money.py::test_accrual_and_cash_are_separate_bases_and_cash_is_unknown_without_a_bank"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-906",
@@ -24633,19 +24814,23 @@
    "title": "Product & Channel Profitability",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/profitability.py::by",
+   "consumer": "finance.accounting.period_pack (runtime/worker.py cadence) -> autonomy/period_packs.build; GET /api/cc/money and /api/cc/money/drill (Command Center Money tab, providers.PROVIDERS)",
+   "tests": [
+    "tests/test_v11_accounting_drill.py::test_profitability_by_every_dimension_sums_to_the_company_total"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-907",
@@ -24653,24 +24838,28 @@
    "title": "Cost Attribution",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/attribution.py::report",
+   "consumer": "finance.accounting.period_pack (runtime/worker.py cadence) -> autonomy/period_packs.build",
+   "tests": [
+    "tests/test_v11_accounting_drill.py::test_cost_attribution_by_product_release_department_provider"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K15",
    "claims": [
     {
      "lane": "D",
      "status": "COMPLETE"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-908",
@@ -24678,19 +24867,29 @@
    "title": "Cash & Runway Intelligence",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/finance/accounting/cash.py::position",
+   "consumer": "GET /api/cc/money and /api/cc/money/drill (Command Center Money tab, providers.PROVIDERS) (accounting summary)",
+   "tests": [
+    "tests/test_v11_accounting_money.py::test_cash_position_reserves_safe_budget_and_runway"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "bank_and_payment_ledger_feed"
+   },
+   "reasons": [
+    "owner gate 'bank_and_payment_ledger_feed'",
+    "coverage PARTIAL: cash, expected payout and runway are UNKNOWN until a bank / Etsy ledger feed exists (obligations, commitments, reserves and safe budget are computed)"
+   ],
+   "next_action": "owner gate bank_and_payment_ledger_feed: connect a bank / Etsy ledger feed",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-909",
@@ -24698,24 +24897,28 @@
    "title": "Tax-Ready Evidence Pack",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/tax_pack.py::pack",
+   "consumer": "finance.accounting.period_pack (runtime/worker.py cadence) -> autonomy/period_packs.build",
+   "tests": [
+    "tests/test_v11_accounting_controller.py::test_tax_pack_is_preparation_only_cad_canada_with_questions"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K15",
    "claims": [
     {
      "lane": "D",
      "status": "COMPLETE"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-910",
@@ -24723,19 +24926,23 @@
    "title": "Month-End Close",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/close.py::checklist / lock_period",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle",
+   "tests": [
+    "tests/test_v11_accounting_controller.py::test_month_end_close_checklist_blocks_until_clean_then_locks"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-911",
@@ -24743,19 +24950,23 @@
    "title": "Financial Anomaly Detection",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/anomalies.py::detect",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle",
+   "tests": [
+    "tests/test_v11_accounting_reconciliation.py::test_anomalies_fee_rate_refunds_deposits_duplicates_and_chain"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-912",
@@ -24763,19 +24974,25 @@
    "title": "Spend Governor Integration",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/policy.py::check_spend",
+   "consumer": "growth ads proposals (growth/ads_readiness -> finance_check) and the controller cycle",
+   "tests": [
+    "tests/test_v11_accounting_controller.py::test_growth_spend_violating_margin_and_cash_policy_is_blocked_by_finance",
+    "tests/test_v11_accounting_controller.py::test_budget_availability_is_never_permission",
+    "tests/test_v11_ads_challenge.py::test_s95_real_lane_e_check_spend_blocks_growth_spend_unmocked"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-913",
@@ -24783,24 +25000,29 @@
    "title": "Financial Forecast Honesty",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/forecast.py::forecast",
+   "consumer": "GET /api/cc/money and /api/cc/money/drill (Command Center Money tab, providers.PROVIDERS) (providers PROVIDERS 'accounting' -> dashboard.summary)",
+   "tests": [
+    "tests/test_v11_accounting_money.py::test_forecast_is_a_range_with_assumptions_never_a_booked_point",
+    "tests/test_w4_fm_provider_table.py::test_modules_behind_the_table_are_reached"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K15",
    "claims": [
     {
      "lane": "D",
      "status": "PARTIAL"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-914",
@@ -24809,23 +25031,31 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
    "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/finance/accounting/dashboard.py::summary",
+   "consumer": "GET /api/cc/money and /api/cc/money/drill (Command Center Money tab, providers.PROVIDERS)",
+   "tests": [
+    "tests/test_v11_accounting_money.py::test_summary_items_label_actual_vs_estimated",
+    "tests/test_v11_cc_views.py::test_the_real_accountant_passes_through_and_never_shows_unknown_as_zero",
+    "tests/test_w4_fm_provider_table.py::test_functions_named_in_the_live_provider_table_are_live"
+   ],
    "gate": null,
    "reasons": [
-    "v1.1 row not mapped"
+    "coverage PARTIAL: period controls do not work: the Money tab sends ?period= but GET /api/cc/money ignores it and providers.call('accounting', db) always asks for the default 30-d"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "next_action": "WIRING REQUEST (lane CC, app/command_center/api.py + tabs.money): accept period/window on /api/cc/money and pass it to the accounting provider as summary(db, window=...); test that a 7d request returns the 7d envelope",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K15",
    "claims": [
     {
      "lane": "D",
      "status": "PARTIAL"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-915",
@@ -24833,24 +25063,30 @@
    "title": "Financial Drill-Through",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/dashboard.py::drill",
+   "consumer": "GET /api/cc/money/drill (providers PROVIDERS 'accounting_drill')",
+   "tests": [
+    "tests/test_v11_accounting_drill.py::test_displayed_profit_traces_to_orders_fees_spend_and_corrections",
+    "tests/test_v11_accounting_drill.py::test_every_dashboard_metric_drills_and_sums",
+    "tests/test_w4_fm_provider_table.py::test_functions_named_in_the_live_provider_table_are_live"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K15",
    "claims": [
     {
      "lane": "D",
      "status": "PARTIAL"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-916",
@@ -24858,24 +25094,28 @@
    "title": "Human Accountant Handoff",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/handoff.py::export",
+   "consumer": "finance.accounting.period_pack (runtime/worker.py cadence) -> autonomy/period_packs.build",
+   "tests": [
+    "tests/test_v11_accounting_controller.py::test_human_accountant_handoff_export_is_self_describing"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K15",
    "claims": [
     {
      "lane": "D",
      "status": "COMPLETE"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-917",
@@ -24883,19 +25123,23 @@
    "title": "Accounting Guardrails",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/finance/accounting/controller.py::run_cycle (a package with no money-moving, filing, signing or banking capability)",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence, 6 h) -> finance/accounting/job.handle_accounting_cycle -> controller.run_cycle",
+   "tests": [
+    "tests/test_v11_accounting_controller.py::test_guardrails_the_package_has_no_money_moving_capability"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-918",
@@ -24903,19 +25147,25 @@
    "title": "Department KPIs With Anti-Gaming",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/kpis.py::compute (guardrail voids) + improve/policy_loops.py::guardrail_objections",
+   "consumer": "autonomy department review (orchestrator) and improve.sandbox cadence",
+   "tests": [
+    "tests/test_v11_autonomy_kpis.py::test_a_refused_job_voids_every_kpi_of_its_department",
+    "tests/test_v11_autonomy_kpis.py::test_duplicate_and_noop_outputs_cannot_farm_the_useful_count",
+    "tests/test_v11_learn_loops.py::test_guardrail_kpi_and_cross_agent_challenge_refuse_a_gamed_win"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-919",
@@ -24923,19 +25173,25 @@
    "title": "Cross-Agent Challenge",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/improve/policy_loops.py::challenge + finance/accounting/policy.py::check_spend",
+   "consumer": "improve.sandbox cadence (policy loops) and growth ads proposals",
+   "tests": [
+    "tests/test_v11_learn_loops.py::test_guardrail_kpi_and_cross_agent_challenge_refuse_a_gamed_win",
+    "tests/test_v11_ads_challenge.py::test_s95_lane_e_check_spend_block_is_obeyed",
+    "tests/test_v11_accounting_controller.py::test_growth_spend_violating_margin_and_cash_policy_is_blocked_by_finance"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-920",
@@ -24943,19 +25199,24 @@
    "title": "Persistent Company Memory",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/memory.py::remember / recall / record_event",
+   "consumer": "orchestrator, morning handoff, Command Center timeline and Ask",
+   "tests": [
+    "tests/test_v11_autonomy_timeline.py::test_memory_and_timeline_writes_are_idempotent_on_their_key",
+    "tests/test_v11_wiring.py::test_continuity_labels_memory_and_ledger_non_rederivable_and_excludes_live_sessions"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-921",
@@ -24963,19 +25224,26 @@
    "title": "Model/Agent Failover",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/gateway/failover.py::decide / job_gateway",
+   "consumer": "every billed release handler through job_gateway (W-8 adopted)",
+   "tests": [
+    "tests/test_v11_reliability_gateway.py::test_failover_picks_the_healthy_approved_model_when_primary_is_down",
+    "tests/test_v11_reliability_gateway.py::test_a_total_outage_raises_and_corrupts_nothing",
+    "tests/test_v11_reliability_gateway.py::test_deep_task_with_its_model_down_parks_rather_than_degrading",
+    "tests/test_w3_spend_gateway_w8.py::test_spend_stays_single_path_through_job_gateway"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-922",
@@ -24983,19 +25251,26 @@
    "title": "Cost-Aware Intelligence Routing",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/gateway/failover.py::decide",
+   "consumer": "every billed release handler through job_gateway (W-8 adopted)",
+   "tests": [
+    "tests/test_v11_reliability_gateway.py::test_routing_parks_when_the_month_cannot_afford_the_call",
+    "tests/test_v11_reliability_gateway.py::test_a_dearer_fallback_is_not_used_when_it_would_cross_the_ceiling",
+    "tests/test_v11_reliability_gateway.py::test_an_identical_cacheable_request_is_served_without_a_call",
+    "tests/test_v11_reliability_gateway.py::test_compiler_tasks_are_refused_not_routed"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-923",
@@ -25003,19 +25278,31 @@
    "title": "Owner Availability SLO",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/ops/slo.py::availability (external probe rows only)",
+   "consumer": "slo_check cadence (runtime/worker.py, 15 min) -> slo.* incidents; Command Center operations",
+   "tests": [
+    "tests/test_v11_reliability_slo.py::test_availability_needs_an_external_probe_not_a_process_heartbeat",
+    "tests/test_v11_reliability_slo.py::test_availability_with_thin_coverage_is_unknown_not_up",
+    "tests/test_v11_reliability_slo.py::test_watchdog_records_probe_heartbeat_and_runs_the_check"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window"
+   },
+   "reasons": [
+    "owner gate 'production_window'",
+    "coverage PARTIAL: no availability reading exists: the external probe (watchdog) has never run against the hosted candidate"
+   ],
+   "next_action": "owner gate production_window: deploy the candidate with the watchdog probe",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-924",
@@ -25023,19 +25310,31 @@
    "title": "Production Autonomy SLO",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "OWNER-GATED",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/ops/slo.py::scheduler_freshness / cadence_freshness / queue_latency / recovery_time (check raises slo.* incidents)",
+   "consumer": "slo_check cadence (runtime/worker.py, 15 min)",
+   "tests": [
+    "tests/test_v11_reliability_slo.py::test_stale_scheduler_from_cadence_jobs_raises_and_then_resolves_an_incident",
+    "tests/test_v11_reliability_slo.py::test_queue_latency_fraction_and_percentiles",
+    "tests/test_v11_reliability_slo.py::test_department_useful_work_counts_useful_hours_and_alerts_on_breach"
    ],
-   "next_action": null,
-   "w3_status": "GATED",
+   "gate": {
+    "kind": "owner",
+    "key": "hosted_operating_history"
+   },
+   "reasons": [
+    "owner gate 'hosted_operating_history'",
+    "coverage PARTIAL: the SLOs have no hosted operating history: the v1.1 candidate is not deployed"
+   ],
+   "next_action": "owner gate hosted_operating_history: deploy; the slo_check cadence then measures real error budgets",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "GATED"
   },
   {
    "uid": "F-925",
@@ -25043,19 +25342,25 @@
    "title": "No Terminal for Normal Operations",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/api.py::make_router (approvals, monitoring, emergency, sessions, notifications, incident ack over HTTP)",
+   "consumer": "GET/POST /api/cc/* (app/command_center/api.make_router, installed by app/main.py)",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_every_tab_answers_and_carries_status_envelopes",
+    "tests/test_v11_cc_auth.py::test_route_enumeration_covers_the_contract",
+    "tests/test_v11_cc_actions.py::test_kill_switch_records_shadow_and_pauses_the_company"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-926",
@@ -25064,23 +25369,31 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
    "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "PARTIAL",
+   "producer": "src/brambleloop/store_foundation/preview.py::render_preview (+ preview_v2.render_compare)",
+   "consumer": "Command Center store preview route (app/command_center/api.store_preview_handler, owner-only, never cached)",
+   "tests": [
+    "tests/test_v11_store_preview.py::test_preview_shows_every_surface",
+    "tests/test_v11_store_preview.py::test_unverified_frame_is_withheld_not_shown",
+    "tests/test_v11_wiring_cc.py::test_store_preview_is_owner_only_and_never_cached_or_indexed"
+   ],
    "gate": null,
    "reasons": [
-    "v1.1 row not mapped"
+    "coverage PARTIAL: the owner rejected preview v1 (wave-3 K16); preview v2 is lane STORE work and the real Etsy shop settings it should mirror need the owner's login"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "next_action": "Lane STORE (K16): finish preview v2 to the owner's rejection notes and re-present",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K16",
    "claims": [
     {
      "lane": "B",
      "status": "PARTIAL"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-927",
@@ -25088,24 +25401,29 @@
    "title": "Company Timeline",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/status.py::timeline (+ memory.record_event)",
+   "consumer": "GET /api/cc/timeline (Command Center) and laura.executive_tick",
+   "tests": [
+    "tests/test_v11_autonomy_timeline.py::test_timeline_records_and_merges_sources_newest_first",
+    "tests/test_v11_cc_views.py::test_timeline_and_drill_down_carry_provenance"
    ],
-   "next_action": null,
-   "w3_status": "OPEN",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": "K15",
    "claims": [
     {
      "lane": "D",
      "status": "PARTIAL"
     }
-   ]
+   ],
+   "w3_status": "OPEN"
   },
   {
    "uid": "F-928",
@@ -25113,19 +25431,24 @@
    "title": "Owner Search / Ask Company",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/app/command_center/ask.py::ask (deterministic, source-linked)",
+   "consumer": "POST /api/cc/ask (Command Center Ask)",
+   "tests": [
+    "tests/test_v11_cc_views.py::test_ask_why_is_a_product_blocked_is_grounded_in_gate_records",
+    "tests/test_v11_cc_views.py::test_ask_answers_unknown_rather_than_inventing"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-929",
@@ -25133,19 +25456,25 @@
    "title": "No Autonomous Hallucinated Action",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/orchestrator.py::tick (charter + enqueue-boundary checks) + app/command_center/ask.py::ask",
+   "consumer": "executive_orchestrator cadence; POST /api/cc/ask",
+   "tests": [
+    "tests/test_v11_autonomy_orchestrator.py::test_the_enqueue_boundary_refuses_protected_and_out_of_charter_work",
+    "tests/test_v11_cc_views.py::test_ask_answers_unknown_rather_than_inventing",
+    "tests/test_v11_wiring.py::test_a_provider_item_naming_a_protected_or_foreign_job_is_never_queued"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   },
   {
    "uid": "F-930",
@@ -25153,19 +25482,25 @@
    "title": "24/7 Does Not Mean Reckless",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "MISSING",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "v1.1 row not mapped"
+   "status": "PROVEN",
+   "maturity": "INTEGRATED",
+   "maturity_claimed": "INTEGRATED",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/autonomy/orchestrator.py::tick (SAFE_GENERATED non-spending allowlist)",
+   "consumer": "executive_orchestrator cadence",
+   "tests": [
+    "tests/test_v11_autonomy_orchestrator.py::test_no_protected_job_type_is_ever_generatable_and_coo_is_structurally_forbidden",
+    "tests/test_v11_wiring.py::test_the_four_jobs_run_under_the_real_worker_with_zero_spend",
+    "tests/test_v11_ads_challenge.py::test_ceiling_enforced_even_with_owner_authority"
    ],
-   "next_action": null,
-   "w3_status": "COMPLETE-PENDING-RECERT",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
+   "mapped_on": "019ebf0",
+   "w3_triage": null,
    "w3_cluster": null,
-   "claims": []
+   "claims": [],
+   "w3_status": "COMPLETE-PENDING-RECERT"
   }
  ]
 }

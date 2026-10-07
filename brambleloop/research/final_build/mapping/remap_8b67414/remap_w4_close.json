@@ -1300,6 +1300,79 @@
   "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
+  "uid": "F-135",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "recovery/idempotence: a dead worker must not duplicate consequential effects",
+  "maturity": "DEPLOYED",
+  "coverage": "PARTIAL",
+  "missing_part": "no lease-recovery drill has been recorded against the deployed production worker",
+  "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+  "durable_state": "jobs.leased_by/lease_expires_at; build_tasks.claimed_at",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "protected_effect": "a reclaimed job's original worker cannot complete it; duplicate spend/publication prevented by idempotency keys",
+  "tests": [
+   "tests/test_acceptance_gates.py",
+   "tests/test_chaos.py::test_a_reclaimed_jobs_original_worker_cannot_complete_it",
+   "tests/test_chaos.py::test_duplicate_spend_job_cannot_double_charge",
+   "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_v11_autonomy_recovery.py::test_same_named_workers_cannot_complete_each_others_attempt",
+   "tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects"
+  ],
+  "evidence": [
+   "C-11, C-12, C-13 FIXED",
+   "queue/durable.py in production fcb982d",
+   "w4-FM close on 8b67414 (FOLD): lease expiry and fencing are proven by real-process kills (test_persistence SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator reclaimed without duplicate effects); the PARTIAL names a drill on the production worker, which needs the candidate deployed"
+  ],
+  "build2_rows": [
+   "#184 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "the drill runs on the deployed candidate"
+  },
+  "defect": null,
+  "next_action": "owner gate production_window: after the deploy, kill the worker mid-job once and record lease reclaim + single completion",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
+ },
+ {
+  "uid": "F-416",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Runtime durability / supply-chain integrity of the production image.",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "the Dockerfile base image is tag-pinned (python:3.11-slim), not digest-pinned, and apt fonts-dejavu-core is unpinned; no provenance review record exists for external services and models",
+  "producer": "brambleloop/requirements.lock + Dockerfile (pip install --require-hashes --no-deps -r requirements.lock)",
+  "durable_state": "brambleloop/requirements.lock",
+  "consumer": "Docker image build (railway.json builder DOCKERFILE)",
+  "protected_effect": "a rebuild cannot pull an untested/unhashed package",
+  "tests": [
+   "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
+   "tests/test_dependency_lock.py::test_every_requirements_txt_entry_is_pinned_in_the_lock_at_a_satisfying_version",
+   "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
+   "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+   "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named"
+  ],
+  "evidence": [
+   "research/final_build/waves/fb1_F.json F-416 PARTIAL",
+   "git show fcb982d:brambleloop/Dockerfile installs requirements.txt (unpinned); requirements.lock absent in fcb982d -> not DEPLOYED",
+   "No record that a Docker build from the lock has been executed (not EXERCISED).",
+   "w4-FM close on 8b67414 (FOLD): scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining software step"
+  },
+  "defect": null,
+  "next_action": "WIRING REQUEST (integrator, Dockerfile): FROM python:3.11-slim@sha256:<digest resolved at release> and pin the apt version, then run supply_chain.py verify --strict; add a reviewed register of external services/models (provider, purpose, review date)",
+  "confidence": "HIGH",
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
+ },
+ {
   "uid": "F-030",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",

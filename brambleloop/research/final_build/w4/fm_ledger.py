@@ -77,7 +77,7 @@ def build():
         status = _ledger_status(comp, gate, r["launch_class"])
         t = triage.get(uid) or {}
         rows.append({
-            "uid": uid, "version": "v1.0", "title": r["title"][:90],
+            "uid": uid, "version": "v1.1" if r.get("version") == "v1.1" else "v1.0", "title": r["title"][:90],
             "launch_class": r["launch_class"], "launch_blocking": r["launch_class"] == "LAUNCH-CRITICAL",
             "status": status, "maturity": r["maturity"], "maturity_claimed": r["maturity_claimed"],
             "coverage": r.get("coverage"), "producer": r.get("producer"),
@@ -89,8 +89,14 @@ def build():
             "w3_triage": t.get("triage"), "w3_cluster": cluster_of.get(uid) or t.get("cluster"),
             "claims": [{"lane": c["lane"], "status": c["status"]} for c in cl.get(uid, [])],
         })
-    v11 = _v11_rows(w3, cl)
-    rows += v11
+    # Since wave 4 the canonical matrix carries the v1.1 rows itself (aggregate.load_registry +
+    # mapping/v11.json); the side mapping is only a fallback for a matrix that predates it.
+    if not any(r["version"] == "v1.1" for r in rows):
+        rows += _v11_rows(w3, cl)
+    w3_v11 = {r["id"]: r for r in w3["v1_1"]}
+    for r in rows:
+        if r["version"] == "v1.1" and r["uid"] in w3_v11:
+            r["w3_status"] = w3_v11[r["uid"]]["w3"]
     return rows, reach, cluster_of
 
 

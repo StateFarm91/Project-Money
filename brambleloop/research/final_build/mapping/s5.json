@@ -2006,21 +2006,23 @@
   "launch_class_reason": "Runtime durability / supply-chain integrity of the production image.",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Python dependencies are exact-pinned and sha256-hashed and the Dockerfile installs only the lock with --require-hashes --no-deps (an unused `requests` was removed). Not covered: base image python:3.11-slim is tag- not digest-pinned; apt fonts-dejavu-core unpinned; no provenance/security review record for repositories, binaries, external services or models (image providers, Claude) before they enter production/trusted infrastructure; no vulnerability scan.",
+  "missing_part": "the Dockerfile base image is tag-pinned (python:3.11-slim), not digest-pinned, and apt fonts-dejavu-core is unpinned; no provenance review record exists for external services and models",
   "producer": "brambleloop/requirements.lock + Dockerfile (pip install --require-hashes --no-deps -r requirements.lock)",
   "durable_state": "brambleloop/requirements.lock",
   "consumer": "Docker image build (railway.json builder DOCKERFILE)",
   "protected_effect": "a rebuild cannot pull an untested/unhashed package",
   "tests": [
-   "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
-   "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
    "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
-   "tests/test_dependency_lock.py::test_every_requirements_txt_entry_is_pinned_in_the_lock_at_a_satisfying_version"
+   "tests/test_dependency_lock.py::test_every_requirements_txt_entry_is_pinned_in_the_lock_at_a_satisfying_version",
+   "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
+   "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+   "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named"
   ],
   "evidence": [
    "research/final_build/waves/fb1_F.json F-416 PARTIAL",
    "git show fcb982d:brambleloop/Dockerfile installs requirements.txt (unpinned); requirements.lock absent in fcb982d -> not DEPLOYED",
-   "No record that a Docker build from the lock has been executed (not EXERCISED)."
+   "No record that a Docker build from the lock has been executed (not EXERCISED).",
+   "w4-FM close on 8b67414 (FOLD): scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)"
   ],
   "build2_rows": [],
   "gate": {
@@ -2029,9 +2031,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Pin the base image by digest (FROM python:3.11-slim@sha256:...) and apt package version in Dockerfile; add a supply-chain register (e.g. src/brambleloop/core/supply_chain.py or ops/SUPPLY_CHAIN.json) listing every external service/model/binary with provenance, review date and reviewer, and a test that every provider used by gateway/integrations is registered; optionally pip-audit in run_tests.sh.",
+  "next_action": "WIRING REQUEST (integrator, Dockerfile): FROM python:3.11-slim@sha256:<digest resolved at release> and pin the apt version, then run supply_chain.py verify --strict; add a reviewed register of external services/models (provider, purpose, review date)",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-417",

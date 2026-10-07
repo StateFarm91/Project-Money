@@ -368,7 +368,36 @@ FOLD_ROWS = {
                              "beside the deploy_guard record"),
         tests=["tests/test_secret_scan.py::test_a_credential_inside_a_compressed_pdf_stream_is_found",
                "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks"]),
+    # K14 (lane FM): the drill the PARTIAL names is a production drill after the deploy.
+    "F-135": dict(
+        checked="lease expiry and fencing are proven by real-process kills (test_persistence "
+                "SIGKILL, test_chaos reclaimed-worker fencing, v1.1 sigkilled orchestrator "
+                "reclaimed without duplicate effects); the PARTIAL names a drill on the "
+                "production worker, which needs the candidate deployed",
+        set=dict(coverage="PARTIAL", defect=None,
+                 missing_part="no lease-recovery drill has been recorded against the deployed "
+                              "production worker",
+                 gate={"kind": "owner", "key": "production_window",
+                       "detail": "the drill runs on the deployed candidate"},
+                 next_action="owner gate production_window: after the deploy, kill the worker "
+                             "mid-job once and record lease reclaim + single completion"),
+        tests=["tests/test_v11_autonomy_recovery.py::test_sigkilled_orchestrator_is_reclaimed_without_duplicate_effects",
+               "tests/test_v11_autonomy_recovery.py::test_same_named_workers_cannot_complete_each_others_attempt"]),
     # Executable company work remains: refreshed honestly, stays OPEN.
+    "F-416": dict(
+        refresh=True,
+        checked="scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM "
+                "and change record into the deploy_guard release record, and names the open "
+                "pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)",
+        set=dict(coverage="PARTIAL", defect=None,
+                 missing_part="the Dockerfile base image is tag-pinned (python:3.11-slim), not "
+                              "digest-pinned, and apt fonts-dejavu-core is unpinned; no "
+                              "provenance review record exists for external services and models",
+                 next_action="WIRING REQUEST (integrator, Dockerfile): FROM python:3.11-slim@"
+                             "sha256:<digest resolved at release> and pin the apt version, then "
+                             "run supply_chain.py verify --strict; add a reviewed register of "
+                             "external services/models (provider, purpose, review date)"),
+        tests=["tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named"]),
     "F-030": dict(
         refresh=True,
         checked="the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, "
@@ -470,8 +499,10 @@ def _overlay(uid, base, entry, source):
     for k, v in (entry.get("set") or {}).items():
         ov[k] = v
     ov["tests"] = sorted(set(ov.get("tests") or []) | set(entry.get("tests") or []))
-    ov["evidence"] = list(ov.get("evidence") or []) + [
-        f"w4-FM close on {HEAD_SHA7} ({source}): {entry['checked']}"]
+    note = f"w4-FM close on {HEAD_SHA7} ({source}): {entry['checked']}"
+    ov["evidence"] = [e for e in ov.get("evidence") or []
+                      if not (isinstance(e, str) and e.startswith(f"w4-FM close on {HEAD_SHA7}"))]
+    ov["evidence"].append(note)          # idempotent: a re-run replaces its own note
     return ov
 
 
@@ -549,8 +580,9 @@ def apply(cands):
             kept.append({"uid": c["uid"], "source": c["source"], "why": why})
             continue
         row = c["row"]
-        row["searched"] = (str(row.get("searched") or "") +
-                           f" | w4-FM close on {HEAD_SHA7} ({c['source']})")[:2000]
+        tag = f" | w4-FM close on {HEAD_SHA7} ({c['source']})"
+        if tag not in str(row.get("searched") or ""):
+            row["searched"] = (str(row.get("searched") or "") + tag)[:2000]
         rows[c["uid"]] = row
         written.append({"uid": c["uid"], "source": c["source"], "verdict": c["verdict"],
                         "refresh": c["refresh"], "maturity": c["maturity"],

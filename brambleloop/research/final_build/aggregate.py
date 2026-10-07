@@ -442,6 +442,33 @@ def cap(row, reach):
     return LEVELS[i], notes
 
 
+def load_registry():
+    """Every Final Master requirement: v1.0 (F-001..F-879, master_registry.json) and the v1.1
+    addendum (F-880..F-930, master_registry_v1_1.json, §94; additive to v1.0 per §96).
+
+    Wave 4 (lane FM): the v1.1 rows used to be tracked only in lane prose, so neither this
+    adjudicator nor the runtime launch gate (the snapshot read by build2/final_master.py) saw
+    them. A v1.1 record has no `uid`; its id is unique across both registries and is its uid."""
+    reg = json.loads((HERE / "master_registry.json").read_text())
+    reqs = {r["uid"]: r for r in reg["requirements"]}
+    v11 = HERE / "master_registry_v1_1.json"
+    if v11.exists():
+        for r in json.loads(v11.read_text())["requirements"]:
+            uid = r.get("uid") or r["id"]
+            if uid in reqs:
+                raise ValueError(f"v1.1 id {uid} collides with a v1.0 registry uid")
+            reqs[uid] = {**r, "uid": uid, "version": r.get("version") or "v1.1",
+                         "master_priority": r.get("master_priority")}
+    return reqs
+
+
+def mapping_files():
+    """The canonical mapping slices: v1.0 s1..s9 and the v1.1 slice (mapping/v11.json)."""
+    files = sorted((HERE / "mapping").glob("s[0-9].json"))
+    v11 = HERE / "mapping" / "v11.json"
+    return files + ([v11] if v11.exists() else [])
+
+
 def load_overrides(path):
     """overrides.json is {uid: entry}. A proposal file (w3/OVERRIDES_PROPOSED.json) wraps the same
     map as {"_meta": ..., "overrides": {uid: entry}}; both shapes are read."""
@@ -462,8 +489,7 @@ def main(argv=None):
     args = ap.parse_args(argv or [])
     if not args.dry_run and Path(args.overrides).resolve() != (HERE / "overrides.json").resolve():
         ap.error("--overrides other than overrides.json is only allowed with --dry-run")
-    reg = json.loads((HERE / "master_registry.json").read_text())
-    reqs = {r["uid"]: r for r in reg["requirements"]}
+    reqs = load_registry()
     reach = json.loads((HERE / "module_reachability.json").read_text())["modules"]
     overrides = load_overrides(args.overrides)
     if args.dry_run:
@@ -476,7 +502,7 @@ def main(argv=None):
                 remapped[r.get("uid")] = full
                 remapped_classes[r.get("uid")] = r.get("launch_class")
     rows, problems = {}, []
-    for f in sorted((HERE / "mapping").glob("s[0-9].json")):
+    for f in mapping_files():
         for row in json.loads(f.read_text()):
             uid = row.get("uid")
             if uid not in reqs:
@@ -602,7 +628,8 @@ def main(argv=None):
                                                      if r["mapped_on"] == MAPPING_BASE),
                                  "per_row": "matrix[].mapped_on"},
                      "reachability": reach_basis,
-                     "production": PRODUCTION, "registry": "master_registry.json"},
+                     "production": PRODUCTION,
+                     "registry": "master_registry.json + master_registry_v1_1.json"},
            "levels": LEVELS, "summary": summary, "matrix": matrix}
     if args.dry_run:
         by_uid = {r["uid"]: r for r in matrix}

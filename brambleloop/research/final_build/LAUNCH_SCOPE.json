@@ -7,7 +7,7 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 172
+     "rows": 170
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
@@ -15,18 +15,18 @@
     },
     "8b67414": {
      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
-     "rows": 42
+     "rows": 44
     }
    },
-   "rows_on_base": 472,
+   "rows_on_base": 523,
    "per_row": "matrix[].mapped_on"
   },
   "reachability": "HEAD 8b67414 reachability; production fcb982d",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
-  "registry": "master_registry.json"
+  "registry": "master_registry.json + master_registry_v1_1.json"
  },
  "counts": {
-  "launch-critical": 439,
+  "launch-critical": 490,
   "post-launch": 420,
   "rejected": 7
  },
@@ -1400,7 +1400,7 @@
    "reason": "recovery/idempotence: a dead worker must not duplicate consequential effects",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-136",
@@ -8746,6 +8746,516 @@
    "title": "Launch Starts Feedback",
    "scope": "launch-critical",
    "reason": "launch is decided by customer-protective gates only",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-880",
+   "id": "F-880",
+   "title": "Cloud-Resident Always-On Runtime",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-881",
+   "id": "F-881",
+   "title": "No Development-Chat Dependency",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-882",
+   "id": "F-882",
+   "title": "Mobile-First Owner Command Center",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-883",
+   "id": "F-883",
+   "title": "PWA / Home-Screen Mode",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-884",
+   "id": "F-884",
+   "title": "Owner Home Brief",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-885",
+   "id": "F-885",
+   "title": "Evidence-Backed Approval Inbox",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-886",
+   "id": "F-886",
+   "title": "One-Tap Owner Actions",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-887",
+   "id": "F-887",
+   "title": "Owner Action Authentication",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-888",
+   "id": "F-888",
+   "title": "Account & Security Tab",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-889",
+   "id": "F-889",
+   "title": "Emergency Controls",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-890",
+   "id": "F-890",
+   "title": "24/7 Department Agents",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-891",
+   "id": "F-891",
+   "title": "Agent Intelligence Standard",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-892",
+   "id": "F-892",
+   "title": "Agent Role Charters",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-893",
+   "id": "F-893",
+   "title": "Executive Orchestrator",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-894",
+   "id": "F-894",
+   "title": "Work Never Waits on the Owner Without Cause",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-895",
+   "id": "F-895",
+   "title": "Overnight Autonomy",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-896",
+   "id": "F-896",
+   "title": "Morning Handoff",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-897",
+   "id": "F-897",
+   "title": "Smart Notification Policy",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-898",
+   "id": "F-898",
+   "title": "Web Surface Uses Real Production State",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-899",
+   "id": "F-899",
+   "title": "Operational Drill-Down",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-900",
+   "id": "F-900",
+   "title": "Remote Health & Recovery",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-901",
+   "id": "F-901",
+   "title": "Accountant Agent",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-902",
+   "id": "F-902",
+   "title": "Accounting Source of Truth",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-903",
+   "id": "F-903",
+   "title": "Double-Entry Ledger",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-904",
+   "id": "F-904",
+   "title": "Bank/Etsy/Processor Reconciliation",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-905",
+   "id": "F-905",
+   "title": "Accrual vs Cash Views",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-906",
+   "id": "F-906",
+   "title": "Product & Channel Profitability",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-907",
+   "id": "F-907",
+   "title": "Cost Attribution",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-908",
+   "id": "F-908",
+   "title": "Cash & Runway Intelligence",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-909",
+   "id": "F-909",
+   "title": "Tax-Ready Evidence Pack",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-910",
+   "id": "F-910",
+   "title": "Month-End Close",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-911",
+   "id": "F-911",
+   "title": "Financial Anomaly Detection",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-912",
+   "id": "F-912",
+   "title": "Spend Governor Integration",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-913",
+   "id": "F-913",
+   "title": "Financial Forecast Honesty",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-914",
+   "id": "F-914",
+   "title": "Owner Money Dashboard",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "OPEN"
+  },
+  {
+   "uid": "F-915",
+   "id": "F-915",
+   "title": "Financial Drill-Through",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-916",
+   "id": "F-916",
+   "title": "Human Accountant Handoff",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-917",
+   "id": "F-917",
+   "title": "Accounting Guardrails",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-918",
+   "id": "F-918",
+   "title": "Department KPIs With Anti-Gaming",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-919",
+   "id": "F-919",
+   "title": "Cross-Agent Challenge",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-920",
+   "id": "F-920",
+   "title": "Persistent Company Memory",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-921",
+   "id": "F-921",
+   "title": "Model/Agent Failover",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-922",
+   "id": "F-922",
+   "title": "Cost-Aware Intelligence Routing",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-923",
+   "id": "F-923",
+   "title": "Owner Availability SLO",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-924",
+   "id": "F-924",
+   "title": "Production Autonomy SLO",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "GATED"
+  },
+  {
+   "uid": "F-925",
+   "id": "F-925",
+   "title": "No Terminal for Normal Operations",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-926",
+   "id": "F-926",
+   "title": "Store Preview Mode",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "OPEN"
+  },
+  {
+   "uid": "F-927",
+   "id": "F-927",
+   "title": "Company Timeline",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-928",
+   "id": "F-928",
+   "title": "Owner Search / Ask Company",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-929",
+   "id": "F-929",
+   "title": "No Autonomous Hallucinated Action",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
+   "reclassified": false,
+   "reclassified_against": [],
+   "completion": "COMPLETE"
+  },
+  {
+   "uid": "F-930",
+   "id": "F-930",
+   "title": "24/7 Does Not Mean Reckless",
+   "scope": "launch-critical",
+   "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "reclassified": false,
    "reclassified_against": [],
    "completion": "COMPLETE"

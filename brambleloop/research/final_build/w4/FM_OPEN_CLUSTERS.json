@@ -8,18 +8,14 @@
     "F-030",
     "F-159",
     "F-254",
-    "F-342",
-    "F-907",
-    "F-909",
-    "F-916"
+    "F-342"
    ],
-   "size": 7,
+   "size": 4,
    "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
    "owner_lane": "FM",
    "reasons": {
     "coverage PARTIAL": 4,
-    "maturity TESTED": 2,
-    "v1.1 row not mapped": 3
+    "maturity TESTED": 2
    }
   },
   "FOLD-R": {
@@ -73,30 +69,26 @@
   "K14": {
    "title": "Supply chain, deploy & operator-tooling residuals",
    "rows": [
-    "F-135",
     "F-416"
    ],
-   "size": 2,
+   "size": 1,
    "files": "Dockerfile, scripts/lock_requirements.py, tests/test_secret_scan.py, ops/registry.py, run_tests.sh, ops/deploy.sh",
    "owner_lane": "FM",
    "reasons": {
-    "coverage PARTIAL": 2,
-    "maturity TESTED": 1
+    "maturity TESTED": 1,
+    "coverage PARTIAL": 1
    }
   },
   "K15": {
    "title": "v1.1 wiring: provider reachability + library-only accounting modules",
    "rows": [
-    "F-913",
-    "F-914",
-    "F-915",
-    "F-927"
+    "F-914"
    ],
-   "size": 4,
+   "size": 1,
    "files": "app/command_center/providers.py (importlib indirection), build2/reachability.py, finance/accounting/{tax_pack,handoff,attribution,forecast,dashboard}.py, autonomy/status.py",
    "owner_lane": "FM",
    "reasons": {
-    "v1.1 row not mapped": 4
+    "coverage PARTIAL": 1
    }
   },
   "K16": {
@@ -108,7 +100,7 @@
    "files": "store_foundation/preview.py + copy",
    "owner_lane": "STORE",
    "reasons": {
-    "v1.1 row not mapped": 1
+    "coverage PARTIAL": 1
    }
   },
   "K2": {
@@ -260,60 +252,6 @@
    "reasons": {
     "maturity TESTED": 12,
     "coverage PARTIAL": 2
-   }
-  },
-  "V11-MAP": {
-   "title": "v1.1 rows (F-880..F-930) absent from the canonical matrix and the runtime snapshot: requirement rows lost from the launch gate",
-   "rows": [
-    "F-880",
-    "F-881",
-    "F-882",
-    "F-883",
-    "F-884",
-    "F-885",
-    "F-886",
-    "F-887",
-    "F-888",
-    "F-889",
-    "F-890",
-    "F-891",
-    "F-892",
-    "F-893",
-    "F-894",
-    "F-895",
-    "F-896",
-    "F-897",
-    "F-898",
-    "F-899",
-    "F-900",
-    "F-901",
-    "F-902",
-    "F-903",
-    "F-904",
-    "F-905",
-    "F-906",
-    "F-908",
-    "F-910",
-    "F-911",
-    "F-912",
-    "F-917",
-    "F-918",
-    "F-919",
-    "F-920",
-    "F-921",
-    "F-922",
-    "F-923",
-    "F-924",
-    "F-925",
-    "F-928",
-    "F-929",
-    "F-930"
-   ],
-   "size": 43,
-   "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
-   "owner_lane": "FM",
-   "reasons": {
-    "v1.1 row not mapped": 43
    }
   }
  }
