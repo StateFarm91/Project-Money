@@ -65,6 +65,11 @@ def install(app, db) -> None:
 
     app.add_api_route(STORE_PREVIEW_PATH, store_preview_handler(db), methods=["GET"],
                       include_in_schema=False)
+    # W4-STORE wiring: owner-session gated (security.OWNER_SESSION_PAGES), CSRF + nonce.
+    from .api import LIVE_OBSERVATION_PATH, live_observation_handler
+
+    app.add_api_route(LIVE_OBSERVATION_PATH, live_observation_handler(db), methods=["POST"],
+                      include_in_schema=False)
     # Operator-credential gated (not under /api/cc/): owner lockout recovery (M1).
     from .api import LOGIN_RECOVERY_PATH, login_recovery_handler
 

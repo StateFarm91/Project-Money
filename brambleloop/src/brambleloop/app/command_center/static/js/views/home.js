@@ -72,6 +72,8 @@ export async function render({ rerender }) {
     heroCard(hl, result),
     h("div", { class: "quick" },
       h("a", { class: "btn btn-primary", href: "#/approvals" }, icon("approvals", 18), "Decisions"),
+      h("a", { class: "btn", href: "#/company" }, icon("operations", 18), "Company"),
+      h("a", { class: "btn", href: "#/completion" }, icon("approvals", 18), "Completion"),
       h("a", { class: "btn", href: "#/ask" }, icon("ask", 18), "Ask")),
     card({ title: "Since you last looked", subtitle: data.last_seen_at ? `Last viewed ${relTime(data.last_seen_at)} (${utcStamp(data.last_seen_at)})`
       : (changes && changes.basis_note) || null, actions: seenBtn },

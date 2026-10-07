@@ -207,7 +207,7 @@ def owner_actions() -> dict:
         for g in rows:
             gate = g.get("gate") or g.get("key") or g.get("id")
             if gate == "customers" or str(g.get("classification", "")).upper().startswith(
-                    ("DATA", "EXTERNAL")):
+                    ("DATA", "EXTERNAL", "COMPANY")):
                 clearance_not_owner.append({"lane": name, "gate": gate,
                                             "why": g.get("classification") or
                                             "customers is not an owner action"})

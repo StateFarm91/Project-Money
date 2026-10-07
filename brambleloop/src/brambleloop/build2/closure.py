@@ -44,10 +44,13 @@ FINAL_STATES = (COMPLETE_PROVEN, OWNER_GATED, DATA_GATED, EXTERNAL_BLOCKED)
 DATA_GATES = frozenset({"customers"})
 EXTERNAL_GATES = {
     "rendered_pages": (
-        "etsy.com/legal, help.etsy.com and Etsy search pages return HTTP 403 to every honest "
+        "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest "
         "automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two "
-        "independent fetchers). Spoofing a browser is refused. A person can read the page and "
-        "record it (POST /api/policy/snapshot)."),
+        "independent fetchers). help.etsy.com is read by gates/policy_reader.py through "
+        "Etsy's public article API. Spoofing a browser is refused. The rows that need an "
+        "etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: "
+        "a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes "
+        "every 30 days)."),
     "model_bearing_render": (
         "no image provider has rendered a certified crochet structure faithfully enough to "
         "pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws "

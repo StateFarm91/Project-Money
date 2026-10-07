@@ -113,6 +113,52 @@ function approvalCard(c, { stale, rerender, open = false }) {
       sourcesList(c.sources)));
 }
 
+// W4-OWNER: the owner's decisions consolidated into batches, answered batch by batch. Every
+// decision states why, evidence, max cost (UNKNOWN when not costed, never CA$0), yes / no-or-
+// delay consequence and minutes. Read-only here: deciding happens on the cards below.
+function decisionRow(d) {
+  const kv = [["Why", d.why], ["Evidence", d.evidence], ["Max cost", d.max_cost || UNKNOWN_TEXT],
+    ["If yes", d.consequence_of_yes], ["If no / delay", d.consequence_of_no],
+    ["Minutes", typeof d.minutes === "number" ? String(d.minutes) : null]];
+  return h("li", { class: "row" },
+    h("p", { class: "row-title" }, d.decision || d.id || "Decision"),
+    h("dl", { class: "kv" }, kv.map(([label, t]) => h("div", { class: t ? null : "missing" },
+      h("dt", null, label), h("dd", null, t ? String(t) : "Not provided")))));
+}
+
+function batchesCard(env) {
+  if (!env) return null;
+  const batches = Array.isArray(env.items) ? env.items : [];
+  if (!batches.length) {
+    return card({ title: "Decision batches", actions: statusPill(env.status || "UNKNOWN") },
+      h("p", { class: "muted" }, env.reason || "Unknown: no decision batches reported."));
+  }
+  return card({ title: "Your decisions, batch by batch", subtitle: `${env.decisions ?? UNKNOWN_TEXT} decisions in ${env.batches ?? batches.length} batches`, actions: statusPill(env.status) },
+    h("p", { class: "card-meta" }, env.as_of ? `As of ${relTime(env.as_of)} (${utcStamp(env.as_of)})` : "As of: Unknown"),
+    env.note ? h("p", { class: "muted small" }, env.note) : null,
+    batches.map((b, i) => h("details", { class: "review", open: i === 0 },
+      h("summary", null, h("strong", null, `${i + 1}. ${b.title || b.id}`),
+        h("span", { class: "muted small" }, ` · ${b.decisions ?? UNKNOWN_TEXT} decision(s) · max ${b.max_cost || UNKNOWN_TEXT} · ${typeof b.minutes_total === "number" ? `${b.minutes_total} min` : "minutes unknown"}`)),
+      b.why_batched ? h("p", { class: "muted small" }, b.why_batched) : null,
+      h("ul", { class: "rows" }, (b.items || []).map(decisionRow)))),
+    sourcesList(env.sources));
+}
+
+// W4-GATESB: decisions not asked yet, each with what makes it askable (never a card to answer).
+function notYetAskableCard(env) {
+  if (!env) return null;
+  const items = Array.isArray(env.items) ? env.items : [];
+  if (!items.length) {
+    return env.status === "OK" ? null : card({ title: "Not yet askable", actions: statusPill(env.status || "UNKNOWN") },
+      h("p", { class: "muted" }, env.reason || "Unknown: not reported."));
+  }
+  return card({ title: "Not yet askable", subtitle: `${items.length} decision(s) wait on a precondition`, actions: statusPill(env.status) },
+    h("ul", { class: "rows" }, items.map((it) => h("li", { class: "row" },
+      h("p", { class: "row-title" }, it.what || it.gate),
+      h("p", { class: "muted small" }, `Askable when: ${it.askable_when || UNKNOWN_TEXT}`)))),
+    sourcesList(env.sources));
+}
+
 export async function render({ params, rerender }) {
   if (params[0]) {
     const result = await api.approval(params[0]);
@@ -126,6 +172,8 @@ export async function render({ params, rerender }) {
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     data.reason ? tabStatus(data) : null,
+    batchesCard(data.decision_batches),
+    notYetAskableCard(data.not_yet_askable),
     cards.length ? cards.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0 }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
     data.waiting_on_data !== undefined ? renderSection("waiting_on_data", data.waiting_on_data, { title: "Waiting on data", result }) : null,

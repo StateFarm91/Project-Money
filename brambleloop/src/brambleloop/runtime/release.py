@@ -1193,6 +1193,17 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # certified image set is judged and the completed certificate written back with its
     # evidence -- the stored verdict reaches PASS on the merits or stays PENDING/REFUSED.
     hero_reading = _judge_search_hero(ctx, slug, version)
+    # W4-SEO: the listing's Etsy search package (intents, title, 13 tags, attributes,
+    # category, description, price context, seasonality, evidence, certificate, readiness)
+    # is assembled from what this handler just stored and persisted as a durable record.
+    # Recorded, never blocking: a package failure leaves the draft exactly as it is.
+    try:
+        from ..seo import packages as _packages
+
+        i["search_package"] = _packages.record_from_release(ctx.db, slug, version)
+    except Exception as exc:  # noqa: BLE001
+        i["search_package"] = {"written": False,
+                               "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
 
     # #41 / C-47: the disclosure check reads the stored Listing row, so it runs here, after
     # the row exists -- run before it (as listing.draft did) it could only ever say
@@ -1231,7 +1242,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading,
-            "search_hero": hero_reading}
+            "search_hero": hero_reading,
+            "search_package": i.get("search_package")}
 
 
 def _judge_search_hero(ctx: JobContext, slug: str, version: str) -> dict:

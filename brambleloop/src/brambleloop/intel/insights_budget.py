@@ -103,7 +103,9 @@ def prior_queries(db) -> dict[str, int]:
 
     counts = {pod.key: 0 for pod in pods.PODS}
     with db.session() as s:
-        phrases = [str(row.phrase or "") for row in s.scalars(select(Keyword))]
+        # seo.packages coverage rows are our listings' phrases, not query snapshots on file
+        phrases = [str(row.phrase or "") for row in s.scalars(select(Keyword))
+                   if not str(row.intent or "").startswith("package:")]
         # Owner-recorded Marketplace Insights snapshots (#236) are the query store #37
         # names, and a keyword already read there is one whose answer is on file.
         phrases += [str(row.keyword or "") for row in s.scalars(select(InsightsSnapshot))]

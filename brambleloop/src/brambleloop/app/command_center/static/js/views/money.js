@@ -116,7 +116,7 @@ export async function render({ params, query }) {
     card({ title: "Period" }, seg,
       h("p", { class: "muted" }, echoed ? `Showing: ${echoed}` : period ? "The server did not confirm this period filter, so figures may be for its default period." : "Server default period.")),
     ...MONEY_SECTIONS.filter(([k]) => s[k] !== undefined || k === "accounting").map(([k, t]) => moneySection(k, t, s[k], result, period)),
-    ...renderAll(data, [["spend_limits", "Spend limits"]], { result,
-      skip: [...MONEY_SECTIONS.map(([k]) => k), "revenue", "profit", "recorded_spend", "source_health", "period"] }),
+    ...renderAll(data, [["spend_limits", "Spend limits"], ["estimate_drift", "Model spend: estimated vs actual (settlement OWNER-GATED)"]], { result,
+      skip: [...MONEY_SECTIONS.map(([k]) => k), "revenue", "profit", "recorded_spend", "source_health", "period", "window", "period_applies_to"] }),
     legend());
 }

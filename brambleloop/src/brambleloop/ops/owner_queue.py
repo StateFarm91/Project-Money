@@ -266,6 +266,16 @@ def enrich_cards(db, cards: list[dict], *, why_by_action_id: dict | None = None)
     """Add packet, urgency, rank, lifecycle state and the tester route to inbox cards."""
     why_by_action_id = why_by_action_id or {}
     for i, card in enumerate(cards, start=1):
+        # W4-GATESB: a business gate with no producer row carries its exact clearance
+        # (action, links, cost ceiling, minutes) from build2.gate_clearance.
+        if card.get("gate") and card.get("owner_action_id") is None:
+            try:
+                from ..build2 import gate_clearance
+
+                if card["gate"] in gate_clearance.BUSINESS_GATES:
+                    card.update(gate_clearance.card_fields(db, card["gate"]))
+            except Exception as exc:  # noqa: BLE001 - the card stands; the gap is named
+                card["clearance_error"] = f"{type(exc).__name__}: {exc}"[:200]
         card.update(packet_for(card, why_by_action_id.get(card.get("owner_action_id"), "")))
         card["rank"] = i
         card["urgency"] = urgency(card)
@@ -495,12 +505,15 @@ DECISIONS: tuple[dict, ...] = (
      "consequence_of_no": "everything stays drafted and nothing reaches a customer"},
     {"id": "tester_outreach", "batch": "go_live", "kind": "decision",
      "gates": ("tester_roster", "physical_proof"), "keys": ("physical_calibration",),
-     "decision": ("Authorise outreach to independent pattern testers and one paid sample make "
-                  "(the 20 cm storage basket). You are not asked to crochet."),
+     "decision": ("Confirm the prepared public tester call (Ravelry 'The Testing Pool'; "
+                  "research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid "
+                  "sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 "
+                  "incl. yarn). You are not asked to crochet."),
      "why": ("recruiting testers is outreach to real people (an exit from shadow mode); the "
              "physical proof is made by that tester, so both gates are this one decision"),
-     "max_cost_cad": None, "cost_basis": "estimated from gates.risk_matrix tester fee",
-     "minutes": 5,
+     "max_cost_cad": 59.65, "cost_basis": ("ESTIMATED ceiling, gates.risk_matrix: 2.8 "
+                                            "tester h x CA$20 + 63 m yarn (W4-GATESB)"),
+     "minutes": 25,
      "consequence_of_yes": ("a measured sample calibrates yardage and Class C products can "
                             "become shippable"),
      "consequence_of_no": ("yardage stays a +/-20% tolerance, Class C stays unshippable, the "
@@ -588,23 +601,32 @@ DECISIONS: tuple[dict, ...] = (
                            "refreshed by a build session every 30 days")},
     {"id": "benchmark_purchase", "batch": "benchmark", "kind": "spend",
      "gates": ("benchmark_purchases",), "keys": ("benchmark_challenge",),
-     "decision": ("Buy the selected benchmark patterns (/api/benchmark-selection) and upload "
-                  "them at /ops/teardown."),
+     "decision": ("Buy the 13 approved MJs benchmark patterns (exact list, links and prices: "
+                  "research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each "
+                  "download at /ops/teardown."),
      "why": "buying competitor patterns is consequential spend",
-     "max_cost_cad": 300.0, "cost_basis": "stated", "minutes": 30,
+     "max_cost_cad": 300.0, "cost_basis": ("stated ceiling (B-512); the 13 picks total "
+                                           "CA$280.50 at observed prices, before tax"),
+     "minutes": 75,
      "consequence_of_yes": "the pre-launch challenge (#168) and teardowns can run",
      "consequence_of_no": "the first honest comparison happens in a buyer's downloads"},
     {"id": "owned_surfaces", "batch": "channels", "kind": "credentials",
      "gates": ("owned_surfaces",), "keys": (),
-     "decision": "Open a Pinterest business account and/or a site this company can publish to.",
-     "why": "a person accepts the platform's terms",
-     "max_cost_cad": None, "cost_basis": "UNKNOWN (a domain/site has a cost; Pinterest is free)",
-     "minutes": 20,
+     "decision": ("The Etsy shop exists (recognised as the paid destination). Open the "
+                  "missing owned surfaces: a domain + static site, a Pinterest business "
+                  "account, a free-tier email sender, a YouTube channel "
+                  "(build2.gate_clearance.MISSING_SURFACES)."),
+     "why": "a person accepts each platform's terms",
+     "max_cost_cad": 25.0, "cost_basis": ("ESTIMATED: one domain-year; Pinterest, email "
+                                          "free tier and YouTube are free"),
+     "minutes": 65,
      "consequence_of_yes": "off-Etsy content requirements un-park",
      "consequence_of_no": "they stay parked; Etsy-only discovery"},
     {"id": "ad_budget", "batch": "paid_media", "kind": "spend",
      "gates": ("ad_authority",), "keys": (),
-     "decision": "Set a daily advertising cap (CA$/day) or decline paid media for now.",
+     "decision": ("Not askable yet: once a listing is ready to sell (gate_clearance."
+                  "ad_readiness), set SpendLimit 'ads' to the recommended CA$3/day, CA$25 "
+                  "campaign, CA$60/month (paid_media.CONSERVATIVE_CAPS) or decline."),
      "why": "advertising money leaves only on approval; ceilings are enforced in code",
      "max_cost_cad": None, "cost_basis": "UNKNOWN until the owner names a cap", "minutes": 5,
      "consequence_of_yes": "the ads requirements un-park under that cap",
@@ -669,13 +691,26 @@ def decision_fields(card: dict, decision: dict | None = None) -> dict:
     return out
 
 
+# W4-GATESB: store readiness rows (`store:<OA id>`, store_foundation.store_readiness) are
+# separate actions done in the same Etsy login, so they batch with the account screens; the
+# Offsite Ads enrolment (a fee-on-sale margin decision) batches with paid media.
+STORE_BATCH_BY_KEY = {"store:OA-G2": "paid_media"}
+
+
+def _store_batch(card: dict) -> str:
+    key = str(card.get("requirement_key") or "")
+    if key.startswith("store:"):
+        return STORE_BATCH_BY_KEY.get(key, "etsy_account")
+    return "other"
+
+
 def batch_cards(cards: list[dict]) -> dict:
     """Cards -> decisions (merged) -> batches, in the order the owner should answer them."""
     decisions: dict[str, dict] = {}
     for c in cards:
         d = _decision_for(c)
         did = d["id"] if d else f"card:{c.get('gate') or c.get('requirement_key')}"
-        batch = d["batch"] if d else "other"
+        batch = d["batch"] if d else _store_batch(c)
         item = decisions.get(did)
         if item is None:
             item = dict(decision_fields(c, d), id=did, batch=batch,
