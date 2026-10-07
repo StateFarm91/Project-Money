@@ -73,6 +73,9 @@ class Surface:
     limit_key: str | None = None
     customer_facing: bool = True
     notes: list[str] = field(default_factory=list)
+    #: W4-STORE: the live shop's status for this surface (`live_state.annotate`); None when
+    #: no database was given, which reports UNKNOWN.
+    live: dict | None = None
 
     def text(self) -> str:
         """Every customer-readable string in this surface, joined, for the lints.
@@ -94,7 +97,8 @@ class Surface:
                 "source": self.source, "etsy_location": self.etsy_location,
                 "entry": self.entry, "limit_key": self.limit_key,
                 "customer_facing": self.customer_facing, "notes": list(self.notes),
-                "entered_on_etsy": UNKNOWN}
+                "entered_on_etsy": (self.live or {}).get("entered_on_etsy", UNKNOWN),
+                "live": dict(self.live) if self.live else None}
 
 
 # ---- words owned here --------------------------------------------------------------------
@@ -395,4 +399,13 @@ def build(db=None, *, today=None) -> dict[str, Surface]:
           {"channel": "Etsy Messages"}, "support.department; commerce.shop_package",
           "Etsy Messages", INTERNAL, customer_facing=False),
     ]
-    return {s.key: s for s in surfaces}
+    out = {s.key: s for s in surfaces}
+    if db is not None and hasattr(db, "session"):
+        # W4-STORE: the live shop is authoritative; annotate what has been read back.
+        from . import live_state
+
+        try:
+            live_state.annotate(db, out)
+        except Exception:  # noqa: BLE001 - an unreadable live state stays UNKNOWN
+            pass
+    return out
