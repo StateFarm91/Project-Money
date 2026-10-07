@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07",
+ "generated_at": "2026-10-07T01:45Z",
  "branch": "claude/w4-VISUAL",
  "lane": "W4-VISUAL",
  "stages": [
@@ -29,7 +29,7 @@
    "stage": "D",
    "status": "PARTIAL",
    "dashboard_said": "FAIL (stale)",
-   "evidence": "milestone_d.assess('hdc') 2026-10-06: 10 PASS / 0 FAIL / 9 UNKNOWN; all structural locks PASS",
+   "evidence": "milestone_d.assess('hdc', settle_iterations=4000, Mitsuba 3.9.1 renders, spp 32) 2026-10-07: 12 PASS, 0 FAIL, 7 UNKNOWN. stationary PASS (last-tenth change 0.52% < 2%, 7200 iterations); images_rendered PASS (flat/draped x camera/oblique, 4 plies, bound to geometry sha256). Artefact research/final_build/w4/visual/milestone_d_hdc_2026-10-07.json",
    "unknown_local": [
     "stationary (3.9% > 2% last-tenth motion)",
     "images_rendered (no render_dir passed)"
@@ -43,111 +43,155 @@
     "synthetic_stitch_texture",
     "catalogue_perfect_sterility"
    ],
-   "d_rerun": "pending (settle_iterations=4000, Mitsuba render_dir)",
-   "next": "owner plan P1 for the 7 judged items"
+   "next": "owner decision VB-1 item P1 (CA$1.00) -> D measured PASS or FAIL",
+   "class": "EXTERNAL-GATED (judge spend)",
+   "unknown_items": [
+    "fabric_folds_naturally",
+    "lighting_is_realistic",
+    "shadows_are_coherent",
+    "has_ordinary_photographic_imperfection",
+    "melted_yarn",
+    "synthetic_stitch_texture",
+    "catalogue_perfect_sterility"
+   ],
+   "why_not_pass": "the only remaining UNKNOWNs are photograph judgements (visual.d_judge, paid vision call). UNKNOWN is never PASS."
   },
   {
    "stage": "E",
    "status": "NOT_STARTED",
    "photographic": "waits on D",
    "disclosed_route": "LIVE: all 3 Launch-0 listings have verified disclosed hero/scale/detail + MATERIALS/COLOUR_CONTEXT (+CONSTRUCTION/SIZING for baskets)",
-   "next": "plan P2 or physical sample photography for LIFESTYLE / photographic E"
+   "next": "plan P2 or physical sample photography for LIFESTYLE / photographic E",
+   "evidence_disclosed": "Disclosed path covers DESIRE/SCALE/DETAIL on all 3 Launch-0 listings and now ANGLE on baskets (verified 50-degree view)"
   }
  ],
  "launch_imagery": {
   "nursery-nesting-baskets": {
    "hero_ready": true,
    "covered": [
-    "DESIRE",
-    "SCALE",
-    "DETAIL",
-    "MATERIALS",
+    "ANGLE",
     "COLOUR_CONTEXT",
     "CONSTRUCTION",
+    "DESIRE",
+    "DETAIL",
+    "MATERIALS",
+    "SCALE",
     "SIZING"
    ],
    "missing": {
-    "ANGLE": "engineering: verifier-measured projection",
-    "CONTENTS": "publish.pdf preview path",
-    "LIFESTYLE": "photo or paid composite (P2)"
+    "CONTENTS": "publish.pdf preview path (not a drawing of the object)",
+    "LIFESTYLE": "photo or paid composite (VB-1 P2)"
    }
   },
   "cloudline-baby-blanket": {
    "hero_ready": true,
    "covered": [
+    "COLOUR_CONTEXT",
     "DESIRE",
-    "SCALE",
     "DETAIL",
     "MATERIALS",
-    "COLOUR_CONTEXT"
+    "SCALE"
    ],
    "missing": {
     "CONTENTS": "publish.pdf preview path",
-    "LIFESTYLE": "photo or paid composite (P2)"
+    "LIFESTYLE": "photo or paid composite (VB-1 P2)"
    }
   },
   "hexagon-coaster-set": {
    "hero_ready": true,
    "covered": [
+    "COLOUR_CONTEXT",
     "DESIRE",
-    "SCALE",
     "DETAIL",
     "MATERIALS",
-    "COLOUR_CONTEXT"
+    "SCALE"
    ],
    "supporting": [
     "CONSTRUCTION"
    ],
    "missing": {
     "CONTENTS": "publish.pdf preview path",
-    "LIFESTYLE": "photo or paid composite (P2)"
+    "LIFESTYLE": "photo or paid composite (VB-1 P2)"
    }
-  }
+  },
+  "_source": "visual.rnd.loop.cycle -> launch_imagery.refresh, shadow sqlite, cycle 3 2026-10-07T01:20Z (method angle_view disclosed-angle/1)"
  },
  "out_of_scope": {
   "harvest-table-runner": "not in LAUNCH0_SLUGS; renderer refuses (gold vs raised tone 39.4 < MIN_SEPARATION 40); left refused"
  },
  "rnd_shadow": {
-  "cycles": 2,
-  "experiments": 14,
+  "cycles": 3,
+  "experiments": 17,
   "promoted": 1,
-  "rejected": 5,
+  "rejected": 8,
   "gated_spend": 8,
-  "lessons": 6,
-  "promotion": "coasters hero_gap_ratio 0.06 (prominence 0.6256 -> 0.7238)",
+  "lessons": 9,
+  "promotion": "coasters hero_gap_ratio 0.06 (prominence 0.6256 -> 0.7238); cycle-3 monitor: retain (yield 1.0, quality 0.7238)",
   "status_provider": "DEGRADED (5/8 classes no free producer; no marketplace evidence)"
  },
  "paid_plans": [
   {
+   "id": "V0",
+   "what": "Anthropic vision probe + creative concept-board judgements (shared by CREATIVE needs_taste and MJS gallery analysis)",
+   "provider": "claude-haiku-4-5 (probe, ~CA$0.009/call) + claude-sonnet-5 STANDARD (board judge, ~CA$0.03/board: ~6.1k in at US$3/M + 200 out at US$15/M, CAD 1/0.715)",
+   "calls_max": "3 probes + 11 boards x2 attempts",
+   "max_cad": 0.75,
+   "unlocks": "vision_usable true -> intake.judge_held on the 3 catalogue boards now, the 8 candidates once CIR exists; restarts intel.gallery_analysis (stalled since 2026-09-24)",
+   "owner_prereq": "production ANTHROPIC credential working/funded (why the probe fails in production is not verified from this lane)"
+  },
+  {
    "id": "P1",
    "what": "D photograph judging",
-   "provider": "gpt-5-2025-08-07 via visual.d_judge",
+   "provider": "gpt-5-2025-08-07 via visual.d_judge (US$0.045/call worst case)",
    "calls_max": 16,
    "max_cad": 1.0,
-   "unlocks": "D judged items -> D PASS or FAIL measured"
+   "unlocks": "D's 7 judged items -> D measured PASS or FAIL"
   },
   {
    "id": "P2",
    "what": "LIFESTYLE protected composites, 3 Launch-0 listings",
-   "provider": "flux-2-pro + realism judge",
+   "provider": "flux-2-pro (US$0.02/image) + realism judge",
    "calls_max": 24,
    "max_cad": 2.0,
-   "unlocks": "LIFESTYLE job x3, first photographic E candidate"
+   "unlocks": "LIFESTYLE x3, first photographic E candidate (product pixels preserved, visual.compose.verify)"
   },
   {
    "id": "P3",
-   "what": "R&D GATED_SPEND queue for launch classes",
+   "what": "R&D GATED_SPEND queue, launch classes",
    "provider": "flux-2-pro",
    "calls_max": 36,
    "max_cad": 1.01,
    "unlocks": "first judged photographic challenger per launch class"
-  },
-  {
-   "id": "ALT",
-   "what": "physical sample photo session",
-   "max_cad": "yarn ~30 (estimate)",
-   "unlocks": "LIFESTYLE, owned hero, C/D ground truth"
   }
  ],
- "spend_cad": 0.0
+ "spend_cad": 0.0,
+ "angle_view": {
+  "what": "disclosed_render view 'angle' (vessels only, render_contract.ANGLE_DEG=50), measured by render_verification with the same un-projection as the hero",
+  "status": "PROVEN",
+  "tests": "tests/test_w4_visual_angle.py 5/5 (all 3 basket sizes PASS; refused for flat/plan; wrong-camera and recoloured-round frames do not pass)"
+ },
+ "concept_boards": {
+  "defect_fixed": "creative.board.make_board drew every concept from a design-blind prototype (single-colour fabric corner): 5 catalogue designs had byte-identical boards. Catalogue designs now draw from their own verified disclosed hero; undrawable designs get no board (fail closed).",
+  "tests": "tests/test_w4_visual_boards.py 3/3",
+  "catalogue_survivors": {
+   "with_board": [
+    "cloudline-baby-blanket",
+    "mosaic-placemat-pair",
+    "valentine-heart-garland"
+   ],
+   "no_board": {
+    "harvest-table-runner": "palette too close to a contract colour",
+    "spooky-garland": "palette too close to a contract colour",
+    "pet-snuggle-mat": "palette too close to a contract colour"
+   }
+  },
+  "new_candidates": "8 need CIRs (W4-PIPE) before a board exists"
+ },
+ "owner_decision": {
+  "id": "VB-1",
+  "ask": "Approve one Visual+Creative vision bundle, ceiling CA$4.76 (V0 0.75 + P1 1.00 + P2 2.00 + P3 1.01), enforced by the existing budget reservations",
+  "minutes": 5,
+  "consequence_of_waiting": "D stays PARTIAL, E photographic NOT_STARTED, LIFESTYLE missing on all 3 listings, creative survivors stay needs_taste (no launch clearance), MJS gallery analysis stays stalled",
+  "alt_no_api_spend": "physical sample photo session, yarn ~CA$30 (estimate)"
+ }
 }
