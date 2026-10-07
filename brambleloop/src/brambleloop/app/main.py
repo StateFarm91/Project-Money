@@ -1413,6 +1413,25 @@ def api_creative_blinded() -> dict:
     }
 
 
+@app.get("/api/mjs/findings")
+def api_mjs_findings() -> dict:
+    """W4-MJS: the latest competitor-intelligence findings reading (operator credential).
+
+    Each finding carries its provenance (source, method, sample, observed window) and a
+    confidence grade with its basis. Demand/merchandising intelligence only: no competitor
+    content is stored or reproduced. No reading yet is UNKNOWN with the reason, never empty-OK.
+    """
+    from ..intel import findings as intel_findings
+
+    latest = intel_findings.latest(db)
+    if latest is None:
+        return {"status": "UNKNOWN", "reading": None,
+                "reason": "no mjs.findings reading stored yet: intel.findings.refresh has not "
+                          "run against this database (needs stored mjs.scan observations)"}
+    return {"status": "OK", "reading": latest, "as_of": latest.get("generated_at")
+            or latest.get("as_of")}
+
+
 @app.get("/api/mjs/coverage")
 def api_mjs_coverage() -> dict:
     """What the living market map cannot see, named rather than counted (#207, #303).
@@ -4312,11 +4331,18 @@ def api_incidents() -> dict:
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
+    from ..build2 import closure
     from ..build2 import requirements as reqs
 
     return {
         "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
+        # W4-B2: the headline is the closure ledger (evidence), not the registry's own status.
+        # executable_remaining there is OPEN only; gated rows count under their gate's kind.
+        "headline": closure.dashboard(db, m=closure_matrix_shared()),
+        "ledger": "research/final_build/w4/BUILD2_LEDGER.json",
         "coverage": reqs.coverage(),
+        "coverage_basis": "registry claim: requirements.json's own status per row, not "
+                          "evidence; the headline above is the measured ledger",
         "sections": reqs.sections(),
         # Listed in full rather than sliced. A hardcoded `[:40]` silently dropped five
         # requirements from a list whose own summary said forty-five, so anyone reading the
@@ -4329,6 +4355,70 @@ def api_build2() -> dict:
     }
 
 
+# W4-CC (CC_DEPLOY_PACKAGE §5): the closure matrix walks the module graph and the test
+# sources -- ~55 s CPU cold, ~10 s warm -- and `/`, `/api/closure` and `/api/build2/maturity`
+# are unauthenticated reads on the single web worker. One computation at a time
+# (single-flight), and a result is reused while its inputs are unchanged: for the matrix the
+# live gate states (re-read on every request, so an opened gate still reopens its rows at
+# once) and the requirements file; the code and tests are fixed inside a deployed image.
+# The maturity ladder also reads job rows, so it is reused only for MATURITY_REUSE_SECONDS
+# and says so (`reused_from`).
+import threading as _threading  # noqa: E402
+import time as _time  # noqa: E402
+
+_CLOSURE_LOCK = _threading.Lock()
+_CLOSURE_MEMO: dict = {}
+CLOSURE_REUSE_SECONDS = 900
+MATURITY_REUSE_SECONDS = 300
+
+
+def _closure_inputs_key():
+    from ..build2 import executor, requirements as reqs
+
+    gates = tuple(sorted((k, bool(v.get("open"))) for k, v in executor.gate_states(db).items()))
+    path = getattr(reqs, "REGISTRY_PATH", None)
+    try:
+        st = os.stat(path) if path else None
+        file_key = (st.st_mtime_ns, st.st_size) if st else None
+    except OSError:
+        file_key = None
+    return (gates, file_key, id(executor.gate_for), id(reqs.load))
+
+
+def closure_matrix_shared() -> dict:
+    """`closure.matrix(db)`, single-flight, reused while gates and registry are unchanged."""
+    import copy
+
+    from ..build2 import closure
+
+    with _CLOSURE_LOCK:
+        key = _closure_inputs_key()
+        memo = _CLOSURE_MEMO.get("matrix")
+        if memo and memo["key"] == key and _time.monotonic() - memo["at"] < CLOSURE_REUSE_SECONDS:
+            return copy.deepcopy(memo["value"])
+        value = closure.matrix(db)
+        _CLOSURE_MEMO["matrix"] = {"key": key, "at": _time.monotonic(), "value": value}
+        return copy.deepcopy(value)
+
+
+def maturity_report_shared() -> dict:
+    import copy
+    from datetime import datetime as _dt
+
+    from ..build2 import maturity
+
+    with _CLOSURE_LOCK:
+        memo = _CLOSURE_MEMO.get("maturity")
+        if memo and _time.monotonic() - memo["at"] < MATURITY_REUSE_SECONDS:
+            out = copy.deepcopy(memo["value"])
+            out["reused_from"] = memo["computed_at"]
+            return out
+        value = maturity.report(db)
+        _CLOSURE_MEMO["maturity"] = {"at": _time.monotonic(), "value": value,
+                                     "computed_at": _dt.now(timezone.utc).isoformat()}
+        return copy.deepcopy(value)
+
+
 @app.get("/api/closure")
 def api_closure() -> dict:
     """The Build 2 closure matrix: every requirement in one of four final states, or OPEN.
@@ -4338,9 +4428,7 @@ def api_closure() -> dict:
     carries the kind of its gate -- owner, data or external -- checked live against this
     database, so a gate that has opened returns its requirements to OPEN on this page.
     """
-    from ..build2 import closure
-
-    out = closure.matrix(db)
+    out = closure_matrix_shared()
     out["rows"] = [{k: r[k] for k in ("id", "title", "status", "state", "gate", "why")}
                    for r in out["rows"]]
     out["open"] = [{k: r[k] for k in ("id", "title", "status", "why")} for r in out["open"]]
@@ -4360,7 +4448,7 @@ def api_build2_maturity(requirement: int | None = None) -> dict:
 
     if requirement is not None:
         return maturity.ladder(db, reqs.get(requirement))
-    return maturity.report(db)
+    return maturity_report_shared()
 
 
 @app.get("/api/jobs")
@@ -4690,7 +4778,16 @@ def api_verify() -> JSONResponse:
             "commit": build_identity()["commit"]})
     except Exception:  # noqa: BLE001
         pass
-    return JSONResponse({"ok": passed, "checks": checks},
+    # F-103 (W4-SPEND): estimate drift is a readback, not a pass/fail check -- it informs, it
+    # does not decide health. Settlement against provider billing is OWNER-GATED.
+    try:
+        from .command_center.tabs import estimate_drift_reading
+
+        drift = estimate_drift_reading(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        drift = {"state": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+    return JSONResponse({"ok": passed, "checks": checks,
+                         "readbacks": {"estimate_drift": drift}},
                         status_code=200 if passed else 503)
 
 
@@ -5198,22 +5295,41 @@ def dashboard() -> str:
         #
         # `executable_remaining` is the computed field and the one the API already serves;
         # using it means the tile and the endpoint cannot disagree.
-        executable = cov["executable_remaining"]
-        ready = cov["executable_unparked"]
+        #
+        # W4-B2: the headline is now the closure ledger (`closure.dashboard`): PROVEN /
+        # OWNER-GATED / DATA-GATED / EXTERNAL-GATED / NOT-APPLICABLE / OPEN-DEFECT, with
+        # "executable remaining" = OPEN only. The registry's counts stay visible, labelled as
+        # what they are: the registry's claim about itself.
         from ..build2 import closure
 
-        closure_counts = closure.matrix(db)["counts"]
-        cards = "".join(
-            f'<div class="card"><span>{esc(k.replace("_", " "))}</span><b>{esc(v)}</b></div>'
-            for k, v in sorted(cov.items()))
+        m = closure_matrix_shared()
+        hd = closure.dashboard(db, m=m)
         closing = "".join(
             f'<div class="card"><span>closure: {esc(k)}</span><b>{esc(v)}</b></div>'
-            for k, v in closure_counts.items())
-        return (f'<div class="grid">{cards}'
-                f'<div class="card"><span>executable left</span><b>{esc(executable)}</b></div>'
-                f'<div class="card"><span>ready to start (not parked)</span><b>{esc(ready)}</b>'
-                f'</div>'
-                f"{closing}</div>")
+            for k, v in m["counts"].items())
+        headline = "".join(
+            f'<div class="card"><span>{esc(label)}</span><b>{esc(hd[key])}</b></div>'
+            for label, key in (("PROVEN", "proven"), ("OWNER-GATED", "owner_gated"),
+                               ("DATA-GATED", "data_gated"),
+                               ("EXTERNAL-GATED", "external_gated"),
+                               ("NOT-APPLICABLE", "not_applicable"),
+                               ("OPEN-DEFECT", "open_defects"),
+                               ("executable remaining (OPEN only)", "executable_remaining"),
+                               ("total", "total")))
+        executable = cov["executable_remaining"]
+        ready = cov["executable_unparked"]
+        cards = "".join(
+            f'<div class="card"><span>registry claim: {esc(k.replace("_", " "))}</span>'
+            f'<b>{esc(v)}</b></div>' for k, v in sorted(cov.items()))
+        return (f'<div class="grid">{headline}</div>'
+                f'<div class="empty">{esc(hd["basis"])} -- as of {esc(hd["as_of"])}</div>'
+                f'<div class="grid">{closing}</div>'
+                f'<details><summary>registry claim (requirements.json status, not evidence)'
+                f'</summary><div class="grid">{cards}'
+                f'<div class="card"><span>registry claim: executable left</span>'
+                f'<b>{esc(executable)}</b></div>'
+                f'<div class="card"><span>registry claim: ready to start (not parked)</span>'
+                f'<b>{esc(ready)}</b></div></div></details>')
 
     def _visual_pipeline() -> str:
         """The milestone ladder, so the route to a listable product is visible on the page.
@@ -5347,7 +5463,27 @@ def dashboard() -> str:
             ("regressed", ", ".join(report["regressed_cells"]) or "none"),
             ("bottleneck", str(report["bottleneck"] or "none")),
             ("lessons acted on", f"{comp['acted_on']} / {comp['routed']}"),
+            # W4L-2: what can move before a sale (internal, never a customer outcome), and
+            # which cells only customer evidence can measure (DATA-GATED, not "0 measured").
+            *_learn_presale_rows(report["unmeasured_cells"]),
         ], [["Improvement", "Value"]], "")
+
+    def _learn_presale_rows(unmeasured: list) -> list:
+        from ..improve.measure import DATA_GATED_CELLS
+
+        post = [c for c in unmeasured if c in DATA_GATED_CELLS]
+        out = [("post-launch-only cells (DATA-GATED: no customer evidence yet)",
+                ", ".join(post) if post else "none")]
+        try:
+            from ..improve import presale
+
+            pre = presale.summary(db)
+            n = pre.get("measured")
+            val = (f"{n} / {pre.get('of')}" if isinstance(n, int) else
+                   f"UNKNOWN: {pre.get('reason') or 'unreadable'}")
+        except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never 0
+            val = f"UNKNOWN: {type(exc).__name__}"
+        return [("pre-sale outcomes measured (internal, not customer outcomes)", val)] + out
 
     def _models() -> str:
         from ..gateway.routing import budget

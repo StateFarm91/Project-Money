@@ -174,6 +174,16 @@ class CostEntry(Base):
     purpose: Mapped[str] = mapped_column(String(60), default="", index=True)
     estimated_cad: Mapped[float] = mapped_column(Float, default=0.0)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    # F-304 (W4-SPENDA, integrator-authorised additive columns; `core.migrate` adds them to an
+    # existing table). NULL is UNKNOWN, never 0: a listing not yet made, an image count nobody
+    # proved, a provider bill not yet read. `observed_cad` is only ever a provider-reported
+    # figure (settlement, `ops.provider_accounts.settle`), never this system's own estimate;
+    # `amount_cad` stays the recorded exposure at assumed prices. How each was obtained is in
+    # `finance.cost_attribution.CostAttribution`.
+    listing_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    observed_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evidence_ref: Mapped[str | None] = mapped_column(String(200), nullable=True, default="")
 
 
 class LedgerEntry(Base):

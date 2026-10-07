@@ -69,15 +69,32 @@ def match_stage(matrix: list[dict]) -> dict:
             "basis": "persisted coverage_matrix (listing.seo), lexical match only"}
 
 
-def _category_for(slug: str) -> tuple[str, int, int]:
-    """(catalogue category, sizes, colours) from the product record, best effort."""
+def _category_for(slug: str) -> tuple[str, int | None, int | None]:
+    """(catalogue category, sizes sold, colours) for the release `slug`, from its certified CIR.
+
+    Sizes and colours are read from the same certified CIR (and Launch-0 sibling variants)
+    the listing-set gallery frames are drawn from (`visual.launch_imagery._primary_for`):
+    sizes = the primary variant plus its siblings sold on the same listing, colours =
+    ``len(cir.colors)``. A release with no certified CIR answers None for both -- UNKNOWN,
+    never a guessed 1 that would quietly drop SIZING or COLOUR_CONTEXT from the applicable
+    jobs (wiring #7)."""
+    category = ""
     try:
         from ..runtime.release import _product_record
 
-        rec = _product_record(slug, {}) or {}
-        return str(rec.get("category") or ""), 1, 1
+        category = str((_product_record(slug, {}) or {}).get("category") or "")
     except Exception:  # noqa: BLE001 - an unknown record is an unknown category
-        return "", 1, 1
+        category = ""
+    try:
+        from ..visual.launch_imagery import _primary_for
+
+        found = _primary_for(slug)
+    except Exception:  # noqa: BLE001 - an unreadable CIR is an unknown variant shape
+        found = None
+    if found is None:
+        return category, None, None
+    _listing, _title, primary, siblings, cat = found
+    return (category or str(cat or "")), 1 + len(siblings), len(primary.colors or {})
 
 
 def gallery(db, slug: str, version: str) -> dict:
@@ -99,8 +116,12 @@ def gallery(db, slug: str, version: str) -> dict:
     if jobs is None:
         return {"status": UNMEASURED, "why": "no valid listing-set certificate for this release",
                 "category": category}
+    if sizes is None or colours is None:
+        return {"status": UNMEASURED, "category": category,
+                "why": "no certified CIR to count the sizes and colours sold from"}
     arch = el.gallery_architecture(category, jobs, sizes=sizes, colours=colours)
-    return {"status": PASS if arch["complete"] else FAIL, **arch}
+    return {"status": PASS if arch["complete"] else FAIL, **arch,
+            "sizes": sizes, "colours": colours}
 
 
 def _experiments(db, slug: str) -> list[dict]:

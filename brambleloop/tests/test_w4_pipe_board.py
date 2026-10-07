@@ -70,10 +70,16 @@ def main():
     creative = [r for r in rows if r["source"] == "creative"]
     assert creative, "no creative candidates"
     waiting = [r for r in creative if r["slug"] not in pb.CREATIVE_ENGINEERED]
-    assert waiting, "no unengineered creative candidates"
-    check("creative_candidates_at_design",
-          all(r["stage"] == "DESIGN" and r["highest_passed"] == "INTELLIGENCE" for r in waiting),
-          [(r["slug"], r["stage"]) for r in waiting])
+    if waiting:
+        check("creative_candidates_at_design",
+              all(r["stage"] == "DESIGN" and r["highest_passed"] == "INTELLIGENCE"
+                  for r in waiting), [(r["slug"], r["stage"]) for r in waiting])
+    else:
+        # W4-PIPE2 engineered the rest of the queue: every brief now has a design that
+        # passed DESIGN and PRODUCT (compiled), never one left at INTELLIGENCE.
+        check("every_creative_candidate_engineered",
+              all(r["stages"].get("PRODUCT", {}).get("status") == pb.PASS for r in creative),
+              [(r["slug"], r["stage"]) for r in creative])
     # The engineered pencil roll carries its pocket, tie and seams, and clears Product Truth.
     roll = by["teacher-chevron-pencil-roll"]
     check("pencil_roll_clears_product_truth", roll["highest_passed"] == "PRODUCT_TRUTH", roll)

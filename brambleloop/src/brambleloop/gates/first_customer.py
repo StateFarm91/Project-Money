@@ -531,21 +531,46 @@ def disclosed_imagery(db, slug: str, version: str) -> dict | None:
             "the disclosed set is usable but no valid listing-set certificate covers it; "
             "imagery is certified by release_gates.listing_set before it is published")}
     on_file = {(f.get("image") or {}).get("sha256") for f in usable.get("frames") or []}
-    certified = {f.get("sha256") for f in cert_frames}
+    # F-030 / F-254 (W4-VISUAL): a certificate may also carry disclosed gallery frames after
+    # the disclosed set. The disclosed frames must still be exactly the set on file, each
+    # certified as a disclosed render; every further frame must be a disclosed gallery frame
+    # that re-verifies on its stored bytes against the certified CIR now.
+    rendered = [f for f in cert_frames if f.get("kind") == "disclosed_render"]
+    gallery = [f for f in cert_frames if f.get("kind") == "disclosed_gallery_frame"]
+    certified = {f.get("sha256") for f in rendered}
     problems = []
     if not cert_release:
         problems.append(f"certificate {cert_id} is bound to no release hash")
     if certified != on_file:
         problems.append(f"certificate {cert_id} covers {len(certified)} frame(s) that are not "
                         f"exactly the {len(on_file)} disclosed frame(s) on file")
-    if any(f.get("kind") != "disclosed_render" for f in cert_frames):
+    if len(rendered) + len(gallery) != len(cert_frames):
         problems.append(f"certificate {cert_id} does not certify every frame as a disclosed "
-                        f"render")
+                        f"render or a disclosed gallery frame")
+    if gallery:
+        from ..core.artifacts import ArtifactMissing, ArtifactStore
+        from ..visual.launch_imagery import check_supplement
+
+        store = ArtifactStore()
+        for f in gallery:
+            try:
+                data = store.get(str(f.get("sha256") or ""), db=db)
+            except ArtifactMissing:
+                problems.append(f"gallery frame {f.get('position')} bytes are not on file")
+                continue
+            v = check_supplement(slug, version, str(f.get("job") or ""), data, db=db,
+                                 store=store)
+            if v["status"] != "PASS":
+                problems.append(f"gallery frame {f.get('position')} ({f.get('job')}) does not "
+                                f"re-verify: {v['why']}"[:200])
     if problems:
         return {"state": FAIL, "detail": "; ".join(problems)}
     return {"state": PASS, "detail": (
-        f"{len(on_file)} disclosed frames, structurally PASS on their bound bytes, covered "
-        f"by valid listing-set certificate {cert_id} for release {cert_release[:12]}"),
+        f"{len(on_file)} disclosed frames, structurally PASS on their bound bytes"
+        + (f", and {len(gallery)} disclosed gallery frame(s) re-verified on their bytes"
+           if gallery else "")
+        + f", covered by valid listing-set certificate {cert_id} for release "
+          f"{cert_release[:12]}"),
         "certificate": cert_id}
 
 

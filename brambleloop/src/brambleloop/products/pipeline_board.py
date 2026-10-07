@@ -362,6 +362,15 @@ CREATIVE_ENGINEERED = {"teacher-chevron-pencil-roll": pencil_roll_cir,
                        "first-christmas-stocking": stocking_cir}
 CREATIVE_SEARCH = {"teacher-chevron-pencil-roll": ("pencil roll", ("chevron",), None),
                    "first-christmas-stocking": ("stocking", ("fir", "star"), "christmas")}
+# W4-PIPE2: the other six creative candidates, engineered in products.moment_candidates.
+# An entry above (engineered here first) is never replaced.
+from .moment_candidates import ENGINEERED as _MOMENT_CIRS  # noqa: E402
+from .moment_candidates import SEARCH as _MOMENT_SEARCH  # noqa: E402
+
+for _k, _v in _MOMENT_CIRS.items():
+    CREATIVE_ENGINEERED.setdefault(_k, _v)
+for _k, _v in _MOMENT_SEARCH.items():
+    CREATIVE_SEARCH.setdefault(_k, _v)
 
 
 # ---- candidates --------------------------------------------------------------------------
@@ -501,7 +510,10 @@ def _product_and_truth(c: Candidate) -> None:
     errs = [str(f)[:240] for f in cert.findings
             if str(getattr(f, "severity", "")).upper().endswith("ERROR")]
     ok = bool(cert.granted) and not names and not result.warnings
-    physical = any("UNCALIBRATED_PRIMITIVE" in e for e in errs)
+    # W4-PIPE2: a class C form (stuffed, closed) waits on a full physical make, as an
+    # uncalibrated stitch waits on a tester: both are cleared by a maker, not by a rename.
+    physical = any(("UNCALIBRATED_PRIMITIVE" in e or "PHYSICAL_TEST_REQUIRED" in e)
+                   for e in errs)
     c.set("PRODUCT_TRUTH", PASS if ok else FAIL,
           {"certified": bool(cert.granted),
            "release_hash": (cert.release_hash or "")[:12] or None,
@@ -511,7 +523,7 @@ def _product_and_truth(c: Candidate) -> None:
            "; ".join(x for x in (
                "rename to what the fabric makes or change the CIR (new version)"
                if (names or not physical) else "",
-               "a pattern tester works the new stitch (physical calibration)"
+               "a pattern tester works the new stitch or makes the full piece (physical evidence)"
                if physical else "") if x)),
           # Company work is never reported as somebody else's: a name the pattern does not
           # back is the company's to fix even while a stitch also awaits a tester.
@@ -536,7 +548,15 @@ def _visual(c: Candidate, store) -> None:
     if rec.get("usable_as_listing_asset"):
         c.set("VISUAL", PASS, evidence)
     elif not rec.get("made"):
+        why = " ".join(rec.get("launch_blocked") or [])
         c.set("VISUAL", FAIL, evidence,
+              # W4-PIPE2: say which refusal it is; a multi-piece object is renderer work.
+              "the disclosed renderer draws one compiled piece; an assembled multi-piece "
+              "render is renderer work (visual owner; the gate is not relaxed)"
+              if "components" in why else
+              "the disclosed renderer cannot name this round piece's outline (staggered "
+              "increases: cir.geometry.corners returns None); renderer/geometry work"
+              if "neither all stack nor all stagger" in why else
               "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not "
               "relaxed): change the palette/design to one it can draw and verify")
     else:

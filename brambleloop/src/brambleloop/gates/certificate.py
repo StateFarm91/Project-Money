@@ -28,6 +28,7 @@ from .asset_truth import (
 )
 from .confidence import assess
 from . import originality as _originality
+from . import spec_freeze as _spec_freeze
 from . import risk_matrix as _risk_matrix
 from .policy import (
     POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
@@ -142,6 +143,29 @@ CANONICAL_STAGES: tuple[str, ...] = (
 CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
 
 
+def stitch_semantics_findings(cir) -> list[Finding]:
+    """Structured stitches used by `cir` with unstated or untaught structure (F-751)."""
+    from ..cir import stitches as _st
+    from ..publish.abbreviations import structure_method_problems
+
+    used: set[str] = set()
+
+    def walk(nodes):
+        for n in nodes or ():
+            inner = getattr(n, "ops", None)
+            if inner is not None:
+                walk(inner)
+            elif getattr(n, "stitch", None):
+                used.add(n.stitch)
+
+    for comp in cir.components:
+        for row in comp.rows:
+            walk(row.ops)
+    problems = [p for p in _st.structure_problems() + structure_method_problems()
+                if p.split(":", 1)[0] in used]
+    return [Finding(ERROR, "STITCH_SEMANTICS_MISSING", f"{p} (F-751)") for p in problems]
+
+
 def certify(
     cir: CIR,
     *,
@@ -189,6 +213,13 @@ def certify(
     #     configuration other than the one these rows encode is describing another product.
     findings.extend(component_gauge_findings(cir))
     findings.extend(configuration_findings(cir, listing_variant=listing_variant))
+    # 1d. Grading (F-762, F-768): a graded release's size matrix is recomputed for this size
+    #     from its own rows and every grading relationship in the family re-checked.
+    findings.extend(grading_findings(cir))
+    # 1e. Construction topology (F-750): a declared work direction or sleeve construction
+    #     the rows contradict.
+    from ..cir.topology import topology_problems
+    findings.extend(Finding(ERROR, "TOPOLOGY_INCONSISTENT", p) for p in topology_problems(cir))
     stages.append("specification")
 
     # 2. Digital twin -- one per piece. Only the first component used to be modelled, so a
@@ -218,7 +249,10 @@ def certify(
                 findings.extend(t.geometry.findings)
         stages.append("geometry")
 
-    # 3. Written pattern, then an independent reverse compile of that exact text.
+    # 3. Written pattern, then an independent reverse compile of that exact text. A
+    #    competitor-informed spec is frozen first (F-792): the writer gets the CIR only.
+    if db is not None and _spec_freeze.consulted(cir):
+        _spec_freeze.freeze(db, cir)
     pattern_text = write_pattern(cir, result, terminology)
     stages.append("write")
     # The content this run examines, named before anything decides whether it is granted.
@@ -269,7 +303,11 @@ def certify(
     # Design provenance, the design-difference ledger and the similarity review against
     # every purchased benchmark (F-783, F-798, F-794, F-791, F-795): `gates/originality.py`.
     findings.extend(_originality.release_findings(cir, pattern_text=pattern_text, db=db))
+    findings.extend(_spec_freeze.findings(cir, db))
     stages.append("originality")
+    # F-751: every structured stitch this pattern uses compiles to stated anatomy that agrees
+    # with its counts, and the printed method teaches that structure.
+    findings.extend(stitch_semantics_findings(cir))
 
     # 4. Asset truth.
     asset_findings: list[Finding] = []
@@ -585,6 +623,13 @@ def specification_findings(cir: CIR) -> list[Finding]:
     except _specification.BenchmarkDerived as exc:
         out.append(Finding(ERROR, "BENCHMARK_DERIVED", str(exc)))
     return out
+
+
+def grading_findings(cir: CIR) -> list[Finding]:
+    """F-768: recompute a graded release's size matrix entry and re-check the family."""
+    from ..cir.graded import grading_problems
+
+    return [Finding(ERROR, "GRADING_INCONSISTENT", p) for p in grading_problems(cir)]
 
 
 def component_gauge_findings(cir: CIR) -> list[Finding]:

@@ -1,0 +1,1458 @@
+{
+ "rows": [
+  {
+   "slug": "first-christmas-stocking",
+   "title": "First Christmas Fir and Star Relief Stocking",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A fir and star stocking in forest and cream with a plain cuff band waiting for the baby's initial.",
+      "function": "marks a baby's first Christmas and hangs on the mantel every December of their childhood",
+      "occasion": "christmas",
+      "pod": "seasonal",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "leg_front",
+        1
+       ],
+       [
+        "leg_back",
+        1
+       ],
+       [
+        "foot_front",
+        1
+       ],
+       [
+        "foot_back",
+        1
+       ],
+       [
+        "toe_front",
+        1
+       ],
+       [
+        "toe_back",
+        1
+       ],
+       [
+        "cuff",
+        1
+       ],
+       [
+        "loop",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "37997da15179",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: first-christmas-stocking: 8 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "reading-nook-cable-wrap",
+   "title": "Reading Nook Cable Wrap",
+   "source": "creative",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A long cable twist wrap in forest and cream lies across the shoulders like a heavier shawl.",
+      "function": "stays across the shoulders through a long evening of reading in the coldest room of the house",
+      "occasion": "winter_nesting",
+      "pod": "wearables",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "wrap",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it pa"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "mothers-day-heart-tea-cosy",
+   "title": "Heart Row Tea Cosy",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A heart row tea cosy in cream and wine fits the round teapot that comes out when the family visits.",
+      "function": "keeps the Sunday teapot hot through a long conversation at the kitchen table",
+      "occasion": "mothers_day",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "cosy",
+        1
+       ],
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "96408a469e36",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: mothers-day-heart-tea-cosy: 3 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "snowfall-advent-garland",
+   "title": "Snowfall Mitten Advent Garland",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "Twenty-four numbered mitten pockets banded in snowfall, forest and cream, hang along the stairs for the December countdown.",
+      "function": "holds a note or small treat for each morning of December so the children count down together",
+      "occasion": "christmas",
+      "pod": "seasonal",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "mitten",
+        24
+       ],
+       [
+        "thumb",
+        24
+       ],
+       [
+        "loop_tab",
+        24
+       ],
+       [
+        "cord",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "8a79bd978d0f",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: snowfall-advent-garland: 4 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "teacher-chevron-pencil-roll",
+   "title": "Chevron Pencil Roll",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A chevron band pencil roll in wine and gold ties shut with a single crocheted cord.",
+      "function": "carries a full set of pencils between classroom and home and unrolls flat across the desk",
+      "occasion": "back_to_school",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ],
+       [
+        "tie",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "25411a7789ab",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: teacher-chevron-pencil-roll: 2 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "heart-row-ring-pillow",
+   "title": "Heart Row Ring Pillow",
+   "source": "creative",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A round heart row ring pillow in cream and wine with a centre loop to tie the two rings.",
+      "function": "carries the rings down the aisle and then keeps them safe on the shelf as a wedding keepsake",
+      "occasion": "wedding",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "pillow",
+        1
+       ],
+       [
+        "bottom",
+        1
+       ],
+       [
+        "ring_loop",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "housewarming-key-basket",
+   "title": "Housewarming Key Basket",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A round basketweave catch-all in pine and cream sits on the hall table to hold the keys of a first home.",
+      "function": "keeps the keys, letters and dog lead of a first home together in one place by the door",
+      "occasion": "housewarming",
+      "pod": "home_decor",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "basket",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "142b52f0f9c6",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: housewarming-key-basket: the increases neither all stack nor all stagger, so the outline is not a named shape and drawing one would be a guess (cir.geometry.corners)"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "spring-garden-kneeler",
+   "title": "Spring Garden Kneeler",
+   "source": "creative",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A dense trellis kneeling pad in pine and gold, tulip heads at the crossings, saves the knees on the first spring weekend outdoors.",
+      "function": "cushions the knees through a full morning of planting out the spring garden beds",
+      "occasion": "spring_refresh",
+      "pod": "home_decor",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
+    }
+   }
+  }
+ ],
+ "records": {
+  "first-christmas-stocking": {
+   "slug": "first-christmas-stocking",
+   "title": "First Christmas Fir and Star Relief Stocking",
+   "version": "0.1.0",
+   "fingerprint": "b373ef46108d",
+   "risk_class": "B",
+   "components": [
+    [
+     "leg_front",
+     1,
+     "flat_rows"
+    ],
+    [
+     "leg_back",
+     1,
+     "flat_rows"
+    ],
+    [
+     "foot_front",
+     1,
+     "flat_rows"
+    ],
+    [
+     "foot_back",
+     1,
+     "flat_rows"
+    ],
+    [
+     "toe_front",
+     1,
+     "flat_rows"
+    ],
+    [
+     "toe_back",
+     1,
+     "flat_rows"
+    ],
+    [
+     "cuff",
+     1,
+     "flat_rows"
+    ],
+    [
+     "loop",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineered_by": "W4-PIPE products.pipeline_board",
+   "engineering_note": "W4-PIPE's design; see handoff_PIPE.md",
+   "pdf": {
+    "path": "pipe2/first-christmas-stocking/first-christmas-stocking-0.1.0-US.pdf",
+    "pages": 15,
+    "sha256": "4d6cb6700a917752197fd297f3e624aa856300f520b5af0707ff974c442428ed",
+    "finished_size_cm": [
+     19.2,
+     22.6
+    ],
+    "yardage_by_color": {
+     "forest": 17.2,
+     "cream": 17.7
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "first-christmas-stocking",
+    "version": "0.1.0",
+    "fingerprint": "b373ef46108d",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "5a27f4556aa582047a69595ecf9bdac5d19a9bc7e44d95a3ca9275bea5c186ca"
+    },
+    "image_ref": "sha256:5a27f4556aa582047a69595ecf9bdac5d19a9bc7e44d95a3ca9275bea5c186ca",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/first-christmas-stocking/concept-board.png",
+    "file_sha256": "5a27f4556aa582047a69595ecf9bdac5d19a9bc7e44d95a3ca9275bea5c186ca"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [
+    {
+     "finding": "demand_by_pod",
+     "digest": "5728fb2aed",
+     "grade": "proxy",
+     "sample": 437,
+     "says": "median favourites per benchmark listing: garments 1701, stockings 1472.5, home_decor 911, kitchen_bath 738.5, seasonal_gift 491; stockings are underserved (above-median favourites on below-median shelf depth)",
+     "fit": "stockings: the underserved pod"
+    },
+    {
+     "finding": "seasonality",
+     "digest": "45dac5b8f5",
+     "grade": "proxy",
+     "sample": 441,
+     "says": "Christmas 2026-12-25 is inside the buying window (79 days on 2026-10-07); the benchmark carries 10 stocking and 13 ornament listings",
+     "fit": "a Christmas stocking inside the window"
+    },
+    {
+     "finding": "coverage_gaps",
+     "digest": "cc58125e5d",
+     "grade": "observed",
+     "sample": 7,
+     "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+     "fit": "Christmas stockings arena is uncovered"
+    }
+   ],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:5a27f4556aa582047a69595ecf9bdac5d19a9bc7e44d95a3ca9275bea5c186ca",
+    "board_digest_for": "5a27f4556aa582047a69595ecf9bdac5d19a9bc7e44d95a3ca9275bea5c186ca",
+    "vision_usable": false
+   }
+  },
+  "reading-nook-cable-wrap": {
+   "slug": "reading-nook-cable-wrap",
+   "title": "Reading Nook Cable Wrap",
+   "version": "0.1.0",
+   "fingerprint": "23420beed766",
+   "risk_class": "B",
+   "components": [
+    [
+     "wrap",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineered_by": "W4-PIPE2 products.moment_candidates",
+   "engineering_note": "Real 2-over-2 cable crossings (cable2x2), so the name's cable claim is backed; the crossing is an uncalibrated primitive, which is a physical-tester gate. The cream 'border edging' is cream end bands (a perimeter round is not expressible on one flat component).",
+   "pdf": {
+    "path": "pipe2/reading-nook-cable-wrap/reading-nook-cable-wrap-0.1.0-US.pdf",
+    "pages": 35,
+    "sha256": "e1ec5d02752b14256156697620cac39ca84d4c72970b1dad4f94aa2512472f43",
+    "finished_size_cm": [
+     47.2,
+     166.7
+    ],
+    "yardage_by_color": {
+     "cream": 23.6,
+     "forest": 596.7
+    },
+    "difficulty": "intermediate"
+   },
+   "concept_board": {
+    "slug": "reading-nook-cable-wrap",
+    "version": "0.1.0",
+    "fingerprint": "23420beed766",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "9e8f430dab60c78a8b4545198c6bb12847d199a538e45338cf2c7b92d68a6171"
+    },
+    "image_ref": "sha256:9e8f430dab60c78a8b4545198c6bb12847d199a538e45338cf2c7b92d68a6171",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/reading-nook-cable-wrap/concept-board.png",
+    "file_sha256": "9e8f430dab60c78a8b4545198c6bb12847d199a538e45338cf2c7b92d68a6171"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty",
+     "grid_tournament"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [
+    {
+     "finding": "demand_by_pod",
+     "digest": "5728fb2aed",
+     "grade": "proxy",
+     "sample": 437,
+     "says": "median favourites per benchmark listing: garments 1701, stockings 1472.5, home_decor 911, kitchen_bath 738.5, seasonal_gift 491; stockings are underserved (above-median favourites on below-median shelf depth)",
+     "fit": "garments: the highest favourites median"
+    },
+    {
+     "finding": "coverage_gaps",
+     "digest": "cc58125e5d",
+     "grade": "observed",
+     "sample": 7,
+     "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+     "fit": "garments and clothing arena is uncovered"
+    }
+   ],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:9e8f430dab60c78a8b4545198c6bb12847d199a538e45338cf2c7b92d68a6171",
+    "board_digest_for": "9e8f430dab60c78a8b4545198c6bb12847d199a538e45338cf2c7b92d68a6171",
+    "vision_usable": false
+   }
+  },
+  "mothers-day-heart-tea-cosy": {
+   "slug": "mothers-day-heart-tea-cosy",
+   "title": "Heart Row Tea Cosy",
+   "version": "0.1.0",
+   "fingerprint": "c7e4b554f1fa",
+   "risk_class": "B",
+   "components": [
+    [
+     "cosy",
+     1,
+     "joined_rounds"
+    ],
+    [
+     "front",
+     1,
+     "flat_rows"
+    ],
+    [
+     "back",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineered_by": "W4-PIPE2 products.moment_candidates",
+   "engineering_note": "Seamless top-down: crown, heart band, then held halves worked as front and back skirts; the gaps between them are the spout and handle openings.",
+   "pdf": {
+    "path": "pipe2/mothers-day-heart-tea-cosy/mothers-day-heart-tea-cosy-0.1.0-US.pdf",
+    "pages": 8,
+    "sha256": "1d703c6528798f09f1a0ed94e9088d4d20a845523a7c636bc33fb500393ea18e",
+    "finished_size_cm": [
+     19.8,
+     11.1
+    ],
+    "yardage_by_color": {
+     "cream": 70.5,
+     "wine": 24.0
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "mothers-day-heart-tea-cosy",
+    "version": "0.1.0",
+    "fingerprint": "c7e4b554f1fa",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "504efc0449d97af8cb9888cd391c26e7f0fca7caddc5b733d40f8e7490d6579f"
+    },
+    "image_ref": "sha256:504efc0449d97af8cb9888cd391c26e7f0fca7caddc5b733d40f8e7490d6579f",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/mothers-day-heart-tea-cosy/concept-board.png",
+    "file_sha256": "504efc0449d97af8cb9888cd391c26e7f0fca7caddc5b733d40f8e7490d6579f"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [
+    {
+     "finding": "coverage_gaps",
+     "digest": "cc58125e5d",
+     "grade": "observed",
+     "sample": 7,
+     "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+     "fit": "kitchen and bath arena is uncovered"
+    }
+   ],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:504efc0449d97af8cb9888cd391c26e7f0fca7caddc5b733d40f8e7490d6579f",
+    "board_digest_for": "504efc0449d97af8cb9888cd391c26e7f0fca7caddc5b733d40f8e7490d6579f",
+    "vision_usable": false
+   }
+  },
+  "snowfall-advent-garland": {
+   "slug": "snowfall-advent-garland",
+   "title": "Snowfall Mitten Advent Garland",
+   "version": "0.1.0",
+   "fingerprint": "186a3aae2f74",
+   "risk_class": "B",
+   "components": [
+    [
+     "mitten",
+     24,
+     "joined_rounds"
+    ],
+    [
+     "thumb",
+     24,
+     "joined_rounds"
+    ],
+    [
+     "loop_tab",
+     24,
+     "flat_rows"
+    ],
+    [
+     "cord",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineered_by": "W4-PIPE2 products.moment_candidates",
+   "engineering_note": "24 fingertip-up mittens with afterthought thumbs and folded tab loops, threaded on a slip-stitch cord. Numbers on the pockets are not engineered (no chart support for numerals) and are not claimed in the title.",
+   "pdf": {
+    "path": "pipe2/snowfall-advent-garland/snowfall-advent-garland-0.1.0-US.pdf",
+    "pages": 9,
+    "sha256": "33346d3588cc277a7fa78f531d2b6f980326e0e5ee7dee6adbb9b764300acdcf",
+    "finished_size_cm": [
+     6.1,
+     15.5
+    ],
+    "yardage_by_color": {
+     "cream": 357.0,
+     "forest": 308.2
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "snowfall-advent-garland",
+    "version": "0.1.0",
+    "fingerprint": "186a3aae2f74",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "fee3dae58e8d1fa87fce13b0e6d3c3733545b58243b707b2de39f913ab47cf64"
+    },
+    "image_ref": "sha256:fee3dae58e8d1fa87fce13b0e6d3c3733545b58243b707b2de39f913ab47cf64",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/snowfall-advent-garland/concept-board.png",
+    "file_sha256": "fee3dae58e8d1fa87fce13b0e6d3c3733545b58243b707b2de39f913ab47cf64"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [
+    {
+     "finding": "seasonality",
+     "digest": "45dac5b8f5",
+     "grade": "proxy",
+     "sample": 441,
+     "says": "Christmas 2026-12-25 is inside the buying window (79 days on 2026-10-07); the benchmark carries 10 stocking and 13 ornament listings",
+     "fit": "a Christmas make inside the window"
+    }
+   ],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:fee3dae58e8d1fa87fce13b0e6d3c3733545b58243b707b2de39f913ab47cf64",
+    "board_digest_for": "fee3dae58e8d1fa87fce13b0e6d3c3733545b58243b707b2de39f913ab47cf64",
+    "vision_usable": false
+   }
+  },
+  "teacher-chevron-pencil-roll": {
+   "slug": "teacher-chevron-pencil-roll",
+   "title": "Chevron Pencil Roll",
+   "version": "0.1.0",
+   "fingerprint": "7843a34a9781",
+   "risk_class": "A",
+   "components": [
+    [
+     "panel",
+     1,
+     "flat_rows"
+    ],
+    [
+     "tie",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineered_by": "W4-PIPE products.pipeline_board",
+   "engineering_note": "W4-PIPE's design; see handoff_PIPE.md",
+   "pdf": {
+    "path": "pipe2/teacher-chevron-pencil-roll/teacher-chevron-pencil-roll-0.1.0-US.pdf",
+    "pages": 10,
+    "sha256": "c2b862e542510b986f116dd95211327ded34eda9c7a06df5f6c1f0f969ea748e",
+    "finished_size_cm": [
+     32.0,
+     24.4
+    ],
+    "yardage_by_color": {
+     "wine": 30.0,
+     "gold": 31.2
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "teacher-chevron-pencil-roll",
+    "version": "0.1.0",
+    "fingerprint": "7843a34a9781",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f"
+    },
+    "image_ref": "sha256:cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/teacher-chevron-pencil-roll/concept-board.png",
+    "file_sha256": "cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f",
+    "board_digest_for": "cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f",
+    "vision_usable": false
+   }
+  },
+  "heart-row-ring-pillow": {
+   "slug": "heart-row-ring-pillow",
+   "title": "Heart Row Ring Pillow",
+   "version": "0.1.0",
+   "fingerprint": "db146b235dda",
+   "risk_class": "C",
+   "components": [
+    [
+     "pillow",
+     1,
+     "joined_rounds"
+    ],
+    [
+     "bottom",
+     1,
+     "joined_rounds"
+    ],
+    [
+     "ring_loop",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineered_by": "W4-PIPE2 products.moment_candidates",
+   "engineering_note": "A drum pillow: disc top worked down into a heart-row side band, a sewn-on bottom over fibrefill. Stuffed and closed, so class C: a physical make is required.",
+   "pdf": {
+    "path": "pipe2/heart-row-ring-pillow/heart-row-ring-pillow-0.1.0-US.pdf",
+    "pages": 9,
+    "sha256": "30298c8d0953d6cf0cead690d0ea66b49a47c71d5db04f810d66b66973ddcc4f",
+    "finished_size_cm": [
+     15.9,
+     7.4
+    ],
+    "yardage_by_color": {
+     "cream": 47.5,
+     "wine": 19.4
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "heart-row-ring-pillow",
+    "version": "0.1.0",
+    "fingerprint": "db146b235dda",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "03bfe2b5f46c1f68ac77d8e80df12661d310e40cce8047bd2598ff2c2b771053"
+    },
+    "image_ref": "sha256:03bfe2b5f46c1f68ac77d8e80df12661d310e40cce8047bd2598ff2c2b771053",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/heart-row-ring-pillow/concept-board.png",
+    "file_sha256": "03bfe2b5f46c1f68ac77d8e80df12661d310e40cce8047bd2598ff2c2b771053"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:03bfe2b5f46c1f68ac77d8e80df12661d310e40cce8047bd2598ff2c2b771053",
+    "board_digest_for": "03bfe2b5f46c1f68ac77d8e80df12661d310e40cce8047bd2598ff2c2b771053",
+    "vision_usable": false
+   }
+  },
+  "housewarming-key-basket": {
+   "slug": "housewarming-key-basket",
+   "title": "Housewarming Key Basket",
+   "version": "0.1.0",
+   "fingerprint": "c63743691cf8",
+   "risk_class": "B",
+   "components": [
+    [
+     "basket",
+     1,
+     "joined_rounds"
+    ]
+   ],
+   "engineered_by": "W4-PIPE2 products.moment_candidates",
+   "engineering_note": "Staggered increases so the base is round, as the brief says; the disclosed renderer draws only fully stacked (polygon) bases today (cir.geometry.corners cannot return 0 for a disc whose second round is all increases).",
+   "pdf": {
+    "path": "pipe2/housewarming-key-basket/housewarming-key-basket-0.1.0-US.pdf",
+    "pages": 7,
+    "sha256": "0b363b8f8a3b54356378111e261880861659a5648204b0e0cccd1083e9defad9",
+    "finished_size_cm": [
+     18.3,
+     11.1
+    ],
+    "yardage_by_color": {
+     "cream": 42.5,
+     "pine": 31.4
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "housewarming-key-basket",
+    "version": "0.1.0",
+    "fingerprint": "c63743691cf8",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "b5e8d24180ad3d85f333c1ba7802028d2fd84b36d76b3d7e84cd07b77eab795f"
+    },
+    "image_ref": "sha256:b5e8d24180ad3d85f333c1ba7802028d2fd84b36d76b3d7e84cd07b77eab795f",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/housewarming-key-basket/concept-board.png",
+    "file_sha256": "b5e8d24180ad3d85f333c1ba7802028d2fd84b36d76b3d7e84cd07b77eab795f"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:b5e8d24180ad3d85f333c1ba7802028d2fd84b36d76b3d7e84cd07b77eab795f",
+    "board_digest_for": "b5e8d24180ad3d85f333c1ba7802028d2fd84b36d76b3d7e84cd07b77eab795f",
+    "vision_usable": false
+   }
+  },
+  "spring-garden-kneeler": {
+   "slug": "spring-garden-kneeler",
+   "title": "Spring Garden Kneeler",
+   "version": "0.1.0",
+   "fingerprint": "514f724dc8b1",
+   "risk_class": "C",
+   "components": [
+    [
+     "front",
+     1,
+     "flat_rows"
+    ],
+    [
+     "back",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineered_by": "W4-PIPE2 products.moment_candidates",
+   "engineering_note": "Brief named modular panels and tulip bobbles. Engineered as a relief front panel and a matching back (a grid of squares cannot be length-checked by cir.assembly), with the tulip heads as gold dc relief rows rather than bobbles (bob is an uncalibrated primitive). New motif products.motifs:tulip-trellis. Stuffed: class C.",
+   "pdf": {
+    "path": "pipe2/spring-garden-kneeler/spring-garden-kneeler-0.1.0-US.pdf",
+    "pages": 10,
+    "sha256": "329d5dfefbbba6a6482994c2dd7f0fb99f312bdff573cbb995542c7945e629e2",
+    "finished_size_cm": [
+     38.4,
+     24.6
+    ],
+    "yardage_by_color": {
+     "pine": 52.4,
+     "gold": 24.7
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "spring-garden-kneeler",
+    "version": "0.1.0",
+    "fingerprint": "514f724dc8b1",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "bd8e295fd34ae1ae25bc241d138076e3c23ae55e1931d4ec03e6941dc80fb141"
+    },
+    "image_ref": "sha256:bd8e295fd34ae1ae25bc241d138076e3c23ae55e1931d4ec03e6941dc80fb141",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/spring-garden-kneeler/concept-board.png",
+    "file_sha256": "bd8e295fd34ae1ae25bc241d138076e3c23ae55e1931d4ec03e6941dc80fb141"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:bd8e295fd34ae1ae25bc241d138076e3c23ae55e1931d4ec03e6941dc80fb141",
+    "board_digest_for": "bd8e295fd34ae1ae25bc241d138076e3c23ae55e1931d4ec03e6941dc80fb141",
+    "vision_usable": false
+   }
+  }
+ },
+ "queue": [
+  "first-christmas-stocking",
+  "reading-nook-cable-wrap",
+  "mothers-day-heart-tea-cosy",
+  "snowfall-advent-garland",
+  "teacher-chevron-pencil-roll",
+  "heart-row-ring-pillow",
+  "housewarming-key-basket",
+  "spring-garden-kneeler"
+ ],
+ "regate_held": {
+  "presented": [],
+  "queued": [],
+  "held": [
+   {
+    "slug": "spring-garden-kneeler",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "housewarming-key-basket",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "heart-row-ring-pillow",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "teacher-chevron-pencil-roll",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "snowfall-advent-garland",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "mothers-day-heart-tea-cosy",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "reading-nook-cable-wrap",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "first-christmas-stocking",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   }
+  ],
+  "vision_usable": false
+ },
+ "generated_at": "2026-10-07T02:55:35+00:00",
+ "head": "ffd5eae"
+}

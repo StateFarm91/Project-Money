@@ -575,6 +575,24 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
             problems.append(f"frame {position} ({sha[:12]}) is not a PNG, JPEG or GIF")
             continue
         alt = ""
+        if frame.get("kind") == "disclosed_gallery_frame":
+            # F-030 / F-254: a disclosed gallery frame is re-verified on these exact bytes
+            # against the certified CIR, and its alt text must be the one it would be
+            # certified with today; otherwise it is refused, never uploaded on trust.
+            from ..visual import launch_imagery as _li
+
+            job = str(frame.get("job") or "")
+            verdict = _li.check_supplement(slug, version, job, data, db=db, store=store)
+            want_alt = _li.expected_alt_text(slug, job)
+            if verdict["status"] != "PASS":
+                problems.append(f"frame {position} ({sha[:12]}) gallery frame refused at "
+                                f"export: {verdict['why']}"[:400])
+                continue
+            if not frame.get("alt_text") or frame["alt_text"] != want_alt:
+                problems.append(f"frame {position} ({sha[:12]}): certified alt text is not "
+                                f"the gallery frame's disclosed alt text")
+                continue
+            alt = frame["alt_text"]
         if is_disclosed:
             if copy_text is None:
                 from ..visual.render_verification import authoritative_cir
@@ -597,7 +615,9 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
         order.append({"position": position, "sha256": sha, "filename": name,
                       "bytes": len(data), "job": frame.get("job"),
                       "honesty_label": frame.get("honesty_label", "")}
-                     | ({"kind": "disclosed_render", "alt_text": alt} if is_disclosed else {}))
+                     | ({"kind": frame.get("kind"), "alt_text": alt}
+                        if frame.get("kind") in ("disclosed_render", "disclosed_gallery_frame")
+                        else {}))
     return {"images": images if not problems else [], "order": order,
             "record_id": cert["record_id"], "problems": problems}
 

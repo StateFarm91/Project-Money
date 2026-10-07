@@ -3145,10 +3145,10 @@
    "slug": "housewarming-key-basket",
    "title": "Housewarming Key Basket",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a in_the_round builder for a basket (basketweave, pine and cream); the products.builder tiler makes flat rows only",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -3165,14 +3165,55 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "in_the_round",
-      "form": "basket",
-      "motif": "basketweave",
-      "assembled_form_named": []
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "basket",
+        1
+       ]
+      ]
      },
-     "next_step": "engineer a in_the_round builder for a basket (basketweave, pine and cream); the products.builder tiler makes flat rows only",
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "142b52f0f9c6",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: housewarming-key-basket: the increases neither all stack nor all stagger, so the outline is not a named shape and drawing one would be a guess (cir.geometry.corners)"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
      "clearer": "COMPANY"
     }
    }
@@ -3181,11 +3222,11 @@
    "slug": "reading-nook-cable-wrap",
    "title": "Reading Nook Cable Wrap",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a side_to_side builder for a draped_garment (cable-twist, forest and cream); the products.builder tiler makes flat rows only",
-   "clearer": "COMPANY",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -3201,26 +3242,55 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "side_to_side",
-      "form": "draped_garment",
-      "motif": "cable-twist",
-      "assembled_form_named": []
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "wrap",
+        1
+       ]
+      ]
      },
-     "next_step": "engineer a side_to_side builder for a draped_garment (cable-twist, forest and cream); the products.builder tiler makes flat rows only",
+     "next_step": "",
      "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it pa"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
     }
    }
   },
   {
    "slug": "first-christmas-stocking",
-   "title": "First Christmas Fir and Star Stocking",
+   "title": "First Christmas Fir and Star Relief Stocking",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a in_the_round builder for a stocking (fir-and-star, forest and cream); the products.builder tiler makes flat rows only",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -3237,16 +3307,83 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "in_the_round",
-      "form": "stocking",
-      "motif": "fir-and-star",
-      "assembled_form_named": [
-       "stocking"
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "leg_front",
+        1
+       ],
+       [
+        "leg_back",
+        1
+       ],
+       [
+        "foot_front",
+        1
+       ],
+       [
+        "foot_back",
+        1
+       ],
+       [
+        "toe_front",
+        1
+       ],
+       [
+        "toe_back",
+        1
+       ],
+       [
+        "cuff",
+        1
+       ],
+       [
+        "loop",
+        1
+       ]
       ]
      },
-     "next_step": "engineer a in_the_round builder for a stocking (fir-and-star, forest and cream); the products.builder tiler makes flat rows only",
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "37997da15179",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: first-christmas-stocking: 8 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
      "clearer": "COMPANY"
     }
    }
@@ -3255,10 +3392,10 @@
    "slug": "mothers-day-heart-tea-cosy",
    "title": "Heart Row Tea Cosy",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a seamless_tube builder for a tube (heart-row, cream and wine); the products.builder tiler makes flat rows only",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -3275,16 +3412,63 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "seamless_tube",
-      "form": "tube",
-      "motif": "heart-row",
-      "assembled_form_named": [
-       "cosy"
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "cosy",
+        1
+       ],
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
       ]
      },
-     "next_step": "engineer a seamless_tube builder for a tube (heart-row, cream and wine); the products.builder tiler makes flat rows only",
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "96408a469e36",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: mothers-day-heart-tea-cosy: 3 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
      "clearer": "COMPANY"
     }
    }
@@ -3296,7 +3480,7 @@
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
    "stage_status": "FAIL",
-   "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -3365,7 +3549,7 @@
       ],
       "launch_scope": false
      },
-     "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
      "clearer": "COMPANY"
     }
    }
@@ -3374,11 +3558,11 @@
    "slug": "heart-row-ring-pillow",
    "title": "Heart Row Ring Pillow",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a in_the_round builder for a pillow (heart-row, cream and wine); the products.builder tiler makes flat rows only",
-   "clearer": "COMPANY",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -3394,17 +3578,52 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "in_the_round",
-      "form": "pillow",
-      "motif": "heart-row",
-      "assembled_form_named": [
-       "pillow"
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "pillow",
+        1
+       ],
+       [
+        "bottom",
+        1
+       ],
+       [
+        "ring_loop",
+        1
+       ]
       ]
      },
-     "next_step": "engineer a in_the_round builder for a pillow (heart-row, cream and wine); the products.builder tiler makes flat rows only",
+     "next_step": "",
      "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
     }
    }
   },
@@ -3412,10 +3631,10 @@
    "slug": "snowfall-advent-garland",
    "title": "Snowfall Mitten Advent Garland",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a motif_join builder for a garland (snowfall, forest and cream); the products.builder tiler makes flat rows only",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -3432,16 +3651,67 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "motif_join",
-      "form": "garland",
-      "motif": "snowfall",
-      "assembled_form_named": [
-       "garland"
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "mitten",
+        24
+       ],
+       [
+        "thumb",
+        24
+       ],
+       [
+        "loop_tab",
+        24
+       ],
+       [
+        "cord",
+        1
+       ]
       ]
      },
-     "next_step": "engineer a motif_join builder for a garland (snowfall, forest and cream); the products.builder tiler makes flat rows only",
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "8a79bd978d0f",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: snowfall-advent-garland: 4 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
      "clearer": "COMPANY"
     }
    }
@@ -3450,11 +3720,11 @@
    "slug": "spring-garden-kneeler",
    "title": "Spring Garden Kneeler",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a modular_panels builder for a pillow (tulip-trellis, pine and gold); the products.builder tiler makes flat rows only",
-   "clearer": "COMPANY",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -3470,15 +3740,48 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "modular_panels",
-      "form": "pillow",
-      "motif": "tulip-trellis",
-      "assembled_form_named": []
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
      },
-     "next_step": "engineer a modular_panels builder for a pillow (tulip-trellis, pine and gold); the products.builder tiler makes flat rows only",
+     "next_step": "",
      "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
     }
    }
   },
@@ -3629,19 +3932,19 @@
  ],
  "at_stage": {
   "INTELLIGENCE": 0,
-  "DESIGN": 30,
+  "DESIGN": 23,
   "PRODUCT": 0,
-  "PRODUCT_TRUTH": 7,
-  "VISUAL": 15,
+  "PRODUCT_TRUTH": 10,
+  "VISUAL": 19,
   "SEARCH": 5,
   "LISTING_READINESS": 0,
   "PUBLICATION": 0
  },
  "passed_stage": {
   "INTELLIGENCE": 57,
-  "DESIGN": 27,
-  "PRODUCT": 27,
-  "PRODUCT_TRUTH": 20,
+  "DESIGN": 34,
+  "PRODUCT": 34,
+  "PRODUCT_TRUTH": 24,
   "VISUAL": 5,
   "SEARCH": 0,
   "LISTING_READINESS": 0,
@@ -3683,5 +3986,20 @@
  "advances_publication": false,
  "publication_gate": "owner: shop/KYC, payout, fees, phase, sealed publication grant per release (D-FB-10); never advanced by this board",
  "generated_at": "2026-10-07T01:44:01+00:00",
- "head": "e72f086"
+ "head": "e72f086",
+ "pipe2_rows": {
+  "by": "W4-PIPE2 research/final_build/w4/pipe2_run.py",
+  "slugs": [
+   "first-christmas-stocking",
+   "reading-nook-cable-wrap",
+   "mothers-day-heart-tea-cosy",
+   "snowfall-advent-garland",
+   "teacher-chevron-pencil-roll",
+   "heart-row-ring-pillow",
+   "housewarming-key-basket",
+   "spring-garden-kneeler"
+  ],
+  "at": "2026-10-07T02:55:35+00:00",
+  "detail": "PIPE2_CANDIDATES.json"
+ }
 }

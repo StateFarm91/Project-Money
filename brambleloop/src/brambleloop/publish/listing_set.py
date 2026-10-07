@@ -43,6 +43,13 @@ class ListingSetRefused(ValueError):
 
 
 DISCLOSED_RENDER = "disclosed_render"
+# F-030 / F-254: a disclosed gallery frame (MATERIALS, COLOUR_CONTEXT, CONSTRUCTION, SIZING,
+# ANGLE) drawn from the certified CIR and re-verified on its bytes
+# (`visual.launch_imagery.check_supplement`). Held to the same disclosure rules as a
+# disclosed render. Mirrors `visual.launch_imagery.SUPPLEMENT_KIND`.
+DISCLOSED_SUPPLEMENT = "disclosed_gallery_frame"
+# W4-VISUAL2: the medium of the CONTENTS supplement (pages of the certified pattern PDF).
+PREVIEW_MEDIUM = "PATTERN_PREVIEW"   # gates.asset_truth.AssetClass.PATTERN_PREVIEW.value
 # Mirrors `cir.model.SINGLE_VARIANT`: a product with no optional features has one variant.
 SINGLE_VARIANT = "single"
 
@@ -76,7 +83,25 @@ class CertifiedFrame:
     represented_variant: str = ""
 
     def __post_init__(self) -> None:
-        if self.kind == DISCLOSED_RENDER:
+        if self.kind == DISCLOSED_SUPPLEMENT and self.medium == PREVIEW_MEDIUM:
+            # W4-VISUAL2: the CONTENTS frame previews the certified pattern PDF. It is not a
+            # render of the finished design, so it carries the pattern-preview label
+            # (`eligibility.PREVIEW_LABEL`, the label its medium computes) first in its alt
+            # text and as its honesty label -- never the render disclosure, which would
+            # describe something it does not show -- and it may do CONTENTS only.
+            from .disclosed_listing import ALT_TEXT_MAX
+
+            if self.job != eligibility.CONTENTS:
+                raise ListingSetRefused(f"{self.asset_id}: a pattern preview supplement does "
+                                        f"CONTENTS only, not {self.job}")
+            if self.honesty_label != eligibility.PREVIEW_LABEL or not (
+                    self.alt_text or "").startswith(eligibility.PREVIEW_LABEL):
+                raise ListingSetRefused(f"{self.asset_id}: a pattern preview is certified only "
+                                        f"with the preview label as its honesty label and "
+                                        f"first in its alt text")
+            if len(self.alt_text) > ALT_TEXT_MAX:
+                raise ListingSetRefused(f"{self.asset_id}: alt text longer than Etsy allows")
+        elif self.kind in (DISCLOSED_RENDER, DISCLOSED_SUPPLEMENT):
             from .disclosed_listing import ALT_TEXT_MAX, DISCLOSURE, _phrase_in
 
             if not _phrase_in(self.alt_text):
@@ -228,7 +253,8 @@ def _outcome(*readings: bool | None) -> str:
     return eligibility.PASSED
 
 
-def disclosed_gate_results(rec: dict, *, exported: bool, dimensions_ok: bool | None) -> dict:
+def disclosed_gate_results(rec: dict, *, exported: bool, dimensions_ok: bool | None,
+                           supplement_qa: dict | None = None) -> dict:
     """The four promotion gates, read off the disclosed set's own evidence.
 
     DATA_TRUTH         structural truth PASS on every frame, Asset Truth, and the listing's
@@ -244,12 +270,20 @@ def disclosed_gate_results(rec: dict, *, exported: bool, dimensions_ok: bool | N
     truth = [((f.get("structural_truth") or {}).get("status") == "PASS") for f in frames]
     legible = [_ok(((qa.get("frames") or {}).get(f.get("view")) or {}).get("legibility_340"))
                for f in frames]
+    # Supplement frames (F-030/F-254) add their own readings; they never replace the set's.
+    # `supplement_qa` is {"verified": [bool per frame], "layout_qa": {"ok"}, "frame_set": {"ok"}}
+    # measured over the whole ordered set including them.
+    sq = supplement_qa or {}
+    s_truth = [bool(v) for v in sq.get("verified") or []]
+    s_layout = [_ok(sq.get("layout_qa"))] if supplement_qa else []
+    s_set = [_ok(sq.get("frame_set"))] if supplement_qa else []
     return {
         eligibility.DATA_TRUTH: _outcome(*(truth or [None]), _ok(qa.get("asset_truth")),
-                                         dimensions_ok),
-        eligibility.LAYOUT_QA: _outcome(_ok(qa.get("layout_qa")), *(legible or [None])),
+                                         dimensions_ok, *s_truth),
+        eligibility.LAYOUT_QA: _outcome(_ok(qa.get("layout_qa")), *(legible or [None]),
+                                        *s_layout),
         eligibility.COMMERCIAL_QA: _outcome(_ok(qa.get("frame_set")), _ok(qa.get("mobile")),
-                                            _ok(qa.get("hero_thumbnail"))),
+                                            _ok(qa.get("hero_thumbnail")), *s_set),
         eligibility.POLICY_PROVENANCE: _outcome(bool(exported)),
     }
 
@@ -297,7 +331,9 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
                       images: list[tuple[str, bytes, str]], geometry: dict, claims: dict,
                       policy_version: str, platform_policy: dict | None = None,
                       dimensions_ok: bool | None,
-                      listing_variant: str | None = None) -> ListingCertificate:
+                      listing_variant: str | None = None,
+                      supplements: list[CertifiedFrame] | tuple = (),
+                      supplement_qa: dict | None = None) -> ListingCertificate:
     """Certify a disclosed-render listing set through the same `certify` every set goes through.
 
     Nothing is relaxed: the four gates must each have run and passed, the frames are bound by
@@ -320,6 +356,29 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
             f"disclosed set was rendered for {filed!r}; a listing may only show the "
             f"configuration it sells (F-757)")
     frames = disclosed_frames(rec, images, slug=slug)
+    # F-030 / F-254: verified supplement frames follow the disclosed set, in order, each a
+    # different job, each certified as a disclosed gallery frame with its readings recorded.
+    supplements = list(supplements or ())
+    if supplements:
+        if supplement_qa is None or len(supplement_qa.get("verified") or []) != len(supplements):
+            raise ListingSetRefused(f"{slug}: supplement frames offered without a verification "
+                                    f"reading for each")
+        expected = list(range(len(frames) + 1, len(frames) + 1 + len(supplements)))
+        if sorted(f.position for f in supplements) != expected:
+            raise ListingSetRefused(f"{slug}: supplement frames must follow the disclosed set "
+                                    f"at positions {expected}")
+        taken = {f.job for f in frames}
+        for f in supplements:
+            preview = f.medium == PREVIEW_MEDIUM and f.job == eligibility.CONTENTS
+            if f.kind != DISCLOSED_SUPPLEMENT or (f.medium != frames[0].medium
+                                                  and not preview):
+                raise ListingSetRefused(f"{f.asset_id}: only a disclosed gallery frame may "
+                                        f"supplement a disclosed set")
+            if f.job in taken:
+                raise ListingSetRefused(f"{f.asset_id}: {f.job} is already done by another "
+                                        f"frame; a second frame doing one job is the defect")
+            taken.add(f.job)
+        frames = frames + supplements
     shown = {f.represented_variant for f in frames}
     if listing_variant is not None and shown - {listing_variant}:
         raise ListingSetRefused(
@@ -329,9 +388,13 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
 
     return certify(slug=slug, version=version, frames=frames,
                    gate_results=disclosed_gate_results(rec, exported=True,
-                                                       dimensions_ok=dimensions_ok),
+                                                       dimensions_ok=dimensions_ok,
+                                                       supplement_qa=supplement_qa
+                                                       if supplements else None),
                    geometry=geometry, claims=claims, policy_version=policy_version,
-                   platform_policy=platform_policy, disclosures=(DISCLOSURE,),
+                   platform_policy=platform_policy,
+                   disclosures=(DISCLOSURE,) + ((eligibility.PREVIEW_LABEL,) if any(
+                       f.medium == PREVIEW_MEDIUM for f in frames) else ()),
                    variant=listing_variant if listing_variant is not None else filed)
 
 

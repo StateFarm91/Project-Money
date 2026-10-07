@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .grading import GradingRefused
-from .model import CIR, Gauge, Provenance, Repeat
+from .model import CIR, Gauge, Grading, Provenance, Repeat
 
 # ---- the published standard ---------------------------------------------------------------
 
@@ -156,11 +156,32 @@ TABLES: dict[str, BodyTable] = {"woman": WOMAN, "child": CHILD}
 # ---- the design's intent ------------------------------------------------------------------
 
 
+# The fit words a Brambleloop garment may be described with, and the chest ease (cm) each
+# one is allowed to mean (F-763). Brambleloop's own stated bands, not an industry standard:
+# the bands overlap where two words honestly describe the same garment (14-22 cm reads as
+# relaxed or slouchy), and they are what ties a fit word in a listing or a PDF to a number
+# the design actually carries. A design states its character; one whose chest ease is
+# outside its own word's band is refused before it is built.
+FIT_CHARACTERS: tuple[str, ...] = ("fitted", "relaxed", "slouchy", "oversized")
+FIT_EASE_BANDS_CM: dict[str, tuple[float, float]] = {
+    "fitted": (0.0, 8.0),
+    "relaxed": (8.0, 22.0),
+    "slouchy": (14.0, 28.0),
+    "oversized": (20.0, 60.0),
+}
+
+
 @dataclass(frozen=True)
 class FitIntent:
-    """Ease per measurement, in cm. Positive is room; negative ease is refused."""
+    """Ease per measurement, in cm. Positive is room; negative ease is refused.
+
+    `character` is the fit the design claims (`FIT_CHARACTERS`). Optional, because a design
+    may say nothing about its fit; then nothing downstream may say anything either
+    (`gates.policy` refuses a fit word with no stated character behind it).
+    """
 
     ease_cm: dict[str, float] = field(default_factory=dict)
+    character: str | None = None
 
     def __post_init__(self) -> None:
         for m, e in self.ease_cm.items():
@@ -169,6 +190,15 @@ class FitIntent:
             if e < 0:
                 raise GradingRefused(
                     f"negative ease on {m} means the garment is smaller than the body")
+        if self.character is not None:
+            if self.character not in FIT_CHARACTERS:
+                raise GradingRefused(f"fit {self.character!r} is not one of {FIT_CHARACTERS}")
+            lo, hi = FIT_EASE_BANDS_CM[self.character]
+            chest = float(self.ease_cm.get("bust", 0.0))
+            if not lo <= chest <= hi:
+                raise GradingRefused(
+                    f"a {self.character} fit means {lo:g}-{hi:g} cm of chest ease; this "
+                    f"design states {chest:g} cm, so its own fit word would be untrue")
 
     def ease(self, measurement: str) -> float:
         return float(self.ease_cm.get(measurement, 0.0))
@@ -250,6 +280,10 @@ class GradedDesign:
     # its compiled rows and twin. When given, `check_monotonic` checks what was built as
     # well as what was asked for, because rounding happens between the two (audit C-10).
     measure: Callable[[CIR], dict] | None = None
+    # Benchmarks consulted for demand and merchandising intelligence (F-794). Carried into
+    # every size's Provenance, so certification asks a benchmark-informed graded garment for
+    # its design-difference ledger exactly as it asks any other product.
+    benchmarks_consulted: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         unknown = [m for m in self.requires if m not in MEASUREMENTS]
@@ -290,6 +324,43 @@ class GradedDesign:
         return hashlib.sha256(json.dumps(brief, sort_keys=True).encode()).hexdigest()[:16]
 
     def build(self, size: str) -> CIR:
+        """One size, carrying the whole size family's matrix (F-762)."""
+        cir = self._build_raw(size)
+        cir.grading = self.grading_for(size)
+        return cir
+
+    def grading_for(self, size: str) -> Grading:
+        return Grading(design_key=self.key, size=size, table=self.table.name,
+                       source_url=self.table.source_url, retrieved=self.table.retrieved,
+                       fit=self.fit.character, ease_cm=dict(self.fit.ease_cm),
+                       sizes=[dict(e) for e in self.size_matrix()])
+
+    def size_matrix(self) -> list[dict]:
+        """The machine-readable size matrix: every sourced size, built and measured.
+
+        Body and intended (body + ease) per required measurement from the sourced table;
+        built finished measures, widest row per piece, rows per piece and whole-garment
+        yardage from that size's own compiled rows and twin (`measure_size`). Computed once
+        per design object: every size's CIR carries the same matrix.
+        """
+        cached = getattr(self, "_matrix", None)
+        if cached is not None:
+            return cached
+        out = []
+        for size in self.sourced_sizes():
+            g = self.graded_size(size)
+            entry = {"size": size,
+                     "body_cm": {m: g.body_cm(m) for m in self.requires},
+                     "intended_cm": {m: g.finished_cm(m) for m in self.requires}}
+            entry.update(measure_size(self._build_raw(size), self.measure))
+            out.append(entry)
+        # Recorded, not judged, here: certification re-checks every relationship from the
+        # matrix each size carries (`grading_problems`), so a design that grades badly is
+        # refused with the reason on its certificate rather than failing to exist.
+        self._matrix = out
+        return out
+
+    def _build_raw(self, size: str) -> CIR:
         graded = self.graded_size(size)
         cir = self.template(graded)
         fixed = _fixed_repeats(cir)
@@ -312,7 +383,8 @@ class GradedDesign:
         if cir.provenance is None:
             cir.provenance = Provenance(
                 concept_key=self.key, brief_digest=self.brief_digest(),
-                primitives_used=self.primitives, benchmarks_consulted=(),
+                primitives_used=self.primitives,
+                benchmarks_consulted=tuple(self.benchmarks_consulted),
                 generated_by="brambleloop")
         return cir
 
@@ -447,3 +519,151 @@ def size_run(cir_json: dict, catalogue: list[dict] | dict[str, dict] | None = No
                        "certified size of this design"}[design[0]]
     return {"sizes": len(run), "status": "MEASURED", "basis": basis, "design": design[1],
             "run": sorted(run)}
+
+
+# ---- the size matrix, measured and re-checked (F-762, F-768) -----------------------------
+
+# How far a size's built chest may sit from its intended chest (body + ease). Whole stitches
+# in whole pattern multiples are rounded per size, so the built garment is never exactly the
+# requested one. 5% is the suite's own intended-vs-twin tolerance (tests/test_cert_grading
+# TWIN_TOLERANCE); a size built to its neighbour's chest where the step is smaller than that
+# (CYC child 14 -> 16 is 3%) is caught by the strict rise of the built chest instead.
+CHEST_TOLERANCE = 0.05
+# A recomputed figure equal to the stored one, allowing only float formatting.
+_SAME_CM = 0.051
+_SAME_M = 0.51
+
+
+def measure_size(cir: CIR, measure: Callable[[CIR], dict] | None = None) -> dict:
+    """One size's matrix figures, recomputed from its own rows (never from the design)."""
+    from .compiler import compile_cir
+    from .twin import build_twin
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise GradingRefused(f"{cir.slug} does not compile: "
+                             f"{[str(e) for e in result.errors][:1]}")
+    stitches, rows, metres = {}, {}, 0.0
+    for comp in cir.components:
+        counts = [r.stitch_count for r in result.rows if r.component == comp.name]
+        stitches[comp.name] = max(counts) if counts else 0
+        rows[comp.name] = len(comp.rows)
+        twin = build_twin(cir, result, component=comp.name)
+        metres += sum(twin.yarn_metres_by_color.values()) * comp.make
+    built = {k: round(float(v), 1) for k, v in (measure(cir) if measure else {}).items()}
+    return {"built_cm": built, "stitches": stitches, "rows": rows,
+            "yarn_m": round(metres, 1)}
+
+
+def matrix_problems(sizes: list[dict], *, ease_cm: dict, fit: str | None) -> list[str]:
+    """Every grading relationship the size family breaks, recomputed from the matrix alone.
+
+    - intended = body + ease for every measurement, and ease is never negative;
+    - intended chest rises strictly with size, every other intended measure never falls;
+    - built chest rises strictly, every other built measure never falls;
+    - built chest within `CHEST_TOLERANCE` of intended chest, and never below the body;
+    - the widest row of every piece never falls, and yardage rises strictly;
+    - the stated fit character's chest-ease band holds at every size (on the built chest).
+    """
+    out: list[str] = []
+    if not sizes:
+        return ["the size matrix is empty"]
+    for e in sizes:
+        for m, body in (e.get("body_cm") or {}).items():
+            want = round(float(body) + float(ease_cm.get(m, 0.0)), 2)
+            got = (e.get("intended_cm") or {}).get(m)
+            if got is None or abs(float(got) - want) > _SAME_CM:
+                out.append(f"size {e['size']}: intended {m} {got} is not body {body} + ease "
+                           f"{ease_cm.get(m, 0.0)}")
+        chest, body = (e.get("built_cm") or {}).get("chest"), (e.get("body_cm") or {}).get("bust")
+        intended = (e.get("intended_cm") or {}).get("bust")
+        if chest is not None and intended:
+            if abs(chest - intended) / intended > CHEST_TOLERANCE:
+                out.append(f"size {e['size']}: built chest {chest} cm is more than "
+                           f"{CHEST_TOLERANCE:.0%} from the intended {intended} cm")
+            if body is not None and chest < body:
+                out.append(f"size {e['size']}: built chest {chest} cm is smaller than the "
+                           f"body it is graded to ({body} cm)")
+            if fit is not None and body is not None:
+                lo, hi = FIT_EASE_BANDS_CM[fit]
+                ease = chest - body
+                if not lo - 2.0 <= ease <= hi + 2.0:
+                    out.append(f"size {e['size']}: built chest ease {ease:.1f} cm is outside "
+                               f"the {fit} band {lo:g}-{hi:g} cm")
+    for a, b in zip(sizes, sizes[1:]):
+        pair = f"{a['size']} -> {b['size']}"
+        for block, strict in (("intended_cm", "bust"), ("built_cm", "chest")):
+            for m, vb in (b.get(block) or {}).items():
+                va = (a.get(block) or {}).get(m)
+                if va is None:
+                    continue
+                if vb < va - 1e-9 or (m == strict and not vb > va):
+                    out.append(f"{block[:-3]} {m} does not grow {pair}: {va} -> {vb}")
+        # Widest row only. Row counts are recorded and recomputed but legitimately fall: a
+        # drop-shoulder sleeve gets SHORTER as the shoulder drops further down a larger body.
+        for piece, vb in (b.get("stitches") or {}).items():
+            va = (a.get("stitches") or {}).get(piece)
+            if va is not None and vb < va:
+                out.append(f"{piece} widest row falls {pair}: {va} -> {vb} sts")
+        if not float(b.get("yarn_m") or 0) > float(a.get("yarn_m") or 0):
+            out.append(f"yardage does not rise {pair}: {a.get('yarn_m')} -> {b.get('yarn_m')}")
+    return out
+
+
+def grading_problems(cir: CIR) -> list[str]:
+    """F-768: certification recomputes a graded release instead of trusting its matrix.
+
+    This size's entry is recomputed from the CIR's own rows (stitches, rows, yardage and, for
+    a garment the garment instrument can measure, the built finished measures) and must
+    equal the stored one; then every relationship in the family is re-checked from the
+    matrix (`matrix_problems`), and the table and ease the block names must be the sourced
+    table's. A graded build (provenance `cir.graded`) with no matrix is a problem in itself.
+    """
+    g = cir.grading
+    prov = cir.provenance
+    graded_build = prov is not None and GRADED_PRIMITIVE in set(prov.primitives_used or ())
+    if g is None:
+        return (["a graded build carries no size matrix, so its sizes cannot be re-checked"]
+                if graded_build and cir.authored == "brambleloop" else [])
+    out: list[str] = []
+    table = next((t for t in TABLES.values() if t.name == g.table), None)
+    if table is None or table.source_url != g.source_url:
+        out.append(f"the size matrix names table {g.table!r} ({g.source_url}), which is not "
+                   f"a sourced body table")
+    else:
+        order = [s for s in table.names if s in g.size_names]
+        if list(g.size_names) != order:
+            out.append(f"the size matrix is not in the table's size order: "
+                       f"{list(g.size_names)}")
+        for e in g.sizes:
+            if e.get("size") not in table.names:
+                out.append(f"size {e.get('size')!r} is not in {table.name}")
+                continue
+            body = table.size(e["size"])
+            for m, v in (e.get("body_cm") or {}).items():
+                if body.cm(m) is None or abs(body.cm(m) - float(v)) > _SAME_CM:
+                    out.append(f"size {e['size']}: body {m} {v} is not the sourced "
+                               f"{body.cm(m)}")
+    mine = g.entry()
+    if mine is None:
+        return out + [f"this release's size {g.size!r} is not in its own size matrix"]
+    try:
+        measure = None
+        if mine.get("built_cm"):
+            from ..products.garments import built_measures as measure  # the garment instrument
+        now = measure_size(cir, measure)
+    except Exception as exc:  # noqa: BLE001 - a CIR that cannot be measured is a finding
+        return out + [f"size {g.size} could not be recomputed: {exc}"]
+    for block in ("stitches", "rows"):
+        if now[block] != mine.get(block):
+            out.append(f"size {g.size}: recomputed {block} {now[block]} differ from the "
+                       f"matrix {mine.get(block)}")
+    if abs(now["yarn_m"] - float(mine.get("yarn_m") or 0)) > _SAME_M:
+        out.append(f"size {g.size}: recomputed yardage {now['yarn_m']} m differs from the "
+                   f"matrix {mine.get('yarn_m')} m")
+    for m, v in (mine.get("built_cm") or {}).items():
+        if abs(now["built_cm"].get(m, float("nan")) - float(v)) > _SAME_CM \
+                or m not in now["built_cm"]:
+            out.append(f"size {g.size}: recomputed built {m} {now['built_cm'].get(m)} cm "
+                       f"differs from the matrix {v} cm")
+    return out + matrix_problems(g.sizes, ease_cm=g.ease_cm, fit=g.fit)

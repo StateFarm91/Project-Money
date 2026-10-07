@@ -458,8 +458,11 @@ RAGLAN_REQUIRES = ("bust", "back_length", "cross_back", "arm_length", "upper_arm
 # measures a row by the stitch-weighted height of the stitches in it, which moved this
 # design's stated yardage and/or size; a customer-visible figure cannot change under a
 # released version (tests/data/release_fingerprints.tsv pins content AND claims).
-HARBOUR_VERSION = "1.2.0"
-PEBBLE_VERSION = "1.1.0"
+# 1.3.0 / 1.2.0 (2026-10-07, F-762/F-763): every size now carries the whole family's size
+# matrix and the design's stated fit (`CIR.grading`), which the PDF prints as its size chart
+# -- new customer-visible content, so a new minor.
+HARBOUR_VERSION = "1.3.0"
+PEBBLE_VERSION = "1.2.0"
 
 
 def harbour_pullover() -> GradedDesign:
@@ -476,7 +479,8 @@ def harbour_pullover() -> GradedDesign:
     version = HARBOUR_VERSION
     return GradedDesign(
         key=key, title=title, table=WOMAN, gauge=gauge,
-        fit=FitIntent({"bust": 20, "back_length": 15, "armhole_depth": 4, "upper_arm": 8}),
+        fit=FitIntent({"bust": 20, "back_length": 15, "armhole_depth": 4, "upper_arm": 8},
+                      character="relaxed"),
         requires=DROP_SHOULDER_REQUIRES,
         primitives=("cir.graded", "cir.shaping.taper", "cir.assembly", "Seam"),
         measure=built_measures,
@@ -493,7 +497,8 @@ def pebble_cardigan() -> GradedDesign:
     key, title = "pebble-raglan-cardigan", "Pebble Raglan Cardigan"
     return GradedDesign(
         key=key, title=title, table=CHILD, gauge=gauge,
-        fit=FitIntent({"bust": 10, "back_length": 6, "armhole_depth": 2, "upper_arm": 5}),
+        fit=FitIntent({"bust": 10, "back_length": 6, "armhole_depth": 2, "upper_arm": 5},
+                      character="relaxed"),
         requires=RAGLAN_REQUIRES,
         primitives=("cir.graded", "cir.shaping.taper", "cir.shaping.distribute", "Hold",
                     "Seam"),

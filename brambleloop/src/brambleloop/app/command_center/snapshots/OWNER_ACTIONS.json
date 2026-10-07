@@ -1,0 +1,1870 @@
+{
+ "generated_at": "2026-10-07T02:35:09+00:00",
+ "lane": "W4-OWNER",
+ "sources": {
+  "runtime": "build2.executor.approval_inbox (Command Center approvals inbox)",
+  "production_rows": "9 OwnerAction rows open on fcb982d 2026-10-06",
+  "store": "STORE_READINESS origin/claude/w4-INTEG 7631026",
+  "visual": "VISUAL_STATUS origin/claude/w4-VISUAL 32332f5"
+ },
+ "counts": {
+  "before": {
+   "production_owner_action_rows": 9,
+   "runtime_gate_cards": 19,
+   "store_lane_items": 13,
+   "visual_lane_plans": 3,
+   "total_asks": 44
+  },
+  "after": {
+   "batches": 10,
+   "decisions": 26,
+   "minutes_total": 316
+  },
+  "converted_to_company_work": 3,
+  "deferred": 1
+ },
+ "fields": [
+  "decision",
+  "why",
+  "evidence",
+  "max_cost_cad",
+  "consequence_of_yes",
+  "consequence_of_no",
+  "minutes"
+ ],
+ "batches": [
+  {
+   "id": "go_live",
+   "title": "Go live on Etsy (one sitting in Shop Manager)",
+   "why_batched": "each of these is a step of the same move out of shadow mode; none is useful alone, and answering them together takes one Etsy session",
+   "decisions": 5,
+   "minutes_total": 67,
+   "max_cost_cad_total": 651.0,
+   "max_cost_display": "CA$651.00",
+   "items": [
+    {
+     "id": "leave_shadow",
+     "decision": "Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above are done.",
+     "why": "9 requirements are parked on it",
+     "evidence": "gate 'live_listings' opens when: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "listings can be published under the publication authority; the live-listing requirements un-park",
+     "consequence_of_no": "everything stays drafted and nothing reaches a customer",
+     "minutes": 5,
+     "gates": [
+      "live_listings"
+     ],
+     "requirement_keys": [
+      "live_listings",
+      "phase"
+     ],
+     "owner_action_ids": [
+      6
+     ],
+     "b2_rows": [
+      14,
+      16,
+      46,
+      238,
+      239,
+      241,
+      254,
+      263,
+      266
+     ],
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "live_listings",
+       "detail": {
+        "gate": "live_listings",
+        "status": "ASKED IN leave_shadow (company work first, per product)",
+        "company_work": "lane W4-PIPE moves the strongest products through the final publication gate (ops.publication_authority evidence); see PRODUCT_INVENTORY on claude/w4-PIPE",
+        "owner_action_after": "per product with complete publication evidence: approve its sealed 24h publication grant (D-FB-10) and leave shadow for that listing (decision leave_shadow)",
+        "owner_action": null,
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger",
+      "lane W4-GATESB",
+      "lane STORE OA-LAUNCH"
+     ],
+     "store_detail": [
+      "Launch authorisation for the first listings (separate gated approval)"
+     ],
+     "fields_missing": []
+    },
+    {
+     "id": "etsy_kyc_payout",
+     "decision": "Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not.",
+     "why": "production reason payout",
+     "evidence": "OwnerAction #3 raised 2026-10-07T02:35:09.586252 for payout",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "the payout prerequisite for publishing is met",
+     "consequence_of_no": "delay payout",
+     "minutes": 15,
+     "gates": [],
+     "requirement_keys": [
+      "payout"
+     ],
+     "owner_action_ids": [
+      3
+     ],
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "listing_fees",
+     "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
+     "why": "production reason listing_fees",
+     "evidence": "OwnerAction #4 raised 2026-10-07T02:35:09.586617 for listing_fees",
+     "max_cost_cad": 6.0,
+     "max_cost_display": "CA$6.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "publishing is no longer blocked on fees",
+     "consequence_of_no": "delay listing_fees",
+     "minutes": 2,
+     "gates": [],
+     "requirement_keys": [
+      "listing_fees"
+     ],
+     "owner_action_ids": [
+      4
+     ],
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "tester_outreach",
+     "decision": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
+     "why": "3 requirements are parked on it",
+     "evidence": "gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
+     "max_cost_cad": 185.0,
+     "max_cost_display": "CA$185.00",
+     "max_cost_basis": "ESTIMATED ceiling, gates.risk_matrix: 2.8 tester h x CA$20 + 63 m yarn (W4-GATESB)",
+     "consequence_of_yes": "a measured sample calibrates yardage and Class C products can become shippable",
+     "consequence_of_no": "no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale",
+     "minutes": 25,
+     "gates": [
+      "tester_roster",
+      "physical_proof"
+     ],
+     "requirement_keys": [
+      "tester_roster",
+      "physical_proof"
+     ],
+     "owner_action_ids": [],
+     "b2_rows": [
+      9,
+      43,
+      64,
+      250
+     ],
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "physical_proof",
+       "detail": {
+        "gate": "physical_proof",
+        "requirements": [
+         64
+        ],
+        "status": "OWNER-ACTION",
+        "decision": "one owner decision with tester_roster (owner_queue DECISIONS `tester_outreach`): confirm the outreach and approve the first agreed tester's paid make in one answer",
+        "pattern": {
+         "slug": "market-basket-small",
+         "version": "1.2.0",
+         "title": "Crochet Hexagonal Bread Basket",
+         "risk_class": "B (dimensional_form)",
+         "required": "partial_physical (a full make satisfies it and gives the #64 photograph)",
+         "scope": "full_make",
+         "content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+         "finished_size_cm": {
+          "across_points": 16.0,
+          "across_flats": 13.9,
+          "wall_height": 8.7
+         },
+         "yarn_metres_by_colour": {
+          "cream": 40.2,
+          "wine": 11.9
+         }
+        },
+        "why_this_pattern": "`market-basket-small` (Crochet Hexagonal Bread Basket) at its current\nrelease. Chosen by rule, not taste, from the Launch-0 products whose risk class requires\nphysical evidence before live sale (`gates.risk_matrix`):\n\n* hexagon-coaster-set is Class A -- clears on deterministic evidence; a make proves nothing\n  it needs;\n* cloudline-baby-blanket is Class B on high yardage: ~15 h make, ~600 m, ceiling ~CA$441;\n* the three market baskets are Class B on `dimensional_form`, share one gauge, stitch and\n  yarn weight (sc, 12.5 sts/10 cm, 5.0 mm, worsted cotton), and the small one is the\n  cheapest make (~2.2 h, ~52 m; ceiling CA$59.65 at the risk matrix's own rates).\n\nA full make of the small basket satisfies its partial-physical requirement (a full make\ncontains one, `risk_matrix.satisfies`), calibrates the sc/worsted-cotton yardage factor all\nthree baskets use, falsifies or confirms a closed 3-D form's stated size (the risk the class\nexists for), and yields the finished-object photograph #64's upgrade path is waiting for.",
+        "kit_files": {
+         "market-basket-small-1.2.0-TEST.pdf": "5d4578d24d3116efd9d3e2cd15a2f722b9cfb3cd1ca3dfe331b4c81c11abcc2d",
+         "market-basket-small-1.2.0-RECORD-SHEET.pdf": "335fd7aa9c65a0b1ab52119db02fd644e327206b76a4dc80a3769f29c7bfcf76"
+        },
+        "materials": [
+         {
+          "item": "worsted-weight 100% cotton yarn, colour A (cream)",
+          "quantity": "1 ball (twin: 40.2 m needed; any ball of >= 50 m)",
+          "est_cad": 5.0
+         },
+         {
+          "item": "worsted-weight 100% cotton yarn, colour B (wine)",
+          "quantity": "1 ball (twin: 11.9 m needed)",
+          "est_cad": 5.0
+         },
+         {
+          "item": "5.0 mm crochet hook",
+          "quantity": "1",
+          "est_cad": 6.0
+         },
+         {
+          "item": "tapestry needle, 4 stitch markers, scissors",
+          "quantity": "1 set",
+          "est_cad": 4.0
+         },
+         {
+          "item": "kitchen scale reading to 1 g",
+          "quantity": "tester's own",
+          "est_cad": 0.0
+         },
+         {
+          "item": "tape measure / ruler (cm)",
+          "quantity": "tester's own",
+          "est_cad": 0.0
+         }
+        ],
+        "materials_total_cad_estimated": 20.0,
+        "max_cost_cad": 59.65,
+        "cost_basis": "gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet",
+        "person_needed": {
+         "who": "one independent adult crocheter (not the owner, F-071) who agreed through the tester programme (quality.tester_programme)",
+         "skill": "confident with single crochet worked in joined rounds, increasing at six points to make a flat hexagon, and turning a base into straight walls; can read a written pattern in US terms; owns or can borrow a 1 g kitchen scale",
+         "time": "about 2-3 hours of making plus 15 minutes of measuring and recording"
+        },
+        "protocol": [
+         "Before starting: weigh each full ball and record the ball band (grams and metres)",
+         "Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook",
+         "Make the basket exactly as written in the test PDF; note every place you had to guess, re-read or rip back, with the round number",
+         "Weigh what is left of each ball; grams used = start minus end, per colour",
+         "Measure the finished base across the points and across the flats, and the wall height, in cm, without stretching",
+         "Record total hours and whether you followed the instructions exactly",
+         "Photograph the finished basket on a plain surface (top and side) in daylight",
+         "Return the record sheet and photos; the operator enters them (POST /api/physical-test and /api/physical-photo)"
+        ],
+        "records": [
+         {
+          "field": "tester_ref",
+          "label": "your tester reference",
+          "api": "tester_ref"
+         },
+         {
+          "field": "grams_cream",
+          "label": "grams used, colour A (cream)",
+          "api": "grams_by_color.cream"
+         },
+         {
+          "field": "grams_wine",
+          "label": "grams used, colour B (wine)",
+          "api": "grams_by_color.wine"
+         },
+         {
+          "field": "ball_band_grams",
+          "label": "ball band: grams per ball",
+          "api": "ball_band_grams"
+         },
+         {
+          "field": "ball_band_metres",
+          "label": "ball band: metres per ball",
+          "api": "ball_band_metres"
+         },
+         {
+          "field": "hook_mm",
+          "label": "hook used (mm)",
+          "api": "hook_mm"
+         },
+         {
+          "field": "swatch",
+          "label": "swatch: sts and rounds per 10 cm",
+          "api": "notes"
+         },
+         {
+          "field": "width_cm",
+          "label": "base across the points (cm)",
+          "api": "measured_width_cm"
+         },
+         {
+          "field": "flats_cm",
+          "label": "base across the flats (cm)",
+          "api": "notes"
+         },
+         {
+          "field": "height_cm",
+          "label": "wall height (cm)",
+          "api": "measured_height_cm"
+         },
+         {
+          "field": "hours",
+          "label": "total hours",
+          "api": "hours"
+         },
+         {
+          "field": "followed",
+          "label": "followed exactly? yes/no",
+          "api": "instructions_followed"
+         },
+         {
+          "field": "problems",
+          "label": "anything unclear or wrong (round numbers)",
+          "api": "notes"
+         }
+        ],
+        "intake": {
+         "test": "POST /api/physical-test (queued job physical.record)",
+         "photo": "POST /api/physical-photo {slug, sha256, source, rights}",
+         "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at"
+        },
+        "owner_action": {
+         "action": "approve commissioning the first agreed tester for this make (not the owner)",
+         "max_cost_cad": 59.65,
+         "minutes": 5
+        },
+        "classification": "OWNER-GATED"
+       }
+      },
+      {
+       "lane": "W4-GATESB",
+       "gate": "tester_roster",
+       "detail": {
+        "gate": "tester_roster",
+        "requirements": [
+         9,
+         43,
+         250
+        ],
+        "status": "OWNER-ACTION",
+        "channel": {
+         "primary": "Ravelry group 'The Testing Pool' -- a public tester-call post from the Brambleloop Ravelry account (makers browse it to find tests)",
+         "secondary": "a public post on the Brambleloop Etsy shop announcement or an owned channel once one exists; never direct messages to individuals",
+         "why_this_channel": "a public call is addressed to nobody, so it is not a commercial electronic message to an address; respondents contact us and give express consent on the intake form before we write to them",
+         "account_needed": "a Ravelry account in the owner's name (free; person-only signup)"
+        },
+        "offer": {
+         "deliverables": [
+          "tested_sample",
+          "finished_photograph"
+         ],
+         "gets": [
+          "the final pattern PDF free, and the next Brambleloop pattern of their choice free",
+          "a test fee for the make (approved per make by the owner; default ceiling from gates.risk_matrix: CA$20/hour of estimated make time, yarn reimbursed at cost up to the stated ceiling)",
+          "credit by name or handle in the pattern's acknowledgements, only if they want it"
+         ],
+         "never": [
+          "a review, rating, favourite or testimonial (not askable: growth.creators)",
+          "any condition on liking the pattern -- defects are the point of a test"
+         ]
+        },
+        "consent_text": "I agree that Brambleloop Studio may email me about this pattern test (instructions, questions about my results, and the test fee). This is express consent under Canada's Anti-Spam Legislation, recorded with today's date; I can withdraw it at any time by replying 'unsubscribe' or using the link in any message, and it is actioned within 10 business days. Separately, I choose whether Brambleloop may show my photos of the finished object (on its Etsy listings / its own site / its emails / ads), and I can withdraw that permission for future use at any time. I am 18 or older. I understand no review, rating or favourite is requested, and my fee does not depend on my opinion.",
+        "consent_version": "tester-consent-v1-2026-10-07",
+        "intake_fields": [
+         {
+          "field": "handle",
+          "label": "name or handle to call you by (stored as a reference, not a contact list)",
+          "required": true
+         },
+         {
+          "field": "email",
+          "label": "email for this test only (kept with the consent record, not on the roster)",
+          "required": true
+         },
+         {
+          "field": "country_region",
+          "label": "country and province/state (for terminology and shipping-free kits)",
+          "required": true
+         },
+         {
+          "field": "experience",
+          "label": "crochet experience: beginner / intermediate / advanced",
+          "required": true
+         },
+         {
+          "field": "specialties",
+          "label": "what you usually make (departments)",
+          "required": true
+         },
+         {
+          "field": "can_weigh_grams",
+          "label": "do you have a kitchen scale reading to 1 g? (yes/no)",
+          "required": true
+         },
+         {
+          "field": "terms_preference",
+          "label": "US or UK crochet terms",
+          "required": true
+         },
+         {
+          "field": "express_consent",
+          "label": "tick: I agree that Brambleloop Studio may email me about this pattern test (instructio...",
+          "required": true
+         },
+         {
+          "field": "photo_permission_scopes",
+          "label": "optional: brambleloop_listing / brambleloop_site / brambleloop_email / advertising",
+          "required": false
+         },
+         {
+          "field": "credit_preference",
+          "label": "optional: credit by name / by handle / no credit",
+          "required": false
+         }
+        ],
+        "outreach": {
+         "title": "[Tester call] Crochet Hexagonal Bread Basket -- worsted cotton, ~3 hrs, paid",
+         "body": "Hello! Brambleloop Studio (a small Canadian crochet pattern studio, Etsy shop BrambleloopStudio) is looking for 1-3 testers for a small hexagonal bread basket worked in single crochet: base about 16 cm across the points, walls about 9 cm tall, worsted-weight cotton in two colours (about 40 m + 12 m), 5.0 mm hook.\n\nWhat we ask: make the basket from the test PDF within 14 days, follow it exactly, and fill in the one-page record sheet -- grams used per colour, the ball band (grams and metres), your hook, finished measurements, hours, and anything that was unclear or wrong. Mistakes you find are the most useful thing you can send.\n\nWhat you get: the final pattern free, another Brambleloop pattern of your choice, a test fee for the make with yarn reimbursed (amount confirmed before you start), and credit if you want it. We never ask for reviews, ratings or favourites, and nothing depends on whether you like it.\n\nTo apply, reply in this thread or message the Brambleloop Ravelry account; we will send the intake form (it records your consent to be emailed about this test, which you can withdraw any time). Brambleloop Studio, Canada.",
+         "identification": "Brambleloop Studio, Canada; Etsy shop BrambleloopStudio",
+         "sends_to_individuals": false
+        },
+        "owner_steps": "1) sign in to (or create) the Brambleloop Ravelry account; 2) post OUTREACH.md's title and body as a new thread in the group 'The Testing Pool' (tester-call board); 3) forward replies to the operator, who sends the intake form and records each agreement (quality.tester_programme.record_agreement). Nothing is posted until you confirm",
+        "owner_minutes": 20,
+        "max_cost_cad": 0.0,
+        "sent": false,
+        "owner_action": {
+         "action": "CONFIRM the prepared public tester call (not sent)",
+         "channel": "Ravelry group 'The Testing Pool' -- a public tester-call post from the Brambleloop Ravelry account (makers browse it to find tests)",
+         "max_cost_cad": 0.0,
+         "minutes": 20,
+         "consequence_of_waiting": "no tester -> no physical proof (#64); Class B/C products stay blocked from live sale"
+        },
+        "intake": "quality.tester_programme.record_agreement (express consent required)",
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger",
+      "lane W4-GATESB"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "trademark_filing",
+     "decision": "Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work.",
+     "why": "production reason brand_clearance",
+     "evidence": "OwnerAction #5 raised 2026-10-07T02:35:09.586889 for brand_clearance",
+     "max_cost_cad": 460.0,
+     "max_cost_display": "CA$460.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "the name is protected before brand equity accumulates on it",
+     "consequence_of_no": "delay brand_clearance",
+     "minutes": 20,
+     "gates": [],
+     "requirement_keys": [
+      "brand_clearance"
+     ],
+     "owner_action_ids": [
+      5
+     ],
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "model_funding",
+   "title": "Fund the model provider",
+   "why_batched": "model_provider, image_vision and the funding rows are one Anthropic balance: one top-up opens all of them",
+   "decisions": 1,
+   "minutes_total": 5,
+   "max_cost_cad_total": 25.0,
+   "max_cost_display": "CA$25.00",
+   "items": [
+    {
+     "id": "fund_model",
+     "decision": "Add credit to the Anthropic account the API key belongs to (console.anthropic.com -> Plans & Billing).",
+     "why": "production reason model_credits",
+     "evidence": "gate 'model_provider' opens when: a recorded model.probe succeeded -- a real call, not a variable being set",
+     "max_cost_cad": 25.0,
+     "max_cost_display": "CA$25.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "judging, vision and text calls run again: identity measurement, asset-truth checks, gallery analysis, #94",
+     "consequence_of_no": "delay model_credits",
+     "minutes": 5,
+     "gates": [
+      "model_provider",
+      "image_vision"
+     ],
+     "requirement_keys": [
+      "model_credits",
+      "image_vision",
+      "model_provider_balance"
+     ],
+     "owner_action_ids": [
+      9,
+      8
+     ],
+     "b2_rows": [
+      15,
+      44,
+      61,
+      67,
+      86,
+      88,
+      116,
+      126,
+      218,
+      277,
+      281,
+      304,
+      308,
+      309
+     ],
+     "clearance": [
+      {
+       "lane": "W4-GATESI",
+       "gate": "model_provider",
+       "detail": {
+        "gate": "model_provider",
+        "kind": "OWNER-GATED",
+        "clears_in_code": "build2.executor._model_usable -> gateway.anthropic.usable(db): latest model.probe audit row ok=true. Probe runs on the existing cadence; opens by itself.",
+        "production_fact": "/api/model: key_present=true; last_probe 2026-10-07T00:01:03Z ok=false 'anthropic 400 ... Your credit balance is too low'. Ceiling CA$100/month in code.",
+        "repo_fix": "none needed",
+        "owner_action": {
+         "provider": "Anthropic (console.anthropic.com -> Billing -> Buy credits)",
+         "plan": "prepaid usage credits (no subscription); credit card + billing address",
+         "cost_cad": "minimum US$5 (~CA$6.85); recommended CA$25 (OWNER_ACTIONS fund_model); spend capped in code at CA$100/month",
+         "cost_source": "https://support.anthropic.com/en/articles/8977456-how-do-i-pay-for-my-api-usage",
+         "env_vars": [],
+         "env_vars_note": "ANTHROPIC_API_KEY already present on brambleloop-os (key_present=true); no variable change",
+         "minutes": 5,
+         "unlocks_requirements": [
+          94
+         ]
+        },
+        "same_action_also_opens": [
+         "image_vision"
+        ]
+       }
+      },
+      {
+       "lane": "W4-GATESI",
+       "gate": "image_vision",
+       "detail": {
+        "gate": "image_vision",
+        "kind": "OWNER-GATED",
+        "clears_in_code": "executor._vision_usable -> gateway.anthropic.vision_usable(db): latest vision.probe ok=true over a real Etsy gallery URL, and a reply describing no image is a failure.",
+        "production_fact": "/api/capabilities/probes: vision.probe 2026-10-07T00:03:20Z ok=false, same 'credit balance is too low' 400 on a real i.etsystatic.com image.",
+        "repo_fix": "none needed",
+        "owner_action": {
+         "provider": "Anthropic -- the SAME top-up as model_provider; no second action",
+         "cost_cad": "included in model_provider (vision ~6000 tokens/image, inside the CA$100/month ceiling)",
+         "env_vars": [],
+         "minutes": 0,
+         "unlocks_requirements": [
+          15,
+          44,
+          61,
+          67,
+          86,
+          88,
+          116,
+          126,
+          218,
+          277,
+          281,
+          304,
+          308,
+          309
+         ]
+        }
+       }
+      },
+      {
+       "lane": "W4-GATESI",
+       "gate": "image_generation",
+       "detail": {
+        "gate": "image_generation",
+        "kind": "OWNER-GATED (deploy only)",
+        "clears_in_code": "executor._image_generation_usable -> gateway.images.usable(db): latest image.probe ok=true.",
+        "production_fact": "/api/image-generation: credentialled=[flux-2-pro, gpt-image-2, nano-banana-2]; last_probe 2026-10-07T00:03:21Z provider flux-2-pro ok=false reason 'generate() needs a work_dir' -- a code defect, not a provider or credit fault.",
+        "repo_fix": {
+         "status": "FIXED on claude/w4-GATESI",
+         "what": "images.probe now owns a core.workspace.work_dir for its one render and passes work_dir to generate(); the directory is removed after the probe.",
+         "files": [
+          "brambleloop/src/brambleloop/gateway/images.py"
+         ],
+         "tests": "tests/test_w4_gatesi.py (5 checks on the probe), tests/test_rc1_spend.py, tests/test_w3_k12_model_photography.py"
+        },
+        "owner_action": {
+         "provider": "none new; deploy of this fix (owner deploy package, lane CC / production_window)",
+         "cost_cad": "CA$0.0274 per probe image (flux-2-pro assumed price) inside existing ceilings; BFL account credit balance UNKNOWN until the deployed probe runs",
+         "env_vars": [],
+         "env_vars_note": "per-account keys BRAMBLELOOP_IMAGE_KEY_<ACCOUNT> already credentialled on brambleloop-os",
+         "minutes": 0,
+         "unlocks_requirements": [],
+         "note": "gate carries no requirement ids (kept as evidence, executor.py); opening it re-proves rendering after the leak fix"
+        }
+       }
+      }
+     ],
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger",
+      "lane W4-GATESI"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "rulings",
+   "title": "Rulings only the owner can make (free, minutes)",
+   "why_batched": "free decisions with no account or spend behind them",
+   "decisions": 2,
+   "minutes_total": 12,
+   "max_cost_cad_total": 0.0,
+   "max_cost_display": "CA$0.00",
+   "items": [
+    {
+     "id": "acceptance_ruling",
+     "decision": "Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no).",
+     "why": "4 requirements are parked on it",
+     "evidence": "gate 'acceptance_ruling' opens when: an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "four requirements are graded against the API path",
+     "consequence_of_no": "they stay parked and every acceptance grade stays provisional",
+     "minutes": 2,
+     "gates": [
+      "acceptance_ruling"
+     ],
+     "requirement_keys": [
+      "acceptance_ruling"
+     ],
+     "owner_action_ids": [],
+     "b2_rows": [
+      189,
+      221,
+      222,
+      320
+     ],
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "production_window",
+     "decision": "Authorise deploying the reviewed build to the existing service for one unattended window (phase stays shadow).",
+     "why": "1 requirements are parked on it",
+     "evidence": "gate 'production_window' opens when: autonomy.launch_item reads PROVEN from the rows a full production window left",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "the off-device proof (#195) can be read from real rows, and the fixes that close stale production incidents take effect",
+     "consequence_of_no": "#195 stays parked and production keeps the stale rows",
+     "minutes": 10,
+     "gates": [
+      "production_window"
+     ],
+     "requirement_keys": [
+      "production_window"
+     ],
+     "owner_action_ids": [],
+     "b2_rows": [
+      195
+     ],
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "etsy_account",
+   "title": "Owner-only Etsy account screens",
+   "why_batched": "each needs the signed-in account holder in a browser, so they are done in the same login",
+   "decisions": 10,
+   "minutes_total": 48,
+   "max_cost_cad_total": 0.0,
+   "max_cost_display": "CA$0.00",
+   "items": [
+    {
+     "id": "transactions_scope",
+     "decision": "Re-authorise the Etsy app with the transactions_r scope (consent screen).",
+     "why": "2 requirements are parked on it",
+     "evidence": "gate 'transactions_r' opens when: the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "orders can be read (#11, #12)",
+     "consequence_of_no": "the order source stays closed",
+     "minutes": 3,
+     "gates": [
+      "transactions_r"
+     ],
+     "requirement_keys": [
+      "transactions_r"
+     ],
+     "owner_action_ids": [],
+     "b2_rows": [
+      11,
+      12
+     ],
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger",
+      "lane STORE OA-A1"
+     ],
+     "store_detail": [
+      "Re-authorise the Etsy app: Command Center GET /api/etsy/oauth/start -> Allow all scopes incl. transactions_r"
+     ],
+     "fields_missing": []
+    },
+    {
+     "id": "insights_reading",
+     "decision": "Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists).",
+     "why": "5 requirements are parked on it",
+     "evidence": "gate 'insights_access' opens when: at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "search-demand requirements (#1, #37, #236) get real readings",
+     "consequence_of_no": "they stay parked on proxies",
+     "minutes": 10,
+     "gates": [
+      "insights_access"
+     ],
+     "requirement_keys": [
+      "insights_access"
+     ],
+     "owner_action_ids": [],
+     "b2_rows": [
+      1,
+      37,
+      54,
+      236,
+      237
+     ],
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-OBS",
+     "decision": "Record what the live shop shows for the fields no API returns: About headline, About story, Laura's member bio and role (paste text; one dated observation)",
+     "why": "lets the drift job treat your configuration as authoritative and check it (Laura disclosed as AI, not in the Owner role) without touching it",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "the drift job treats the live About/Laura fields as authoritative and checks them (Laura disclosed as AI, not Owner) without touching them",
+     "consequence_of_no": "About/Laura fields stay UNKNOWN; previews may show stale repo drafts",
+     "minutes": 5,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-OBS"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-B",
+     "decision": "Account settings: profile picture = logo mark, real preferred name, short bio, 2FA on (Batch B)",
+     "why": "the account picture/name present the legal account holder; Laura must not appear as the account holder",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "the account presents the legal holder; Laura never reads as the owner",
+     "consequence_of_no": "a persona could read as the legal owner",
+     "minutes": 5,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-B"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-BANNER",
+     "decision": "Phone check: open the shop in the Etsy app, screenshot the banner; and decide on the banner gate findings listed in IMG-2 (nav footer shows Wearables/Gifts/Seasonal, which have no products yet; Laura publication status)",
+     "why": "the live banner is yours and is not replaced; Etsy publishes no mobile crop, and the repo gates found items only you can rule on",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "the phone crop is evidenced and the IMG-2 banner findings are ruled on; the live banner stays yours and is not replaced",
+     "consequence_of_no": "crop/footer findings stay unresolved",
+     "minutes": 3,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-BANNER"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-C",
+     "decision": "Shop settings still open: announcement (C5), location (C9), listing order Custom (C10), sold visibility off (C11)",
+     "why": "trust surfaces and ordering",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "announcement, location, custom order and sold-visibility trust surfaces are set",
+     "consequence_of_no": "shop snapshot keeps reporting missing trust surfaces",
+     "minutes": 5,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-C"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-D1",
+     "decision": "Create sections for populated categories only (today: Home, Baby)",
+     "why": "D-FB-18 item 3: never advertise empty categories",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "listings land in populated sections only (D-FB-18 item 3)",
+     "consequence_of_no": "listings land unsectioned",
+     "minutes": 3,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-D1"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-E",
+     "decision": "Info & Appearance: Message to Buyers + Message for Digital Items (Batch E)",
+     "why": "the digital message is the only text every buyer receives at purchase",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "every buyer receives the download guidance at purchase",
+     "consequence_of_no": "first buyers get no download guidance",
+     "minutes": 3,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-E"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-F",
+     "decision": "Policy Settings: privacy policy, FAQ with licence, cancellations (Batch F)",
+     "why": "Etsy trust surfaces; licence belongs in the FAQ for a Canadian shop",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "privacy, FAQ licence and cancellations are live; policy_consistency can pass on read-back",
+     "consequence_of_no": "policy_consistency stays failing",
+     "minutes": 10,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-F"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-G1",
+     "decision": "Settings > Options: 'Allow buyers to purchase digital prints' = Disabled",
+     "why": "a third party would sell printed copies of a pattern PDF",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated",
+     "consequence_of_yes": "no third party sells printed copies of a pattern PDF beside ours",
+     "consequence_of_no": "auto-enrolment may put a third-party product beside ours",
+     "minutes": 1,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-G1"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "storage",
+   "title": "Storage and continuity spend",
+   "why_batched": "both are storage accounts outside the code, approved as one spend line",
+   "decisions": 2,
+   "minutes_total": 25,
+   "max_cost_cad_total": null,
+   "max_cost_display": "UNKNOWN (at least one item is not costed)",
+   "items": [
+    {
+     "id": "storage_durable",
+     "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
+     "why": "production reason artifact_storage",
+     "evidence": "OwnerAction #1 raised 2026-10-07T02:35:09.578127 for artifact_storage",
+     "max_cost_cad": 5.0,
+     "max_cost_display": "CA$5.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "purchased files survive deploys",
+     "consequence_of_no": "delay artifact_storage",
+     "minutes": 10,
+     "gates": [],
+     "requirement_keys": [
+      "artifact_storage"
+     ],
+     "owner_action_ids": [
+      1
+     ],
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "runtime approval_inbox"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "storage_offsite",
+     "decision": "Create an object-storage bucket outside this provider and its credential.",
+     "why": "1 requirements are parked on it",
+     "evidence": "gate 'offsite_storage' opens when: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all",
+     "max_cost_cad": null,
+     "max_cost_display": "UNKNOWN",
+     "max_cost_basis": "UNKNOWN",
+     "consequence_of_yes": "the continuity archive survives losing the provider (#51)",
+     "consequence_of_no": "a provider loss loses the archive with it",
+     "minutes": 15,
+     "gates": [
+      "offsite_storage"
+     ],
+     "requirement_keys": [
+      "offsite_storage"
+     ],
+     "owner_action_ids": [],
+     "b2_rows": [
+      51
+     ],
+     "clearance": [
+      {
+       "lane": "W4-GATESI",
+       "gate": "offsite_storage",
+       "detail": {
+        "gate": "offsite_storage",
+        "kind": "OWNER-GATED",
+        "clears_in_code": "executor._offsite_archive_written -> core.offsite.usable(db): latest continuity.offsite_write recorded the full round trip (export, encrypt, upload, read back, decrypt, digest, restore into scratch DB).",
+        "production_fact": "/api/offsite: configured=false, encryption_key_present=false; last archive 2026-10-07T00:02:14Z ok=false stage=configuration 'no BRAMBLELOOP_ARCHIVE_URL in this environment'.",
+        "repo_fix": {
+         "status": "FIXED on claude/w4-GATESI",
+         "what": "SigV4 region is derived from the endpoint host (B2 s3.<region>.backblazeb2.com, R2 -> auto, AWS, Wasabi) instead of defaulting to us-west-004; an explicit BRAMBLELOOP_ARCHIVE_REGION still wins. Previously any bucket outside us-west-004 failed its first signed write.",
+         "files": [
+          "brambleloop/src/brambleloop/core/offsite.py"
+         ],
+         "tests": "tests/test_w4_gatesi.py (10 region checks), tests/test_offsite.py 14/14"
+        },
+        "owner_action": {
+         "provider": "Backblaze B2 (recommended; S3-compatible). Cloudflare R2 also works (region auto now handled).",
+         "plan": "B2 pay-as-you-go: first 10 GB free, then US$6.95/TB-month; no minimum duration",
+         "cost_cad": "CA$0 expected (14 retained gzipped encrypted exports, well under 10 GB); above that ~CA$9.52/TB-month",
+         "cost_source": "https://www.backblaze.com/cloud-storage/pricing",
+         "steps": "create account; create a PRIVATE bucket; create an application key restricted to that bucket with read+write+delete (delete is used for 14-archive retention); generate a long passphrase and keep an offline copy (without it no archive can ever be decrypted)",
+         "railway_service": "brambleloop-os",
+         "env_vars": [
+          "BRAMBLELOOP_ARCHIVE_URL",
+          "BRAMBLELOOP_ARCHIVE_BUCKET",
+          "BRAMBLELOOP_ARCHIVE_KEY_ID",
+          "BRAMBLELOOP_ARCHIVE_SECRET",
+          "BRAMBLELOOP_ARCHIVE_ENCRYPTION_KEY"
+         ],
+         "env_vars_optional": [
+          "BRAMBLELOOP_ARCHIVE_REGION (only if the endpoint host does not carry it)"
+         ],
+         "env_var_example": "BRAMBLELOOP_ARCHIVE_URL=https://s3.<region>.backblazeb2.com (the bucket's S3 endpoint shown in B2)",
+         "minutes": 15,
+         "unlocks_requirements": [
+          51
+         ],
+         "consequence_of_waiting": "a hosting-provider loss loses the archive with it"
+        }
+       }
+      }
+     ],
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger",
+      "lane W4-GATESI"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "infra",
+   "title": "Infrastructure services the code cannot create",
+   "why_batched": "third-party service accounts with a recurring cost, approved together",
+   "decisions": 1,
+   "minutes_total": 10,
+   "max_cost_cad_total": null,
+   "max_cost_display": "UNKNOWN (at least one item is not costed)",
+   "items": [
+    {
+     "id": "browser_worker",
+     "decision": "Approve a hosted browser worker account (provider and plan per the W4-GATESI clearance packet) so policy pages can be read as a buyer sees them; no CAPTCHA or bot-protection bypass is permitted.",
+     "why": "a third-party service account with a recurring cost; Etsy refuses automated fetchers (HTTP 403) and software must not spoof a browser",
+     "evidence": "ops/owner_queue.DECISIONS; executor gate(s) rendered_pages",
+     "max_cost_cad": null,
+     "max_cost_display": "UNKNOWN",
+     "max_cost_basis": "UNKNOWN",
+     "consequence_of_yes": "#35 and #39 can read current policy pages instead of search-engine excerpts",
+     "consequence_of_no": "policy knowledge stays on dated search-engine excerpts, refreshed by a build session every 30 days",
+     "minutes": 10,
+     "gates": [
+      "rendered_pages"
+     ],
+     "requirement_keys": [],
+     "owner_action_ids": [],
+     "b2_rows": null,
+     "clearance": [
+      {
+       "lane": "W4-GATESI",
+       "gate": "rendered_pages",
+       "detail": {
+        "gate": "rendered_pages",
+        "kind": "EXTERNAL-BLOCKED (etsy.com/legal) with a sanctioned partial path (help.etsy.com)",
+        "clears_in_code": "executor._rendered_pages_usable -> intel.browser.usable(db): latest browser.probe ok=true. No honest automated reader can satisfy it for etsy.com/legal.",
+        "production_fact": "/api/capabilities/probes: browser.probe 2026-10-07T00:03:20Z ok=false 'no BRAMBLELOOP_BROWSER_URL'. /api/policy: all 6 watched sources never_checked, 8 workflows blocked. Re-proven 2026-10-07 from this container: etsy.com/legal/sellers/ -> 403 (DataDome); Help Center article API -> 200 for 115015663347 (image requirements, edited 2026-05-04) and 360000336307 (tags/search, edited 2026-04-21).",
+        "repo_fix": {
+         "status": "FIXED on claude/w4-GATESI",
+         "what": "new gates/policy_reader.py reads the Help-Center-hosted watched sources (listing_image_rules, search_guidance) through the public Zendesk article API (robots-allowed, identifying UA, 3 s gap, one GET each, no retry past refusal), recorded as basis help_center_api with material-change compared on the same basis; wired into release.handle_policy_watch, on only in the hosted container (BRAMBLELOOP_POLICY_READER=0 disables). listing_image_rules URL corrected from article 360000343508 ('How to Download Your Listing Information') to 115015663347.",
+         "files": [
+          "brambleloop/src/brambleloop/gates/policy_reader.py",
+          "brambleloop/src/brambleloop/gates/platform_policy.py",
+          "brambleloop/src/brambleloop/runtime/release.py"
+         ],
+         "tests": "tests/test_w4_gatesi.py (19 reader/watch checks), test_platform_policy 13/13, test_policy_knowledge 20/20, test_policy_intake 8/8"
+        },
+        "owner_action": {
+         "provider": "none purchasable without evasion. A person reads the 5 etsy.com/legal sources (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby = policy_reader.external_sources()) in a normal browser and records each via POST /api/policy/snapshot, every <=30 days",
+         "cost_cad": "CA$0",
+         "env_vars": [],
+         "minutes": 15,
+         "minutes_note": "per 30-day cycle",
+         "unlocks_requirements": [
+          35,
+          39
+         ],
+         "note": "#39 stays parked on rendered_pages until the legal sources are recorded by a person; a headless browser against DataDome is refused (CAPTCHA/anti-bot never bypassed). BRAMBLELOOP_BROWSER_URL would not help: the worker would meet the same 403."
+        }
+       }
+      }
+     ],
+     "sources": [
+      "ops/owner_queue",
+      "lane W4-GATESI"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "benchmark",
+   "title": "Competitive benchmark purchases",
+   "why_batched": "the purchase gate and the pre-launch benchmark challenge wait on the same purchased patterns",
+   "decisions": 1,
+   "minutes_total": 75,
+   "max_cost_cad_total": 300.0,
+   "max_cost_display": "CA$300.00",
+   "items": [
+    {
+     "id": "benchmark_purchase",
+     "decision": "Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown.",
+     "why": "production reason benchmark_challenge",
+     "evidence": "OwnerAction #7 raised 2026-10-07T02:35:09.587387 for benchmark_challenge",
+     "max_cost_cad": 300.0,
+     "max_cost_display": "CA$300.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "the pre-launch challenge (#168) and teardowns can run",
+     "consequence_of_no": "delay benchmark_challenge",
+     "minutes": 75,
+     "gates": [
+      "benchmark_purchases"
+     ],
+     "requirement_keys": [
+      "benchmark_challenge",
+      "benchmark_purchases"
+     ],
+     "owner_action_ids": [
+      7
+     ],
+     "b2_rows": [
+      163,
+      165,
+      168,
+      315,
+      317
+     ],
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "benchmark_purchases",
+       "detail": {
+        "gate": "benchmark_purchases",
+        "requirements": [
+         163,
+         165,
+         168,
+         315,
+         317
+        ],
+        "status": "OWNER-ACTION",
+        "reconciliation": "the gate text said 'roughly ten'; the owner approved thirteen at a CA$300 ceiling on 2026-09-20 (B-501, B-512) and intake enforces SET_SIZE=13 / SET_BUDGET_CAD=300. The required set is the 13 below, chosen by purchase_selection's deterministic facet coverage (B-485, B-507/B-509): 428 of 441 observed listings become redundant; a 10-pick set would leave bags, home_decor and ornaments uncovered",
+        "source": "GET /api/benchmark-selection?target=13&budget_cad=300 (production fcb982d, read-only, 2026-10-07) -> evidence_GATESB/prod_benchmark_selection_13_300_fcb982d.json",
+        "picks": [
+         {
+          "n": 1,
+          "listing_ref": "4313051459",
+          "department": "garments",
+          "title": "CROCHET PATTERN & VIDEO/ Caribbean Sea Sweater, Crochet Lace Sweater Pattern, Lace Crochet Top, Gifting, Sizes Xs-5X, Womens, Pdf",
+          "price_cad": 22.0,
+          "url": "https://www.etsy.com/listing/4313051459/crochet-pattern-video-caribbean-sea"
+         },
+         {
+          "n": 2,
+          "listing_ref": "540992118",
+          "department": "blankets",
+          "title": "CROCHET PATTERN Large Mouth Bass Blanket - Crochet Pattern for Bass Fish - Large Mouth Bass Blanket Crochet Pattern MJ's Off The Hook Design",
+          "price_cad": 16.0,
+          "url": "https://www.etsy.com/listing/540992118/crochet-pattern-large-mouth-bass-blanket"
+         },
+         {
+          "n": 3,
+          "listing_ref": "1748603334",
+          "department": "collections",
+          "title": "CROCHET PATTERN EBOOK V-Stitch Summer Garment Collection includes V-Neck Top with Hood, Cardigan with 3/4 and long sleeve and Crewneck Top",
+          "price_cad": 60.5,
+          "url": "https://www.etsy.com/listing/1748603334/crochet-pattern-ebook-v-stitch-summer"
+         },
+         {
+          "n": 4,
+          "listing_ref": "1500579838",
+          "department": "education",
+          "title": "The Perfect Fit Guidebook: Unlocking Pattern Sizing and Body Measurements for Crochet Garments / PDF Digital Download Ebook",
+          "price_cad": 21.0,
+          "url": "https://www.etsy.com/listing/1500579838/the-perfect-fit-guidebook-unlocking"
+         },
+         {
+          "n": 5,
+          "listing_ref": "1465106601",
+          "department": "hats",
+          "title": "CROCHET HAT PATTERN/ Star Stitch Big Bow Baby Hat, Rose Flower Beanie",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/1465106601/crochet-hat-pattern-star-stitch-big-bow"
+         },
+         {
+          "n": 6,
+          "listing_ref": "648978969",
+          "department": "amigurumi",
+          "title": "CROCHET PATTERN Bulky & Quick Rustic Farmhouse Pumpkin Pattern",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/648978969/crochet-pattern-bulky-quick-rustic"
+         },
+         {
+          "n": 7,
+          "listing_ref": "1813509350",
+          "department": "stockings",
+          "title": "CROCHET PATTERN & VIDEO/ Snuggle Season Christmas Stocking, Crochet Christmas Decor, Holiday Gifting, Crochet Christmas Stocking, Pdf",
+          "price_cad": 19.0,
+          "url": "https://www.etsy.com/listing/1813509350/crochet-pattern-video-snuggle-season"
+         },
+         {
+          "n": 8,
+          "listing_ref": "1889917386",
+          "department": "kitchen_bath",
+          "title": "CROCHET PATTERN & VIDEO/ Cozy Cottage Dishcloth, Easy Crochet Dishcloth Pattern, Home Decor, Gifting, Pdf Pattern, Washcloth, Teacher Gift",
+          "price_cad": 16.0,
+          "url": "https://www.etsy.com/listing/1889917386/crochet-pattern-video-cozy-cottage"
+         },
+         {
+          "n": 9,
+          "listing_ref": "1330088510",
+          "department": "seasonal_gift",
+          "title": "CROCHET PATTERN & VIDEO/ Mj's Merry Advent Calendar Crochet Stockings and Mittens, Pdf Crochet Pattern, Easy Crochet Christmas Pattern",
+          "price_cad": 16.0,
+          "url": "https://www.etsy.com/listing/1330088510/crochet-pattern-video-mjs-merry-advent"
+         },
+         {
+          "n": 10,
+          "listing_ref": "628097461",
+          "department": "unclassified",
+          "title": "CROCHET PATTERN / Dusty Rose Baby Set",
+          "price_cad": 20.0,
+          "url": "https://www.etsy.com/listing/628097461/crochet-pattern-dusty-rose-baby-set"
+         },
+         {
+          "n": 11,
+          "listing_ref": "1321496043",
+          "department": "home_decor",
+          "title": "PUMPKIN PILLOW CROCHET Pattern / Hello Harvest Pumpkin Pillow pattern",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/1321496043/pumpkin-pillow-crochet-pattern-hello"
+         },
+         {
+          "n": 12,
+          "listing_ref": "4446092413",
+          "department": "bags",
+          "title": "CROCHET PATTERN & VIDEO/ Winterberry Soap Saver, Reusable Soap Pouch, Beginner Crochet, Eco Friendly Gift, Easy Make, Pdf, Gift Tags",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/4446092413/crochet-pattern-video-winterberry-soap"
+         },
+         {
+          "n": 13,
+          "listing_ref": "1613235888",
+          "department": "ornaments",
+          "title": "CROCHET PATTERN// Granny Square Ball, Granny square Christmas Ornament, Crochet Christmas Ornament, Christmas Crochet Pattern",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/1613235888/crochet-pattern-granny-square-ball"
+         }
+        ],
+        "total_cad": 280.5,
+        "budget_cad": 300.0,
+        "price_basis": "observed listing price in CAD; tax and any sale price on the day excluded",
+        "delivery": {
+         "page": "https://brambleloop-os-production.up.railway.app/ops/teardown",
+         "api": "https://brambleloop-os-production.up.railway.app/api/teardown/intake",
+         "steps": [
+          "Buy each listing on Etsy (signed in as the owner; any payment method).",
+          "Open Etsy > You > Purchases and reviews > Download files for that order.",
+          "Open https://brambleloop-os-production.up.railway.app/ops/teardown on the same phone or computer, paste the operator token (BRAMBLELOOP_OPS_TOKEN; kept in page memory only).",
+          "Tap the pick (rows are the approved set in the same order), choose the downloaded file(s) -- zips are accepted and expanded -- optionally type the price paid.",
+          "Repeat per purchase. The page shows received/outstanding; nothing needs renaming."
+         ],
+         "api_form": {
+          "listing_ref": "the Etsy listing id of the pick (required)",
+          "files": "one or more downloaded files (pdf/zip/images/video)",
+          "paid_cad": "optional: what was actually paid, in CAD",
+          "licence_terms": "optional JSON: the shop's stated licence terms"
+         },
+         "durability": "files are mirrored to the off-provider archive when offsite storage is configured; until then the reply says durable:false and the files should be re-uploaded after offsite storage exists",
+         "gate_opens_when": "the first BenchmarkProduct row exists (first intake)"
+        },
+        "owner_action": {
+         "action": "buy the 13 listings above and upload each download at /ops/teardown",
+         "max_cost_cad": 300.0,
+         "expected_cost_cad": 280.5,
+         "minutes": 75,
+         "consequence_of_waiting": "#168/#315 benchmark challenge cannot measure our deliverables; it stays a release blocker; #317 has nothing to analyse"
+        },
+        "never": "no competitor content is copied into products; files stay quarantined",
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger",
+      "lane W4-GATESB"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "channels",
+   "title": "Owned publishing channels",
+   "why_batched": "accounts that accept a platform's terms in the owner's name",
+   "decisions": 1,
+   "minutes_total": 65,
+   "max_cost_cad_total": 25.0,
+   "max_cost_display": "CA$25.00",
+   "items": [
+    {
+     "id": "owned_surfaces",
+     "decision": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
+     "why": "7 requirements are parked on it",
+     "evidence": "gate 'owned_surfaces' opens when: the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+     "max_cost_cad": 25.0,
+     "max_cost_display": "CA$25.00",
+     "max_cost_basis": "stated by the producer",
+     "consequence_of_yes": "off-Etsy content requirements un-park",
+     "consequence_of_no": "free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only",
+     "minutes": 65,
+     "gates": [
+      "owned_surfaces"
+     ],
+     "requirement_keys": [
+      "owned_surfaces"
+     ],
+     "owner_action_ids": [],
+     "b2_rows": [
+      4,
+      10,
+      246,
+      247,
+      248,
+      251,
+      255
+     ],
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "owned_surfaces",
+       "detail": {
+        "gate": "owned_surfaces",
+        "requirements": [
+         4,
+         10,
+         246,
+         247,
+         248,
+         251,
+         255
+        ],
+        "status": "PARTLY CLEARED (Etsy shop recognised) + OWNER-ACTION",
+        "cleared_portion": {
+         "surface": "Etsy shop BrambleloopStudio",
+         "evidence": {
+          "key": "etsy_shop",
+          "what": "a live Etsy shop, which only the account holder can open",
+          "how_it_is_checked": "the shop's public identifier is set AND a recorded etsy.probe succeeded -- the identifier alone is a variable, which is not a shop",
+          "requirement_ids": [],
+          "open": true
+         },
+         "satisfies": {
+          "4": "nothing: concept tests must never use Etsy listings (fake-listing ban); they need a surface of our own",
+          "10": "the paid destination (premium singles/collections are sold on the Etsy shop); the free-content top of the funnel needs a site",
+          "246": "the pin landing destination (an Etsy listing URL once a listing is live); posting pins needs a Pinterest business account",
+          "247": "the paid product each cluster ends on; the cluster pages need a site (Etsy shop pages cannot host informational content)",
+          "248": "listing video slots (per listing, once live); a canonical tutorial and Shorts need a video channel",
+          "251": "nothing: Etsy forbids marketing email to buyers from order data; a consented list needs our own signup + sending provider",
+          "255": "the product each tool links to; the tools need a site to run on"
+         }
+        },
+        "missing": {
+         "site": {
+          "what": "a Brambleloop website on a domain the company controls",
+          "why": "hosts free motifs/tutorials/tools, SEO topic clusters and the consented email signup (#4 #10 #247 #251 #255); Etsy shop pages cannot",
+          "owner_step": "buy brambleloop domain (registrar of choice) and point it at a static host; the company builds and publishes the pages",
+          "max_cost_cad": 25.0,
+          "cost_basis": "ESTIMATED: one .com/.ca domain-year; static hosting on a free tier",
+          "minutes": 20
+         },
+         "pinterest": {
+          "what": "a Pinterest business account for Brambleloop",
+          "why": "pins with seasonal lead time and attribution (#246), concept interest tests (#4), free-to-paid funnel entry (#10)",
+          "owner_step": "create a free Pinterest business account (accepts Pinterest's terms; person-only), then authorise the app",
+          "max_cost_cad": 0.0,
+          "cost_basis": "free account",
+          "minutes": 15
+         },
+         "email": {
+          "what": "an email sending provider with a CASL-compliant signup form",
+          "why": "welcome/launch/seasonal lifecycle flows to consented subscribers (#251) and the funnel's consented-email step (#10)",
+          "owner_step": "open a free-tier sending account (accepts its terms, verifies the sender domain and a physical mailing address for CASL)",
+          "max_cost_cad": 0.0,
+          "cost_basis": "free tier up to its subscriber cap",
+          "minutes": 20
+         },
+         "video": {
+          "what": "a YouTube channel for Brambleloop",
+          "why": "canonical technique tutorials and Shorts reused from flagship video modules (#248)",
+          "owner_step": "create a YouTube brand channel (Google account terms; person-only)",
+          "max_cost_cad": 0.0,
+          "cost_basis": "free",
+          "minutes": 10
+         }
+        },
+        "per_requirement_needs": {
+         "4": [
+          "pinterest",
+          "site"
+         ],
+         "10": [
+          "site",
+          "pinterest",
+          "email"
+         ],
+         "246": [
+          "pinterest"
+         ],
+         "247": [
+          "site"
+         ],
+         "248": [
+          "video"
+         ],
+         "251": [
+          "email"
+         ],
+         "255": [
+          "site"
+         ]
+        },
+        "owner_action": {
+         "max_cost_cad": 25.0,
+         "minutes": 65,
+         "minimum_to_open_gate": "site or Pinterest whose publish path passes owned_surface.probe"
+        },
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
+     "sources": [
+      "runtime approval_inbox",
+      "lane B2 ledger",
+      "lane W4-GATESB"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "paid_media",
+   "title": "Paid media (after organic sales exist)",
+   "why_batched": "advertising authority; recommended only after the shop has sold",
+   "decisions": 2,
+   "minutes_total": 6,
+   "max_cost_cad_total": null,
+   "max_cost_display": "UNKNOWN (at least one item is not costed)",
+   "items": [
+    {
+     "id": "ad_budget",
+     "decision": "Not askable yet: once a listing is ready to sell (gate_clearance.ad_readiness), set SpendLimit 'ads' to the recommended CA$3/day, CA$25 campaign, CA$60/month (paid_media.CONSERVATIVE_CAPS) or decline.",
+     "why": "advertising money leaves only on approval; ceilings are enforced in code",
+     "evidence": "ops/owner_queue.DECISIONS; executor gate(s) ad_authority",
+     "max_cost_cad": null,
+     "max_cost_display": "UNKNOWN",
+     "max_cost_basis": "UNKNOWN",
+     "consequence_of_yes": "the ads requirements un-park under that cap",
+     "consequence_of_no": "no paid media; recommended until organic sales exist",
+     "minutes": 5,
+     "gates": [
+      "ad_authority"
+     ],
+     "requirement_keys": [],
+     "owner_action_ids": [],
+     "b2_rows": [
+      294,
+      295
+     ],
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "ad_authority",
+       "detail": {
+        "gate": "ad_authority",
+        "requirements": [
+         294,
+         295
+        ],
+        "status": "NOT-YET-ASKABLE",
+        "definition_of_ready": [
+         "the listing exists on Etsy (Listing.etsy_listing_id set) and its state is active",
+         "its release is certified (Listing.release_hash set) -- the same release the listing was published from",
+         "orders can be read (transactions_r gate open), so CAC and contribution are measured rather than guessed; without it ads would run blind and are not recommended"
+        ],
+        "recommendation_when_ready": {
+         "daily_cad": 3.0,
+         "campaign_cad": 25.0,
+         "monthly_cad": 60.0,
+         "max_test_loss_cad": 25.0,
+         "max_cac_cad": 6.0,
+         "logic": "build2.gate_clearance.ad_readiness"
+        },
+        "structure": "one Etsy Ads campaign over the ready listings (max 4), highest net first; Etsy exposes no seller targeting beyond listing choice and daily budget; measured by ads.adjust; organic-first proof (#242) gates scaling",
+        "guardrails_in_code": [
+         "paid_media.authorise_spend",
+         "paid_media.should_pause",
+         "growth_ops ads.campaign hard refusal while gate closed",
+         "SpendLimit('ads') positive unpaused cap"
+        ],
+        "spend_now": 0.0,
+        "owner_action": null,
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
+     "sources": [
+      "ops/owner_queue",
+      "lane B2 ledger",
+      "lane W4-GATESB"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "OA-G2",
+     "decision": "Offsite Ads: decide enrolment (15% fee on attributed sales, no fixed spend)",
+     "why": "a margin decision, recorded rather than defaulted",
+     "evidence": "research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026)",
+     "max_cost_cad": null,
+     "max_cost_display": "UNKNOWN (15% of attributed orders (cap US$100/order))",
+     "max_cost_basis": "UNKNOWN (15% of attributed orders (cap US$100/order))",
+     "consequence_of_yes": "Offsite Ads enrolment is a recorded margin decision, not a default",
+     "consequence_of_no": "default enrolment stands",
+     "minutes": 1,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane STORE OA-G2"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  },
+  {
+   "id": "visual",
+   "title": "Paid image generation (visual plans)",
+   "why_batched": "three costed plans on one approval line",
+   "decisions": 1,
+   "minutes_total": 3,
+   "max_cost_cad_total": 4.01,
+   "max_cost_display": "CA$4.01",
+   "items": [
+    {
+     "id": "visual_paid_generation",
+     "decision": "Approve up to CA$4.01 of paid image calls for the costed visual plans: P1 photograph judging (gpt-5 d_judge, <=16 calls, max CA$1.00), P2 LIFESTYLE protected composites for the 3 Launch-0 listings (flux-2-pro, 12+12 calls, max CA$2.00), P3 first judged challenger per launch class (36 calls, max CA$1.01). Approve per plan or all three; or decline and use the no-API alternative (physical sample photo session, yarn ~CA$30 estimated).",
+     "why": "each plan is a paid API call (consequential spend needs owner approval); none has been executed (VISUAL_STATUS: 8 GATED_SPEND, never executed)",
+     "evidence": "research/final_build/w4/VISUAL_STATUS.md 'Owner-ready costed plans' on origin/claude/w4-VISUAL 32332f5; visual/milestones.py milestone_d.assess",
+     "max_cost_cad": 4.01,
+     "max_cost_display": "CA$4.01",
+     "max_cost_basis": "stated plan ceilings (worst case), summed",
+     "consequence_of_yes": "milestone D's 7 judged items become PASS or FAIL; LIFESTYLE frames for the 3 Launch-0 listings; one judged photographic challenger per launch class",
+     "consequence_of_no": "D stays PARTIAL with 7 UNKNOWN judgements; LIFESTYLE and the photographic challengers stay queued (GATED_SPEND)",
+     "minutes": 3,
+     "gates": null,
+     "requirement_keys": null,
+     "owner_action_ids": null,
+     "b2_rows": null,
+     "clearance": null,
+     "sources": [
+      "lane VISUAL"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    }
+   ]
+  }
+ ],
+ "converted_to_company_work": [
+  {
+   "id": "OA-A2",
+   "was": "Report whether the shop is 'open' (title/announcement editable)",
+   "now": "the shop state is read by etsy.shop_snapshot (getShop, shops_r) once OA-A1 has re-authorised the app; no separate owner report is needed"
+  },
+  {
+   "id": "brand_clearance.knockout",
+   "was": "run a trademark knock-out search",
+   "now": "free public read-only search: company work; the owner decides only the filing (launch/readiness.py TRADEMARK_SCREEN)"
+  },
+  {
+   "id": "culture_feed",
+   "was": "approval card for the culture_feed gate",
+   "now": "opened by the company's own daily culture.sweep cadence (owner_queue.COMPANY_OPENED_GATES); never shown as an owner ask"
+  }
+ ],
+ "no_longer_asked": [
+  {
+   "id": "production owner action 2 (etsy_shop)",
+   "why": "the shop exists (executor gate etsy_shop, 2026-09-19); readiness now reads the gate, so 'open the Etsy shop' is not asked again; KYC/payout/tax become the etsy_kyc_payout confirmation"
+  }
+ ],
+ "deferred": [
+  {
+   "id": "OA-STATS",
+   "action": "After the first listings are live: export the listing-level Etsy Stats CSV and upload it (POST /api/attribution/stats)",
+   "why": "askable only after the first listings are live (DATA-GATED on go-live); produced then by the attribution intake"
+  }
+ ],
+ "b2_owner_gated": {
+  "rows": 58,
+  "decisions": 11,
+  "placement": {
+   "1": "insights_reading",
+   "4": "owned_surfaces",
+   "9": "tester_outreach",
+   "10": "owned_surfaces",
+   "11": "transactions_scope",
+   "12": "transactions_scope",
+   "14": "leave_shadow",
+   "15": "fund_model",
+   "16": "leave_shadow",
+   "37": "insights_reading",
+   "43": "tester_outreach",
+   "44": "fund_model",
+   "46": "leave_shadow",
+   "51": "storage_offsite",
+   "54": "insights_reading",
+   "61": "fund_model",
+   "64": "tester_outreach",
+   "67": "fund_model",
+   "86": "fund_model",
+   "88": "fund_model",
+   "116": "fund_model",
+   "126": "fund_model",
+   "163": "benchmark_purchase",
+   "165": "benchmark_purchase",
+   "168": "benchmark_purchase",
+   "189": "acceptance_ruling",
+   "195": "production_window",
+   "218": "fund_model",
+   "221": "acceptance_ruling",
+   "222": "acceptance_ruling",
+   "236": "insights_reading",
+   "237": "insights_reading",
+   "238": "leave_shadow",
+   "239": "leave_shadow",
+   "241": "leave_shadow",
+   "242": "NOT_AN_OWNER_DECISION (mislabelled_company_work)",
+   "243": "NOT_AN_OWNER_DECISION (mislabelled_company_work)",
+   "244": "NOT_AN_OWNER_DECISION (mislabelled_company_work)",
+   "245": "NOT_AN_OWNER_DECISION (mislabelled_company_work)",
+   "246": "owned_surfaces",
+   "247": "owned_surfaces",
+   "248": "owned_surfaces",
+   "250": "tester_outreach",
+   "251": "owned_surfaces",
+   "254": "leave_shadow",
+   "255": "owned_surfaces",
+   "263": "leave_shadow",
+   "266": "leave_shadow",
+   "277": "fund_model",
+   "281": "fund_model",
+   "294": "ad_budget",
+   "295": "ad_budget",
+   "304": "fund_model",
+   "308": "fund_model",
+   "309": "fund_model",
+   "315": "benchmark_purchase",
+   "317": "benchmark_purchase",
+   "320": "acceptance_ruling"
+  },
+  "source": "origin/claude/w4-B2 5241e46 brambleloop/research/final_build/w4/BUILD2_LEDGER.json (as_of 2026-10-07T00:47:10+00:00)"
+ },
+ "mislabelled_company_work": [
+  {
+   "row": 242,
+   "gate": "ad_authority",
+   "no_owner_part": true,
+   "owning_lane": "B2 (ledger) / growth",
+   "executable_part": "the organic-first proof is computed by the daily ads.adjust cadence (runtime/growth_ops.handle_ads_adjust, which runs whatever the ad authority); what it waits for is organic ListingOutcome/order data, so the row is DATA-GATED (live listings + transactions_r), not ad-gated"
+  },
+  {
+   "row": 243,
+   "gate": "ad_authority",
+   "no_owner_part": true,
+   "owning_lane": "B2 (ledger) / growth",
+   "executable_part": "risk-adjusted allowable CAC is computed in ads.adjust and refused under 20 orders: the blocker is order count (DATA-GATED), not ad authority"
+  },
+  {
+   "row": 244,
+   "gate": "ad_authority",
+   "no_owner_part": true,
+   "owning_lane": "B2 (ledger) / growth",
+   "executable_part": "the Offsite Ads economics guard is arithmetic over orders and fees computed in ads.adjust; Offsite Ads is a fee on attributed sales, not spend, so ad authority is not its gate (the enrolment choice is store decision OA-G2); remaining blocker = order data"
+  },
+  {
+   "row": 245,
+   "gate": "ad_authority",
+   "no_owner_part": true,
+   "owning_lane": "B2 (ledger) / growth",
+   "executable_part": "Share-and-Save/direct-link economics involve no spend at all; the computation is company work and its remaining blocker is order data"
+  },
+  {
+   "row": 10,
+   "gate": "owned_surfaces",
+   "owning_lane": "B2 / growth",
+   "executable_part": "the ledger note says no free work has been made: drafting a free lead-magnet asset through the product chain and running growth/free_to_paid.check_asset on it needs no surface (it stays unpublished in shadow); only publication waits on owned_surfaces"
+  },
+  {
+   "row": 165,
+   "gate": "benchmark_purchases",
+   "owning_lane": "B2 (ledger)",
+   "executable_part": "refresh detection (new category, strong competitor, format/market shift) is software and already runs (intel.benchmark_refresh, runtime/release.py); only buying the refreshed set is the owner's. The row should be split: detection PROVEN, purchase OWNER-GATED"
+  },
+  {
+   "row": 54,
+   "gate": "insights_access",
+   "owning_lane": "B2 (ledger)",
+   "executable_part": "the pre-Etsy launch readiness gate is company software (launch/readiness.assess, 2 tests, rollback rehearsal, search baseline from listing.query_portfolio); an Insights reading is one input that stays UNKNOWN until recorded. Gate = PROVEN, Insights input = OWNER-GATED under insights_reading"
+  }
+ ],
+ "gate_clearance": {
+  "folded": [
+   {
+    "lane": "infra",
+    "gate": "model_provider",
+    "decision": "fund_model"
+   },
+   {
+    "lane": "infra",
+    "gate": "image_vision",
+    "decision": "fund_model"
+   },
+   {
+    "lane": "infra",
+    "gate": "image_generation",
+    "decision": "fund_model"
+   },
+   {
+    "lane": "infra",
+    "gate": "offsite_storage",
+    "decision": "storage_offsite"
+   },
+   {
+    "lane": "infra",
+    "gate": "rendered_pages",
+    "decision": "browser_worker"
+   },
+   {
+    "lane": "business",
+    "gate": "benchmark_purchases",
+    "decision": "benchmark_purchase"
+   },
+   {
+    "lane": "business",
+    "gate": "physical_proof",
+    "decision": "tester_outreach"
+   },
+   {
+    "lane": "business",
+    "gate": "tester_roster",
+    "decision": "tester_outreach"
+   },
+   {
+    "lane": "business",
+    "gate": "owned_surfaces",
+    "decision": "owned_surfaces"
+   },
+   {
+    "lane": "business",
+    "gate": "ad_authority",
+    "decision": "ad_budget"
+   },
+   {
+    "lane": "business",
+    "gate": "live_listings",
+    "decision": "leave_shadow"
+   }
+  ],
+  "not_owner": [
+   {
+    "lane": "business",
+    "gate": "second_market_benchmark",
+    "why": "COMPANY-WORK"
+   },
+   {
+    "lane": "business",
+    "gate": "customers",
+    "why": "DATA-GATED"
+   }
+  ],
+  "unmapped": [],
+  "pending": []
+ },
+ "b2_genuine_gate_evidence_gaps": [
+  {
+   "row": 254,
+   "note": "tests/test_personalisation.py and runtime callers (runtime/commerce_readings.py, products/launch0.py) exist but the ledger lists 0 tests"
+  },
+  {
+   "row": 263,
+   "note": "scale/leading.py reports all ten indicators; ledger lists 0 tests"
+  },
+  {
+   "row": 37,
+   "note": "intel/insights_budget.py runs on commerce.readings; 0 tests mapped"
+  },
+  {
+   "row": 14,
+   "note": "commerce/benchmarks.py; 0 tests mapped"
+  },
+  {
+   "row": 16,
+   "note": "commerce/listing_tests.py, growth/experiments.py; 0 tests mapped"
+  },
+  {
+   "row": 9,
+   "note": "growth/creators.py; 0 tests mapped"
+  },
+  {
+   "row": 51,
+   "note": "core/continuity.py export path; 0 tests mapped"
+  }
+ ]
+}

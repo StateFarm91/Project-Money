@@ -554,7 +554,7 @@ def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
     """
     from ..publish import disclosed_listing, listing_asset
 
-    if not listing_asset._in_launch_scope(slug):
+    if not listing_asset.has_render_authority(slug):
         return None
     current = listing_asset.last(ctx.db, slug=slug)
     if current and current.get("kind") != "disclosed_render" and listing_asset.usable(current):

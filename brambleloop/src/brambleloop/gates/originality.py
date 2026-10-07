@@ -790,6 +790,89 @@ def release_findings(cir, *, pattern_text: str | None = None, db=None) -> list[F
     return findings
 
 
+
+# ---- presentation (F-784 / F-795) --------------------------------------------------------
+#
+# The fifth dimension: does a Brambleloop listing image look like a benchmark's photograph?
+# A 64-bit difference hash (9x8 greyscale gradient signs) of every candidate frame against
+# every benchmark image the purchase manifest lists. Identical bytes are caught by
+# `refuse_benchmark_reference` at generation; this catches the re-encoded, resized or lightly
+# edited copy of a competitor's composition. The images are read only through the library's
+# own reader, by the quality director, for the licence's `similarity_review` use.
+
+PRESENTATION_MATERIAL_BITS = 10      # of 64; a resize/re-encode moves a few bits, a new photo ~32
+_IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
+
+
+def image_dhash(data: bytes) -> int:
+    """64-bit difference hash of an image's bytes. Deterministic, PIL only."""
+    import io
+
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(data)).convert("L").resize((9, 8), Image.LANCZOS)
+    px = list(img.getdata())
+    bits = 0
+    for row in range(8):
+        for col in range(8):
+            bits = (bits << 1) | (1 if px[row * 9 + col] > px[row * 9 + col + 1] else 0)
+    return bits
+
+
+def presentation_compare(candidate: dict[str, bytes], benchmark: dict[str, bytes]) -> dict:
+    """Every candidate frame against every benchmark image. Unmeasured when either is empty."""
+    if not candidate or not benchmark:
+        return {"verdict": "unmeasured",
+                "why": ("no candidate listing frames to compare" if not candidate else
+                        "no benchmark images in any purchase manifest")}
+    ours = {k: image_dhash(v) for k, v in candidate.items()}
+    theirs = {k: image_dhash(v) for k, v in benchmark.items()}
+    pairs = sorted((bin(a ^ b).count("1"), mk, tk) for mk, a in ours.items()
+                   for tk, b in theirs.items())
+    hits = [{"frame": mk, "benchmark_image": tk, "distance_bits": d}
+            for d, mk, tk in pairs if d <= PRESENTATION_MATERIAL_BITS]
+    return {"verdict": "material" if hits else "clear", "hits": hits[:6],
+            "closest_bits": pairs[0][0], "compared": len(pairs)}
+
+
+def benchmark_images(db, env: dict[str, str] | None = None) -> dict[str, bytes]:
+    """Every image a purchase manifest lists, read through the library for similarity review."""
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkProduct
+    from ..teardown.library import LibraryRefused, retrieve
+
+    with db.session() as s:
+        rows = [(r.ref, list(r.files or [])) for r in s.scalars(select(BenchmarkProduct))]
+    out: dict[str, bytes] = {}
+    for ref, files in rows:
+        for f in files:
+            name = str(f.get("name", "")) if isinstance(f, dict) else ""
+            if not name.lower().endswith(_IMAGE_SUFFIXES):
+                continue
+            rel = f"{ref}/{name}"
+            try:
+                out[rel] = retrieve(rel, "quality_director", env, db=db, use="similarity_review")
+            except LibraryRefused:
+                continue          # absent or not licensed for review: reported as not compared
+    return out
+
+
+def presentation_review(db, *, frames: dict[str, bytes], env: dict[str, str] | None = None
+                        ) -> list[Finding]:
+    """Material presentation overlap is an ERROR (escalate for redesign); unmeasured a WARNING."""
+    verdict = presentation_compare(frames, benchmark_images(db, env))
+    if verdict["verdict"] == "material":
+        return [Finding(ERROR, "SIMILARITY_ESCALATED",
+                        f"listing frame {h['frame']} is {h['distance_bits']}/64 bits from "
+                        f"benchmark image {h['benchmark_image']}: presentation overlaps "
+                        f"materially, escalated for redesign (F-795)")
+                for h in verdict["hits"]]
+    if verdict["verdict"] == "unmeasured":
+        return [Finding(WARNING, "SIMILARITY_UNMEASURED",
+                        f"presentation not compared: {verdict['why']}")]
+    return []
+
 # ---------------------------------------------------------------------------
 # 4. Generation references (F-785)
 
