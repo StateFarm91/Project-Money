@@ -58,17 +58,17 @@ def test_agents_provider_reports_every_agent_after_real_work():
     assert CONTRACT <= set(env), env
     assert env["status"] != "UNKNOWN", env
     assert env["as_of"], env
-    items = env["items"]
-    assert items, env
-    names = {i["agent"] for i in items}
+    agent_rows = env["items"]
+    assert agent_rows, env
+    names = {i["agent"] for i in agent_rows}
     assert names == {a["name"] for a in DEFAULT_AGENTS}, names ^ {a["name"] for a in DEFAULT_AGENTS}
-    for i in items:
+    for i in agent_rows:
         assert AGENT_FIELDS <= set(i), (i["agent"], AGENT_FIELDS - set(i))
         assert i["state"] in ("active", "sleeping", "blocked", "unhealthy"), i
         if i["completed"] == 0:
             # UNKNOWN is never 0: no completions means no rate, not a 0% rate.
             assert i["useful_rate"] is None and i["noop_rate"] is None, i
-    assert any(i["completed"] for i in items), "no agent recorded a completion"
+    assert any(i["completed"] for i in agent_rows), "no agent recorded a completion"
 
 
 def test_rule1_measure_covers_every_department():
