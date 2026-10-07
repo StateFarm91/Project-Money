@@ -212,6 +212,7 @@ def test_long_read_only_analysis_does_not_starve_the_release_chain_at_boot():
     jt = "ops.maturity_disagreements"
     assert jt in wm.BOOT_DEFERRED_SECONDS
     chain = ("chain.rebuild", "cir.draft", "gate.certify", "assets.build")
+    assert chain
     for c in chain:
         assert orchestrate.priority_for(jt) > orchestrate.priority_for(c), c
     started = wm.utcnow()
