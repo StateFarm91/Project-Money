@@ -1,0 +1,248 @@
+{
+ "kind": "W4-LEARN runtime proof",
+ "commit": "1dd8243d369b4d3abedb59f0c3f5c85e7617378a",
+ "phase": "shadow",
+ "database": "fresh sqlite (temp)",
+ "chain_jobs": 30,
+ "chain_seconds": 310.1,
+ "jobs": {
+  "cir.compile": {
+   "done": 3
+  },
+  "gate.certify": {
+   "done": 3
+  },
+  "gate.lanes": {
+   "done": 3
+  },
+  "listing.draft": {
+   "done": 3
+  },
+  "assets.build": {
+   "done": 3
+  },
+  "pricing.position": {
+   "done": 3
+  },
+  "listing.seo": {
+   "done": 3
+  },
+  "launch.plan": {
+   "done": 3
+  },
+  "marketing.schedule": {
+   "done": 3
+  },
+  "store.publish": {
+   "dead": 3
+  },
+  "improve.mine": {
+   "done": 1
+  },
+  "learn.scan": {
+   "done": 1
+  },
+  "improve.measure": {
+   "done": 1
+  }
+ },
+ "improve.mine": {
+  "read": 3,
+  "found": 1,
+  "dead": 0,
+  "dead_not_defects": 3,
+  "blocked": 3,
+  "published": [
+   {
+    "lesson": 1,
+    "kind": "release_block",
+    "code": "search certificate f-005",
+    "evidence_ref": "store.release_gates:search certificate f-005",
+    "members": 3,
+    "reports": 3,
+    "routed_to": [
+     "quality",
+     "pattern_engineering",
+     "runtime",
+     "learn"
+    ],
+    "origin": "quality"
+   }
+  ]
+ },
+ "learn.scanned": {
+  "decision": "QUEUE",
+  "queued": 16,
+  "sources": 3,
+  "generated": 0,
+  "published": 0,
+  "metrics": {
+   "gaps_total": 16,
+   "gaps_queued": 16,
+   "gaps_covered": 0,
+   "coverage": 0.0,
+   "oldest_queued_age_hours": 0.1,
+   "queued_undated": 0,
+   "lessons_by_state": {},
+   "lessons_approved": 0,
+   "graph": {
+    "nodes": 19,
+    "edges": 31
+   },
+   "decision": "QUEUE"
+  },
+  "lesson_moves": []
+ },
+ "improve.measure": {
+  "recorded": [
+   {
+    "cell": "pattern_engineering",
+    "value": 1.0,
+    "sample": 3,
+    "point_id": 1
+   },
+   {
+    "cell": "quality",
+    "value": 0.0,
+    "sample": 3,
+    "point_id": 2
+   },
+   {
+    "cell": "creative_assets",
+    "value": 0.0,
+    "sample": 19,
+    "point_id": 3
+   },
+   {
+    "cell": "runtime",
+    "value": 0.0,
+    "sample": 33,
+    "point_id": 4
+   },
+   {
+    "cell": "learn",
+    "value": 0.0,
+    "sample": 16,
+    "point_id": 5
+   }
+  ],
+  "repeated": [],
+  "skipped": {
+   "product_creativity": {
+    "reason": "no creative tournament has generated a field yet",
+    "read": 0
+   },
+   "market_radar": {
+    "reason": "no BenchmarkObservation or BenchmarkListing has been recorded yet",
+    "read": 0
+   },
+   "pricing": {
+    "reason": "data-gated: needs LedgerEntry revenue rows (a sale)",
+    "read": 0
+   },
+   "seo_search": {
+    "reason": "no Keyword row exists yet",
+    "read": 0
+   },
+   "growth": {
+    "reason": "data-gated: needs GrowthLoop rows",
+    "read": 0
+   },
+   "customer_experience": {
+    "reason": "data-gated: needs LedgerEntry revenue rows (an order)",
+    "read": 0
+   },
+   "portfolio": {
+    "reason": "data-gated: needs LedgerEntry revenue rows",
+    "read": 0
+   },
+   "finance": {
+    "reason": "data-gated: needs LedgerEntry revenue rows",
+    "read": 0
+   }
+  },
+  "read": 74,
+  "found": 5,
+  "cells": 13,
+  "note": "5 of 13 cells produced a new reading and 0 repeated their last one unchanged; the rest name the table that has to fill first. A first measurement is a baseline, never a win"
+ },
+ "provider_cells": {
+  "cells": 13,
+  "measured": 5,
+  "unmeasured": [
+   "product_creativity",
+   "market_radar",
+   "pricing",
+   "seo_search",
+   "growth",
+   "customer_experience",
+   "portfolio",
+   "finance"
+  ],
+  "post_launch_only": [
+   "pricing",
+   "growth",
+   "customer_experience",
+   "portfolio",
+   "finance"
+  ],
+  "lessons_routed": 1,
+  "lessons_acted_on": 0
+ },
+ "provider_presale": {
+  "gate_first_pass_rate": {
+   "value": 1.0,
+   "reading": "MEASURED",
+   "why": null,
+   "sample": 3
+  },
+  "product_truth_refusal_rate": {
+   "value": 0.0,
+   "reading": "MEASURED",
+   "why": null,
+   "sample": 3
+  },
+  "creative_survival_rate": {
+   "value": null,
+   "reading": "UNMEASURED",
+   "why": "no creative.tournament audit has generated a field yet",
+   "sample": 0
+  },
+  "catalogue_creative_survival_rate": {
+   "value": 0.0,
+   "reading": "MEASURED",
+   "why": null,
+   "sample": 11
+  },
+  "render_qa_block_rate": {
+   "value": 0.0,
+   "reading": "MEASURED",
+   "why": null,
+   "sample": 19
+  },
+  "seo_certificate_pass_rate": {
+   "value": 0.0,
+   "reading": "MEASURED",
+   "why": null,
+   "sample": 3
+  },
+  "release_gate_pass_rate": {
+   "value": 0.0,
+   "reading": "MEASURED",
+   "why": null,
+   "sample": 3
+  },
+  "time_to_publish_request_hours": {
+   "value": 0.054,
+   "reading": "MEASURED",
+   "why": null,
+   "sample": 3
+  },
+  "cost_per_release_ready_cad": {
+   "value": null,
+   "reading": "UNMEASURED",
+   "why": "no release-ready product yet (every newest store.release_gates audit blocks release)",
+   "sample": 0
+  }
+ }
+}

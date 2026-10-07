@@ -27,9 +27,16 @@ def _matrix():
 
 def test_every_registry_record_is_mapped_exactly_once_without_problems():
     reg = json.loads((FB / "master_registry.json").read_text())
+    # v1.1 (F-880..F-930) is additive to v1.0 (§96): its rows are registry records too, so the
+    # matrix maps v1.0 + v1.1 exactly once each (wave 4, lane FM).
+    v11 = json.loads((FB / "master_registry_v1_1.json").read_text())
+    uids = [r["uid"] for r in reg["requirements"]] + [r["id"] for r in v11["requirements"]]
+    assert len(v11["requirements"]) == 51 and len(set(uids)) == len(uids)
     m = _matrix()
     assert m["summary"]["unmapped"] == [] and m["summary"]["problems"] == []
-    assert sorted(r["uid"] for r in m["matrix"]) == sorted(r["uid"] for r in reg["requirements"])
+    assert sorted(r["uid"] for r in m["matrix"]) == sorted(uids)
+    assert {r["uid"] for r in m["matrix"] if r["version"] == "v1.1"} == \
+        {r["id"] for r in v11["requirements"]}
 
 
 def test_no_row_claims_commercial_evidence_that_does_not_exist():
@@ -146,7 +153,12 @@ def test_completion_is_computed_per_row_and_the_open_count_is_summarised():
         if r["launch_class"] == "LAUNCH-CRITICAL":
             assert verdict in ("COMPLETE", "GATED", "OPEN"), r["uid"]
             if verdict == "COMPLETE":
-                assert agg.LEVELS.index(r["maturity"]) >= agg.LEVELS.index("INTEGRATED")
+                # Target INTEGRATED, except an accepted override setting completion_target TESTED on a row
+                # whose producer is structurally outside every runtime root (operator tooling) -- the same
+                # guarded rule `completion()` applies; a runtime row can never reach COMPLETE at TESTED.
+                target = ("TESTED" if r.get("completion_target") == "TESTED"
+                          and agg.structural_producer(r)[0] else "INTEGRATED")
+                assert agg.LEVELS.index(r["maturity"]) >= agg.LEVELS.index(target), r["uid"]
                 assert r["coverage"] == "FULL" and not r.get("defect")
             if verdict == "GATED":
                 assert r["gate"]["kind"] in ("owner", "data", "external") and r["gate"]["key"]
@@ -158,6 +170,12 @@ def test_completion_is_computed_per_row_and_the_open_count_is_summarised():
     # A row below target is never COMPLETE, and an open defect is never merely GATED.
     assert agg.completion({"launch_class": "LAUNCH-CRITICAL", "maturity": "TESTED",
                            "coverage": "FULL", "gate": {"kind": "none"}})[0] == "OPEN"
+    # completion_target TESTED does not lower the bar for a row with a runtime producer.
+    assert agg.completion({"launch_class": "LAUNCH-CRITICAL", "maturity": "TESTED",
+                           "completion_target": "TESTED", "coverage": "FULL",
+                           "producer": "src/brambleloop/runtime/release.py::x",
+                           "consumer": "src/brambleloop/app/main.py::y",
+                           "gate": {"kind": "none"}})[0] == "OPEN"
     assert agg.completion({"launch_class": "LAUNCH-CRITICAL", "maturity": "INTEGRATED",
                            "coverage": "PARTIAL", "defect": "wrong",
                            "gate": {"kind": "owner", "key": "k"}})[0] == "OPEN"

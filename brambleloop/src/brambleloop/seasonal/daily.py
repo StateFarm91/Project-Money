@@ -611,6 +611,42 @@ def fast_lane(db, rolling: dict, catalogue: dict) -> dict:
 
 # ---- the run ---------------------------------------------------------------------------------
 
+# #147 (W4-B2): Seasonal Planning reads its lesson inbox where it plans. `culture.radar`
+# publishes cultural_territory and cultural_timing lessons routed to `portfolio` -- the cell
+# that holds the seasonal programme -- and until now nothing in the seasonal engine read them,
+# so the planning half of "findings flow into Seasonal Planning" was a route with no reader.
+SEASONAL_CELL = "portfolio"
+CULTURE_SUBJECTS = frozenset({"cultural_territory", "cultural_timing"})
+
+
+def culture_lessons(db, calendar: dict) -> dict:
+    """Attach each cultural lesson that names an occasion to that occasion's plan.
+
+    A lesson applies to an event when its words share the occasion's name (or the concept
+    vocabulary's word for it); the plan carries the lesson and the decision is recorded through
+    `bus.acted_on`. An occasion no lesson names carries nothing -- never an invented signal.
+    """
+    from ..improve import consume
+
+    events = list(calendar.get("events") or [])
+    applied = []
+    for event in events:
+        name = event["event"]
+        text = " ".join([name, CONCEPT_OCCASION.get(name, "").replace("_", " ")])
+        hits = [h for h in consume.matching(db, SEASONAL_CELL, text, min_shared=1,
+                                            subjects=CULTURE_SUBJECTS)
+                if h["direction"] >= 0]
+        if not hits:
+            continue
+        consume.act(db, SEASONAL_CELL, hits,
+                    how=f"seasonal.engine plan for {name} carries the cultural lesson")
+        applied.append({"event": name, "days_away": event.get("days_away"),
+                        "lessons": [{"id": int(h["id"]), "subject": h["subject"],
+                                     "statement": h["statement"]} for h in hits]})
+    return {"events_read": len(events), "applied": applied, "cell": SEASONAL_CELL,
+            "basis": "improve.bus lessons from culture.radar (reference-reading proxy)"}
+
+
 def run(db, *, today: date | None = None) -> dict:
     """One day of the seasonal engine. Reads, computes, and persists teams and stamps."""
     from ..radar import provenance
@@ -665,6 +701,7 @@ def run(db, *, today: date | None = None) -> dict:
         "collections": (coll_reading := collections(catalogue)),
         "collections_persisted": persist_collections(db, coll_reading),
         "half_lives": lives,
+        "culture_lessons": culture_lessons(db, calendar),
         "fast_lane": fast_lane(db, calendar, catalogue),
         "provenance": provenance.stamp_all(db, today=today,
                                            half_lives=lives["classified"]),

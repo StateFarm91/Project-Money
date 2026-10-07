@@ -129,20 +129,35 @@ def measure_quality(db, *, now: datetime | None = None):
 
 
 def measure_market_radar(db, *, now: datetime | None = None):
-    """age of the most recent BenchmarkObservation, in hours."""
+    """age of the freshest benchmark evidence, in hours.
+
+    W4-LEARN: benchmark evidence arrives two ways -- dated `BenchmarkObservation` rows (review
+    scans, mission evidence) and the catalogue map `mjs.scan` refreshes every few hours
+    (`BenchmarkListing.last_seen`). Reading only the first left the cell UNMEASURED in a
+    company whose catalogue map was hours old. Withdrawn listings are not evidence.
+    """
     from sqlalchemy import func, select
 
-    from ..core.models import BenchmarkObservation
+    from ..core.models import BenchmarkListing, BenchmarkObservation
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
-        newest = s.scalar(select(func.max(BenchmarkObservation.at)))
-        count = s.scalar(select(func.count()).select_from(BenchmarkObservation)) or 0
-    if newest is None or not count:
-        return NotMeasured("market_radar", "no BenchmarkObservation has been recorded yet")
-    hours = max(0.0, (now - _aware(newest)).total_seconds() / 3600.0)
-    return Measurement("market_radar", round(hours, 3), int(count),
-                       {"newest_at": _aware(newest).isoformat()})
+        obs_newest = s.scalar(select(func.max(BenchmarkObservation.at)))
+        obs_count = s.scalar(select(func.count()).select_from(BenchmarkObservation)) or 0
+        live = BenchmarkListing.audit_state != "withdrawn"
+        map_newest = s.scalar(select(func.max(BenchmarkListing.last_seen)).where(live))
+        map_count = s.scalar(select(func.count()).select_from(BenchmarkListing)
+                             .where(live)) or 0
+    stamps = [_aware(t) for t, n in ((obs_newest, obs_count), (map_newest, map_count))
+              if t is not None and n]
+    if not stamps:
+        return NotMeasured("market_radar", "no BenchmarkObservation or BenchmarkListing has "
+                                           "been recorded yet")
+    newest = max(stamps)
+    hours = max(0.0, (now - newest).total_seconds() / 3600.0)
+    return Measurement("market_radar", round(hours, 3), int(obs_count + map_count),
+                       {"newest_at": newest.isoformat(), "observations": int(obs_count),
+                        "catalogue_listings": int(map_count)})
 
 
 def measure_creative_assets(db, *, now: datetime | None = None):
@@ -188,17 +203,31 @@ def measure_runtime(db, *, now: datetime | None = None):
 
     from ..core.models import Job, JobStatus
 
+    from ..queue.durable import DEFECT, classify_dead_letter
+
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
         total = s.scalar(select(func.count()).select_from(Job)) or 0
-        dead = s.scalar(select(func.count()).select_from(Job)
-                        .where(Job.status == JobStatus.DEAD)) or 0
+        dead_rows = list(s.execute(select(Job.job_type, Job.last_error)
+                                   .where(Job.status == JobStatus.DEAD)))
         first = s.scalar(select(func.min(Job.created_at)))
     if not total or first is None:
         return NotMeasured("runtime", "no Job has been queued yet")
+    # W4-LEARN: a dead letter is a job that failed. A shadow-mode refusal (store.publish in
+    # SHADOW, `capability not enabled`) or a build stand-aside is a gate doing its job, and
+    # counted here it read as three failures a day on a clean shadow run. The single
+    # classifier every dead-letter reader uses decides; the others are reported, not hidden.
+    kinds: dict[str, int] = {}
+    for job_type, error in dead_rows:
+        kind = classify_dead_letter(job_type, error or "")
+        kinds[kind] = kinds.get(kind, 0) + 1
+    dead = kinds.get(DEFECT, 0)
     days = max(1.0, (now - _aware(first)).total_seconds() / 86400.0)
     return Measurement("runtime", round(dead / days, 4), int(total),
-                       {"dead": int(dead), "jobs": int(total), "days": round(days, 2)})
+                       {"dead": int(dead), "jobs": int(total), "days": round(days, 2),
+                        "dead_letters_by_kind": dict(sorted(kinds.items())),
+                        "counted": "defect dead letters only (queue.durable."
+                                   "classify_dead_letter)"})
 
 
 def measure_product_creativity(db, *, now: datetime | None = None):
@@ -274,41 +303,101 @@ def measure_customer_experience(db, *, now: datetime | None = None):
 
 
 def measure_portfolio(db, *, now: datetime | None = None):
-    """LedgerEntry revenue grouped by product, via the evidence reference each row carries."""
+    """LedgerEntry revenue grouped by product.
+
+    W4-LEARN: a sale's `evidence_ref` is its receipt reference (`commerce.orders_ingest`
+    writes the same ref to `Order.external_ref`), not a product. Grouping by it made every
+    receipt its own "product", so the concentration would have read as low however much
+    depended on one pattern. The product is the one the matching Order names; a sale with no
+    matching Order is unattributed and not guessed.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Order
+
     sales = [(g, ref) for _, g, _, _, ref in _revenue(db)]
     if not sales:
         return NotMeasured("portfolio", "data-gated: needs LedgerEntry revenue rows")
-    attributed = [(g, ref) for g, ref in sales if ref]
+    refs = {ref for _, ref in sales if ref}
+    with db.session() as s:
+        product_of = {o.external_ref: o.product_slug
+                      for o in s.scalars(select(Order).where(Order.external_ref.in_(refs)))
+                      if o.product_slug} if refs else {}
+    attributed = [(g, product_of[ref]) for g, ref in sales if ref in product_of]
     if not attributed:
         return NotMeasured("portfolio",
-                           "data-gated: needs LedgerEntry revenue attributed to a product "
-                           "through evidence_ref", read=len(sales))
+                           "data-gated: needs LedgerEntry revenue whose evidence_ref matches "
+                           "an Order naming its product", read=len(sales))
     by_product: dict[str, float] = {}
-    for g, ref in attributed:
-        by_product[ref] = by_product.get(ref, 0.0) + g
+    for g, slug in attributed:
+        by_product[slug] = by_product.get(slug, 0.0) + g
     total = sum(by_product.values())
     top = max(by_product.values())
     return Measurement("portfolio", round(top / total, 4), len(attributed),
-                       {"products": len(by_product), "total_cad": round(total, 2)})
+                       {"products": len(by_product), "total_cad": round(total, 2),
+                        "unattributed_sales": len(sales) - len(attributed)})
+
+
+def _scale_forecasts(db, now: datetime) -> list[tuple[float, float]]:
+    """(forecast, actual) for every recorded `scale.forecast` week that has ended.
+
+    W4-LEARN: the company's forecasts are written by `scale.evidence.record_forecast` as
+    OperatingReading rows of kind `scale.forecast`; nothing writes a `finance.forecast` audit,
+    so the finance cell read a source with no producer and could never measure, even after
+    launch. The actual is LedgerEntry sale revenue inside the forecast's week.
+    """
+    from datetime import date
+
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry, OperatingReading
+    from ..scale.evidence import FORECAST_KIND
+
+    with db.session() as s:
+        forecasts = [dict(r.payload or {}) for r in s.scalars(select(OperatingReading).where(
+            OperatingReading.kind == FORECAST_KIND))]
+        sales = [(_aware(r.at).date(), float(r.gross_cad or 0.0) - float(r.refunds_cad or 0.0))
+                 for r in s.scalars(select(LedgerEntry).where(LedgerEntry.category == "sale"))
+                 if r.at is not None]
+    pairs = []
+    for f in forecasts:
+        try:
+            start = date.fromisoformat(f["period_start"])
+            end = date.fromisoformat(f["period_end"])
+            predicted = float(f["revenue_cad"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end >= now.date() or predicted <= 0:
+            continue
+        pairs.append((predicted, sum(v for d, v in sales if start <= d <= end)))
+    return pairs
 
 
 def measure_finance(db, *, now: datetime | None = None):
-    """forecast against LedgerEntry by month: absent a recorded forecast, unmeasurable."""
+    """forecast against LedgerEntry: absent a recorded forecast, unmeasurable."""
     from sqlalchemy import select
 
     from ..core.models import AuditLog
 
+    now = now or datetime.now(timezone.utc)
     sales = _revenue(db)
     if not sales:
         return NotMeasured("finance", "data-gated: needs LedgerEntry revenue rows")
+    weekly = _scale_forecasts(db, now)
+    if weekly:
+        errors = [abs(actual - predicted) / predicted for predicted, actual in weekly]
+        return Measurement("finance", round(sum(errors) / len(errors), 4), len(weekly),
+                           {"source": "scale.forecast weeks ended",
+                            "forecast_cad": round(sum(p for p, _ in weekly), 2),
+                            "actual_cad": round(sum(a for _, a in weekly), 2)})
     with db.session() as s:
         forecasts = [a.detail or {} for a in s.scalars(select(AuditLog).where(
             AuditLog.action == "finance.forecast"))]
     forecast_total = sum(float(f.get("forecast_cad") or 0.0) for f in forecasts)
     if not forecasts or forecast_total <= 0:
         return NotMeasured("finance",
-                           "data-gated: needs a recorded finance.forecast to compare "
-                           "revenue against", read=len(sales))
+                           "data-gated: needs a recorded forecast (scale.forecast week ended, "
+                           "or finance.forecast) to compare revenue against", read=len(sales))
     actual = sum(g for _, g, _, _, _ in sales)
     return Measurement("finance", round(abs(actual - forecast_total) / forecast_total, 4),
                        len(sales), {"forecast_cad": round(forecast_total, 2),
@@ -350,6 +439,11 @@ def measure_learn(db, *, now: datetime | None = None):
     return Measurement("learn", round(covered / len(states), 4), len(states),
                        {"covered": covered, "gaps": len(states)})
 
+
+# W4-LEARN: the cells whose source is customer, revenue or traffic evidence. They cannot be
+# measured before a sale and nothing internal stands in for them.
+DATA_GATED_CELLS: frozenset[str] = frozenset({"pricing", "customer_experience", "portfolio",
+                                              "finance", "growth"})
 
 MEASURERS: dict[str, Callable] = {
     "product_creativity": measure_product_creativity,
@@ -435,7 +529,20 @@ def record_all(db, *, now: datetime | None = None) -> dict:
                          "point_id": point_id})
     read = sum(m.sample for m in out["measured"]) + sum(
         v["read"] for v in out["skipped"].values())
+    # W4-LEARN: the internal pre-sale outcomes (gate first-pass, Product Truth refusals,
+    # render QA, search certificate, release gates, time to a publish request, actual cost per
+    # release-ready product) are measured on the same cadence. Kept beside the cells, not as
+    # cells: none is a customer outcome, and each is labelled so.
+    from . import presale
+
+    try:
+        pre = presale.record(db)
+        pre_out = {"recorded": pre["recorded"], "measured": pre["measured"],
+                   "of": len(presale.METRICS)}
+    except Exception as exc:  # noqa: BLE001 - reported; never stops the cell measurement
+        pre_out = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     return {
+        "presale": pre_out,
         "recorded": recorded,
         "repeated": repeated,
         "skipped": out["skipped"],
