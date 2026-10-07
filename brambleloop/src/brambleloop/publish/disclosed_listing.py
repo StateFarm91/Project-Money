@@ -76,6 +76,14 @@ def alt_text(manifest: dict, cir) -> str:
                  "the assembled pieces seen from the front")
         if manifest.get("view") == "scale":
             shows = "the assembled pieces with their assembled width and height marked"
+        layout = manifest.get("layout") or {}
+        if (manifest.get("assembly") or {}).get("form") == "pockets":
+            # W4-CAND: identical pockets threaded on a cord that is not drawn at their scale.
+            shows = {"hero": f"all {layout.get('copies')} pockets laid flat, each with its "
+                             f"thumb and hanging loop (the cord is not drawn)",
+                     "scale": "one pocket laid flat with its width and height marked",
+                     "detail": "one pocket's relief rounds laid flat, stitch for stitch"
+                     }.get(manifest.get("view"), shows)
     if manifest.get("form") == "rounds" and manifest.get("view") == "detail" and \
             (manifest.get("layout") or {}).get("part") == "base":
         shows = "the base seen from above, every base round stitch for stitch"
@@ -241,7 +249,9 @@ def listing_qa(frames: list[dict], pngs: dict[str, bytes], cir, *, store=None) -
         "text_check": ("not applied: the only text is the disclosure caption, a small "
                        "full-size caption repeated in alt text and copy, not grid text")}
 
-    pieces = cir.components[0].make if hero["disclosed_render"]["form"] == "rounds" else 1
+    pieces = cir.components[0].make if hero["disclosed_render"]["form"] == "rounds" else (
+        # W4-CAND: identical pockets drawn apart -- the CIR's body make, as the frame states.
+        (hero["disclosed_render"]["layout"] or {}).get("copies") or 1)
     for f in ordered:
         expected = pieces if f["view"] == "hero" and \
             (f["disclosed_render"]["layout"] or {}).get("objects", 1) > 1 else 1

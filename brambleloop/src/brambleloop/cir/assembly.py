@@ -176,6 +176,51 @@ def footprint(component, twin, gauge=None) -> Footprint:
                      openings=openings_cm(component, gauge), row_cm=row_cm)
 
 
+# The two edges a closed band's self-seam joins, by grain: its rows' ends (a band along its
+# rows) or its stitch columns' ends (a band along its stitches). W4-CAND.
+BAND_EDGES = {("up", "rows"): {"bottom", "top"}, ("up", "stitches"): {"left", "right"},
+              ("across", "rows"): {"left", "right"}, ("across", "stitches"): {"bottom", "top"}}
+# A threaded piece passes through when its girth is at most this share of the inside it goes
+# through: room to pull it, not a press fit.
+THREAD_ROOM = 0.5
+
+
+def band_axis(cir, comp) -> str | None:
+    """"rows" or "stitches" when this flat piece's two ends along that axis are sewn to each
+    other (a self-seam of those two opposite edges): a closed band. Else None."""
+    if comp.construction != "flat_rows":
+        return None
+    for s in cir.assembly:
+        if s.piece_a == s.piece_b == comp.name:
+            for (grain, axis), edges in BAND_EDGES.items():
+                if grain == comp.grain and {s.edge_a, s.edge_b} == edges:
+                    return axis
+    return None
+
+
+def band_length_cm(comp, twin, axis: str) -> float | None:
+    """A closed band's length around (its inside), from its twin."""
+    if twin.width_cm is None or twin.height_cm is None:
+        return None
+    return twin.height_cm if axis == "rows" else twin.width_cm
+
+
+def first_round_cm(twin, gauge) -> float | None:
+    """The circumference of a round piece's first round: what is worked into an opening."""
+    if not twin.row_widths or gauge is None:
+        return None
+    return twin.row_widths[min(twin.row_widths)] * 10.0 / gauge.stitches_per_10cm
+
+
+def _picked_up_only(cir, comp) -> bool:
+    """A round piece begun inside another (foundation 'none') and joined only by pick-up: its
+    finished shape may be refused (a closed tip is shaped by tension), but its first round is
+    still a length, so the joins it takes part in can be measured."""
+    joins = [s for s in cir.assembly if comp.name in (s.piece_a, s.piece_b)]
+    return (comp.construction != "flat_rows" and comp.foundation_kind == "none" and bool(joins)
+            and all(s.method == "pick_up" and s.piece_a == comp.name for s in joins))
+
+
 def assemble(cir, twins: dict) -> ObjectGeometry:
     """Place every piece and check every join. Renders nothing and calls no model.
 
@@ -189,6 +234,8 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
         try:
             geo.footprints[comp.name] = footprint(comp, t, cir.gauge)
         except ValueError as exc:
+            if _picked_up_only(cir, comp) and first_round_cm(t, cir.gauge):
+                continue        # measured by its first round in the join below
             geo.verdict, geo.why = "unmeasurable", str(exc)
             return geo
 
@@ -200,9 +247,18 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             # A piece joined to itself is a fold, not a mismatch: its two edges are the same
             # edge and comparing them to each other proves nothing.
             join.verdict, join.why = "sound", "self-seam: one piece folded and closed"
+        elif seam.method == "thread":
+            _thread_join(cir, seam, join, fa, fb, twins)
         elif not seam.names_its_edges:
             join.why = ("this join does not say which edges meet, so no length can be "
                         "compared and the pieces cannot be placed relative to each other")
+        elif (seam.method == "pick_up" and fb is not None and seam.piece_a in twins
+              and next(c for c in cir.components if c.name == seam.piece_a).construction
+              != "flat_rows"):
+            # Round 1 of a round piece is worked into the edge: its circumference is the
+            # length that meets it, whatever the finished piece's own span.
+            _measure(cir, seam, join, first_round_cm(twins[seam.piece_a], cir.gauge),
+                     fb.edge_cm(seam.edge_b))
         elif fa is None or fb is None:
             join.why = "one of the pieces has no measured footprint"
         else:
@@ -257,6 +313,56 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
         geo.verdict = "assembles"
         geo.why = "every join names its edges and every pair of edges agrees in length"
     return geo
+
+
+def _measure(cir, seam, join: Join, la: float | None, lb: float | None) -> None:
+    """Two edge lengths compared as `assemble` compares every join."""
+    join.length_a_cm, join.length_b_cm = la, lb
+    if la is None or lb is None:
+        join.why = "an edge name has no length on its piece"
+        return
+    drift = abs(la - lb) / max(la, lb)
+    unsure = 0.0
+    if "opening" in (seam.edge_a, seam.edge_b) and cir.gauge:
+        unsure = getattr(cir.gauge, "chain_gauge_uncertainty", 0.0) or 0.0
+    if drift <= EDGE_TOLERANCE:
+        join.verdict, join.why = "sound", f"edges agree within {drift:.1%}"
+    elif drift <= EDGE_TOLERANCE + unsure:
+        join.verdict = "indeterminate"
+        join.why = (f"{la:.1f}cm against {lb:.1f}cm is a {drift:.1%} difference inside the "
+                    f"chain gauge's ±{unsure:.0%}")
+    else:
+        join.verdict = "mismatched"
+        join.why = (f"{seam.piece_a}.{seam.edge_a} is {la:.1f}cm and {seam.piece_b}."
+                    f"{seam.edge_b} is {lb:.1f}cm, a {drift:.1%} difference: these do not "
+                    f"join")
+
+
+def _thread_join(cir, seam, join: Join, fa, fb, twins) -> None:
+    """A piece passed through a closed band or an opening: it must fit, with room.
+
+    The threaded piece's girth is twice the edge that leads it through (a flat strip's two
+    faces); the inside is a closed band's length around, or an opening's perimeter."""
+    comps = {c.name: c for c in cir.components}
+    if fa is None or fb is None or seam.edge_a not in ("left", "right", "top", "bottom"):
+        join.why = "a threaded join needs the threaded piece's leading edge and a measured inside"
+        return
+    girth = 2 * fa.edge_cm(seam.edge_a)
+    axis = band_axis(cir, comps[seam.piece_b])
+    inside = (band_length_cm(comps[seam.piece_b], twins[seam.piece_b], axis) if axis
+              else fb.edge_cm("opening"))
+    join.length_a_cm, join.length_b_cm = girth, inside
+    if inside is None:
+        join.why = (f"{seam.piece_b} is neither a closed band nor a piece with an opening, so "
+                    f"there is nothing to thread {seam.piece_a} through")
+    elif girth <= THREAD_ROOM * inside:
+        join.verdict = "sound"
+        join.why = (f"{seam.piece_a} ({girth:.1f}cm around) passes through {seam.piece_b} "
+                    f"({inside:.1f}cm inside)")
+    else:
+        join.verdict = "mismatched"
+        join.why = (f"{seam.piece_a} is {girth:.1f}cm around and {seam.piece_b} is "
+                    f"{inside:.1f}cm inside: it does not pass through with room")
 
 
 def _silhouette(cir, geo: ObjectGeometry) -> None:

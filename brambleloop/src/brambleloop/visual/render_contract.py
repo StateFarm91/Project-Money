@@ -120,6 +120,11 @@ def annotation_lines(view: str, form: str, dims: dict) -> list[str]:
         return []
     if view != "scale":
         return []
+    if form == "assembled" and dims.get("copies"):
+        # W4-CAND: one of several identical pockets threaded on a cord, drawn alone.
+        return [f"One of {int(dims['copies'])} pockets at the stated gauge: "
+                f"{n1(dims['width'])} cm wide x {n1(dims['height'])} cm tall",
+                f"threaded on a {n1(dims['cord_cm'])} cm cord (not drawn)"]
     if form == "assembled":
         # W4-RENDER: the assembled object as drawn (pieces placed by the CIR's joins).
         return [f"Assembled at the stated gauge: {n1(dims['width'])} cm wide x "

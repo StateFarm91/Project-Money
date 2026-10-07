@@ -108,8 +108,12 @@ def test_cosy():
 
 
 def test_refusals():
-    why = _refused(mc.snowfall_advent_garland())
-    check("garland_refused_pieces_not_placeable", "round pieces" in why, why)
+    # W4-CAND: the garland's thumb and cord are structured joins now, so it is drawn (see
+    # tests/test_w4_cand_garland.py); a garland whose cord join is removed is refused again.
+    g = mc.snowfall_advent_garland()
+    loose = replace(g, assembly=[s for s in g.assembly if s.method != "thread"])
+    why = _refused(loose)
+    check("garland_without_threaded_cord_refused", "cord" in why, why)
     roll = pb.pencil_roll_cir()
     hero = D.render(roll, "hero")
     panel = next(p for p in hero.manifest["layout"]["pieces"] if p["piece"] == "panel")

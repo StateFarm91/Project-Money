@@ -314,7 +314,7 @@ def parse_construction(text: str) -> str | None:
 # shared code proves nothing (B-005).
 _STEP_RE = re.compile(r"^Step\s+(\d+):\s*(.+?)\s*$", re.I)
 _SELF_SEAM_RE = re.compile(r"the two edges of the (.+?) together", re.I)
-_TWO_PIECE_RE = re.compile(r"the (.+?) to the (.+?)(?:\s+across|[.,])", re.I)
+_TWO_PIECE_RE = re.compile(r"the (.+?) (?:to|into|through) the (.+?)(?:\s+across|[.,])", re.I)
 # Placement, read back out of the sentence. Its own patterns, not the writer's: a round trip
 # through shared code proves nothing (B-005).
 _SPAN_RE = re.compile(r"across (?:rounds?|rows?)\s+(\d+)(?:\s*[-\u2013]\s*(\d+))?", re.I)
@@ -325,6 +325,8 @@ _METHOD_WORDS = {
     "slip stitch": "slst",
     "mattress stitch": "mattress",
     "sew": "sew",
+    "work": "pick_up",
+    "thread": "thread",
 }
 
 

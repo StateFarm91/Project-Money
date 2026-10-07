@@ -293,8 +293,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -340,7 +340,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -352,7 +352,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "8a79bd978d0f",
+      "release_hash": "60b00c6897b3",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -361,17 +361,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
      },
-     "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
      "clearer": "COMPANY"
     }
    }
@@ -1035,8 +1051,8 @@
   "snowfall-advent-garland": {
    "slug": "snowfall-advent-garland",
    "title": "Snowfall Mitten Advent Garland",
-   "version": "0.1.0",
-   "fingerprint": "186a3aae2f74",
+   "version": "0.2.0",
+   "fingerprint": "9324fdce86b4",
    "risk_class": "B",
    "components": [
     [
@@ -1061,25 +1077,25 @@
     ]
    ],
    "engineered_by": "W4-PIPE2 products.moment_candidates",
-   "engineering_note": "24 fingertip-up mittens with afterthought thumbs and folded tab loops, threaded on a slip-stitch cord. Numbers on the pockets are not engineered (no chart support for numerals) and are not claimed in the title.",
+   "engineering_note": "24 fingertip-up mittens with afterthought thumbs and closed tab loops, threaded on a slip-stitch cord. Numbers on the pockets are not engineered (no chart support for numerals) and are not claimed in the title. 0.2.0 (W4-CAND): the thumb is a pick-up join into a 4-chain opening and the cord a threaded join through each loop; the spacing along the cord is derived from a flat mitten and its thumb (15 cm, so the cord is about 4.2 m), where 0.1.0 typed 11 cm, narrower than a mitten.",
    "pdf": {
-    "path": "pipe2/snowfall-advent-garland/snowfall-advent-garland-0.1.0-US.pdf",
+    "path": "pipe2/snowfall-advent-garland/snowfall-advent-garland-0.2.0-US.pdf",
     "pages": 9,
-    "sha256": "d2414f3e78bc8de2219b0ef26ae43c31ef7f0e1fe39194f77a811270d216ad86",
+    "sha256": "925a4fe03e3ed563a8572074b7fdf4a813851fd2b7a5876365d3f7174e66e2db",
     "finished_size_cm": [
      6.1,
      15.5
     ],
     "yardage_by_color": {
      "cream": 357.0,
-     "forest": 308.2
+     "forest": 307.4
     },
     "difficulty": "confident beginner"
    },
    "concept_board": {
     "slug": "snowfall-advent-garland",
-    "version": "0.1.0",
-    "fingerprint": "186a3aae2f74",
+    "version": "0.2.0",
+    "fingerprint": "9324fdce86b4",
     "kind": "digital_twin_render",
     "image": {
      "sha256": "fee3dae58e8d1fa87fce13b0e6d3c3733545b58243b707b2de39f913ab47cf64"
@@ -1517,6 +1533,6 @@
   ],
   "vision_usable": false
  },
- "generated_at": "2026-10-07T09:01:50+00:00",
- "head": "5a586c0"
+ "generated_at": "2026-10-07T09:28:02+00:00",
+ "head": "7f2e1e6"
 }

@@ -228,8 +228,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -275,7 +275,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -287,7 +287,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "8a79bd978d0f",
+      "release_hash": "60b00c6897b3",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -296,17 +296,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
      },
-     "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
      "clearer": "COMPANY"
     }
    }
@@ -869,15 +885,135 @@
   },
   "snowfall-advent-garland": {
    "slug": "snowfall-advent-garland",
-   "version": "0.1.0",
-   "fingerprint": "186a3aae2f74",
+   "version": "0.2.0",
+   "fingerprint": "9324fdce86b4",
    "stage": "VISUAL",
-   "stage_status": "FAIL",
-   "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
-   "made": false,
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+   "made": true,
    "usable_as_listing_asset": false,
    "launch_blocked": [
-    "renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+    "hero: structural truth UNKNOWN",
+    "scale: structural truth UNKNOWN",
+    "detail: structural truth UNKNOWN"
+   ],
+   "registered": {
+    "action": "assets.disclosed_render",
+    "read_back": true,
+    "frames": 3
+   },
+   "qa": {
+    "layout_qa": true,
+    "asset_truth": true,
+    "frame_set": true,
+    "mobile": true,
+    "hero_thumbnail": true,
+    "legibility_340": {
+     "hero": true,
+     "scale": true,
+     "detail": true
+    }
+   },
+   "frames": [
+    {
+     "view": "hero",
+     "path": "render/snowfall-advent-garland/hero.png",
+     "sha256": "08a0fe8b96800e7d4eb96a278da3486871421f86a53ca99f1317c4af69f8d588",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "pockets",
+      "body": "mitten",
+      "drawn": [
+       "mitten",
+       "thumb",
+       "loop_tab"
+      ],
+      "hidden": {},
+      "not_drawn": {
+       "cord": "threaded through every loop_tab loop (a structured thread join); at 420 cm it is not drawn at the pockets' scale"
+      }
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Snowfall Mitten Advent Garland: all 24 pockets laid flat, each with its thumb and hanging loop (the cord is not drawn), in cream and forest. About 13.2232 x 20.5677 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "scale",
+     "path": "render/snowfall-advent-garland/scale.png",
+     "sha256": "5274d11e83f5b3877a12e2313e58ba0283be88f7685b7b47a367fc0406a22bd4",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "pockets",
+      "body": "mitten",
+      "drawn": [
+       "mitten",
+       "thumb",
+       "loop_tab"
+      ],
+      "hidden": {},
+      "not_drawn": {
+       "cord": "threaded through every loop_tab loop (a structured thread join); at 420 cm it is not drawn at the pockets' scale"
+      }
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Snowfall Mitten Advent Garland: one pocket laid flat with its width and height marked, in cream and forest. About 13.2232 x 20.5677 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "detail",
+     "path": "render/snowfall-advent-garland/detail.png",
+     "sha256": "6f09222bb44956d718ef46a5f32bdd2549d9d89233e2193bb86cbc6614a78663",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "pockets",
+      "body": "mitten",
+      "drawn": [
+       "mitten",
+       "thumb",
+       "loop_tab"
+      ],
+      "hidden": {},
+      "not_drawn": {
+       "cord": "threaded through every loop_tab loop (a structured thread join); at 420 cm it is not drawn at the pockets' scale"
+      }
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Snowfall Mitten Advent Garland: one pocket's relief rounds laid flat, stitch for stitch, in cream and forest. About 9.6 x 10.93 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "measurement"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    }
    ],
    "gallery": [
     {
@@ -890,14 +1026,14 @@
     {
      "job": "COLOUR_CONTEXT",
      "path": "render/snowfall-advent-garland/gallery-colour_context.png",
-     "sha256": "226eea7d3d120c17961fef3f6d7a6678073a3dbea62d4b606e3b114ce96e6f3a",
+     "sha256": "73ff0cfec08c74b4983eee7b1c1cd946e22700eacd2f1aa43ea8a1b8219f655c",
      "verify": "PASS",
      "failed": []
     },
     {
      "job": "CONSTRUCTION",
      "path": "render/snowfall-advent-garland/gallery-construction.png",
-     "sha256": "a717dd596b2704d759deb378a79e76ed93624df9f7ceaf7785514bec161de8b5",
+     "sha256": "5ec7489579d30339935cb12b78dbc80e624d39bedd3e1445188d796555dd2997",
      "verify": "PASS",
      "failed": []
     }
@@ -913,14 +1049,14 @@
      "SCALE"
     ],
     "covered": {
-     "COLOUR_CONTEXT": "gallery colour_context 226eea7d3d12",
+     "COLOUR_CONTEXT": "gallery colour_context 73ff0cfec08c",
      "MATERIALS": "gallery materials a886082e3317"
     },
     "missing": {
      "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
-     "DESIRE": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled",
-     "DETAIL": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled",
-     "SCALE": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+     "DESIRE": "hero drawn (assembled) but the pixel verifier says UNKNOWN",
+     "DETAIL": "detail drawn (assembled) but the pixel verifier says UNKNOWN",
+     "SCALE": "scale drawn (assembled) but the pixel verifier says UNKNOWN"
     },
     "supporting": [
      "CONSTRUCTION"
@@ -1239,6 +1375,6 @@
    }
   }
  },
- "generated_at": "2026-10-07T09:05:36+00:00",
- "head": "5a586c0"
+ "generated_at": "2026-10-07T09:30:31+00:00",
+ "head": "7f2e1e6"
 }
