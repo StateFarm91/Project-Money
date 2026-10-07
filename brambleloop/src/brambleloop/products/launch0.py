@@ -120,6 +120,10 @@ TEXTURE_STITCHES: frozenset[str] = frozenset((
 # Forms that are more than one piece of fabric by definition, and therefore need `assembly`.
 ASSEMBLED_FORMS: tuple[str, ...] = (
     "garland", "bunting", "wall hanging", "mobile", "wreath",
+    # W4-PIPE: forms that cannot be one flat panel either -- a pillow cover has a back and a
+    # closing seam, a cosy/pouch/stocking is a closed shape, a pencil roll has a folded pocket
+    # row and a tie. A flat-panel CIR under these names promises a make it does not contain.
+    "pillow", "cushion", "cosy", "cozy", "pouch", "pencil roll", "stocking",
 )
 
 # Words that promise more than one finished piece without giving a number.
@@ -384,6 +388,10 @@ BUILDERS: dict[str, object] = {
                                                             **_v(version)),
     "harvest_runner": lambda version=None: flat.for_slug("harvest-table-runner",
                                                          **_v(version)),
+    "snowflake_ornaments": lambda version=None: flat.for_slug("nordic-star-ornaments",
+                                                              **_v(version)),
+    "snowfall_throw": lambda version=None: flat.for_slug("winter-village-graphghan",
+                                                         **_v(version)),
 }
 
 
@@ -584,6 +592,76 @@ CANDIDATES: tuple[Candidate, ...] = (
             "flatness is predicted by the increase rate and unverified in fabric",
         ),
     ),
+    # W4-PIPE (2026-10-07, owner directive "move the strongest products to the final
+    # publication gate"): the two strongest truthful products outside Launch-0 by measurement.
+    # Each was retitled to what its CIR makes (creative HELD), certifies under the current
+    # gauge standard, and -- the measured reason these two and not the others -- its disclosed
+    # render set verifies against the certified CIR from the pixels and passes the listing QA
+    # (scratch run 2026-10-07: 3/3 frames structural PASS, usable_as_listing_asset True). The
+    # pet mat and the harvest runner are refused by the renderer (palette too close to a
+    # contract colour), the wall hanging fails 340 px legibility (22% fill), so none of them
+    # can carry truthful imagery yet. Both are winter products, and October is the window.
+    Candidate(
+        slug="nordic-star-ornaments",
+        title="Nordic Snowflake Ornament Set (6)",
+        what_it_is=(
+            "Six flat snowflake ornaments, about 9.6 x 10.2 cm each at the stated gauge, worked "
+            "in rows in two colours, one colour per row, the snowflake a double-crochet relief "
+            "standing above a single-crochet ground."),
+        why_at_launch=(
+            "The only seasonal product whose window is open now: a buyer who purchases in "
+            "October has time to make six small pieces before the holiday. It is the small, "
+            "quick make in the price ladder above the coasters, and a set of six is the "
+            "multiplicity the pattern actually makes (Component.make = 6)."),
+        variants=(Variant("set_of_six", "6 pieces, 9.6 x 10.2 cm each", "snowflake_ornaments"),),
+        pod="ornaments",
+        listing=ListingIdentity(kind="ornament", etsy_category="ornament",
+                                nouns=("ornament",), qualifiers=("snowflake", "nordic"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=4.50, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, near "
+                 "its floor: a small seasonal make. An ornament-specific observed price is "
+                 "UNKNOWN; no profiled shop's ornament price was captured")),
+        disqualifiers=(
+            "a worked sample whose relief does not read as a snowflake at ornament size, which "
+            "only fabric confirms",
+            "a hanging loop or applied trim added without a CIR step for it",
+        ),
+        aspiration=(
+            "9.6 x 10.2 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="winter-village-graphghan",
+        title="Winter Snowfall Relief Throw",
+        what_it_is=(
+            "An 86.4 x 91.8 cm throw worked flat in two colours, one colour per row, with a "
+            "sparse snowfall relief in double crochet against a single-crochet ground."),
+        why_at_launch=(
+            "The winter throw in the catalogue whose name now says what the fabric does (a "
+            "relief, not a graphghan or a village picture). It is the second large make next "
+            "to the baby blanket, for an adult home rather than a nursery, which is the price "
+            "tier the cluster band cannot reach."),
+        variants=(Variant("one_size", "86.4 x 91.8 cm", "snowfall_throw"),),
+        pod="blankets",
+        listing=ListingIdentity(kind="throw", etsy_category="blanket",
+                                nouns=("throw", "blanket"), qualifiers=("snowfall", "winter"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,
+            why=("the premium blanket band observed on HanJanCrochet and MJsOffTheHookDesigns "
+                 "(CA$8.47-11.65) in radar/market.py, proposed below its floor for the same "
+                 "reason as the baby blanket: no video and no review history")),
+        disqualifiers=(
+            "listing copy or imagery that shows a picture throw or a two-colour flake: the "
+            "fabric is one colour per row",
+            "a worked sample whose relief is too sparse to read at blanket scale",
+        ),
+        aspiration=(
+            "86.4 x 91.8 cm is computed from the stated gauge; twin.calibrated is False",
+        ),
+    ),
     # First reserve. Gate-clean and deliberately not in Launch-0: it is the same flat fabric as
     # the blanket, it serves neither the children's entry order nor the price ladder, and small
     # is the feature. Named rather than omitted so that "why only three" has an answer.
@@ -612,6 +690,7 @@ CANDIDATES: tuple[Candidate, ...] = (
 # here, so the gate results for it are still computed and reported.
 LAUNCH0_SLUGS: tuple[str, ...] = (
     "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
+    "nordic-star-ornaments", "winter-village-graphghan",
 )
 
 

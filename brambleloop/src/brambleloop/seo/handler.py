@@ -16,4 +16,4 @@ def handle_seo_cycle(ctx: JobContext) -> dict:
     out = run_cycle(ctx.db)
     return {k: out[k] for k in ("changed", "evidence_added", "proposals_written",
                                 "proposals_unchanged", "cycle_fingerprint", "taxonomy",
-                                "attribution_status", "writes_to_etsy")}
+                                "attribution_status", "packages", "writes_to_etsy")}

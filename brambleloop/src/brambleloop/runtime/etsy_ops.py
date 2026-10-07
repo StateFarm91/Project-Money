@@ -1278,7 +1278,12 @@ def handle_store_live_drift(ctx: JobContext) -> dict:
                 resolved += lifecycle.resolve_signatures(
                     s, [signature], resolution=f"live read at {row['observed_at']} shows "
                                                f"{row['field']} set")
+    # W4-GATESB: the store owner actions become OwnerAction rows, so the inbox batches them.
+    from ..store_foundation import store_readiness
+
+    owner_rows = store_readiness.sync_owner_actions(ctx.db, report)
     ctx.audit("store.live_drift", detail={
+        "owner_actions": owner_rows,
         "counts": report["counts"], "unknown": report["unknown"],
         "proposals": len(report["proposals"]), "findings": report["findings"][:10],
         "incidents_opened": opened, "incidents_resolved": resolved, "writes_performed": 0})

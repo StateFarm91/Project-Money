@@ -53,24 +53,27 @@ def test_basket_sizes_map_to_one_product():
     assert {R.product_of_slug(s) for s in sizes} == {"nursery-nesting-baskets"}
 
 
-def test_launch0_reports_three_products_with_the_list_in_evidence():
+def test_launch0_reports_five_products_with_the_list_in_evidence():
+    # W4-PIPE 2026-10-07: Launch-0 is five products (seven CIR slugs: three basket sizes) since
+    # the snowflake ornaments and the snowfall throw joined it. The rule is unchanged: sizes
+    # are not products, and five products do not meet a floor of eight.
     cir = sorted(s for s in L.launch_scope_slugs() if s != "nursery-nesting-baskets")
-    assert len(cir) == 5, cir
+    assert len(cir) == 7, cir
     req = _depth(_db_with(cir))
     ev = req.evidence
-    assert ev["certified_patterns"] == 5, ev            # versions still reported, beside
-    assert ev["products_counted"] == 3, ev
+    assert ev["certified_patterns"] == 7, ev            # versions still reported, beside
+    assert ev["products_counted"] == 5, ev
     assert ev["products"] == sorted(L.LAUNCH0_SLUGS), ev
     assert "sizes" in ev["counting_rule"], ev
-    assert not req.ready, "3 products met a floor of 8"
+    assert not req.ready, "5 products met a floor of 8"
 
 
 def test_a_product_outside_launch0_counts_as_itself_once():
     assert R.product_of_slug("harvest-table-runner") == "harvest-table-runner"
     cir = sorted(s for s in L.launch_scope_slugs() if s != "nursery-nesting-baskets")
     ev = _depth(_db_with(cir + ["market-basket-small-copy"])).evidence
-    assert ev["certified_patterns"] + len(ev["legacy_counted_zero"]["slugs"]) >= 5, ev
-    assert ev["products_counted"] <= 4, ev
+    assert ev["certified_patterns"] + len(ev["legacy_counted_zero"]["slugs"]) >= 7, ev
+    assert ev["products_counted"] <= len(L.LAUNCH0_SLUGS) + 1, ev
 
 
 run(globals())

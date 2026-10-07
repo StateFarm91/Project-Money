@@ -113,9 +113,42 @@ def target(env: dict[str, str] | None = None) -> Target | None:
             f"{sorted(missing)} are missing while {sorted(present)} are set. A "
             f"half-configured archive destination reports that a bucket exists and fails on "
             f"the day somebody reads it, which is the only day this matters")
-    return Target(endpoint=parts[ENDPOINT_VAR].rstrip("/"), bucket=parts[BUCKET_VAR],
+    endpoint = parts[ENDPOINT_VAR].rstrip("/")
+    return Target(endpoint=endpoint, bucket=parts[BUCKET_VAR],
                   key_id=parts[KEY_ID_VAR], secret=parts[SECRET_VAR],
-                  region=(e.get(REGION_VAR) or DEFAULT_REGION).strip())
+                  region=region_for(endpoint, e.get(REGION_VAR)))
+
+
+def region_for(endpoint: str, explicit: str | None = None) -> str:
+    """The SigV4 signing region for an endpoint: stated, else read from the host.
+
+    W4-GATESI: the region used to default to `us-west-004` whenever
+    BRAMBLELOOP_ARCHIVE_REGION was unset. SigV4 signs the region into the credential scope,
+    so a Backblaze bucket in `us-east-005`, any Cloudflare R2 bucket (region `auto`) or an
+    AWS bucket outside us-west would have been refused with a signature error on the first
+    write -- an owner action that "did everything asked" and still left #51 closed. The
+    region is in the endpoint's own hostname for every S3 provider named in this module, so
+    it is read from there; an explicitly set variable still wins, and an unrecognised host
+    keeps the old default rather than guessing.
+    """
+    if (explicit or "").strip():
+        return explicit.strip()
+    host = urllib.parse.urlparse(endpoint).netloc.lower().split(":")[0]
+    labels = host.split(".")
+    if host.endswith(".r2.cloudflarestorage.com"):
+        return "auto"
+    if host.endswith(".backblazeb2.com") and len(labels) >= 4 and labels[0] == "s3":
+        return labels[1]                       # s3.<region>.backblazeb2.com
+    if host.endswith(".wasabisys.com") and len(labels) >= 4 and labels[0] == "s3":
+        return labels[1]                       # s3.<region>.wasabisys.com
+    if host.endswith(".amazonaws.com"):
+        if host == "s3.amazonaws.com":
+            return "us-east-1"
+        if labels[0] == "s3" and len(labels) >= 4:
+            return labels[1]                   # s3.<region>.amazonaws.com
+        if labels[0].startswith("s3-"):
+            return labels[0][3:]               # legacy s3-<region>.amazonaws.com
+    return DEFAULT_REGION
 
 
 def configured(env: dict[str, str] | None = None) -> bool:

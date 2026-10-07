@@ -145,6 +145,8 @@ OPERATOR_GET_ROUTES: frozenset[str] = frozenset({
     # policy-violation incidents carry customer/shop-case content -> operator credential.
     "/api/cx/workspace",
     "/api/etsy/policy-violations",
+    # W4-MJS wiring: the latest competitor-intelligence findings reading (operator only).
+    "/api/mjs/findings",
 })
 
 # GETs that are deliberately public, with the reason. Everything not listed here and not in
@@ -208,9 +210,12 @@ def register_owner_session_gate(fn: Callable | None) -> None:
     _owner_session_gate = fn
 
 
-# Owner-facing pages outside the JSON prefix that must carry the same owner-session gate.
-# `/cc/` itself is the public static PWA shell (it holds no data); these are not.
-OWNER_SESSION_PAGES: frozenset[str] = frozenset({"/cc/store-preview"})
+# Owner-facing pages and routes outside the JSON prefix that must carry the same owner-session
+# gate (session + same-origin + CSRF + nonce for non-GET). `/cc/` itself is the public static
+# PWA shell (it holds no data); these are not. `/api/store/live_observation` (W4-STORE) is the
+# owner recording what the live Etsy storefront shows; it never writes to Etsy.
+OWNER_SESSION_PAGES: frozenset[str] = frozenset({"/cc/store-preview",
+                                                 "/api/store/live_observation"})
 
 
 def owner_session_route(route_path: str) -> bool:

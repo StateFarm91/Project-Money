@@ -170,6 +170,9 @@ class ModelGateway:
             for p in self.providers
         }
         self.calls: list[CallRecord] = []
+        # F-314: providers one tier stronger, asked once when an answer reports itself unsure
+        # (`routing.needs_escalation`). Set by `failover.gateway_for`; empty = no escalation.
+        self.escalation: list[Provider] = []
 
     # -- the one rule that outranks the rest --------------------------------
     @staticmethod
@@ -207,6 +210,13 @@ class ModelGateway:
         for provider in self.providers:
             breaker = self.breakers[self._breaker_keys[id(provider)]]
             if breaker.is_open:
+                continue
+            # F-472: the breaker is shared. Another worker's consecutive failures against this
+            # provider:model (the durable `model.attempt` rows `failover.health` reads) open it
+            # here too, so N concurrent workers do not each pay to rediscover one outage.
+            down = self._durably_down(provider)
+            if down:
+                last = TransientError(down)
                 continue
             for attempt in range(1, max_attempts_per_provider + 1):
                 # The ceiling, the agent's daily permission and a reservation, *before* the
@@ -266,10 +276,86 @@ class ModelGateway:
                     "cost_cad": round(cost, 6),
                     "latency_ms": round(elapsed_ms, 1),
                 }
-                return data
+                return self._maybe_escalate(data, prompt_ref, agent=agent, values=values,
+                                            required=required)
 
         assert last is not None
         raise last
+
+    def _durably_down(self, provider) -> str:
+        """Why the shared (durable) breaker has this provider:model open, or ''."""
+        if self.registry is None:
+            return ""
+        try:
+            from . import failover
+
+            key = failover._key(provider.name, str(provider.model or ""))
+            h = failover.health(self.registry.db).get(key) or {}
+        except Exception:  # noqa: BLE001 - unreadable health never blocks a call
+            return ""
+        if h.get("state") == failover.DOWN:
+            return (f"{key} is DOWN across workers ({h.get('consecutive_failures')} "
+                    f"consecutive failures; retry after {h.get('retry_after_s')}s)")
+        return ""
+
+    def _maybe_escalate(self, data: dict, prompt_ref: str, *, agent: str, values: dict,
+                        required) -> dict:
+        """F-314: ask an unsure answer once more, one tier up. Never loops, never downgrades.
+
+        The stronger answer replaces the unsure one; if the escalation cannot run (budget,
+        outage, malformed) the original is returned marked unsure, so the caller treats it as
+        unjudged rather than as a verdict."""
+        from . import routing
+
+        why = routing.needs_escalation(data)
+        if not why or not self.escalation:
+            return data
+        up = ModelGateway(self.escalation, registry=self.registry, job_id=self.job_id,
+                          product_slug=self.product_slug)
+        try:
+            better = up.complete_json(prompt_ref, agent=agent, values=values,
+                                      required=required)
+        except Exception as exc:  # noqa: BLE001 - BudgetExceeded included: stays unsure
+            self.calls.extend(up.calls)
+            data["_meta"]["escalation"] = {"why": why, "ran": False,
+                                           "refused": f"{type(exc).__name__}: {exc}"[:200],
+                                           "unsure": True}
+            return data
+        self.calls.extend(up.calls)
+        better["_meta"]["escalation"] = {"why": why, "ran": True,
+                                         "from_model": data["_meta"]["model"]}
+        return better
+
+    def complete_each(self, prompt_ref: str, items: list[dict], *, agent: str,
+                      required: tuple[str, ...] | None = None) -> list[dict]:
+        """F-317 (Batching With Isolation): one pinned call per item, each isolated.
+
+        The only sanctioned way to run a model over many items. Each item is its own request,
+        its own budget check and reservation, its own bill and its own result -- so one
+        malformed or refused item cannot contaminate, discard or be charged to another, and
+        an answer is never attributed to the wrong item because items never share a prompt.
+        A budget refusal stops the batch (the ceiling binds on what the batch has already
+        spent, since each prior call is already billed); any other failure is that item's
+        alone. Returns `[{"index", "ok", "result" | "error"}]` in input order.
+        """
+        from ..agents.registry import BudgetExceeded as _Budget
+
+        out: list[dict] = []
+        for i, values in enumerate(items):
+            try:
+                out.append({"index": i, "ok": True,
+                            "result": self.complete_json(prompt_ref, agent=agent,
+                                                         values=values, required=required)})
+            except _Budget as exc:
+                out.append({"index": i, "ok": False, "error": f"budget: {exc}"[:300]})
+                out.extend({"index": j, "ok": False,
+                            "error": "not attempted: the batch stopped at the ceiling"}
+                           for j in range(i + 1, len(items)))
+                break
+            except Exception as exc:  # noqa: BLE001 - isolated to this item
+                out.append({"index": i, "ok": False,
+                            "error": f"{type(exc).__name__}: {exc}"[:300]})
+        return out
 
     def _note_attempt(self, provider, agent: str, purpose: str, *, ok: bool,
                       error: BaseException | None = None) -> None:

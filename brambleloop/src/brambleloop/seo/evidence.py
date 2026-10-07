@@ -140,6 +140,8 @@ def _collect_keyword_table(s) -> list[dict]:
 
     out = []
     for r in s.scalars(select(Keyword)):
+        if str(r.intent or "").startswith("package:"):
+            continue   # seo.packages coverage rows: est_* is a column default, not an estimate
         out.append(_row(r.phrase, "keyword_est_demand", r.est_demand, MODELLED,
                         "planning_estimate", "keywords_table", f"keywords:{r.id}",
                         r.updated_at, {"note": "est_* columns carry no recorded provenance"}))
