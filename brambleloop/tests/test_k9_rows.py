@@ -404,6 +404,50 @@ def test_a_generated_image_with_the_wrong_stitch_scale_is_not_certified():
     assert SS.expected_pitch_px(banded, px_per_cm, component="panel") == 10.0
 
 
+# ---- F-363 -------------------------------------------------------------------------------
+
+def test_a_childs_wearable_is_held_to_physical_plausibility():
+    import copy
+    import dataclasses
+
+    from brambleloop.cir.model import Material
+    from brambleloop.intel import childrens as ch
+    from brambleloop.publish import pdf as P
+
+    key = next(k for k in G.DESIGNS if "pebble" in k)
+    base = _graded(key)
+    assignment = P.childrens_assignment(base)
+    assert assignment and assignment[0] == "childrens_garment", assignment
+    assert ch.physical_plausibility(base) == []
+    P._refuse_what_the_childrens_assessment_refuses(base, assignment)   # does not raise
+
+    def codes(cir):
+        return {p["code"] for p in ch.physical_plausibility(cir)}
+
+    buttons = dataclasses.replace(base, materials=list(base.materials) + [
+        Material(name="buttons, 15 mm")])
+    assert codes(buttons) == {"CLOSURE_WITHOUT_FASTENING"}, codes(buttons)
+    loose = copy.deepcopy(base)
+    loose.components[1].resumes = None
+    assert "PIECE_NOT_ATTACHED" in codes(loose), codes(loose)
+    closed = copy.deepcopy(base)
+    closed.title, closed.slug = "Pebble Raglan Pullover", "pebble-raglan-pullover-10"
+    closed.components[0].note = "worked from the neck down in one piece"
+    closed.designer_notes = "A raglan pullover worked from the neck down."
+    assert "OPENING_UNVERIFIED" in codes(closed), codes(closed)
+    tight = copy.deepcopy(base)
+    e = next(x for x in tight.grading.sizes if x["size"] == tight.grading.size)
+    e["built_cm"]["upper_arm"] = e["body_cm"]["upper_arm"] - 1
+    e["built_cm"]["length"] = e["body_cm"]["back_length"] * 2
+    assert {"PROPORTION_TOO_SMALL", "PROPORTION_LENGTH"} <= codes(tight), codes(tight)
+    try:
+        P._refuse_what_the_childrens_assessment_refuses(buttons, assignment)
+    except ValueError as exc:
+        assert "CLOSURE_WITHOUT_FASTENING" in str(exc)
+    else:
+        raise AssertionError("rendered a child's cardigan with buttons and no buttonholes")
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_")]

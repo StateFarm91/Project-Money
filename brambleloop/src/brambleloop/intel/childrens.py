@@ -1361,3 +1361,114 @@ def carries_no_market_numbers() -> bool:
     forbidden = ("demand", "competition", "score", "price", "volume", "revenue", "rank")
     names = [f.name for f in fields(Subcategory)]
     return not any(word in name for name in names for word in forbidden)
+
+
+# ---- physical plausibility of a child's wearable (F-363) ------------------------------------
+#
+# The parts and ties above are about what can hurt a child. These are about what makes the
+# finished object impractical or inconsistent with the certified pattern, read off the CIR:
+#
+#   seams      every piece a join names exists, and every piece is attached to the object --
+#              by a join to another piece, or by resuming stitches another piece holds. A
+#              sleeve that nothing attaches is a pattern that ends with three loose pieces.
+#   closures   buttons in the materials need buttonholes (or button loops / a button band) in
+#              the instructions, and buttonholes need buttons.
+#   openings   a garment the child has to get into: an open front (cardigan, button band,
+#              "open" fronts) passes; a closed front needs a head opening the pattern states
+#              and this system can check, which it cannot today -- UNKNOWN, never a pass.
+#   proportion the built measures against the body the size is for (grading matrix): chest,
+#              upper arm and armhole at least the body's (no negative ease where the arm and
+#              the body have to go), length within a wearable band of the back length.
+#   trim       a band, collar, cuff or button band is a piece like any other: it must be
+#              attached (it is covered by `seams`).
+
+LENGTH_TO_BACK_LENGTH = (0.85, 1.6)
+
+
+def _attached(cir) -> dict[str, bool]:
+    names = [c.name for c in cir.components]
+    holds = {h.name: c.name for c in cir.components for h in c.holds}
+    linked: dict[str, set[str]] = {n: set() for n in names}
+    for s in cir.assembly:
+        if s.piece_a in linked and s.piece_b in linked and s.piece_a != s.piece_b:
+            linked[s.piece_a].add(s.piece_b)
+            linked[s.piece_b].add(s.piece_a)
+    for c in cir.components:
+        owner = holds.get(c.resumes or "")
+        if owner and owner != c.name:
+            linked[c.name].add(owner)
+            linked[owner].add(c.name)
+    seen, stack = {names[0]}, [names[0]]
+    while stack:
+        for nxt in linked[stack.pop()]:
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+    return {n: n in seen for n in names}
+
+
+def physical_plausibility(cir) -> list[dict]:
+    """Every reason a child's wearable would be impractical as the pattern makes it (F-363).
+
+    Each entry is {"code", "check", "detail"}; an empty list is a plausible object. UNKNOWN
+    entries (`OPENING_UNVERIFIED`) are reported like any other: an unmeasured opening is not a
+    measured one.
+    """
+    import re
+
+    out: list[dict] = []
+
+    def add(code: str, check: str, detail: str) -> None:
+        out.append({"code": code, "check": check, "detail": detail})
+
+    names = {c.name for c in cir.components}
+    for s in cir.assembly:
+        for piece in (s.piece_a, s.piece_b):
+            if piece not in names:
+                add("SEAM_PIECE_MISSING", "seams", f"a join names {piece!r}, which the "
+                    f"pattern never makes")
+    if len(names) > 1:
+        for name, ok in _attached(cir).items():
+            if not ok:
+                add("PIECE_NOT_ATTACHED", "seams", f"{name!r} is never joined to the object or "
+                    f"worked from stitches it holds")
+
+    text = " ".join(_cir_texts(cir)).lower()
+    materials = " ".join((m.name or "") for m in cir.materials).lower()
+    features = {c.feature for c in cir.components if c.feature}
+    has_buttons = bool(re.search(r"\bbuttons?\b", materials)) or \
+        bool(re.search(r"\bsew (?:on )?(?:the )?buttons?\b", text))
+    has_holes = bool(re.search(r"\bbutton ?holes?\b|\bbutton loops?\b", text)) or \
+        "button_band" in features
+    if has_buttons and not has_holes:
+        add("CLOSURE_WITHOUT_FASTENING", "closures", "buttons are called for and no "
+            "buttonhole, button loop or button band is worked")
+    if has_holes and not has_buttons:
+        add("CLOSURE_WITHOUT_BUTTONS", "closures", "buttonholes are worked and no buttons "
+            "are in the materials")
+
+    grading = getattr(cir, "grading", None)
+    entry = grading.entry() if grading is not None else None
+    if entry is not None:
+        front_open = ("cardigan" in f"{cir.slug} {cir.title}".lower()
+                      or "button_band" in features
+                      or bool(re.search(r"\bfronts? (?:stay|stays|left|are) open\b|\bopen[- ]"
+                                        r"front\b", text)))
+        if not front_open:
+            add("OPENING_UNVERIFIED", "openings", "a closed-front garment needs a head opening "
+                "this system can check against the size's head circumference; no sourced "
+                "head measurement is carried, so the opening is unverified")
+        body, built = entry.get("body_cm") or {}, entry.get("built_cm") or {}
+        for b_key, m_key in (("bust", "chest"), ("upper_arm", "upper_arm"),
+                             ("armhole_depth", "armhole")):
+            if b_key in body and m_key in built and float(built[m_key]) < float(body[b_key]):
+                add("PROPORTION_TOO_SMALL", "proportion", f"built {m_key} {built[m_key]} cm is "
+                    f"less than the size {entry.get('size')} body {b_key} {body[b_key]} cm")
+        if "back_length" in body and "length" in built and float(body["back_length"]):
+            ratio = float(built["length"]) / float(body["back_length"])
+            lo, hi = LENGTH_TO_BACK_LENGTH
+            if not lo <= ratio <= hi:
+                add("PROPORTION_LENGTH", "proportion", f"built length {built['length']} cm is "
+                    f"{ratio:.2f} x the back length {body['back_length']} cm (wearable band "
+                    f"{lo}-{hi})")
+    return out
