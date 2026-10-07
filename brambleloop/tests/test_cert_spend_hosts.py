@@ -29,6 +29,10 @@ DECLARED = {
     "brambleloop/gateway/images.py": "images.generate reserves via check_budget_cad first",
     "brambleloop/gateway/anthropic.py": "the model gateway checks check_budget_cad first",
     "brambleloop/visual/d_judge.py": "research judge: refuses without an operator cap (C-54)",
+    # Reviewed 2026-10-07 (W4-SPENDA F-106/F-103): GET-only reads of the providers' own
+    # cost-report endpoints, refused without an owner-supplied admin key; no billable call.
+    "brambleloop/ops/provider_accounts.py": "read-only billing settlement: GET cost reports, "
+                                            "refuses with no admin key",
 }
 
 

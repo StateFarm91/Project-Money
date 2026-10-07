@@ -254,7 +254,7 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
                  "etsy.listing", "seo."),
        job_types={"chain.rebuild", "seasonal.remerchandising", "etsy.credential_health",
-                  "etsy.shop_snapshot", "etsy.listing_census"},
+                  "etsy.shop_snapshot", "etsy.listing_census", "etsy.openapi_reverify"},
        generatable=("seasonal.remerchandising", "seo.cycle", "autonomy.department_review"),
        forbidden=("publish or activate a listing without owner authority",
                   "change a live price"),
