@@ -90,11 +90,8 @@ PROPOSALS: tuple[Proposal, ...] = (
              "SOURCED (pool): runner category scored (harvest-table-runner 0.551) and the "
              "valentine-heart-garland concept 0.573; a runner needs no assembly, the garland does",
              "the Valentine's demand the garland targets, in a form whose name the pattern backs"),
-    Proposal("snowfall-textured-throw", "Snowfall Textured Throw", "snowfall", "nordic",
-             100.0, 130.0, "blanket", ("snowfall",), "christmas",
-             "SOURCED (pool): winter-village-graphghan scored 0.729, but its graphghan claim "
-             "fails fabric truth; this is the same demand with a truthful name",
-             "replaces a false colourwork claim with the relief the tiler actually makes"),
+    # snowfall-textured-throw (proposed here earlier) was withdrawn on 2026-10-07: the
+    # catalogue's winter-village-graphghan 1.3.0 is now that product, truthfully named.
     Proposal("pumpkin-relief-table-runner", "Pumpkin Relief Table Runner", "pumpkin-row",
              "cottage", 32.0, 120.0, "runner", ("pumpkin",), "autumn",
              "SOURCED (pool): spooky-garland 0.682 and harvest-table-runner 0.551 carry the "
@@ -157,6 +154,84 @@ def proposal_cir(p: Proposal, version: str = "0.1.0"):
     return builder.build(builder._derive_from_yarn(design), version=version)
 
 
+def pencil_roll_cir(version: str = "0.1.0"):
+    """W4-CREATIVE `teacher-chevron-pencil-roll`, engineered as pattern software.
+
+    A pencil roll is three things, and the CIR carries all three or the name is false
+    (`launch0.ASSEMBLED_FORMS` names "pencil roll"):
+
+    * the body: a chevron-band relief panel from the catalogue tiler (one colour per row,
+      wine and gold), sized for a 17.5 cm pencil plus the pocket fold and a top flap;
+    * the pocket: the bottom 8 cm folded up and closed at both sides -- two placed self-seams,
+      each the height of the folded rows, so both edges of every join have a length;
+    * the tie: a single-crochet strip, its end sewn to one side edge across one row.
+
+    Slots are stitched through both layers of the pocket; the note says where.
+    """
+    from dataclasses import replace as _replace
+
+    from ..cir import stitches
+    from ..cir.model import Component, Op, Row, Seam
+    from . import builder
+    from .motifs import get
+
+    motif = get("chevron-band")
+    across = max(1, round(30.0 * 16 / (10.0 * motif.width)))
+    repeats = max(1, round(30.0 / builder._repeat_height_cm(motif, 18, stitches)))
+    design = builder.Design(
+        slug="teacher-chevron-pencil-roll", title="Chevron Pencil Roll", motif="chevron-band",
+        palette="autumn", width_stitches=across * motif.width, motif_repeats=repeats,
+        yarn="worsted cotton", yarn_weight="worsted",
+        note="Fold the bottom 8 cm up to make the pocket, close its sides, then stitch slot "
+             "lines through both layers every 3 cm; roll from one side and tie.")
+    cir = builder.build(builder._derive_from_yarn(design), version=version)
+    body = cir.components[0]
+    gauge = cir.gauge
+    row_cm = 10.0 / gauge.rows_per_10cm
+    fold_rows = max(2, round(8.0 / row_cm))
+    tie_sts = max(10, round(60.0 * gauge.stitches_per_10cm / 10.0))
+    colour = body.rows[0].color
+    # The tie's end is sewn across whole panel rows, so its width is chosen to match them:
+    # n single-crochet rows against k panel rows, the closest pair (the assembly check holds
+    # both sides to EDGE_TOLERANCE; a relief row is taller than a plain one).
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    panel_row = build_twin(cir, compile_cir(cir)).height_cm / len(body.rows)
+    sc_row = 10.0 / gauge.rows_per_10cm
+    tie_rows, tie_span = min(((n, k) for n in range(2, 5) for k in range(1, 4)),
+                             key=lambda nk: abs(nk[0] * sc_row - nk[1] * panel_row)
+                             / (nk[1] * panel_row))
+
+    def tie_component(n: int) -> Component:
+        return Component(name="tie", construction="flat_rows", foundation=tie_sts,
+                         foundation_kind="chain",
+                         rows=[Row(index=i, ops=[Op("sc", tie_sts)], declared_count=tie_sts,
+                                   color=colour, turning_chain=1) for i in range(1, n + 1)],
+                         note=f"{n} rows of single crochet along a chain: the tie strip.")
+
+    tie = tie_component(tie_rows)
+    assembly = [
+        Seam("whipstitch", "panel", "panel", edge_a="left", edge_b="left", at_round=1,
+             spans_rounds=fold_rows,
+             note=f"Fold the first {fold_rows} rows up onto the panel; close the left side."),
+        Seam("whipstitch", "panel", "panel", edge_a="right", edge_b="right", at_round=1,
+             spans_rounds=fold_rows,
+             note="Close the right side of the pocket, then stitch a slot line through both "
+                  "layers every 3 cm."),
+        Seam("whipstitch", "tie", "panel", edge_a="left", edge_b="right",
+             at_round=fold_rows + 1, spans_rounds=tie_span,
+             note="Sew one end of the tie to the right edge just above the pocket."),
+    ]
+    return _replace(cir, components=[body, tie], assembly=assembly)
+
+
+# Creative candidates the pipeline has engineered (key -> CIR builder). Pre-release versions:
+# a candidate is not a catalogue product until it clears Product Truth and is adopted.
+CREATIVE_ENGINEERED = {"teacher-chevron-pencil-roll": pencil_roll_cir}
+CREATIVE_SEARCH = {"teacher-chevron-pencil-roll": ("pencil roll", ("chevron",), None)}
+
+
 # ---- candidates --------------------------------------------------------------------------
 
 @dataclass
@@ -201,6 +276,8 @@ def _cir_for(slug: str, source: str):
     if source == "proposal":
         p = next(x for x in PROPOSALS if x.slug == slug)
         return proposal_cir(p)
+    if source == "creative":
+        return CREATIVE_ENGINEERED[slug]()
     from ..runtime.pipeline import _engineered_cir
 
     return _engineered_cir(slug)
@@ -349,6 +426,9 @@ def _search(c: Candidate, proposal: Proposal | None, scored: dict) -> None:
     cir = c._cir  # type: ignore[attr-defined]
     if proposal is not None:
         category, motifs, season = proposal.category, list(proposal.motifs), proposal.season
+    elif c.slug in CREATIVE_SEARCH:
+        category, m, season = CREATIVE_SEARCH[c.slug]
+        motifs = list(m)
     else:
         sc = scored.get(c.slug)
         category = sc.seed.category if sc else "crochet"
@@ -408,6 +488,9 @@ def creative_candidates() -> list[Candidate]:
                                      "demand_basis": "ESTIMATED: creative brief; demand is "
                                                      "unmeasured until the shop has search data",
                                      "concept_accepted": raw["key"] in ok})
+        if raw["key"] in CREATIVE_ENGINEERED:
+            out.append(c)          # DESIGN onwards runs in board(), like every built product
+            continue
         named = [f for f in launch0.ASSEMBLED_FORMS if f in brief.title.lower()]
         if raw["construction"] not in BUILDER_CONSTRUCTIONS:
             nxt = (f"engineer a {raw['construction']} builder for a {raw['form']} "
@@ -479,25 +562,36 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
         c = Candidate(slug=slug, title=(proposal.title if proposal else
                                         sc.seed.title if sc else slug), source=source)
         _intelligence(c, scored, proposal, findings)
-        if c.stages["INTELLIGENCE"]["status"] != PASS:
-            cands.append(c)
-            continue
-        _design(c)
-        if c.stages["DESIGN"]["status"] == PASS:
-            c.title = c._cir.title  # type: ignore[attr-defined]
-            _product_and_truth(c)
-            if c.stages.get("PRODUCT_TRUTH", {}).get("status") == PASS:
-                if visual:
-                    _visual(c, store)
-                if visual and c.stages.get("VISUAL", {}).get("status") == PASS:
-                    _search(c, proposal, scored)
-                elif not visual:
-                    c.set("VISUAL", NOT_RUN, "visual stage not run in this pass")
-            if c.stages.get("SEARCH", {}).get("status") == PASS:
-                c.set("LISTING_READINESS", NOT_RUN, "read from the release chain")
+        _advance(c, proposal, scored, store, visual)
         cands.append(c)
-    cands += creative_candidates()
+    for c in creative_candidates():
+        if "DESIGN" not in c.stages and c.stages["INTELLIGENCE"]["status"] == PASS:
+            _advance(c, None, scored, store, visual)
+        cands.append(c)
     cands += intelligence_candidates(findings, {c.slug for c in cands})
+    return _summarise(cands, today, findings)
+
+
+def _advance(c: Candidate, proposal, scored: dict, store, visual: bool) -> None:
+    """DESIGN onwards, each stage only through the one before it."""
+    if c.stages["INTELLIGENCE"]["status"] != PASS:
+        return
+    _design(c)
+    if c.stages["DESIGN"]["status"] == PASS:
+        c.title = c._cir.title  # type: ignore[attr-defined]
+        _product_and_truth(c)
+        if c.stages.get("PRODUCT_TRUTH", {}).get("status") == PASS:
+            if visual:
+                _visual(c, store)
+            if visual and c.stages.get("VISUAL", {}).get("status") == PASS:
+                _search(c, proposal, scored)
+            elif not visual:
+                c.set("VISUAL", NOT_RUN, "visual stage not run in this pass")
+        if c.stages.get("SEARCH", {}).get("status") == PASS:
+            c.set("LISTING_READINESS", NOT_RUN, "read from the release chain")
+
+
+def _summarise(cands: list, today: date, findings: dict | None) -> dict:
     rows = [c.to_dict() for c in cands]
     counts: dict[str, int] = {s: 0 for s in STAGES}
     passed: dict[str, int] = {s: 0 for s in STAGES}

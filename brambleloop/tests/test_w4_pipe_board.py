@@ -69,12 +69,20 @@ def main():
     # Creative candidates (W4-CREATIVE briefs) sit at DESIGN with the exact engineering named.
     creative = [r for r in rows if r["source"] == "creative"]
     assert creative, "no creative candidates"
+    waiting = [r for r in creative if r["slug"] not in pb.CREATIVE_ENGINEERED]
+    assert waiting, "no unengineered creative candidates"
     check("creative_candidates_at_design",
-          all(r["stage"] == "DESIGN" and r["highest_passed"] == "INTELLIGENCE" for r in creative),
-          [(r["slug"], r["stage"]) for r in creative])
-    check("pencil_roll_needs_assembly",
-          "assembled form" in by["teacher-chevron-pencil-roll"]["next_step"],
-          by["teacher-chevron-pencil-roll"]["next_step"])
+          all(r["stage"] == "DESIGN" and r["highest_passed"] == "INTELLIGENCE" for r in waiting),
+          [(r["slug"], r["stage"]) for r in waiting])
+    # The engineered pencil roll carries its pocket, tie and seams, and clears Product Truth.
+    roll = by["teacher-chevron-pencil-roll"]
+    check("pencil_roll_clears_product_truth", roll["highest_passed"] == "PRODUCT_TRUTH", roll)
+    cir = pb.pencil_roll_cir()
+    check("pencil_roll_is_assembled", len(cir.assembly) == 3
+          and [c.name for c in cir.components] == ["panel", "tie"])
+    flat = replace(cir, components=cir.components[:1], assembly=[])
+    check("flat_pencil_roll_fails_name_truth",
+          any(n.startswith("assembly") for n in name_truth(flat)), name_truth(flat))
     # Competitor findings become intelligence candidates; answered arenas are not repeated.
     intel = [r for r in rows if r["source"] == "intelligence"]
     assert intel, "no intelligence candidates"

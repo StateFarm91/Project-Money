@@ -160,7 +160,8 @@ def test_the_pt_redesigns_carry_a_new_version():
     # W4-PIPE 2026-10-07: back panel + closing seam became pattern content (name truth).
     assert built["bobble-floor-pillow"].version == "1.3.0"
     assert built["chunky-ribbed-scarf"].version == "1.0.0"
-    assert built["autumn-oak-mosaic-throw"].version == "1.1.0"     # LEGACY_HELD
+    # LEGACY_HELD (gauge); W4-PIPE 1.3.0 retitle to what the motif and fabric are.
+    assert built["autumn-oak-mosaic-throw"].version == "1.3.0"
     assert built["cloudline-baby-blanket"].version == "1.2.0"
     assert built["hexagon-coaster-set"].version == "1.2.0"
     for slug, cir in built.items():

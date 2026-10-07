@@ -22,6 +22,18 @@ Phase shadow; no deploy, no Etsy write, no spend. Production read only via publi
   now PRODUCT_TRUTH FAIL clearer COMPANY (add back panel + closing seam, new version) as well as
   the OWNER stitch calibration. PROVEN `test_w4_pipe_board::pillow_front_only_fails_name_truth`.
 
+- CREATIVE request (2) — 5 HELD titles retitled truthfully (builder 1.3.0; ornaments 1.4.0), fingerprints re-pinned:
+  winter-village-graphghan → "Winter Snowfall Relief Throw" (certifies; snowfall-textured-throw proposal withdrawn as duplicate);
+  autumn-oak-mosaic-throw → "Fir and Star Relief Throw" (name-true; still LEGACY_HELD gauge refusal, pinned by test_launch0_gauge);
+  nordic-star-ornaments → "Nordic Snowflake Ornament Set (6)"; pressed-flower-motifs → "Heart Appliqué Motif Library (12)" (pieces=12);
+  cottage-wall-hanging → "Cottage Chevron Wall Hanging" + rod-pocket self-seam (`Design.assembly`, join verdict sound).
+  WIRING REQUEST W4-CREATIVE: drop these 5 from `emotional_brief.HELD` and add CATALOGUE_BRIEFS so they rejoin the gate.
+- CREATIVE request (1) — engineering queue: `teacher-chevron-pencil-roll` engineered (`pipeline_board.pencil_roll_cir`:
+  chevron relief body + tie strip + pocket-fold placed self-seams + tie seam). Others need builders the tiler lacks:
+  first-christmas-stocking (in-the-round + heel shaping AND fir-and-star colourwork, which the CIR cannot express:
+  `launch0.per_stitch_colour_expressible()` False), key basket / ring pillow (in_the_round), tea cosy (seamless_tube),
+  cable wrap (side_to_side + uncalibrated cable = OWNER tester), advent garland (motif_join), kneeler (modular_panels).
+
 ## Tests run (focused)
 test_w4_pipe_name_truth 12, test_w4_pipe_board 31, test_launch0 52, test_release_versions 4, test_cert_growth_seasonal 24 — all OK. Others in the batch: see final report.
 

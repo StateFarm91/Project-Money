@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row, Seam
 from ..gates.originality import catalogue_provenance
 from .motifs import LIBRARY, Motif, get
 
@@ -49,6 +49,9 @@ class Design:
     # How many identical pieces the pattern tells the maker to work (Component.make). A
     # title that names a set or a pair is backed only by this (launch0.title_promise).
     pieces: int = 1
+    # Finishing joins (cir.assembly). Empty for a flat piece; a form the title names as
+    # assembled (launch0.ASSEMBLED_FORMS) is backed only by real seams (W4-PIPE).
+    assembly: tuple = ()
 
 
 class DesignDoesNotFit(ValueError):
@@ -247,6 +250,7 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
         components=[Component(name="panel", construction="flat_rows", rows=rows,
                               foundation=design.width_stitches, foundation_kind="chain",
                               make=design.pieces)],
+        assembly=list(design.assembly),
         designer_notes=(
             f"{motif.name} on a {motif.width}-stitch repeat, {across} across and "
             + (f"{design.motif_repeats} up ({design.motif_repeats * len(motif.grid)} motif rows). "
@@ -263,8 +267,9 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
             design.slug, {"builder": "products.builder.build",
              # `pieces` is recorded only when it says something (W4-PIPE): a field added
              # with its default must not change the content of designs already released.
-             "design": {k: v for k, v in vars(design).items()
-                        if not (k == "pieces" and v == 1)},
+             "design": {k: (repr(v) if k == "assembly" else v)
+                        for k, v in vars(design).items()
+                        if not (k == "pieces" and v == 1) and not (k == "assembly" and not v)},
                           "motif_grid": list(motif.grid)},
             ("products.builder", f"products.motifs:{motif.slug}",
              f"products.builder.PALETTES:{design.palette}")),
@@ -280,7 +285,9 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
 
 CATALOGUE: dict[str, Design] = {
     "winter-village-graphghan": Design(
-        slug="winter-village-graphghan", title="Winter Village Graphghan",
+        # W4-PIPE 1.3.0 (creative HELD + fabric truth): the snowfall motif shows no village,
+        # and one colour per row is a relief, not a graphghan.
+        slug="winter-village-graphghan", title="Winter Snowfall Relief Throw",
         motif="snowfall", palette="nordic", width_stitches=144, motif_repeats=8,
         note="Sparse flakes so the field reads at blanket scale rather than as noise."),
     "cloudline-baby-blanket": Design(
@@ -300,7 +307,9 @@ CATALOGUE: dict[str, Design] = {
         note="The lattice is a relief: double crochet standing above a single-crochet "
              "ground, one colour per row."),
     "autumn-oak-mosaic-throw": Design(
-        slug="autumn-oak-mosaic-throw", title="Autumn Oak Overlay Mosaic Throw",
+        # W4-PIPE 1.3.0 (creative HELD + fabric truth): the motif is fir-and-star, not oak,
+        # and one colour per row is a relief, not a mosaic. Still LEGACY_HELD for its gauge.
+        slug="autumn-oak-mosaic-throw", title="Fir and Star Relief Throw",
         motif="fir-and-star", palette="autumn", width_stitches=144, motif_repeats=5),
     "harvest-table-runner": Design(
         slug="harvest-table-runner", title="Harvest Table Runner",
@@ -314,8 +323,9 @@ CATALOGUE: dict[str, Design] = {
         note="Make two. The lattice is a relief: double crochet standing above a "
              "single-crochet ground, one colour per row."),
     # W4-PIPE 1.3.0: "Set (6)" over a CIR that made one ornament; the pattern now makes six.
+    # 1.4.0: the snowfall motif depicts snowflakes, not stars (creative HELD).
     "nordic-star-ornaments": Design(
-        slug="nordic-star-ornaments", title="Nordic Star Ornament Set (6)",
+        slug="nordic-star-ornaments", title="Nordic Snowflake Ornament Set (6)",
         motif="snowfall", palette="nordic", width_stitches=12, motif_repeats=1, pieces=6,
         note="One ornament per repeat; the twelve-row snowfall keeps each one ornament-sized "
              "rather than the twenty-four rows the fir band would impose. Make six."),
@@ -329,12 +339,20 @@ CATALOGUE: dict[str, Design] = {
         slug="pet-snuggle-mat", title="Pet Snuggle Mat",
         motif="basketweave", palette="hearth", width_stitches=56, motif_repeats=7),
     "pressed-flower-motifs": Design(
-        slug="pressed-flower-motifs", title="Pressed Flower Motif Library (12)",
-        motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2,
-        note="A motif sampler: each repeat worked separately as a standalone appliqué."),
+        # W4-PIPE 1.3.0: the heart-row motif depicts hearts, not flowers (creative HELD), and
+        # "(12)" is backed by the pattern making twelve.
+        slug="pressed-flower-motifs", title="Heart Appliqué Motif Library (12)",
+        motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2, pieces=12,
+        note="A motif library: work twelve appliqués, each a standalone piece. Make twelve."),
     "cottage-wall-hanging": Design(
-        slug="cottage-wall-hanging", title="Cottage Botanical Wall Hanging",
-        motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6),
+        # W4-PIPE 1.3.0: the chevron-band motif depicts chevrons, not botanicals (creative
+        # HELD), and "wall hanging" is backed by a real finishing step: a rod pocket.
+        slug="cottage-wall-hanging", title="Cottage Chevron Wall Hanging",
+        motif="chevron-band", palette="cottage", width_stitches=40, motif_repeats=6,
+        assembly=(Seam("whipstitch", "panel", "panel", edge_a="top", edge_b="fold",
+                       note="Rod pocket: fold the top edge 4 cm to the wrong side over a "
+                            "dowel and whipstitch it across the panel; hang from the dowel."),),
+        note="Finish with a rod pocket across the top edge for a hanging dowel."),
 }
 
 
@@ -369,7 +387,12 @@ RELEASE_VERSIONS["autumn-oak-mosaic-throw"] = "1.1.0"   # LEGACY_HELD, never re-
 # W4-PIPE (2026-10-07): piece count made true (pieces=2 / pieces=6) and the placemat named for
 # the relief fabric it works rather than a mosaic it cannot.
 RELEASE_VERSIONS["mosaic-placemat-pair"] = "1.3.0"
-RELEASE_VERSIONS["nordic-star-ornaments"] = "1.3.0"
+RELEASE_VERSIONS["nordic-star-ornaments"] = "1.4.0"
+# W4-PIPE (2026-10-07, W4-CREATIVE HELD titles): retitled to what the motif depicts and the
+# fabric makes; the library makes twelve; the wall hanging carries its rod-pocket seam.
+for _slug in ("winter-village-graphghan", "autumn-oak-mosaic-throw", "pressed-flower-motifs",
+              "cottage-wall-hanging"):
+    RELEASE_VERSIONS[_slug] = "1.3.0"
 
 
 def for_slug(slug: str, version: str = "1.0.0") -> CIR | None:
