@@ -50,7 +50,8 @@ Branch `claude/w4-AUTO` (from claude/visual-investigation fee1cfe; merged origin
 Tests run this session: test_w4_auto_status 12 OK, test_w4_auto_spend_wiring 9 OK,
 test_w4_auto_pipe2_wiring 3 OK, test_w4_auto_provenance_concurrency 3 OK, test_vacuity 8,
 test_secret_scan 7, test_w3_tmp_hygiene 16, test_reachability 11, test_swarm_runtime 10,
-test_chaos/test_provenance/test_provenance_write_path/test_cert_provenance (see commit msg).
+test_chaos 38/38 OK (run in parts; restart_mid_pipeline alone 1024 s), test_provenance 12,
+test_provenance_write_path 19, test_cert_provenance 12.
 
 ## Remaining
 Nothing executable left in this lane. Gates: production deploy of this branch (integrator),
