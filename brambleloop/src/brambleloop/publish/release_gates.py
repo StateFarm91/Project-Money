@@ -409,7 +409,7 @@ def mobile_contexts(db, *, slug: str, version: str, frames, candidates, store_ro
 
 def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = True,
                 cir=None, release_hash: str | None = None,
-                store_renders: bool = False) -> dict:
+                store_renders: bool = False, persist_supplements: bool = True) -> dict:
     """Every frame through the four gates, the set through #65/#66/#80, and a certificate."""
     if cir is None:
         cir, release_hash = _release(db, slug, version)
@@ -433,7 +433,8 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
         return disclosed_listing_set(db, slug=slug, version=version, cir=cir, twin=twin,
                                      listing=listing, rec=current_asset, frames=frames,
                                      release_hash=release_hash, issue=issue,
-                                     store_root=store_root)
+                                     store_root=store_root,
+                                     persist_supplements=persist_supplements)
 
     if not frames:
         return {"slug": slug, "version": version, "blocks_release": True,
@@ -599,7 +600,7 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
 
 def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, rec: dict,
                           frames, release_hash: str | None, issue: bool,
-                          store_root=None) -> dict:
+                          store_root=None, persist_supplements: bool = True) -> dict:
     """The disclosed-render set through the listing-set certificate (#70, D-FB-7).
 
     Preconditions are `disclosed_listing.export_images`' refusals -- the disclosure in the
@@ -631,7 +632,7 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
     supplements, supplement_qa, supplement_notes = (
         disclosed_supplements(rec, images, slug=slug, version=version, store_root=store_root,
                               release_fingerprint=getattr(cir, "fingerprint", "") or "",
-                              db=db)
+                              db=db, persist=persist_supplements)
         if images else ([], None, {}))
     gate_results = ls.disclosed_gate_results(rec, exported=bool(images) and not any(
         r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"],
@@ -684,7 +685,7 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
 
 def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
                           store_root=None, release_fingerprint: str | None = None,
-                          db=None) -> tuple[list, dict | None, dict]:
+                          db=None, persist: bool = True) -> tuple[list, dict | None, dict]:
     """The verified gallery frames (F-030/F-254) a disclosed set is certified with, their
     QA readings over the whole ordered set, and why any applicable job was left out.
 
@@ -710,7 +711,7 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
                                                exclude_jobs=taken,
                                                store=ArtifactStore(store_root),
                                                release_fingerprint=release_fingerprint,
-                                               db=db)
+                                               db=db, persist=persist)
     except Exception as exc:  # noqa: BLE001 - no supplements is a coverage gap, not a block
         return [], None, {"*": f"{type(exc).__name__}: {exc}"[:300]}
     notes = dict(offer.get("refused") or {})
@@ -1091,13 +1092,18 @@ def originality_gate(db, *, slug: str, version: str, store_root=None) -> dict:
 
 
 def for_publish(db, *, slug: str, version: str, today: date | None = None,
-                positioning: str | None = None, store_root=None) -> dict:
-    """Everything store.publish must refuse on, computed once and returned as one verdict."""
+                positioning: str | None = None, store_root=None,
+                read_only: bool = False) -> dict:
+    """Everything store.publish must refuse on, computed once and returned as one verdict.
+
+    `read_only=True` (store.publish) writes no artifact: supplement frames are judged only if
+    already stored, so the Shadow Mode refusal comes before any storage write."""
     stale = staleness(db, slug=slug)
     window = window_decision(db, slug=slug, version=version, today=today,
                              positioning=positioning)
     set_verdict = listing_set(db, slug=slug, version=version, store_root=store_root,
-                              issue=not stale["blocks"] and window["may_launch_seasonally"])
+                              issue=not stale["blocks"] and window["may_launch_seasonally"],
+                              persist_supplements=not read_only)
     reasons = list(stale["reasons"])
     originality = originality_gate(db, slug=slug, version=version, store_root=store_root)
     reasons.extend(originality["reasons"])

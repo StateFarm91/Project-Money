@@ -2203,7 +2203,8 @@ def _release_gates(ctx: JobContext) -> dict:
         verdict = gates_mod.for_publish(
             ctx.db, slug=slug, version=version,
             today=_date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
-            positioning=i.get("positioning"), store_root=i.get("artifact_dir"))
+            positioning=i.get("positioning"), store_root=i.get("artifact_dir"),
+            read_only=True)
     except Exception as e:  # noqa: BLE001 - a crashed gate is a closed gate
         return {"slug": slug, "version": version, "blocks_release": True,
                 "reasons": [f"release gates could not be evaluated: "

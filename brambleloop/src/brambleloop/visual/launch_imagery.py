@@ -385,14 +385,21 @@ def check_supplement(slug: str, version: str, job: str, data: bytes, *, db=None,
 
 def supplements_for_certificate(slug: str, version: str, *, start: int,
                                 exclude_jobs=(), store=None,
-                                release_fingerprint: str | None = None, db=None) -> dict:
+                                release_fingerprint: str | None = None, db=None,
+                                persist: bool = True) -> dict:
     """The verified supplement frames a disclosed set for `slug@version` may be certified with.
 
     Returns {"frames": [{position, job, sha256, purpose, alt_text, png, represented_variant}],
     "refused": {job: why}, "listing": slug-or-None}. Only jobs applicable to the listing's
     category (`eligibility.gallery_jobs_for`) and not already done by the disclosed set are
     offered; a job whose frame does not verify on its bytes is refused, never padded in.
-    Deterministic and local: no model, provider or network call."""
+    Deterministic and local: no model, provider or network call.
+
+    `persist=False` writes nothing: a frame is offered only if those exact bytes are already
+    in the store (put there by a persisting caller such as the release stage). store.publish
+    reads the gates this way so nothing is written before its Shadow Mode refusal."""
+    import hashlib
+
     from ..core.artifacts import ArtifactStore
     from ..publish import eligibility as el
 
@@ -440,9 +447,15 @@ def supplements_for_certificate(slug: str, version: str, *, start: int,
         if verdict["status"] != "PASS":
             refused[job] = verdict["why"] or verdict["status"]
             continue
-        stored = store.put(f"{primary.slug}/{primary.version}/certified-{job.lower()}.png",
-                           png, "image/png")
-        out.append({"position": position, "job": job, "sha256": stored.sha256,
+        if persist:
+            sha256 = store.put(f"{primary.slug}/{primary.version}/certified-{job.lower()}.png",
+                               png, "image/png").sha256
+        else:
+            sha256 = hashlib.sha256(png).hexdigest()
+            if not store.exists(sha256):
+                refused[job] = "not_rendered: this frame is not in the store yet"
+                continue
+        out.append({"position": position, "job": job, "sha256": sha256,
                     "purpose": supplement_purpose(job),
                     "alt_text": supplement_alt_text(job, title), "png": png,
                     "medium": supplement_medium(job), "honesty_label": supplement_label(job),
