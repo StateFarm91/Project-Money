@@ -101,3 +101,13 @@ the post-launch ingestion path that will feed the gate is `commerce.orders_inges
 ## 5. Resolution in this lane
 
 See `handoff_LEARN.md` for the row-by-row status, tests and before/after numbers.
+
+## 6. Addendum after the 2026-10-07 restart
+
+* **Missing wiring #3:** `market_radar` read only `BenchmarkObservation`, while production's
+  `mjs.scan` (every 2 h since 2026-09-19) writes the catalogue map to `BenchmarkListing`.
+  Fixed: freshness is the newest of both (withdrawn listings excluded).
+* **Measured input added:** the legacy catalogue cohort's creative survival (deterministic jury,
+  same reading as the dashboard) is pre-sale metric 9, a separate series from the tournament.
+* **Shadow proof lesson:** release gates block 3/3 on search certificate F-005 (category UNKNOWN,
+  no Etsy taxonomy snapshot) — external-gated on the read credential, not a learning defect.
