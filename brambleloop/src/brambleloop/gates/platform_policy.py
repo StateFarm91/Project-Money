@@ -41,7 +41,11 @@ POLICY_SOURCES: dict[str, tuple[str, tuple[str, ...]]] = {
                       ("publishing", "listing", "support")),
     "creativity_standards": ("https://www.etsy.com/legal/handmade/",
                              ("publishing", "creative_assets", "product_creation")),
-    "listing_image_rules": ("https://help.etsy.com/hc/en-us/articles/360000343508",
+    # W4-GATESI: this pointed at article 360000343508, which is "How to Download Your Listing
+    # Information" -- not an image rule at all (read through the Help Center article API,
+    # 2026-10-07). 115015663347 is "Requirements and Best Practices for Images in Your Etsy
+    # Shop", the article `integrations.etsy_constraints` already quotes for image rules.
+    "listing_image_rules": ("https://help.etsy.com/hc/en-us/articles/115015663347",
                             ("creative_assets", "publishing")),
     "advertising_rules": ("https://www.etsy.com/legal/advertising/",
                           ("growth", "paid_media")),
@@ -149,7 +153,7 @@ def digest_of(text: str) -> str:
 
 def record_snapshot(db, source: str, *, text: str, version: str = "",
                     summary: str = "", checked_on: str = "", read_by: str = "",
-                    basis: str = "") -> dict:
+                    basis: str = "", compare_basis: str | None = None) -> dict:
     """Record one reading of one policy, and say whether it changed materially.
 
     "Material" is decided by comparing digests against the previous snapshot of the same
@@ -159,6 +163,11 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
     Only the digest of `text` is stored, never the text: the snapshot proves which reading a
     certificate rests on without keeping a copy of Etsy's page. `read_by` and `basis` say who
     read it and how, and live in `detail`.
+
+    `compare_basis` (W4-GATESI): when given, "material" compares against the previous
+    snapshot *of that basis* only. A first reading of the article itself differs from a
+    search-engine excerpt of it by construction, and calling that difference a policy change
+    would halt publication on a change Etsy never made. Default (None) is unchanged.
     """
     from sqlalchemy import select
 
@@ -173,9 +182,14 @@ def record_snapshot(db, source: str, *, text: str, version: str = "",
     url, affects = POLICY_SOURCES[source]
     new_digest = digest_of(text)
     with db.session() as s:
-        previous = s.scalars(select(PolicySnapshot).where(
-            PolicySnapshot.source == source).order_by(
-                PolicySnapshot.id.desc())).first()
+        if compare_basis is None:
+            previous = s.scalars(select(PolicySnapshot).where(
+                PolicySnapshot.source == source).order_by(
+                    PolicySnapshot.id.desc())).first()
+        else:
+            previous = next((r for r in s.scalars(select(PolicySnapshot).where(
+                PolicySnapshot.source == source).order_by(PolicySnapshot.id.desc()))
+                if (r.detail or {}).get("basis") == compare_basis), None)
         changed = previous is not None and previous.digest != new_digest
         row = PolicySnapshot(
             source=source, url=url, checked_on=checked_on or date.today().isoformat(),

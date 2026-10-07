@@ -1178,13 +1178,23 @@ def probe(db, *, env: dict[str, str] | None = None, generator=None,
         record["provider"] = provider.key
     elif provider is not None:
         record["provider"] = provider.key
+        from ..core import workspace
+
         try:
             prompt_ = "A plain grey fabric swatch on a white background, product photograph."
-            got = (generator(prompt_, env=e, size="1024x1024", provider_key=provider.key)
-                   if generator is not None else
-                   generate(prompt_, env=e, size="1024x1024", provider_key=provider.key,
-                            db=db, agent="gateway", purpose=PROBE_ACTION, job_id=job_id,
-                            spend_detail={"attribution": "shared"}))
+            # W4-GATESI: `generate` refuses without a `work_dir` (the leak fix), and this
+            # probe never passed one -- so every real probe since that fix recorded
+            # "generate() needs a work_dir" and the gate could not open on any credit
+            # balance. Production's last image.probe (2026-10-07T00:03Z) says exactly that.
+            # The probe owns its render: the directory lives as long as the probe does.
+            with workspace.work_dir(None, prefix="generated-") as root:
+                got = (generator(prompt_, env=e, size="1024x1024",
+                                 provider_key=provider.key)
+                       if generator is not None else
+                       generate(prompt_, env=e, size="1024x1024", provider_key=provider.key,
+                                work_dir=root, db=db, agent="gateway",
+                                purpose=PROBE_ACTION, job_id=job_id,
+                                spend_detail={"attribution": "shared"}))
         except (PermanentError, TransientError) as exc:
             record["reason"] = str(exc)[:400]
         else:
