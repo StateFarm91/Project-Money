@@ -38,8 +38,11 @@ def test_every_candidate_is_pattern_software():
     assert mc.ENGINEERED, "nothing engineered"
     check("engineered_in_queue_order",
           list(mc.ENGINEERED) == [s for s in queue if s in mc.ENGINEERED], queue)
-    check("seven_engineered_plus_pipe_pencil_roll",
-          set(mc.ENGINEERED) | {"teacher-chevron-pencil-roll"} == set(queue), queue)
+    check("six_engineered_plus_pipe_stocking_and_pencil_roll",
+          set(mc.ENGINEERED) | {"teacher-chevron-pencil-roll", "first-christmas-stocking"}
+          == set(queue), queue)
+    check("pipe_designs_not_duplicated",
+          not {"teacher-chevron-pencil-roll", "first-christmas-stocking"} & set(mc.ENGINEERED))
     for slug, make in mc.ENGINEERED.items():
         cir = make()
         result = compile_cir(cir)
@@ -68,11 +71,10 @@ def test_forms_the_titles_name_are_built():
         cir = make()
         promise = launch0.assembly_promise(cir)
         check(f"assembly_promise_backed:{slug}", promise.get("backed", True), promise)
-    sock = mc.first_christmas_stocking()
-    check("stocking_worked_in_the_round",
-          sock.components[0].construction == "joined_rounds")
-    check("stocking_has_heel_and_loop",
-          {c.name for c in sock.components} == {"stocking", "heel", "hanging_tab"})
+    cosy = mc.mothers_day_heart_tea_cosy()
+    check("cosy_worked_in_the_round_then_split",
+          cosy.components[0].construction == "joined_rounds"
+          and {c.resumes for c in cosy.components[1:]} == {"front", "back"})
     wrap = mc.reading_nook_cable_wrap()
     check("wrap_has_real_cable_crossings",
           any(getattr(o, "stitch", "") == "cable2x2" for _c, r in wrap.iter_rows()
@@ -97,11 +99,13 @@ def test_concept_board_is_deterministic_and_reaches_the_taste_gate():
     from brambleloop.core.db import Database
     from brambleloop.creative import intake
 
-    cir = mc.first_christmas_stocking()
+    cir = mc.mothers_day_heart_tea_cosy()
     png = mc.board_png(cir)
     assert png, "no board bytes"
     check("board_is_deterministic", png == mc.board_png(cir))
     check("board_is_a_png", png[:8] == b"\x89PNG\r\n\x1a\n")
+    # Same motif and palette, different objects: the boards must not be the same picture.
+    check("same_motif_boards_differ", png != mc.board_png(mc.heart_row_ring_pillow()))
 
     db = Database("sqlite://")
     db.create_all()
@@ -131,14 +135,16 @@ def test_the_pipeline_board_carries_them():
               and slug in pb.CREATIVE_SEARCH)
     by = {c.slug: c for c in pb.creative_candidates()}
     assert by, "no creative candidates"
-    for slug in ("first-christmas-stocking", "spring-garden-kneeler"):
+    for slug in ("mothers-day-heart-tea-cosy", "spring-garden-kneeler"):
         c = by[slug]
         pb._advance(c, None, {}, None, False)
         check(f"design_and_product_pass:{slug}",
               c.stages["DESIGN"]["status"] == pb.PASS
               and c.stages["PRODUCT"]["status"] == pb.PASS, c.to_dict()["stages"])
-    check("stocking_clears_product_truth",
-          by["first-christmas-stocking"].stages["PRODUCT_TRUTH"]["status"] == pb.PASS)
+    check("cosy_clears_product_truth",
+          by["mothers-day-heart-tea-cosy"].stages["PRODUCT_TRUTH"]["status"] == pb.PASS)
+    check("pipe_stocking_kept", pb.CREATIVE_ENGINEERED["first-christmas-stocking"]
+          is pb.stocking_cir)
     k = by["spring-garden-kneeler"].stages["PRODUCT_TRUTH"]
     check("class_c_waits_on_a_maker_not_a_rename",
           k["status"] == pb.FAIL and k["clearer"] == "OWNER", k)

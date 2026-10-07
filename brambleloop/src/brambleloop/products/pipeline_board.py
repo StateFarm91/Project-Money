@@ -226,16 +226,151 @@ def pencil_roll_cir(version: str = "0.1.0"):
     return _replace(cir, components=[body, tie], assembly=assembly)
 
 
+def stocking_cir(version: str = "0.1.0"):
+    """W4-CREATIVE `first-christmas-stocking`, engineered as pattern software from flat pieces.
+
+    The brief asked for stranded colourwork in the round with a turned heel. The CIR cannot
+    express per-stitch colour (`launch0.per_stitch_colour_expressible()` is False) and the
+    tiler makes flat rows, so that stocking cannot be written truthfully today. This one can,
+    and its title says what it is ("Relief", not colourwork):
+
+    * leg_front / leg_back: the fir-and-star relief panel from the catalogue tiler (one
+      colour per row, double crochet standing above a single-crochet ground);
+    * foot_front / foot_back and toe_front / toe_back: single-crochet pieces worked side to
+      side (grain across), so their top and bottom edges are runs of rows: the leg sews onto
+      the foot's top edge, the toe continues the foot forward and its top edge is the instep;
+    * cuff: a single-crochet band worked side to side, each half sewn to one leg's top edge,
+      its ends closed into a ring -- the plain cream band left for an initial;
+    * loop: a short single-crochet strip, folded and sewn to the cuff at the back seam.
+
+    Every cross-piece join names its edges, so `cir.assembly` compares both lengths.
+    """
+    from dataclasses import replace as _replace
+
+    from ..cir import stitches
+    from ..cir.compiler import compile_cir
+    from ..cir.model import Component, Op, Row, Seam
+    from ..cir.twin import build_twin
+    from . import builder
+    from .motifs import get
+
+    motif = get("fir-and-star")
+    across = max(1, round(20.0 * 16 / (10.0 * motif.width)))
+    repeats = max(1, round(24.0 / builder._repeat_height_cm(motif, 18, stitches)))
+    design = builder.Design(
+        slug="first-christmas-stocking", title="First Christmas Fir and Star Relief Stocking",
+        motif="fir-and-star", palette="nordic", width_stitches=across * motif.width,
+        motif_repeats=repeats, yarn="worsted acrylic", yarn_weight="worsted",
+        note="Work two leg pieces and two foot pieces the same; the cuff is left plain for "
+             "an embroidered initial.")
+    cir = builder.build(builder._derive_from_yarn(design), version=version)
+    panel = cir.components[0]
+    gauge = cir.gauge
+    leg_w = build_twin(cir, compile_cir(cir)).width_cm
+    sc_row = 10.0 / gauge.rows_per_10cm
+    per_cm = gauge.stitches_per_10cm / 10.0
+    ground = panel.rows[0].color
+    cream = next((m.color_id for m in cir.materials if m.color_id == "cream"), ground)
+
+    def sc_piece(name: str, sts: int, rows: int, colour, grain: str, note: str) -> Component:
+        return Component(name=name, construction="flat_rows", foundation=sts,
+                         foundation_kind="chain", grain=grain,  # type: ignore[arg-type]
+                         rows=[Row(index=i, ops=[Op("sc", sts)], declared_count=sts,
+                                   color=colour, turning_chain=1)
+                               for i in range(1, rows + 1)], note=note)
+
+    heel_rows = max(2, round(leg_w / sc_row))             # the foot's rows, under the leg
+    toe_rows = max(2, round(8.0 / sc_row))                # 8 cm of instep and toe beyond it
+    foot_sts = max(6, round(11.0 * per_cm))               # 11 cm deep, heel to sole
+    cuff_sts = max(6, round(6.0 * per_cm))                # 6 cm cuff band
+    # The loop is worked side to side (grain across): a 12 cm chain and two rows, so its end
+    # is two row-ends wide and sews across exactly two cuff rows -- the same stitch, the
+    # same row height, so both sides of that join are the same length by construction.
+    loop_sts = max(6, round(12.0 * per_cm))
+    loop_rows = loop_span = 2
+    rows = len(panel.rows)
+    comps = [
+        _replace(panel, name="leg_front", make=1),
+        _replace(panel, name="leg_back", make=1),
+    ]
+    for side in ("front", "back"):
+        comps.append(sc_piece(f"foot_{side}", foot_sts, heel_rows, ground, "across",
+                              f"{foot_sts} chain, then {heel_rows} rows of single crochet "
+                              "worked side to side: the heel and the foot under the leg."))
+    for side in ("front", "back"):
+        comps.append(sc_piece(f"toe_{side}", foot_sts, toe_rows, ground, "across",
+                              f"{foot_sts} chain, then {toe_rows} rows of single crochet "
+                              "worked side to side: the instep and the toe."))
+    comps += [
+        sc_piece("cuff", cuff_sts, 2 * heel_rows, cream, "across",
+                 f"{cuff_sts} chain, then {2 * heel_rows} rows of single crochet worked side "
+                 "to side: the plain cuff band."),
+        sc_piece("loop", loop_sts, loop_rows, ground, "across",
+                 f"{loop_sts} chain, then {loop_rows} rows of single crochet: the hanging "
+                 "loop."),
+    ]
+    # Every join says where on its second piece it runs. On a side-to-side piece the rows
+    # run along the top and bottom edges, so those joins are placed across counted rows; its
+    # left edge is the foundation chain (row 1) and its right edge is its last row.
+    S = Seam
+    assembly = []
+    for side, mirrored in (("front", False), ("back", True)):
+        assembly += [
+            S("whipstitch", f"leg_{side}", f"foot_{side}", edge_a="bottom", edge_b="top",
+              at_round=1, spans_rounds=heel_rows, mirrored=mirrored,
+              note=f"Sew the {side} leg's bottom edge along the {side} foot's top edge."),
+            S("whipstitch", f"foot_{side}", f"toe_{side}", edge_a="right", edge_b="left",
+              at_round=1, spans_rounds=1, mirrored=mirrored,
+              note=f"Sew the {side} foot's last row to the {side} toe's foundation chain."),
+        ]
+    assembly += [
+        S("whipstitch", "leg_front", "leg_back", edge_a="left", edge_b="left",
+          at_round=1, spans_rounds=rows,
+          note="Place front on back, wrong sides together; close the back (heel) edge."),
+        S("whipstitch", "leg_front", "leg_back", edge_a="right", edge_b="right",
+          at_round=1, spans_rounds=rows, note="Close the front edge of the leg."),
+        S("whipstitch", "foot_front", "foot_back", edge_a="bottom", edge_b="bottom",
+          at_round=1, spans_rounds=heel_rows, note="Close the sole under the heel."),
+        S("whipstitch", "foot_front", "foot_back", edge_a="left", edge_b="left",
+          at_round=1, spans_rounds=1, note="Close the heel end (the foundation chains)."),
+        S("whipstitch", "toe_front", "toe_back", edge_a="bottom", edge_b="bottom",
+          at_round=1, spans_rounds=toe_rows, note="Close the sole under the toe."),
+        S("whipstitch", "toe_front", "toe_back", edge_a="top", edge_b="top",
+          at_round=1, spans_rounds=toe_rows, note="Close the instep."),
+        S("whipstitch", "toe_front", "toe_back", edge_a="right", edge_b="right",
+          at_round=toe_rows, spans_rounds=1, note="Close the toe end (the last rows)."),
+        S("whipstitch", "leg_front", "cuff", edge_a="top", edge_b="bottom",
+          at_round=1, spans_rounds=heel_rows,
+          note=f"Sew cuff rows 1-{heel_rows} to the front leg's top edge."),
+        S("whipstitch", "leg_back", "cuff", edge_a="top", edge_b="bottom",
+          at_round=heel_rows + 1, spans_rounds=heel_rows,
+          note=f"Sew cuff rows {heel_rows + 1}-{2 * heel_rows} to the back leg's top edge."),
+        S("whipstitch", "cuff", "cuff", edge_a="left", edge_b="right",
+          note="Close the cuff's two ends at the back seam."),
+        S("whipstitch", "loop", "cuff", edge_a="bottom", edge_b="top",
+          at_round=1, spans_rounds=loop_span,
+          note="Fold the loop in half and sew both ends inside the cuff at the back seam."),
+    ]
+    # Declared at the class the risk matrix sets for a multi-seam assembly (F-073), rather
+    # than declared A and raised.
+    return _replace(cir, components=comps, assembly=assembly, risk_class="B")
+
+
 # Creative candidates the pipeline has engineered (key -> CIR builder). Pre-release versions:
 # a candidate is not a catalogue product until it clears Product Truth and is adopted.
-CREATIVE_ENGINEERED = {"teacher-chevron-pencil-roll": pencil_roll_cir}
-CREATIVE_SEARCH = {"teacher-chevron-pencil-roll": ("pencil roll", ("chevron",), None)}
-# W4-PIPE2: the other seven creative candidates, engineered in products.moment_candidates.
+CREATIVE_ENGINEERED = {"teacher-chevron-pencil-roll": pencil_roll_cir,
+                       "first-christmas-stocking": stocking_cir}
+CREATIVE_SEARCH = {"teacher-chevron-pencil-roll": ("pencil roll", ("chevron",), None),
+                   "first-christmas-stocking": ("stocking", ("fir", "star"), "christmas")}
+# W4-PIPE2: the other six creative candidates, engineered in products.moment_candidates.
+# An entry above (engineered here first) is never replaced.
 from .moment_candidates import ENGINEERED as _MOMENT_CIRS  # noqa: E402
 from .moment_candidates import SEARCH as _MOMENT_SEARCH  # noqa: E402
 
-CREATIVE_ENGINEERED.update(_MOMENT_CIRS)
-CREATIVE_SEARCH.update(_MOMENT_SEARCH)
+for _k, _v in _MOMENT_CIRS.items():
+    CREATIVE_ENGINEERED.setdefault(_k, _v)
+for _k, _v in _MOMENT_SEARCH.items():
+    CREATIVE_SEARCH.setdefault(_k, _v)
 
 
 # ---- candidates --------------------------------------------------------------------------

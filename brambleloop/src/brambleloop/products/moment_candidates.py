@@ -3,9 +3,9 @@
 `creative.emotional_brief.NEW_CANDIDATES` holds eight concepts written person-and-moment
 first. A concept is not a product: until a CIR exists there is nothing for the compiler, the
 digital twin, the assembly check or certification to measure, and nothing a buyer could make.
-This module is the engineering step for seven of them (the pencil roll is engineered in
-`products.pipeline_board.pencil_roll_cir`), in `emotional_brief.gate_candidates()
-['engineering_queue']` order.
+This module is the engineering step for six of them (the stocking and the pencil roll were
+engineered first by W4-PIPE in `products.pipeline_board`), in `emotional_brief.gate_candidates()
+['engineering_queue']` order. `creative_cir` reaches all eight.
 
 Rules every builder here keeps, because they are the company's rules:
 
@@ -185,104 +185,6 @@ def _sized(cir: CIR, main: str, around: str | None = None, along: str | None = N
         "The finished piece is " + " and ".join(parts) + " at the stated gauge. Computed "
         "from the stitch counts by the digital twin, not yet measured on a worked sample.")
     return cir
-
-
-# ---------------------------------------------------------------------------------------
-# 1. first-christmas-stocking
-
-def first_christmas_stocking(version: str = VERSION) -> CIR:
-    """Toe-up stocking in joined rounds with an afterthought heel and a fir-and-star leg.
-
-    * Toe: increase rounds from a magic ring to the leg count, staggered so they never stack.
-    * Foot, then a heel-opening round: half the stitches are bridged by a chain and skipped,
-      which leaves a slot; the heel is worked into that slot afterwards, in the round, and
-      decreased closed (an afterthought heel), so no seam is needed and none is claimed.
-    * Leg: one 24-round repeat of the fir-and-star chart, worked from its last line so the
-      firs stand upright when the stocking hangs cuff-up; then a plain cream cuff band and a
-      slip-stitch edge round.
-    * Hanging tab: four stitches of the edge round are held and worked up as a tab, which is
-      folded and sewn to itself to make the loop.
-
-    The brief named "stranded colourwork" and a "turned heel"; the CIR cannot express
-    per-stitch colour, so the firs and stars are a relief (see ENGINEERING_NOTES).
-    """
-    g = _gauge("worsted")
-    motif = get("fir-and-star")
-    leg = _sts_for(38.0, g, 12)                       # ~38 cm round: 48 sts at 12.5/10cm
-    foot_rounds = _rounds_for(9.0, g)
-    rows = _Rows()
-    _disc(rows, leg, "cream")                         # toe
-    toe_end = rows.last
-    _plain(rows, foot_rounds, leg, "forest")
-    half = leg // 2
-    rows.add([Op("sc", half), Op("ch", half, spans=half), Op("sk", half)], leg, "forest",
-             note=f"heel opening: the {half} chains bridge {half} skipped stitches")
-    heel_round = rows.last
-    _plain(rows, 2, leg, "forest")
-    _relief_band(rows, motif, leg, ("forest", "cream"), upside_down=True)
-    band_end = rows.last
-    cuff_rounds = _rounds_for(6.0, g, 6)
-    _plain(rows, cuff_rounds, leg, "cream")
-    rows.add([Op("slst", leg)], leg, "cream", note="a slip-stitch edge round for the cuff")
-    tab_sts = 4
-    stocking = Component(
-        name="stocking", construction="joined_rounds", rows=rows.rows, foundation=0,
-        foundation_kind="magic_ring",
-        holds=[Hold("hanging_tab", at_row=rows.last, count=tab_sts, from_stitch=0,
-                    note="the first four stitches of the last cuff round, at the back join")],
-        note="Worked toe-up in one piece.")
-
-    heel_rows = _Rows()
-    heel_rows.add([Op("sc", leg)], leg, "cream",
-                  note=(f"join cream at one corner of the heel opening and work {half} sc "
-                        f"along the chain side and {half} sc along the skipped stitches"))
-    _plain(heel_rows, 2, leg, "cream")
-    _decrease_to(heel_rows, leg, 12, "cream")
-    heel = Component(name="heel", construction="joined_rounds", rows=heel_rows.rows,
-                     foundation=leg, foundation_kind="none",
-                     note="An afterthought heel, worked in the round into the heel opening.")
-
-    tab_rows = _Rows()
-    tab_len = _rounds_for(10.0, g)
-    for _ in range(tab_len):
-        tab_rows.add([Op("sc", tab_sts)], tab_sts, "cream", turning_chain=1)
-    tab = Component(name="hanging_tab", construction="flat_rows", rows=tab_rows.rows,
-                    foundation=tab_sts, foundation_kind="none", resumes="hanging_tab",
-                    note="A narrow tab worked up from the held cuff stitches.")
-
-    assembly = [
-        Seam("whipstitch", "hanging_tab", "hanging_tab", edge_a="top", edge_b="bottom",
-             note="Fold the tab in half to the inside of the cuff and sew its last row to its "
-                  "first, making the hanging loop."),
-    ]
-    return _sized(CIR(
-        slug="first-christmas-stocking", title="First Christmas Fir and Star Stocking",
-        version=version, construction="joined_rounds", risk_class="B",
-        colors={"forest": FOREST, "cream": CREAM}, gauge=g,
-        materials=[Material(name="worsted acrylic", yarn_weight="worsted", colorway="forest",
-                            color_id="forest"),
-                   Material(name="worsted acrylic", yarn_weight="worsted", colorway="cream",
-                            color_id="cream")],
-        components=[stocking, heel, tab], assembly=assembly,
-        designer_notes=(
-            f"Fir and Star relief on a {motif.width}-stitch repeat, {leg // motif.width} "
-            f"around the leg, one full chart (rounds {band_end - len(motif.grid) + 1}-"
-            f"{band_end}) worked from its last line so the firs stand upright when the "
-            f"stocking hangs. The relief is double crochet standing above a single-crochet "
-            f"ground, one colour per round. Every round starts at the join, so the colour "
-            f"not in use waits at the join on the inside: carry it up loosely there. The toe "
-            f"is rounds 1-{toe_end}. Round {heel_round} leaves the heel opening; the heel "
-            f"is worked into it afterwards and decreased closed, then the last 12 stitches "
-            f"are drawn together. The cuff is left plain cream, wide enough to embroider an "
-            f"initial on if you choose."),
-        finished_size_note=None,
-        provenance=_provenance(
-            "first-christmas-stocking",
-            {"leg_sts": leg, "gauge": vars(g), "motif": motif.slug, "motif_grid": list(motif.grid),
-             "construction": "toe-up joined rounds, afterthought heel, held-stitch tab"},
-            ("products.motifs:fir-and-star", "joined_rounds", "chain_span_opening",
-             "hold_resume")),
-    ), "stocking", "around the leg", "from toe to cuff")
 
 
 def _two(name_a: str, name_b: str, weight: str, fibre: str) -> list[Material]:
@@ -658,9 +560,9 @@ def spring_garden_kneeler(version: str = VERSION) -> CIR:
 
 
 # Engineering queue order (emotional_brief.gate_candidates()['engineering_queue'] on
-# 2026-10-07), minus the pencil roll, which products.pipeline_board engineers.
+# 2026-10-07), minus the stocking and the pencil roll, which W4-PIPE engineered first
+# (`products.pipeline_board.stocking_cir` / `pencil_roll_cir`).
 ENGINEERED = {
-    "first-christmas-stocking": first_christmas_stocking,
     "reading-nook-cable-wrap": reading_nook_cable_wrap,
     "mothers-day-heart-tea-cosy": mothers_day_heart_tea_cosy,
     "snowfall-advent-garland": snowfall_advent_garland,
@@ -672,7 +574,6 @@ ENGINEERED = {
 # Listing qualifiers for the search stage (category word, motif words, season), the same
 # shape as `pipeline_board.CREATIVE_SEARCH`. Motif words are only what each fabric depicts.
 SEARCH: dict[str, tuple[str, tuple[str, ...], str | None]] = {
-    "first-christmas-stocking": ("christmas stocking", ("fir", "star"), "christmas"),
     "reading-nook-cable-wrap": ("wrap", ("cable",), None),
     "mothers-day-heart-tea-cosy": ("tea cosy", ("heart",), None),
     "snowfall-advent-garland": ("advent garland", ("snowfall", "mitten"), "christmas"),
@@ -685,10 +586,6 @@ SEARCH: dict[str, tuple[str, tuple[str, ...], str | None]] = {
 # product; a brief that asked for something the CIR cannot honestly express is answered
 # with what it does instead, and the creative lane is told (handoff_PIPE2.md).
 ENGINEERING_NOTES: dict[str, str] = {
-    "first-christmas-stocking": (
-        "Brief techniques named stranded colourwork and a turned heel. Per-stitch colour is "
-        "not expressible in the CIR, so the firs and stars are a dc relief, one colour per "
-        "round; the heel is an afterthought heel worked into a chain-bridged opening."),
     "reading-nook-cable-wrap": (
         "Real 2-over-2 cable crossings (cable2x2), so the name's cable claim is backed; the "
         "crossing is an uncalibrated primitive, which is a physical-tester gate. The cream "
@@ -716,6 +613,13 @@ ENGINEERING_NOTES: dict[str, str] = {
 }
 
 
+def creative_cir(slug: str) -> CIR:
+    """The engineered CIR for any creative candidate, whichever lane engineered it."""
+    from .pipeline_board import CREATIVE_ENGINEERED
+
+    return CREATIVE_ENGINEERED[slug]()
+
+
 # ---------------------------------------------------------------------------------------
 # The concept board the creative taste gate judges (CREATIVE_DIAGNOSIS r2, B-137).
 #
@@ -734,12 +638,14 @@ WORKED_DOWN = frozenset({"mothers-day-heart-tea-cosy", "heart-row-ring-pillow"})
 RAISED = frozenset({"cable2x2", "cable1x1", "fpdc", "bpdc", "bob"})
 
 
-def board_png(cir: CIR, *, px: int = 26, window: int = 40) -> bytes:
+def board_png(cir: CIR, *, px: int = 26, window: int = 60, max_cols: int = 120) -> bytes:
     """The main piece's motif region, drawn stitch by stitch in the CIR's own colours.
 
-    Each cell is one twin stitch in the colour its row is worked in; a raised stitch (dc,
-    cable, post) is drawn taller and lit, as relief stands off the ground. The window is the
-    rows that carry the motif (padded, at most `window` rows and stitches), oriented as the
+    Each cell is one twin stitch in the colour its row is worked in; a raised stitch (dc
+    among sc, cable, post) is drawn taller and lit, as relief stands off the ground. The
+    window is the rows that carry the motif plus four rows either side (at most `window`
+    rows), every stitch across (at most `max_cols`), so a band of nine hearts and a band of
+    six read differently; it is letterboxed onto a square, never cropped, and oriented as the
     object is used. Deterministic: same CIR, same bytes.
     """
     import io
@@ -767,11 +673,11 @@ def board_png(cir: CIR, *, px: int = 26, window: int = 40) -> bytes:
 
     motif_rows = [r for r in rows if any(raised(c) for c in twin.cells if c.row == r)]
     lo_r, hi_r = (motif_rows[0], motif_rows[-1]) if motif_rows else (rows[0], rows[-1])
-    span = [r for r in rows if lo_r - 2 <= r <= hi_r + 2][:window]
+    span = [r for r in rows if lo_r - 4 <= r <= hi_r + 4][:window]
     if cir.slug not in WORKED_DOWN:
         span = list(reversed(span))                 # last row at the top
     by_row = {r: sorted((c for c in twin.cells if c.row == r),
-                        key=lambda c: getattr(c, "fabric_position", c.position))[:window]
+                        key=lambda c: getattr(c, "fabric_position", c.position))[:max_cols]
               for r in span}
     ncols = max(len(v) for v in by_row.values())
     aspect = (10.0 / cir.gauge.stitches_per_10cm) / (10.0 / cir.gauge.rows_per_10cm)
@@ -795,10 +701,12 @@ def board_png(cir: CIR, *, px: int = 26, window: int = 40) -> bytes:
             _stitch(d, col * cw, ri * pitch - (hgt - ch), cw, hgt, rng.uniform(-1, 1), body,
                     _shade(base, 1.3 if up else 1.12), _shade(base, 0.6),
                     loop=getattr(c, "loop", "both"), rng=rng)
-    side = min(img.size)
-    img = img.crop((0, 0, side, side)).resize((BOARD_PX, BOARD_PX))
+    side = max(img.size)
+    square = Image.new("RGB", (side, side), (40, 36, 34))
+    square.paste(img, ((side - img.size[0]) // 2, (side - img.size[1]) // 2))
+    square = square.resize((BOARD_PX, BOARD_PX), Image.LANCZOS)
     buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
+    square.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
 
@@ -858,7 +766,7 @@ def register_for_taste_gate(db, slug: str, *, today=None) -> dict:
     brief = eb.GATE_BRIEFS[slug].to_brief()
     decision = {"waiting": intake.WAITING, "refused": intake.REFUSED}.get(
         row["decision"], intake.ENGINEERING if row["engineer"] else intake.WAITING)
-    cir = ENGINEERED[slug]()
+    cir = creative_cir(slug)
     detail = {"decision": decision, "source": ENGINEERED_BY, "original_key": slug,
               "concept": concept.to_dict(), "brief": brief,
               "gate": {k: row[k] for k in ("decision", "failed", "unmeasured", "waiting_on",
@@ -866,7 +774,7 @@ def register_for_taste_gate(db, slug: str, *, today=None) -> dict:
               "judgement": None, "mjs_event_id": None,
               "payload": {"slug": slug, "title": cir.title, "version": cir.version,
                           "concept": concept.to_dict(), "brief": brief,
-                          "engineered": f"products.moment_candidates.ENGINEERED[{slug!r}]",
+                          "engineered": f"products.pipeline_board.CREATIVE_ENGINEERED[{slug!r}]",
                           "source": ENGINEERED_BY, "pod": concept.pod}}
     with db.session() as s:
         s.add(AuditLog(actor="creative", action=intake.INTAKE_ACTION, artifact=slug,

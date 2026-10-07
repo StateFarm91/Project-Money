@@ -48,7 +48,7 @@ def run(slugs: list[str]) -> dict:
     store = ArtifactStore(root=scratch / "artifacts")
     db = _db(scratch / "taste.sqlite")
     gate = eb.gate_candidates(today=TODAY)
-    queue = [s for s in gate["engineering_queue"] if s in mc.ENGINEERED]
+    queue = [s for s in gate["engineering_queue"] if s in pb.CREATIVE_ENGINEERED]
     if slugs:
         queue = [s for s in queue if s in slugs]
     creative = {c.slug: c for c in pb.creative_candidates()}
@@ -56,13 +56,17 @@ def run(slugs: list[str]) -> dict:
     for slug in queue:
         c = creative[slug]
         pb._advance(c, None, {}, store, True)
-        cir = mc.ENGINEERED[slug]()
+        cir = mc.creative_cir(slug)
         d = OUT / slug
         d.mkdir(parents=True, exist_ok=True)
         rec: dict = {"slug": slug, "title": cir.title, "version": cir.version,
                      "fingerprint": cir.fingerprint, "risk_class": cir.risk_class,
                      "components": [(x.name, x.make, x.construction) for x in cir.components],
-                     "engineering_note": mc.ENGINEERING_NOTES.get(slug, "")}
+                     "engineered_by": ("W4-PIPE2 products.moment_candidates"
+                                       if slug in mc.ENGINEERED else
+                                       "W4-PIPE products.pipeline_board"),
+                     "engineering_note": mc.ENGINEERING_NOTES.get(slug, "W4-PIPE's design; "
+                                                                  "see handoff_PIPE.md")}
         # The deliverable: the US pattern PDF, rendered from the certified-or-refused CIR.
         try:
             doc = build_pattern_pdf(cir, released_on=TODAY)
@@ -134,7 +138,7 @@ def md(res: dict) -> str:
     L = ["# W4-PIPE2 — moment-first candidates engineered (shadow)", "",
          f"Generated {res['generated_at']} at `{res['head']}` by "
          "`research/final_build/w4/pipe2_run.py`. Queue = `emotional_brief.gate_candidates()"
-         "['engineering_queue']` (pencil roll: W4-PIPE). Publication is never advanced.", "",
+         "['engineering_queue']`; stocking and pencil roll CIRs are W4-PIPE's, deliverables/boards/taste registration for all eight are here. Publication is never advanced.", "",
          "| # | candidate | version | board stage | status | PDF | concept board | taste gate "
          "| remaining gate | clearer |", "|---|---|---|---|---|---|---|---|---|---|"]
     for i, r in enumerate(res["rows"], 1):
