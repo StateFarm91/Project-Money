@@ -45,6 +45,18 @@ Worktree `/home/user/Project-Money/.claude/worktrees/W4-CC`. TMPDIR `/home/user/
 - Integrator board free-text statuses ("running (resumed...)", "complete; merged ...",
   "stopped") normalised by leading word; unreadable -> UNKNOWN with `status_text` verbatim.
 
+- Resume 2026-10-07: WIP checkpoint 96e9442 reviewed and kept; visual-investigation merged
+  (fbad855). Wiring W4-OWNER: Approvals `decision_batches` (OWNER_ACTIONS.json, live fallback,
+  non-costed = UNKNOWN). Wiring W4L-2: `company.learn_outcomes` (pre-sale N / 9, post-launch-only
+  cells DATA-GATED, CA$5K UNMEASURED) + dashboard Improvement rows. F-914: `/api/cc/money` and
+  `/money/drill` accept `period`/`window` -> `tabs.money_window` -> accounting
+  `summary(window=)`; bad period 400 BAD_PERIOD. Tests: test_w4_cc_company 21/21
+  (test_owner_decision_batches_in_approvals, test_learn_outcomes_presale_post_launch_and_ca5k_unmeasured,
+  test_money_period_reaches_accounting_window). CC_DEPLOY_PACKAGE §7 now includes GATESI owner
+  actions (credits, Backblaze env vars, policy snapshots).
+- Note: F-914 asked for "7d"; the accountant's grammar has no 7d (30d/mtd/ytd/all/YYYY-MM), so
+  7d is refused 400 rather than silently answered with 30d. Adding 7d is a finance-lane change.
+
 ## Tests run
 test_w4_cc_company 12/12; test_v11_pwa_browser 108/108; test_route_auth_default_deny 7/7;
 test_rc1_auth 11/11; others: see final report.
@@ -60,5 +72,6 @@ test_rc1_auth 11/11; others: see final report.
    `last_update_at` older than 3 h is shown STALE).
 
 ## Remaining / next deterministic action
+- Merge origin/claude/visual-investigation again once the integrator has merged W4-GATESI; rerun test_w4_cc_company.
 - DONE: MEDIUM availability finding mitigated (main.closure_matrix_shared / maturity_report_shared).
 - Owner actions (deploy approval, variables): CC_DEPLOY_PACKAGE §7.

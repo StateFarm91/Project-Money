@@ -38,6 +38,18 @@ of public, unauthenticated endpoints, or repository history.
 - Build 2 headline (dashboard `/`, `/api/build2` `headline`, CC Build 2 card) is the closure
   ledger (`closure.dashboard`): executable remaining = OPEN only; the registry's own counts are
   labelled "registry claim".
+- Wave-4 wiring (resume, 2026-10-07): **Approvals** opens with the owner's decisions batch by
+  batch (`research/final_build/w4/OWNER_ACTIONS.json`, lane OWNER; falls back to the live
+  `approval_inbox()["batches"]`; a non-costed item shows "UNKNOWN (not costed)", never CA$0).
+  **Company** "Learning: pre-sale and post-launch" card + dashboard Improvement block: pre-sale
+  internal outcomes N / 9, post-launch-only cells (DATA-GATED), CA$5,000/month model
+  UNMEASURED while its evidence gate is unmet. **Money** period buttons now reach the
+  accountant (`GET /api/cc/money?period=month|last_month|ytd|all|30d|YYYY-MM` or `window=`
+  -> `dashboard.summary(window=...)`; anything else 400 BAD_PERIOD; F-914).
+- Infrastructure fixes from lane GATESI ship only with this deploy: `image.probe` owns a
+  work_dir (the production probe currently fails "generate() needs a work_dir"), offsite
+  storage SigV4 region from the endpoint host, Help Center policy reader
+  (`GATE_CLEARANCE_INFRA.md`).
 - The existing server-rendered dashboard `/` and all `/api/*` reads keep working (head adds
   routes; see §5 for one performance caveat).
 - Everything else in the 665-commit integrated head ships with it (Build 2 runtime, v1.1 lanes
@@ -78,7 +90,7 @@ No secret is stored in the repository; the hash and TOTP secret are entered in R
 | Class | Count | Control | Verdict |
 |---|---|---|---|
 | `/api/cc/*` owner-session | 61 (+2 public: `GET /api/cc/auth/status`, `POST /api/cc/auth/login`) | `security.operator_gate` → `auth.gate`: default-deny for the whole prefix; `__Host-bl_cc` cookie `HttpOnly; Secure; SameSite=Strict`, only SHA-256 stored, 12 h absolute / 2 h idle, revocable; every mutation needs `X-CSRF-Token` (HMAC of session) + fresh `X-CC-Nonce` + `X-CC-Timestamp` (±120 s, single use) + same-origin `Origin`/`Sec-Fetch-Site`; consequential actions need step-up within 5 min (5 failed step-ups revoke); login and mutation rate limits; every refusal audited in `cc_security_events`. The operator bearer token is **not** accepted as an owner session (tested). | PASS — `test_route_auth_default_deny` 7/7, `test_rc1_auth` 11/11, `test_v11_cc_auth`, `test_w4_cc_company::test_routes_default_deny_without_owner_session` |
-| W4 wiring routes | 2 | `POST /api/store/live_observation`: in `security.OWNER_SESSION_PAGES`, so `auth.gate` requires owner session + same-origin + CSRF + fresh nonce; body validated by `live_state.record_observation` (unknown fields/future dates refused, 400 audited in `cc_security_events`); success appends one `store.live_observation` audit row with actor `owner:cc:<session>`; performs no Etsy write. `GET /api/mjs/findings`: in `OPERATOR_GET_ROUTES` (operator bearer; the owner reads the same data through `/api/cc/company` and `/api/cc/store`). | PASS — `test_w4_cc_company` (17/17) incl. no-session 401, bearer-only 401, no-CSRF 403; `test_route_auth_default_deny` |
+| W4 wiring routes | 2 | `POST /api/store/live_observation`: in `security.OWNER_SESSION_PAGES`, so `auth.gate` requires owner session + same-origin + CSRF + fresh nonce; body validated by `live_state.record_observation` (unknown fields/future dates refused, 400 audited in `cc_security_events`); success appends one `store.live_observation` audit row with actor `owner:cc:<session>`; performs no Etsy write. `GET /api/mjs/findings`: in `OPERATOR_GET_ROUTES` (operator bearer; the owner reads the same data through `/api/cc/company` and `/api/cc/store`). | PASS — `test_w4_cc_company` (21/21) incl. no-session 401, bearer-only 401, no-CSRF 403; `test_route_auth_default_deny` |
 | `/cc/` static PWA shell + `/cc/store-preview` | static; store-preview owner-session gated | `_StrictStatic`: CSP `default-src 'none'; script-src 'self'; style-src 'self'; … frame-ancestors 'none'; object-src 'none'` (no inline script or style), `Cache-Control: no-cache`; the shell holds no data; service worker never caches `/api/` | PASS — `test_v11_pwa_static`, `test_v11_pwa_browser` (108 checks at 390×844, 0 console/CSP errors) |
 | operator-bearer routes | 61 (all non-GET outside `/api/cc/` + `OPERATOR_GET_ROUTES`) | `core.opsauth` bearer; 503 when unconfigured, 401/403 when wrong | PASS (default-deny test walks every route incl. routers) |
 | public mutating, justified | 1 (`POST /api/learn/lessons/{slug}/review`, own reviewer credential) | separate credential | unchanged |
@@ -99,6 +111,16 @@ Therefore the bounded validation lane must: run the full suite on the integrated
 `python3 ops/deploy_guard.py record --sha X` → commit `brambleloop/release/` as Y.
 
 ## 7. Exact owner action (OWNER ACTION REQUIRED — one batch)
+
+**Deploy target:** the integrated head of `claude/visual-investigation` after it contains
+`claude/w4-CC` and `claude/w4-GATESI` (at resume time: `claude/w4-CC` head merged with
+visual-investigation fbad855; GATESI a63eb2a not yet merged by the integrator), plus the
+release-record commit Y (§6). Mechanism: `ops/deploy.sh` (fast-forward push of Y to
+`claude/repository-setup-nc9x6o`; Railway service `brambleloop-os` builds on push) or the PR
+merge. Migrations: automatic, additive (`create_all` + `core.migrate.apply`, §3); none manual.
+Rollback: §9 (`ops/deploy.sh --rollback-to fcb982d`, ~10 min). Total max cost of this batch:
+**CA$25 one-off** (recommended credits; minimum CA$6.85) + Railway delta UNKNOWN (declared
+estimate CA$7/month, ceiling CA$20/month) + CA$0 Backblaze (≤10 GB). Owner minutes: ~50.
 
 1. **Approve the production deploy of commit Y** (the integrator names Y = the release-record
    commit on top of the integrated head that includes `claude/w4-CC`). Mechanism:
@@ -124,12 +146,34 @@ Therefore the bounded validation lane must: run the full suite on the integrated
 3. **Confirm `DATABASE_URL`** on web, worker and scheduler (DEPLOY_CONTROLS action 3). CA$0, 2 min.
    Consequence: a service without it crash-loops (fail-closed by design).
 
+4. **Top up Anthropic API credits** (console.anthropic.com → Billing → Buy credits).
+   - **Why:** production `model.probe` and `vision.probe` fail "credit balance is too low";
+     this clears gates model_provider and image_vision (GATE_CLEARANCE_INFRA).
+   - **Max cost:** minimum US$5 (~CA$6.85), recommended CA$25; code ceiling stays CA$100/month.
+   - **Minutes:** 5. **Consequence of waiting:** no model or vision work runs; the
+     dependent Build 2 rows stay gated.
+5. **Create the offsite backup bucket** (Backblaze B2: private bucket + bucket-scoped app key
+   with read/write/delete + an offline-kept encryption passphrase), then set on
+   `brambleloop-os`: `BRAMBLELOOP_ARCHIVE_URL`, `BRAMBLELOOP_ARCHIVE_BUCKET`,
+   `BRAMBLELOOP_ARCHIVE_KEY_ID`, `BRAMBLELOOP_ARCHIVE_SECRET`,
+   `BRAMBLELOOP_ARCHIVE_ENCRYPTION_KEY` (optional `BRAMBLELOOP_ARCHIVE_REGION`).
+   - **Why:** clears offsite_storage (#51); the region fix needs this deploy.
+   - **Max cost:** CA$0 up to 10 GB (then US$6.95/TB-month). **Minutes:** 15.
+   - **Consequence of waiting:** no off-Railway backup exists.
+6. **After the deploy, record the 5 etsy.com/legal policy snapshots** by hand
+   (`POST /api/policy/snapshot`, each ≤30 days old; etsy.com/legal blocks automated reads).
+   - **Why:** rendered_pages (#35, #39) can only clear by a person's record.
+   - **Max cost:** CA$0. **Minutes:** 15 now, then every 30 days.
+   - **Consequence of waiting:** those rows stay EXTERNAL-GATED.
+
 ## 8. Post-deploy verification (read-only, integrator)
 
 `python3 ops/deployed_sha.py` = Y; `GET /health` 200 with `build.commit` Y; `GET /api/verify`
 ok; `GET /cc/` 200 with the CSP header; `GET /api/cc/company` without a session → 401; owner
 signs in on the phone → Company tab renders, Build 2 card says "computing" for ≤1 min then
-counts; no `release.unproven_build` incident (if the record was committed). Append Y to
+counts; no `release.unproven_build` incident (if the record was committed). Next `image.probe` ok (or a
+provider-balance reason, not "needs a work_dir"); after action 4, `model.probe` and
+`vision.probe` ok; after action 5, `continuity.offsite_write` round trip ok. Append Y to
 `release/DEPLOYED_HISTORY.json`.
 
 ## 9. Rollback

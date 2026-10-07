@@ -623,9 +623,9 @@ def test_money_period_reaches_accounting_window():
     d = r.json()
     assert d["window"] == "ytd", d.get("window")
     acct = d["sections"]["accounting"]
-    if acct["status"] != "UNKNOWN":
-        assert str(acct.get("window", "")).startswith("year to date"), acct.get("window")
-        assert d["period"].startswith("year to date"), d.get("period")
+    # The accountant echoes the window it answered for even while figures are UNKNOWN.
+    assert str(acct.get("window", "")).startswith("year to date"), acct.get("window")
+    assert d["period"].startswith("year to date"), d.get("period")
     r = c.get("/api/cc/money?period=all")
     assert r.status_code == 200 and r.json()["window"] == "all"
     r = c.get("/api/cc/money?period=bogus")
