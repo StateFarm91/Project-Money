@@ -17,14 +17,14 @@ scratch SQLite, network closed). Evidence: `evidence_PIPE3/pipe3_run.json` (`pro
 | pressed-flower-motifs | PROVEN 1.3.0 | `release.SEED_CORRECTIONS` files it as `applique` (no "flower"/"pressed" in listing); category.py `applique` node |
 | spooky-garland, valentine-heart-garland | PROVEN 1.3.0 | chain OK (W4-PIPE cord+seams) |
 | nordic-forest-mosaic-throw-{baby,throw,large} | PROVEN 1.3.0 | "Nordic Forest Relief Throw / Baby Blanket / Large Blanket" — PIPE's longer title failed TITLE_FRONT_SCAN in listing.seo; listing handler files one-colour-per-row fabric as `blanket` |
-| chunky-ribbed-scarf, heirloom-cable-blanket, bobble-floor-pillow | OWNER-GATED (physical) | certify: UNCALIBRATED_PRIMITIVE (fpdc/bpdc/cable2x2/bob) — a physical calibration swatch/tester must pass; not weakenable |
+| chunky-ribbed-scarf 1.0.0, heirloom-cable-blanket 1.2.0, bobble-floor-pillow 1.4.0 | OWNER-GATED (physical) | Product Truth otherwise clean (compile, name/assembly/fabric truth); certify refuses UNCALIBRATED_PRIMITIVE (scarf fpdc/bpdc; cable fpdc/bpdc/cable2x2; pillow bob) until a measured physical sample calibrates them — OWNER_ACTIONS `tester_outreach` (gate tester_roster). Not weakenable. |
 | nordic-star-ornaments, winter-village-graphghan | W4-PIPE's (promoted to Launch-0) | not touched here |
 
 5 creative retitles: done by W4-PIPE (handoff_PIPE.md); PIPE3 verified listing-level name truth via the chain.
 
-## Tests run (focused)
-test_release_versions OK, test_launch0_gauge 5 OK, test_w4_pipe_name_truth OK.
+## Tests run (focused, all pass)
+test_release_versions, test_launch0_gauge 5, test_w4_pipe_name_truth, test_texture 25, test_w4_pipe_board 57, test_cir_roundtrip, test_pattern_truth, test_fabric_relief 8, test_gates 44, test_products_adversarial 15, test_deliverable_qa 61, test_launch0, test_v11_seo_taxonomy 4, test_v11_seo_truth 9, test_w4_pipe_launch_promotion 18, guards test_vacuity/test_secret_scan/test_w3_tmp_hygiene/test_reachability.
 
 ## Remaining / next
-- bobble-floor-pillow readability OPEN-DEFECT: FIXED 1.4.0 (back = foundation + whole 4-row blocks, 61 rows; prints 5 Row lines). test_texture 25 OK, test_w4_pipe_board 57 OK.
+- Lane work complete. bobble-floor-pillow readability OPEN-DEFECT: FIXED 1.4.0 (back = foundation + whole 4-row blocks, 61 rows; prints 5 Row lines). test_texture 25 OK, test_w4_pipe_board 57 OK.
 - WIRING REQUEST W4-CREATIVE: drop the 5 retitled slugs from `creative.emotional_brief.HELD` (see handoff_PIPE.md).
