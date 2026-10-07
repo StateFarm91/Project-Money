@@ -648,8 +648,9 @@ CANDIDATES: tuple[Candidate, ...] = (
             "tier the cluster band cannot reach."),
         variants=(Variant("one_size", "86.4 x 91.8 cm", "snowfall_throw"),),
         pod="blankets",
-        listing=ListingIdentity(kind="throw", etsy_category="blanket",
-                                nouns=("throw", "blanket"), qualifiers=("snowfall", "winter"),
+        # kind is the product-type FAMILY (gates.first_customer): a throw is a blanket.
+        listing=ListingIdentity(kind="blanket", etsy_category="blanket",
+                                nouns=("blanket", "throw"), qualifiers=("snowfall", "winter"),
                                 techniques=("texture",)),
         price=PriceBand(
             *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,

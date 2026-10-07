@@ -220,6 +220,29 @@ def _seed_for(slug: str):
 
 UNKNOWN_PRODUCT = "UNKNOWN_PRODUCT"
 
+# Radar categories that name a colourwork technique, and the plain category of the object.
+_COLOURWORK_CATEGORIES = {"mosaic_blanket": "blanket", "graphghan": "blanket"}
+
+
+def _truthful_category(slug: str, category: str) -> str:
+    """The seed's category, unless it names colourwork the product's own title no longer
+    claims (W4-PIPE): a design renamed to the relief it actually works ("Nordic Forest Fir and
+    Star Relief Throw") must not be tagged and filed as a "mosaic blanket" by the concept it
+    started from. The title is the CIR's, built now; colourwork_findings still refuse a claim
+    the fabric cannot make if one gets through."""
+    plain = _COLOURWORK_CATEGORIES.get(category)
+    if plain is None:
+        return category
+    try:
+        from .pipeline import _engineered_cir
+
+        cir = _engineered_cir(slug)
+    except Exception:  # noqa: BLE001 - no design to read: keep the seed's word
+        return category
+    title = (getattr(cir, "title", "") or "").lower()
+    technique = "mosaic" if category == "mosaic_blanket" else "graphghan"
+    return category if (cir is None or technique in title) else plain
+
 
 def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
     """What this product IS, read from its own record -- never a default (PT-01).
@@ -240,7 +263,8 @@ def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
                 "source": f"products.launch0:{cand.slug if cand else slug}"}
     seed = _seed_for(slug)
     if seed is not None:
-        return {"category": seed.category, "kind": seed.category, "nouns": [],
+        category = _truthful_category(seed.slug, seed.category)
+        return {"category": category, "kind": category, "nouns": [],
                 "motifs": _motifs_for(slug), "techniques": None, "season": seed.season,
                 "launch0": False, "source": f"radar.pool:{seed.slug}"}
     category = (inputs or {}).get("category")

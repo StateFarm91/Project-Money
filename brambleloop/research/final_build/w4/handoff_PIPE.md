@@ -99,6 +99,23 @@ test_blind_review 11. Guards (vacuity, secret_scan, reachability, tmp_hygiene): 
   `_with_cord`), one placed seam per pennant run; certify + name-true; fingerprints re-pinned.
   Gate TIGHTENED: `launch0.assembly_promise` now needs a seam (pieces>1 alone no longer backs a
   garland/pillow/...); test_launch0 updated to the stricter expectation.
+- Nordic Forest 1.3.0: retitled "Nordic Forest Fir and Star Relief Throw/Blanket (Baby|Large)" (one
+  colour per row = relief, not overlay mosaic); fingerprints re-pinned (claims unchanged).
+  `runtime.release._truthful_category`: a seed category naming colourwork (mosaic_blanket/graphghan)
+  maps to "blanket" when the design's current title no longer claims it.
+- Throw listing kind fixed: ListingIdentity.kind is the product-type FAMILY ("blanket"), else
+  listing.seo refuses LISTING_PRODUCT_TYPE_UNSUPPORTED (found by scratch run5; promotion test now checks).
+- product_inventory_run.py reads the chain's artifact store (<chain dir>/art) -- without it every frame
+  reads structural UNKNOWN ("bound image bytes unavailable") and usable sets look unusable.
+- **For W4-PIPE3 (non-viable products) -- already DONE here, do not duplicate:** the 5 creative retitles
+  (winter-village, autumn-oak, nordic-star, pressed-flower, cottage-wall-hanging; earlier commits),
+  garlands spooky + valentine 1.3.0 (cord + seams), Nordic Forest 1.3.0 retitle (relief), bobble pillow
+  back panel + seam 1.3.0 (earlier). Still OPEN for PIPE3: OPEN-DEFECT test_texture::
+  test_the_written_patterns_stay_readable fails (bobble-floor-pillow prints 12 Row lines: the plain sc
+  back panel prints rows 1-7 before collapsing; front 5) -- introduced by the 1.3.0 back panel; fix in the
+  writer's row-cycle collapse or the back's row schedule. Not started: pet mat / harvest runner palette
+  (renderer refusal), wall hanging 340 px legibility, placemat/heart library listing words, autumn-oak
+  gauge (LEGACY_HELD), cable/bobble/rib calibration (OWNER), nordic-forest-bundle (no CIR).
 - Observation (not PIPE-caused, reproduced on origin/claude/visual-investigation 5660235):
   test_launch::test_a_company_that_has_done_its_half_is_only_blocked_on_people fails --
   opening_grid is no longer empty (creative survivors now visible). Owner: CREATIVE/launch lane.

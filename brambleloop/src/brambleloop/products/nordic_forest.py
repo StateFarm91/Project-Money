@@ -103,6 +103,11 @@ def _nearest(target: float, unit: float) -> int:
 # design's stated yardage and/or size; a customer-visible figure cannot change under a
 # released version (tests/data/release_fingerprints.tsv pins content AND claims).
 RELEASE_VERSION = "1.2.0"
+# 1.3.0 (W4-PIPE 2026-10-07): renamed to what the fabric makes. Each row is worked in one
+# colour (launch0.fabric_truth: at most one colour in any row), so the fir and star are a
+# double-crochet relief over a single-crochet ground, not overlay mosaic, which needs a
+# second colour reaching down inside the row. Stitches unchanged; title and notes changed.
+RELEASE_VERSION = "1.3.0"
 
 SIZES: dict[str, tuple[int, int]] = {
     # name: (stitches wide, motif repeats tall), derived from TARGET_CM at GAUGE
@@ -166,8 +171,9 @@ def _row_ops(pattern: str, width: int) -> list[Repeat]:
 def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
     """Build the CIR for one finished size.
 
-    Colour alternates every row, which is how overlay mosaic is actually worked: you carry
-    one colour at a time and the previous colour shows through where you did not cover it.
+    Colour alternates every row and every row is one colour, so the fir and star read as a
+    double-crochet relief over a single-crochet ground (not overlay mosaic: that needs a
+    second colour reaching down inside a row, which this CIR does not make).
     """
     _validate_motif()
     if size not in SIZES:
@@ -196,8 +202,8 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
         # The throw is the headline product, so it carries the plain name; the other sizes
         # qualify it. A title reading "... Throw (Throw)" is the kind of small wrongness that
         # makes a premium shop look automated.
-        title=("Nordic Forest Overlay Mosaic Throw" if size == "throw"
-               else f"Nordic Forest Overlay Mosaic Blanket ({size.title()})"),
+        title=("Nordic Forest Fir and Star Relief Throw" if size == "throw"
+               else f"Nordic Forest Fir and Star Relief Blanket ({size.title()})"),
         version=version,
         construction="flat_rows",
         risk_class="A",
@@ -208,15 +214,16 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
         components=[Component(name="blanket", construction="flat_rows", rows=rows,
                               foundation=width, foundation_kind="chain")],
         designer_notes=(
-            f"Overlay mosaic on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
-            f"({repeats} motif repeats). Fir and star bands alternate. "
+            f"A fir and star relief on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
+            f"({repeats} motif repeats): double crochet standing above a single-crochet "
+            f"ground, one colour per row. Fir and star bands alternate. "
             + _colour_note(rows, width)),
         # F-783: the fir-and-star motif and the size table are this module's own.
         provenance=catalogue_provenance(
             "nordic-forest-mosaic-throw",
             {"builder": "products.nordic_forest.build", "size": size, "width": width,
              "repeats": repeats, "motif": list(MOTIF), "palette": dict(PALETTE)},
-            ("products.nordic_forest", "products.nordic_forest.MOTIF", "overlay_mosaic")),
+            ("products.nordic_forest", "products.nordic_forest.MOTIF", "relief")),
     )
 
 

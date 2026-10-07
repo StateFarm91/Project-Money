@@ -154,8 +154,9 @@ def test_the_pt_redesigns_carry_a_new_version():
     moved every design whose content or stated figures changed one minor further. The ribbed
     scarf's figures did not change (no increases, no mixed-height rows) and keeps 1.0.0."""
     built = catalogue()
+    # W4-PIPE 2026-10-07: renamed to the relief it works (not overlay mosaic) -> 1.3.0.
     for size in nordic_forest.SIZES:
-        assert built[f"nordic-forest-mosaic-throw-{size}"].version == "1.2.0"
+        assert built[f"nordic-forest-mosaic-throw-{size}"].version == "1.3.0"
     assert built["heirloom-cable-blanket"].version == "1.2.0"
     # W4-PIPE 2026-10-07: back panel + closing seam became pattern content (name truth).
     assert built["bobble-floor-pillow"].version == "1.3.0"
