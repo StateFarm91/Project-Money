@@ -61,10 +61,16 @@ def test_no_prompt_asks_a_model_for_pattern_instructions():
     """Section 2. This is a standing constraint, so it is asserted, not just documented."""
     banned = ("stitch count", "how many stitches", "row-by-row", "write the pattern",
               "instructions for", "how to crochet")
+    _vac_64 = 0
     for p in prompt_registry.all_prompts():
+        _vac_64 += 1
         body = (p.system + " " + p.template).lower()
+        _vac_66 = 0
         for phrase in banned:
+            _vac_66 += 1
             assert phrase not in body, f"{p.ref} asks a model for pattern content: {phrase!r}"
+        assert _vac_66, "banned was empty: the loop proved nothing (F-123)"
+    assert _vac_64, "prompt_registry.all_prompts() was empty: the loop proved nothing (F-123)"
 
 
 # ---- pinning ---------------------------------------------------------------

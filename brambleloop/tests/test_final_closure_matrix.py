@@ -45,20 +45,26 @@ def test_no_row_claims_commercial_evidence_that_does_not_exist():
 
 def test_exercised_rows_cite_a_committed_production_artefact():
     import re
+    _vac_48 = 0
     for r in _matrix()["matrix"]:
+        _vac_48 += 1
         if r["maturity"] in ("EXERCISED", "PRODUCTION-OBSERVED"):
             ev = " ".join(map(str, r["evidence"]))
             assert re.search(r"research/b2_resume/evidence/prod_|prod_api_verify_\d", ev), r["uid"]
+    assert _vac_48, "_matrix()['matrix'] was empty: the loop proved nothing (F-123)"
 
 
 def test_integrated_rows_have_a_producer_reached_from_a_live_root():
     agg = _aggregate()
     reach = json.loads((FB / "module_reachability.json").read_text())["modules"]
     order = agg.LEVELS
+    _vac_58 = 0
     for r in _matrix()["matrix"]:
+        _vac_58 += 1
         if order.index(r["maturity"]) >= order.index("INTEGRATED"):
             mod = agg._module_of(r["producer"])
             assert mod and reach[mod]["reached"], r["uid"]
+    assert _vac_58, "_matrix()['matrix'] was empty: the loop proved nothing (F-123)"
 
 
 def test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason():
@@ -90,10 +96,13 @@ def test_a_fact_only_tests_write_cannot_hold_integrated():
     reach = json.loads((FB / "module_reachability.json").read_text())["modules"]
     level, notes = agg.cap(_row(), reach)
     assert level == "INTEGRATED" and notes == []
-    # creator_profiles is written only by tests (tests/test_creators.py and friends).
-    assert agg.writer_index()["writers"]["creator_profiles"] == []
-    level, notes = agg.cap(_row(durable_state="creator_profiles (agreed creators)"), reach)
-    assert level == "TESTED" and any("F-836" in n and "creator_profiles" in n for n in notes)
+    # A table written only by tests. creator_profiles was the example until W4-GATESB gave it a
+    # real writer (quality/tester_programme.py); the example is now read off the index itself.
+    unwritten = sorted(t for t, w in agg.writer_index()["writers"].items() if not w)
+    assert unwritten, "no test-only table left to exercise F-836 with"
+    table = unwritten[0]
+    level, notes = agg.cap(_row(durable_state=f"{table} (test-only writes)"), reach)
+    assert level == "TESTED" and any("F-836" in n and table in n for n in notes), (table, notes)
     # A writer that exists but is unreached is no better than none.
     jobs_writers = agg.writer_index()["writers"]["jobs"]
     assert jobs_writers

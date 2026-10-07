@@ -1,0 +1,14 @@
+{
+ "_meta": {
+  "status": "PROPOSED -- not applied. Wave 4 lane FM2, for integrator acceptance (F-867). F-416 entry WITHDRAWN 2026-10-07: it is COMPLETE at INTEGRATED with a runtime producer (ops/release_record.py boot guard hashes requirements.lock; tests/test_w4_fm2_lock_boot_guard.py).",
+  "rows": "F-123",
+  "how_to_accept": "Copy the entry into research/final_build/overrides.json with accepted_by set; re-run aggregate.py; run tests/test_final_closure_matrix.py, test_w3_final_master_gate.py, test_w3_overrides_proposed.py.",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FM2.json --dry-run"
+ },
+ "overrides": {
+  "F-123": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is tests/test_vacuity.py::findings_in (the vacuous-loop detector), operator tooling no runtime root can import, so INTEGRATED is unreachable by construction (aggregate.structural_producer). The BASELINE is empty: every loop in the suite that asserts over an iterable has a non-emptiness guard or a reasoned vacuity-ok pragma, test_no_new_vacuous_risk_loop_anywhere_in_the_suite and test_the_baseline_only_shrinks pass, and each guarded suite was run green."
+  }
+ }
+}

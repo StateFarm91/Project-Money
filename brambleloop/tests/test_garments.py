@@ -72,19 +72,27 @@ def test_garments_does_not_import_the_benchmarks():
 
 
 def test_no_garment_matches_a_benchmark_and_each_states_its_provenance():
+    _vac_75 = 0
     for design in _designs():
+        _vac_76 = 0
+        _vac_75 += 1
         for size, cir in design.build_all().items():
+            _vac_76 += 1
             assert specification.benchmark_matches(cir) == [], (cir.slug)
             assert cir.authored == "brambleloop"
             assert cir.provenance.concept_key == design.key
             assert cir.provenance.benchmarks_consulted == ()
+        assert _vac_76, "design.build_all().items() was empty: the loop proved nothing (F-123)"
+    assert _vac_75, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 # ---- the full chain, every sourced size ----------------------------------------------------
 
 
 def test_every_size_of_every_design_passes_the_whole_chain():
+    _vac_87 = 0
     for design in _designs():
+        _vac_87 += 1
         sizes = design.sourced_sizes()
         assert sizes == design.table.names, (design.key, sizes)
         for size, cir in design.build_all().items():
@@ -101,10 +109,13 @@ def test_every_size_of_every_design_passes_the_whole_chain():
             # weight that holds its gauge; every other stage must still be clean.
             assert fixtures.clean_but_for_product_truth(cert), (cir.slug, cert.blocking_reasons)
             assert {"specification", "assembly"} <= set(cert.stages_run)
+    assert _vac_87, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_sizes_grow_monotonically_and_hit_their_intended_chest():
+    _vac_107 = 0
     for design in _designs():
+        _vac_107 += 1
         design.check_monotonic()
         chests = []
         for size, cir in design.build_all().items():
@@ -121,6 +132,7 @@ def test_sizes_grow_monotonically_and_hit_their_intended_chest():
             assert abs(chest_cm - want) / want < 0.03, (cir.slug, chest_cm, want)
             chests.append(chest_cm)
         assert chests == sorted(chests), (design.key, chests)
+    assert _vac_107, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_two_constructions_are_different_garments():
@@ -136,10 +148,13 @@ def test_the_two_constructions_are_different_garments():
 
 
 def test_the_sleeve_top_meets_the_body_side_it_is_sewn_to():
+    _vac_139 = 0
     for size, cir in G.harbour_pullover().build_all().items():
+        _vac_139 += 1
         geo = assembly.assemble(cir, _twins(cir, compile_cir(cir)))
         join = next(j for j in geo.joins if j.piece_a == "sleeve" and j.piece_b == "body")
         assert join.verdict == "sound", (size, join.why)
+    assert _vac_139, "G.harbour_pullover().build_all().items() was empty: the loop proved nothing (F-123)"
 
 
 def test_a_fitted_version_is_class_c_and_waits_for_a_physical_sample():
@@ -192,8 +207,12 @@ def test_raglan_neck_fits_the_body_at_every_size():
     as many increases per raglan line per row as it needs, and the neck lands inside the
     plausibility floor at every size of every combination."""
     worst = 0.0
+    _vac_195 = 0
     for d in _raglan_matrix():
+        _vac_196 = 0
+        _vac_195 += 1
         for size, cir in d.build_all().items():
+            _vac_196 += 1
             g = d.graded_size(size)
             geo = specification.yoke_geometry(cir)
             ratio = geo["neck_edge"] / geo["chest"]
@@ -203,6 +222,8 @@ def test_raglan_neck_fits_the_body_at_every_size():
             assert back_neck_cm <= g.body_cm("cross_back"), (d.key, size, back_neck_cm)
             f, sl, b, sr, f2 = geo["sections_at_neck"]
             assert f == f2 and sl == sr >= G.MIN_SLEEVE_AT_NECK and b == 2 * f, (d.key, size)
+        assert _vac_196, "d.build_all().items() was empty: the loop proved nothing (F-123)"
+    assert _vac_195, "_raglan_matrix() was empty: the loop proved nothing (F-123)"
     print(f"     raglan neck edge / chest, worst {worst:.2f}")
 
 
@@ -210,7 +231,9 @@ def test_raglan_increases_follow_the_standard_eight_per_unit():
     """Each increase unit is one either side of each of the four lines (8 stitches); tall
     rows get more than one unit per row rather than a yoke that cannot grow."""
     d = G.pebble_cardigan()
+    _vac_213 = 0
     for size, cir in d.build_all().items():
+        _vac_213 += 1
         r = compile_cir(cir)
         yoke = cir.components[0]
         counts = [yoke.foundation] + [x.produced for x in r.rows if x.component == yoke.name]
@@ -218,15 +241,19 @@ def test_raglan_increases_follow_the_standard_eight_per_unit():
         steps = [b - a for a, b in zip(counts, counts[1:first_body])]
         assert all(step % 8 == 0 and step >= 0 for step in steps), (size, steps)
         assert max(steps) >= 16, (size, steps)       # dc rows are tall: doubled increases
+    assert _vac_213, "d.build_all().items() was empty: the loop proved nothing (F-123)"
 
 
 def test_built_length_never_falls_between_sizes():
     """C-10: the whole length is rounded once, so a longer requested length never builds
     shorter; and the graded check measures what was BUILT."""
+    _vac_226 = 0
     for d in _raglan_matrix() + [G.harbour_pullover()]:
+        _vac_226 += 1
         d.check_monotonic()
         lengths = [G.built_measures(c)["length"] for c in d.build_all().values()]
         assert lengths == sorted(lengths), (d.key, lengths)
+    assert _vac_226, "_raglan_matrix() + [G.harbour_pullover()] was empty: the loop proved nothing (F-123)"
 
 
 def test_built_monotonic_check_catches_a_built_regression():
@@ -254,7 +281,9 @@ def test_built_monotonic_check_catches_a_built_regression():
 def test_the_neckband_join_is_placed_at_the_neck_row_and_the_gates_agree():
     """C-9: the specification gate and the compiler agree the neckband's join is placed."""
     for d in (G.harbour_pullover(), _third_design()):
+        _vac_257 = 0
         for size, cir in d.build_all().items():
+            _vac_257 += 1
             seam = next(s for s in cir.assembly if s.piece_a == "neckband"
                         and s.piece_b == "body")
             bridge = [r.index for r in cir.components[0].rows
@@ -263,6 +292,7 @@ def test_the_neckband_join_is_placed_at_the_neck_row_and_the_gates_agree():
             codes = {f.code for f in compile_cir(cir).findings}
             assert "ASSEMBLY_UNPLACED" not in codes, (d.key, size)
             assert specification.reconstructive_gaps(cir) == []
+        assert _vac_257, "d.build_all().items() was empty: the loop proved nothing (F-123)"
 
 
 def test_a_join_onto_a_flat_pieces_single_opening_is_located_by_the_opening():

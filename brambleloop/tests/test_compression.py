@@ -44,9 +44,12 @@ def test_a_retired_flagship_does_not_retire_christmas():
 def test_a_retirement_is_scoped_to_one_class_and_one_occasion():
     """So that 'the flagship is impossible' cannot be read a fortnight later as 'Christmas
     is closed'."""
+    _vac_47 = 0
     for row in _at(97)["retired_classes"]:
+        _vac_47 += 1
         assert row["scope"] == "this product class for this occasion only"
         assert row["last_optimistic_launch"]
+    assert _vac_47, "_at(97)['retired_classes'] was empty: the loop proved nothing (F-123)"
 
 
 def test_capacity_moves_into_the_fastest_open_lane_as_the_slow_ones_close():
@@ -159,9 +162,12 @@ def test_a_priority_programme_with_open_lanes_must_name_something_to_pursue():
 def test_a_bundle_is_only_proposed_where_its_members_share_a_lane():
     """Departments in different lanes make a bundle whose slowest member decides the launch
     date, which is how a quick make ends up waiting for a throw."""
+    _vac_162 = 0
     for bundle in _at(97)["bundles"]:
+        _vac_162 += 1
         assert len(bundle["departments"]) >= 2
         assert bundle["lane"] in C.LANE_ORDER
+    assert _vac_162, "_at(97)['bundles'] was empty: the loop proved nothing (F-123)"
 
 
 # ---- preparation and next year --------------------------------------------

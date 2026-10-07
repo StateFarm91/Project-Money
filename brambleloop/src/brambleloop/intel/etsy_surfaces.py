@@ -252,6 +252,83 @@ def document_fingerprint(document_text: str) -> str:
     return hashlib.sha256((document_text or "").encode("utf-8")).hexdigest()
 
 
+OPENAPI_CURRENT = "CURRENT"          # every classification input still holds
+OPENAPI_DRIFTED = "DRIFTED"          # Etsy's document moved under at least one verdict
+OPENAPI_UNREADABLE = "UNREADABLE"    # no operations could be read: nothing is confirmed
+
+
+def _operation_ids(document: Mapping) -> set[str]:
+    ops: set[str] = set()
+    for path in (document.get("paths") or {}).values():
+        if not isinstance(path, Mapping):
+            continue
+        for op in path.values():
+            if isinstance(op, Mapping) and op.get("operationId"):
+                ops.add(str(op["operationId"]))
+    return ops
+
+
+def openapi_reverify(document: Mapping | str) -> dict:
+    """Re-verify every surface's classification against Etsy's API document as it is now (F-514).
+
+    The registry's verdicts rest on two inputs from Etsy's OpenAPI document: the operations a
+    surface cites (`ETSY_OPERATIONS`) and the counted absences every UNSUPPORTED verdict rests
+    on (`ABSENCE_PROBES`). Given the current document (raw text, or the parsed JSON a transport
+    returns), this recomputes both and names each surface whose verdict no longer rests on what
+    Etsy publishes: a cited operation removed, a counted absence moved, or -- for UNSUPPORTED
+    surfaces -- new operations Etsy added that must be read before "no API" is relied on again.
+
+    Counts on a parsed document are taken over its canonical re-serialisation, so a formatting
+    difference can only *raise* a drift (fail closed), never hide one. An unreadable document
+    is UNREADABLE, never CURRENT.
+    """
+    import json as _json
+
+    if isinstance(document, str):
+        text = document
+        try:
+            parsed = _json.loads(document)
+        except ValueError:
+            parsed = {}
+    else:
+        parsed = dict(document or {})
+        text = _json.dumps(parsed, ensure_ascii=False, sort_keys=True)
+    parsed = parsed if isinstance(parsed, Mapping) else {}
+    ops = _operation_ids(parsed)
+    version = str((parsed.get("info") or {}).get("version") or "") or None
+    if not ops:
+        return {"status": OPENAPI_UNREADABLE, "version": version, "operations": 0,
+                "why": "no operationId could be read from the document; no verdict is "
+                       "confirmed", "affected": [], "removed_operations": [],
+                "added_operations": [], "absence_drift": [],
+                "pinned": {"version": OPENAPI_VERSION, "sha256": OPENAPI_SHA256}}
+    drift = verify_absence(text)
+    removed = sorted(ETSY_OPERATIONS - ops)
+    added = sorted(ops - ETSY_OPERATIONS)
+    drifted_terms = {d["term"] for d in drift}
+    affected = []
+    for s in _SURFACES:
+        reasons = []
+        gone = [o for o in s.operations if o in removed]
+        if gone:
+            reasons.append(f"cited operation(s) no longer in Etsy's document: {gone}")
+        moved = sorted(t for t in drifted_terms for e in s.evidence
+                       if e.kind == OPENAPI_ABSENCE and f"'{t}'" in e.statement)
+        if moved:
+            reasons.append(f"counted absence moved for {sorted(set(moved))}")
+        if added and s.verdict == UNSUPPORTED:
+            reasons.append(f"Etsy added {len(added)} operation(s) ({added[:5]}); the "
+                           f"UNSUPPORTED verdict must be re-audited before it is relied on")
+        if reasons:
+            affected.append({"surface": s.key, "verdict": s.verdict, "reasons": reasons})
+    status = OPENAPI_DRIFTED if (drift or removed or added) else OPENAPI_CURRENT
+    return {"status": status, "version": version, "operations": len(ops),
+            "removed_operations": removed, "added_operations": added,
+            "absence_drift": drift, "affected": affected,
+            "pinned": {"version": OPENAPI_VERSION, "sha256": OPENAPI_SHA256,
+                       "operations": len(ETSY_OPERATIONS)}}
+
+
 # ---------------------------------------------------------------------------
 # The operations Etsy actually publishes
 # ---------------------------------------------------------------------------

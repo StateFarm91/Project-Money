@@ -1,0 +1,116 @@
+{
+ "_meta": {
+  "head": "77d63d6",
+  "runner": "close_fm2.py --run-tests (sequential)"
+ },
+ "suites": {
+  "tests/test_etsy_readback_observe.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 37,
+   "seconds": 246.5
+  },
+  "tests/test_etsy_surfaces.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 53,
+   "seconds": 0.4
+  },
+  "tests/test_k8_shop_cx.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 17,
+   "seconds": 43.7
+  },
+  "tests/test_k9_graded_truth.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 13.0
+  },
+  "tests/test_k9_rows.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 9,
+   "seconds": 12.5
+  },
+  "tests/test_trust.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 13,
+   "seconds": 48.9
+  },
+  "tests/test_vacuity.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 12.2
+  },
+  "tests/test_w3_supply_chain.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 6,
+   "seconds": 0.6
+  },
+  "tests/test_w4_cc_company.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 23,
+   "seconds": 136.2
+  },
+  "tests/test_w4_fm2_lock_boot_guard.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 3,
+   "seconds": 0.2
+  },
+  "tests/test_w4_fm2_log_secret_guard.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 0.3
+  },
+  "tests/test_w4_fm2_storefront_trust.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 6,
+   "seconds": 80.9
+  },
+  "tests/test_w4_fm2_surface_reverify.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 10.1
+  },
+  "tests/test_w4_spend_attribution.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 5,
+   "seconds": 13.5
+  },
+  "tests/test_w4_spend_paid_discipline.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 13,
+   "seconds": 42.7
+  },
+  "tests/test_w4_spenda_k5a.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 17,
+   "seconds": 39.0
+  },
+  "tests/test_w4_visual2.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 4,
+   "seconds": 27.3
+  },
+  "tests/test_w4_visual_certified_gallery.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 7,
+   "seconds": 82.2
+  }
+ }
+}

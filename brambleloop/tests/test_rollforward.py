@@ -162,8 +162,11 @@ def test_the_plan_keeps_its_refusals_rather_than_filtering_them():
 
 def test_a_roll_forward_prefers_the_soonest_occasion_that_can_repay_it():
     plan = A.roll_forward(date(2026, 9, 20))
+    _vac_165 = 0
     for move in plan["capacities"][A.ENGINEERING]["moves"]:
+        _vac_165 += 1
         assert move["may_roll"] is True
+    assert _vac_165, "plan['capacities'][A.ENGINEERING]['moves'] was empty: the loop proved nothing (F-123)"
 
 
 # ---- the curve it cannot draw ---------------------------------------------

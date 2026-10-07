@@ -136,7 +136,9 @@ def test_fresh_raglan_survives_whole_release_chain_at_every_size():
 def test_drop_shoulder_from_concept_assembles_at_every_size():
     for c in GARMENTS[2:]:
         design = GD.design_for(c)
+        _vac_139 = 0
         for size, cir in design.build_all().items():
+            _vac_139 += 1
             assert [x.name for x in cir.components] == ["body", "sleeve", "neckband"], size
             cert = certify(cir)
             assert cert.granted, (c.key, size, cert.blocking_reasons[:2])
@@ -147,6 +149,7 @@ def test_drop_shoulder_from_concept_assembles_at_every_size():
             geo = assembly.assemble(cir, {x.name: build_twin(cir, r, component=x.name)
                                           for x in cir.components})
             assert geo.verdict == "assembles", (c.key, size, geo.verdict, geo.why)
+        assert _vac_139, "design.build_all().items() was empty: the loop proved nothing (F-123)"
 
 
 def test_drop_shoulder_neckband_join_is_placed():

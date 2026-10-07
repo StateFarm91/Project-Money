@@ -121,8 +121,11 @@ def test_an_asset_nobody_has_built_is_not_counted_as_a_moat():
     assert set(inventory["built"]).isdisjoint(inventory["planned"])
     assert inventory["planned"], "nothing is planned; this proves little"
     for band, keys in inventory["built_by_replication"].items():
+        _vac_124 = 0
         for key in keys:
+            _vac_124 += 1
             assert M.BY_KEY[key].exists is True, key
+        assert _vac_124, "keys was empty: the loop proved nothing (F-123)"
 
 
 def test_a_signature_states_why_it_would_take_that_long_for_somebody_else():

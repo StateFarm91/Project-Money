@@ -2426,34 +2426,36 @@
   "uid": "F-629",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Spend ceilings enforced in code are a non-negotiable authority control.",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Department allocation mechanism exists but is empty (no department caps set) and is post-fcb982d; promotional/cloud credits are not tracked separately from cash.",
-  "producer": "src/brambleloop/finance/reservations.py",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_report.py::governance (credits wallet, finance/credits)",
   "durable_state": "spend_reservations, spend_limits, cost_entries",
-  "consumer": "src/brambleloop/finance/spend_policy.py::may_spend",
+  "consumer": "src/brambleloop/finance/spend_report.py::governance -> /api/spend-governance",
   "protected_effect": "company ceiling dominates; concurrent reservations bound overshoot",
   "tests": [
-   "tests/test_spend_governance.py::test_a_batch_checks_each_call_against_what_the_batch_has_already_spent",
+   "tests/test_cert_cost.py::test_empty_provider_and_department_tables_report_no_cap",
    "tests/test_cert_improve_autonomy.py::test_governor_cadence_pauses_a_spiking_agent_through_the_reservation_table",
-   "tests/test_cert_cost.py::test_empty_provider_and_department_tables_report_no_cap"
+   "tests/test_spend_governance.py::test_a_batch_checks_each_call_against_what_the_batch_has_already_spent",
+   "tests/test_w4_spenda_k5a.py::test_credits_are_kept_apart_from_cash_and_never_raise_a_ceiling"
   ],
   "evidence": [
    "finance/reservations.py present in fcb982d; DEPARTMENT_ALLOCATION absent there",
-   "BUILD_STATE: production model call checked against CA$25 ceiling (2026-09-19)"
+   "BUILD_STATE: production model call checked against CA$25 ceiling (2026-09-19)",
+   "w4-FM close on w4-FM2 (FM2): SPENDA: credits kept apart from cash and never raise a ceiling; department shares are an owner decision (empty = no cap)"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a credits ledger (see F-614) excluded from cash exposure, and seed DEPARTMENT_ALLOCATION shares once the owner names them (owner decision, not a blocker).",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-630",

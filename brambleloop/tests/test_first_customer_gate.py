@@ -144,11 +144,14 @@ def test_the_four_areas_that_pass_pass_on_measured_evidence():
     Stated as a check so that a regression in any of them shows up here as a first-customer
     failure rather than only as a unit-test failure three modules away.
     """
+    _vac_147 = 0
     for product in _launch0()["products"]:
+        _vac_147 += 1
         states = {c["area"]: c["state"] for c in product["checks"]}
         for area in ("final_pdf", "terminology", "counts_and_construction",
                      "licence_and_safety_statements"):
             assert states[area] == fc.PASS, (product["slug"], area, states[area])
+    assert _vac_147, "_launch0()['products'] was empty: the loop proved nothing (F-123)"
 
 
 def test_an_unbuilt_listing_and_an_unbuilt_image_set_read_unverifiable_not_clean():
@@ -195,9 +198,12 @@ def test_the_download_is_a_first_customer_failure_while_the_store_is_ephemeral()
 
     assert fc.check_fulfilment_and_download(_Ephemeral()).state == fc.FAIL
     assert fc.check_fulfilment_and_download(_Durable()).state == fc.PASS
+    _vac_198 = 0
     for product in _launch0()["products"]:
+        _vac_198 += 1
         row = [c for c in product["checks"] if c["area"] == "fulfilment_and_download"][0]
         assert row["state"] == fc.FAIL, product["slug"]
+    assert _vac_198, "_launch0()['products'] was empty: the loop proved nothing (F-123)"
 
 
 def test_etsy_remote_state_is_unverifiable_rather_than_passing_on_a_local_fake():

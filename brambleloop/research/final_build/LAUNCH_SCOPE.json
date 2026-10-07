@@ -750,7 +750,7 @@
    "reason": "authority/spend controls (spend ceiling enforced in code)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-071",
@@ -1080,7 +1080,7 @@
    "reason": "estimate-vs-bill reconciliation keeps the ceiling honest",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-104",
@@ -1110,7 +1110,7 @@
    "reason": "spend truth against the real bill",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-107",
@@ -1640,7 +1640,7 @@
    "reason": "release safety: no credential leaks",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-160",
@@ -2180,7 +2180,7 @@
    "reason": "truthful Visual representation of any model-bearing listing",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-214",
@@ -2240,7 +2240,7 @@
    "reason": "truthful Visual representation of any model-bearing listing",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-220",
@@ -2380,7 +2380,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); blank shop surfaces are a customer-trust and launch gate",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-234",
@@ -2682,7 +2682,7 @@
    "reason": "authority/spend control: prerequisites that keep paid traffic off an unfinished shop (F-875)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-264",
@@ -3112,7 +3112,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-305",
@@ -3162,7 +3162,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-310",
@@ -3182,7 +3182,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-312",
@@ -3192,7 +3192,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-313",
@@ -3202,7 +3202,7 @@
    "reason": "P0 addendum: provider cost truth — quality-first routing",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-314",
@@ -3212,7 +3212,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-315",
@@ -3232,7 +3232,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-317",
@@ -3242,7 +3242,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-318",
@@ -3252,7 +3252,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-319",
@@ -3262,7 +3262,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-320",
@@ -3292,7 +3292,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-323",
@@ -3322,7 +3322,7 @@
    "reason": "P0 addendum: pricing/economics integrity (steady-state forecast)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-326",
@@ -3352,7 +3352,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-329",
@@ -3694,7 +3694,7 @@
    "reason": "truthful age/size representation in listing and PDF for Launch-0 baby blanket",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-363",
@@ -3704,7 +3704,7 @@
    "reason": "Product Truth for children's wearables (blocking only if a wearable enters the launch set; Launch-0 has none)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-364",
@@ -4234,7 +4234,7 @@
    "reason": "Runtime durability / supply-chain integrity of the production image.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-417",
@@ -4794,7 +4794,7 @@
    "reason": "central provider spend/retry control prevents surprise billing — spend control",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-473",
@@ -5254,7 +5254,7 @@
    "reason": "a production change must be reversible — safe publication/recovery",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-519@v0.15",
@@ -6434,7 +6434,7 @@
    "reason": "Spend ceilings enforced in code are a non-negotiable authority control.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-630",
@@ -6716,7 +6716,7 @@
    "reason": "truthful listing representation: final image gate",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-678",
@@ -7266,7 +7266,7 @@
    "reason": "truthful imagery: exact canonical identity",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-733",
@@ -7448,7 +7448,7 @@
    "reason": "Product Truth must encode construction; wrong construction = wrong product",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-751",
@@ -7458,7 +7458,7 @@
    "reason": "stitch structure is Product Truth when appearance depends on it",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-752",
@@ -7478,7 +7478,7 @@
    "reason": "gauge determines finished size and visible scale",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-754",
@@ -7498,7 +7498,7 @@
    "reason": "graded-size errors are pattern defects sold to customers",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-756",
@@ -7508,7 +7508,7 @@
    "reason": "schematic/measurement conflicts are sizing claims to customers",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-757",
@@ -7562,7 +7562,7 @@
    "reason": "the PDF is the product the customer buys",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-762",
@@ -7572,7 +7572,7 @@
    "reason": "graded pattern correctness across sizes",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-763",
@@ -7582,7 +7582,7 @@
    "reason": "fit/ease misstatement is a refund-class claim",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-764",
@@ -7632,7 +7632,7 @@
    "reason": "release QA must independently recompute the pattern (correct patterns)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-769",
@@ -7652,7 +7652,7 @@
    "reason": "customer support/remedy path is launch-critical",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-771",
@@ -7722,7 +7722,7 @@
    "reason": "unsupported listing claims are marketplace/customer harm",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-778",
@@ -7742,7 +7742,7 @@
    "reason": "optimisation must not distort product truth in listings",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-780",
@@ -7792,7 +7792,7 @@
    "reason": "similarity review before release (superseded in detail by F-795)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-785",
@@ -7872,7 +7872,7 @@
    "reason": "instructions must come from own CIR",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-793",
@@ -7892,7 +7892,7 @@
    "reason": "Provenance for competitor-informed products.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-795",
@@ -7902,7 +7902,7 @@
    "reason": "similarity review before sale",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-796",
@@ -9098,7 +9098,7 @@
    "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-915",
@@ -9218,7 +9218,7 @@
    "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-927",

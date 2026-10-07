@@ -10,18 +10,17 @@ Reachability: HEAD 8b67414 reachability; production fcb982d
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 81 | 34 | 7 | 331 | 150 | 314 |
-| launch-critical | 16 | 25 | 0 | 82 | 76 | 291 |
+| all rows | 81 | 34 | 7 | 312 | 150 | 333 |
+| launch-critical | 16 | 25 | 0 | 63 | 76 | 310 |
 | post-launch (not blocking) | 65 | 9 | 0 | 249 | 74 | 23 |
 
-Launch-critical OPEN-DEFECT: **82**
+Launch-critical OPEN-DEFECT: **63**
 
 ## Open clusters (launch-critical)
 
 | Cluster | Lane | Rows | Title |
 |---|---|---|---|
-| FOLD | FM | 4 | Wave-3 claims COMPLETE, canonical mapping not re-mapped: verify tests + reachabi |
-| FOLD-R | FM | 4 | Wave-3 audit (lane K) re-checked as resolved on f0c2d12; never re-mapped into th |
+| FOLD | FM | 3 | Wave-3 claims COMPLETE, canonical mapping not re-mapped: verify tests + reachabi |
 | K12 | VISUAL | 4 | Visual residuals (model photography path; not Launch-0) |
 | K13 | FM | 2 | Closure/certification tooling in code |
 | K14 | FM | 1 | Supply chain, deploy & operator-tooling residuals |
@@ -32,8 +31,7 @@ Launch-critical OPEN-DEFECT: **82**
 | K5b | FM | 13 | Paid-call discipline in the gateway/worker |
 | K8 | STORE | 2 | Etsy estate, orders & CX residuals |
 | K9 | PIPE | 18 | Pattern product-truth residuals (graded/garments; not Launch-0) |
-| PROCESS | integrator | 10 | PROCESS |
-| STRUCTURAL | FM | 12 | STRUCTURAL |
+| PROCESS | integrator | 8 | PROCESS |
 
 ## Launch-critical rows not PROVEN
 
@@ -67,13 +65,9 @@ Launch-critical OPEN-DEFECT: **82**
 | F-159 Secret Scan Gate | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: production runtime logs (Railway) are not exported into the scan before release |
 | F-160 Credential Rotation Register | OWNER-GATED | TESTED | owner:credential_rotation |
 | F-169 Clean-Tree Full Suite | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_gua |
-| F-170 Suite Result Binding | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-171 Production Smoke Matrix | OWNER-GATED | EXERCISED | owner:production_deploy |
 | F-172 Shadow-Mode Publication Proof | OWNER-GATED | EXERCISED | owner:production_deploy |
 | F-176 Rollback Baseline | OWNER-GATED | INTEGRATED | owner:production_window |
-| F-177 Final Master Reconciliation | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Registry, matrix and aggregation exist and are pinned; rows touched by FB-1/FB-2/ |
-| F-178 Final Master Completion Standard | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: aggregate.py caps claims by evidence (EXERCISED needs a committed production arte |
-| F-205 Dashboard Contradiction Test | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-213 Identity Trial Validity | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: missing reference, missing pair, unmeasurable morphology and unsupported conditioning return unavailable/unverifiable/unpr |
 | F-219 Human Review Escalation Band | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: ambiguous anatomy is never auto-approved (unverifiable blocks), but there is no human review band/queue for borderline res |
 | F-221 Photographic Realism Hard Floor | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
@@ -125,17 +119,6 @@ Launch-critical OPEN-DEFECT: **82**
 | F-323 Cost Per Sale / Contribution | DATA-GATED | DEPLOYED | data:customers |
 | F-325 Steady-State Sustainability Forecast | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: observation cadence is not a named forecast input (folded into platform spend); scenario assumptions are constants; in pro |
 | F-328 No Spend To Look Busy | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: paid cadences are bounded by work_that_fits and may_spend, stalled loops are suspended and several paths skip when evidenc |
-| F-332 No Self-Matching Liveness Probe | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-334 Waiter Deduplication | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-340 Waiter Resource Bound | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-342 Observer/Work Separation | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: registry records carry the job's own marker and waiter leases live in a separate  |
-| F-344 Operational Time Waste Accounting | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Only one class of waste is accounted: (ack time - job's stamped finish) when a la |
-| F-345 Test-Suite Run Record | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-346 Suite Concurrency Guard | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-347 Targeted Validation Before Full Rerun | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-348 Monitor Regression Tests | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-349 Business-Progress Preservation | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-350 Reliability Incident Escalation | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Only 'material delay' is detected and flagged (waiter idle accounting -> RELIABIL |
 | F-360 Sizing Is Safety-Critical Product Truth | OWNER-GATED | INTEGRATED | owner:physical_proof |
 | F-362 Age-Range Clarity | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no statement that finished measurements, not age, govern fit for multi-size children's garments; children's assignment exi |
 | F-363 Physical Plausibility | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: neck/yoke fit, drawstring/tie refusal and applied-part refusal exist; no explicit checks of closures/button spacing, armho |
@@ -212,15 +195,11 @@ Launch-critical OPEN-DEFECT: **82**
 | F-795 Similarity Review Before Sale | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: numeric piece-table comparison vs benchmark 1 at certify; wording, distinctive feature combination, construction-sequence  |
 | F-808 Contextual Help Inside Patterns | OWNER-GATED | INTEGRATED | owner:owned_surfaces |
 | F-834 Consumption Required | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: build2/final_proof.py requires a consumer/decision/effect chain bound by evidence |
-| F-836 No Fixture-Only Proof | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: final_proof refuses evidence_class fixture/static and requires a production_produ |
-| F-837 Proxy Honesty | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: final_proof requires direct=True ('proxy cannot satisfy direct proof') but 'direc |
 | F-839 Final-Head Re-Audit | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: module_reachability.json regenerated on 6f9a2f7 and a release-eligible full suite |
 | F-840 Green Suite Necessary, Not Sufficient | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRA |
 | F-841 Build 2 Freeze | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED |
-| F-843 Final Master Closure Matrix | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: closure_matrix.json maps all 866 registry records (aggregated, test-pinned) with  |
 | F-845 Release Candidate Freeze | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED; coverage PARTIAL: no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decisi |
 | F-846 Audit-Repair Loop | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED; coverage PARTIAL: the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs |
-| F-847 No Final-Build Drift | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED; coverage PARTIAL: D-FB-5 rule plus launch_class per matrix row; new questions are recorded as  |
 | F-848 Shadow Rehearsal | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: chain legs are integrated and tested individually (release chain to shadow store. |
 | F-849 Claude/Chat Independence | OWNER-GATED | INTEGRATED | owner:production_window |
 | F-850 Restart Recovery | OWNER-GATED | INTEGRATED | owner:production_window |

@@ -7,33 +7,14 @@
    "rows": [
     "F-030",
     "F-159",
-    "F-254",
-    "F-342"
+    "F-254"
    ],
-   "size": 4,
+   "size": 3,
    "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
    "owner_lane": "FM",
    "reasons": {
-    "coverage PARTIAL": 4,
-    "maturity TESTED": 2
-   }
-  },
-  "FOLD-R": {
-   "title": "Wave-3 audit (lane K) re-checked as resolved on f0c2d12; never re-mapped into the canonical mapping",
-   "rows": [
-    "F-178",
-    "F-836",
-    "F-837",
-    "F-847"
-   ],
-   "size": 4,
-   "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
-   "owner_lane": "FM",
-   "reasons": {
-    "maturity TESTED": 3,
-    "coverage PARTIAL": 4,
-    "defect recorded": 2,
-    "maturity IMPLEMENTED": 1
+    "coverage PARTIAL": 3,
+    "maturity TESTED": 1
    }
   },
   "K12": {
@@ -210,48 +191,22 @@
    "title": "PROCESS",
    "rows": [
     "F-169",
-    "F-177",
     "F-839",
     "F-840",
     "F-841",
-    "F-843",
     "F-845",
     "F-846",
     "F-848",
     "F-878"
    ],
-   "size": 10,
+   "size": 8,
    "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
    "owner_lane": "integrator",
    "reasons": {
-    "maturity TESTED": 6,
-    "coverage PARTIAL": 9,
-    "defect recorded": 2,
+    "maturity TESTED": 4,
+    "coverage PARTIAL": 7,
+    "defect recorded": 1,
     "maturity IMPLEMENTED": 3
-   }
-  },
-  "STRUCTURAL": {
-   "title": "STRUCTURAL",
-   "rows": [
-    "F-170",
-    "F-205",
-    "F-332",
-    "F-334",
-    "F-340",
-    "F-344",
-    "F-345",
-    "F-346",
-    "F-347",
-    "F-348",
-    "F-349",
-    "F-350"
-   ],
-   "size": 12,
-   "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
-   "owner_lane": "FM",
-   "reasons": {
-    "maturity TESTED": 12,
-    "coverage PARTIAL": 2
    }
   }
  }

@@ -133,11 +133,14 @@ def test_the_pdfs_and_charts_in_the_job_outputs_are_counted():
         build = next(j for j in s.scalars(select(Job))
                      if j.job_type == "assets.build" and j.status == JobStatus.DONE)
     keys = {(c, k) for c, k, _ in expected}
+    _vac_136 = 0
     for terminology, sha in build.outputs["pdf_sha256_by_terminology"].items():
+        _vac_136 += 1
         assert ("pdf", P.pdf_key(SLUG, VERSION, terminology)) in keys
         row = next(r for r in _rows(db)
                    if r.artefact_key == P.pdf_key(SLUG, VERSION, terminology))
         assert row.sha256 == sha, "the recorded hash is not the file the job produced"
+    assert _vac_136, "build.outputs['pdf_sha256_by_terminology'].items() was empty: the loop proved nothing (F-123)"
     assert ("chart", P.chart_key(SLUG, VERSION, "chart")) in keys
     assert ("chart", P.chart_key(SLUG, VERSION, "legend")) in keys
     assert ("pricing", P.release_key(SLUG, VERSION)) in keys
@@ -207,9 +210,12 @@ def test_a_file_artefact_carries_the_hash_of_the_file_it_is():
     for row in frames:
         asset_id = int(row.artefact_key.rsplit("#", 1)[1])
         assert row.sha256 == assets[asset_id]
+    _vac_210 = 0
     for row in rows:
+        _vac_210 += 1
         if row.artefact_class in P.FILE_CLASSES:
             assert len(row.sha256) == 64
+    assert _vac_210, "rows was empty: the loop proved nothing (F-123)"
 
 
 def test_the_rebuild_graph_can_follow_the_parents():

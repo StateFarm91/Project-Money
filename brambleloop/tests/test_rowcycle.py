@@ -83,12 +83,18 @@ def test_a_cycle_is_never_claimed_where_the_rows_differ():
     victim.ops = [Op("sc", victim.declared_count)]
     cycle = detect_cycle(rows)
     if cycle is not None:
+        _vac_86 = 0
         for i in range(cycle.repeats):
+            _vac_87 = 0
+            _vac_86 += 1
             for j in range(cycle.period):
+                _vac_87 += 1
                 a = rows[cycle.start - 1 + j]
                 b = rows[cycle.end + i * cycle.period + j]
                 assert [(*_op(o),) for o in a.ops] == [(*_op(o),) for o in b.ops], \
                     "a cycle was claimed across rows that differ"
+            assert _vac_87, "range(cycle.period) was empty: the loop proved nothing (F-123)"
+        assert _vac_86, "range(cycle.repeats) was empty: the loop proved nothing (F-123)"
 
 
 def _op(node):

@@ -51,8 +51,11 @@ def _profile(cir=None):
 
 def test_every_dimension_section_three_names_is_tracked():
     p = _profile()
+    _vac_54 = 0
     for dim in conf.Dimension:
+        _vac_54 += 1
         assert dim in p.scores, dim
+    assert _vac_54, "conf.Dimension was empty: the loop proved nothing (F-123)"
 
 
 def test_there_is_deliberately_no_single_overall_score():

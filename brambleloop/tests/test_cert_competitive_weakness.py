@@ -65,8 +65,11 @@ def test_competitive_weakness_is_measured_relative_to_the_most_crowded_occasion(
 
 def test_with_no_capture_every_occasion_stays_unmeasured():
     out = daily.run(_db({}), today=TODAY)
+    _vac_68 = 0
     for u in out["engine"]["unscored"]:
+        _vac_68 += 1
         assert "competitive_weakness" in u["unmeasured"], u
+    assert _vac_68, "out['engine']['unscored'] was empty: the loop proved nothing (F-123)"
 
 
 if __name__ == "__main__":

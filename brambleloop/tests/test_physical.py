@@ -99,8 +99,11 @@ def test_the_factor_reaches_the_yardage_the_customer_reads():
     assert factor == 1.15
     calibrated = build_twin(cir, result, calibration=factor)
     assert calibrated.calibrated is True
+    _vac_102 = 0
     for colour, metres in twin.yarn_metres_by_color.items():
+        _vac_102 += 1
         assert abs(calibrated.yarn_metres_by_color[colour] - metres * 1.15) < 0.5
+    assert _vac_102, "twin.yarn_metres_by_color.items() was empty: the loop proved nothing (F-123)"
 
 
 def test_with_no_sample_the_estimate_stays_uncalibrated():

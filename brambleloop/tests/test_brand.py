@@ -280,9 +280,12 @@ def test_the_fabric_render_cannot_invent_a_colour():
 
     allowed = {_hex_to_rgb(v) for v in p["cir"].colors.values()}
     # Every sampled pixel is a pattern colour or a highlight derived from one.
+    _vac_283 = 0
     for pixel in used:
+        _vac_283 += 1
         near = min(sum((a - b) ** 2 for a, b in zip(pixel, c)) for c in allowed)
         assert near < 6000, f"{pixel} is not derived from any colour in the pattern"
+    assert _vac_283, "used was empty: the loop proved nothing (F-123)"
 
 
 if __name__ == "__main__":

@@ -2071,6 +2071,11 @@
    "why": "watch is live: API get dashboard -> app/main.py:dashboard -> ops/health.py:read -> ops/health.py:_job_durations",
    "in_production_fcb982d": false
   },
+  "ops/log_secret_guard.py": {
+   "reached": true,
+   "why": "install is live: module body app/main.py -> app/main.py:<module> -> app/access_log.py:install (W4-FM2: build2.reachability.reached on this branch; single entry added)",
+   "in_production_fcb982d": false
+  },
   "ops/owner_queue.py": {
    "reached": true,
    "why": "effective_state is live: API get dashboard -> app/main.py:dashboard -> build2/executor.py:approval_inbox",

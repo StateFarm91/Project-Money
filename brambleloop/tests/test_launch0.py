@@ -100,12 +100,15 @@ def test_launch0_is_small_and_every_item_is_reachable():
 
 def test_every_launch0_product_reports_finished_measurements_and_admits_they_are_arithmetic():
     """A measurement with no sample behind it must say so where the number is read."""
+    _vac_103 = 0
     for product in l0.launch0():
+        _vac_103 += 1
         assert product["certified"]["finished_measurements_computed"], product["slug"]
         assert product["aspiration"]["physically_calibrated"] is False, product["slug"]
         assert "twin.calibrated is False" in product["aspiration"]["why_not"]
         for variant in product["variants"]:
             assert variant["calibrated"] is False, (product["slug"], variant["variant"])
+    assert _vac_103, "l0.launch0() was empty: the loop proved nothing (F-123)"
 
 
 def test_no_launch0_product_is_calibrated_and_the_report_leads_with_that():
@@ -374,8 +377,11 @@ def test_a_childrens_title_with_no_audience_assignment_is_reported():
         # And the products that DO carry an assignment are still not in the list.
         assert "cloudline-baby-blanket" not in unassigned
         assert "market-basket-small" not in unassigned
+        _vac_375 = 0
         for row in rows:
+            _vac_375 += 1
             assert row["words"] and row["why"]
+        assert _vac_375, "rows was empty: the loop proved nothing (F-123)"
     finally:
         mod.EXTRA_CHILDRENS_ASSIGNMENTS, mod._CIR_AUDIENCE = saved_extra, saved_cache
     assert l0.childrens_titles_without_an_assignment() == [], "the fixture leaked"
@@ -389,12 +395,15 @@ def test_the_audience_assignment_is_computed_from_the_candidates_not_listed_twic
     assert l0.childrens_assignment("harvest-table-runner") is None
     for slug in l0.LAUNCH0_SLUGS:
         cand = l0.candidate(slug)
+        _vac_390 = 0
         for variant in cand.variants:
+            _vac_390 += 1
             got = l0.childrens_assignment(l0.cir_for(variant.build).slug)
             if cand.subcategory is None:
                 assert got is None, slug
             else:
                 assert got == (cand.subcategory, cand.audience), slug
+        assert _vac_390, "cand.variants was empty: the loop proved nothing (F-123)"
 
 
 def test_a_prohibited_subject_would_be_refused_even_dressed_as_nursery_decor():
@@ -411,8 +420,11 @@ def test_the_subjects_we_never_publish_are_enumerated_from_the_constraint_module
     slugs = {row["slug"] for row in never}
     assert {"infant_sleep_accessory", "baby_carrier", "childrens_sleepwear",
             "rattle_or_teether"} <= slugs, slugs
+    _vac_412 = 0
     for row in never:
+        _vac_412 += 1
         assert row["why"] and row["constraints"]
+    assert _vac_412, "never was empty: the loop proved nothing (F-123)"
 
 
 # ---- seasonality ----------------------------------------------------------
@@ -482,8 +494,11 @@ def test_every_pipeline_entry_names_a_blocker_and_who_owns_it():
 
 
 def test_no_pipeline_entry_claims_a_cir():
+    _vac_483 = 0
     for row in l0.pipeline_plan(today=TODAY):
+        _vac_483 += 1
         assert row["has_a_cir"] is False, row["slug"]
+    assert _vac_483, "l0.pipeline_plan(today=TODAY) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_pipeline_order_matches_the_researched_entry_order():
@@ -598,8 +613,11 @@ def test_the_report_carries_no_demand_or_velocity_score_for_a_product():
                  "conversion")
     for cls in (l0.Candidate, l0.Variant, l0.PipelineEntry):
         names = [f.name for f in dc_fields(cls)]
+        _vac_599 = 0
         for name in names:
+            _vac_599 += 1
             assert not any(word in name for word in forbidden), (cls.__name__, name)
+        assert _vac_599, "names was empty: the loop proved nothing (F-123)"
 
 
 def test_the_report_runs_end_to_end_and_answers_the_hard_rule():

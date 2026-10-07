@@ -116,8 +116,11 @@ def test_the_prompt_is_derived_from_the_certified_pattern():
     """A prompt somebody typed is a second, unvalidated description of the product."""
     cir, twin = _subject()
     prompt = op.prompt_for(cir, twin, occasion="Christmas")
+    _vac_119 = 0
     for name in cir.colors:
+        _vac_119 += 1
         assert name in prompt, name
+    assert _vac_119, "cir.colors was empty: the loop proved nothing (F-123)"
     assert f"{twin.width_cm:.0f} by {twin.height_cm:.0f} cm" in prompt
     assert "blanket" in prompt
     # The hex codes the twin renders with describe nothing to a generator or to a reader.

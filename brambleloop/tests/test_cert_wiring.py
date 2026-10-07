@@ -230,9 +230,12 @@ def test_scheduler_tick_calls_priority_for_and_bands_every_cadence_job():
     called = {a[0] for a, _k in spy.calls}
     cadence_types = {jt for _n, _a, jt, _p in CADENCES}
     assert cadence_types <= called, sorted(cadence_types - called)
+    _vac_233 = 0
     for j in _jobs(st["db"]):
+        _vac_233 += 1
         if (j.idempotency_key or "").startswith("cadence:"):
             assert j.priority == orchestrate.priority_for(j.job_type), (j.job_type, j.priority)
+    assert _vac_233, "_jobs(st['db']) was empty: the loop proved nothing (F-123)"
 
 
 def test_follow_on_work_is_enqueued_at_its_band_too():

@@ -159,11 +159,14 @@ def test_intake_never_opens_a_file_it_only_hashes_it():
     folder = _purchase(tmp)
     result = library.scan(folder)
 
+    _vac_162 = 0
     for f in result.files:
+        _vac_162 += 1
         assert len(f.sha256) == 64
         assert f.bytes > 0
         assert f.role in ("pattern_pdf", "chart", "print_edition", "video", "bonus",
                           "photo", "text", "unclassified")
+    assert _vac_162, "result.files was empty: the loop proved nothing (F-123)"
     # Nothing in the manifest carries file contents.
     blob = str(result.to_dict())
     assert "pretend pdf" not in blob

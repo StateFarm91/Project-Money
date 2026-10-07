@@ -137,8 +137,11 @@ def test_a_reported_problem_with_no_question_behind_it_is_refused():
 
 def test_every_planned_module_is_on_a_platform_its_shape_fits():
     out = V.plan("winter-throw", canonical_ref="tut-1", reported={"counts_wrong": 7})
+    _vac_140 = 0
     for module in out["modules"]:
+        _vac_140 += 1
         assert module["platform"] in V.MODULES[module["kind"]]["platforms"]
+    assert _vac_140, "out['modules'] was empty: the loop proved nothing (F-123)"
 
 
 # --- what cannot be measured ---------------------------------------------------------------------------

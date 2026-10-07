@@ -905,18 +905,23 @@
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT stays photograph-only)",
+  "missing_part": "CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-baskets certificates (certified before the CONTENTS producer existed); LIFESTYLE is owner-gated (VB-1 P2 or sample photos)",
   "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
   "durable_state": "listing_assets",
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
   "protected_effect": "missing frame blocks",
   "tests": [
    "tests/test_brand.py (MISSING_FRAME)",
-   "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position"
+   "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position",
+   "tests/test_w4_visual2.py::test_contents_frame_is_the_certified_pdf_and_verifies_only_on_it",
+   "tests/test_w4_visual2.py::test_contents_is_certified_through_the_supplement_path_with_the_preview_label",
+   "tests/test_w4_visual_certified_gallery.py::test_every_launch0_primary_is_offered_its_verified_applicable_jobs",
+   "tests/test_w4_visual_certified_gallery.py::test_the_certificate_takes_supplements_only_in_order_with_readings_and_distinct_jobs"
   ],
   "evidence": [
    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
-   "w4-FM close on 8b67414 (FOLD): the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing"
+   "w4-FM close on 8b67414 (FOLD): the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing",
+   "w4-FM close on w4-FM2 (FM2): VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)"
   ],
   "build2_rows": [
    "#65 COMPLETE+PROVEN",
@@ -928,9 +933,9 @@
    "detail": "producing the frames is company work (visual lane)"
   },
   "defect": null,
-  "next_action": "Visual lane: produce disclosed-render frames for each applicable missing job on the Launch-0 certified set and re-certify the set",
+  "next_action": "VISUAL2: re-run research/final_build/w4/visual/proof_contents_gallery.py for cloudline-baby-blanket and the three nursery-nesting-baskets sizes and commit the proof; then the row is GATED on owner VB-1 (LIFESTYLE) only",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM close on 8b67414 (FOLD)"
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close"
  },
  {
   "uid": "F-031",
@@ -2104,32 +2109,35 @@
   "uid": "F-070",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority/spend controls (spend ceiling enforced in code)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Cost ceiling (CA$300) and per-pick unknown enforced; post-purchase information value per benchmark not tracked",
-  "producer": "src/brambleloop/intel/purchase_selection.py::select (budget_cad)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/purchase_selection.py::information_value",
   "durable_state": "benchmark_products.paid_cad",
-  "consumer": "app/main.py::api_benchmark_selection",
+  "consumer": "src/brambleloop/intel/purchase_selection.py::select -> /api/benchmark-selection",
   "protected_effect": "selection stops at budget",
   "tests": [
+   "tests/test_intake.py::test_the_approved_set_size_and_budget_are_in_code",
    "tests/test_purchase_selection.py::test_an_approved_budget_is_a_ceiling_in_code_and_the_swap_is_recorded",
-   "tests/test_intake.py::test_the_approved_set_size_and_budget_are_in_code"
+   "tests/test_w4_spenda_k5a.py::test_each_purchased_benchmark_reports_what_it_taught_and_unknown_price_is_not_zero",
+   "tests/test_w4_spenda_k5a.py::test_the_selection_the_owner_reads_carries_the_post_purchase_value"
   ],
   "evidence": [
-   "DECISION_LOG B-501/B-507/B-512/B-528"
+   "DECISION_LOG B-501/B-507/B-512/B-528",
+   "w4-FM close on w4-FM2 (FM2): SPENDA: post-purchase information value per benchmark, unknown price never 0"
   ],
   "build2_rows": [
    "#166 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": null,
-   "detail": "software work remains; nothing external blocks it"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add information value per purchased benchmark (findings/improvements attributed) to the manifest",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-071",
