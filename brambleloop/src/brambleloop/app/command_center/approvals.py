@@ -245,7 +245,13 @@ def inbox(db) -> dict:
             f"publication candidates unreadable: {type(exc).__name__}")
         status = "DEGRADED" if status == "OK" else status
     cards = cards + pub
+    from . import company as company_mod
+    from .providers import guard
+
+    batches = guard("decision_batches", lambda: company_mod.owner_decision_batches(raw))
     return {"status": status, "reason": reason, "cards": cards, "open": len(cards),
+            # W4-OWNER: the consolidated decision packet, batch first.
+            "decision_batches": batches,
             # F-204 (K7): an empty queue is proven only by a fresh assessment + live gates.
             "empty_state": raw.get("empty_state"),
             "parked_owner_actions": raw.get("parked_owner_actions") or [],

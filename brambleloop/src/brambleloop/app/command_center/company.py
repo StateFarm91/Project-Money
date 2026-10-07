@@ -715,6 +715,74 @@ def visual_stages() -> dict:
                     launch_imagery=data.get("launch_imagery"))
 
 
+# ---- W4-OWNER wiring: the consolidated owner decision packet -------------------------------
+
+OWNER_ACTIONS_ENV = "BRAMBLELOOP_OWNER_ACTIONS"
+OWNER_ACTIONS_REL = Path("research") / "final_build" / "w4" / "OWNER_ACTIONS.json"
+
+
+def _cost_display(item: dict) -> str:
+    disp = item.get("max_cost_display")
+    if disp:
+        return str(disp)
+    v = item.get("max_cost_cad")
+    return f"CA${v:,.2f}" if isinstance(v, (int, float)) else "UNKNOWN (not costed)"
+
+
+def owner_decision_batches(live: dict | None = None) -> dict:
+    """Owner decisions, batch first: the committed OWNER_ACTIONS.json packet (lane OWNER, every
+    ask consolidated incl. store/visual items), else the runtime `approval_inbox()["batches"]`.
+    A cost the producer did not state is UNKNOWN, never CA$0."""
+    env = (os.environ.get(OWNER_ACTIONS_ENV) or "").strip()
+    path = Path(env) if env else _REPO / OWNER_ACTIONS_REL
+    src_file = str(OWNER_ACTIONS_REL) if not env else env
+    data, why = None, None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        why = f"decision packet not found at {src_file}"
+    except (OSError, ValueError) as exc:
+        why = f"decision packet unreadable: {type(exc).__name__}"
+    source, as_of = src_file, (data or {}).get("generated_at")
+    batches = (data or {}).get("batches")
+    if not isinstance(batches, list) or not batches:
+        batches = (live or {}).get("batches") if isinstance(live, dict) else None
+        source, as_of = "build2.executor.approval_inbox()['batches'] (live)", now_iso()
+    if not isinstance(batches, list) or not batches:
+        return unknown(why or "no decision batches reported", "owner.decision_batches",
+                       [src_file, "build2.executor.approval_inbox"])
+    items = []
+    for b in batches:
+        decs = []
+        for it in b.get("items") or []:
+            decs.append({"id": it.get("id"), "decision": it.get("decision"),
+                         "why": it.get("why"), "evidence": it.get("evidence"),
+                         "max_cost": _cost_display(it), "max_cost_cad": it.get("max_cost_cad"),
+                         "max_cost_basis": it.get("max_cost_basis"),
+                         "consequence_of_yes": it.get("consequence_of_yes"),
+                         "consequence_of_no": it.get("consequence_of_no"),
+                         "minutes": it.get("minutes"),
+                         "fields_missing": it.get("fields_missing") or []})
+        items.append({"id": b.get("id"), "title": b.get("title"),
+                      "why_batched": b.get("why_batched"),
+                      "decisions": b.get("decisions", len(decs)),
+                      "minutes_total": b.get("minutes_total"),
+                      "max_cost": b.get("max_cost_display") or (
+                          f"CA${b['max_cost_cad_total']:,.2f}"
+                          if isinstance(b.get("max_cost_cad_total"), (int, float))
+                          else "UNKNOWN (at least one item is not costed)"),
+                      "items": decs})
+    live_n = (sum(len(b.get("items") or []) for b in live.get("batches") or [])
+              if isinstance(live, dict) and isinstance(live.get("batches"), list) else None)
+    return envelope("OK", items, [source], provider="owner.decision_batches",
+                    as_of=str(as_of) if as_of else None, basis="measured",
+                    batches=len(items), decisions=sum(int(i["decisions"] or 0) for i in items),
+                    live_runtime_decisions=live_n,
+                    note=("answer batch by batch; each decision states why, evidence, max "
+                          "cost (UNKNOWN when not costed, never CA$0), what yes and no/delay "
+                          "mean, and minutes"))
+
+
 # ---- completion board -------------------------------------------------------------------
 
 BOARD_ENV = "BRAMBLELOOP_COMPLETION_BOARD"
