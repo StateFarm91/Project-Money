@@ -3,6 +3,10 @@
 * wiring #7 -- `commerce.search_evidence` counts the sizes and colours a listing sells from
   its certified CIR (and Launch-0 sibling variants), never a hard-coded 1, so SIZING and
   COLOUR_CONTEXT applicability is measured rather than assumed; no CIR is UNMEASURED.
+* CONTENTS -- `visual.contents_frame` previews the release's certified PDF (real pages), is
+  verified on its exact bytes against that PDF and the certified CIR, carries the preview
+  label (never the render disclosure), and enters the listing-set certificate through the
+  same supplement path as every other gallery frame.
 Local, deterministic, no network, no spend.
 """
 from __future__ import annotations
@@ -66,6 +70,127 @@ def test_gallery_applicability_is_measured_not_assumed():
     _certify(db, "no-such-product-anywhere", "1.0.0", base)
     u = SE.gallery(db, "no-such-product-anywhere", "1.0.0")
     assert u["status"] == SE.UNMEASURED, u
+
+
+# ---- CONTENTS ----------------------------------------------------------------------------
+
+_PDF: dict = {}
+
+
+def _pdf(slug):
+    if slug not in _PDF:
+        from datetime import date
+
+        from brambleloop.publish.pdf import build_pattern_pdf
+        from brambleloop.runtime import pipeline
+
+        cir = pipeline._engineered_cir(slug)
+        _PDF[slug] = (cir, build_pattern_pdf(cir, terminology="US",
+                                             released_on=date(2026, 10, 7)).pdf_bytes)
+    return _PDF[slug]
+
+
+def test_contents_frame_is_the_certified_pdf_and_verifies_only_on_it():
+    import hashlib
+    import io
+
+    from PIL import Image
+
+    from brambleloop.publish import layout_qa
+    from brambleloop.visual import contents_frame as CF
+
+    cir, pdf = _pdf("hexagon-coaster-set")
+    other_cir, other_pdf = _pdf("cloudline-baby-blanket")
+    sha = hashlib.sha256(pdf).hexdigest()
+    fr = CF.render(pdf, slug=cir.slug, version=cir.version, title=cir.title,
+                   editions=["UK", "US"])
+    assert fr.manifest["facts"]["pages"] >= 1 and fr.manifest["label"] == "Preview of the pattern document"
+    ok = CF.verify(fr.png, pdf, cir, fr.manifest, certified_sha256=sha, editions=["UK", "US"])
+    assert ok["status"] == "PASS", ok
+    assert not layout_qa.inspect(Image.open(io.BytesIO(fr.png)).convert("RGB"), position=6,
+                                 expect_text=True).problems
+    # another product's PDF is not this release's document
+    wrong = CF.render(other_pdf, slug=cir.slug, version=cir.version, title=cir.title,
+                      editions=["UK", "US"])
+    v = CF.verify(wrong.png, other_pdf, cir, wrong.manifest,
+                  certified_sha256=hashlib.sha256(other_pdf).hexdigest(), editions=["UK", "US"])
+    assert v["status"] == "FAIL" and "pdf_names_release" in v["failed"], v
+    # a PDF that is not the file on record
+    v = CF.verify(fr.png, pdf, cir, fr.manifest, certified_sha256="0" * 64, editions=["UK", "US"])
+    assert v["status"] == "FAIL" and "pdf_is_certified_file" in v["failed"], v
+    # one changed pixel
+    img = Image.open(io.BytesIO(fr.png)).convert("RGB")
+    img.putpixel((1000, 900), (255, 0, 0))
+    buf = io.BytesIO(); img.save(buf, format="PNG")
+    v = CF.verify(buf.getvalue(), pdf, cir, dict(fr.manifest,
+                  image_sha256=hashlib.sha256(buf.getvalue()).hexdigest()),
+                  certified_sha256=sha, editions=["UK", "US"])
+    assert v["status"] == "FAIL" and "pixels_are_the_pages" in v["failed"], v
+    # an edition claim the record does not make
+    v = CF.verify(fr.png, pdf, cir, fr.manifest, certified_sha256=sha, editions=["US"])
+    assert v["status"] == "FAIL" and "facts_agree" in v["failed"], v
+
+
+def test_contents_is_certified_through_the_supplement_path_with_the_preview_label():
+    import hashlib
+
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.publish import listing_set as ls
+    from brambleloop.runtime import pipeline
+    from brambleloop.visual import launch_imagery as LI
+
+    cir, pdf = _pdf("hexagon-coaster-set")
+    store = ArtifactStore(os.path.join(_TMP, "contents"))
+    sha = store.put(f"{cir.slug}/{cir.version}/pattern-US.pdf", pdf, "application/pdf").sha256
+    real = pipeline._certified_pdf_hashes
+    try:
+        pipeline._certified_pdf_hashes = lambda db, s, v, r: {"US": sha} if s == cir.slug else None
+        # no database: the certified PDF cannot be read, so CONTENTS is refused, never padded
+        none = LI.supplements_for_certificate(cir.slug, cir.version, start=4, store=store,
+                                              release_fingerprint=cir.fingerprint)
+        assert "CONTENTS" in none["refused"] and "CONTENTS" not in [f["job"] for f in none["frames"]]
+        offer = LI.supplements_for_certificate(cir.slug, cir.version, start=4, store=store,
+                                               release_fingerprint=cir.fingerprint, db=object())
+        jobs = [f["job"] for f in offer["frames"]]
+        assert jobs == ["COLOUR_CONTEXT", "MATERIALS", "CONTENTS"], (jobs, offer["refused"])
+        c = offer["frames"][-1]
+        assert c["medium"] == "PATTERN_PREVIEW" and c["honesty_label"] == "Preview of the pattern document"
+        assert c["alt_text"].startswith("Preview of the pattern document") \
+            and c["alt_text"] == LI.expected_alt_text(cir.slug, "CONTENTS")
+        assert LI.check_supplement(cir.slug, cir.version, "CONTENTS", c["png"], db=object(),
+                                   store=store)["status"] == "PASS"
+        # the upload-time check against a different certified PDF refuses the same bytes
+        _oc, other = _pdf("cloudline-baby-blanket")
+        osha = store.put("x/other.pdf", other, "application/pdf").sha256
+        pipeline._certified_pdf_hashes = lambda db, s, v, r: {"US": osha}
+        assert LI.check_supplement(cir.slug, cir.version, "CONTENTS", c["png"], db=object(),
+                                   store=store)["status"] == "FAIL"
+    finally:
+        pipeline._certified_pdf_hashes = real
+    frame = dict(position=6, asset_id="x-contents", sha256=c["sha256"], job="CONTENTS",
+                 purpose="CUSTOMER_INFORMATION", medium="PATTERN_PREVIEW",
+                 kind=ls.DISCLOSED_SUPPLEMENT, represented_variant="single")
+    ls.CertifiedFrame(**frame, honesty_label=c["honesty_label"], alt_text=c["alt_text"])
+    for bad in ({"honesty_label": ls_disclosure(), "alt_text": ls_disclosure() + ". x"},
+                {"honesty_label": c["honesty_label"], "alt_text": "a pattern"}):
+        try:
+            ls.CertifiedFrame(**frame, **bad)
+            raise AssertionError(f"accepted {bad}")
+        except ls.ListingSetRefused:
+            pass
+    try:   # a preview cannot do any job but CONTENTS (never the hero)
+        ls.CertifiedFrame(**dict(frame, job="DESIRE", position=1),
+                          honesty_label=c["honesty_label"], alt_text=c["alt_text"])
+        raise AssertionError("a pattern preview was certified as DESIRE")
+    except ls.ListingSetRefused:
+        pass
+    assert hashlib.sha256(c["png"]).hexdigest() == c["sha256"]
+
+
+def ls_disclosure():
+    from brambleloop.publish.disclosed_listing import DISCLOSURE
+
+    return DISCLOSURE
 
 
 if __name__ == "__main__":

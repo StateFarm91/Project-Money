@@ -630,7 +630,8 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
         reasons.append(f"disclosed export (D-FB-7): {str(e)[:400]}")
     supplements, supplement_qa, supplement_notes = (
         disclosed_supplements(rec, images, slug=slug, version=version, store_root=store_root,
-                              release_fingerprint=getattr(cir, "fingerprint", "") or "")
+                              release_fingerprint=getattr(cir, "fingerprint", "") or "",
+                              db=db)
         if images else ([], None, {}))
     gate_results = ls.disclosed_gate_results(rec, exported=bool(images) and not any(
         r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"],
@@ -682,8 +683,8 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
 
 
 def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
-                          store_root=None, release_fingerprint: str | None = None
-                          ) -> tuple[list, dict | None, dict]:
+                          store_root=None, release_fingerprint: str | None = None,
+                          db=None) -> tuple[list, dict | None, dict]:
     """The verified gallery frames (F-030/F-254) a disclosed set is certified with, their
     QA readings over the whole ordered set, and why any applicable job was left out.
 
@@ -708,7 +709,8 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
         offer = LI.supplements_for_certificate(slug, version, start=len(images) + 1,
                                                exclude_jobs=taken,
                                                store=ArtifactStore(store_root),
-                                               release_fingerprint=release_fingerprint)
+                                               release_fingerprint=release_fingerprint,
+                                               db=db)
     except Exception as exc:  # noqa: BLE001 - no supplements is a coverage gap, not a block
         return [], None, {"*": f"{type(exc).__name__}: {exc}"[:300]}
     notes = dict(offer.get("refused") or {})
@@ -731,8 +733,9 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
         supplements.append(ls.CertifiedFrame(
             position=len(images) + 1 + i, asset_id=f"{slug}-gallery-{f['job'].lower()}",
             sha256=f["sha256"], job=f["job"], purpose=f["purpose"],
-            medium=AssetClass.DIGITAL_TWIN_RENDER.value,
-            honesty_label=ls_disclosure(), kind=ls.DISCLOSED_SUPPLEMENT,
+            medium=f.get("medium") or AssetClass.DIGITAL_TWIN_RENDER.value,
+            honesty_label=f.get("honesty_label") or ls_disclosure(),
+            kind=ls.DISCLOSED_SUPPLEMENT,
             alt_text=f["alt_text"], represented_variant=f["represented_variant"]))
     if not supplements:
         return [], None, notes
@@ -746,7 +749,7 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
                                purpose=purpose.get(f.get("view") or "", el.CUSTOMER_INFORMATION),
                                job=(f.get("disclosed_render") or {}).get("job") or "",
                                position=int(f["position"])) for f in ordered]
-    candidates += [el.Candidate(asset_id=c.asset_id, medium=AssetClass.DIGITAL_TWIN_RENDER,
+    candidates += [el.Candidate(asset_id=c.asset_id, medium=AssetClass(c.medium),
                                 purpose=c.purpose, job=c.job, position=c.position)
                    for c in supplements]
     frame_set = el.check_set(candidates)

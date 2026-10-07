@@ -226,13 +226,16 @@ def last(db, slug: str) -> dict | None:
 
 SUPPLEMENT_KIND = "disclosed_gallery_frame"
 # The order the further jobs take after hero, scale and detail.
-SUPPLEMENT_ORDER = ("ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "SIZING", "MATERIALS")
+# CONTENTS (W4-VISUAL2) is last so that adding it moved no frame already certified.
+SUPPLEMENT_ORDER = ("ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "SIZING", "MATERIALS",
+                    "CONTENTS")
 _SUPPLEMENT_TEXT = {
     "ANGLE": "the finished piece seen from the side at a raised angle",
     "CONSTRUCTION": "how it is built: the stitch count of every round or row, in working order",
     "COLOUR_CONTEXT": "each yarn colour's share of the finished piece, counted from the pattern",
     "SIZING": "every size sold, drawn to one scale with its finished measurements",
     "MATERIALS": "the yarn colours, yarn weight, hook size and gauge the pattern calls for",
+    "CONTENTS": "the first pages of the PDF pattern you download, shown at reduced size",
 }
 
 
@@ -247,7 +250,28 @@ def supplement_alt_text(job: str, title: str) -> str:
     disclosed render's is), then what it shows."""
     from ..publish.disclosed_listing import ALT_TEXT_MAX, DISCLOSURE
 
+    if job == "CONTENTS":
+        # A preview of the document, not a render of the design: the preview label leads.
+        from .contents_frame import alt_text
+
+        return alt_text(title)
     return f"{DISCLOSURE}. {title}: {_SUPPLEMENT_TEXT[job]}."[:ALT_TEXT_MAX]
+
+
+def supplement_medium(job: str) -> str:
+    """What the frame is made of: CONTENTS is pages of the certified PDF, the rest are
+    deterministic drawings of the certified CIR."""
+    from ..gates.asset_truth import AssetClass
+
+    return (AssetClass.PATTERN_PREVIEW if job == "CONTENTS"
+            else AssetClass.DIGITAL_TWIN_RENDER).value
+
+
+def supplement_label(job: str) -> str:
+    from ..publish import eligibility as el
+    from ..publish.disclosed_listing import DISCLOSURE
+
+    return el.PREVIEW_LABEL if job == "CONTENTS" else DISCLOSURE
 
 
 def expected_alt_text(slug: str, job: str) -> str | None:
@@ -291,7 +315,30 @@ def _primary_for(slug: str):
     return slug, cir.title or slug, cir, [], _category_of(slug)
 
 
-def check_supplement(slug: str, version: str, job: str, data: bytes) -> dict:
+def _check_contents(slug: str, primary, data: bytes, *, db, store) -> dict:
+    """CONTENTS: the bytes must be the preview the release's certified PDF draws today, and
+    `contents_frame.verify` must pass them against that PDF and the certified CIR."""
+    import hashlib
+
+    from . import contents_frame as CF
+
+    try:
+        pdfs = CF.released_pdf(db, primary.slug, primary.version, store=store)
+        sha, pdf = pdfs[CF.TERMINOLOGY]
+        fr = CF.render(pdf, slug=primary.slug, version=primary.version,
+                       title=primary.title or primary.slug, editions=list(pdfs))
+    except Exception as exc:  # noqa: BLE001 - no certified PDF is an unverifiable frame
+        return {"status": "FAIL", "why": f"CONTENTS refused: {exc}"[:300]}
+    if fr.manifest["image_sha256"] != hashlib.sha256(data).hexdigest():
+        return {"status": "FAIL", "why": "bytes are not the preview of the certified PDF"}
+    v = CF.verify(data, pdf, primary, fr.manifest, certified_sha256=sha, editions=list(pdfs))
+    return {"status": v["status"], "why": "" if v["status"] == "PASS" else
+            f"contents_frame.verify failed {v.get('failed')} unknown {v.get('unknown')}"[:300],
+            "pdf_sha256": sha}
+
+
+def check_supplement(slug: str, version: str, job: str, data: bytes, *, db=None,
+                     store=None) -> dict:
     """Re-verify one supplement frame on its exact bytes against the certified CIR.
 
     PASS only when the release slug is a Launch-0 listing's primary variant at `version`,
@@ -308,6 +355,8 @@ def check_supplement(slug: str, version: str, job: str, data: bytes) -> dict:
     if primary.version != version:
         return {"status": "FAIL", "why": f"{slug}: certified CIR is {primary.version}, not {version}"}
     sha = hashlib.sha256(data).hexdigest()
+    if job == "CONTENTS":
+        return _check_contents(slug, primary, data, db=db, store=store)
     if job == "ANGLE":
         from . import disclosed_render as DR
         from . import render_verification as RV
@@ -336,7 +385,7 @@ def check_supplement(slug: str, version: str, job: str, data: bytes) -> dict:
 
 def supplements_for_certificate(slug: str, version: str, *, start: int,
                                 exclude_jobs=(), store=None,
-                                release_fingerprint: str | None = None) -> dict:
+                                release_fingerprint: str | None = None, db=None) -> dict:
     """The verified supplement frames a disclosed set for `slug@version` may be certified with.
 
     Returns {"frames": [{position, job, sha256, purpose, alt_text, png, represented_variant}],
@@ -370,6 +419,13 @@ def supplements_for_certificate(slug: str, version: str, *, start: int,
                 from . import disclosed_render as DR
 
                 png = DR.render(primary, "angle").png
+            elif job == "CONTENTS":
+                from . import contents_frame as CF
+
+                pdfs = CF.released_pdf(db, primary.slug, primary.version, store=store)
+                png = CF.render(pdfs[CF.TERMINOLOGY][1], slug=primary.slug,
+                                version=primary.version, title=primary.title or primary.slug,
+                                editions=list(pdfs)).png
             else:
                 from . import gallery_frames as G
 
@@ -380,7 +436,7 @@ def supplements_for_certificate(slug: str, version: str, *, start: int,
         except Exception as exc:  # noqa: BLE001 - a refused producer is a refused job
             refused[job] = f"{type(exc).__name__}: {exc}"[:300]
             continue
-        verdict = check_supplement(slug, version, job, png)
+        verdict = check_supplement(slug, version, job, png, db=db, store=store)
         if verdict["status"] != "PASS":
             refused[job] = verdict["why"] or verdict["status"]
             continue
@@ -389,6 +445,7 @@ def supplements_for_certificate(slug: str, version: str, *, start: int,
         out.append({"position": position, "job": job, "sha256": stored.sha256,
                     "purpose": supplement_purpose(job),
                     "alt_text": supplement_alt_text(job, title), "png": png,
+                    "medium": supplement_medium(job), "honesty_label": supplement_label(job),
                     "represented_variant": primary.variant_key})
         position += 1
     return {"frames": out, "refused": refused, "listing": listing}
