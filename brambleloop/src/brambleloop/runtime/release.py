@@ -6462,6 +6462,16 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     topics = feeds.env_override() or feeds.default_articles(ctx.db)
     watched = topics + [t for t in placed if t not in topics]
     result = feeds.sweep(ctx.db, watched[:feeds.MAX_ARTICLES_PER_SWEEP])
+    # #280: the colour forecast's fashion-and-home half reads colour names through the same
+    # sanctioned feed. A separate sweep, so it never displaces a watched or discovered topic,
+    # and its readings are not fed to the culture engine as creative candidates.
+    from ..seasonal import colour as _colour
+
+    # Skipped when the main sweep read nothing: the feed is unreachable or refusing this run,
+    # and ten more courtesy-spaced calls into a refusal would only add to it.
+    colour_sweep = (_colour.sweep_colour_signals(ctx.db) if result["recorded"] else
+                    {"recorded": 0, "failures": [{"why": "skipped: the main culture sweep "
+                                                          "recorded nothing this run"}]})
 
     # The marketplace half of #140's two series. Without it `lead_lag` has one series, and
     # one series cannot lead anything.
@@ -6490,6 +6500,8 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
         "routed": routed["recorded"], "routed_skipped": routed["skipped"][:5],
         "source": result["source"], "recorded": result["recorded"],
         "attempted": result["attempted"], "failures": result["failures"][:5],
+        "colour_recorded": colour_sweep["recorded"],
+        "colour_failures": colour_sweep["failures"][:3],
         "discovered": len(discovered), "placed": len(placed),
         "sensitive_dropped": len(filed.get("sensitive") or []),
         "discovery_error": discovery_error,
