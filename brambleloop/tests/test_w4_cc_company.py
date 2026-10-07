@@ -339,6 +339,39 @@ def test_pwa_has_company_and_completion_views():
     assert "#/company" in home and "#/completion" in home
 
 
+def test_public_closure_reads_are_single_flight_and_reused():
+    """CC_DEPLOY_PACKAGE §5: `/api/closure` and `/` must not recompute the matrix per hit,
+    and a changed gate state must still be re-read (the key is the live gate table)."""
+    from brambleloop.build2 import closure, executor
+
+    calls = []
+    real_matrix, real_states = closure.matrix, executor.gate_states
+    state = {"open": False}
+
+    def counting(db=None, **kw):
+        calls.append(1)
+        return {"as_of": "t", "total": 1, "counts": {"OPEN": 0}, "closed_out": True,
+                "closeout_indeterminate": False, "gates_checked_live": True,
+                "gates_unchecked": None, "external_blockers": {}, "by_section": {},
+                "open": [], "rows": [{"id": 1, "title": "t", "status": "covered",
+                                      "state": "COMPLETE+PROVEN", "gate": None, "why": "w"}]}
+
+    closure.matrix = counting
+    executor.gate_states = lambda db, env=None: {"g": {"open": state["open"]}}
+    main._CLOSURE_MEMO.clear()
+    try:
+        c = TestClient(main.app, base_url="https://testserver")
+        for _ in range(3):
+            assert c.get("/api/closure").status_code == 200
+        assert len(calls) == 1, calls
+        state["open"] = True
+        assert c.get("/api/closure").json()["total"] == 1
+        assert len(calls) == 2, "an opened gate must force a fresh matrix"
+    finally:
+        closure.matrix, executor.gate_states = real_matrix, real_states
+        main._CLOSURE_MEMO.clear()
+
+
 if __name__ == "__main__":
     t0 = time.monotonic()
     fails = 0

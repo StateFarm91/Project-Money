@@ -34,8 +34,5 @@ test_rc1_auth 11/11; others: see final report.
    `last_update_at` older than 3 h is shown STALE).
 
 ## Remaining / next deterministic action
-- MEDIUM availability finding (CC_DEPLOY_PACKAGE §5): `/api/closure`, `/api/build2/maturity`
-  and `/` compute the closure matrix synchronously, unauthenticated (~10 s warm / ~55 s cold
-  CPU on the single worker). Next: memoize in main.py (lane CC) without changing the live-gate
-  contract that tests/test_closure.py and tests/test_cert_dashboard.py pin.
+- DONE: MEDIUM availability finding mitigated (main.closure_matrix_shared / maturity_report_shared).
 - Owner actions (deploy approval, variables): CC_DEPLOY_PACKAGE §7.

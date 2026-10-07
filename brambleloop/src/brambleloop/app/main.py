@@ -4329,6 +4329,70 @@ def api_build2() -> dict:
     }
 
 
+# W4-CC (CC_DEPLOY_PACKAGE §5): the closure matrix walks the module graph and the test
+# sources -- ~55 s CPU cold, ~10 s warm -- and `/`, `/api/closure` and `/api/build2/maturity`
+# are unauthenticated reads on the single web worker. One computation at a time
+# (single-flight), and a result is reused while its inputs are unchanged: for the matrix the
+# live gate states (re-read on every request, so an opened gate still reopens its rows at
+# once) and the requirements file; the code and tests are fixed inside a deployed image.
+# The maturity ladder also reads job rows, so it is reused only for MATURITY_REUSE_SECONDS
+# and says so (`reused_from`).
+import threading as _threading  # noqa: E402
+import time as _time  # noqa: E402
+
+_CLOSURE_LOCK = _threading.Lock()
+_CLOSURE_MEMO: dict = {}
+CLOSURE_REUSE_SECONDS = 900
+MATURITY_REUSE_SECONDS = 300
+
+
+def _closure_inputs_key():
+    from ..build2 import executor, requirements as reqs
+
+    gates = tuple(sorted((k, bool(v.get("open"))) for k, v in executor.gate_states(db).items()))
+    path = getattr(reqs, "REGISTRY_PATH", None)
+    try:
+        st = os.stat(path) if path else None
+        file_key = (st.st_mtime_ns, st.st_size) if st else None
+    except OSError:
+        file_key = None
+    return (gates, file_key, id(executor.gate_for), id(reqs.load))
+
+
+def closure_matrix_shared() -> dict:
+    """`closure.matrix(db)`, single-flight, reused while gates and registry are unchanged."""
+    import copy
+
+    from ..build2 import closure
+
+    with _CLOSURE_LOCK:
+        key = _closure_inputs_key()
+        memo = _CLOSURE_MEMO.get("matrix")
+        if memo and memo["key"] == key and _time.monotonic() - memo["at"] < CLOSURE_REUSE_SECONDS:
+            return copy.deepcopy(memo["value"])
+        value = closure.matrix(db)
+        _CLOSURE_MEMO["matrix"] = {"key": key, "at": _time.monotonic(), "value": value}
+        return copy.deepcopy(value)
+
+
+def maturity_report_shared() -> dict:
+    import copy
+    from datetime import datetime as _dt
+
+    from ..build2 import maturity
+
+    with _CLOSURE_LOCK:
+        memo = _CLOSURE_MEMO.get("maturity")
+        if memo and _time.monotonic() - memo["at"] < MATURITY_REUSE_SECONDS:
+            out = copy.deepcopy(memo["value"])
+            out["reused_from"] = memo["computed_at"]
+            return out
+        value = maturity.report(db)
+        _CLOSURE_MEMO["maturity"] = {"at": _time.monotonic(), "value": value,
+                                     "computed_at": _dt.now(timezone.utc).isoformat()}
+        return copy.deepcopy(value)
+
+
 @app.get("/api/closure")
 def api_closure() -> dict:
     """The Build 2 closure matrix: every requirement in one of four final states, or OPEN.
@@ -4338,9 +4402,7 @@ def api_closure() -> dict:
     carries the kind of its gate -- owner, data or external -- checked live against this
     database, so a gate that has opened returns its requirements to OPEN on this page.
     """
-    from ..build2 import closure
-
-    out = closure.matrix(db)
+    out = closure_matrix_shared()
     out["rows"] = [{k: r[k] for k in ("id", "title", "status", "state", "gate", "why")}
                    for r in out["rows"]]
     out["open"] = [{k: r[k] for k in ("id", "title", "status", "why")} for r in out["open"]]
@@ -4360,7 +4422,7 @@ def api_build2_maturity(requirement: int | None = None) -> dict:
 
     if requirement is not None:
         return maturity.ladder(db, reqs.get(requirement))
-    return maturity.report(db)
+    return maturity_report_shared()
 
 
 @app.get("/api/jobs")
@@ -5200,9 +5262,7 @@ def dashboard() -> str:
         # using it means the tile and the endpoint cannot disagree.
         executable = cov["executable_remaining"]
         ready = cov["executable_unparked"]
-        from ..build2 import closure
-
-        closure_counts = closure.matrix(db)["counts"]
+        closure_counts = closure_matrix_shared()["counts"]
         cards = "".join(
             f'<div class="card"><span>{esc(k.replace("_", " "))}</span><b>{esc(v)}</b></div>'
             for k, v in sorted(cov.items()))
