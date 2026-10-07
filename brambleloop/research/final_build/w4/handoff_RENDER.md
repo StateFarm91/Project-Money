@@ -4,12 +4,31 @@
   (already contains w4-PIPE2), merged `origin/claude/w4-VISUAL` (gallery_frames / launch_imagery / angle view).
 - Latest pushed SHA: see `git log -1 origin/claude/w4-RENDER` (resumed 2026-10-07 after session limit at a860302).
 
-## Resume status (2026-10-07)
-- a860302 (integrator WIP): pencil roll now RENDERS assembled — panel height = rows above the self-seam fold (row 11),
-  tie placed by its seam. Under review; next: merge origin/claude/visual-investigation (raised-stitch tone step +
-  released-version verification), rerun focused tests, re-run render_run.py, fix pencil roll 340px legibility
-  (hero/scale False), garland (2 round pieces refused), refresh PIPELINE_BACKLOG rows.
-- Next command: `cd brambleloop && PYTHONPATH=src .venv python tests/test_w4_render_assembled.py`
+## Resume status (2026-10-07, after session limit) — DONE this session
+- Reviewed integrator WIP a860302 (pencil roll: panel height = rows above the self-seam fold, tie placed by its
+  seam) — correct; tests pass. Merged origin/claude/visual-investigation (VISUAL2 CONTENTS frame, K9) cleanly.
+- Fix 9: `visual/gallery_frames` CONSTRUCTION for multi-piece CIRs (one stitch-count profile per piece, make, rows,
+  widest row, join count; producer = twin cells, verifier = compiler rows; single-piece path byte-identical,
+  VERSION unchanged). Test `test_w4_render_assembled.test_multi_piece_construction` (verify PASS, layout QA clean,
+  tampered facts FAIL) for stocking, pencil roll, tea cosy, garland.
+- `render_run.py`: per-product required gallery-job ledger (`eligibility.gallery_jobs_for` by search category;
+  covered only by frames verified on their bytes vs the certified CIR; ANGLE attempted + verified); gallery frames
+  are also produced for the refused garland. RENDER_STATUS + the 5 PIPELINE_BACKLOG rows refreshed.
+- Tests run (all pass): test_w4_render_assembled, test_w4_render_corners, test_w4_visual_gallery_frames (10/10),
+  test_w4_visual_certified_gallery (7/7), test_vacuity, test_secret_scan, test_reachability, test_w3_tmp_hygiene.
+
+## Row status (5 products)
+| product | hero/scale/detail | gallery covered | status / exact gate |
+|---|---|---|---|
+| housewarming-key-basket | PASS/PASS/PASS (+ANGLE PASS) | all but CONTENTS, LIFESTYLE | DATA-GATED: Launch-0 registry promotion (D-FB-7, catalogue); CONTENTS needs a release PDF; LIFESTYLE owner-spend/photo |
+| first-christmas-stocking | assembled UNKNOWN / UNKNOWN / PASS | MATERIALS, COLOUR_CONTEXT, CONSTRUCTION, DETAIL | OPEN: assembled-frame verifier (VISUAL) + Launch-0 promotion; loop not drawn (fold note-only, PIPE CIR); ANGLE not drawn for assembled |
+| mothers-day-heart-tea-cosy | assembled UNKNOWN / UNKNOWN / PASS | MATERIALS, COLOUR_CONTEXT, DETAIL | OPEN: assembled-frame verifier (VISUAL) + Launch-0 promotion |
+| teacher-chevron-pencil-roll | assembled UNKNOWN / UNKNOWN / PASS | MATERIALS, COLOUR_CONTEXT, DETAIL | OPEN-DEFECT: 340 px legibility hero 10% / scale 12% coverage (< 25%) — the flat object is 92 x 13 cm (60 cm tie straight out); no truthful flat layout reaches 25% (tie turned down: ~23%); gate = CIR design (PIPE: shorter/two ties) or a reviewed depiction rule for free ties. Gate NOT relaxed |
+| snowfall-advent-garland | refused (thumb + cord placement note-only) | MATERIALS, COLOUR_CONTEXT (+CONSTRUCTION supporting) | OPEN: CIR structure for thumb-in-opening and cord threading (PIPE2) |
+
+## Next deterministic action
+`cd brambleloop && TMPDIR=/home/user/bl-tmp-RENDER PYTHONPATH=src .venv/bin/python research/final_build/w4/render_run.py`
+after any CIR/verifier change by PIPE/PIPE2/VISUAL; nothing else in-lane is unblocked.
 
 ## Fixes
 1. `cir/geometry.corners`: magic-ring opening rounds (>half of the round below increase-produced) are evidence for
