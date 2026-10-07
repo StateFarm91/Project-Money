@@ -96,10 +96,13 @@ def _refuses(fn, exc=identity.IdentityRefused) -> str:
 # --- manifest truth ---------------------------------------------------------------------------
 
 def test_manifest_hashes_equal_committed_bytes_computed_independently():
+    _vac_99 = 0
     for entry in _manifest()["assets"]:
+        _vac_99 += 1
         path = ASSETS / entry["file"]
         assert path.is_file(), entry["file"]
         assert _sha(path) == entry["sha256"], entry["file"]
+    assert _vac_99, "_manifest()['assets'] was empty: the loop proved nothing (F-123)"
 
 
 def test_exactly_one_approved_face_and_it_verifies():

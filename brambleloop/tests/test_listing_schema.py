@@ -288,10 +288,13 @@ def test_a_claim_cannot_be_promoted_by_being_believed():
 def test_every_gap_states_its_evidential_status_and_cannot_invent_a_claim():
     """Measures that the gap list and the matrix cannot describe different worlds."""
     states = {r["claim"]: r["state"] for r in S.verification_matrix()}
+    _vac_291 = 0
     for gap in S.gaps():
+        _vac_291 += 1
         assert gap["verification"] in S.VERIFICATION_STATES, gap
         if gap.get("claim"):
             assert gap["verification"] == states[gap["claim"]], gap
+    assert _vac_291, "S.gaps() was empty: the loop proved nothing (F-123)"
 
     original = S._MATRIX
     try:

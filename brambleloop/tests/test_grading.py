@@ -117,8 +117,11 @@ def test_ease_is_declared_per_size_rather_than_scaled():
     eases = [s.ease_cm for s in sizes]
     assert eases == sorted(eases), "ease should be declared, and here it rises deliberately"
 
+    _vac_120 = 0
     for spec in sizes:
+        _vac_120 += 1
         assert spec.finished_bust_cm == round(spec.bust_cm + spec.ease_cm, 1)
+    assert _vac_120, "sizes was empty: the loop proved nothing (F-123)"
 
     negative = [g.SizeSpec("S", 86, -4, 54), g.SizeSpec("M", 96, 10, 56)]
     try:
@@ -158,13 +161,16 @@ def test_a_graded_component_compiles_at_every_size():
         name="body", construction="flat_rows", foundation=100,
         rows=[Row(index=1, ops=[Op("dc", 100)], declared_count=100, turning_chain=3),
               Row(index=2, ops=[Op("dc", 100)], declared_count=100, turning_chain=3)])
+    _vac_161 = 0
     for size in g.grade(_run(), stitches_per_10cm=16, rows_per_10cm=18, motif_width=8):
+        _vac_161 += 1
         resized = g.grade_component(component, size, motif_width=8)
         cir = CIR(slug="s", title="S", version="1", construction="flat_rows",
                   components=[resized], gauge=Gauge(16, 18))
         result = compile_cir(cir)
         assert result.ok, (size.spec.name, [str(f) for f in result.errors])
         assert result.counts("body") == [size.stitches, size.stitches]
+    assert _vac_161, "g.grade(_run(), stitches_per_10cm=16, rows_per_10cm=18, m... was empty: the loop proved nothing (F-123)"
 
 
 def test_a_shaped_row_is_refused_rather_than_silently_left_at_the_old_size():

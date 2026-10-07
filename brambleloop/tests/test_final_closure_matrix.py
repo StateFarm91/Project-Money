@@ -45,20 +45,26 @@ def test_no_row_claims_commercial_evidence_that_does_not_exist():
 
 def test_exercised_rows_cite_a_committed_production_artefact():
     import re
+    _vac_48 = 0
     for r in _matrix()["matrix"]:
+        _vac_48 += 1
         if r["maturity"] in ("EXERCISED", "PRODUCTION-OBSERVED"):
             ev = " ".join(map(str, r["evidence"]))
             assert re.search(r"research/b2_resume/evidence/prod_|prod_api_verify_\d", ev), r["uid"]
+    assert _vac_48, "_matrix()['matrix'] was empty: the loop proved nothing (F-123)"
 
 
 def test_integrated_rows_have_a_producer_reached_from_a_live_root():
     agg = _aggregate()
     reach = json.loads((FB / "module_reachability.json").read_text())["modules"]
     order = agg.LEVELS
+    _vac_58 = 0
     for r in _matrix()["matrix"]:
+        _vac_58 += 1
         if order.index(r["maturity"]) >= order.index("INTEGRATED"):
             mod = agg._module_of(r["producer"])
             assert mod and reach[mod]["reached"], r["uid"]
+    assert _vac_58, "_matrix()['matrix'] was empty: the loop proved nothing (F-123)"
 
 
 def test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason():

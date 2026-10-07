@@ -192,10 +192,13 @@ def test_one_tier_spending_its_week_does_not_block_another():
 
 def test_the_ceilings_get_tighter_as_the_surface_gets_riskier():
     ranks = sorted(T.TIERS, key=lambda t: t.rank)
+    _vac_195 = 0
     for lower, higher in zip(ranks, ranks[1:]):
+        _vac_195 += 1
         assert higher.weekly_ceiling <= lower.weekly_ceiling, (lower.key, higher.key)
         assert higher.cooldown_hours >= lower.cooldown_hours, (lower.key, higher.key)
         assert set(lower.requires) <= set(higher.requires), (lower.key, higher.key)
+    assert _vac_195, "zip(ranks, ranks[1:]) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_state_report_counts_rows_rather_than_intentions():

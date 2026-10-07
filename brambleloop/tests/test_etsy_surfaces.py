@@ -50,16 +50,22 @@ def test_every_surface_the_brief_named_is_classified_exactly_once():
     assert not missing, f"surfaces named in the brief and not registered: {sorted(missing)}"
     keys = [s.key for s in es.surfaces()]
     assert len(keys) == len(set(keys))
+    _vac_53 = 0
     for s in es.surfaces():
+        _vac_53 += 1
         assert s.verdict in es.VERDICTS
+    assert _vac_53, "es.surfaces() was empty: the loop proved nothing (F-123)"
 
 
 def test_every_verdict_rests_on_at_least_one_document_this_build_read():
     """No surface may be classified entirely on hearsay or on our own opinion."""
+    _vac_59 = 0
     for s in es.surfaces():
+        _vac_59 += 1
         assert s.primary_evidence, (
             f"{s.key} is classified {s.verdict} with no primary evidence: every statement "
             f"behind it is secondary, inferred or a decision of ours")
+    assert _vac_59, "es.surfaces() was empty: the loop proved nothing (F-123)"
 
 
 def test_a_secondary_claim_names_a_source_this_environment_could_not_read():
@@ -101,11 +107,14 @@ def test_unsupported_and_not_applicable_are_never_the_same_verdict():
 
 
 def test_every_unsupported_verdict_names_a_counted_absence():
+    _vac_104 = 0
     for s in es.by_verdict(es.UNSUPPORTED):
+        _vac_104 += 1
         absences = [e for e in s.evidence if e.kind == es.OPENAPI_ABSENCE]
         assert absences, f"{s.key}: UNSUPPORTED with no counted absence"
         for e in absences:
             assert e.source == "openapi"
+    assert _vac_104, "es.by_verdict(es.UNSUPPORTED) was empty: the loop proved nothing (F-123)"
 
 
 def test_injected_defect_an_unsupported_verdict_with_no_absence_probe_is_refused():
@@ -225,9 +234,15 @@ def test_the_orders_surface_is_a_read_this_shop_is_not_authorised_to_make():
 
 
 def test_no_surface_claims_a_scope_etsy_does_not_publish():
+    _vac_228 = 0
+    _vac_229 = 0  # a surface may need no scope; the scopes checked overall must not be none
     for s in es.surfaces():
+        _vac_228 += 1
         for scope in s.scopes:
+            _vac_229 += 1
             assert scope in es.SCOPE_MEANINGS, f"{s.key}: invented scope {scope!r}"
+    assert _vac_228, "es.surfaces() was empty: the loop proved nothing (F-123)"
+    assert _vac_229, "no surface declares a scope: the loop proved nothing (F-123)"
 
 
 def test_widening_the_grant_closes_the_gaps_and_nothing_else():
@@ -507,10 +522,13 @@ def test_the_first_sale_blockers_come_first_and_are_the_ones_that_block():
 
 def test_no_owner_action_pretends_software_could_have_done_it():
     """Each entry has to say what stops automation, not that nobody got round to it."""
+    _vac_510 = 0
     for a in es.owner_queue():
+        _vac_510 += 1
         reason = a.why_software_cannot.lower()
         assert any(marker in reason for marker in
                    ("no ", "not ", "only", "browser", "portal", "identity")), a.key
+    assert _vac_510, "es.owner_queue() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_scope_re_authorisation_is_an_owner_action_rather_than_a_build_task():
@@ -543,9 +561,12 @@ def test_the_first_sale_blockers_are_the_ones_a_shop_cannot_open_without():
     assert keys == {"listings", "messages", "orders", "payment_settings", "legal_and_tax",
                     "your_shop", "info_and_appearance", "options", "policy_settings",
                     "digital_files", "taxonomy_and_attributes"}
+    _vac_546 = 0
     for s in es.first_sale_blockers():
+        _vac_546 += 1
         assert s.requirement_basis in (es.BY_ETSY, es.BY_US, es.BY_LAW)
         assert s.why_required.strip()
+    assert _vac_546, "es.first_sale_blockers() was empty: the loop proved nothing (F-123)"
 
 
 def test_what_is_still_unknown_is_recorded_rather_than_filled_in():

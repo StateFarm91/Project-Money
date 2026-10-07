@@ -49,10 +49,13 @@ def test_the_v015_v016_id_collision_keeps_both_requirements():
 
 def test_no_requirement_swallows_a_section_heading_or_version_note():
     import re
+    _vac_52 = 0
     for r in _parser().parse()["requirements"]:
+        _vac_52 += 1
         assert r["title"] and r["text"], r["uid"]
         assert not re.search(r"\b\d{1,2}\. [A-Z0-9/]{3,} [A-Z]|Version note|appends F-",
                              r["full_text"]), r["uid"]
+    assert _vac_52, "_parser().parse()['requirements'] was empty: the loop proved nothing (F-123)"
 
 
 def test_supersessions_and_source_priorities_are_carried():

@@ -305,7 +305,9 @@ def test_every_abbreviation_in_the_instructions_is_defined_in_the_document():
     Run over every shippable design rather than a fixture, because the stitches that were
     undefined were the ones only three designs use.
     """
+    _vac_308 = 0
     for cir in _designs():
+        _vac_308 += 1
         result, twin = _twin_for(cir)
         text = write_pattern(cir, result, terminology="US",
                              width_cm=twin.width_cm, height_cm=twin.height_cm)
@@ -320,6 +322,7 @@ def test_every_abbreviation_in_the_instructions_is_defined_in_the_document():
         for entry in ab.stitch_key(text, "US"):
             assert entry.token in rendered, (cir.slug, entry.token)
             assert entry.means in rendered, (cir.slug, entry.means)
+    assert _vac_308, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_key_covers_the_stitches_that_never_appear_in_the_chart():
@@ -474,10 +477,13 @@ def test_every_place_that_renders_the_customer_pdf_pins_its_date():
 
     for module in (release, pipeline):
         source = Path(module.__file__).read_text()
+        _vac_477 = 0
         for number, line in enumerate(source.splitlines(), 1):
+            _vac_477 += 1
             if "build_pattern_pdf(" in line and "def " not in line and "import" not in line:
                 window = "\n".join(source.splitlines()[number - 1:number + 3])
                 assert "released_on=" in window, (module.__name__, number, line.strip())
+        assert _vac_477, "enumerate(source.splitlines(), 1) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_footer_tells_a_buyer_whether_their_download_finished():
@@ -518,7 +524,9 @@ def test_the_file_is_a_complete_readable_pdf_with_its_own_metadata():
 
 def test_every_tool_the_instructions_require_is_on_the_materials_list():
     """The page a buyer takes to the shop listed yarn, and the pattern told them to block it."""
+    _vac_521 = 0
     for cir in _designs():
+        _vac_521 += 1
         _, twin = _twin_for(cir)
         rendered = _text_of(build_pattern_pdf(cir, twin=twin, released_on=RELEASED)).lower()
         if "weave in" in rendered or "fasten off" in rendered:
@@ -528,6 +536,7 @@ def test_every_tool_the_instructions_require_is_on_the_materials_list():
         if "cable needle" in rendered:
             assert rendered.count("cable needle") >= 2, (
                 cir.slug, "the cable needle is used and never listed")
+    assert _vac_521, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_small_print_is_legible_and_no_smaller_than_the_brand_allows():
@@ -598,8 +607,11 @@ def test_the_chart_and_its_legend_are_pictures_and_the_document_says_where_the_t
     # The section is a key, not a heading: every mark the chart draws is in it.
     _, twin = _twin_for(cir)
     flat = _flat(doc)
+    _vac_601 = 0
     for symbol, means in pdf_mod._chart_symbols(cir, twin, "US"):
+        _vac_601 += 1
         assert f"{symbol} {means.split()[0]}" in flat, (symbol, means)
+    assert _vac_601, "pdf_mod._chart_symbols(cir, twin, 'US') was empty: the loop proved nothing (F-123)"
 
 
 def test_the_colour_key_describes_the_chart_that_was_actually_printed():
@@ -621,8 +633,11 @@ def test_the_colour_key_describes_the_chart_that_was_actually_printed():
         flat = _flat(_doc_for(cir, twin))
         if art["cues"]:
             assert "Colour key" in flat, cir.slug
+            _vac_624 = 0
             for name, letter in art["cues"].items():
+                _vac_624 += 1
                 assert f"{letter} {name}" in flat, (cir.slug, name, letter)
+            assert _vac_624, "art['cues'].items() was empty: the loop proved nothing (F-123)"
         else:
             assert "Colour key" not in flat, (cir.slug, "a key with no letters to look up")
             assert "carries its yarn's letter" not in flat, cir.slug
@@ -691,7 +706,9 @@ def test_both_terminologies_render_for_every_shippable_design():
     is where terminology defects live and a single-design check would have found none of the
     three that were there.
     """
+    _vac_694 = 0
     for cir in _designs():
+        _vac_694 += 1
         _, twin = _twin_for(cir)
         docs = {t: _doc_for(cir, twin, t) for t in pdf_mod.TERMINOLOGIES}
         assert set(docs) == {"US", "UK"}, sorted(docs)
@@ -704,6 +721,7 @@ def test_both_terminologies_render_for_every_shippable_design():
                        for p in doc.problems), (cir.slug, terminology, doc.problems)
         # Two files, not one file labelled twice.
         assert docs["US"].pdf_bytes != docs["UK"].pdf_bytes, cir.slug
+    assert _vac_694, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_two_documents_are_delivered_under_names_that_tell_them_apart():
@@ -757,7 +775,9 @@ def test_a_uk_document_states_its_gauge_in_uk_terms_everywhere_it_states_it():
     A UK maker who resolves `sc` against their own vocabulary swatches a treble: three times
     the height the gauge was measured at, and every stated measurement wrong with it.
     """
+    _vac_760 = 0
     for cir in _designs():
+        _vac_760 += 1
         if not cir.gauge:
             continue
         _, twin = _twin_for(cir)
@@ -770,6 +790,7 @@ def test_a_uk_document_states_its_gauge_in_uk_terms_everywhere_it_states_it():
             assert ab._contains(line.lower(), uk_token.lower()), (cir.slug, line)
             if us_token.lower() != uk_token.lower():
                 assert not ab._contains(line.lower(), us_token.lower()), (cir.slug, line)
+    assert _vac_760, "_designs() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_special_stitch_method_names_its_stitches_in_the_documents_terminology():
@@ -849,7 +870,9 @@ def test_the_key_completeness_check_is_measured_on_the_whole_document():
                                defined={"dc", "dc inc"}) == []
 
     # And the real documents pass it, on their whole prose rather than on one section.
+    _vac_852 = 0
     for design in _designs():
+        _vac_852 += 1
         design_result, design_twin = _twin_for(design)
         for terminology in pdf_mod.TERMINOLOGIES:
             doc = _doc_for(design, design_twin, terminology)
@@ -862,6 +885,7 @@ def test_the_key_completeness_check_is_measured_on_the_whole_document():
             own = write_pattern(design, design_result, terminology=terminology)
             assert len(doc.prose) > len(own), (design.slug, terminology,
                                                len(doc.prose), len(own))
+    assert _vac_852, "_designs() was empty: the loop proved nothing (F-123)"
 
     # The document still refuses to be quiet about it if the defect returns: with the gauge
     # line un-localised, a UK render reports the undefined token rather than shipping it.
@@ -1489,9 +1513,15 @@ def test_a_childrens_pattern_carries_every_statement_its_audience_requires():
             # renderer invented: the full sentence survives into the document.
             rendered = pdf_mod.childrens_statements(cir, twin, assignment)
             flat = _flat(doc)
+            _vac_1492 = 0
             for key, text in rendered.text.items():
+                _vac_1493 = 0
+                _vac_1492 += 1
                 for sentence in text.split("\n"):
+                    _vac_1493 += 1
                     assert " ".join(sentence.split()) in flat, (slug, key)
+                assert _vac_1493, "text.split('\n') was empty: the loop proved nothing (F-123)"
+            assert _vac_1492, "rendered.text.items() was empty: the loop proved nothing (F-123)"
 
 
 def test_a_pattern_that_is_not_for_a_child_does_not_acquire_a_safety_block():
@@ -1587,8 +1617,11 @@ def test_every_statement_in_the_block_shows_its_source_or_says_it_has_none():
     flat = _flat(doc)
     assert "Source: none. This is Brambleloop Studio" in flat
     assert "cpsc.gov" in flat and "publications.aap.org" in flat
+    _vac_1590 = 0
     for key in ch.unsourced_statements():
+        _vac_1590 += 1
         assert ch.STATEMENT_SET[key].source is None, key
+    assert _vac_1590, "ch.unsourced_statements() was empty: the loop proved nothing (F-123)"
 
 
 def test_a_childrens_title_nobody_has_decided_about_is_refused_rather_than_rendered():
@@ -1799,8 +1832,11 @@ def test_the_key_does_not_contradict_the_instructions_about_joining_the_rounds()
         for terminology in pdf_mod.TERMINOLOGIES:
             flat = _flat(_doc_for(cir, twin, terminology)).lower()
             assert "join each round with a sl st" in flat, (cir.slug, terminology)
+            _vac_1802 = 0
             for claim in spiral_claims:
+                _vac_1802 += 1
                 assert claim not in flat, (cir.slug, terminology, claim)
+            assert _vac_1802, "spiral_claims was empty: the loop proved nothing (F-123)"
     assert joined_seen, "no joined-round design reached this check"
 
     # Proved against the defect, injected: put the old gloss back and the check fires on a
@@ -1924,7 +1960,9 @@ def test_the_listing_chart_shows_what_the_document_shows():
     measurement recorded, not a claim that they are legible.
     """
     spec = charts.ChartSpec(cell_px=30, margin_px=40, max_width_px=la.CANVAS)
+    _vac_1927 = 0
     for cir, twin in _round_designs():
+        _vac_1927 += 1
         block = charts.round_block(twin)
         unit = la.chart_frame_unit_px(cir, twin)
         # The call this frame used to make, as the injected defect: ask for the whole disc.
@@ -1935,6 +1973,7 @@ def test_the_listing_chart_shows_what_the_document_shows():
         if block:
             assert unit > old_unit * 2, (cir.slug, unit, old_unit)
         assert unit >= 40.0, (cir.slug, unit)
+    assert _vac_1927, "_round_designs() was empty: the loop proved nothing (F-123)"
 
     # The flagship, with the number in the assertion so a regression is legible in the
     # failure rather than only in the diff. 8.2 px before the fix; 43 px on the seventy-round

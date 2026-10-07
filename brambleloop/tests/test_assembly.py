@@ -173,10 +173,13 @@ def test_the_photograph_comparison_never_reports_full():
 def test_unobservable_characteristics_are_never_counted_as_agreement():
     c, twins, geo = _built("S")
     res = C.compare(c, geo, twins, size="S")
+    _vac_176 = 0
     for ch in res.characteristics:
+        _vac_176 += 1
         if not ch.observable_in_photography:
             assert ch.verdict == C.NOT_OBSERVABLE
             assert ch.observed == ""
+    assert _vac_176, "res.characteristics was empty: the loop proved nothing (F-123)"
 
 
 def test_a_contradiction_is_decisive():

@@ -35,12 +35,15 @@ def test_every_requirement_carries_its_spec_text_and_a_reason():
     A status with no note is an opinion. Each entry keeps the requirement's own words so a
     future session can re-judge the classification without reopening the PDF.
     """
+    _vac_38 = 0
     for r in R.load():
+        _vac_38 += 1
         assert r.title.strip(), r.id
         assert r.body.strip(), r.id
         assert r.note.strip(), r.id
         assert r.version.startswith("v1."), (r.id, r.version)
         assert r.status in R.STATUSES, (r.id, r.status)
+    assert _vac_38, "R.load() was empty: the loop proved nothing (F-123)"
 
 
 def test_remaining_work_excludes_nothing_that_claude_can_actually_build():

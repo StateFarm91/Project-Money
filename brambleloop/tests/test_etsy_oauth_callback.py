@@ -415,10 +415,13 @@ def test_no_malformed_callback_causes_a_single_outbound_request():
                               "error_description": "the user declined",
                               "state": "not-a-state-we-minted"},
     }
+    _vac_418 = 0
     for name, params in cases.items():
+        _vac_418 += 1
         result = etsy_authorise.finish(db, params, transport=spy, env=ENV)
         assert not result.ok, name
         assert result.http_status >= 400, name
+    assert _vac_418, "cases.items() was empty: the loop proved nothing (F-123)"
     assert spy.calls == [], f"the callback contacted Etsy: {spy.calls}"
 
 
@@ -541,18 +544,24 @@ def test_nothing_in_the_page_the_log_or_the_audit_row_carries_a_secret():
                             for r in s.scalars(select(OAuthCredential))])
     assert rows, "the callback wrote no audit record at all"
 
+    _vac_544 = 0
     for secret in leakable:
+        _vac_544 += 1
         assert secret not in page, f"a secret reached the callback page: ***{secret[:4]}"
         assert secret not in audits, f"a secret reached an audit detail: ***{secret[:4]}"
         if secret != "111.granted-refresh-1":
             continue
         assert secret not in credentials, "the refresh token is stored in the clear"
+    assert _vac_544, "leakable was empty: the loop proved nothing (F-123)"
     # And the status endpoint, which an operator reads while holding the ops token.
     with _client() as c:
         body = c.get("/api/etsy/oauth/status",
                      headers={"Authorization": f"Bearer {OPS_TOKEN}"}).text
+    _vac_554 = 0
     for secret in leakable:
+        _vac_554 += 1
         assert secret not in body, "a secret reached /api/etsy/oauth/status"
+    assert _vac_554, "leakable was empty: the loop proved nothing (F-123)"
 
 
 def test_the_access_log_cannot_print_an_authorization_code():
@@ -839,9 +848,12 @@ def test_the_redirect_uri_rules_etsy_publishes_are_enforced_before_the_owner_see
         "https://example.com/cb?": "?",
         "": "no redirect URI",
     }
+    _vac_842 = 0
     for value, because in bad.items():
+        _vac_842 += 1
         problem = etsy_oauth.redirect_uri_problem(value)
         assert problem, f"{value!r} was accepted; it fails on {because}"
+    assert _vac_842, "bad.items() was empty: the loop proved nothing (F-123)"
     assert etsy_oauth.redirect_uri_problem(REDIRECT_URI) == ""
     # A trailing slash is a *different* URL to Etsy, not an invalid one, so it is not
     # rejected here -- only Etsy can say whether it matches a registration. What is checked

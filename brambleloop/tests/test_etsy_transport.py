@@ -1036,7 +1036,9 @@ def test_the_run_never_activates_anything_whatever_goes_wrong():
              FakeEtsy(delete_failure=(400, "no")), FakeEtsy(delete_is_soft=True),
              FakeEtsy(image_failure=(400, "too small")),
              FakeEtsy(required_property={"property_id": 1, "name": "x"})]
+    _vac_1039 = 0
     for fake in cases:
+        _vac_1039 += 1
         with fake:
             report = etsy_probe.run_exercise(_client(fake))
             assert report["activation_attempted"] is False, report
@@ -1044,6 +1046,7 @@ def test_the_run_never_activates_anything_whatever_goes_wrong():
             assert all(r["operation"] != "updateShop" for r in fake.requests)
             for listing in fake.listings.values():
                 assert listing["state"] != "active", listing
+    assert _vac_1039, "cases was empty: the loop proved nothing (F-123)"
 
 
 if __name__ == "__main__":

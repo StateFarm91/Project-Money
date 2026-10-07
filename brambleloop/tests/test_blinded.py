@@ -683,9 +683,12 @@ def test_the_grid_is_judged_by_an_independent_panel_blinded_to_side():
     assert out["panel"]["cost_cad"] > 0
     # Blinding: nothing a judge was sent names a side, one of our slugs or a listing ref.
     leaks = ("agent", "human", "ours", "theirs", "autumn-oak", "cloudline", "blankets-")
+    _vac_686 = 0
     for system, prompt, _ in judge.calls:
+        _vac_686 += 1
         text = (system + " " + prompt).lower()
         assert not any(word in text for word in leaks), text[:200]
+    assert _vac_686, "judge.calls was empty: the loop proved nothing (F-123)"
 
 
 def test_the_panel_verdict_is_the_median_not_the_mean_or_the_minimum():

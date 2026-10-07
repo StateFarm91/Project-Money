@@ -54,8 +54,11 @@ def test_transcribed_values_match_the_published_chart():
 
 def test_what_the_source_does_not_publish_is_unsourced_and_grading_to_it_refuses():
     for table in (G.WOMAN, G.CHILD):
+        _vac_57 = 0
         for body in table.sizes:
+            _vac_57 += 1
             assert body.cm("wrist") is G.UNSOURCED and body.cm("neck") is G.UNSOURCED
+        assert _vac_57, "table.sizes was empty: the loop proved nothing (F-123)"
     design = _design(requires=("bust", "wrist"))
     assert design.sourced_sizes() == ()
     try:

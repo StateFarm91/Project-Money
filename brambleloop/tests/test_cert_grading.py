@@ -117,9 +117,12 @@ def measures(g, cir, r, twins) -> dict:
 
 def test_size_counts_and_boundaries():
     counts = {k: len(v) for k, v in built().items()}
+    _vac_120 = 0
     for key, d in designs().items():
+        _vac_120 += 1
         expected = GR.WOMAN.names if d.table is GR.WOMAN else GR.CHILD.names
         assert tuple(s for s, *_ in built()[key]) == expected, (key, counts[key])
+    assert _vac_120, "designs().items() was empty: the loop proved nothing (F-123)"
     assert sum(counts.values()) == 9 * 9 + 9 * 8, counts
     print(f"     designs={len(counts)} sized CIRs={sum(counts.values())}")
 
@@ -306,10 +309,13 @@ def test_cyc_sources_are_recorded():
             assert body.cm("wrist") is None and body.cm("neck") is None, body.size
             for m in G.RAGLAN_REQUIRES:
                 assert body.cm(m) and body.cm(m) > 0, (table.name, body.size, m)
+    _vac_309 = 0
     for key, d in designs().items():
+        _vac_309 += 1
         text = GR.write_size_table(d)
         assert d.table.source_url in text and d.table.retrieved in text, key
         assert GR.parse_size_table(text) == d.size_table(), key
+    assert _vac_309, "designs().items() was empty: the loop proved nothing (F-123)"
 
 
 def test_unsourced_measurement_refuses_grading():

@@ -1016,11 +1016,14 @@ def test_the_remaining_count_is_counted_rather_than_computed_to_fall():
     tree = ast.parse(source)
     fn = next(n for n in ast.walk(tree)
               if isinstance(n, ast.FunctionDef) and n.name == "analyse")
+    _vac_1019 = 0
     for node in ast.walk(fn):
+        _vac_1019 += 1
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Sub):
             names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
             assert "judged" not in names, \
                 "the remaining count is subtracting this run's judged again"
+    assert _vac_1019, "ast.walk(fn) was empty: the loop proved nothing (F-123)"
 
 
 def _one_listing(images=("a.jpg", "b.jpg")):

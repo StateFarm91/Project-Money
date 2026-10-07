@@ -264,17 +264,23 @@ def test_the_yarn_runs_on_through_the_joins_and_ends_only_at_the_hops():
     # in the cut mode every strand end sits at a long segment, never at a join: the point before/after each end is
     # further than a degenerate segment away along the stored path
     ends = [s[0] for s in strands] + [s[-1] for s in strands]
+    _vac_267 = 0
     for e in ends:
+        _vac_267 += 1
         i = int(np.argmin(np.linalg.norm(pts - e, axis=1)))
         near_join = (i > 0 and seg[i - 1] <= DR.DEGENERATE_SEGMENT_MM) or (i < len(seg) and seg[i] <= DR.DEGENERATE_SEGMENT_MM)
         if near_join:
             # a join at a strand end is allowed only if a hop is on its other side
             other = (i > 0 and seg[i - 1] >= DR.JUMP_SEGMENT_MM) or (i < len(seg) and seg[i] >= DR.JUMP_SEGMENT_MM)
             assert other, ("a strand ends at a join with no hop beside it", i)
+    assert _vac_267, "ends was empty: the loop proved nothing (F-123)"
     # and no control point moved: every strand vertex is one of the stored points
+    _vac_275 = 0
     for s in strands:
+        _vac_275 += 1
         d = np.linalg.norm(s[:, None, :] - pts[None, :, :], axis=2).min(axis=1)
         assert d.max() < 1e-9
+    assert _vac_275, "strands was empty: the loop proved nothing (F-123)"
 
 
 if __name__ == "__main__":

@@ -24,7 +24,9 @@ def _a_product():
 
 
 def test_a_recommendation_never_points_at_what_the_buyer_owns():
+    _vac_27 = 0
     for seed in [s for s in POOL if not s.is_bundle][:12]:
+        _vac_27 += 1
         out = R.recommend(seed.slug, today=date(2026, 3, 1))
         shown = {r["slug"] for k in ("next_project", "matching_collection", "future_season")
                  for r in out[k]}
@@ -32,6 +34,7 @@ def test_a_recommendation_never_points_at_what_the_buyer_owns():
         assert not shown & set(out["never_recommended"])
         for kind in ("next_project", "matching_collection", "future_season"):
             assert len(out[kind]) <= R.PER_KIND
+    assert _vac_27, "[s for s in POOL if not s.is_bundle][:12] was empty: the loop proved nothing (F-123)"
 
 
 def test_future_season_is_a_season_still_ahead_and_not_the_one_bought_for():

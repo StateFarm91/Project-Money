@@ -62,9 +62,12 @@ def test_every_capability_the_owner_listed_is_covered():
     out = readiness.check(_db())
     keys = {c["key"] for c in out["capabilities"]}
     assert keys == {k for k, _ in readiness.CAPABILITIES}
+    _vac_65 = 0
     for capability in out["capabilities"]:
+        _vac_65 += 1
         assert capability["what"], capability
         assert capability["evidence"], capability
+    assert _vac_65, "out['capabilities'] was empty: the loop proved nothing (F-123)"
 
 
 def test_readiness_is_checked_rather_than_declared():

@@ -25,11 +25,14 @@ ASSETS = Path(brief.ASSETS_DIR)
 
 
 def test_every_manifest_hash_is_the_hash_of_the_file_on_disk():
+    _vac_28 = 0
     for entry in brief.asset_manifest():
+        _vac_28 += 1
         path = ASSETS / entry["file"]
         assert path.is_file(), f"{entry['file']} is listed and not committed"
         assert brief.sha256_of(str(path)) == entry["sha256"], (
             f"{entry['file']} does not hash to what the manifest records")
+    assert _vac_28, "brief.asset_manifest() was empty: the loop proved nothing (F-123)"
 
 
 def test_every_committed_image_is_in_the_manifest_and_nothing_else_is():
@@ -48,10 +51,13 @@ def test_exactly_one_asset_is_the_approved_face():
 
 
 def test_every_role_is_one_of_the_three_and_every_entry_is_dated():
+    _vac_51 = 0
     for entry in brief.asset_manifest():
+        _vac_51 += 1
         assert entry["role"] in brief.ASSET_ROLES, entry
         assert entry["committed_on"] == "2026-09-21", entry
         assert "supersedes" in entry, "the key is required even when it is null"
+    assert _vac_51, "brief.asset_manifest() was empty: the loop proved nothing (F-123)"
 
 
 def test_the_superseded_body_frames_are_marked_as_such_and_are_not_a_face():

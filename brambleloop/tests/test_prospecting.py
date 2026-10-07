@@ -578,10 +578,13 @@ def test_generated_variety_is_still_checked_rather_than_assumed():
     arena = P.Arena(event="Christmas", pod="garments", days_away=96,
                     benchmark_listings=140, forms={"fitted_garment": 57})
     slot = P.slots(arena)["slot_objects"][0]
+    _vac_581 = 0
     for a, b, _pattern in P._crosses_for(slot, 40):
+        _vac_581 += 1
         assert a != b, (a, b)
         pair = frozenset({a, b})
         assert not any(pair <= family for family in _FAMILIES), (a, b)
+    assert _vac_581, "P._crosses_for(slot, 40) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_reservation_cannot_be_phase_shifted_out_of_its_own_runway():

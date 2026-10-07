@@ -750,8 +750,11 @@ def test_no_credential_value_reaches_the_report_the_ledger_or_the_owner_queue():
         queue = repr([(r.requirement_key, r.action, r.reason)
                       for r in s.scalars(select(OwnerAction))])
     blob = repr(report) + ledger + queue
+    _vac_753 = 0
     for secret in proof_secrets:
+        _vac_753 += 1
         assert secret not in blob, f"a secret reached a report, a log row or the owner queue"
+    assert _vac_753, "proof_secrets was empty: the loop proved nothing (F-123)"
     # And the credential is still identified, by fingerprint, so the report is still useful.
     assert "***" in repr(report["after"]["oauth"]["token_fingerprint"])
 
@@ -763,8 +766,11 @@ def test_the_rotation_proof_reports_fingerprints_and_never_a_token():
                                              transport=UrllibTransport())
         leaked = [s for s in secrets_in_play(fake) if s in repr(proof)]
     assert leaked == [], leaked
+    _vac_766 = 0
     for fingerprint in proof["fingerprint_chain"]:
+        _vac_766 += 1
         assert fingerprint.startswith("***") and len(fingerprint) == 11, fingerprint
+    assert _vac_766, "proof['fingerprint_chain'] was empty: the loop proved nothing (F-123)"
 
 
 def test_the_module_never_writes_a_secret_to_the_repository_or_reads_one_from_it():

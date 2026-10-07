@@ -284,8 +284,11 @@ def test_dashboard_cards_equal_sql():
     counts = Counter(r["status"] for r in REQS)
     assert int(_card(html, "executable left")) == counts["partial"] + counts.get("missing", 0)
     cl = c.get("/api/closure").json()["counts"]
+    _vac_287 = 0
     for k, v in cl.items():
+        _vac_287 += 1
         assert int(_card(html, f"closure: {k}")) == v, k
+    assert _vac_287, "cl.items() was empty: the loop proved nothing (F-123)"
 
 
 def test_dashboard_never_claims_no_spend_limits():

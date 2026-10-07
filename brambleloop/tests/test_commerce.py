@@ -215,10 +215,16 @@ def test_the_tag_set_is_not_one_concept_restated():
 
     counts = collections.Counter(w for t in tags for w in t.split())
     assert counts.most_common(1)[0][1] <= 4, counts.most_common(3)
+    _vac_218 = 0
     for a in tags:
+        _vac_219 = 0
+        _vac_218 += 1
         for b in tags:
+            _vac_219 += 1
             if a is not b:
                 assert not set(a.split()) <= set(b.split()), f"{a!r} is contained in {b!r}"
+        assert _vac_219, "tags was empty: the loop proved nothing (F-123)"
+    assert _vac_218, "tags was empty: the loop proved nothing (F-123)"
 
 
 def test_a_technique_the_pattern_does_not_use_is_never_tagged():
@@ -538,8 +544,11 @@ def test_the_listing_prints_the_statements_own_words_rather_than_a_paraphrase():
     """
     rendered = _blanket_statements()
     flat = " ".join(_listing(rendered).split())
+    _vac_541 = 0
     for key in seo.childrens_listing_statements(rendered):
+        _vac_541 += 1
         assert " ".join(rendered.text[key].split()) in flat, key
+    assert _vac_541, "seo.childrens_listing_statements(rendered) was empty: the loop proved nothing (F-123)"
 
 
 def test_a_listing_for_a_product_that_is_not_for_a_child_carries_no_safety_block():

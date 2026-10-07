@@ -316,8 +316,11 @@ def test_a_coaster_set_needs_yarn_for_the_whole_set():
                      compile_cir(build_hexagon_coaster(make=1)))
     four = build_twin(build_hexagon_coaster(make=4),
                       compile_cir(build_hexagon_coaster(make=4)))
+    _vac_319 = 0
     for color, metres in one.yarn_metres_by_color.items():
+        _vac_319 += 1
         assert abs(four.yarn_metres_by_color[color] - metres * 4) < 0.5
+    assert _vac_319, "one.yarn_metres_by_color.items() was empty: the loop proved nothing (F-123)"
 
 
 # ---- claims about shape ---------------------------------------------------

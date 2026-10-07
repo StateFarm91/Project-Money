@@ -33,11 +33,14 @@ def test_the_hero_margin_is_at_least_the_title_safe_band():
 
 
 def test_no_hero_puts_ink_in_the_title_safe_band_and_every_thumbnail_still_passes():
+    _vac_36 = 0
     for slug, hero in _heroes():
+        _vac_36 += 1
         ink = mobile.title_safe_ink(hero.image)
         assert ink == 0.0, (slug, ink)
         verdict = thumbnail.evaluate_thumbnail(hero.image)
         assert not verdict.problems, (slug, verdict.problems)
+    assert _vac_36, "_heroes() was empty: the loop proved nothing (F-123)"
 
 
 if __name__ == "__main__":

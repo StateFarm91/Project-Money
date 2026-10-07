@@ -1037,7 +1037,9 @@ def test_a_clean_run_is_ready_for_approval_and_still_frozen_by_nobody():
     import ast
 
     tree = ast.parse((ROOT / "src/brambleloop/visual/reference_pack.py").read_text())
+    _vac_1040 = 0
     for node in ast.walk(tree):
+        _vac_1040 += 1
         if isinstance(node, ast.Call):
             func = node.func
             name = (func.attr if isinstance(func, ast.Attribute) else
@@ -1045,6 +1047,7 @@ def test_a_clean_run_is_ready_for_approval_and_still_frozen_by_nobody():
             assert name not in ("select_canonical", "select"), f"{name} is called here"
         if isinstance(node, ast.keyword):
             assert node.arg != "owner_approved"
+    assert _vac_1040, "ast.walk(tree) was empty: the loop proved nothing (F-123)"
 
 
 def test_the_two_reference_frames_are_checked_against_each_other():

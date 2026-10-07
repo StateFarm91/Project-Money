@@ -61,8 +61,11 @@ def test_every_message_reaches_the_right_desk():
         ("what does dc mean?", dept.CROCHET_HELP),
         ("thank you, it turned out beautifully", dept.HAPPINESS),
     ]
+    _vac_64 = 0
     for message, expected in cases:
+        _vac_64 += 1
         assert dept.triage(message) == expected, (message, dept.triage(message))
+    assert _vac_64, "cases was empty: the loop proved nothing (F-123)"
 
 
 def test_a_legal_matter_is_never_absorbed_by_the_materials_desk():
