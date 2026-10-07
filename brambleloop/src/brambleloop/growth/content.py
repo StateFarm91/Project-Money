@@ -226,6 +226,34 @@ def build_ecosystem(f: ProductFacts, *, launch_on: date) -> list[Piece]:
     return pieces
 
 
+# #147 (W4-B2): Content reads its lesson inbox where the plan is drafted. culture.radar's
+# cultural_timing lessons are routed to `growth` (the content department) and were never read
+# here; a timing lesson that names this product's season or category is attached to the
+# pieces scheduled before launch (article, pins, teaser, email), and the decision recorded.
+CONTENT_CELL = "growth"
+PRE_LAUNCH_CHANNELS = ("article", "pinterest", "teaser", "email")
+
+
+def apply_cultural_timing(db, f: ProductFacts, pieces: list[Piece]) -> list[dict]:
+    """Attach matching cultural-timing lessons to the pre-launch pieces; return them."""
+    from ..improve import consume
+
+    text = " ".join([f.title, f.category.replace("_", " "), (f.season or "").replace("_", " ")])
+    hits = [h for h in consume.matching(db, CONTENT_CELL, text, min_shared=1,
+                                        subjects=frozenset({"cultural_timing"}))
+            if h["direction"] >= 0]
+    if not hits:
+        return []
+    noted = [{"lesson": int(h["id"]), "statement": h["statement"]} for h in hits]
+    for piece in pieces:
+        if piece.channel in PRE_LAUNCH_CHANNELS:
+            piece.detail = {**piece.detail, "cultural_timing": noted}
+    consume.act(db, CONTENT_CELL, hits,
+                how=f"marketing.schedule for {f.slug} attached cultural timing to its "
+                    f"pre-launch pieces")
+    return noted
+
+
 # ---- checks ----------------------------------------------------------------
 
 _DIMENSION_RE = re.compile(r"\b(\d{2,3}\s*[x×]\s*\d{2,3}\s*cm)\b", re.I)
