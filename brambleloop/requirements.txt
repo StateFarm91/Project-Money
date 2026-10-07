@@ -16,6 +16,9 @@ psycopg2-binary>=2.9
 cryptography>=42
 python-multipart>=0.0.9
 pypdf>=4.0
+# W4-VISUAL2: rasterises the certified pattern PDF's pages for the CONTENTS gallery frame
+# (visual/contents_frame.py), at certification and again at upload. PDFium wheels, no deps.
+pypdfium2>=4.0
 # Yarn-level geometry (visual/yarn.py). Small, standard, and the module is not importable
 # without it. Mitsuba is deliberately NOT here: the physically based renderer is ~200MB and
 # is only needed to run the feasibility spike by hand, never by the deployed service, so the

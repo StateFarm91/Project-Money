@@ -1,0 +1,129 @@
+{
+ "generated_at": "2026-10-07T03:39:52Z",
+ "products": {
+  "hexagon-coaster-set": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "dde60f6bbe780d18501942ae4fd54753fac7aa3de34f661ac9efc136bc2c4f71",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "2799a819d949550e281cadad50a687f96a76351ba407ba2d75f80d6ae2404ebb",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "d5048079e37780b9aef8a72fc78310f77b0219e0987f9f703192b04d9d9e648e",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS",
+      "CONTENTS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 6,
+    "problems": [],
+    "jobs": [
+     "DESIRE",
+     "SCALE",
+     "DETAIL",
+     "COLOUR_CONTEXT",
+     "MATERIALS",
+     "CONTENTS"
+    ]
+   },
+   "first_customer_imagery": {
+    "state": "PASS",
+    "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 1 for release 3754ed17a63b",
+    "certificate": 1
+   },
+   "search_evidence_gallery": {
+    "status": "FAIL",
+    "covered": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "sizes": 1,
+    "colours": 2,
+    "why": null
+   },
+   "certificate_frames": [
+    {
+     "position": 1,
+     "job": "DESIRE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "dde60f6bbe780d18501942ae4fd54753fac7aa3de34f661ac9efc136bc2c4f71",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagon Coaster Set: all 4 pieces seen from above, in cream and wine. About 9.7 x 8.4 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 2,
+     "job": "SCALE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "2799a819d949550e281cadad50a687f96a76351ba407ba2d75f80d6ae2404ebb",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagon Coaster Set: the finished piece with its size marked, in cream and wine. About 9.7 x 8.4 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 3,
+     "job": "DETAIL",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "d5048079e37780b9aef8a72fc78310f77b0219e0987f9f703192b04d9d9e648e",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagon Coaster Set: a close view of the rounds, stitch for stitch, in cream and wine. About 9.7 x 8.4 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 4,
+     "job": "COLOUR_CONTEXT",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "f2ff214ebcbe4a8d315cf0d32eff8ae5f66f4585a9b31ff202daf9a8529990f6",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagon Coaster Set (4): each yarn colour's share of the finished piece, counted from the pattern."
+    },
+    {
+     "position": 5,
+     "job": "MATERIALS",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "228ac8084bb2b2afbbc34dc867b959bb637e051c86ecc1552775de6d807053c2",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Hexagon Coaster Set (4): the yarn colours, yarn weight, hook size and gauge the pattern calls for."
+    },
+    {
+     "position": 6,
+     "job": "CONTENTS",
+     "medium": "PATTERN_PREVIEW",
+     "honesty_label": "Preview of the pattern document",
+     "sha256": "bbae1c81e399bdbef46f719d40c870bf332b14a81847a86d4c6ab788f8d71cfc",
+     "alt_text": "Preview of the pattern document. Hexagon Coaster Set (4): the first pages of the PDF pattern you download, shown at reduced size."
+    }
+   ]
+  }
+ }
+}
