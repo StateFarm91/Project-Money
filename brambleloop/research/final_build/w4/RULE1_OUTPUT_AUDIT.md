@@ -73,9 +73,11 @@ Bounded 10-minute runs of the real embedded runner (worker + scheduler), shadow,
 |---|---|---|---|---|---|
 | before (16 min, pre-merge) | fee1cfe | 220 | 99 | 45.0% | n/a |
 | before2 (10 min, post-INTEG) | fc7ed8e | 175 | 95 | 54.3% | 53.7% |
-| after (10 min) | AFTER_COMMIT | AFTER_DONE | AFTER_USEFUL | AFTER_RATE | AFTER_DRATE |
+| after (10 min) | ea368fd | 258 | 136 | 52.7% | 49.2% |
 
-Per department (before2 → after useful rate): AFTER_TABLE
+Per department (before2 → after useful rate): executive 31.2% → 63.6%; finance 25.0% → 16.7%; growth 66.7% → 45.5%; intelligence 54.2% → 48.3%; learn UNKNOWN → 33.3%; platform 25.0% → 36.0%; product_design 0.0% → 40.6%; product_truth 61.1% → 61.7%; store_commerce 88.9% → 78.6%; support 0.0% → 0.0%; visual 76.9% → 61.1%. Departments idle with eligible untaken work at end (rule1_defect): none. Final queue: 261 done, 49 pending, 1 running, 2 dead (was 175 / 68 / 1 / 2). Throughput +47% (258 vs 175 judged done in the same 10 min); the overall useful rate is flat (54.3% → 52.7%) because the extra throughput is new departments' first runs (learn now works inside the window: UNKNOWN → 33.3%) and judged honest no-ops, not busywork. Product & Design 0% → 40.6% is the cir.draft judge fix. The per-department drops (growth, visual, store) are fewer *repeats* of the same plans inside the window, not lost output.
+
+Dead letters in the after run: 1 shadow refusal (store.publish, by design) and 2 **defects found by this proof** — `creative.candidates_file` and `swarm.allocate` were dead-lettered by the provenance backstop for market-basket-small's listing copy, which a concurrent `listing.seo` (52 s, another runner lane) was writing in the same window. Fixed (cause #7).
 
 ### Causes found and fixed
 
@@ -87,6 +89,8 @@ Per department (before2 → after useful rate): AFTER_TABLE
 | 4 | mjs.scan findings synthesis (W4-MJS) not counted | wiring | WORK_KEYS += `findings.changed` (unchanged digests / errors do not count) |
 | 5 | `store.live_drift` (W4-STORE) had no cadence → never ran by itself | discovery | daily orchestrator cadence after `etsy_shop_snapshot`, registry + WORK_KEYS |
 | 6 | visual.rnd.cycle launch-imagery refresh (W4-VISUAL) not counted | wiring | `imagery_refreshed` in work_done |
+| 7 | Provenance backstop is time-windowed (C-52) but workers run concurrently (runner lanes): slug-less jobs were dead-lettered for another product job's artefacts | attribution defect | `runtime.worker.concurrent_attribution`: an artefact is set aside only when another job for the same product overlapped the window (its own backstop checks it); all else still enforced. tests/test_w4_auto_provenance_concurrency.py |
+| 8 | `ops.maturity_disagreements` (~80 s read-only) claimed ahead of release-chain work at boot (W4-CHAIN residual) | scheduling | housekeeping band + first run deferred 10 min after process start (`BOOT_DEFERRED_SECONDS`); 240 s stall detector unchanged |
 
 ### Not defects (left alone, with reasons)
 

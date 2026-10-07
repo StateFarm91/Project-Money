@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from ..agents.registry import BudgetExceeded, PermissionDenied, Registry
 from ..core.db import Database
@@ -406,9 +406,12 @@ class Worker:
                     # This attempt's window, not the job's first attempt (C-52): a retried
                     # job was otherwise blamed for every artefact other jobs wrote between
                     # its first attempt and this one.
-                    gap = provenance.assert_instrumented(
-                        s, since=getattr(job, "attempt_started_at", None) or job.started_at,
-                        job_id=job.id)
+                    since = getattr(job, "attempt_started_at", None) or job.started_at
+                    gap = provenance.assert_instrumented(s, since=since, job_id=job.id)
+                    # Workers run concurrently (runner lanes): an artefact of a product that
+                    # another job working on that product was writing during this window is
+                    # that job's (its own backstop checks it), not this one's.
+                    gap = concurrent_attribution(s, gap, since=since, job_id=job.id)
                     enforce = bool(gap["missing"]) and provenance.may_enforce_unproven(
                         s, ignoring=gap["missing"])["may_enforce_unproven"]
             except Exception as exc:  # noqa: BLE001 - the check must not break what it checks
@@ -422,6 +425,7 @@ class Worker:
                                           # (certification C-27): a bare `record()` row
                                           # does not instrument an artefact
                                           "incomplete": list(gap.get("incomplete") or [])[:50],
+                                          "concurrent": list(gap.get("concurrent") or [])[:50],
                                           "enforcing": enforce})
                 if enforce:
                     raise provenance.ProvenanceRefused(
@@ -914,6 +918,48 @@ CADENCES.extend(_role_cadences())
 # A handler may renew its lease for at most this long. Past it the lease lapses, another
 # worker may reclaim the job, and the original's completion is refused by the fence.
 MAX_HANDLER_SECONDS = 60 * 60
+
+
+def _input_slug(inputs) -> str:
+    inputs = inputs if isinstance(inputs, dict) else {}
+    cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
+    return str(inputs.get("slug") or inputs.get("product_slug") or cir.get("slug") or "")
+
+
+def concurrent_attribution(s, gap: dict, *, since, job_id: int) -> dict:
+    """Move missing artefacts another concurrent job owns out of this job's provenance gap.
+
+    The backstop is windowed by time (C-52). With several workers (runner lanes), a
+    `listing.seo` writing a product's copy while a slug-less `swarm.allocate` ran on another
+    lane got the allocator dead-lettered for the listing (W4-AUTO after-proof, jobs 213/219).
+    An artefact is set aside only when another job named for that same product was running
+    in, or finished during, this window -- that job's own backstop checks it. Anything else
+    stays missing and is still enforced.
+    """
+    if not gap.get("missing") or since is None:
+        return gap
+    others = s.scalars(select(Job).where(Job.id != job_id).where(
+        or_(Job.status == JobStatus.RUNNING, Job.finished_at >= since))).all()
+    owners: dict[str, list[int]] = {}
+    for o in others:
+        slug = _input_slug(o.inputs)
+        if slug:
+            owners.setdefault(slug, []).append(o.id)
+    if not owners:
+        return gap
+    keep, moved = [], []
+    for m in gap["missing"]:
+        slug = m[2] if len(m) > 2 else ""
+        if slug and slug in owners:
+            moved.append({"artefact": list(m), "concurrent_jobs": owners[slug][:5]})
+        else:
+            keep.append(m)
+    if not moved:
+        return gap
+    keys = {(m[0], m[1]) for m in keep}
+    return {**gap, "missing": keep, "concurrent": moved,
+            "incomplete": [i for i in gap.get("incomplete") or []
+                           if (i.get("artefact_class"), i.get("artefact_key")) in keys]}
 
 
 class _LeaseRenewal:

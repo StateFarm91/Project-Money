@@ -36,11 +36,26 @@ Branch `claude/w4-AUTO` (from claude/visual-investigation fee1cfe; merged origin
 
 ## WIRING REQUEST (release.py owner): adopt `ctx.checkpoint/restore` in assets.model_photography / seasonal.cycle_proof (F-659 adoption).
 
-## In progress / next deterministic actions
-1. After-proof: `python -m brambleloop.autonomy.proof --seconds 600 --out $TMPDIR/after.json --keep-db $TMPDIR/after.sqlite`
-   -> copy to evidence/AUTO_after_proof.json.
-2. Write research/final_build/w4/RULE1_OUTPUT_AUDIT.md/.json (prod read-only GETs captured in
-   scratch: /api/jobs, /api/audit, /api/queue/cadences, /api/catalogue, /api/status).
+## Resumed 2026-10-07 (after session limit) -- done
+| Item | Status | Evidence |
+|---|---|---|
+| CHAIN residual: release chain claimed before long read-only analysis at boot | PROVEN | `ops.maturity_disagreements` band truth_defect -> housekeeping; `runtime.worker.BOOT_DEFERRED_SECONDS` defers its first cadence run 10 min after process start; 240 s stall detector untouched. `test_long_read_only_analysis_does_not_starve_the_release_chain_at_boot` |
+| GATESB test | fixed | gate-blocker test records one job so `summary` is not honestly UNKNOWN |
+| After-proof (10 min, ea368fd) | DONE | `evidence/AUTO_after_proof.json`: 258 done / 136 useful (52.7%), 261/49/1/2 final queue, rule1_defect none; RULE1_OUTPUT_AUDIT.md/.json filled |
+| Provenance backstop vs concurrent lanes (found by the after-proof) | PROVEN | `runtime.worker.concurrent_attribution`; tests/test_w4_auto_provenance_concurrency.py (3 OK) |
+| Rule #1 output audit | DONE | RULE1_OUTPUT_AUDIT.md/.json (production + before/after + causes 1-8) |
+| QUEUE 0/0 diagnosis | DONE | section below + audit section 2 |
+| Per-agent status provider | DONE (code) / wiring pending to CC | `autonomy.status.agents` |
+
+Tests run this session: test_w4_auto_status 12 OK, test_w4_auto_spend_wiring 9 OK,
+test_w4_auto_pipe2_wiring 3 OK, test_w4_auto_provenance_concurrency 3 OK, test_vacuity 8,
+test_secret_scan 7, test_w3_tmp_hygiene 16, test_reachability 11, test_swarm_runtime 10,
+test_chaos/test_provenance/test_provenance_write_path/test_cert_provenance (see commit msg).
+
+## Remaining
+Nothing executable left in this lane. Gates: production deploy of this branch (integrator),
+OWNER ACTION #19/#20 (Anthropic credit), CC wiring of the `agents` provider, release.py
+adoption of `ctx.checkpoint/restore` (F-659).
 
 ## WIRING REQUEST (lane CC, app/command_center/providers.py)
 - Add `"agents": ("brambleloop.autonomy.status", "agents")` to the provider table so the owner
