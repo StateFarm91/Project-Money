@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# python:3.11-slim (Debian trixie) multi-arch index, pinned by digest 2026-10-07 (F-416). Bump deliberately.
+FROM python:3.11-slim@sha256:0dd364ba7e10242f07755449e3a3d0e35f9efd987952737b90def6709ab0c5ce
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -18,7 +19,7 @@ COPY requirements.txt requirements.lock ./
 # file, so every listing image rendered in this container had near-illegible text while the
 # same code looked correct on a developer machine that happens to have DejaVu installed.
 # Nothing local could catch that, which is why it is pinned here rather than assumed.
-RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core \
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core=2.37-8 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
