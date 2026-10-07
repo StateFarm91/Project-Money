@@ -11,7 +11,7 @@ Owner authorisation 2026-10-07. Per gate: cleared / owner action (exact cost, li
 | owned_surfaces | PARTLY CLEARED (Etsy shop recognised) + OWNER-ACTION | 65 | 25.0 |
 | customers | DATA-GATED (external: buyers) | - | - |
 | ad_authority | NOT-YET-ASKABLE | - | - |
-| live_listings | NOT-YET-ASKABLE (company work first) | - | - |
+| live_listings | ASKED IN leave_shadow (company work first, per product) | - | - |
 
 Asked now: ~165 min, up to CA$384.65.
 

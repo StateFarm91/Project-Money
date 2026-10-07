@@ -14,7 +14,7 @@ Report: `research/final_build/w4/GATE_CLEARANCE_BUSINESS.{md,json}` (regenerate:
 | owned_surfaces (#4 #10 #246 #247 #248 #251 #255) | Etsy shop recognised (paid destination); missing site/pinterest/email/video, CA$25, 65 min | gate_clearance.owned_surfaces_inventory |
 | customers | DATA-GATED (buyers), never an owner card | test_w4_gatesb::test_customers_is_data_gated_and_never_an_owner_card |
 | ad_authority (#294 #295) | NOT-YET-ASKABLE; ready definition + CONSERVATIVE_CAPS recommendation in code | gate_clearance.ad_readiness |
-| live_listings | NOT-YET-ASKABLE: company work (PIPE) first | gate_clearance.live_listing_readiness |
+| live_listings | asked in the owner leave_shadow decision; per-product publication evidence still company work (PIPE) first | gate_clearance.live_listing_readiness |
 
 Integrator extras: #242-245 re-parked ad_authority -> customers (DATA); #10/#54/#165 split recorded in
 notes (company part named/proven, owner part kept); tests mapped for #254 #263 #37 #14 #16 #9 #51
@@ -22,7 +22,7 @@ notes (company part named/proven, owner part kept); tests mapped for #254 #263 #
 the `store.live_drift` handler; batched etsy_account / paid_media).
 
 ## Tests run
-tests/test_w4_gatesb.py 10/10; regression batch: see final report.
+see Resume section.
 
 ## Wiring requests
 - AUTO: `autonomy/status.py` labels every closed gate `kind: owner_gate`; use `closure.kind_of(g)` so
@@ -36,6 +36,14 @@ tests/test_w4_gatesb.py 10/10; regression batch: see final report.
   test_w4_gatesb + report updated to match; test_w3_k7_owner_queue spend-card check still exercised.
 - Report gates carry `classification`; owner/build_owner_docs.py treats COMPANY* like DATA*/EXTERNAL*
   (second_market_benchmark = company work, not unmapped). Vendored owner/gate_clearance_business.json, regenerated OWNER_ACTIONS.
+
+- live_listings precondition removed (it is the owner's leave_shadow decision; test_w4_owner_actions
+  requires it in that decision); per-product publication evidence still enforced by the final gate.
+- closure.py EXTERNAL_GATES rendered_pages text (integrator/GATESI request): help.etsy.com now read via
+  policy_reader; #35/#39 need a human policy snapshot (POST /api/policy/snapshot, ~15 min / 30 days).
+- Tests (all pass, sequential): test_w4_gatesb 10, test_w4_owner_actions 6, test_closure 27,
+  test_w4_b2_build2_ledger 18, test_w3_k7_owner_queue 10, test_vacuity 7, test_secret_scan 7,
+  test_reachability 11, test_w3_tmp_hygiene 16.
 
 ## Next
 Nothing in progress. After deploy: watch `intel.panel_discovered` audit for `second_market` joins.

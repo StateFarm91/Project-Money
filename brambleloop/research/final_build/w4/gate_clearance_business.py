@@ -161,7 +161,7 @@ def _ads() -> dict:
 
 
 def _listings() -> dict:
-    return {"gate": "live_listings", "status": "NOT-YET-ASKABLE (company work first)",
+    return {"gate": "live_listings", "status": "ASKED IN leave_shadow (company work first, per product)",
             "company_work": ("lane W4-PIPE moves the strongest products through the final "
                              "publication gate (ops.publication_authority evidence); see "
                              "PRODUCT_INVENTORY on claude/w4-PIPE"),

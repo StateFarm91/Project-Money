@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07T01:57:20+00:00",
+ "generated_at": "2026-10-07T02:34:24+00:00",
  "lane": "W4-OWNER",
  "sources": {
   "runtime": "build2.executor.approval_inbox (Command Center approvals inbox)",
@@ -10,10 +10,10 @@
  "counts": {
   "before": {
    "production_owner_action_rows": 9,
-   "runtime_gate_cards": 18,
+   "runtime_gate_cards": 19,
    "store_lane_items": 13,
    "visual_lane_plans": 3,
-   "total_asks": 43
+   "total_asks": 44
   },
   "after": {
    "batches": 9,
@@ -45,16 +45,19 @@
     {
      "id": "leave_shadow",
      "decision": "Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above are done.",
-     "why": "production reason phase",
-     "evidence": "OwnerAction #6 raised 2026-10-07T01:57:20.110589 for phase",
+     "why": "9 requirements are parked on it",
+     "evidence": "gate 'live_listings' opens when: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
      "max_cost_cad": 0.0,
      "max_cost_display": "CA$0.00",
      "max_cost_basis": "stated by the producer",
      "consequence_of_yes": "listings can be published under the publication authority; the live-listing requirements un-park",
-     "consequence_of_no": "delay phase",
+     "consequence_of_no": "everything stays drafted and nothing reaches a customer",
      "minutes": 5,
-     "gates": [],
+     "gates": [
+      "live_listings"
+     ],
      "requirement_keys": [
+      "live_listings",
       "phase"
      ],
      "owner_action_ids": [
@@ -77,7 +80,7 @@
        "gate": "live_listings",
        "detail": {
         "gate": "live_listings",
-        "status": "NOT-YET-ASKABLE (company work first)",
+        "status": "ASKED IN leave_shadow (company work first, per product)",
         "company_work": "lane W4-PIPE moves the strongest products through the final publication gate (ops.publication_authority evidence); see PRODUCT_INVENTORY on claude/w4-PIPE",
         "owner_action_after": "per product with complete publication evidence: approve its sealed 24h publication grant (D-FB-10) and leave shadow for that listing (decision leave_shadow)",
         "owner_action": null,
@@ -100,7 +103,7 @@
      "id": "etsy_kyc_payout",
      "decision": "Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not.",
      "why": "production reason payout",
-     "evidence": "OwnerAction #3 raised 2026-10-07T01:57:20.109673 for payout",
+     "evidence": "OwnerAction #3 raised 2026-10-07T02:34:24.028708 for payout",
      "max_cost_cad": 0.0,
      "max_cost_display": "CA$0.00",
      "max_cost_basis": "stated by the producer",
@@ -126,7 +129,7 @@
      "id": "listing_fees",
      "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
      "why": "production reason listing_fees",
-     "evidence": "OwnerAction #4 raised 2026-10-07T01:57:20.110063 for listing_fees",
+     "evidence": "OwnerAction #4 raised 2026-10-07T02:34:24.029037 for listing_fees",
      "max_cost_cad": 6.0,
      "max_cost_display": "CA$6.00",
      "max_cost_basis": "stated by the producer",
@@ -458,7 +461,7 @@
      "id": "trademark_filing",
      "decision": "Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work.",
      "why": "production reason brand_clearance",
-     "evidence": "OwnerAction #5 raised 2026-10-07T01:57:20.110347 for brand_clearance",
+     "evidence": "OwnerAction #5 raised 2026-10-07T02:34:24.029315 for brand_clearance",
      "max_cost_cad": 460.0,
      "max_cost_display": "CA$460.00",
      "max_cost_basis": "stated by the producer",
@@ -879,7 +882,7 @@
      "id": "storage_durable",
      "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
      "why": "production reason artifact_storage",
-     "evidence": "OwnerAction #1 raised 2026-10-07T01:57:20.103999 for artifact_storage",
+     "evidence": "OwnerAction #1 raised 2026-10-07T02:34:24.027437 for artifact_storage",
      "max_cost_cad": 5.0,
      "max_cost_display": "CA$5.00",
      "max_cost_basis": "stated by the producer",
@@ -945,7 +948,7 @@
      "id": "benchmark_purchase",
      "decision": "Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown.",
      "why": "production reason benchmark_challenge",
-     "evidence": "OwnerAction #7 raised 2026-10-07T01:57:20.110844 for benchmark_challenge",
+     "evidence": "OwnerAction #7 raised 2026-10-07T02:34:24.038215 for benchmark_challenge",
      "max_cost_cad": 300.0,
      "max_cost_display": "CA$300.00",
      "max_cost_basis": "stated by the producer",

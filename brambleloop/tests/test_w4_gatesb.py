@@ -72,19 +72,21 @@ def test_ads_economics_rows_park_on_data_not_ad_authority():
     ok("#242-245 park on customers (order data); only #294/#295 wait on an ad budget")
 
 
-# ---- not-yet-askable: ads and listings wait on preconditions; the make is asked with testers ----------------
+# ---- not-yet-askable: the ad budget waits on a sellable listing; make + listings are asked ----------------
 
 def test_preconditioned_gates_are_listed_not_asked():
     inbox = executor.approval_inbox(_db(), env={})
     gates = [c["gate"] for c in inbox["cards"]]
     waiting = {d["gate"]: d for d in inbox["not_yet_askable"]}
     assert waiting, "preconditioned gates are listed"
-    for g in ("ad_authority", "live_listings"):
+    for g in ("ad_authority",):
         assert g not in gates, g
         assert g in waiting and waiting[g]["precondition"], g
     assert "ready to sell" in waiting["ad_authority"]["precondition"]
     # physical_proof is asked with tester_roster: one owner decision (DECISIONS tester_outreach)
     assert "physical_proof" in gates and "physical_proof" not in waiting
+    # live_listings is the owner's leave_shadow decision: asked, never parked as not-yet-askable
+    assert "live_listings" in gates and "live_listings" not in waiting
     proof = [c for c in inbox["cards"] if c["gate"] == "physical_proof"]
     assert "not being asked to crochet" in proof[0]["action"], proof[0]["action"]
     tester = [c for c in inbox["cards"] if c["gate"] == "tester_roster"]

@@ -614,7 +614,7 @@
   },
   {
    "gate": "live_listings",
-   "status": "NOT-YET-ASKABLE (company work first)",
+   "status": "ASKED IN leave_shadow (company work first, per product)",
    "company_work": "lane W4-PIPE moves the strongest products through the final publication gate (ops.publication_authority evidence); see PRODUCT_INVENTORY on claude/w4-PIPE",
    "owner_action_after": "per product with complete publication evidence: approve its sealed 24h publication grant (D-FB-10) and leave shadow for that listing (decision leave_shadow)",
    "owner_action": null,

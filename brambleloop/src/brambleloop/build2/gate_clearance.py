@@ -367,12 +367,10 @@ def prerequisite(db, gate: str, env: dict | None = None) -> str | None:
     # physical_proof stays askable: it is the same owner decision as tester_roster
     # (owner_queue DECISIONS `tester_outreach`, F-197) -- the owner confirms the outreach and
     # approves the first agreed tester's paid make in one answer.
-    if gate == "live_listings":
-        state = live_listing_readiness(db)
-        if not state["grant_ever_approved"] and not is_open("live_listings"):
-            return ("company work first: no product has yet cleared the final publication "
-                    "gate (" + state["company_work"] + "). The owner is asked per product "
-                    "once its publication evidence is complete")
+    # live_listings stays askable: it is the owner's leave_shadow decision (owner_queue
+    # DECISIONS, with the readiness 'phase' row), already asked "once the steps above are
+    # done". Each product's publication evidence is still enforced per product by the final
+    # publication gate; live_listing_readiness() names the company work still ahead of it.
     return None
 
 
