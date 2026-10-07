@@ -276,15 +276,33 @@ def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
     # honestly unfinished while any launch-critical row is OPEN or the snapshot fails integrity.
     from brambleloop.build2 import final_master
     fm = final_master.summary(db)
-    expected = ["listing_photography", "opening_grid", "storefront_preview"]
+    # W4-FM2: since lane CREATIVE's survivors (6/11) the fixture's products can be
+    # launch-cleared, so the opening grid is company work only while it is unmet; when met,
+    # every visible tile must be a launch-cleared product (asserted below).
+    grid = next(r for r in readiness.requirements if r.key == "opening_grid")
+    expected = ["listing_photography"] + ([] if grid.ready else ["opening_grid"]) \
+        + ["storefront_preview"]
+    # F-233 (W4-FM2): the storefront requirement reads the rendered icon/banner and buyer copy
+    # (store_foundation.storefront_gate), not the briefs. While that gate has findings the
+    # storefront is honestly unfinished company work, named with its asset findings.
+    from brambleloop.store_foundation import storefront_gate
+    if storefront_gate.problems(db):
+        expected.insert(1, "storefront")
+        store = next(r for r in readiness.requirements if r.key == "storefront")
+        assert any(p.startswith("asset: ") for p in store.evidence["problems"]), store.evidence
     if not fm.get("launch_ready"):
         assert fm.get("launch_critical_open") or fm.get("integrity_violations") \
             or fm.get("status") != "OK", fm
         expected.append("final_master_closure")
     assert [r.key for r in readiness.buildable] == expected, \
         [r.key for r in readiness.buildable]
-    grid = next(r for r in readiness.requirements if r.key == "opening_grid")
-    assert grid.evidence["problems"][0].startswith("OPENING_GRID_EMPTY"), grid.evidence
+    if grid.ready:
+        from brambleloop.app.dashboard_truth import launch_inventory
+        cleared = set(launch_inventory(db).get("cleared_slugs") or [])
+        assert grid.evidence["visible"] and set(grid.evidence["visible"]) <= cleared, \
+            (grid.evidence, sorted(cleared))
+    else:
+        assert grid.evidence["problems"][0].startswith("OPENING_GRID_EMPTY"), grid.evidence
     photo = next(r for r in readiness.requirements if r.key == "listing_photography")
     stocked = _catalogue_slugs(MIN_LISTINGS_TO_OPEN)
     in_scope = [s for s in stocked if listing_asset._in_launch_scope(s)]
@@ -295,7 +313,7 @@ def test_a_company_that_has_done_its_half_is_only_blocked_on_people():
         s for s in stocked if s not in in_scope)[:5]
     remaining = {r.blocked_by for r in readiness.outstanding
                  if r.key not in ("listing_photography", "opening_grid", "storefront_preview",
-                                  "final_master_closure")}
+                                  "storefront", "final_master_closure")}
     # F-071: a sample waits on an independent tester -- a person, and not the owner.
     assert remaining <= {BLOCKED_OWNER, BLOCKED_INTEGRATION, BLOCKED_TESTER}, remaining
 

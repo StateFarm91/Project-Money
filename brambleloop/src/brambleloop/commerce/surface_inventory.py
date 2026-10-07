@@ -12,7 +12,10 @@ module:
   the scopes the *stored* credential actually holds (not the scopes the file says were
   granted on one date), the freshness of every collector's last reading, and the owner's
   dated readings of browser-only pages. A surface whose declared API access is not backed by
-  a held scope, or whose evidence is missing or stale, is reported by name.
+  a held scope, or whose evidence is missing or stale, is reported by name. Fourth (W4-FM2),
+  each verdict's classification against Etsy's *current* published API document, read weekly
+  by `runtime.etsy_ops.reverify_openapi`: never re-verified, unreadable, stale or drifted is
+  a named problem, and a drifted surface is marked on its item.
 
 `summary(db)` follows the cross-lane provider contract (status, as_of, basis, items,
 sources) and never raises on an empty database.
@@ -98,8 +101,53 @@ def reverify(db, *, now: float | None = None) -> dict:
         else:
             entry["evidence_state"] = es.NO_COLLECTOR
         items.append(entry)
+    classification = _classification(db, now, items, problems)
     return {"items": items, "problems": problems, "credential_read": bool(cred),
+            "classification": classification,
             "checked_at": datetime.fromtimestamp(now, tz=timezone.utc).isoformat()}
+
+
+def _classification(db, now: float, items: list[dict], problems: list[str]) -> dict:
+    """Whether each surface's verdict still rests on Etsy's published API document (F-514).
+
+    Reads the latest `etsy.openapi_reverify` reading. Never re-verified, unreadable, stale or
+    drifted are each a named problem; a surface the drift touches is marked on its item.
+    """
+    from ..intel import etsy_surfaces as es
+    from ..runtime.etsy_ops import OPENAPI_READING, OPENAPI_REVERIFY_DAYS, latest_reading
+
+    reading = latest_reading(db, OPENAPI_READING)
+    if not reading:
+        problems.append("classification: never re-verified against Etsy's current API "
+                        "document (job etsy.openapi_reverify has not run)")
+        state = {"status": "UNVERIFIED", "checked_at": None}
+    else:
+        state = {"status": reading.get("status") or "UNVERIFIED",
+                 "checked_at": reading.get("checked_at"),
+                 "version": reading.get("version")}
+        try:
+            age_days = (now - datetime.fromisoformat(reading["checked_at"]).timestamp()) / 86400
+        except (KeyError, TypeError, ValueError):
+            age_days = None
+        if age_days is None or age_days > 2 * OPENAPI_REVERIFY_DAYS:
+            state["status"] = "STALE" if age_days is not None else "UNVERIFIED"
+            problems.append(f"classification: re-verification is {state['status']} "
+                            f"(last {reading.get('checked_at')})")
+        elif reading.get("status") == es.OPENAPI_UNREADABLE:
+            problems.append(f"classification: UNREADABLE: {reading.get('why')}")
+        elif reading.get("status") == es.OPENAPI_DRIFTED:
+            touched = {a["surface"]: a["reasons"] for a in reading.get("affected") or []}
+            for item in items:
+                if item["key"] in touched:
+                    item["classification_state"] = es.OPENAPI_DRIFTED
+                    problems.append(f"{item['key']}: classification drifted: "
+                                    f"{'; '.join(touched[item['key']])[:240]}")
+            if not touched:
+                problems.append("classification: Etsy's document changed (operations "
+                                "added/removed) without a surface named; re-audit")
+    for item in items:
+        item.setdefault("classification_state", state["status"])
+    return state
 
 
 def summary(db) -> dict:
@@ -115,7 +163,9 @@ def summary(db) -> dict:
     return {"status": status, "as_of": check["checked_at"], "basis": "measured",
             "items": check["items"], "problems": check["problems"][:50],
             "missing_named": inv["missing_named"], "surfaces": inv["count"],
+            "classification": check["classification"],
             "sources": ["intel.etsy_surfaces", "operating_readings:etsy.credential_health",
+                        "operating_readings:etsy.openapi_reverification",
                         "operating_readings:etsy.shop_snapshot",
                         "operating_readings:etsy.listing_census",
                         "audit_log:etsy.shop_observation"]}

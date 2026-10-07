@@ -417,11 +417,25 @@ ROWS = {
         durable_state=None,
         tests=[T_PRV + "test_preview_shows_every_surface",
                T_PRV + "test_unverified_frame_is_withheld_not_shown",
-               T_WCC + "test_store_preview_is_owner_only_and_never_cached_or_indexed"],
+               T_WCC + "test_store_preview_is_owner_only_and_never_cached_or_indexed",
+               # W4-FM2: preview v2 (the owner's v1 rejection notes: generic + technical) is
+               # built -- canonical banner/logo exact, product-first fold, no jargon above the
+               # fold, Laura labelled internal-preview -- and served beside v1 for comparison.
+               "tests/test_w3_store_ux_structure.py::test_v2_has_every_required_surface",
+               "tests/test_w3_store_ux_mobile.py::test_no_technical_jargon_above_the_fold",
+               "tests/test_w3_store_ux_mobile.py::test_fold_leads_with_product_not_process",
+               "tests/test_w3_store_ux_mobile.py::test_compare_page_shows_both_first_screens_and_metrics"],
         coverage="PARTIAL",
-        missing="the owner rejected preview v1 (wave-3 K16); preview v2 is lane STORE work and "
-                "the real Etsy shop settings it should mirror need the owner's login",
-        next="Lane STORE (K16): finish preview v2 to the owner's rejection notes and re-present"),
+        gate={"kind": "owner", "key": "store_preview_v2_review",
+              "detail": "the owner rejected v1 on taste; v2 (store_foundation/preview_v2) answers "
+                        "the rejection notes and is served beside v1 -- acceptance is the "
+                        "owner's judgement; mirroring live settings needs OA-A1 (re-authorise) "
+                        "/ OA-OBS (dated observation of the fields no API returns)"},
+        missing="owner acceptance of preview v2 (a taste decision only the owner makes) and the "
+                "live Etsy settings it mirrors (UNKNOWN until OA-A1/OA-OBS; store_foundation/"
+                "live_state reads them when available)",
+        next="Owner: review the v2 vs v1 comparison in the Command Center store preview and "
+             "accept or annotate; OA-A1/OA-OBS let the preview mirror the live settings"),
     "F-927": dict(
         producer=S + "autonomy/status.py::timeline (+ memory.record_event)",
         consumer="GET /api/cc/timeline (Command Center) and laura.executive_tick",

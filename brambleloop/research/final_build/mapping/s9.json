@@ -2626,19 +2626,21 @@
   "launch_class_reason": "F-831..F-850 certification contract",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "build2/final_proof.py requires a consumer/decision/effect chain bound by evidence edges before a row is REVIEWABLE, but it is an offline CLI (unreached), has never been run on real packets (no packets file or report committed), and real matrix rows lack the protected_action_applicability field it requires; aggregate.py does not check consumers at all",
+  "missing_part": "no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independent reviewer",
   "producer": "src/brambleloop/build2/final_proof.py::validate",
   "durable_state": null,
   "consumer": null,
   "protected_effect": null,
   "tests": [
+   "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof",
    "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
    "tests/test_final_proof.py::test_required_receipt_mutations"
   ],
   "evidence": [
    "src/brambleloop/build2/final_proof.py (Codex integration 07a8c3b)",
    "research/final_build/aggregate.py (no consumer check)",
-   "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED"
+   "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED",
+   "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)"
   ],
   "build2_rows": [],
   "gate": {
@@ -2647,9 +2649,9 @@
    "detail": "remaining work is software"
   },
   "defect": null,
-  "next_action": "Build cluster J: produce evidence packets for launch-critical rows (consumer identity + receipt), add protected_action_applicability to matrix rows, run final_proof.py --matrix closure_matrix.json on the candidate head and commit the report; add the s92 'disable a consumer -> proof reopens' test",
+  "next_action": "END-STAGE (integrator): on the frozen RC, emit packets for the launch-critical rows, run final_proof.py --matrix closure_matrix.json --reachability module_reachability.json and commit the report with the independent review",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-835",

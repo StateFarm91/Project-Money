@@ -2120,33 +2120,37 @@
   "launch_class_reason": "a production change must be reversible — safe publication/recovery",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "rollback exists for improvement promotions (monitor revert), league config, paid-media pause and a rehearsed listing withdrawal; there is no runtime path to roll back a changed live Etsy listing field because no runtime listing-update path exists",
+  "missing_part": "the restore is executed only with the owner's live write grant in a publishing phase",
   "producer": "src/brambleloop/improve/monitor.py::sweep",
   "durable_state": "improvements (reverted), incidents (improve-rollback)",
   "consumer": "src/brambleloop/runtime/release.py::handle_promotion_monitor",
   "protected_effect": "a promotion reading below its baseline is reverted automatically and an incident opened",
   "tests": [
+   "tests/test_cert_improve_wave.py::test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back",
    "tests/test_improve.py::test_a_degrading_promotion_reverts_itself_rather_than_waiting_for_agreement",
    "tests/test_improve.py::test_a_promotion_without_a_rollback_path_cannot_be_proposed",
-   "tests/test_cert_improve_wave.py::test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back"
+   "tests/test_k8_listing_estate.py::test_a_title_edited_on_etsy_gets_a_defined_rollback_plan_that_is_not_executed",
+   "tests/test_k8_listing_estate.py::test_rollback_refuses_in_shadow_and_without_grant_and_records_each_refusal",
+   "tests/test_k8_listing_estate.py::test_rollback_with_every_condition_clear_restores_and_reads_back"
   ],
   "evidence": [
    "launch/rollback.py (C-80 rehearsed dry withdrawal) not in fcb982d",
-   "commerce/paid_media.py::should_pause"
+   "commerce/paid_media.py::should_pause",
+   "w4-FM close on w4-FM2 (FM2): commerce/listing_rollback (wave-3 K8): the daily etsy.listing_census attaches a rollback plan (certified value per drifted updateListing field, owner steps for inventory/state fields, remote fingerprint, stop conditions) to the drift incident; execute() sends it only past shadow, with the owner's write grant presented at execution time, against an unchanged listing, and verifies by read-back, recording every attempt as listing.lifecycle before/after rows"
   ],
   "build2_rows": [
    "#93 COMPLETE+PROVEN",
    "#54 OWNER-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "",
-   "detail": ""
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "executing a live-listing rollback is a live Etsy write: it needs a publishing phase and the owner's write grant (OwnerGrant) at execution time; in shadow the plan is computed and shown, never sent"
   },
   "defect": null,
-  "next_action": "When the listing update path is built (F-544/F-548), store before-state and implement revert via EtsyClient.update_listing + readback",
+  "next_action": "owner: production window + write grant; then the attached plan is executed through listing_rollback.execute",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-519@v0.15",
@@ -2213,22 +2217,28 @@
   "launch_class_reason": "Marketplace compliance / truthful owner visibility of what the system can and cannot observe on Etsy.",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "The inventory is static code (35 surfaces with verdicts/operations/scopes/evidence); it is consumed at runtime (readiness unknowns, owner queue seeding, shop/census readings) but is not served as a machine-readable endpoint, and nothing re-verifies a surface's classification when Etsy's UI/API changes. Several surfaces' UNKNOWNs (e.g. production_partners' AI question) are not in coverage()['unknowns'] and so not surfaced.",
+  "missing_part": "the etsy.openapi_reverify job is not yet on a cadence (WIRING REQUEST to lane AUTO: worker.py CADENCES + agents/registry orchestrator allow-list)",
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces / coverage / owner_queue",
   "durable_state": "owner_actions (etsy surface queue rows); operating_readings (shop/census)",
   "consumer": "src/brambleloop/launch/readiness.py::unknowns (dashboard); src/brambleloop/runtime/etsy_ops.py::seed_owner_queue (called by runtime/release.py launch.readiness handler)",
   "protected_effect": "surface unknowns appear as readiness unknowns; owner-only surfaces become one idempotent owner queue closed only on evidence",
   "tests": [
+   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+   "tests/test_etsy_readback_observe.py::test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence",
    "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once",
    "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+   "tests/test_k8_shop_cx.py::test_the_inventory_is_served_with_a_channel_per_surface_and_every_named_surface",
    "tests/test_launch.py::test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today",
-   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
-   "tests/test_etsy_readback_observe.py::test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence"
+   "tests/test_w4_fm2_surface_reverify.py::test_a_removed_operation_names_the_surface_that_cites_it",
+   "tests/test_w4_fm2_surface_reverify.py::test_an_ads_api_appearing_names_the_unsupported_surfaces",
+   "tests/test_w4_fm2_surface_reverify.py::test_the_job_stores_the_reading_opens_and_resolves_drift_and_reuses_a_fresh_reading",
+   "tests/test_w4_fm2_surface_reverify.py::test_the_served_inventory_reports_the_classification_state"
   ],
   "evidence": [
    "module_reachability: intel/etsy_surfaces.py reached via dashboard -> launch/readiness.assess -> unknowns",
    "fcb982d launch/readiness.py has no etsy_surfaces reference -> not DEPLOYED",
-   "coverage()['unknowns'] keys today: orders, search_visibility, share_and_save, taxonomy_and_attributes, webhooks"
+   "coverage()['unknowns'] keys today: orders, search_visibility, share_and_save, taxonomy_and_attributes, webhooks",
+   "w4-FM close on w4-FM2 (FM2): served at GET /api/etsy/surfaces (commerce/estate_api -> surface_inventory.served + summary, channel per surface); unknowns include every Evidence(UNKNOWN) (F-588); re-verified daily against held scopes and collector freshness (surface_inventory.reverify inside etsy.shop_snapshot); and now re-verified against Etsy's current OpenAPI document (etsy_surfaces.openapi_reverify + etsy_ops.reverify_openapi, job etsy.openapi_reverify, drift incident) with the classification state per surface on the served inventory. The job has no cadence yet (runtime/worker.py is lane AUTO's): until wired, the served inventory reports 'classification: never re-verified' -- honest, not green"
   ],
   "build2_rows": [],
   "gate": {
@@ -2237,9 +2247,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Add GET /api/etsy/surfaces returning etsy_surfaces.coverage() + per-surface verdict/mode (API/browser-only/owner-only/unsupported/unknown) and include every Evidence(UNKNOWN) in coverage()['unknowns']; test via tests/test_cert_wiring-style reachability.",
+  "next_action": "Lane AUTO: add (\"etsy_openapi_reverify\", \"orchestrator\", \"etsy.openapi_reverify\", 7 * 24 * 60 * 60) to CADENCES and \"etsy.openapi_reverify\" to the orchestrator allow-list (GREEN, read-only public GET, CA$0)",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-515@v0.16",

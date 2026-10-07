@@ -1,0 +1,512 @@
+{
+ "generated_by": "research/final_build/w4/fm2_open.py",
+ "head": "5bd58d7",
+ "launch_critical_open": 54,
+ "fm2_owned": [
+  "F-123"
+ ],
+ "rows": {
+  "F-030": {
+   "title": "Gallery Information Architecture",
+   "cluster": "FOLD",
+   "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
+   "why_open": [
+    "coverage PARTIAL: the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT "
+   ],
+   "owning_lane": "VISUAL (gallery frames)"
+  },
+  "F-070": {
+   "title": "Benchmark Spend Governance",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/intel/purchase_selection.py::select (budget_cad)",
+   "why_open": [
+    "coverage PARTIAL: Cost ceiling (CA$300) and per-pick unknown enforced; post-purchase information value per benchmark not tracked"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-098": {
+   "title": "Outage Degradation Plan",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/ops/funding.py::note",
+   "why_open": [
+    "coverage PARTIAL: Outage handling is per-mechanism (circuit breaker, NoProviderAvailable as PermanentError -> dead letter, funding-exhaustion block, executor parks model_provider"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-103": {
+   "title": "Post-Call Reconciliation",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/finance/spend_report.py::estimate_drift",
+   "why_open": [
+    "coverage PARTIAL: Settlement is against the provider's reported tokens priced from our own table (list-price assumption), not against provider billing; image rows reconcile 'by c"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-106": {
+   "title": "Provider Billing Reconciliation",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/ops/provider_accounts.py::reconcile",
+   "why_open": [
+    "coverage PARTIAL: Reconciliation compares our ledger to owner-REPORTED dashboard figures only (ops/provider_accounts.REPORTED_FACTS in code); no provider usage/billing API is rea",
+    "defect recorded: Owner-typed figures are the only 'provider side'; no discrepancy incident."
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-123": {
+   "title": "Vacuous-Test Detector",
+   "cluster": "K13",
+   "producer": "tests/test_vacuity.py::findings_in",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: Detector is a syntactic heuristic; 109 pre-existing vacuous-risk loops remain in a shrink-only BASELINE; open note in FINAL_BUILD_STATE about loop roots named v"
+   ],
+   "owning_lane": "FM2"
+  },
+  "F-169": {
+   "title": "Clean-Tree Full Suite",
+   "cluster": "PROCESS",
+   "producer": "run_tests.sh (REQUIRE_CLEAN, release_eligible run record)",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_guard is run by hand -- a push to the production branch triggers a Railway build w"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-254": {
+   "title": "Gallery Information Architecture",
+   "cluster": "FOLD",
+   "producer": "src/brambleloop/publish/eligibility.py::check_set",
+   "why_open": [
+    "coverage PARTIAL: the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the"
+   ],
+   "owning_lane": "VISUAL (gallery frames)"
+  },
+  "F-304": {
+   "title": "Per-Operation Cost Attribution",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/finance/spend_report.py::record",
+   "why_open": [
+    "coverage PARTIAL: provider, model, job, agent, product, purpose, tokens, estimate and timestamp are columns; missing: listing id, image count as a column, provider-observed actua"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-309": {
+   "title": "Systematic-Failure Circuit Breaker",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/publish/model_photography.py::_systematically_blocked",
+   "why_open": [
+    "coverage PARTIAL: systematic-failure block (method_blocked_on, cleared only by a new METHOD_VERSION) exists for model_photography and owned_photography only; not for other paid p"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-310": {
+   "title": "New Evidence Requirement",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/swarm/orchestrate.py::thrash_sweep",
+   "why_open": [
+    "coverage PARTIAL: thrash sweep suspends a paid loop whose outputs do not change (progress per iteration/dollar = 0) until handler code changes; 'new evidence' is inferred from ou"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-311": {
+   "title": "Cache Certified Evidence",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/gateway/image_bench.py::stored_trial",
+   "why_open": [
+    "coverage PARTIAL: fingerprint/version-keyed reuse exists for image_bench trials, reference realism verdicts (content hash), photoreal calibration, motif/frame reuse and pattern c",
+    "defect recorded: gateway/routing.cached_analysis has no runtime caller (see F-306)"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-312": {
+   "title": "Deterministic Before Generative",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
+   "why_open": [
+    "coverage PARTIAL: the gateway refuses models deciding what the compiler decides and structural questions (parity GALLERY/BRAND) are answered deterministically, but there is no ge"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-313": {
+   "title": "Quality-Proven Model Routing",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/finance/spend_policy.py::may_downgrade_for_cost; gateway/routing.py::TASKS",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: routing is a static task->tier table; no per-task quality-floor evidence per model drives or authorises a cheaper route; spend_policy.may_downgrade_for_cost has",
+    "defect recorded: may_downgrade_for_cost is a library only tests call; routing changes are not guarded by evidence"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-314": {
+   "title": "Deep-Tier Escalation Policy",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/gateway/routing.py::route",
+   "why_open": [
+    "coverage PARTIAL: tiers are assigned per task with a stated why and ship-deciding judgements on the deep tier, but there is no escalation (cheap first, deep on ambiguity) and no "
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-316": {
+   "title": "Output Token Discipline",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
+   "why_open": [
+    "coverage PARTIAL: judges use closed JSON vocabularies with per-task MAX_TOKENS and malformed/truncated output is rejected, but there is no systematic minimum-schema review or tru"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-317": {
+   "title": "Batching With Isolation",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/intel/vision.py::analyse",
+   "why_open": [
+    "coverage PARTIAL: gallery vision is one image per call with per-image markers and batches check each call against batch spend; no general batching policy for other tasks"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-318": {
+   "title": "Backlog Must Actually Drain",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/intel/vision.py::analyse",
+   "why_open": [
+    "coverage PARTIAL: the gallery processor reports judged, remaining after, failures and cost, but not unique pending before; no generic check across all paid backlog processors"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-319": {
+   "title": "Spend-to-Progress Ratio",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/finance/governor.py::_act_on_unit_cost",
+   "why_open": [
+    "coverage PARTIAL: progress_per_dollar per job type (thrash sweep) and validated products per operating dollar with an incident (governor) exist; no cost per requirement/listing a"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-322": {
+   "title": "Cost Per Usable Asset",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/visual/reliability.py::assess",
+   "why_open": [
+    "coverage PARTIAL: attempts, failures, usable galleries and cost per usable gallery are computed, but spent_cad is render cost only (the four judgements per attempt are not includ",
+    "defect recorded: cost per usable gallery excludes judging spend (make() records only render cad)"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-325": {
+   "title": "Steady-State Sustainability Forecast",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/finance/sustainability.py::forecast",
+   "why_open": [
+    "coverage PARTIAL: observation cadence is not a named forecast input (folded into platform spend); scenario assumptions are constants; in production the forecast can never compute"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-328": {
+   "title": "No Spend To Look Busy",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/finance/spend_policy.py::work_that_fits",
+   "why_open": [
+    "coverage PARTIAL: paid cadences are bounded by work_that_fits and may_spend, stalled loops are suspended and several paths skip when evidence exists, but nothing requires each pa"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-362": {
+   "title": "Age-Range Clarity",
+   "cluster": "K9",
+   "producer": "src/brambleloop/intel/childrens.py::render_statements",
+   "why_open": [
+    "coverage PARTIAL: no statement that finished measurements, not age, govern fit for multi-size children's garments; children's assignment exists only for Launch-0 slugs"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-363": {
+   "title": "Physical Plausibility",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/specification.py::refuse_an_underspecified_design",
+   "why_open": [
+    "coverage PARTIAL: neck/yoke fit, drawstring/tie refusal and applied-part refusal exist; no explicit checks of closures/button spacing, armhole/leg openings, seams and trim for ba",
+    "defect recorded: intel/childrens.assess is not fed from the CIR: applied parts and ties are declared in a Concept, not extracted from the pattern"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-416": {
+   "title": "Security / Supply-Chain Review",
+   "cluster": "K14",
+   "producer": "brambleloop/requirements.lock + Dockerfile (pip install --require-hashes --no-deps -r requirements.lock)",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: the Dockerfile base image is tag-pinned (python:3.11-slim), not digest-pinned, and apt fonts-dejavu-core is unpinned; no provenance review record exists for ext"
+   ],
+   "owning_lane": "integrator (Dockerfile digest pinning)"
+  },
+  "F-472": {
+   "title": "Provider Concurrency Governance",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
+   "why_open": [
+    "coverage PARTIAL: spend is centralised (gateway + reservations + per-provider/purpose caps) and retries are queue-governed, but circuit-breaker and rate-limit state are per-proce"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-514@v0.16": {
+   "title": "Etsy Surface Inventory",
+   "cluster": "K8",
+   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces / coverage / owner_queue",
+   "why_open": [
+    "coverage PARTIAL: the etsy.openapi_reverify job is not yet on a cadence (WIRING REQUEST to lane AUTO: worker.py CADENCES + agents/registry orchestrator allow-list)"
+   ],
+   "owning_lane": "AUTO (wiring: etsy.openapi_reverify cadence; code done by FM2)"
+  },
+  "F-629": {
+   "title": "Department Spend Governance",
+   "cluster": "K5a",
+   "producer": "src/brambleloop/finance/reservations.py",
+   "why_open": [
+    "coverage PARTIAL: Department allocation mechanism exists but is empty (no department caps set) and is post-fcb982d; promotional/cloud credits are not tracked separately from cash"
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-659": {
+   "title": "Durable Workers",
+   "cluster": "K5b",
+   "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+   "why_open": [
+    "coverage PARTIAL: Long-job checkpoints are absent (handlers restart from the beginning; resumption is at pipeline-stage granularity); lease fencing, lease renewal and the single "
+   ],
+   "owning_lane": "SPEND"
+  },
+  "F-750": {
+   "title": "Instruction-to-Topology Compiler",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/model.py (Construction flat_rows/joined_rounds/spiral_rounds, Component.grain, Hold/resumes, Seam method/at_round) -> cir/assembly.py::assemble",
+   "why_open": [
+    "coverage PARTIAL: no explicit work direction (top-down vs bottom-up), no first-class construction step order, no typed hood/pocket/band/button-band features; the s76 test 'swap b"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-751": {
+   "title": "Stitch Semantics Are First-Class",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/stitches.py (consumes/produces, LoopTarget front/back, FPDC/BPDC posts, cable crossing side, beg_star_st/star_st/end_star_st) -> cir/compiler.py::compile_cir",
+   "why_open": [
+    "coverage PARTIAL: eye/leg/base anchor relationships of star stitch are modelled only as consumes/produces counts; clusters and mosaic loop placement lack explicit structural sema"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-753": {
+   "title": "Gauge Is Product Truth",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/model.py::Gauge (stitches/rows per 10cm, stitch_type, hook_mm, yarn_weight, chains_per_10cm)",
+   "why_open": [
+    "coverage PARTIAL: no separate ribbing/border gauge on the CIR (one Gauge per CIR); apparent stitch scale in generated imagery is not measured deterministically (only a vision 'st"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-755": {
+   "title": "All-Size Parse Before Single-Size Render",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/graded.py::GradedDesign.build (every sourced size)",
+   "why_open": [
+    "coverage PARTIAL: Brambleloop graded designs are built and checked at every size, but no src path parses a purchased/graded benchmark's full size family (teardown/reader.py reads"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-756": {
+   "title": "Schematic Cross-Check",
+   "cluster": "K9",
+   "producer": "src/brambleloop/publish/schematic.py::schematic_for; publish/dimensions.py (contradiction check); cir/benchmarks.py::reconcile",
+   "why_open": [
+    "coverage PARTIAL: Brambleloop schematics are drawn from the assembly model so cannot disagree; dimensions contradictions are detected; but there is no explicit UNKNOWN/CONFLICT r"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-761": {
+   "title": "Pattern Package Completeness",
+   "cluster": "K9",
+   "producer": "src/brambleloop/publish/pdf.py (At a glance, Schematic, Materials, How much yarn, Gauge, Checking your progress, Substituting the yarn, Abbreviations, Special stitches, Instructions, Chart, Colour key, Terms and support)",
+   "why_open": [
+    "coverage PARTIAL: PDF lacks a size chart/finished-measurement-and-ease table for graded products, a construction overview section, and care/use notes where appropriate; schematic"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-762": {
+   "title": "Size Architecture",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/graded.py::GradedDesign.build; cir/grading.py (monotonic, refuse unproducible size)",
+   "why_open": [
+    "coverage PARTIAL: size matrix covers measurements, stitch counts and monotonicity; per-size yardage and schematic dimensions are not held in one machine-readable size matrix and "
+   ],
+   "owning_lane": "K9"
+  },
+  "F-763": {
+   "title": "Ease and Fit Are Explicit",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/graded.py::FitIntent",
+   "why_open": [
+    "coverage PARTIAL: FitIntent separates body from finished (finished = body + ease) in graded designs, but the PDF/listing do not print intended fit/ease and no check stops copy or"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-768": {
+   "title": "Pattern QA Must Recompute",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/reverse.py (reverse compile + diff); cir/twin.py",
+   "why_open": [
+    "coverage PARTIAL: reverse compiler independently recomputes counts/repeats from customer text and the twin recomputes dimensions; grading relationships are recomputed only in tes"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-770": {
+   "title": "Supportability Is a Product Requirement",
+   "cluster": "K9",
+   "producer": "src/brambleloop/support/department.py; support/concierge.py::version_answer; publish/pdf.py 'Terms and support'",
+   "why_open": [
+    "coverage PARTIAL: support path and version-aware answers exist; the product does not record which modifications are outside support"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-777": {
+   "title": "Evidence-Backed Listing Claims",
+   "cluster": "K9",
+   "producer": "src/brambleloop/gates/policy.py::check_listing (unsupported claims, check_proof_claims); quality/proof.py::check_claim; gates/asset_truth.check_shape_claims",
+   "why_open": [
+    "coverage PARTIAL: size, shape, material, difficulty and proof-level claims are checked; 'anti-pilling', 'machine washable', 'quick', 'reversible', 'oversized' are not each traced"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-779": {
+   "title": "Listing Conversion Is Not Product Truth",
+   "cluster": "K9",
+   "producer": "src/brambleloop/publish/brief.py (creative may select from truth, never extend)",
+   "why_open": [
+    "coverage PARTIAL: brief-subset rule covers creative; SEO title/listing-test variants are not re-checked against the brief for every variant"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-784": {
+   "title": "Similarity/Contamination Review",
+   "cluster": "K9",
+   "producer": "src/brambleloop/gates/certificate.py::specification_findings; creative/blinded.py",
+   "why_open": [
+    "coverage PARTIAL: numeric/construction comparison only vs benchmark 1; no wording or presentation comparison; not an independent agent"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-792": {
+   "title": "Independent Instruction Draft",
+   "cluster": "K9",
+   "producer": "src/brambleloop/cir/writer.py; teardown/library.py::retrieve",
+   "why_open": [
+    "coverage PARTIAL: instructions are always generated from the CIR by cir/writer.py and the library refuses writing roles; no explicit 'frozen independent spec' step for competitor"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-794": {
+   "title": "Design-Difference Ledger",
+   "cluster": "K9",
+   "producer": "src/brambleloop/creative/preengineering.py::record -> gates/originality.py::record_ledger",
+   "why_open": [
+    "coverage PARTIAL: Ledger table (benchmark_ref, learned, changed, why_better, independent_aspects, verdict) is persisted by preengineering.record and read at certify/release via l"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-795": {
+   "title": "Similarity Review Before Sale",
+   "cluster": "K9",
+   "producer": "src/brambleloop/gates/certificate.py::specification_findings",
+   "why_open": [
+    "coverage PARTIAL: numeric piece-table comparison vs benchmark 1 at certify; wording, distinctive feature combination, construction-sequence and presentation comparison absent; no"
+   ],
+   "owning_lane": "K9"
+  },
+  "F-834": {
+   "title": "Consumption Required",
+   "cluster": "K13",
+   "producer": "src/brambleloop/build2/final_proof.py::validate",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independe"
+   ],
+   "owning_lane": "END-STAGE (integrator: runtime packets on frozen RC + independent review)"
+  },
+  "F-839": {
+   "title": "Final-Head Re-Audit",
+   "cluster": "PROCESS",
+   "producer": "src/brambleloop/build2/reachability.py",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: module_reachability.json regenerated on 6f9a2f7 and a release-eligible full suite ran on 6f9a2f7; function-level re-mapping is in progress (this remap); no froz",
+    "defect recorded: closure_matrix.json basis label is stale (says 019ebf0) while reachability is 6f9a2f7"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-840": {
+   "title": "Green Suite Necessary, Not Sufficient",
+   "cluster": "PROCESS",
+   "producer": "research/final_build/aggregate.py::cap",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRATED on reachability; final_proof requires the chain and the suite together), an"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-841": {
+   "title": "Build 2 Freeze",
+   "cluster": "PROCESS",
+   "producer": null,
+   "why_open": [
+    "maturity IMPLEMENTED below target INTEGRATED"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-845": {
+   "title": "Release Candidate Freeze",
+   "cluster": "PROCESS",
+   "producer": null,
+   "why_open": [
+    "maturity IMPLEMENTED below target INTEGRATED",
+    "coverage PARTIAL: no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decision' outstanding; no candidate tag/branch beyond build2-candidate-63f2493)"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-846": {
+   "title": "Audit-Repair Loop",
+   "cluster": "PROCESS",
+   "producer": null,
+   "why_open": [
+    "maturity IMPLEMENTED below target INTEGRATED",
+    "coverage PARTIAL: the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs with regression tests -> full suite on 6f9a2f7) but not yet against a frozen candid"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-848": {
+   "title": "Shadow Rehearsal",
+   "cluster": "PROCESS",
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+   "why_open": [
+    "maturity TESTED below target INTEGRATED",
+    "coverage PARTIAL: chain legs are integrated and tested individually (release chain to shadow store.publish refusal in real processes; orders/refund truth after fb2-O; disclosed l"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-878": {
+   "title": "Launch Packet",
+   "cluster": "PROCESS",
+   "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
+   "why_open": [
+    "coverage PARTIAL: launch readiness assesses listings, owner actions, launch package (disclosure, FAQ, pricing plan, calendar, baseline, rollback rehearsal); candidate SHA, test/a"
+   ],
+   "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
+  },
+  "F-914": {
+   "title": "Owner Money Dashboard",
+   "cluster": "K15",
+   "producer": "src/brambleloop/finance/accounting/dashboard.py::summary",
+   "why_open": [
+    "coverage PARTIAL: period controls do not work: the Money tab sends ?period= but GET /api/cc/money ignores it and providers.call('accounting', db) always asks for the default 30-d"
+   ],
+   "owning_lane": "CC (wiring: /api/cc/money period)"
+  }
+ }
+}

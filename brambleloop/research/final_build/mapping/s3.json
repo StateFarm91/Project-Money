@@ -1085,19 +1085,23 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful Visual representation of any model-bearing listing",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "missing reference, missing pair, unmeasurable morphology and unsupported conditioning return unavailable/unverifiable/unproven (never 0); 'expired reference' has no explicit handling beyond superseded-pack checks",
-  "producer": "src/brambleloop/visual/identity.py::drift_check",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/identity_gate.py::trial_validity / assess",
   "durable_state": null,
-  "consumer": "src/brambleloop/visual/provider_trial.py::run",
+  "consumer": "src/brambleloop/visual/rnd/loop.py (visual.rnd.cycle); src/brambleloop/store_foundation/owner_banner.py (banner identity)",
   "protected_effect": "invalid trial never counts against a provider",
   "tests": [
+   "tests/test_model_photography.py::test_a_verdict_about_a_superseded_pack_does_not_block_a_new_identity",
+   "tests/test_model_spend_paths.py::test_a_ceiling_refusal_does_not_read_as_a_finalist_who_drifted",
    "tests/test_provider_trial.py::test_no_challenger_render_is_unproven_rather_than_a_verdict",
    "tests/test_provider_trial.py::test_the_identity_dimension_is_stated_rather_than_silently_skipped",
-   "tests/test_model_spend_paths.py::test_a_ceiling_refusal_does_not_read_as_a_finalist_who_drifted",
-   "tests/test_model_photography.py::test_a_verdict_about_a_superseded_pack_does_not_block_a_new_identity"
+   "tests/test_w3_k12_model_photography.py::test_f213_invalid_and_unmeasured_trials_are_never_a_score",
+   "tests/test_w3_k12_model_photography.py::test_f677_and_f732_rnd_door_overrides_caller_pass"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): visual/identity_gate.trial_validity (wave-3 K12): missing reference bytes, unproven conditioning (gateway.images.conditioning_receipt), an expired or superseded reference (canon manifest forbidden hashes + per-reference expires_at), a foreign reference, a missing judge pair and unmeasurable morphology make a trial INVALID/UNMEASURED with score None and counts_against_provider False. Consumed by visual/rnd/loop (visual.rnd.cycle cadence), the only path that can produce a model-bearing frame while model_photography.make is refused (F-852)"
+  ],
   "build2_rows": [
    "#201 COMPLETE+PROVEN"
   ],
@@ -1107,9 +1111,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add an explicit reference-expiry check (pack version/hash vs current frozen pack) that marks a trial INVALID in provider_trial and image_bench",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-214",
@@ -1268,16 +1272,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful Visual representation of any model-bearing listing",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "ambiguous anatomy is never auto-approved (unverifiable blocks), but there is no human review band/queue for borderline results",
-  "producer": "src/brambleloop/visual/identity.py::drift_check",
-  "durable_state": null,
-  "consumer": "src/brambleloop/publish/model_photography.py::make",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/identity_gate.py::assess / open_review / resolve / queue",
+  "durable_state": "visual_rnd_identity_reviews",
+  "consumer": "src/brambleloop/visual/rnd/loop.py (opens reviews); src/brambleloop/visual/rnd/status.py (review queue)",
   "protected_effect": "a model frame with a changed body cannot be marked usable or pass parity",
   "tests": [
-   "tests/test_model_identity.py::test_an_unreadable_observation_blocks_rather_than_passing"
+   "tests/test_model_identity.py::test_an_unreadable_observation_blocks_rather_than_passing",
+   "tests/test_w3_k12_model_photography.py::test_f219_borderline_enters_review_obvious_drift_is_refused",
+   "tests/test_w3_k12_model_photography.py::test_f219_review_queue_through_the_rnd_door"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): visual/identity_gate.assess puts every result that is neither provably her nor an obvious drift in the REVIEW band (blocks, never auto-approved); open_review persists it in visual_rnd_identity_reviews (idempotent per subject+image), resolve records a named reviewer's decision without approving publication, and queue() is read by visual/rnd/status; the R&D loop opens the reviews"
+  ],
   "build2_rows": [
    "#201 COMPLETE+PROVEN"
   ],
@@ -1287,9 +1295,9 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "Add a review_band verdict routing borderline frames to an owner/reviewer queue item instead of only blocking",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-220",

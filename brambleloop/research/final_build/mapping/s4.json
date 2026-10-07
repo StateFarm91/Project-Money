@@ -3,23 +3,29 @@
   "uid": "F-233",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); blank shop surfaces are a customer-trust and launch gate",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "check_storefront verifies announcement/About/policies/sections and only the existence of banner/icon TEXT BRIEFS; no actual icon/banner image asset, shop title/tagline, public identity, featured/ordered listings or grid coherence is checked at runtime (brand.bible.check_grid_coherence is test-only). Readiness.ready consumes it but nothing but the owner queue/audit consumes readiness.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/brand/storefront.py::check_storefront",
   "durable_state": "audit launch.assessed (AuditLog); storefront is drafted in code, not persisted",
-  "consumer": "src/brambleloop/launch/readiness.py::assess (requirement 'storefront'); src/brambleloop/commerce/trust.py::accelerator (rung shop_complete -> ads.adjust)",
+  "consumer": "src/brambleloop/launch/readiness.py::assess (requirement 'storefront' incl. storefront_gate findings); src/brambleloop/commerce/trust.py::accelerator (rung shop_complete via shop_complete_problems -> growth_ops.ads_plan)",
   "protected_effect": "launch readiness 'storefront' requirement fails and ads eligibility (trust gate) is blocked when a text surface is blank/invalid",
   "tests": [
-   "tests/test_brand.py::test_the_storefront_is_complete_before_anything_is_published",
    "tests/test_brand.py::test_an_incomplete_storefront_is_caught",
+   "tests/test_brand.py::test_the_storefront_is_complete_before_anything_is_published",
    "tests/test_shop_package.py::test_a_missing_policy_section_is_caught_by_the_storefront_check",
-   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
+   "tests/test_w4_fm2_storefront_trust.py::test_an_unevaluable_asset_gate_fails_closed",
+   "tests/test_w4_fm2_storefront_trust.py::test_launch_readiness_storefront_requirement_carries_the_asset_gate",
+   "tests/test_w4_fm2_storefront_trust.py::test_shop_complete_passes_only_when_brief_and_asset_checks_both_pass",
+   "tests/test_w4_fm2_storefront_trust.py::test_shop_complete_reads_the_asset_gate_not_the_brief",
+   "tests/test_w4_fm2_storefront_trust.py::test_the_real_gate_today_blocks_paid_traffic_on_the_owner_banner_review"
   ],
   "evidence": [
    "module_reachability: brand/storefront.py reached via dashboard -> launch/readiness.assess; in production",
    "fcb982d readiness.py:455 check_storefront(build_storefront()) -- same check deployed",
-   "research/SHOP_READINESS.md (banner_and_icon listed MANUAL_ONLY in commerce/shop_package.py)"
+   "research/SHOP_READINESS.md (banner_and_icon listed MANUAL_ONLY in commerce/shop_package.py)",
+   "w4-FM close on w4-FM2 (FM2): commerce/trust.shop_complete_problems reads store_foundation.storefront_gate (rendered icon measured at 40/70 px, the owner's canonical banner through every publication gate with UNKNOWN blocking, buyer-facing copy lint, sections, banner/announcement/grid continuity) and fails closed on a gate error; trust.accelerator (shop_complete rung -> ads) and launch/readiness 'storefront' both consume it, so a brief-only shop no longer reads complete"
   ],
   "build2_rows": [
    "#17 COMPLETE+PROVEN",
@@ -30,10 +36,10 @@
    "key": "none",
    "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "proxy-as-truth: banner/icon 'present' means a non-empty brief string (_banner_brief/_icon_brief), so the shop_complete rung and the storefront requirement pass without any image asset existing",
-  "next_action": "Extend brand/storefront.check_storefront to require produced icon/banner asset files (hash + dimensions), shop title/tagline from shop_package.shop_text, a featured/ordered opening-listing list and a runtime call of bible.check_grid_coherence over certified listings; add tests asserting a brief-only storefront fails.",
+  "defect": null,
+  "next_action": "none: the gate is built and consumed; today it blocks on the owner banner's review gates, which is the gate working",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-234",
@@ -1015,33 +1021,36 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority/spend control: prerequisites that keep paid traffic off an unfinished shop (F-875)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "ads eligibility requires owner authority, the #17 trust gate, a published listing (which requires the listing-set certificate), organic-first proof and measured allowable CAC; but the trust gate's shop_complete rung reads the brief-only storefront check, and search/attribution readiness are not prerequisites.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
   "durable_state": "OperatingReading ads.plan",
   "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust (enqueues ads.campaign only for eligible)",
   "protected_effect": "no campaign is enqueued for an ineligible product",
   "tests": [
    "tests/test_cert_growth_ops.py::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner",
+   "tests/test_cert_growth_ops.py::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate",
    "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
-   "tests/test_cert_growth_ops.py::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate"
+   "tests/test_w4_fm2_storefront_trust.py::test_ads_plan_requires_a_current_passing_search_certificate",
+   "tests/test_w4_fm2_storefront_trust.py::test_the_real_gate_today_blocks_paid_traffic_on_the_owner_banner_review"
   ],
   "evidence": [
-   "runtime/growth_ops.py not in fcb982d"
+   "runtime/growth_ops.py not in fcb982d",
+   "w4-FM close on w4-FM2 (FM2): growth_ops.ads_plan prerequisites now: owner ad authority, the #17 trust gate whose shop_complete rung reads the real storefront_gate (F-233 fixed), a published listing, the listing's stored search certificate PASS and current (F-294: tags + category + properties), measurement proven (F-297 listing_outcomes.measurement_status), organic-first proof and measured allowable CAC. The remaining step is the owner's ads SpendLimit"
   ],
   "build2_rows": [
    "#17 COMPLETE+PROVEN",
    "#242 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "ad_authority",
-   "detail": "ads SpendLimit must exist; software prerequisites can be tightened now"
+   "kind": "none",
+   "key": "none",
+   "detail": "the readiness gate is complete; running ads additionally needs the owner's ads SpendLimit (ad_authority), which the gate itself checks"
   },
-  "defect": "trust.shop_complete passes on text briefs (see F-233)",
-  "next_action": "Add search-readiness (F-294 certificate incl. tags/category) and attribution-readiness (F-297) as ads_plan prerequisites and fix the storefront proxy; tests.",
+  "defect": null,
+  "next_action": "none for the gate; ads stay blocked until the owner grants ad_authority (a prerequisite the gate enforces)",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-264",

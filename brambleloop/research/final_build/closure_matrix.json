@@ -38,20 +38,20 @@
   "unmapped": [],
   "problems": [],
   "maturity": {
-   "DEPLOYED": 209,
-   "INTEGRATED": 470,
+   "DEPLOYED": 204,
+   "INTEGRATED": 476,
    "MISSING": 109,
    "IMPLEMENTED": 56,
-   "TESTED": 55,
+   "TESTED": 54,
    "EXERCISED": 18
   },
   "maturity_claimed": {
    "EXERCISED": 120,
-   "INTEGRATED": 445,
-   "DEPLOYED": 149,
+   "INTEGRATED": 447,
+   "DEPLOYED": 148,
    "MISSING": 109,
    "IMPLEMENTED": 45,
-   "TESTED": 49
+   "TESTED": 48
   },
   "launch_class": {
    "LAUNCH-CRITICAL": 490,
@@ -59,53 +59,53 @@
    "NA": 7
   },
   "launch_critical_maturity": {
-   "DEPLOYED": 137,
-   "INTEGRATED": 294,
+   "DEPLOYED": 132,
+   "INTEGRATED": 300,
    "IMPLEMENTED": 4,
    "EXERCISED": 18,
-   "TESTED": 32,
+   "TESTED": 31,
    "MISSING": 5
   },
   "gate_kind": {
-   "none": 624,
-   "owner": 172,
+   "none": 622,
+   "owner": 173,
    "data": 83,
-   "external": 38
+   "external": 39
   },
   "launch_critical_gate_kind": {
-   "none": 361,
-   "owner": 85,
-   "external": 28,
+   "none": 359,
+   "owner": 86,
+   "external": 29,
    "data": 16
   },
   "coverage": {
-   "FULL": 377,
-   "PARTIAL": 540
+   "FULL": 383,
+   "PARTIAL": 534
   },
-  "downgraded": 145,
-  "defects": 33,
+  "downgraded": 147,
+  "defects": 30,
   "wave_reported": {
    "PARTIAL": 50,
    "DONE": 55,
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 310,
-   "GATED": 117,
+   "COMPLETE": 316,
+   "GATED": 120,
    "POST-LAUNCH": 420,
-   "OPEN": 63,
+   "OPEN": 54,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 310,
-   "GATED": 117,
-   "OPEN": 63
+   "COMPLETE": 316,
+   "GATED": 120,
+   "OPEN": 54
   },
-  "launch_critical_open": 63,
+  "launch_critical_open": 54,
   "launch_critical_open_reasons": {
-   "coverage PARTIAL": 62,
-   "defect recorded": 9,
-   "maturity TESTED": 9,
+   "coverage PARTIAL": 53,
+   "defect recorded": 6,
+   "maturity TESTED": 8,
    "maturity IMPLEMENTED": 3
   },
   "protected_action_applicability": {
@@ -7411,23 +7411,29 @@
    "uid": "F-159",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "release safety: no credential leaks",
-   "maturity": "TESTED",
-   "coverage": "PARTIAL",
-   "missing_part": "production runtime logs (Railway) are not exported into the scan before release",
-   "producer": "tests/test_secret_scan.py",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/ops/log_secret_guard.py::SecretLogGuard (+ tests/test_secret_scan.py over tracked/generated files)",
    "durable_state": null,
-   "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
-   "protected_effect": "a credential-shaped string in tracked/untracked/generated/evidence files fails the release suite",
+   "consumer": "src/brambleloop/app/access_log.py::install (app.main import); src/brambleloop/app/worker_entry.py, app/scheduler_entry.py (log_secret_guard.install at start-up)",
+   "protected_effect": "no credential reaches the production runtime log; a catch is counted by fingerprint only",
    "tests": [
     "tests/test_secret_scan.py::test_a_credential_inside_a_compressed_pdf_stream_is_found",
     "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value",
     "tests/test_secret_scan.py::test_each_credential_family_is_detected_by_its_pattern",
     "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
-    "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks"
+    "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks",
+    "tests/test_w4_fm2_log_secret_guard.py::test_a_secret_logged_by_the_service_never_reaches_the_handler",
+    "tests/test_w4_fm2_log_secret_guard.py::test_an_exception_carrying_a_secret_is_redacted_not_printed",
+    "tests/test_w4_fm2_log_secret_guard.py::test_every_service_entrypoint_installs_the_guard",
+    "tests/test_w4_fm2_log_secret_guard.py::test_patterns_are_byte_identical_to_the_release_scan",
+    "tests/test_w4_fm2_log_secret_guard.py::test_the_release_cli_fails_on_an_exported_log_window_with_a_secret"
    ],
    "evidence": [
     "RUN_6f9a2f7_full_suite.json green",
-    "w4-FM close on 8b67414 (FOLD): tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan"
+    "w4-FM close on 8b67414 (FOLD): tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan",
+    "w4-FM close on w4-FM2 (FM2): ops/log_secret_guard applies the release secret-scan patterns (byte-identical, parity-tested against tests/test_secret_scan.PATTERNS) to every record the production processes log: installed by app.access_log.install at app.main import (web), and by the worker and scheduler entrypoints; a match is redacted to its fingerprint before the line reaches the platform's log store, the record is never dropped and an unscannable record is suppressed. Its CLI scans an exported log window at release (exit 1 on a finding, unreadable = not clean)"
    ],
    "build2_rows": [],
    "gate": {
@@ -7436,11 +7442,11 @@
     "detail": "software work remains or none; nothing external blocks it"
    },
    "defect": null,
-   "next_action": "At release: export the deployed service's log window read-only and run the secret-scan patterns over it, recording the verdict beside the deploy_guard record",
+   "next_action": "none: at release, `python -m brambleloop.ops.log_secret_guard scan <exported window>` is the optional second check",
    "confidence": "HIGH",
-   "searched": " | w4-FM close on 8b67414 (FOLD)",
+   "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close",
    "slice": "s2",
-   "maturity_claimed": "TESTED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-159",
    "title": "Secret Scan Gate",
@@ -7449,11 +7455,8 @@
    "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: production runtime logs (Railway) are not exported into the scan before release"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "F",
@@ -10007,20 +10010,24 @@
    "uid": "F-213",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "truthful Visual representation of any model-bearing listing",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "missing reference, missing pair, unmeasurable morphology and unsupported conditioning return unavailable/unverifiable/unproven (never 0); 'expired reference' has no explicit handling beyond superseded-pack checks",
-   "producer": "src/brambleloop/visual/identity.py::drift_check",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/visual/identity_gate.py::trial_validity / assess",
    "durable_state": null,
-   "consumer": "src/brambleloop/visual/provider_trial.py::run",
+   "consumer": "src/brambleloop/visual/rnd/loop.py (visual.rnd.cycle); src/brambleloop/store_foundation/owner_banner.py (banner identity)",
    "protected_effect": "invalid trial never counts against a provider",
    "tests": [
+    "tests/test_model_photography.py::test_a_verdict_about_a_superseded_pack_does_not_block_a_new_identity",
+    "tests/test_model_spend_paths.py::test_a_ceiling_refusal_does_not_read_as_a_finalist_who_drifted",
     "tests/test_provider_trial.py::test_no_challenger_render_is_unproven_rather_than_a_verdict",
     "tests/test_provider_trial.py::test_the_identity_dimension_is_stated_rather_than_silently_skipped",
-    "tests/test_model_spend_paths.py::test_a_ceiling_refusal_does_not_read_as_a_finalist_who_drifted",
-    "tests/test_model_photography.py::test_a_verdict_about_a_superseded_pack_does_not_block_a_new_identity"
+    "tests/test_w3_k12_model_photography.py::test_f213_invalid_and_unmeasured_trials_are_never_a_score",
+    "tests/test_w3_k12_model_photography.py::test_f677_and_f732_rnd_door_overrides_caller_pass"
    ],
-   "evidence": [],
+   "evidence": [
+    "w4-FM close on w4-FM2 (FM2): visual/identity_gate.trial_validity (wave-3 K12): missing reference bytes, unproven conditioning (gateway.images.conditioning_receipt), an expired or superseded reference (canon manifest forbidden hashes + per-reference expires_at), a foreign reference, a missing judge pair and unmeasurable morphology make a trial INVALID/UNMEASURED with score None and counts_against_provider False. Consumed by visual/rnd/loop (visual.rnd.cycle cadence), the only path that can produce a model-bearing frame while model_photography.make is refused (F-852)"
+   ],
    "build2_rows": [
     "#201 COMPLETE+PROVEN"
    ],
@@ -10030,12 +10037,14 @@
     "detail": ""
    },
    "defect": null,
-   "next_action": "Add an explicit reference-expiry check (pack version/hash vs current frozen pack) that marks a trial INVALID in provider_trial and image_bench",
+   "next_action": "none",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s3",
    "maturity_claimed": "DEPLOYED",
-   "adjudication": [],
+   "adjudication": [
+    "producer module 'visual/identity_gate.py' absent from production fcb982d -> capped at INTEGRATED"
+   ],
    "id": "F-213",
    "title": "Identity Trial Validity",
    "version": "v0.6",
@@ -10043,10 +10052,8 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: missing reference, missing pair, unmeasurable morphology and unsupported conditioning return unavailable/unverifiable/unproven (never 0); 'expired reference' ha"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-214",
@@ -10264,17 +10271,21 @@
    "uid": "F-219",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "truthful Visual representation of any model-bearing listing",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "ambiguous anatomy is never auto-approved (unverifiable blocks), but there is no human review band/queue for borderline results",
-   "producer": "src/brambleloop/visual/identity.py::drift_check",
-   "durable_state": null,
-   "consumer": "src/brambleloop/publish/model_photography.py::make",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/visual/identity_gate.py::assess / open_review / resolve / queue",
+   "durable_state": "visual_rnd_identity_reviews",
+   "consumer": "src/brambleloop/visual/rnd/loop.py (opens reviews); src/brambleloop/visual/rnd/status.py (review queue)",
    "protected_effect": "a model frame with a changed body cannot be marked usable or pass parity",
    "tests": [
-    "tests/test_model_identity.py::test_an_unreadable_observation_blocks_rather_than_passing"
+    "tests/test_model_identity.py::test_an_unreadable_observation_blocks_rather_than_passing",
+    "tests/test_w3_k12_model_photography.py::test_f219_borderline_enters_review_obvious_drift_is_refused",
+    "tests/test_w3_k12_model_photography.py::test_f219_review_queue_through_the_rnd_door"
    ],
-   "evidence": [],
+   "evidence": [
+    "w4-FM close on w4-FM2 (FM2): visual/identity_gate.assess puts every result that is neither provably her nor an obvious drift in the REVIEW band (blocks, never auto-approved); open_review persists it in visual_rnd_identity_reviews (idempotent per subject+image), resolve records a named reviewer's decision without approving publication, and queue() is read by visual/rnd/status; the R&D loop opens the reviews"
+   ],
    "build2_rows": [
     "#201 COMPLETE+PROVEN"
    ],
@@ -10284,12 +10295,14 @@
     "detail": ""
    },
    "defect": null,
-   "next_action": "Add a review_band verdict routing borderline frames to an owner/reviewer queue item instead of only blocking",
+   "next_action": "none",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s3",
    "maturity_claimed": "DEPLOYED",
-   "adjudication": [],
+   "adjudication": [
+    "producer module 'visual/identity_gate.py' absent from production fcb982d -> capped at INTEGRATED"
+   ],
    "id": "F-219",
    "title": "Human Review Escalation Band",
    "version": "v0.6",
@@ -10297,10 +10310,8 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: ambiguous anatomy is never auto-approved (unverifiable blocks), but there is no human review band/queue for borderline results"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-220",
@@ -10914,23 +10925,29 @@
    "uid": "F-233",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); blank shop surfaces are a customer-trust and launch gate",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "check_storefront verifies announcement/About/policies/sections and only the existence of banner/icon TEXT BRIEFS; no actual icon/banner image asset, shop title/tagline, public identity, featured/ordered listings or grid coherence is checked at runtime (brand.bible.check_grid_coherence is test-only). Readiness.ready consumes it but nothing but the owner queue/audit consumes readiness.",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/brand/storefront.py::check_storefront",
    "durable_state": "audit launch.assessed (AuditLog); storefront is drafted in code, not persisted",
-   "consumer": "src/brambleloop/launch/readiness.py::assess (requirement 'storefront'); src/brambleloop/commerce/trust.py::accelerator (rung shop_complete -> ads.adjust)",
+   "consumer": "src/brambleloop/launch/readiness.py::assess (requirement 'storefront' incl. storefront_gate findings); src/brambleloop/commerce/trust.py::accelerator (rung shop_complete via shop_complete_problems -> growth_ops.ads_plan)",
    "protected_effect": "launch readiness 'storefront' requirement fails and ads eligibility (trust gate) is blocked when a text surface is blank/invalid",
    "tests": [
-    "tests/test_brand.py::test_the_storefront_is_complete_before_anything_is_published",
     "tests/test_brand.py::test_an_incomplete_storefront_is_caught",
+    "tests/test_brand.py::test_the_storefront_is_complete_before_anything_is_published",
     "tests/test_shop_package.py::test_a_missing_policy_section_is_caught_by_the_storefront_check",
-    "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+    "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
+    "tests/test_w4_fm2_storefront_trust.py::test_an_unevaluable_asset_gate_fails_closed",
+    "tests/test_w4_fm2_storefront_trust.py::test_launch_readiness_storefront_requirement_carries_the_asset_gate",
+    "tests/test_w4_fm2_storefront_trust.py::test_shop_complete_passes_only_when_brief_and_asset_checks_both_pass",
+    "tests/test_w4_fm2_storefront_trust.py::test_shop_complete_reads_the_asset_gate_not_the_brief",
+    "tests/test_w4_fm2_storefront_trust.py::test_the_real_gate_today_blocks_paid_traffic_on_the_owner_banner_review"
    ],
    "evidence": [
     "module_reachability: brand/storefront.py reached via dashboard -> launch/readiness.assess; in production",
     "fcb982d readiness.py:455 check_storefront(build_storefront()) -- same check deployed",
-    "research/SHOP_READINESS.md (banner_and_icon listed MANUAL_ONLY in commerce/shop_package.py)"
+    "research/SHOP_READINESS.md (banner_and_icon listed MANUAL_ONLY in commerce/shop_package.py)",
+    "w4-FM close on w4-FM2 (FM2): commerce/trust.shop_complete_problems reads store_foundation.storefront_gate (rendered icon measured at 40/70 px, the owner's canonical banner through every publication gate with UNKNOWN blocking, buyer-facing copy lint, sections, banner/announcement/grid continuity) and fails closed on a gate error; trust.accelerator (shop_complete rung -> ads) and launch/readiness 'storefront' both consume it, so a brief-only shop no longer reads complete"
    ],
    "build2_rows": [
     "#17 COMPLETE+PROVEN",
@@ -10941,12 +10958,12 @@
     "key": "none",
     "detail": "no external/owner/data gate on the remaining software step"
    },
-   "defect": "proxy-as-truth: banner/icon 'present' means a non-empty brief string (_banner_brief/_icon_brief), so the shop_complete rung and the storefront requirement pass without any image asset existing",
-   "next_action": "Extend brand/storefront.check_storefront to require produced icon/banner asset files (hash + dimensions), shop title/tagline from shop_package.shop_text, a featured/ordered opening-listing list and a runtime call of bible.check_grid_coherence over certified listings; add tests asserting a brief-only storefront fails.",
+   "defect": null,
+   "next_action": "none: the gate is built and consumed; today it blocks on the owner banner's review gates, which is the gate working",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s4",
-   "maturity_claimed": "DEPLOYED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-233",
    "title": "Storefront Completion Gate",
@@ -10955,11 +10972,8 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: check_storefront verifies announcement/About/policies/sections and only the existence of banner/icon TEXT BRIEFS; no actual icon/banner image asset, shop title/",
-    "defect recorded: proxy-as-truth: banner/icon 'present' means a non-empty brief string (_banner_brief/_icon_brief), so the shop_complete rung and the storefront requirement pass "
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-234",
@@ -12357,33 +12371,36 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "authority/spend control: prerequisites that keep paid traffic off an unfinished shop (F-875)",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "ads eligibility requires owner authority, the #17 trust gate, a published listing (which requires the listing-set certificate), organic-first proof and measured allowable CAC; but the trust gate's shop_complete rung reads the brief-only storefront check, and search/attribution readiness are not prerequisites.",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
    "durable_state": "OperatingReading ads.plan",
    "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust (enqueues ads.campaign only for eligible)",
    "protected_effect": "no campaign is enqueued for an ineligible product",
    "tests": [
     "tests/test_cert_growth_ops.py::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner",
+    "tests/test_cert_growth_ops.py::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate",
     "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
-    "tests/test_cert_growth_ops.py::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate"
+    "tests/test_w4_fm2_storefront_trust.py::test_ads_plan_requires_a_current_passing_search_certificate",
+    "tests/test_w4_fm2_storefront_trust.py::test_the_real_gate_today_blocks_paid_traffic_on_the_owner_banner_review"
    ],
    "evidence": [
-    "runtime/growth_ops.py not in fcb982d"
+    "runtime/growth_ops.py not in fcb982d",
+    "w4-FM close on w4-FM2 (FM2): growth_ops.ads_plan prerequisites now: owner ad authority, the #17 trust gate whose shop_complete rung reads the real storefront_gate (F-233 fixed), a published listing, the listing's stored search certificate PASS and current (F-294: tags + category + properties), measurement proven (F-297 listing_outcomes.measurement_status), organic-first proof and measured allowable CAC. The remaining step is the owner's ads SpendLimit"
    ],
    "build2_rows": [
     "#17 COMPLETE+PROVEN",
     "#242 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "ad_authority",
-    "detail": "ads SpendLimit must exist; software prerequisites can be tightened now"
+    "kind": "none",
+    "key": "none",
+    "detail": "the readiness gate is complete; running ads additionally needs the owner's ads SpendLimit (ad_authority), which the gate itself checks"
    },
-   "defect": "trust.shop_complete passes on text briefs (see F-233)",
-   "next_action": "Add search-readiness (F-294 certificate incl. tags/category) and attribution-readiness (F-297) as ads_plan prerequisites and fix the storefront proxy; tests.",
+   "defect": null,
+   "next_action": "none for the gate; ads stay blocked until the owner grants ad_authority (a prerequisite the gate enforces)",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -12394,11 +12411,8 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: ads eligibility requires owner authority, the #17 trust gate, a published listing (which requires the listing-set certificate), organic-first proof and measured",
-    "defect recorded: trust.shop_complete passes on text briefs (see F-233)"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-264",
@@ -23747,33 +23761,37 @@
    "launch_class_reason": "a production change must be reversible — safe publication/recovery",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "rollback exists for improvement promotions (monitor revert), league config, paid-media pause and a rehearsed listing withdrawal; there is no runtime path to roll back a changed live Etsy listing field because no runtime listing-update path exists",
+   "missing_part": "the restore is executed only with the owner's live write grant in a publishing phase",
    "producer": "src/brambleloop/improve/monitor.py::sweep",
    "durable_state": "improvements (reverted), incidents (improve-rollback)",
    "consumer": "src/brambleloop/runtime/release.py::handle_promotion_monitor",
    "protected_effect": "a promotion reading below its baseline is reverted automatically and an incident opened",
    "tests": [
+    "tests/test_cert_improve_wave.py::test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back",
     "tests/test_improve.py::test_a_degrading_promotion_reverts_itself_rather_than_waiting_for_agreement",
     "tests/test_improve.py::test_a_promotion_without_a_rollback_path_cannot_be_proposed",
-    "tests/test_cert_improve_wave.py::test_a_replayed_challenger_is_sandboxed_promoted_executed_and_rolled_back"
+    "tests/test_k8_listing_estate.py::test_a_title_edited_on_etsy_gets_a_defined_rollback_plan_that_is_not_executed",
+    "tests/test_k8_listing_estate.py::test_rollback_refuses_in_shadow_and_without_grant_and_records_each_refusal",
+    "tests/test_k8_listing_estate.py::test_rollback_with_every_condition_clear_restores_and_reads_back"
    ],
    "evidence": [
     "launch/rollback.py (C-80 rehearsed dry withdrawal) not in fcb982d",
-    "commerce/paid_media.py::should_pause"
+    "commerce/paid_media.py::should_pause",
+    "w4-FM close on w4-FM2 (FM2): commerce/listing_rollback (wave-3 K8): the daily etsy.listing_census attaches a rollback plan (certified value per drifted updateListing field, owner steps for inventory/state fields, remote fingerprint, stop conditions) to the drift incident; execute() sends it only past shadow, with the owner's write grant presented at execution time, against an unchanged listing, and verifies by read-back, recording every attempt as listing.lifecycle before/after rows"
    ],
    "build2_rows": [
     "#93 COMPLETE+PROVEN",
     "#54 OWNER-GATED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "",
-    "detail": ""
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "executing a live-listing rollback is a live Etsy write: it needs a publishing phase and the owner's write grant (OwnerGrant) at execution time; in shadow the plan is computed and shown, never sent"
    },
    "defect": null,
-   "next_action": "When the listing update path is built (F-544/F-548), store before-state and implement revert via EtsyClient.update_listing + readback",
+   "next_action": "owner: production window + write grant; then the attached plan is executed through listing_rollback.execute",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -23784,9 +23802,10 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: rollback exists for improvement promotions (monitor revert), league config, paid-media pause and a rehearsed listing withdrawal; there is no runtime path to rol"
+    "owner gate 'production_window'",
+    "coverage PARTIAL: the restore is executed only with the owner's live write grant in a publishing phase"
    ]
   },
   {
@@ -23882,22 +23901,28 @@
    "launch_class_reason": "Marketplace compliance / truthful owner visibility of what the system can and cannot observe on Etsy.",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "The inventory is static code (35 surfaces with verdicts/operations/scopes/evidence); it is consumed at runtime (readiness unknowns, owner queue seeding, shop/census readings) but is not served as a machine-readable endpoint, and nothing re-verifies a surface's classification when Etsy's UI/API changes. Several surfaces' UNKNOWNs (e.g. production_partners' AI question) are not in coverage()['unknowns'] and so not surfaced.",
+   "missing_part": "the etsy.openapi_reverify job is not yet on a cadence (WIRING REQUEST to lane AUTO: worker.py CADENCES + agents/registry orchestrator allow-list)",
    "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces / coverage / owner_queue",
    "durable_state": "owner_actions (etsy surface queue rows); operating_readings (shop/census)",
    "consumer": "src/brambleloop/launch/readiness.py::unknowns (dashboard); src/brambleloop/runtime/etsy_ops.py::seed_owner_queue (called by runtime/release.py launch.readiness handler)",
    "protected_effect": "surface unknowns appear as readiness unknowns; owner-only surfaces become one idempotent owner queue closed only on evidence",
    "tests": [
+    "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+    "tests/test_etsy_readback_observe.py::test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence",
     "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once",
     "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+    "tests/test_k8_shop_cx.py::test_the_inventory_is_served_with_a_channel_per_surface_and_every_named_surface",
     "tests/test_launch.py::test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today",
-    "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
-    "tests/test_etsy_readback_observe.py::test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence"
+    "tests/test_w4_fm2_surface_reverify.py::test_a_removed_operation_names_the_surface_that_cites_it",
+    "tests/test_w4_fm2_surface_reverify.py::test_an_ads_api_appearing_names_the_unsupported_surfaces",
+    "tests/test_w4_fm2_surface_reverify.py::test_the_job_stores_the_reading_opens_and_resolves_drift_and_reuses_a_fresh_reading",
+    "tests/test_w4_fm2_surface_reverify.py::test_the_served_inventory_reports_the_classification_state"
    ],
    "evidence": [
     "module_reachability: intel/etsy_surfaces.py reached via dashboard -> launch/readiness.assess -> unknowns",
     "fcb982d launch/readiness.py has no etsy_surfaces reference -> not DEPLOYED",
-    "coverage()['unknowns'] keys today: orders, search_visibility, share_and_save, taxonomy_and_attributes, webhooks"
+    "coverage()['unknowns'] keys today: orders, search_visibility, share_and_save, taxonomy_and_attributes, webhooks",
+    "w4-FM close on w4-FM2 (FM2): served at GET /api/etsy/surfaces (commerce/estate_api -> surface_inventory.served + summary, channel per surface); unknowns include every Evidence(UNKNOWN) (F-588); re-verified daily against held scopes and collector freshness (surface_inventory.reverify inside etsy.shop_snapshot); and now re-verified against Etsy's current OpenAPI document (etsy_surfaces.openapi_reverify + etsy_ops.reverify_openapi, job etsy.openapi_reverify, drift incident) with the classification state per surface on the served inventory. The job has no cadence yet (runtime/worker.py is lane AUTO's): until wired, the served inventory reports 'classification: never re-verified' -- honest, not green"
    ],
    "build2_rows": [],
    "gate": {
@@ -23906,9 +23931,9 @@
     "detail": "no external/owner/data gate on the remaining software step"
    },
    "defect": null,
-   "next_action": "Add GET /api/etsy/surfaces returning etsy_surfaces.coverage() + per-surface verdict/mode (API/browser-only/owner-only/unsupported/unknown) and include every Evidence(UNKNOWN) in coverage()['unknowns']; test via tests/test_cert_wiring-style reachability.",
+   "next_action": "Lane AUTO: add (\"etsy_openapi_reverify\", \"orchestrator\", \"etsy.openapi_reverify\", 7 * 24 * 60 * 60) to CADENCES and \"etsy.openapi_reverify\" to the orchestrator allow-list (GREEN, read-only public GET, CA$0)",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -23921,7 +23946,7 @@
    "protected_action_basis": "row names a protected_effect",
    "completion": "OPEN",
    "completion_reasons": [
-    "coverage PARTIAL: The inventory is static code (35 surfaces with verdicts/operations/scopes/evidence); it is consumed at runtime (readiness unknowns, owner queue seeding, shop/ce"
+    "coverage PARTIAL: the etsy.openapi_reverify job is not yet on a cadence (WIRING REQUEST to lane AUTO: worker.py CADENCES + agents/registry orchestrator allow-list)"
    ]
   },
   {
@@ -30461,23 +30486,26 @@
    "uid": "F-677",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "truthful listing representation: final image gate",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "Product-truth checking on generated images is a vision-model judgement (motif fidelity vs chart, inspection vs CIR claim) -- a proxy; deterministic silhouette/proportion/stitch-scale instruments that measure neckline/sleeves/dimensions exist only in research/v1grad and research/bench*, not in the runtime gate.",
-   "producer": "src/brambleloop/visual/parity.py::assess",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/visual/final_image_gate.py::evaluate (+ product_authority.structural_floor)",
    "durable_state": "audit listing.parity; listing_set certificates",
-   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+   "consumer": "src/brambleloop/visual/rnd/loop.py; src/brambleloop/visual/parity.py::assess (structural_floor); publish/listing_asset.py",
    "protected_effect": "publication refused when parity blocks release",
    "tests": [
+    "tests/test_listing_set.py::test_a_failing_gate_cannot_be_certified",
+    "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
     "tests/test_parity.py::test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it",
     "tests/test_parity.py::test_unjudged_blocks_exactly_as_a_failure_does_and_is_reported_apart_from_one",
-    "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
-    "tests/test_listing_set.py::test_a_failing_gate_cannot_be_certified"
+    "tests/test_w3_k12_model_photography.py::test_f677_and_f732_rnd_door_overrides_caller_pass",
+    "tests/test_w3_k12_model_photography.py::test_f677_final_image_gate_is_deterministic_and_the_proxy_can_only_fail"
    ],
    "evidence": [
     "BUILD_STATE.md: 'The eight-part parity gate runs on every publish attempt' in production",
     "src/brambleloop/gates/asset_truth.py::check_assets (deterministic claims vs twin)",
-    "research/VISUAL_V1_GRADUATION.md deterministic measures (research scripts only)"
+    "research/VISUAL_V1_GRADUATION.md deterministic measures (research scripts only)",
+    "w4-FM close on w4-FM2 (FM2): visual/final_image_gate.evaluate (wave-3 K12): PASS only by deterministic proof -- a qualified disclosed-render source passing the independent pixel verifier against the certified CIR (product_authority.structural_floor) and every product pixel of it unchanged in the judged image (compose.verify), bound by sha256; a vision reading can only FAIL; anything else is UNKNOWN. Consumed by the R&D loop and, via structural_floor, by parity.assess, listing_asset and model/owned photography reuse. The LLM-proxy defect is gone: the proxy can no longer approve"
    ],
    "build2_rows": [
     "#58 COMPLETE+PROVEN",
@@ -30490,14 +30518,15 @@
     "key": "none",
     "detail": "no gate on the remaining software work"
    },
-   "defect": "product-truth floor is an LLM vision proxy, not deterministic Product Truth (F-856)",
-   "next_action": "Port the deterministic silhouette/proportion/stitch-scale measures from research/v1grad into src/brambleloop/visual/ as a structural floor in model_photography/owned_photography and parity; test against the recorded failing and passing images.",
+   "defect": null,
+   "next_action": "none",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
-    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED"
+    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED",
+    "producer module 'visual/final_image_gate.py' absent from production fcb982d -> capped at INTEGRATED"
    ],
    "id": "F-677",
    "title": "Final Image Gate",
@@ -30506,11 +30535,8 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: Product-truth checking on generated images is a vision-model judgement (motif fidelity vs chart, inspection vs CIR claim) -- a proxy; deterministic silhouette/p",
-    "defect recorded: product-truth floor is an LLM vision proxy, not deterministic Product Truth (F-856)"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-678",
@@ -32962,39 +32988,43 @@
    "uid": "F-732",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "truthful imagery: exact canonical identity",
-   "maturity": "DEPLOYED",
+   "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Face and whole-person morphology are separate hard floors against the frozen pack and unmeasurable never passes; identity is judged by a vision model comparing reference and candidate (a proxy, not a biometric measure), and longitudinal drift across batches (drift_series) is not deployed.",
-   "producer": "src/brambleloop/visual/identity.py::drift_check",
+   "missing_part": "the biometric floor has no qualified embedder, so exact identity can be refused but never positively proven",
+   "producer": "src/brambleloop/visual/identity_gate.py::assess / biometric_floor",
    "durable_state": "model_identities (pinned fields)",
-   "consumer": "src/brambleloop/publish/model_photography.py::make",
+   "consumer": "src/brambleloop/visual/rnd/loop.py (visual.rnd.cycle)",
    "protected_effect": "a drifted face or body blocks the frame",
    "tests": [
+    "tests/test_cert_intel_wave2.py::test_gradual_identity_drift_across_batches_opens_an_incident",
     "tests/test_model_identity.py::test_a_perfect_face_on_a_different_body_fails",
     "tests/test_model_identity.py::test_the_two_floors_are_independent_and_neither_averages_into_the_other",
-    "tests/test_cert_intel_wave2.py::test_gradual_identity_drift_across_batches_opens_an_incident"
+    "tests/test_w3_k12_model_photography.py::test_f219_borderline_enters_review_obvious_drift_is_refused",
+    "tests/test_w3_k12_model_photography.py::test_f677_and_f732_rnd_door_overrides_caller_pass"
    ],
    "evidence": [
     "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack",
-    "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable"
+    "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable",
+    "w4-FM close on w4-FM2 (FM2): identity_gate.assess: PASS needs a valid trial on her current reference bytes, two judges reading every locked face dimension and the morphology floor as a match, and the deterministic biometric floor (cosine of face embeddings from a QUALIFIED embedder, computed in code); a similar woman can only be REVIEW or FAIL. No face-embedding model is installed or qualified, so the biometric floor is UNMEASURED and nothing passes -- and model-bearing renders are refused on the production path anyway (F-852, model_photography.make)"
    ],
    "build2_rows": [
     "#200 COMPLETE+PROVEN",
     "#201 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "none",
-    "key": "none",
-    "detail": "no gate on the remaining software work"
+    "kind": "external",
+    "key": "model_bearing_render",
+    "detail": "a positive exact-identity PASS needs a qualified face-embedding model (QUALIFIED_EMBEDDERS, a dependency + licence + qualification set) and model-bearing renders are prohibited on the production path (F-852); until then the gate holds every frame at REVIEW/FAIL"
    },
    "defect": null,
-   "next_action": "Add a deterministic face-embedding similarity (provider-neutral) beside the vision judgement as an additional floor; deploy drift_series.",
+   "next_action": "when model-bearing renders are re-authorised: qualify a face-embedding model into identity_gate.QUALIFIED_EMBEDDERS",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
-    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED"
+    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED",
+    "producer module 'visual/identity_gate.py' absent from production fcb982d -> capped at INTEGRATED"
    ],
    "id": "F-732",
    "title": "Exact Identity, Not a Similar Person",
@@ -33003,9 +33033,10 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Face and whole-person morphology are separate hard floors against the frozen pack and unmeasurable never passes; identity is judged by a vision model comparing "
+    "external gate 'model_bearing_render'",
+    "coverage PARTIAL: the biometric floor has no qualified embedder, so exact identity can be refused but never positively proven"
    ]
   },
   {
@@ -37533,19 +37564,21 @@
    "launch_class_reason": "F-831..F-850 certification contract",
    "maturity": "TESTED",
    "coverage": "PARTIAL",
-   "missing_part": "build2/final_proof.py requires a consumer/decision/effect chain bound by evidence edges before a row is REVIEWABLE, but it is an offline CLI (unreached), has never been run on real packets (no packets file or report committed), and real matrix rows lack the protected_action_applicability field it requires; aggregate.py does not check consumers at all",
+   "missing_part": "no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independent reviewer",
    "producer": "src/brambleloop/build2/final_proof.py::validate",
    "durable_state": null,
    "consumer": null,
    "protected_effect": null,
    "tests": [
+    "tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof",
     "tests/test_final_proof.py::test_each_missing_chain_stage_blocks",
     "tests/test_final_proof.py::test_required_receipt_mutations"
    ],
    "evidence": [
     "src/brambleloop/build2/final_proof.py (Codex integration 07a8c3b)",
     "research/final_build/aggregate.py (no consumer check)",
-    "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED"
+    "FINAL_BUILD_RESUME_MANIFEST.md: cluster J closure validator UNSTARTED",
+    "w4-FM close on w4-FM2 (FM2): build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)"
    ],
    "build2_rows": [],
    "gate": {
@@ -37554,9 +37587,9 @@
     "detail": "remaining work is software"
    },
    "defect": null,
-   "next_action": "Build cluster J: produce evidence packets for launch-critical rows (consumer identity + receipt), add protected_action_applicability to matrix rows, run final_proof.py --matrix closure_matrix.json on the candidate head and commit the report; add the s92 'disable a consumer -> proof reopens' test",
+   "next_action": "END-STAGE (integrator): on the frozen RC, emit packets for the launch-critical rows, run final_proof.py --matrix closure_matrix.json --reachability module_reachability.json and commit the report with the independent review",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM2 close",
    "slice": "s9",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -37570,7 +37603,7 @@
    "completion": "OPEN",
    "completion_reasons": [
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: build2/final_proof.py requires a consumer/decision/effect chain bound by evidence edges before a row is REVIEWABLE, but it is an offline CLI (unreached), has ne"
+    "coverage PARTIAL: no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independe"
    ]
   },
   {
@@ -41488,7 +41521,7 @@
    "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "the owner rejected preview v1 (wave-3 K16); preview v2 is lane STORE work and the real Etsy shop settings it should mirror need the owner's login",
+   "missing_part": "owner acceptance of preview v2 (a taste decision only the owner makes) and the live Etsy settings it mirrors (UNKNOWN until OA-A1/OA-OBS; store_foundation/live_state reads them when available)",
    "producer": "src/brambleloop/store_foundation/preview.py::render_preview (+ preview_v2.render_compare)",
    "durable_state": null,
    "consumer": "Command Center store preview route (app/command_center/api.store_preview_handler, owner-only, never cached)",
@@ -41496,19 +41529,23 @@
    "tests": [
     "tests/test_v11_store_preview.py::test_preview_shows_every_surface",
     "tests/test_v11_store_preview.py::test_unverified_frame_is_withheld_not_shown",
-    "tests/test_v11_wiring_cc.py::test_store_preview_is_owner_only_and_never_cached_or_indexed"
+    "tests/test_v11_wiring_cc.py::test_store_preview_is_owner_only_and_never_cached_or_indexed",
+    "tests/test_w3_store_ux_structure.py::test_v2_has_every_required_surface",
+    "tests/test_w3_store_ux_mobile.py::test_no_technical_jargon_above_the_fold",
+    "tests/test_w3_store_ux_mobile.py::test_fold_leads_with_product_not_process",
+    "tests/test_w3_store_ux_mobile.py::test_compare_page_shows_both_first_screens_and_metrics"
    ],
    "evidence": [
     "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "none",
-    "key": null,
-    "detail": "no owner/data/external gate on the remaining step"
+    "kind": "owner",
+    "key": "store_preview_v2_review",
+    "detail": "the owner rejected v1 on taste; v2 (store_foundation/preview_v2) answers the rejection notes and is served beside v1 -- acceptance is the owner's judgement; mirroring live settings needs OA-A1 (re-authorise) / OA-OBS (dated observation of the fields no API returns)"
    },
    "defect": null,
-   "next_action": "Lane STORE (K16): finish preview v2 to the owner's rejection notes and re-present",
+   "next_action": "Owner: review the v2 vs v1 comparison in the Command Center store preview and accept or annotate; OA-A1/OA-OBS let the preview mirror the live settings",
    "confidence": "medium",
    "searched": "w4-FM v11_map.py on 8b67414",
    "slice": "v11",
@@ -41521,9 +41558,10 @@
    "mapped_on": "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'owner'",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: the owner rejected preview v1 (wave-3 K16); preview v2 is lane STORE work and the real Etsy shop settings it should mirror need the owner's login"
+    "owner gate 'store_preview_v2_review'",
+    "coverage PARTIAL: owner acceptance of preview v2 (a taste decision only the owner makes) and the live Etsy settings it mirrors (UNKNOWN until OA-A1/OA-OBS; store_foundation/live_"
    ]
   },
   {
