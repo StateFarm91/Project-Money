@@ -3368,7 +3368,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -3380,7 +3380,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "37997da15179",
+      "release_hash": "869150010a6d",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -3555,7 +3555,7 @@
         1
        ],
        [
-        "tie",
+        "band",
         1
        ]
       ]
@@ -3566,7 +3566,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -3578,7 +3578,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "25411a7789ab",
+      "release_hash": "31ba4dcaed54",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -3607,9 +3607,8 @@
       ],
       "launch_blocked": [
        "hero: structural truth UNKNOWN",
-       "hero: 340 px legibility ['the product fills 10% of the frame at 340 px']",
        "scale: structural truth UNKNOWN",
-       "scale: 340 px legibility ['the product fills 12% of the frame at 340 px']"
+       "detail: structural truth UNKNOWN"
       ],
       "launch_scope": false,
       "assembled": true
@@ -3698,8 +3697,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -3745,7 +3744,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -3757,7 +3756,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "8a79bd978d0f",
+      "release_hash": "60b00c6897b3",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -3766,17 +3765,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
      },
-     "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
      "clearer": "COMPANY"
     }
    }
@@ -4064,7 +4079,7 @@
    "housewarming-key-basket",
    "spring-garden-kneeler"
   ],
-  "at": "2026-10-07T02:55:35+00:00",
+  "at": "2026-10-07T09:28:02+00:00",
   "detail": "PIPE2_CANDIDATES.json"
  },
  "render_rows": {
@@ -4076,7 +4091,7 @@
    "teacher-chevron-pencil-roll",
    "housewarming-key-basket"
   ],
-  "at": "2026-10-07T08:39:44+00:00",
+  "at": "2026-10-07T09:30:31+00:00",
   "detail": "RENDER_STATUS.json"
  }
 }

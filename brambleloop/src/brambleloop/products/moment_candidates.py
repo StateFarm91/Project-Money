@@ -310,15 +310,28 @@ def mothers_day_heart_tea_cosy(version: str = VERSION) -> CIR:
 # ---------------------------------------------------------------------------------------
 # 4. snowfall-advent-garland
 
-def snowfall_advent_garland(version: str = VERSION) -> CIR:
-    """Twenty-four mitten pockets, each with an afterthought thumb and a hanging tab, and a
-    chain cord threaded through the tabs.
+GARLAND_VERSION = "0.2.0"
+GARLAND_FREE_END_CM = 30.0      # cord left free at each end for tying
+GARLAND_CLEARANCE_CM = 1.0      # between neighbouring mittens hanging flat on the cord
+
+
+def snowfall_advent_garland(version: str = GARLAND_VERSION) -> CIR:
+    """Twenty-four mitten pockets, each with an afterthought thumb and a hanging loop, and a
+    chain cord threaded through the loops.
 
     A mitten is worked from the fingertip in joined rounds: increase rounds, one repeat of
-    the snowfall chart (two across), a thumb-opening round (three chains bridging three
-    skipped stitches), then a cream cuff and a slip-stitch edge. The thumb is worked into the
-    opening afterwards. Four edge stitches are held and worked up as a tab, folded into a
-    loop. The cord is a single row of slip stitch along a chain, threaded through the loops.
+    the snowfall chart (two across), a thumb-opening round (four chains bridging four
+    skipped stitches), then a cream cuff and a slip-stitch edge. The thumb's first round is
+    worked into the opening afterwards (a pick-up join, both lengths measured). Four edge
+    stitches are held and worked up as a tab whose last row is sewn to its first: a closed
+    loop above the cuff. The cord is a single row of slip stitch along a chain, threaded
+    through the loops (a threaded join: it must pass through with room).
+
+    0.2.0 (W4-CAND): in 0.1.0 the thumb's placement and the cord's threading were only in
+    notes, so the assembled garland was not derivable. They are now joins: thumb round 1
+    picked up into the mitten's opening (8 stitches into a 4-chain/4-skip opening, both
+    6.4 cm), and the cord threaded through each closed loop. The opening and the loop are
+    even so each lies flat on a stitch or row boundary.
     """
     g = _gauge("worsted")
     motif = get("snowfall")
@@ -327,8 +340,8 @@ def snowfall_advent_garland(version: str = VERSION) -> CIR:
     _disc(rows, n, "cream")
     _plain(rows, 1, n, "forest")
     _relief_band(rows, motif, n, ("forest", "cream"))
-    rows.add([Op("sc", n - 4), Op("ch", 3, spans=3), Op("sk", 3), Op("sc", 1)], n, "forest",
-             note="thumb opening: three chains bridge three skipped stitches")
+    rows.add([Op("sc", n - 5), Op("ch", 4, spans=4), Op("sk", 4), Op("sc", 1)], n, "forest",
+             note="thumb opening: four chains bridge four skipped stitches")
     thumb_round = rows.last
     _plain(rows, 2, n, "forest")
     _plain(rows, 3, n, "cream")
@@ -341,36 +354,53 @@ def snowfall_advent_garland(version: str = VERSION) -> CIR:
                     note="four stitches of the edge round, at the join")],
         note="Worked from the fingertip in one piece.")
     t = _Rows()
-    t.add([Op("sc", 6)], 6, "forest",
-          note="join forest at one corner of the thumb opening and work 3 sc along the "
-               "chain and 3 sc along the skipped stitches")
-    _plain(t, 3, 6, "forest")
-    t.add([Repeat([Op("dec")], times=3)], 3, "forest", note="draw the last 3 stitches closed")
-    thumb = Component(name="thumb", construction="joined_rounds", rows=t.rows, foundation=6,
+    t.add([Op("sc", 8)], 8, "forest",
+          note="join forest at one corner of the thumb opening and work 4 sc along the "
+               "chain and 4 sc along the skipped stitches")
+    _plain(t, 3, 8, "forest")
+    t.add([Repeat([Op("dec")], times=4)], 4, "forest", note="draw the last 4 stitches closed")
+    thumb = Component(name="thumb", construction="joined_rounds", rows=t.rows, foundation=8,
                       foundation_kind="none", make=pockets,
                       note="An afterthought thumb, worked into the thumb opening.")
     tab = _Rows()
-    for _ in range(_rounds_for(5.0, g)):
+    for _ in range(2 * _rounds_for(2.5, g)):          # even: the closed loop lies flat
         tab.add([Op("sc", 4)], 4, "cream", turning_chain=1)
     loop_tab = Component(name="loop_tab", construction="flat_rows", rows=tab.rows,
                          foundation=4, foundation_kind="none", resumes="loop_tab",
                          make=pockets, note="A short tab worked up from the held stitches.")
-    cord_len = _sts_for(24 * 11.0 + 2 * 30.0, g, 1)
+    # The spacing along the cord is derived, not typed: a mitten lying flat is half its
+    # round wide plus its thumb laid out from the side (all sc rounds), and neighbours hang
+    # clear of each other. 0.1.0 typed 11 cm, narrower than a mitten and its thumb.
+    flat_cm = (n / 2) * 10.0 / g.stitches_per_10cm + len(t.rows) * _row_cm(g)
+    pitch_cm = float(math.ceil(flat_cm + GARLAND_CLEARANCE_CM))
+    cord_len = _sts_for(pockets * pitch_cm + 2 * GARLAND_FREE_END_CM, g, 1)
     cord = Component(name="cord", construction="flat_rows",
                      rows=[Row(index=1, ops=[Op("slst", cord_len)], declared_count=cord_len,
                                color="forest", turning_chain=1)],
                      foundation=cord_len, foundation_kind="chain",
-                     note="Thread the cord through the 24 loops, spacing the mittens evenly "
-                          "and leaving about 30 cm free at each end for tying.")
+                     note=f"A chain of {cord_len} with a slip stitch in each: the cord.")
     return _sized(CIR(
         slug="snowfall-advent-garland", title="Snowfall Mitten Advent Garland",
         version=version, construction="joined_rounds", risk_class="B",
         colors={"forest": FOREST, "cream": CREAM}, gauge=g,
         materials=_two("forest", "cream", "worsted", "acrylic"),
         components=[mitten, thumb, loop_tab, cord],
-        assembly=[Seam("whipstitch", "loop_tab", "loop_tab", edge_a="top", edge_b="bottom",
-                       note="Fold each tab in half to the inside of its cuff and sew its last "
-                            "row to its first, making a loop. Repeat for all 24.")],
+        assembly=[
+            Seam("pick_up", "thumb", "mitten", edge_a="bottom", edge_b="opening",
+                 at_round=thumb_round,
+                 note="Work round 1 of each thumb into its mitten's opening: 4 sc along the "
+                      "chain, 4 sc along the skipped stitches."),
+            Seam("whipstitch", "loop_tab", "loop_tab", edge_a="top", edge_b="bottom",
+                 note=f"Sew each tab's last row to its first row, at the cuff edge on the "
+                      f"inside, making a closed loop above the cuff. Repeat for all "
+                      f"{pockets}."),
+            # The cord rests in each loop's fold (its middle rows) when the mitten hangs.
+            Seam("thread", "cord", "loop_tab", edge_a="left", edge_b="opening",
+                 at_round=len(tab.rows) // 2, spans_rounds=2,
+                 note=f"Thread the cord through the {pockets} loops, about "
+                      f"{pitch_cm:.0f} cm apart, leaving about "
+                      f"{GARLAND_FREE_END_CM:.0f} cm free at each end for tying."),
+        ],
         designer_notes=(
             f"Make {pockets} mittens, {pockets} thumbs and {pockets} tabs, and one cord. "
             f"Snowfall relief on a {motif.width}-stitch repeat, two across each mitten, "
@@ -595,9 +625,12 @@ ENGINEERING_NOTES: dict[str, str] = {
         "Seamless top-down: crown, heart band, then held halves worked as front and back "
         "skirts; the gaps between them are the spout and handle openings."),
     "snowfall-advent-garland": (
-        "24 fingertip-up mittens with afterthought thumbs and folded tab loops, threaded on "
+        "24 fingertip-up mittens with afterthought thumbs and closed tab loops, threaded on "
         "a slip-stitch cord. Numbers on the pockets are not engineered (no chart support for "
-        "numerals) and are not claimed in the title."),
+        "numerals) and are not claimed in the title. 0.2.0 (W4-CAND): the thumb is a pick-up "
+        "join into a 4-chain opening and the cord a threaded join through each loop; the "
+        "spacing along the cord is derived from a flat mitten and its thumb (15 cm, so the "
+        "cord is about 4.2 m), where 0.1.0 typed 11 cm, narrower than a mitten."),
     "housewarming-key-basket": (
         "Staggered increases so the base is round, as the brief says; the disclosed "
         "renderer draws only fully stacked (polygon) bases today (cir.geometry.corners "
@@ -610,6 +643,14 @@ ENGINEERING_NOTES: dict[str, str] = {
         "and a matching back (a grid of squares cannot be length-checked by cir.assembly), "
         "with the tulip heads as gold dc relief rows rather than bobbles (bob is an "
         "uncalibrated primitive). New motif products.motifs:tulip-trellis. Stuffed: class C."),
+    # W4-CAND (pipeline_board.pencil_roll_cir 0.2.0, W4-PIPE's builder).
+    "teacher-chevron-pencil-roll": (
+        "Brief named a single tie cord wrapped twice around the roll. A tie that long sewn to "
+        "the edge is the object's flat footprint (92 x 13 cm in 0.1.0: the tie three times "
+        "the panel), so the closure is a closed single-crochet band, about 22 cm around, "
+        "sewn by its seam to the right edge just above the pocket and slipped over the "
+        "rolled case. The band's fit around a rolled case of eight pencils is a design "
+        "estimate, not a measurement; a sample make confirms it."),
 }
 
 

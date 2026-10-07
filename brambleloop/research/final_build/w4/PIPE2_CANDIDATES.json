@@ -6,8 +6,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -69,7 +69,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -81,7 +81,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "37997da15179",
+      "release_hash": "869150010a6d",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -90,17 +90,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: first-christmas-stocking: 8 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
      },
-     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
      "clearer": "COMPANY"
     }
    }
@@ -176,8 +192,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -240,17 +256,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: mothers-day-heart-tea-cosy: 3 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
      },
-     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
      "clearer": "COMPANY"
     }
    }
@@ -261,8 +293,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -308,7 +340,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -320,7 +352,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "8a79bd978d0f",
+      "release_hash": "60b00c6897b3",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -329,17 +361,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: snowfall-advent-garland: 4 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
      },
-     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
      "clearer": "COMPANY"
     }
    }
@@ -350,8 +398,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -378,7 +426,7 @@
         1
        ],
        [
-        "tie",
+        "band",
         1
        ]
       ]
@@ -389,7 +437,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -401,7 +449,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "25411a7789ab",
+      "release_hash": "31ba4dcaed54",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -410,17 +458,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: teacher-chevron-pencil-roll: 2 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
      },
-     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
      "clearer": "COMPANY"
     }
    }
@@ -504,8 +568,8 @@
    "source": "creative",
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -560,17 +624,33 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: housewarming-key-basket: the increases neither all stack nor all stagger, so the outline is not a named shape and drawing one would be a guess (cir.geometry.corners)"
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
       ],
-      "launch_scope": false
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": false
      },
-     "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
      "clearer": "COMPANY"
     }
    }
@@ -649,8 +729,8 @@
   "first-christmas-stocking": {
    "slug": "first-christmas-stocking",
    "title": "First Christmas Fir and Star Relief Stocking",
-   "version": "0.1.0",
-   "fingerprint": "b373ef46108d",
+   "version": "0.2.0",
+   "fingerprint": "269623c122c6",
    "risk_class": "B",
    "components": [
     [
@@ -697,9 +777,9 @@
    "engineered_by": "W4-PIPE products.pipeline_board",
    "engineering_note": "W4-PIPE's design; see handoff_PIPE.md",
    "pdf": {
-    "path": "pipe2/first-christmas-stocking/first-christmas-stocking-0.1.0-US.pdf",
+    "path": "pipe2/first-christmas-stocking/first-christmas-stocking-0.2.0-US.pdf",
     "pages": 15,
-    "sha256": "4d6cb6700a917752197fd297f3e624aa856300f520b5af0707ff974c442428ed",
+    "sha256": "2ea88f33b30c35dc625f86a0ffd34d97e0c7d77245e311e55eb4a935591f5a68",
     "finished_size_cm": [
      19.2,
      22.6
@@ -712,8 +792,8 @@
    },
    "concept_board": {
     "slug": "first-christmas-stocking",
-    "version": "0.1.0",
-    "fingerprint": "b373ef46108d",
+    "version": "0.2.0",
+    "fingerprint": "269623c122c6",
     "kind": "digital_twin_render",
     "image": {
      "sha256": "5a27f4556aa582047a69595ecf9bdac5d19a9bc7e44d95a3ca9275bea5c186ca"
@@ -799,7 +879,7 @@
    "pdf": {
     "path": "pipe2/reading-nook-cable-wrap/reading-nook-cable-wrap-0.1.0-US.pdf",
     "pages": 35,
-    "sha256": "e1ec5d02752b14256156697620cac39ca84d4c72970b1dad4f94aa2512472f43",
+    "sha256": "d4f1ab45a7f05bcb3275b12650ee8f7c3287baa991c7df0a16eea3f17faf9ab0",
     "finished_size_cm": [
      47.2,
      166.7
@@ -902,7 +982,7 @@
    "pdf": {
     "path": "pipe2/mothers-day-heart-tea-cosy/mothers-day-heart-tea-cosy-0.1.0-US.pdf",
     "pages": 8,
-    "sha256": "1d703c6528798f09f1a0ed94e9088d4d20a845523a7c636bc33fb500393ea18e",
+    "sha256": "d89db1573aa1c3cccb1aa2051ba735673e2b0f33e3f08a55630eb9e65f005bec",
     "finished_size_cm": [
      19.8,
      11.1
@@ -971,8 +1051,8 @@
   "snowfall-advent-garland": {
    "slug": "snowfall-advent-garland",
    "title": "Snowfall Mitten Advent Garland",
-   "version": "0.1.0",
-   "fingerprint": "186a3aae2f74",
+   "version": "0.2.0",
+   "fingerprint": "9324fdce86b4",
    "risk_class": "B",
    "components": [
     [
@@ -997,25 +1077,25 @@
     ]
    ],
    "engineered_by": "W4-PIPE2 products.moment_candidates",
-   "engineering_note": "24 fingertip-up mittens with afterthought thumbs and folded tab loops, threaded on a slip-stitch cord. Numbers on the pockets are not engineered (no chart support for numerals) and are not claimed in the title.",
+   "engineering_note": "24 fingertip-up mittens with afterthought thumbs and closed tab loops, threaded on a slip-stitch cord. Numbers on the pockets are not engineered (no chart support for numerals) and are not claimed in the title. 0.2.0 (W4-CAND): the thumb is a pick-up join into a 4-chain opening and the cord a threaded join through each loop; the spacing along the cord is derived from a flat mitten and its thumb (15 cm, so the cord is about 4.2 m), where 0.1.0 typed 11 cm, narrower than a mitten.",
    "pdf": {
-    "path": "pipe2/snowfall-advent-garland/snowfall-advent-garland-0.1.0-US.pdf",
+    "path": "pipe2/snowfall-advent-garland/snowfall-advent-garland-0.2.0-US.pdf",
     "pages": 9,
-    "sha256": "33346d3588cc277a7fa78f531d2b6f980326e0e5ee7dee6adbb9b764300acdcf",
+    "sha256": "925a4fe03e3ed563a8572074b7fdf4a813851fd2b7a5876365d3f7174e66e2db",
     "finished_size_cm": [
      6.1,
      15.5
     ],
     "yardage_by_color": {
      "cream": 357.0,
-     "forest": 308.2
+     "forest": 307.4
     },
     "difficulty": "confident beginner"
    },
    "concept_board": {
     "slug": "snowfall-advent-garland",
-    "version": "0.1.0",
-    "fingerprint": "186a3aae2f74",
+    "version": "0.2.0",
+    "fingerprint": "9324fdce86b4",
     "kind": "digital_twin_render",
     "image": {
      "sha256": "fee3dae58e8d1fa87fce13b0e6d3c3733545b58243b707b2de39f913ab47cf64"
@@ -1070,8 +1150,8 @@
   "teacher-chevron-pencil-roll": {
    "slug": "teacher-chevron-pencil-roll",
    "title": "Chevron Pencil Roll",
-   "version": "0.1.0",
-   "fingerprint": "7843a34a9781",
+   "version": "0.2.0",
+   "fingerprint": "6c66b846da29",
    "risk_class": "A",
    "components": [
     [
@@ -1080,40 +1160,40 @@
      "flat_rows"
     ],
     [
-     "tie",
+     "band",
      1,
      "flat_rows"
     ]
    ],
    "engineered_by": "W4-PIPE products.pipeline_board",
-   "engineering_note": "W4-PIPE's design; see handoff_PIPE.md",
+   "engineering_note": "Brief named a single tie cord wrapped twice around the roll. A tie that long sewn to the edge is the object's flat footprint (92 x 13 cm in 0.1.0: the tie three times the panel), so the closure is a closed single-crochet band, about 22 cm around, sewn by its seam to the right edge just above the pocket and slipped over the rolled case. The band's fit around a rolled case of eight pencils is a design estimate, not a measurement; a sample make confirms it.",
    "pdf": {
-    "path": "pipe2/teacher-chevron-pencil-roll/teacher-chevron-pencil-roll-0.1.0-US.pdf",
-    "pages": 10,
-    "sha256": "c2b862e542510b986f116dd95211327ded34eda9c7a06df5f6c1f0f969ea748e",
+    "path": "pipe2/teacher-chevron-pencil-roll/teacher-chevron-pencil-roll-0.2.0-US.pdf",
+    "pages": 13,
+    "sha256": "dfe997a2c08fc0644fbef63acdd27e6b4e93ae79c42a67b1c2b1223d6163b9fc",
     "finished_size_cm": [
-     32.0,
-     24.4
+     25.6,
+     32.5
     ],
     "yardage_by_color": {
-     "wine": 30.0,
-     "gold": 31.2
+     "wine": 32.1,
+     "gold": 33.4
     },
     "difficulty": "confident beginner"
    },
    "concept_board": {
     "slug": "teacher-chevron-pencil-roll",
-    "version": "0.1.0",
-    "fingerprint": "7843a34a9781",
+    "version": "0.2.0",
+    "fingerprint": "6c66b846da29",
     "kind": "digital_twin_render",
     "image": {
-     "sha256": "cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f"
+     "sha256": "f4f58d19acb86c4d134dc5eadcc1ece0bc5703728b68fdef3973be8f412a3743"
     },
-    "image_ref": "sha256:cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f",
+    "image_ref": "sha256:f4f58d19acb86c4d134dc5eadcc1ece0bc5703728b68fdef3973be8f412a3743",
     "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
     "source": "W4-PIPE2 products.moment_candidates",
     "path": "pipe2/teacher-chevron-pencil-roll/concept-board.png",
-    "file_sha256": "cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f"
+    "file_sha256": "f4f58d19acb86c4d134dc5eadcc1ece0bc5703728b68fdef3973be8f412a3743"
    },
    "taste_gate_registration": {
     "registered": true,
@@ -1142,8 +1222,8 @@
     "regate_held_waiting_on": [
      "vision_model (no vision probe has succeeded)"
     ],
-    "board_for": "sha256:cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f",
-    "board_digest_for": "cc0b0622491e418ec0e88b5362b4086b9690469af816efbee15df70eac0a113f",
+    "board_for": "sha256:f4f58d19acb86c4d134dc5eadcc1ece0bc5703728b68fdef3973be8f412a3743",
+    "board_digest_for": "f4f58d19acb86c4d134dc5eadcc1ece0bc5703728b68fdef3973be8f412a3743",
     "vision_usable": false
    }
   },
@@ -1175,7 +1255,7 @@
    "pdf": {
     "path": "pipe2/heart-row-ring-pillow/heart-row-ring-pillow-0.1.0-US.pdf",
     "pages": 9,
-    "sha256": "30298c8d0953d6cf0cead690d0ea66b49a47c71d5db04f810d66b66973ddcc4f",
+    "sha256": "4d71728bd8611355204b337e4f6eb478c480b62cc79fc3786787e316f8132791",
     "finished_size_cm": [
      15.9,
      7.4
@@ -1250,7 +1330,7 @@
    "pdf": {
     "path": "pipe2/housewarming-key-basket/housewarming-key-basket-0.1.0-US.pdf",
     "pages": 7,
-    "sha256": "0b363b8f8a3b54356378111e261880861659a5648204b0e0cccd1083e9defad9",
+    "sha256": "a6eb26348ddb4d4b812615c6a259d6427982b852e93c6c1dadd97a844999a2fe",
     "finished_size_cm": [
      18.3,
      11.1
@@ -1330,7 +1410,7 @@
    "pdf": {
     "path": "pipe2/spring-garden-kneeler/spring-garden-kneeler-0.1.0-US.pdf",
     "pages": 10,
-    "sha256": "329d5dfefbbba6a6482994c2dd7f0fb99f312bdff573cbb995542c7945e629e2",
+    "sha256": "29750daae98cd243a874066727fc97c5c115d7b7448bf2ed62b99cbc5487b73a",
     "finished_size_cm": [
      38.4,
      24.6
@@ -1453,6 +1533,6 @@
   ],
   "vision_usable": false
  },
- "generated_at": "2026-10-07T02:55:35+00:00",
- "head": "ffd5eae"
+ "generated_at": "2026-10-07T09:28:02+00:00",
+ "head": "7f2e1e6"
 }
