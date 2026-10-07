@@ -314,7 +314,7 @@ def ads_plan(db, *, today: date | None = None) -> dict:
     """Every paid-media decision the rows support, and what the plan would enqueue."""
     from sqlalchemy import select
 
-    from ..commerce import first_hundred, paid_media, trust
+    from ..commerce import first_hundred, paid_media, ranking_readiness, trust
     from ..core.models import Order
     from ..scale import evidence, runrate
     from ..scale.target import USD_PER_CAD
@@ -351,6 +351,13 @@ def ads_plan(db, *, today: date | None = None) -> dict:
             reasons.append(f"trust (#17): {gate['blocking']}")
         if not listing or listing["state"] != "published":
             reasons.append("no published listing to send traffic to")
+        # F-263: search readiness per listing -- the stored search certificate (F-294, tags +
+        # category + properties) must be PASS and current for the listing as it stands.
+        search_cert = (ranking_readiness.search_certificate(db, slug, listing["version"])
+                       if listing else {"verdict": "NONE", "why": "no listing"})
+        if search_cert["verdict"] != "PASS":
+            reasons.append(f"search certificate (#294): {search_cert['verdict']}: "
+                           f"{search_cert.get('why')}")
         if not organic_gate["allowed"]:
             reasons.append(f"organic-first (#242): {organic_gate['reason']}")
         if cac["status"] != "measured" or cac.get("allowable_cac_cad", 0) <= 0:
@@ -364,6 +371,7 @@ def ads_plan(db, *, today: date | None = None) -> dict:
             "slug": slug, "price_cad": price,
             "contribution_per_visitor": cpv.get(slug, UNMEASURED),
             "organic_first": organic_gate, "allowable_cac": cac,
+            "search_certificate": search_cert["verdict"],
             "learning_window": window,
             "eligible": not reasons, "blocked_by": reasons,
         })

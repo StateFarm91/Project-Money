@@ -617,9 +617,17 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         {"content_pieces": content, "listings": len(listings)}))
 
     store_problems = check_storefront(build_storefront(db=db))
+    # F-233: the banner/icon *briefs* existing is not a storefront; the rendered icon, the
+    # owner's canonical banner through its publication gates and the copy a buyer reads are
+    # measured by store_foundation.storefront_gate (fails closed).
+    from ..commerce.trust import shop_complete_problems
+
+    store_problems = list(dict.fromkeys(
+        store_problems + [p for p in shop_complete_problems(db) if p.startswith("asset: ")]))
     out.append(_build(
         "storefront", "shop announcement, About, all five policies, the shop SEO surface "
-                      "(F-236) and the public identity (F-240) pass their checks",
+                      "(F-236), the public identity (F-240) and the rendered icon/banner and "
+                      "buyer-facing copy (F-233 storefront_gate) pass their checks",
         not store_problems, {"problems": store_problems[:8]}))
     out.extend(_storefront_items(db))
 
