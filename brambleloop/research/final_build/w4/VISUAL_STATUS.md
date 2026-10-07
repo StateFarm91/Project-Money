@@ -1,4 +1,4 @@
-# VISUAL_STATUS — W4-VISUAL (2026-10-07T01:45Z, branch `claude/w4-VISUAL`)
+# VISUAL_STATUS — W4-VISUAL (updated 2026-10-07T05:30Z, branch `claude/w4-VISUAL`)
 
 Machine-readable twin: `VISUAL_STATUS.json`. Every status below was measured on this branch
 on 2026-10-06/07; nothing is carried over from the dashboard.
@@ -25,10 +25,54 @@ independent re-derivation of their facts plus an identical redraw (`visual/galle
 | cloudline-baby-blanket | 1 | **ready** | DESIRE, SCALE, DETAIL, MATERIALS, COLOUR_CONTEXT | CONTENTS, LIFESTYLE |
 | hexagon-coaster-set | 1 | **ready** | DESIRE, SCALE, DETAIL, MATERIALS, COLOUR_CONTEXT (+ CONSTRUCTION as a supporting frame) | CONTENTS, LIFESTYLE |
 
-Not in launch scope: `harvest-table-runner`. It is in `launch0.BUILDERS` but not in
-`LAUNCH0_SLUGS`, and the renderer refuses it because its gold yarn is 39.4 RGB from its own
-raised tone, inside the contract's 40 minimum separation. Left refused. A palette change is a
-product decision, and a contract change is the integrator's call.
+## Certified gallery (F-030 / F-254): the verified frames are now in the listing-set certificate
+
+Before this change the gallery frames existed, but no certificate carried them, so
+`search_evidence.gallery` still read the certified set as hero/scale/detail only. Now
+`release_gates.disclosed_supplements` offers each verified frame to `listing_set.certify_disclosed`
+as kind `disclosed_gallery_frame`, at positions after the disclosed set. A frame is offered only
+when all of these hold:
+- it is re-rendered from the certified CIR, and its bytes are identical;
+- it re-verifies on those bytes (`launch_imagery.check_supplement`);
+- it passes `layout_qa.inspect` (text expected);
+- it is bound to the release CIR fingerprint.
+
+Its readings are ANDed into DATA_TRUTH, LAYOUT_QA and COMMERCIAL_QA, never replacing the set's
+own. The upload path (`etsy_ops.certified_images`) re-verifies each frame on its bytes and checks
+its alt text (disclosure first). `first_customer.disclosed_imagery` still requires the disclosed
+set exactly, and re-verifies any further frame. The MATERIALS card read 95% background, which
+layout QA refused as FRAME_FLAT, so it was recomposed (`gallery-frames/1.1.0`). No threshold
+was changed.
+
+Shadow runtime proof (real `gate.certify` and `assets.build` handlers, then
+`release_gates.listing_set`, then the upload path, with sockets refused). Artefacts:
+`visual/certified_gallery_proof_2026-10-07.json` and `..._baskets_2026-10-07.json`.
+
+| Product (release slug) | Certificate | Frames served by upload path | Certified jobs | Still missing → gate |
+|---|---|---|---|---|
+| market-basket-small | valid | 8 | DESIRE SCALE DETAIL ANGLE CONSTRUCTION COLOUR_CONTEXT SIZING MATERIALS | CONTENTS, LIFESTYLE |
+| market-basket-medium / -large | valid | 7 each | as small, without SIZING (each sells one size) | CONTENTS, LIFESTYLE |
+| cloudline-baby-blanket | valid | 5 | DESIRE SCALE DETAIL COLOUR_CONTEXT MATERIALS | CONTENTS, LIFESTYLE |
+| hexagon-coaster-set | valid | 5 | same | CONTENTS, LIFESTYLE |
+| **pet-snuggle-mat** (new) | valid | 5 | same | CONTENTS, LIFESTYLE |
+| **harvest-table-runner** | **refused** | 0 | (COLOUR_CONTEXT and MATERIALS verified; hero not usable) | hero and scale fail 340 px legibility (product fills 13–14%; the gate needs 25%). A 32×122 cm runner is 3.8:1, which reads as a thin strip in a square frame. **OPEN, company engineering**: a diagonal or folded hero layout, with the matching verifier un-projection. The gate is not loosened and the frame is not padded. |
+
+What unblocked pet-snuggle-mat and harvest-table-runner's renders:
+- `render_contract.relief`: gold #C49545 sat 39.4 RGB from its own raised tone. A tone inside
+  MIN_SEPARATION now steps 5% further. The minimum stays at 40, and Launch-0 tones are
+  byte-identical (tested).
+- `render_verification.authoritative_cir` now also answers from the engineered design registry
+  (`pipeline._engineered_cir`), at the builder's released version only. This applies D-FB-7 to
+  every product with a defined design, not to Launch-0 alone. Launch scope itself is unchanged.
+- `listing_asset.has_render_authority` replaces the Launch-0-only gate for disclosed renders.
+
+Status of the gallery rows:
+- F-030 / F-254: the applicable drawable jobs are certified on all 6 renderable viable releases.
+- CONTENTS has no producer yet. It is open company work: a PDF-page preview frame from
+  `publish.pdf`.
+- LIFESTYLE is OWNER-GATED: VB-1 P2, or physical sample photographs.
+- Caveat for the integrator: `commerce.search_evidence._category_for` hard-codes sizes=1 and
+  colours=1. That under-counts applicable jobs; see wiring request 7.
 
 ## Vessel ANGLE view (new, PROVEN)
 
@@ -46,7 +90,7 @@ board digest would have judged none of them. A catalogue design is now drawn fro
 verified disclosed hero. An undrawable design gets no board (fail closed). Of the 6 creative
 survivors, 3 have boards (cloudline-baby-blanket, mosaic-placemat-pair,
 valentine-heart-garland). The other 3 have none, because the palette is too close to a
-contract colour (harvest-table-runner, spooky-garland, pet-snuggle-mat). Tests:
+contract colour (harvest-table-runner, spooky-garland, pet-snuggle-mat). (Update 05:30Z: the relief-tone fix makes gold palettes renderable, and pet-snuggle-mat now has a verified hero. The boards have not been regenerated in this pass.) Tests:
 `tests/test_w4_visual_boards.py`, 3/3 passing.
 
 ## Visual R&D loop (shadow, local sqlite; `visual.rnd.loop.cycle` ×3)
@@ -59,20 +103,32 @@ contract colour (harvest-table-runner, spooky-garland, pet-snuggle-mat). Tests:
 - Status provider: DEGRADED. 5 of 8 classes have no free producer, and there is no
   marketplace evidence.
 
-## Owner decision VB-1: one approval covers Visual and Creative (not executed; CA$0 spent)
+## Owner decision VB-1: the single costed plan for paid vision and generation (not executed; CA$0 spent)
 
-**Ask:** approve one vision bundle with a ceiling of **CA$4.76**. The existing budget
-reservations enforce it. About 5 owner minutes.
+Reconciled with W4-GATESI (`GATE_CLEARANCE_INFRA.md` on `origin/claude/w4-GATESI`). There are
+three owner actions, in this order. Budget reservations (`visual.spend_plan.guard`) and the code
+cap of CA$100/month enforce every ceiling.
+
+| # | Owner action | Provider | Max CA$ | Minutes | Opens / unlocks |
+|---|---|---|---|---|---|
+| 1 | Top up Anthropic credits (console → Billing). This is OWNER_ACTIONS `fund_model`. | Anthropic | min US$5 (≈6.85); CA$25 recommended | 5 | `model_provider` **and** `image_vision` (one balance). The production probes at 00:01Z and 00:03Z failed with "credit balance is too low". |
+| 2 | Deploy W4-GATESI (fixes the `image.probe` work_dir defect). This goes in the CC deploy package and needs no spend. | — | 0 | 0 | `image_generation` evidence gate (flux-2-pro / gpt-image-2 / nano-banana-2 are credentialled; the BFL balance stays UNKNOWN until the probe runs) |
+| 3 | Approve VB-1 spend, ceiling **CA$4.76**: V0 0.75 + P1 1.00 + P2 2.00 + P3 1.01 | see rows | 4.76 | 3 | see rows |
 
 | Item | Provider/model | Calls | Max CA$ | Unlocks |
 |---|---|---|---|---|
-| V0 vision probe + concept-board judging | claude-haiku-4-5 probe (~0.009/call), claude-sonnet-5 judge (~0.03/board) | 3 probes, 11 boards ×2 | **0.75** | `vision_usable` is the precondition for: CREATIVE `needs_taste` judged on the 3 boards now (8 more once W4-PIPE writes CIRs), and MJS gallery analysis restarting (stalled since 09-24). Prereq: a working, funded production Anthropic credential. Why the probe fails in production is not verified from this lane |
-| P1 D photograph judging | gpt-5 via `d_judge` | ≤16 | **1.00** | D's 7 judged items, so D becomes a measured PASS or FAIL |
-| P2 LIFESTYLE protected composites | flux-2-pro + realism judge | 24 | **2.00** | LIFESTYLE on all 3 listings, and the first photographic E candidate |
-| P3 R&D gated queue (launch classes) | flux-2-pro | 36 | **1.01** | first judged photographic challenger per class |
+| V0 vision probe + concept-board judging | claude-haiku-4-5 probe (~0.009/call), claude-sonnet-5 judge (~0.03/board) | 3 probes, 11 boards ×2 | **0.75** | CREATIVE `needs_taste` judged; MJS gallery analysis restarts. Needs action 1 |
+| P1 D photograph judging | gpt-5-2025-08-07 via `d_judge` (**OpenAI** key, not Anthropic; OpenAI credit balance UNKNOWN) | ≤16 | **1.00** | D's 7 judged items → D measured PASS or FAIL |
+| P2 LIFESTYLE protected composites | flux-2-pro + realism judge | 24 | **2.00** | LIFESTYLE on the Launch-0 listings, plus the first photographic E candidate. Needs action 2 |
+| P3 R&D gated queue (launch classes) | flux-2-pro | 36 | **1.01** | first judged photographic challenger per class. Needs action 2 |
 | Alt (no API spend) | physical sample photo session | — | yarn ≈ 30 (estimate) | LIFESTYLE, an owned hero, and C/D ground truth |
 
-If the owner waits: D stays PARTIAL, photographic E is not started, all 3 listings lack
-LIFESTYLE, creative survivors cannot clear `needs_taste`, and MJS gallery analysis stays
-stalled.
+OWNER_ACTIONS `visual_paid_generation` lists CA$4.01, which is P1+P2+P3. V0's CA$0.75 runs on
+the Anthropic balance and is inside the same VB-1 ceiling. The two numbers describe the same
+plan.
 
+If the owner waits:
+- D stays PARTIAL (7 UNKNOWN).
+- LIFESTYLE stays missing on every listing, so F-030/F-254 keep one OWNER-GATED job.
+- Creative survivors cannot clear `needs_taste`.
+- MJS gallery analysis stays stalled.

@@ -270,7 +270,7 @@ def _category_of(slug: str) -> str:
 
 def _primary_for(slug: str):
     """(listing slug, title, primary CIR, sibling CIRs, category) for a release slug that is
-    the primary variant of a Launch-0 listing, or a single-variant catalogue product with a
+    a variant of a Launch-0 listing (siblings without SIZING), or a single-variant catalogue product with a
     render authority (`render_verification.authoritative_cir`); else None."""
     from ..products import launch0
 
@@ -278,8 +278,11 @@ def _primary_for(slug: str):
         cand, cirs, cat = _listing_parts(listing)
         if cirs[0].slug == slug:
             return listing, getattr(cand, "title", listing), cirs[0], cirs[1:], cat
-        if any(c.slug == slug for c in cirs[1:]):
-            return None   # a sibling variant: its listing's frames are the primary's
+        for c in cirs[1:]:
+            if c.slug == slug:
+                # A sibling variant released under its own slug gets the frames of its own
+                # CIR; SIZING (every size together) stays with the primary's listing.
+                return listing, getattr(cand, "title", listing), c, [], cat
     from .render_verification import authoritative_cir
 
     cir = authoritative_cir(slug)

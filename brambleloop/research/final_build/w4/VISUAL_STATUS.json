@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07T01:45Z",
+ "generated_at": "2026-10-07T05:30Z",
  "branch": "claude/w4-VISUAL",
  "lane": "W4-VISUAL",
  "stages": [
@@ -189,9 +189,36 @@
  },
  "owner_decision": {
   "id": "VB-1",
-  "ask": "Approve one Visual+Creative vision bundle, ceiling CA$4.76 (V0 0.75 + P1 1.00 + P2 2.00 + P3 1.01), enforced by the existing budget reservations",
-  "minutes": 5,
-  "consequence_of_waiting": "D stays PARTIAL, E photographic NOT_STARTED, LIFESTYLE missing on all 3 listings, creative survivors stay needs_taste (no launch clearance), MJS gallery analysis stays stalled",
-  "alt_no_api_spend": "physical sample photo session, yarn ~CA$30 (estimate)"
+  "ceiling_cad": 4.76,
+  "sequence": [
+   "Anthropic top-up (fund_model, min ~CA$6.85, rec CA$25) opens model_provider+image_vision",
+   "deploy W4-GATESI image.probe fix (CA$0)",
+   "approve VB-1 CA$4.76 (V0 0.75 Anthropic, P1 1.00 OpenAI gpt-5, P2 2.00 flux-2-pro, P3 1.01 flux-2-pro)"
+  ],
+  "executed": false,
+  "spent_cad": 0
+ },
+ "certified_gallery": {
+  "rows": [
+   "F-030",
+   "F-254"
+  ],
+  "status": "drawable jobs CERTIFIED on 6 renderable viable releases; CONTENTS OPEN (no producer: publish.pdf preview frame); LIFESTYLE OWNER-GATED (VB-1 P2 or sample photos)",
+  "mechanism": "release_gates.disclosed_supplements -> listing_set.certify_disclosed(kind disclosed_gallery_frame) -> etsy_ops.certified_images re-verifies; first_customer.disclosed_imagery re-verifies",
+  "proof": [
+   "research/final_build/w4/visual/certified_gallery_proof_2026-10-07.json",
+   "research/final_build/w4/visual/certified_gallery_proof_baskets_2026-10-07.json"
+  ],
+  "by_release": {
+   "market-basket-small": 8,
+   "market-basket-medium": 7,
+   "market-basket-large": 7,
+   "cloudline-baby-blanket": 5,
+   "hexagon-coaster-set": 5,
+   "pet-snuggle-mat": 5,
+   "harvest-table-runner": 0
+  },
+  "harvest-table-runner": "OPEN company engineering: hero/scale fill 13-14% at 340 px (gate 25%); 3.8:1 runner needs a diagonal/folded hero layout with verifier support",
+  "tests": "tests/test_w4_visual_certified_gallery.py"
  }
 }

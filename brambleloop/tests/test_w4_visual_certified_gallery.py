@@ -226,6 +226,20 @@ def test_catalogue_products_get_a_render_authority_and_verified_gallery_frames()
     assert RV.authoritative_cir("unregistered-design-no-authority") is None
 
 
+def test_a_basket_sibling_released_under_its_own_slug_gets_its_own_frames_without_sizing():
+    med = launch0.cir_for("basket_medium")
+    offer = _offer(med)
+    assert [f["job"] for f in offer["frames"]] == ["ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT",
+                                                   "MATERIALS"], offer
+    for f in offer["frames"]:
+        assert LI.check_supplement(med.slug, med.version, f["job"], f["png"])["status"] == "PASS"
+    # Its own CIR: the shape-bearing frames differ from the small basket's (MATERIALS may
+    # legitimately be identical -- same yarns, hook and gauge).
+    small = {f["job"]: f["sha256"] for f in _offer(primaries()["nursery-nesting-baskets"])["frames"]}
+    mine = {f["job"]: f["sha256"] for f in offer["frames"]}
+    assert all(mine[j] != small[j] for j in ("ANGLE", "CONSTRUCTION")), (mine, small)
+
+
 if __name__ == "__main__":
     import time
 
