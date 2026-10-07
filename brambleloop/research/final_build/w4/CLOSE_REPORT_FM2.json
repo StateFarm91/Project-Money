@@ -1,0 +1,154 @@
+{
+ "lane": "w4-FM2",
+ "written": [
+  {
+   "uid": "F-233",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "commerce/trust.shop_complete_problems reads store_foundation.storefront_gate (rendered icon measured at 40/70 px, the owner's canonical banner through every publication gate with UNKNOWN blocking, buyer-facing copy lint, sections, banner/announcement/grid continuity) and fails closed on a gate error; trust.accelerator (shop_complete rung -> ads) and launch/readiness 'storefront' both consume it, so a brief-only shop no longer reads complete",
+   "test_files": [
+    "tests/test_brand.py",
+    "tests/test_shop_package.py",
+    "tests/test_trust.py",
+    "tests/test_w4_fm2_storefront_trust.py"
+   ]
+  },
+  {
+   "uid": "F-263",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "growth_ops.ads_plan prerequisites now: owner ad authority, the #17 trust gate whose shop_complete rung reads the real storefront_gate (F-233 fixed), a published listing, the listing's stored search certificate PASS and current (F-294: tags + category + properties), measurement proven (F-297 listing_outcomes.measurement_status), organic-first proof and measured allowable CAC. The remaining step is the owner's ads SpendLimit",
+   "test_files": [
+    "tests/test_cert_growth_ops.py",
+    "tests/test_trust.py",
+    "tests/test_w4_fm2_storefront_trust.py"
+   ]
+  },
+  {
+   "uid": "F-159",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "ops/log_secret_guard applies the release secret-scan patterns (byte-identical, parity-tested against tests/test_secret_scan.PATTERNS) to every record the production processes log: installed by app.access_log.install at app.main import (web), and by the worker and scheduler entrypoints; a match is redacted to its fingerprint before the line reaches the platform's log store, the record is never dropped and an unscannable record is suppressed. Its CLI scans an exported log window at release (exit 1 on a finding, unreadable = not clean)",
+   "test_files": [
+    "tests/test_secret_scan.py",
+    "tests/test_w4_fm2_log_secret_guard.py"
+   ]
+  },
+  {
+   "uid": "F-514@v0.16",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "served at GET /api/etsy/surfaces (commerce/estate_api -> surface_inventory.served + summary, channel per surface); unknowns include every Evidence(UNKNOWN) (F-588); re-verified daily against held scopes and collector freshness (surface_inventory.reverify inside etsy.shop_snapshot); and now re-verified against Etsy's current OpenAPI document (etsy_surfaces.openapi_reverify + etsy_ops.reverify_openapi, job etsy.openapi_reverify, drift incident) with the classification state per surface on the served inventory. The job has no cadence yet (runtime/worker.py is lane AUTO's): until wired, the served inventory reports 'classification: never re-verified' -- honest, not green",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py",
+    "tests/test_k8_shop_cx.py",
+    "tests/test_launch.py",
+    "tests/test_w4_fm2_surface_reverify.py"
+   ]
+  },
+  {
+   "uid": "F-213",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "visual/identity_gate.trial_validity (wave-3 K12): missing reference bytes, unproven conditioning (gateway.images.conditioning_receipt), an expired or superseded reference (canon manifest forbidden hashes + per-reference expires_at), a foreign reference, a missing judge pair and unmeasurable morphology make a trial INVALID/UNMEASURED with score None and counts_against_provider False. Consumed by visual/rnd/loop (visual.rnd.cycle cadence), the only path that can produce a model-bearing frame while model_photography.make is refused (F-852)",
+   "test_files": [
+    "tests/test_model_photography.py",
+    "tests/test_model_spend_paths.py",
+    "tests/test_provider_trial.py",
+    "tests/test_w3_k12_model_photography.py"
+   ]
+  },
+  {
+   "uid": "F-219",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "visual/identity_gate.assess puts every result that is neither provably her nor an obvious drift in the REVIEW band (blocks, never auto-approved); open_review persists it in visual_rnd_identity_reviews (idempotent per subject+image), resolve records a named reviewer's decision without approving publication, and queue() is read by visual/rnd/status; the R&D loop opens the reviews",
+   "test_files": [
+    "tests/test_model_identity.py",
+    "tests/test_w3_k12_model_photography.py"
+   ]
+  },
+  {
+   "uid": "F-732",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "external",
+    "key": "model_bearing_render",
+    "detail": "a positive exact-identity PASS needs a qualified face-embedding model (QUALIFIED_EMBEDDERS, a dependency + licence + qualification set) and model-bearing renders are prohibited on the production path (F-852); until then the gate holds every frame at REVIEW/FAIL"
+   },
+   "checked": "identity_gate.assess: PASS needs a valid trial on her current reference bytes, two judges reading every locked face dimension and the morphology floor as a match, and the deterministic biometric floor (cosine of face embeddings from a QUALIFIED embedder, computed in code); a similar woman can only be REVIEW or FAIL. No face-embedding model is installed or qualified, so the biometric floor is UNMEASURED and nothing passes -- and model-bearing renders are refused on the production path anyway (F-852, model_photography.make)",
+   "test_files": [
+    "tests/test_cert_intel_wave2.py",
+    "tests/test_model_identity.py",
+    "tests/test_w3_k12_model_photography.py"
+   ]
+  },
+  {
+   "uid": "F-677",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "visual/final_image_gate.evaluate (wave-3 K12): PASS only by deterministic proof -- a qualified disclosed-render source passing the independent pixel verifier against the certified CIR (product_authority.structural_floor) and every product pixel of it unchanged in the judged image (compose.verify), bound by sha256; a vision reading can only FAIL; anything else is UNKNOWN. Consumed by the R&D loop and, via structural_floor, by parity.assess, listing_asset and model/owned photography reuse. The LLM-proxy defect is gone: the proxy can no longer approve",
+   "test_files": [
+    "tests/test_listing_set.py",
+    "tests/test_model_photography.py",
+    "tests/test_parity.py",
+    "tests/test_w3_k12_model_photography.py"
+   ]
+  },
+  {
+   "uid": "F-518@v0.15",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "executing a live-listing rollback is a live Etsy write: it needs a publishing phase and the owner's write grant (OwnerGrant) at execution time; in shadow the plan is computed and shown, never sent"
+   },
+   "checked": "commerce/listing_rollback (wave-3 K8): the daily etsy.listing_census attaches a rollback plan (certified value per drifted updateListing field, owner steps for inventory/state fields, remote fingerprint, stop conditions) to the drift incident; execute() sends it only past shadow, with the owner's write grant presented at execution time, against an unchanged listing, and verifies by read-back, recording every attempt as listing.lifecycle before/after rows",
+   "test_files": [
+    "tests/test_cert_improve_wave.py",
+    "tests/test_improve.py",
+    "tests/test_k8_listing_estate.py"
+   ]
+  },
+  {
+   "uid": "F-834",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "build2/final_proof.py now binds the row's named consumer (s92: the consumer receipt must name it and, with --reachability, it must be reached from a live root; disabling it reopens the proof -- tests/test_final_proof.py), and aggregate.completion refuses COMPLETE without a named producer->consumer chain (F-831). What remains is end-stage: real runtime evidence packets (run identity, observed receipts per stage) exist only from a run on the frozen release candidate, and REVIEWABLE needs an independent reviewer (self-review is refused)",
+   "test_files": [
+    "tests/test_final_proof.py"
+   ]
+  }
+ ],
+ "kept_open": [],
+ "counts": {
+  "written": 10,
+  "kept": 0,
+  "by_verdict": {
+   "COMPLETE": 6,
+   "OPEN": 2,
+   "GATED": 2
+  }
+ }
+}

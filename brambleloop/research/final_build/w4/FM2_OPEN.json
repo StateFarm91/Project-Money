@@ -1,20 +1,9 @@
 {
  "generated_by": "research/final_build/w4/fm2_open.py",
- "head": "764e334",
- "launch_critical_open": 63,
+ "head": "5bd58d7",
+ "launch_critical_open": 54,
  "fm2_owned": [
-  "F-123",
-  "F-159",
-  "F-213",
-  "F-219",
-  "F-233",
-  "F-263",
-  "F-514@v0.16",
-  "F-518@v0.15",
-  "F-677",
-  "F-732",
-  "F-834",
-  "F-926"
+  "F-123"
  ],
  "rows": {
   "F-030": {
@@ -73,16 +62,6 @@
    ],
    "owning_lane": "FM2"
   },
-  "F-159": {
-   "title": "Secret Scan Gate",
-   "cluster": "FOLD",
-   "producer": "tests/test_secret_scan.py",
-   "why_open": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: production runtime logs (Railway) are not exported into the scan before release"
-   ],
-   "owning_lane": "FM2"
-  },
   "F-169": {
    "title": "Clean-Tree Full Suite",
    "cluster": "PROCESS",
@@ -93,34 +72,6 @@
    ],
    "owning_lane": "END-STAGE (integrator: frozen RC + full suite + independent re-audit)"
   },
-  "F-213": {
-   "title": "Identity Trial Validity",
-   "cluster": "K12",
-   "producer": "src/brambleloop/visual/identity.py::drift_check",
-   "why_open": [
-    "coverage PARTIAL: missing reference, missing pair, unmeasurable morphology and unsupported conditioning return unavailable/unverifiable/unproven (never 0); 'expired reference' ha"
-   ],
-   "owning_lane": "FM2"
-  },
-  "F-219": {
-   "title": "Human Review Escalation Band",
-   "cluster": "K12",
-   "producer": "src/brambleloop/visual/identity.py::drift_check",
-   "why_open": [
-    "coverage PARTIAL: ambiguous anatomy is never auto-approved (unverifiable blocks), but there is no human review band/queue for borderline results"
-   ],
-   "owning_lane": "FM2"
-  },
-  "F-233": {
-   "title": "Storefront Completion Gate",
-   "cluster": "K2",
-   "producer": "src/brambleloop/brand/storefront.py::check_storefront",
-   "why_open": [
-    "coverage PARTIAL: check_storefront verifies announcement/About/policies/sections and only the existence of banner/icon TEXT BRIEFS; no actual icon/banner image asset, shop title/",
-    "defect recorded: proxy-as-truth: banner/icon 'present' means a non-empty brief string (_banner_brief/_icon_brief), so the shop_complete rung and the storefront requirement pass "
-   ],
-   "owning_lane": "FM2"
-  },
   "F-254": {
    "title": "Gallery Information Architecture",
    "cluster": "FOLD",
@@ -129,16 +80,6 @@
     "coverage PARTIAL: the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the"
    ],
    "owning_lane": "VISUAL (gallery frames)"
-  },
-  "F-263": {
-   "title": "Ads Launch Readiness Gate",
-   "cluster": "K2",
-   "producer": "src/brambleloop/runtime/growth_ops.py::ads_plan",
-   "why_open": [
-    "coverage PARTIAL: ads eligibility requires owner authority, the #17 trust gate, a published listing (which requires the listing-set certificate), organic-first proof and measured",
-    "defect recorded: trust.shop_complete passes on text briefs (see F-233)"
-   ],
-   "owning_lane": "FM2"
   },
   "F-304": {
    "title": "Per-Operation Cost Attribution",
@@ -308,23 +249,14 @@
    ],
    "owning_lane": "SPEND"
   },
-  "F-518@v0.15": {
-   "title": "Safe Rollback",
-   "cluster": "K8",
-   "producer": "src/brambleloop/improve/monitor.py::sweep",
-   "why_open": [
-    "coverage PARTIAL: rollback exists for improvement promotions (monitor revert), league config, paid-media pause and a rehearsed listing withdrawal; there is no runtime path to rol"
-   ],
-   "owning_lane": "FM2"
-  },
   "F-514@v0.16": {
    "title": "Etsy Surface Inventory",
    "cluster": "K8",
    "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces / coverage / owner_queue",
    "why_open": [
-    "coverage PARTIAL: The inventory is static code (35 surfaces with verdicts/operations/scopes/evidence); it is consumed at runtime (readiness unknowns, owner queue seeding, shop/ce"
+    "coverage PARTIAL: the etsy.openapi_reverify job is not yet on a cadence (WIRING REQUEST to lane AUTO: worker.py CADENCES + agents/registry orchestrator allow-list)"
    ],
-   "owning_lane": "FM2"
+   "owning_lane": "AUTO (wiring: etsy.openapi_reverify cadence; code done by FM2)"
   },
   "F-629": {
    "title": "Department Spend Governance",
@@ -343,25 +275,6 @@
     "coverage PARTIAL: Long-job checkpoints are absent (handlers restart from the beginning; resumption is at pipeline-stage granularity); lease fencing, lease renewal and the single "
    ],
    "owning_lane": "SPEND"
-  },
-  "F-677": {
-   "title": "Final Image Gate",
-   "cluster": "K12",
-   "producer": "src/brambleloop/visual/parity.py::assess",
-   "why_open": [
-    "coverage PARTIAL: Product-truth checking on generated images is a vision-model judgement (motif fidelity vs chart, inspection vs CIR claim) -- a proxy; deterministic silhouette/p",
-    "defect recorded: product-truth floor is an LLM vision proxy, not deterministic Product Truth (F-856)"
-   ],
-   "owning_lane": "FM2"
-  },
-  "F-732": {
-   "title": "Exact Identity, Not a Similar Person",
-   "cluster": "K12",
-   "producer": "src/brambleloop/visual/identity.py::drift_check",
-   "why_open": [
-    "coverage PARTIAL: Face and whole-person morphology are separate hard floors against the frozen pack and unmeasurable never passes; identity is judged by a vision model comparing "
-   ],
-   "owning_lane": "FM2"
   },
   "F-750": {
    "title": "Instruction-to-Topology Compiler",
@@ -513,9 +426,9 @@
    "producer": "src/brambleloop/build2/final_proof.py::validate",
    "why_open": [
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: build2/final_proof.py requires a consumer/decision/effect chain bound by evidence edges before a row is REVIEWABLE, but it is an offline CLI (unreached), has ne"
+    "coverage PARTIAL: no real runtime evidence packets: they come from a run on the frozen release candidate, with protected_action_applicability set per audited row and an independe"
    ],
-   "owning_lane": "FM2"
+   "owning_lane": "END-STAGE (integrator: runtime packets on frozen RC + independent review)"
   },
   "F-839": {
    "title": "Final-Head Re-Audit",
@@ -594,15 +507,6 @@
     "coverage PARTIAL: period controls do not work: the Money tab sends ?period= but GET /api/cc/money ignores it and providers.call('accounting', db) always asks for the default 30-d"
    ],
    "owning_lane": "CC (wiring: /api/cc/money period)"
-  },
-  "F-926": {
-   "title": "Store Preview Mode",
-   "cluster": "K16",
-   "producer": "src/brambleloop/store_foundation/preview.py::render_preview (+ preview_v2.render_compare)",
-   "why_open": [
-    "coverage PARTIAL: the owner rejected preview v1 (wave-3 K16); preview v2 is lane STORE work and the real Etsy shop settings it should mirror need the owner's login"
-   ],
-   "owning_lane": "FM2"
   }
  }
 }

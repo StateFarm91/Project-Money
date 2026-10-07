@@ -165,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     findings = scan_text(text)
     for line, name, fp in findings:
         print(f"FINDING line {line}: {name} {fp}")
-    print(f"{'FAIL' if findings else 'CLEAN'}: {len(findings)} finding(s) in "
+    print(f"{'SECRETS FOUND' if findings else 'CLEAN'}: {len(findings)} finding(s) in "
           f"{len(text.splitlines())} line(s)")
     return 1 if findings else 0
 

@@ -16,7 +16,12 @@ FB = HERE.parent
 ELSEWHERE = {"K5a": "SPEND", "K5b": "SPEND", "K9": "K9"}
 ROW_ELSEWHERE = {"F-030": "VISUAL (gallery frames)", "F-254": "VISUAL (gallery frames)",
                  "F-914": "CC (wiring: /api/cc/money period)",
-                 "F-416": "integrator (Dockerfile digest pinning)"}
+                 "F-416": "integrator (Dockerfile digest pinning)",
+                 # W4-FM2: the remaining step is real runtime packets on the frozen RC plus an
+                 # independent reviewer -- end-stage work, listed only.
+                 "F-834": "END-STAGE (integrator: runtime packets on frozen RC + independent "
+                          "review)",
+                 "F-514@v0.16": "AUTO (wiring: etsy.openapi_reverify cadence; code done by FM2)"}
 END_STAGE = "PROCESS"
 
 

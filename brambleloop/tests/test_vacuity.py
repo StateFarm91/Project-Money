@@ -109,6 +109,22 @@ def _root_names(node: ast.AST) -> set[str]:
         n.attr for n in ast.walk(node) if isinstance(n, ast.Attribute)}
 
 
+def _iter_roots(node: ast.AST) -> set[str]:
+    """The names an iterable is drawn from, with only the *view method* stripped (F-123).
+
+    `d.items()` reads from `d`, so the attribute `items` of a call is not a root. A variable
+    that is itself named `values`, `items` or `keys` is a root like any other: stripping the
+    bare name made `assert values` before `for v in values:` invisible, so a loop that was
+    guarded still read as vacuous (W4-FM2 regression case).
+    """
+    view_calls = {id(n.func) for n in ast.walk(node)
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                  and n.func.attr in _VIEWS}
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)} | {
+        n.attr for n in ast.walk(node)
+        if isinstance(n, ast.Attribute) and id(n) not in view_calls}
+
+
 def _written_names(loop: ast.For) -> set[str]:
     out = set()
     for n in ast.walk(loop):
@@ -175,7 +191,7 @@ def findings_in(path: Path) -> list[tuple[str, int, str, str]]:
                     continue
                 if _code_constant(loop.iter):
                     continue
-                roots = _root_names(loop.iter) - _WRAPPERS - _VIEWS - {"range", "len"}
+                roots = _iter_roots(loop.iter) - _WRAPPERS - {"range", "len"}
                 if _assert_mentions(scope, roots | _written_names(loop), loop):
                     continue
                 out.append((fname, loop.lineno, ast.unparse(loop.iter), path.name))
@@ -367,6 +383,21 @@ def test_a_non_emptiness_assertion_or_a_literal_clears_the_loop():
     ]
     for src in clean:
         assert _scan(src) == [], src
+
+
+def test_a_variable_named_like_a_view_is_still_a_root():
+    """F-123 open note: `values`/`items`/`keys` as variable names were stripped as views."""
+    for name in ("values", "items", "keys"):
+        guarded = (f"def test_v():\n    {name} = load()\n    assert {name}\n"
+                   f"    for v in {name}:\n        assert v\n")
+        assert _scan(guarded) == [], name
+        unguarded = f"def test_w():\n    {name} = load()\n    for v in {name}:\n        assert v\n"
+        assert [(f[0], f[2]) for f in _scan(unguarded)] == [("test_w", name)], name
+    # the view method itself is still not a root: `d.items()` is guarded by `assert d`
+    assert _scan("def test_d():\n    d = load()\n    assert d\n    for k, v in d.items():\n"
+                 "        assert v\n") == []
+    assert len(_scan("def test_e():\n    d = load()\n    for k, v in d.items():\n"
+                     "        assert v\n")) == 1
 
 
 def test_a_pragma_without_a_reason_does_not_exempt():

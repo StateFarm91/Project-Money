@@ -885,22 +885,25 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful listing representation: final image gate",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Product-truth checking on generated images is a vision-model judgement (motif fidelity vs chart, inspection vs CIR claim) -- a proxy; deterministic silhouette/proportion/stitch-scale instruments that measure neckline/sleeves/dimensions exist only in research/v1grad and research/bench*, not in the runtime gate.",
-  "producer": "src/brambleloop/visual/parity.py::assess",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/final_image_gate.py::evaluate (+ product_authority.structural_floor)",
   "durable_state": "audit listing.parity; listing_set certificates",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "consumer": "src/brambleloop/visual/rnd/loop.py; src/brambleloop/visual/parity.py::assess (structural_floor); publish/listing_asset.py",
   "protected_effect": "publication refused when parity blocks release",
   "tests": [
+   "tests/test_listing_set.py::test_a_failing_gate_cannot_be_certified",
+   "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
    "tests/test_parity.py::test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it",
    "tests/test_parity.py::test_unjudged_blocks_exactly_as_a_failure_does_and_is_reported_apart_from_one",
-   "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
-   "tests/test_listing_set.py::test_a_failing_gate_cannot_be_certified"
+   "tests/test_w3_k12_model_photography.py::test_f677_and_f732_rnd_door_overrides_caller_pass",
+   "tests/test_w3_k12_model_photography.py::test_f677_final_image_gate_is_deterministic_and_the_proxy_can_only_fail"
   ],
   "evidence": [
    "BUILD_STATE.md: 'The eight-part parity gate runs on every publish attempt' in production",
    "src/brambleloop/gates/asset_truth.py::check_assets (deterministic claims vs twin)",
-   "research/VISUAL_V1_GRADUATION.md deterministic measures (research scripts only)"
+   "research/VISUAL_V1_GRADUATION.md deterministic measures (research scripts only)",
+   "w4-FM close on w4-FM2 (FM2): visual/final_image_gate.evaluate (wave-3 K12): PASS only by deterministic proof -- a qualified disclosed-render source passing the independent pixel verifier against the certified CIR (product_authority.structural_floor) and every product pixel of it unchanged in the judged image (compose.verify), bound by sha256; a vision reading can only FAIL; anything else is UNKNOWN. Consumed by the R&D loop and, via structural_floor, by parity.assess, listing_asset and model/owned photography reuse. The LLM-proxy defect is gone: the proxy can no longer approve"
   ],
   "build2_rows": [
    "#58 COMPLETE+PROVEN",
@@ -913,10 +916,10 @@
    "key": "none",
    "detail": "no gate on the remaining software work"
   },
-  "defect": "product-truth floor is an LLM vision proxy, not deterministic Product Truth (F-856)",
-  "next_action": "Port the deterministic silhouette/proportion/stitch-scale measures from research/v1grad into src/brambleloop/visual/ as a structural floor in model_photography/owned_photography and parity; test against the recorded failing and passing images.",
+  "defect": null,
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-678",
@@ -2640,33 +2643,36 @@
   "launch_class_reason": "truthful imagery: exact canonical identity",
   "maturity": "EXERCISED",
   "coverage": "PARTIAL",
-  "missing_part": "Face and whole-person morphology are separate hard floors against the frozen pack and unmeasurable never passes; identity is judged by a vision model comparing reference and candidate (a proxy, not a biometric measure), and longitudinal drift across batches (drift_series) is not deployed.",
-  "producer": "src/brambleloop/visual/identity.py::drift_check",
+  "missing_part": "the biometric floor has no qualified embedder, so exact identity can be refused but never positively proven",
+  "producer": "src/brambleloop/visual/identity_gate.py::assess / biometric_floor",
   "durable_state": "model_identities (pinned fields)",
-  "consumer": "src/brambleloop/publish/model_photography.py::make",
+  "consumer": "src/brambleloop/visual/rnd/loop.py (visual.rnd.cycle)",
   "protected_effect": "a drifted face or body blocks the frame",
   "tests": [
+   "tests/test_cert_intel_wave2.py::test_gradual_identity_drift_across_batches_opens_an_incident",
    "tests/test_model_identity.py::test_a_perfect_face_on_a_different_body_fails",
    "tests/test_model_identity.py::test_the_two_floors_are_independent_and_neither_averages_into_the_other",
-   "tests/test_cert_intel_wave2.py::test_gradual_identity_drift_across_batches_opens_an_incident"
+   "tests/test_w3_k12_model_photography.py::test_f219_borderline_enters_review_obvious_drift_is_refused",
+   "tests/test_w3_k12_model_photography.py::test_f677_and_f732_rnd_door_overrides_caller_pass"
   ],
   "evidence": [
    "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack",
-   "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable"
+   "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable",
+   "w4-FM close on w4-FM2 (FM2): identity_gate.assess: PASS needs a valid trial on her current reference bytes, two judges reading every locked face dimension and the morphology floor as a match, and the deterministic biometric floor (cosine of face embeddings from a QUALIFIED embedder, computed in code); a similar woman can only be REVIEW or FAIL. No face-embedding model is installed or qualified, so the biometric floor is UNMEASURED and nothing passes -- and model-bearing renders are refused on the production path anyway (F-852, model_photography.make)"
   ],
   "build2_rows": [
    "#200 COMPLETE+PROVEN",
    "#201 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "none",
-   "key": "none",
-   "detail": "no gate on the remaining software work"
+   "kind": "external",
+   "key": "model_bearing_render",
+   "detail": "a positive exact-identity PASS needs a qualified face-embedding model (QUALIFIED_EMBEDDERS, a dependency + licence + qualification set) and model-bearing renders are prohibited on the production path (F-852); until then the gate holds every frame at REVIEW/FAIL"
   },
   "defect": null,
-  "next_action": "Add a deterministic face-embedding similarity (provider-neutral) beside the vision judgement as an additional floor; deploy drift_series.",
+  "next_action": "when model-bearing renders are re-authorised: qualify a face-embedding model into identity_gate.QUALIFIED_EMBEDDERS",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-733",

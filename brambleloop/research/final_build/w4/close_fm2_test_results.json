@@ -1,0 +1,50 @@
+{
+ "_meta": {
+  "head": "5bd58d7",
+  "runner": "close_fm2.py --run-tests (sequential)"
+ },
+ "suites": {
+  "tests/test_etsy_readback_observe.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 37,
+   "seconds": 246.5
+  },
+  "tests/test_etsy_surfaces.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 53,
+   "seconds": 0.4
+  },
+  "tests/test_k8_shop_cx.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 17,
+   "seconds": 43.7
+  },
+  "tests/test_trust.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 13,
+   "seconds": 48.9
+  },
+  "tests/test_w4_fm2_log_secret_guard.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 0.3
+  },
+  "tests/test_w4_fm2_storefront_trust.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 6,
+   "seconds": 80.9
+  },
+  "tests/test_w4_fm2_surface_reverify.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 10.1
+  }
+ }
+}

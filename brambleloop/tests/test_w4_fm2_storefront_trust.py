@@ -149,6 +149,7 @@ def test_ads_plan_requires_a_current_passing_search_certificate():
     rows = {p["slug"]: p for p in plan["products"]}
     assert set(rows) >= {"no-profile", "refused", "stale", "certified"}
     want = {"no-profile": "NONE", "refused": "REFUSED", "stale": "STALE", "certified": "PASS"}
+    assert want and rows
     for slug, verdict in want.items():
         assert rows[slug]["search_certificate"] == verdict, (slug, rows[slug])
         blocked = any(b.startswith("search certificate (#294)")

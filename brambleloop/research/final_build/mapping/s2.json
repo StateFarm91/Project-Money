@@ -2199,23 +2199,29 @@
   "uid": "F-159",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "release safety: no credential leaks",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "production runtime logs (Railway) are not exported into the scan before release",
-  "producer": "tests/test_secret_scan.py",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/log_secret_guard.py::SecretLogGuard (+ tests/test_secret_scan.py over tracked/generated files)",
   "durable_state": null,
-  "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
-  "protected_effect": "a credential-shaped string in tracked/untracked/generated/evidence files fails the release suite",
+  "consumer": "src/brambleloop/app/access_log.py::install (app.main import); src/brambleloop/app/worker_entry.py, app/scheduler_entry.py (log_secret_guard.install at start-up)",
+  "protected_effect": "no credential reaches the production runtime log; a catch is counted by fingerprint only",
   "tests": [
    "tests/test_secret_scan.py::test_a_credential_inside_a_compressed_pdf_stream_is_found",
    "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value",
    "tests/test_secret_scan.py::test_each_credential_family_is_detected_by_its_pattern",
    "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
-   "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks"
+   "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks",
+   "tests/test_w4_fm2_log_secret_guard.py::test_a_secret_logged_by_the_service_never_reaches_the_handler",
+   "tests/test_w4_fm2_log_secret_guard.py::test_an_exception_carrying_a_secret_is_redacted_not_printed",
+   "tests/test_w4_fm2_log_secret_guard.py::test_every_service_entrypoint_installs_the_guard",
+   "tests/test_w4_fm2_log_secret_guard.py::test_patterns_are_byte_identical_to_the_release_scan",
+   "tests/test_w4_fm2_log_secret_guard.py::test_the_release_cli_fails_on_an_exported_log_window_with_a_secret"
   ],
   "evidence": [
    "RUN_6f9a2f7_full_suite.json green",
-   "w4-FM close on 8b67414 (FOLD): tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan"
+   "w4-FM close on 8b67414 (FOLD): tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan",
+   "w4-FM close on w4-FM2 (FM2): ops/log_secret_guard applies the release secret-scan patterns (byte-identical, parity-tested against tests/test_secret_scan.PATTERNS) to every record the production processes log: installed by app.access_log.install at app.main import (web), and by the worker and scheduler entrypoints; a match is redacted to its fingerprint before the line reaches the platform's log store, the record is never dropped and an unscannable record is suppressed. Its CLI scans an exported log window at release (exit 1 on a finding, unreadable = not clean)"
   ],
   "build2_rows": [],
   "gate": {
@@ -2224,9 +2230,9 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "At release: export the deployed service's log window read-only and run the secret-scan patterns over it, recording the verdict beside the deploy_guard record",
+  "next_action": "none: at release, `python -m brambleloop.ops.log_secret_guard scan <exported window>` is the optional second check",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (FOLD)"
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close"
  },
  {
   "uid": "F-160",

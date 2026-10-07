@@ -1640,7 +1640,7 @@
    "reason": "release safety: no credential leaks",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-160",
@@ -2180,7 +2180,7 @@
    "reason": "truthful Visual representation of any model-bearing listing",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-214",
@@ -2240,7 +2240,7 @@
    "reason": "truthful Visual representation of any model-bearing listing",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-220",
@@ -2380,7 +2380,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); blank shop surfaces are a customer-trust and launch gate",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-234",
@@ -2682,7 +2682,7 @@
    "reason": "authority/spend control: prerequisites that keep paid traffic off an unfinished shop (F-875)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-264",
@@ -5254,7 +5254,7 @@
    "reason": "a production change must be reversible — safe publication/recovery",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-519@v0.15",
@@ -6716,7 +6716,7 @@
    "reason": "truthful listing representation: final image gate",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-678",
@@ -7266,7 +7266,7 @@
    "reason": "truthful imagery: exact canonical identity",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-733",
@@ -9218,7 +9218,7 @@
    "reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-927",
