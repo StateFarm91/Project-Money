@@ -28,6 +28,7 @@ from .asset_truth import (
 )
 from .confidence import assess
 from . import originality as _originality
+from . import spec_freeze as _spec_freeze
 from . import risk_matrix as _risk_matrix
 from .policy import (
     POLICY_VERSION, ListingDraft, check_listing, check_originality, check_text,
@@ -225,7 +226,10 @@ def certify(
                 findings.extend(t.geometry.findings)
         stages.append("geometry")
 
-    # 3. Written pattern, then an independent reverse compile of that exact text.
+    # 3. Written pattern, then an independent reverse compile of that exact text. A
+    #    competitor-informed spec is frozen first (F-792): the writer gets the CIR only.
+    if db is not None and _spec_freeze.consulted(cir):
+        _spec_freeze.freeze(db, cir)
     pattern_text = write_pattern(cir, result, terminology)
     stages.append("write")
     # The content this run examines, named before anything decides whether it is granted.
@@ -276,6 +280,7 @@ def certify(
     # Design provenance, the design-difference ledger and the similarity review against
     # every purchased benchmark (F-783, F-798, F-794, F-791, F-795): `gates/originality.py`.
     findings.extend(_originality.release_findings(cir, pattern_text=pattern_text, db=db))
+    findings.extend(_spec_freeze.findings(cir, db))
     stages.append("originality")
 
     # 4. Asset truth.

@@ -168,6 +168,52 @@ def test_presentation_is_a_similarity_dimension_read_from_the_library():
             db.engine.dispose()
 
 
+# ---- F-792 -------------------------------------------------------------------------------
+
+def test_a_competitor_informed_spec_is_frozen_before_the_writer_runs():
+    import dataclasses
+    import tempfile
+    from pathlib import Path
+
+    from brambleloop.cir.model import Provenance
+    from brambleloop.core.db import Database
+    from brambleloop.gates import spec_freeze as SF
+    from brambleloop.gates.certificate import certify
+
+    assert SF.writer_context_problems() == (), SF.writer_context_problems()
+    base = _graded()
+    informed = dataclasses.replace(base, provenance=Provenance(
+        concept_key="k9-freeze", brief_digest="d", primitives_used=("cir.graded",),
+        benchmarks_consulted=("benchmark-2-mini-star-stitch-cardigan",)))
+    own = dataclasses.replace(base, provenance=None)
+    assert SF.findings(own, None) == [] and SF.consulted(informed)
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Database("sqlite:///" + str(Path(tmp) / "k9.db"))
+        db.create_all()
+        try:
+            codes = [f.code for f in SF.findings(informed, db)]
+            assert codes == ["SPEC_NOT_FROZEN"], codes
+            # certify freezes before it writes, with the benchmark excluded from the writer.
+            cert = certify(informed, db=db)
+            assert "SPEC_NOT_FROZEN" not in {f.code for f in cert.findings}
+            history = SF.frozen(db, informed)
+            assert len(history) == 1 and history[0]["fingerprint"] == informed.fingerprint
+            assert history[0]["excluded_from_writer"] == list(SF.consulted(informed))
+            assert "cir" in history[0]["writer_inputs"]
+            # Same slug@version, different design: changed after the instructions were drafted.
+            moved = dataclasses.replace(informed, designer_notes="tweaked after the freeze")
+            assert moved.fingerprint != informed.fingerprint
+            cert2 = certify(moved, db=db)
+            assert "SPEC_CHANGED_AFTER_FREEZE" in {f.code for f in cert2.findings}
+            assert not cert2.granted
+            # A new version is a new spec.
+            bumped = dataclasses.replace(moved, version="9.9.9")
+            SF.freeze(db, bumped)
+            assert SF.findings(bumped, db) == []
+        finally:
+            db.engine.dispose()
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_")]
