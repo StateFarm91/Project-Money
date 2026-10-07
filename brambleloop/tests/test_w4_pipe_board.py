@@ -36,7 +36,10 @@ def main():
     bad = replace(pb.PROPOSALS[0], slug="w4-false-mosaic", title="Diamond Mosaic Dishcloth")
     check("false_fabric_name_refused", name_truth(pb.proposal_cir(bad)) != [])
 
-    res = pb.board(today=date(2026, 10, 7), visual=False)
+    import json
+    findings = json.loads((ROOT / "research/final_build/w4/MJS_FINDINGS.json").read_text())
+    assert findings.get("findings"), "no competitor findings on file"
+    res = pb.board(today=date(2026, 10, 7), visual=False, findings=findings)
     rows = res["candidates"]
     assert rows, "empty board"
     check("publication_never_advanced", res["advances_publication"] is False
@@ -63,6 +66,51 @@ def main():
     check("uncalibrated_stitch_is_owner_gated",
           by["heirloom-cable-blanket"]["stage"] == "PRODUCT_TRUTH"
           and by["heirloom-cable-blanket"]["clearer"] == "OWNER")
+    # Creative candidates (W4-CREATIVE briefs) sit at DESIGN with the exact engineering named.
+    creative = [r for r in rows if r["source"] == "creative"]
+    assert creative, "no creative candidates"
+    check("creative_candidates_at_design",
+          all(r["stage"] == "DESIGN" and r["highest_passed"] == "INTELLIGENCE" for r in creative),
+          [(r["slug"], r["stage"]) for r in creative])
+    check("pencil_roll_needs_assembly",
+          "assembled form" in by["teacher-chevron-pencil-roll"]["next_step"],
+          by["teacher-chevron-pencil-roll"]["next_step"])
+    # Competitor findings become intelligence candidates; answered arenas are not repeated.
+    intel = [r for r in rows if r["source"] == "intelligence"]
+    assert intel, "no intelligence candidates"
+    check("intel_candidates_cite_finding",
+          all(r["stages"]["INTELLIGENCE"]["evidence"]["finding"]["key"] == "coverage_gaps"
+              for r in intel))
+    check("answered_arena_not_repeated", "gap-kitchen-and-bath-textiles" not in by
+          and "gap-christmas-stockings" not in by)
+    check("finding_proposal_reaches_visual",
+          by["fir-star-relief-table-runner"]["highest_passed"] == "PRODUCT_TRUTH")
+    # Without the findings on file, a proposal that cites one is not evidenced.
+    bare = {r["slug"]: r for r in pb.board(today=date(2026, 10, 7), visual=False,
+                                           include_pool=False)["candidates"]}
+    check("cited_finding_missing_is_unknown",
+          bare["fir-star-relief-table-runner"]["stages"]["INTELLIGENCE"]["status"] == pb.UNKNOWN
+          and bare["fir-star-relief-table-runner"]["stage"] == "INTELLIGENCE")
+    check("no_intel_candidates_without_findings",
+          not any(r["source"] == "intelligence" for r in bare.values()))
+    check("kitchen_bundle_ready",
+          res["bundle_families"]["kitchen_texture"]["bundle_ready_for_pricing"],
+          res["bundle_families"])
+    # A pillow cover made of one front panel promises a make its CIR does not contain; the
+    # released cover (1.3.0) carries its back panel and a sound perimeter seam, so only the
+    # owner-gated stitch calibration remains.
+    from brambleloop.products import texture
+    pillow = texture.build_bobble_pillow()
+    front_only = replace(pillow, components=pillow.components[:1], assembly=[])
+    check("pillow_front_only_fails_name_truth",
+          any(n.startswith("assembly") for n in name_truth(front_only)), name_truth(front_only))
+    check("pillow_release_is_name_true", name_truth(pillow) == [] and pillow.version == "1.3.0"
+          and [c.name for c in pillow.components] == ["front", "back"], name_truth(pillow))
+    bp = by["bobble-floor-pillow"]
+    check("pillow_only_owner_calibration_remains",
+          bp["stage"] == "PRODUCT_TRUTH" and bp["clearer"] == "OWNER"
+          and bp["stages"]["PRODUCT_TRUTH"]["evidence"]["name_truth"] == [], bp["stages"].get(
+              "PRODUCT_TRUTH"))
     check("launch_scope_drafts_include_coasters",
           "hexagon-coaster-set" in pb.launch_scope_drafts())
 

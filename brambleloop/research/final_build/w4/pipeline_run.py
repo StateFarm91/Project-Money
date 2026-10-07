@@ -26,6 +26,12 @@ def md(res: dict) -> str:
          "| stage | at stage | passed |", "|---|---|---|"]
     for s in res["stages"]:
         L.append(f"| {s} | {res['at_stage'][s]} | {res['passed_stage'][s]} |")
+    L += ["", f"Competitor findings as of {res.get('findings_as_of')} (intel.findings; demand and "
+          "merchandising intelligence only).", "", "## Bundle families (mjs.findings bundle_premium)", "",
+          "| family | members | cleared Product Truth | ready to price |", "|---|---|---|---|"]
+    for fam, b in (res.get("bundle_families") or {}).items():
+        L.append(f"| {fam} | {', '.join(b['members'])} | {', '.join(b['product_truth_passed'])} | "
+                 f"{b['bundle_ready_for_pricing']} |")
     L += ["", "## Backlog", "", "| candidate | source | stage | status | next step | clearer |",
           "|---|---|---|---|---|---|"]
     order = {s: i for i, s in enumerate(res["stages"])}
@@ -44,7 +50,11 @@ def main():
     from brambleloop.products import pipeline_board as pb
 
     today = date(2026, 10, 7)
-    res = pb.board(today=today, store=ArtifactStore(), visual=not a.no_visual)
+    # The stored competitor findings (W4-MJS, intel.findings): the same payload the handler
+    # reads from the `mjs.findings` OperatingReading in a database that ran mjs.scan.
+    findings = json.loads((HERE / "MJS_FINDINGS.json").read_text())
+    res = pb.board(today=today, store=ArtifactStore(), visual=not a.no_visual,
+                   findings=findings)
     if a.chain_db:
         from brambleloop.core.db import Database
 

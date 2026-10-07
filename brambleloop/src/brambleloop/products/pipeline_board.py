@@ -59,6 +59,7 @@ class Proposal:
     yarn_weight: str = "worsted"
     pieces: int = 1
     note: str = ""
+    finding: str = ""          # intel.findings key whose observation this answers, if any
 
 
 # The pipeline's own proposals. Each names its demand basis honestly: the radar pool and
@@ -99,7 +100,38 @@ PROPOSALS: tuple[Proposal, ...] = (
              "SOURCED (pool): spooky-garland 0.682 and harvest-table-runner 0.551 carry the "
              "autumn demand; the garland fails assembly truth",
              "autumn demand in a form that needs no assembly"),
+    # Answers to the competitor findings (intel.findings, W4-MJS): demand and merchandising
+    # intelligence only -- counts and shares about a category, never a competitor's design.
+    Proposal("fir-star-relief-table-runner", "Fir and Star Relief Table Runner",
+             "fir-and-star", "nordic", 32.0, 120.0, "runner", ("fir", "star"), "christmas",
+             "SOURCED (mjs.findings seasonality): Christmas is inside the buying window and the "
+             "benchmark's seasonal shelf is stockings and ornaments only; a table piece is an "
+             "open Christmas form",
+             "Christmas demand now, in a flat relief the tiler, renderer and verifier draw",
+             finding="seasonality"),
+    Proposal("basketweave-textured-hand-towel", "Basketweave Textured Hand Towel",
+             "basketweave", "cloudline", 30.0, 45.0, "towel", ("basketweave",), None,
+             "SOURCED (mjs.findings coverage_gaps): 'Kitchen and bath textiles' is an uncovered "
+             "benchmark arena; demand per listing there is a favourites proxy, not sales",
+             "the third kitchen-and-bath texture, so the family can carry a priced bundle "
+             "(mjs.findings bundle_premium)", finding="coverage_gaps"),
 )
+
+# Benchmark arenas (intel.coverage via mjs.findings) the board already answers with a
+# candidate; an arena not listed here becomes an INTELLIGENCE candidate awaiting a brief.
+ARENA_ANSWERS: dict[str, tuple[str, ...]] = {
+    "Kitchen and bath textiles": ("diamond-lattice-dishcloth", "basketweave-textured-washcloth",
+                                  "basketweave-textured-hand-towel"),
+    "Christmas stockings": ("first-christmas-stocking",),
+    "Multi-pattern collections and ebooks": ("diamond-lattice-dishcloth",),  # BUNDLE_FAMILIES
+}
+# Launch families that should carry a priced bundle from day one (mjs.findings bundle_premium).
+BUNDLE_FAMILIES: dict[str, tuple[str, ...]] = {
+    "kitchen_texture": ("diamond-lattice-dishcloth", "basketweave-textured-washcloth",
+                        "basketweave-textured-hand-towel", "mosaic-placemat-pair"),
+    "table_runners": ("heart-relief-table-runner", "pumpkin-relief-table-runner",
+                      "fir-star-relief-table-runner"),
+}
 
 
 def proposal_cir(p: Proposal, version: str = "0.1.0"):
@@ -131,7 +163,7 @@ def proposal_cir(p: Proposal, version: str = "0.1.0"):
 class Candidate:
     slug: str
     title: str
-    source: str                       # radar_pool | catalogue | launch0 | proposal
+    source: str                       # radar_pool|catalogue|launch0|proposal|creative|intelligence
     stages: dict[str, dict] = field(default_factory=dict)
 
     def set(self, stage: str, status: str, evidence: Any, next_step: str = "",
@@ -174,12 +206,30 @@ def _cir_for(slug: str, source: str):
     return _engineered_cir(slug)
 
 
-def _intelligence(c: Candidate, scored: dict, proposal: Proposal | None) -> None:
+def _finding_ref(findings: dict | None, key: str) -> dict | None:
+    for f in (findings or {}).get("findings") or []:
+        if f.get("key") == key:
+            return {"key": key, "statement": f.get("statement"),
+                    "confidence": f.get("confidence"), "opportunity": f.get("opportunity")}
+    return None
+
+
+def _intelligence(c: Candidate, scored: dict, proposal: Proposal | None,
+                  findings: dict | None = None) -> None:
     if proposal is not None:
         basis = proposal.demand_basis.split(":", 1)[0].split()[0]
-        c.set("INTELLIGENCE", PASS if basis in ("SOURCED", "DERIVED", "ESTIMATED") else UNKNOWN,
-              {"demand_basis": proposal.demand_basis, "rationale": proposal.rationale},
-              "measure demand once the shop has search data (DATA)", "DATA")
+        ev = {"demand_basis": proposal.demand_basis, "rationale": proposal.rationale}
+        status = PASS if basis in ("SOURCED", "DERIVED", "ESTIMATED") else UNKNOWN
+        if proposal.finding:
+            ref = _finding_ref(findings, proposal.finding)
+            ev["finding"] = ref
+            if ref is None:
+                # A demand case that cites a finding the board cannot read is not evidence.
+                status = UNKNOWN
+        c.set("INTELLIGENCE", status, ev,
+              "measure demand once the shop has search data (DATA)" if status == PASS else
+              "refresh intel.findings (mjs.findings) so the cited observation is on file",
+              "DATA")
         return
     sc = scored.get(c.slug)
     if sc is not None:
@@ -249,9 +299,14 @@ def _product_and_truth(c: Candidate) -> None:
            "certificate_errors": errs, "name_truth": names,
            "compile_warnings": len(result.warnings)},
           ("" if ok else
-           "a pattern tester works the new stitch (physical calibration)" if physical else
-           "rename to what the fabric makes or change the CIR (new version)"),
-          "OWNER" if physical else "COMPANY")
+           "; ".join(x for x in (
+               "rename to what the fabric makes or change the CIR (new version)"
+               if (names or not physical) else "",
+               "a pattern tester works the new stitch (physical calibration)"
+               if physical else "") if x)),
+          # Company work is never reported as somebody else's: a name the pattern does not
+          # back is the company's to fix even while a stitch also awaits a tester.
+          "OWNER" if physical and not names else "COMPANY")
 
 
 def _visual(c: Candidate, store) -> None:
@@ -322,8 +377,86 @@ def _search(c: Candidate, proposal: Proposal | None, scored: dict) -> None:
                                      "read access (EXTERNAL), then listing.seo", "EXTERNAL")
 
 
+# Constructions the deterministic builder makes today (flat rows of one colour per row).
+BUILDER_CONSTRUCTIONS = ("flat_rows",)
+
+
+def creative_candidates() -> list[Candidate]:
+    """W4-CREATIVE's moment-first concepts, carried to the stage their engineering allows.
+
+    INTELLIGENCE is the creative brief (validated by `creative.emotional_brief`; a refused
+    brief stops there). DESIGN needs a deterministic CIR; none of these has one yet, and the
+    stage says exactly what has to be engineered -- a construction the builder does not make,
+    or an assembled form (pocket fold, tie, closing seam) a flat panel cannot honestly carry.
+    """
+    from ..creative import emotional_brief as eb
+    from . import launch0
+
+    concepts, refused = eb.candidate_concepts()
+    ok = {k.key for k in concepts}
+    out: list[Candidate] = []
+    for raw in eb.NEW_CANDIDATES:
+        brief = raw["brief"]
+        c = Candidate(slug=raw["key"], title=brief.title, source="creative")
+        if raw["key"] in refused:
+            c.set("INTELLIGENCE", FAIL, {"brief_refused": refused[raw["key"]][:3]},
+                  "W4-CREATIVE: repair the brief")
+            out.append(c)
+            continue
+        c.set("INTELLIGENCE", PASS, {"premise": brief.premise, "function": brief.function,
+                                     "occasion": brief.occasion, "pod": raw["pod"],
+                                     "demand_basis": "ESTIMATED: creative brief; demand is "
+                                                     "unmeasured until the shop has search data",
+                                     "concept_accepted": raw["key"] in ok})
+        named = [f for f in launch0.ASSEMBLED_FORMS if f in brief.title.lower()]
+        if raw["construction"] not in BUILDER_CONSTRUCTIONS:
+            nxt = (f"engineer a {raw['construction']} builder for a {raw['form']} "
+                   f"({raw['motif']}, {raw['palette_story']}); the products.builder tiler makes "
+                   "flat rows only")
+        elif named:
+            nxt = (f"the title names an assembled form ({named[0]!r}): engineer the extra "
+                   "components and named-edge Seams in cir.assembly (pocket fold, tie cord); a "
+                   "flat panel under this name fails name truth")
+        else:
+            nxt = "build it as a products.builder Design proposal"
+        c.set("DESIGN", NOT_RUN, {"construction": raw["construction"], "form": raw["form"],
+                                  "motif": raw["motif"], "assembled_form_named": named},
+              nxt)
+        out.append(c)
+    return out
+
+
+def intelligence_candidates(findings: dict | None, answered: set[str]) -> list[Candidate]:
+    """Benchmark arenas with no Brambleloop answer, from the stored competitor findings.
+
+    Demand and merchandising intelligence only: the candidate carries the arena name, the
+    finding's statement and its confidence grade, never a competitor's design. An arena the
+    board already answers (ARENA_ANSWERS with a live candidate) is not repeated.
+    """
+    ref = _finding_ref(findings, "coverage_gaps")
+    if ref is None:
+        return []
+    f = next(x for x in findings["findings"] if x.get("key") == "coverage_gaps")
+    pods = (_finding_ref(findings, "demand_by_pod") or {})
+    out: list[Candidate] = []
+    for gap in (f.get("metrics") or {}).get("top") or []:
+        arena = gap.get("arena") or ""
+        if not arena or any(s in answered for s in ARENA_ANSWERS.get(arena, ())):
+            continue
+        slug = "gap-" + "-".join(w for w in arena.lower().replace("&", "and").split()
+                                  if w.isalnum())
+        c = Candidate(slug=slug, title=arena, source="intelligence")
+        c.set("INTELLIGENCE", PASS, {"finding": ref, "arena_state": gap.get("state"),
+                                     "demand_proxy": pods.get("statement")})
+        c.set("DESIGN", NOT_RUN, "no original concept yet for this arena",
+              "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this "
+              "arena, then engineer a deterministic design; never copy the benchmark")
+        out.append(c)
+    return out
+
+
 def board(*, today: date | None = None, store=None, visual: bool = True,
-          include_pool: bool = True) -> dict:
+          include_pool: bool = True, findings: dict | None = None) -> dict:
     """Evaluate every candidate as far as it can go. Pure apart from rendering to `store`."""
     from ..products import inventory
     from ..radar.opportunity import score_pool
@@ -345,7 +478,7 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
         sc = scored.get(slug)
         c = Candidate(slug=slug, title=(proposal.title if proposal else
                                         sc.seed.title if sc else slug), source=source)
-        _intelligence(c, scored, proposal)
+        _intelligence(c, scored, proposal, findings)
         if c.stages["INTELLIGENCE"]["status"] != PASS:
             cands.append(c)
             continue
@@ -363,6 +496,8 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
             if c.stages.get("SEARCH", {}).get("status") == PASS:
                 c.set("LISTING_READINESS", NOT_RUN, "read from the release chain")
         cands.append(c)
+    cands += creative_candidates()
+    cands += intelligence_candidates(findings, {c.slug for c in cands})
     rows = [c.to_dict() for c in cands]
     counts: dict[str, int] = {s: 0 for s in STAGES}
     passed: dict[str, int] = {s: 0 for s in STAGES}
@@ -371,8 +506,19 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
         for s in STAGES:
             if r["stages"].get(s, {}).get("status") == PASS:
                 passed[s] += 1
+    by = {r["slug"]: r for r in rows}
+    bundles = {}
+    for fam, members in BUNDLE_FAMILIES.items():
+        present = [m for m in members if m in by]
+        truthful = [m for m in present
+                    if by[m]["stages"].get("PRODUCT_TRUTH", {}).get("status") == PASS]
+        bundles[fam] = {"members": present, "product_truth_passed": truthful,
+                        "bundle_ready_for_pricing": len(truthful) >= 2,
+                        "basis": "mjs.findings bundle_premium (listed prices; whether bundles "
+                                 "sell is unmeasured)"}
     return {"as_of": today.isoformat(), "stages": list(STAGES), "candidates": rows,
-            "at_stage": counts, "passed_stage": passed,
+            "at_stage": counts, "passed_stage": passed, "bundle_families": bundles,
+            "findings_as_of": (findings or {}).get("as_of"),
             "advances_publication": ADVANCES_PUBLICATION,
             "publication_gate": "owner: shop/KYC, payout, fees, phase, sealed publication grant "
                                 "per release (D-FB-10); never advanced by this board"}
@@ -459,7 +605,10 @@ def handle_product_pipeline(ctx) -> dict:
     """
     inputs = dict(ctx.job.inputs or {})
     today = date.fromisoformat(inputs["as_of"]) if inputs.get("as_of") else date.today()
-    result = board(today=today, visual=bool(inputs.get("visual")))
+    from ..intel import findings as intel_findings
+
+    result = board(today=today, visual=bool(inputs.get("visual")),
+                   findings=intel_findings.latest(ctx.db))
     if inputs.get("merge_chain"):
         merge_chain(result, ctx.db, today=today)
     record(ctx.db, result)

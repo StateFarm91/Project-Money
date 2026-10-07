@@ -10,6 +10,18 @@ Phase shadow; no deploy, no Etsy write, no spend. Production read only via publi
 - nordic-star-ornaments 1.3.0 (make 6), mosaic-placemat-pair 1.3.0 (make 2, "Diamond Lattice Placemat Pair"): PROVEN (`test_release_versions`, `test_w4_pipe_board` ornaments_now_true).
 - Pipeline board `products/pipeline_board.py` (+ `handle_product_pipeline` body, not yet registered) and `pipeline_run.py` → `PIPELINE_BACKLOG.{json,md}`; six new deterministic proposals all clear Product Truth (`tests/test_w4_pipe_board.py`).
 
+- RESUME 2026-10-07: merged origin/claude/w4-INTEG (intel/findings.py, MJS_FINDINGS.json) and
+  origin/claude/w4-CREATIVE (creative/emotional_brief.py). Board now carries `creative` candidates
+  (8 briefs, at DESIGN with exact engineering named) and `intelligence` candidates (uncovered
+  benchmark arenas from mjs.findings coverage_gaps; answered arenas not repeated), two
+  finding-driven proposals (fir-star-relief-table-runner, basketweave-textured-hand-towel; both
+  certify + name-true), bundle families (mjs.findings bundle_premium). A proposal citing a finding
+  that is not on file is INTELLIGENCE UNKNOWN. Handler reads `intel.findings.latest(ctx.db)`.
+- Name truth: `launch0.ASSEMBLED_FORMS` += pillow, cushion, cosy, cozy, pouch, pencil roll, stocking.
+  Finding: `bobble-floor-pillow` "Bobble Floor Pillow Cover" is one front panel with 0 seams →
+  now PRODUCT_TRUTH FAIL clearer COMPANY (add back panel + closing seam, new version) as well as
+  the OWNER stitch calibration. PROVEN `test_w4_pipe_board::pillow_front_only_fails_name_truth`.
+
 ## Tests run (focused)
 test_w4_pipe_name_truth 12, test_w4_pipe_board 31, test_launch0 52, test_release_versions 4, test_cert_growth_seasonal 24 — all OK. Others in the batch: see final report.
 
