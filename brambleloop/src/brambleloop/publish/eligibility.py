@@ -557,6 +557,23 @@ def name_truth(cir, listing: dict | None = None) -> list[str]:
 
             out.extend(f"listing: {f}" for f in colourwork_findings(
                 cir, twin, title=listing.get("title") or "", tags=listing.get("tags") or ()))
+    # W4-PIPE: imagery the name promises that the motif does not depict (W4-CREATIVE's
+    # `title_conflicts`, the same word lists its HELD findings used). The listing copy is
+    # checked too: outside Launch-0 its words come from the slug and radar seed, which can
+    # still say "village" or "flower" after the CIR was retitled to what it makes.
+    motif = next((p.split(":", 1)[1] for p in
+                  (getattr(cir.provenance, "primitives_used", None) or ())
+                  if isinstance(p, str) and p.startswith("products.motifs:")), None)
+    if motif:
+        from ..creative.emotional_brief import title_conflicts
+
+        for where, text in (("title", cir.title),
+                            ("listing", " ".join([(listing or {}).get("title") or ""]
+                                                 + list((listing or {}).get("tags") or ())))):
+            bad = title_conflicts(text, motif)
+            if bad:
+                out.append(f"imagery: the {where} promises {bad}; the {motif} motif does "
+                           "not depict it")
     return out
 
 

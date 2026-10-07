@@ -65,6 +65,29 @@ def main():
     codes_bad = [r["code"] for r in bad["reasons"]]
     check("verdict_truthful_has_no_name_reason", eligibility.NAME_OUTRUNS_PATTERN not in codes_good, codes_good)
     check("verdict_lie_refused", eligibility.NAME_OUTRUNS_PATTERN in codes_bad and not bad["publishable"], codes_bad)
+    # Imagery: a name (or the listing copy) promising a subject the motif does not depict.
+    from dataclasses import replace as _r
+    from brambleloop.products import builder
+    from brambleloop.runtime.release import _motifs_for
+    lib = builder.for_slug("pressed-flower-motifs")
+    check("imagery_true_title_passes", eligibility.name_truth(lib) == [], eligibility.name_truth(lib))
+    check("imagery_false_title_refused",
+          any(n.startswith("imagery") for n in eligibility.name_truth(
+              _r(lib, title="Pressed Flower Motif Library (12)"))))
+    check("imagery_false_listing_refused",
+          any(n.startswith("imagery") for n in eligibility.name_truth(
+              lib, {"title": "Pressed Flower Motif Library", "tags": []})))
+    retitled = ("pressed-flower-motifs", "winter-village-graphghan", "nordic-star-ornaments",
+                "autumn-oak-mosaic-throw", "cottage-wall-hanging")
+    assert retitled
+    for slug in retitled:
+        c = builder.for_slug(slug)
+        words = " ".join(_motifs_for(slug))
+        check(f"listing_words_true:{slug}",
+              eligibility.name_truth(c, {"title": f"{c.title} {words}", "tags": []}) == [],
+              (words, eligibility.name_truth(c, {"title": words, "tags": []})))
+    check("untouched_listing_words_kept", _motifs_for("harvest-table-runner")
+          == ["harvest", "table", "runner"])
     if FAILED:
         raise SystemExit(f"{len(FAILED)} failed: {FAILED}")
 

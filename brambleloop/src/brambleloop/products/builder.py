@@ -341,7 +341,7 @@ CATALOGUE: dict[str, Design] = {
     "pressed-flower-motifs": Design(
         # W4-PIPE 1.3.0: the heart-row motif depicts hearts, not flowers (creative HELD), and
         # "(12)" is backed by the pattern making twelve.
-        slug="pressed-flower-motifs", title="Heart Appliqué Motif Library (12)",
+        slug="pressed-flower-motifs", title="Heart Applique Motif Library (12)",  # ASCII: shop language
         motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2, pieces=12,
         note="A motif library: work twelve appliqués, each a standalone piece. Make twelve."),
     "cottage-wall-hanging": Design(

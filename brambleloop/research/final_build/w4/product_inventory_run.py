@@ -72,6 +72,14 @@ def md(inv: dict, prod_summary: dict, sha: str) -> str:
             pr.get("photography", "-"),
             (ch.get("publish_verdict") or {}).get("search") or "-",
             "; ".join(f"{b['gate']} ({b['clearer']})" for b in p["blockers"]) or "shop-wide only"))
+    L += ["", "## Launch candidates — company side complete (owner directive 2026-10-07)", "",
+          "Products with no COMPANY blocker left: every gate below is owner, external or "
+          "deploy. Publication is the owner's authorisation and is never performed here.", "",
+          "| product | v | company gates passed | remaining (clearer) |", "|---|---|---|---|"]
+    for c in inv.get("launch_candidates") or []:
+        L.append(f"| {c['slug']} | {c['version']} | {len(c['company_gates_passed'])}/"
+                 f"{len(COMPANY_GATES)} | "
+                 + "; ".join(f"{r['gate']} ({r['clearer']})" for r in c["remaining"]) + " |")
     L += ["", "## Shop-wide gates (block every product)", ""]
     for g in inv["shop_wide_gates"]:
         L.append(f"- **{g['gate']}** ({g['clearer']}): {g['evidence']}")
@@ -79,6 +87,55 @@ def md(inv: dict, prod_summary: dict, sha: str) -> str:
     for p in inv["products"]:
         L.append(f"- **{p['slug']}** — " + " → ".join(p["shortest_path"][:-1] or ["shop-wide owner gates only"]))
     return "\n".join(L) + "\n"
+
+
+# Company-side gates the release chain proves for a built product, read off its chain record:
+# a gate is PASSED only when the chain ran it and nothing it owns is in the publish verdict.
+COMPANY_GATES = ("product_truth_certificate", "name_truth", "deliverable_pdf",
+                 "disclosed_imagery", "listing_draft_seo", "listing_readiness_company")
+
+
+def launch_candidates(inv: dict) -> list[dict]:
+    """Owner directive 2026-10-07: the strongest products, driven to the publication gate.
+
+    Per product: the company gates passed (with evidence), and every remaining gate with its
+    clearer. A product is listed only when no COMPANY blocker remains; publication itself is
+    the owner's authorisation and is never performed here.
+    """
+    out = []
+    for p in inv["products"]:
+        company = [b for b in p["blockers"] if b["clearer"] == "COMPANY"]
+        ch = p.get("chain") or {}
+        if company or not ch.get("release"):
+            continue
+        st = p.get("static") or {}
+        img = ch.get("imagery") or {}
+        lst = ch.get("listing") or {}
+        passed = {
+            "product_truth_certificate": f"certified {ch['release'].get('version')} "
+                                         f"release_hash {ch['release'].get('release_hash')}",
+            "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
+            "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
+            "disclosed_imagery": f"{img.get('kind')} {img.get('frames')} frames, usable="
+                                 f"{img.get('usable')}",
+            "listing_draft_seo": f"draft listing {lst.get('id')} '{(lst.get('title') or '')[:60]}"
+                                 f"...' {lst.get('tags')} tags, CA${lst.get('price_cad')}",
+            "listing_readiness_company": "no company-owned reason in the store.publish verdict",
+        }
+        if not (st.get("product_truth_ok") and img.get("usable") and lst):
+            continue
+        remaining, seen = [], set()
+        for b in p["blockers"]:
+            if b["gate"] in seen:
+                continue
+            seen.add(b["gate"])
+            remaining.append({"gate": b["gate"], "clearer": b["clearer"],
+                              "evidence": str(b["evidence"])[:200]})
+        out.append({"slug": p["slug"], "version": ch["release"].get("version"),
+                    "company_gates_passed": passed, "remaining": remaining,
+                    "publication": "owner authorisation (D-FB-10 sealed grant); never "
+                                   "performed by the company"})
+    return out
 
 
 def main():
@@ -101,6 +158,7 @@ def main():
     inv.update({"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "head": sha, "production_summary": prod_summary,
                 "chain_db": "fresh shadow SQLite, plan.cycle as_of 2026-10-06" if db else None})
+    inv["launch_candidates"] = launch_candidates(inv)
     out = Path(a.out)
     (out / f"{a.name}.json").write_text(json.dumps(inv, indent=1, default=str) + "\n")
     (out / f"{a.name}.md").write_text(md(inv, prod_summary, sha))
