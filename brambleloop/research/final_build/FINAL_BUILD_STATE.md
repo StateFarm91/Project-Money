@@ -253,3 +253,5 @@ Next: independent adversarial certification (lane J, different model) of this ex
 Repairs land on a successor, never on this tag. Not pushed (classifier); not deployed.
 - 2026-10-06T16:15Z heartbeat: production /api/verify read-only — 12 checks, 0 failing; scheduler 16:30:57Z,
   worker 16:31:27Z. Nothing pushed to the production branch.
+
+- Heartbeat 2026-10-07T00:14Z (trig_019rtbCKLSFc8hNajuiWm9E4): GET production /api/verify → HTTP 200, ok=true, 12/12 checks passing. Handled read-only per standing instruction (no lock, no push to the production branch, no full suite — wave-4 completion team running; owner directive: no serial certification cycles).

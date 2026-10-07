@@ -108,7 +108,10 @@ def describe_listing(listing: dict, *, vision_available: bool = False,
     }
     attributes["gallery_structure"] = {
         "images": int(listing.get("media_count") or 0),
-        "has_video": bool(listing.get("has_video")),
+        # None until a gallery audit has looked: an unread video endpoint is unknown, and
+        # reporting it False told every reader that 440 listings had no video (W4-MJS).
+        "has_video": (None if listing.get("has_video") is None
+                      else bool(listing.get("has_video"))),
     }
     palette = listing.get("palette")
     if palette:
@@ -157,6 +160,7 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool | None
 
     from ..core.models import BenchmarkListing
     from . import benchmarks, vision
+    from .findings import seasonal_positioning
 
     # Defaulted from the constant the scanner writes rather than from a short string that
     # looks like it. They disagreed -- the scanner wrote "mjs_off_the_hook_designs" and this
@@ -177,7 +181,12 @@ def build(db, *, benchmark_key: str | None = None, vision_available: bool | None
         listings = [{
             "listing_ref": r.listing_ref, "title": r.title, "product_type": r.product_type,
             "price_cad": r.price_cad, "on_sale": r.on_sale, "media_count": r.media_count,
-            "seasonal": r.seasonal, "fingerprint": r.fingerprint, "pod": r.pod,
+            # The scanner never wrote `seasonal`, so every row read "none stated". Derived
+            # from the listing's own title and tags where the column is empty (W4-MJS).
+            "seasonal": r.seasonal or seasonal_positioning(" ".join(
+                [r.title or "", *[str(t) for t in ((r.detail or {}).get("tags") or [])]])),
+            "has_video": (r.detail or {}).get("has_video"),
+            "fingerprint": r.fingerprint, "pod": r.pod,
             # Read from the row rather than left out of it. The deep audit has been storing
             # Etsy's per-image colour since the first scan, and the map never looked -- so
             # every audited listing reported its palette absent and the map understated its
