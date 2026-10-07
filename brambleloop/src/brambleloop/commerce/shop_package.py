@@ -404,10 +404,18 @@ def shop_text(terms: customer_terms.Terms | None = None) -> dict[str, str]:
 
 
 def api_shop_fields(terms: customer_terms.Terms | None = None) -> dict[str, str]:
-    """What may actually be sent to updateShop: blank fields and EU-only fields left out."""
+    """What may actually be sent to updateShop: blank fields and EU-only fields left out.
+
+    W4-STORE: fields the owner configured on the live shop (the shop title, 2026-10-06) are
+    left out too -- the live value is authoritative and no write may overwrite it
+    (`store_foundation.live_state.OWNER_CONFIGURED_API_FIELDS`).
+    """
+    from ..store_foundation.live_state import OWNER_CONFIGURED_API_FIELDS
+
     text = shop_text(terms)
     return {k: v for k, v in text.items()
-            if v.strip() and (k != "policy_additional" or SHOP_LOCATED_IN_EU)}
+            if v.strip() and (k != "policy_additional" or SHOP_LOCATED_IN_EU)
+            and k not in OWNER_CONFIGURED_API_FIELDS}
 
 
 # What no endpoint can set. Listed so the owner action is a list of fields to fill rather

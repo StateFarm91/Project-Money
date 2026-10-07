@@ -60,3 +60,19 @@ the first lane's edit wins and the second writes a WIRING REQUEST. Small, additi
 ## Report
 Final message ≤ 300 words: branch + head SHA (pushed), rows/items closed with status, tests run +
 counts, runtime proof, wiring requests, what remains and why (exact gate).
+
+## Usage preservation (owner directive 2026-10-07)
+- Checkpoint often: commit + push at every completed atomic change (not only at mission end).
+- Keep `handoff_<LANE>.md` current with: branch, latest pushed SHA, exact requirements owned,
+  requirements completed, remaining work, tests already run, next deterministic command/action.
+- If usage runs low: stop optional analysis → finish the current atomic change → focused test →
+  commit → push → update handoff. No long narrative reports. Never run the full suite.
+- After a reset, resume from your pushed handoff + research/final_build/w4/COMPLETION_BOARD.json;
+  do not re-audit completed work.
+
+## Resources (after the 2026-10-07 container restart — 12 lanes exhausted 4 cores / 15 GB)
+- Run at most ONE test/proof process at a time in your lane; never `xargs -P` or parallel loops.
+- Prefer the smallest test file that proves the change; image-rendering suites (acceptance_gates,
+  product_run, cert_listing_frames, pwa_browser) only when you changed their code path.
+- Runtime proofs: bound them (≤ 15 minutes, `timeout`), small fixtures, delete DBs/TMPDIR after.
+- Background jobs you start must be killed by PID before you report.

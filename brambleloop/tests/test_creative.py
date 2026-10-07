@@ -283,10 +283,20 @@ def test_the_gate_fails_our_own_catalogue_and_says_why():
     report = audit.audit_catalogue()
 
     assert report["products_audited"] == 11
-    assert report["survivors"] == [], "the gate passed products the owner judged below standard"
-    assert report["rejected"] == 11
-    assert report["autopsy"]["survival_rate"] == 0.0
+    # W4-CREATIVE: the bare generator output -- the catalogue the owner judged below
+    # standard -- is still measured on its own and still fails every product.
+    raw = report["raw_generator"]
+    assert raw["survivors"] == [], "the gate passed products the owner judged below standard"
+    assert raw["rejected"] == 11
+    assert raw["autopsy"]["survival_rate"] == 0.0
+    assert raw["autopsy"]["deaths_by_critic"] == {"emotional_appeal": 11}
     assert "no representation of an idea" in report["root_cause"]
+    # Anything surviving now does so only through a validated emotional brief, and only as
+    # needs_taste: nothing is approved without eyes.
+    briefed = set(report["briefs"]["briefed"])
+    assert set(report["survivors"]) <= briefed
+    assert all(report["decisions"][k] == "needs_taste" for k in report["survivors"])
+    assert all(report["decisions"][k] == "rejected" for k in report["briefs"]["held"])
 
 
 def test_the_generators_degrees_of_freedom_are_measured_from_the_cir_not_asserted():

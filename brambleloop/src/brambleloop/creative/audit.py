@@ -99,6 +99,49 @@ def catalogue_concepts() -> list[Concept]:
     return [concept_from_design(design) for design in CATALOGUE.values()]
 
 
+def briefed_concept(design) -> tuple[Concept, dict]:
+    """W4-CREATIVE: the design as the design process now specifies it.
+
+    Where `creative.emotional_brief` holds a brief for this design that validates (closed
+    vocabularies, not the default answer, a real function, a scene, a gifting moment, no
+    social proof, no imagery the fabric does not carry, the title's own promise honest, the
+    emotional promise executed in the object), the concept carries the brief's recipient,
+    occasion, feeling, function and premise. Otherwise it is exactly `concept_from_design`:
+    an unbriefed or held product is judged as the bare generator output it still is, so it
+    still fails. Form, construction, motif and palette always come from the design.
+    """
+    from . import emotional_brief as EB
+
+    literal = concept_from_design(design)
+    brief, problems = EB.brief_for_design(design)
+    if brief is None or problems:
+        return literal, {"state": "held" if any(p.startswith("HELD") for p in problems)
+                         else "unbriefed" if brief is None else "refused",
+                         "problems": problems}
+    concept = EB.to_concept(
+        brief, key=literal.key, title=literal.title, pod=literal.pod, form=literal.form,
+        construction=literal.construction, motif=literal.motif,
+        palette_story=literal.palette_story, make_lane=literal.make_lane,
+        provenance=(f"products/builder.py design + {EB.BRIEF_VERSION} authored "
+                    f"{EB.AUTHORED} by {EB.AUTHOR}"))
+    promise = EB.promise_problems(concept)
+    if promise:
+        return literal, {"state": "refused", "problems": promise}
+    return concept, {"state": "briefed", "problems": [], "brief": brief.to_dict()}
+
+
+def briefed_catalogue_concepts() -> tuple[list[Concept], dict[str, dict]]:
+    """Every catalogue design as the design process now specifies it, with each brief's state."""
+    from ..products.builder import CATALOGUE
+
+    concepts, states = [], {}
+    for design in CATALOGUE.values():
+        concept, state = briefed_concept(design)
+        concepts.append(concept)
+        states[design.slug] = state
+    return concepts, states
+
+
 # F-188: which cohort a creative reading measures. `audit_catalogue` judges the legacy Build-1
 # builder catalogue -- not the concept tournament -- and saying so is the difference between
 # "the current generator fails the creative gate" and "the retired one did".
@@ -119,13 +162,18 @@ def legacy_cohort() -> dict:
 
     from ..products import builder
 
+    from . import emotional_brief
+
     try:
         digest = hashlib.sha256(inspect.getsource(builder).encode()).hexdigest()[:12]
     except (OSError, TypeError):
         digest = "unknown"
     return {"name": LEGACY_COHORT,
-            "generator": "products.builder (Design: motif, palette, width, repeat)",
-            "generator_version": f"builder@{digest}",
+            "generator": ("products.builder (Design: motif, palette, width, repeat) + "
+                          "creative.emotional_brief (recipient, occasion, moment, function)"),
+            # W4-CREATIVE: the brief set is part of what is measured, so a reading taken
+            # against an older brief set cannot be mistaken for today's.
+            "generator_version": f"builder@{digest}+briefs@{emotional_brief.briefs_fingerprint()}",
             "n": len(builder.CATALOGUE),
             "excludes": TOURNAMENT_COHORT,
             "why": ("the legacy Build-1 catalogue; concept-tournament output is a separate "
@@ -179,23 +227,31 @@ def audit_catalogue() -> dict:
     from .jury import Context, judge
     from .tournament import autopsy
 
-    concepts = catalogue_concepts()
-    field = Field(opportunity="existing generated catalogue", concepts=concepts)
-
-    verdicts = []
-    for concept in concepts:
-        # Judged against the rest of the catalogue, which is the comparison that matters:
-        # is this product a different idea from the others we already sell?
-        others = [c for c in concepts if c.key != concept.key]
-        verdicts.append(judge(concept, Context(catalogue=others, techniques=1)))
-
-    rejected = [v for v in verdicts if not v.survives]
     from .tournament import Result, novelty, theme_fatigue
 
-    result = Result(opportunity="existing generated catalogue",
-                    at="", field_size=len(concepts), spread=field.spread(),
-                    survivors=[v for v in verdicts if v.survives],
-                    rejected=rejected, duplicate_pairs=field.duplicate_pairs())
+    def reading(concepts: list[Concept]) -> tuple[Field, list, list, Result]:
+        field = Field(opportunity="existing generated catalogue", concepts=concepts)
+        verdicts = []
+        for concept in concepts:
+            # Judged against the rest of the catalogue, which is the comparison that matters:
+            # is this product a different idea from the others we already sell?
+            others = [c for c in concepts if c.key != concept.key]
+            verdicts.append(judge(concept, Context(catalogue=others, techniques=1)))
+        rejected = [v for v in verdicts if not v.survives]
+        result = Result(opportunity="existing generated catalogue",
+                        at="", field_size=len(concepts), spread=field.spread(),
+                        survivors=[v for v in verdicts if v.survives],
+                        rejected=rejected, duplicate_pairs=field.duplicate_pairs())
+        return field, verdicts, rejected, result
+
+    # W4-CREATIVE: the bare generator output, kept as its own reading so the fix can never
+    # hide the defect it fixed. Every product here still dies of emotional_appeal.
+    raw_concepts = catalogue_concepts()
+    _rf, raw_verdicts, raw_rejected, raw_result = reading(raw_concepts)
+    # The catalogue as the design process now specifies it: briefed where a valid brief
+    # exists, bare generator output where none does. Same jury, same thresholds.
+    concepts, brief_states = briefed_catalogue_concepts()
+    field, verdicts, rejected, result = reading(concepts)
 
     identical = [(a.key, b.key) for i, a in enumerate(concepts) for b in concepts[i + 1:]
                  if distance(a, b) == 0.0]
@@ -206,7 +262,25 @@ def audit_catalogue() -> dict:
         "generator_degrees_of_freedom": generator_degrees_of_freedom(),
         "field_spread": field.spread(),
         "survivors": [v.concept for v in result.survivors],
+        # Survivors are `needs_taste` at best: structurally clean and unjudged by eyes, never
+        # approved, because nothing here can see (jury.judge).
+        "decisions": {v.concept: v.decision for v in verdicts},
         "rejected": len(rejected),
+        "briefs": {
+            "version": "emotional-brief/1",
+            "states": brief_states,
+            "briefed": sorted(k for k, v in brief_states.items() if v["state"] == "briefed"),
+            "held": sorted(k for k, v in brief_states.items() if v["state"] == "held"),
+            "unbriefed": sorted(k for k, v in brief_states.items()
+                                if v["state"] in ("unbriefed", "refused")),
+        },
+        "raw_generator": {
+            "what": ("the bare builder output (concept_from_design), no brief: the reading "
+                     "the dashboard showed before W4-CREATIVE"),
+            "survivors": [v.concept for v in raw_result.survivors],
+            "rejected": len(raw_rejected),
+            "autopsy": autopsy(raw_result),
+        },
         "structurally_identical_pairs": identical,
         "autopsy": autopsy(result),
         # The two measures #94 names that nothing computed until now. Both read awkwardly
@@ -223,6 +297,11 @@ def audit_catalogue() -> dict:
             "Generation has to start from a Concept — form, construction, recipient, "
             "occasion, function — and reach the motif last, rather than starting at the "
             "motif and never reaching the rest."),
+        "fix_applied": (
+            "W4-CREATIVE: creative.emotional_brief writes each design's brief moment first "
+            "(recipient, occasion, scene, gifting, sensory hooks, function, handmade-life "
+            "line) and feeds the gate the fields it reads. The gate is unchanged. Designs "
+            "whose title names imagery their motif does not depict are held, not briefed."),
     }
 
 

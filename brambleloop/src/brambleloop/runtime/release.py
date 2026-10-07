@@ -2076,6 +2076,8 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
 
     pieces = content_mod.build_ecosystem(facts, launch_on=launch_on)
     problems = content_mod.check_ecosystem(pieces, facts)
+    # #147: Content reads its cultural-timing inbox where the plan is drafted.
+    cultural_timing = content_mod.apply_cultural_timing(ctx.db, facts, pieces)
 
     with ctx.db.session() as s:
         from sqlalchemy import select
@@ -2121,7 +2123,8 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     ctx.audit("marketing.scheduled" if not problems else "marketing.blocked",
               artifact=f"{slug}@{version}",
               detail={"pieces": len(pieces), "channels": sorted({p.channel for p in pieces}),
-                      "problems": problems[:5], "published": False})
+                      "problems": problems[:5], "published": False,
+                      "cultural_timing": [n["lesson"] for n in cultural_timing]})
     return {"slug": slug, "version": version, "pieces": len(pieces),
             "problems": problems, "published": False}
 
@@ -3291,7 +3294,8 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
         # through it now. Nothing here reads Etsy.
         mission = _run_mjs_mission(ctx)
         return {"ran": False, "reason": outcome["reason"][:200],
-                "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")}}
+                "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")},
+                "findings": mission.get("findings")}
 
     # Every scan re-routes the whole stored catalogue through the current pod vocabulary.
     # The scan itself only routes what it read, and it deliberately skips anything whose
@@ -3323,7 +3327,8 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
             "reclassified": routing["moved"],
             "learning_domains": len(learned.get("recorded") or []),
             "inspected": report["catalogue_coverage"]["listings_inspected"],
-            "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")}}
+            "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")},
+            "findings": mission.get("findings")}
 
 
 def _mjs_today(ctx: JobContext):
@@ -3354,6 +3359,18 @@ def _run_mjs_mission(ctx: JobContext) -> dict:
             "same_arena_started": concepting["started"],
             "photography_requested": standing["photography_requested"],
             "counts": standing["counts"]})
+    # W4-MJS: the whole stored catalogue, reviews and gallery judgements become findings with
+    # provenance, stored as the day's `mjs.findings` reading and published to the lesson bus
+    # where radar.score, the creative briefs and the pricing/QA/CX inboxes read them. Reads
+    # stored rows only; a failure is audited and never fails the scan that already ran.
+    from ..intel import findings as mjs_findings
+
+    try:
+        result["findings"] = mjs_findings.refresh(ctx.db, today=_mjs_today(ctx))
+        ctx.audit(mjs_findings.KIND, detail=result["findings"])
+    except Exception as e:  # noqa: BLE001 - reported, not fatal to the scan
+        result["findings"] = {"error": f"{type(e).__name__}: {e}"[:300]}
+        ctx.audit("mjs.findings_failed", detail=result["findings"])
     if result["pending"] or result["processed"]:
         ctx.audit("mjs.mission_events", detail={
             "pending": result["pending"], "processed": result["processed"],
@@ -6462,6 +6479,16 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     topics = feeds.env_override() or feeds.default_articles(ctx.db)
     watched = topics + [t for t in placed if t not in topics]
     result = feeds.sweep(ctx.db, watched[:feeds.MAX_ARTICLES_PER_SWEEP])
+    # #280: the colour forecast's fashion-and-home half reads colour names through the same
+    # sanctioned feed. A separate sweep, so it never displaces a watched or discovered topic,
+    # and its readings are not fed to the culture engine as creative candidates.
+    from ..seasonal import colour as _colour
+
+    # Skipped when the main sweep read nothing: the feed is unreachable or refusing this run,
+    # and ten more courtesy-spaced calls into a refusal would only add to it.
+    colour_sweep = (_colour.sweep_colour_signals(ctx.db) if result["recorded"] else
+                    {"recorded": 0, "failures": [{"why": "skipped: the main culture sweep "
+                                                          "recorded nothing this run"}]})
 
     # The marketplace half of #140's two series. Without it `lead_lag` has one series, and
     # one series cannot lead anything.
@@ -6490,6 +6517,8 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
         "routed": routed["recorded"], "routed_skipped": routed["skipped"][:5],
         "source": result["source"], "recorded": result["recorded"],
         "attempted": result["attempted"], "failures": result["failures"][:5],
+        "colour_recorded": colour_sweep["recorded"],
+        "colour_failures": colour_sweep["failures"][:3],
         "discovered": len(discovered), "placed": len(placed),
         "sensitive_dropped": len(filed.get("sensitive") or []),
         "discovery_error": discovery_error,
