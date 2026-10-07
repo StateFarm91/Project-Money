@@ -2,7 +2,14 @@
 
 - Branch `claude/w4-RENDER` (worktree `.claude/worktrees/W4-RENDER`), from origin/claude/visual-investigation
   (already contains w4-PIPE2), merged `origin/claude/w4-VISUAL` (gallery_frames / launch_imagery / angle view).
-- Latest pushed SHA: see `git log -1 origin/claude/w4-RENDER`.
+- Latest pushed SHA: see `git log -1 origin/claude/w4-RENDER` (resumed 2026-10-07 after session limit at a860302).
+
+## Resume status (2026-10-07)
+- a860302 (integrator WIP): pencil roll now RENDERS assembled — panel height = rows above the self-seam fold (row 11),
+  tie placed by its seam. Under review; next: merge origin/claude/visual-investigation (raised-stitch tone step +
+  released-version verification), rerun focused tests, re-run render_run.py, fix pencil roll 340px legibility
+  (hero/scale False), garland (2 round pieces refused), refresh PIPELINE_BACKLOG rows.
+- Next command: `cd brambleloop && PYTHONPATH=src .venv python tests/test_w4_render_assembled.py`
 
 ## Fixes
 1. `cir/geometry.corners`: magic-ring opening rounds (>half of the round below increase-produced) are evidence for
