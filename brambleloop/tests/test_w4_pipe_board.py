@@ -1,0 +1,86 @@
+"""W4-PIPE: the product pipeline board and the product inventory."""
+from __future__ import annotations
+
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox
+import sys
+from dataclasses import replace
+from datetime import date
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from brambleloop.products import inventory, pipeline_board as pb  # noqa: E402
+
+FAILED: list[str] = []
+
+
+def check(name, cond, detail=""):
+    print(("OK " if cond else "FAIL ") + name + (f" -- {detail}" if not cond and detail else ""))
+    if not cond:
+        FAILED.append(name)
+
+
+def main():
+    # Every proposal is pattern software that clears Product Truth deterministically.
+    assert pb.PROPOSALS, "no proposals"
+    from brambleloop.gates.certificate import certify
+    from brambleloop.publish.eligibility import name_truth
+    for p in pb.PROPOSALS:
+        cir = pb.proposal_cir(p)
+        cert = certify(cir)
+        check(f"proposal_certifies:{p.slug}", cert.granted, [str(f) for f in cert.findings][:2])
+        check(f"proposal_name_true:{p.slug}", name_truth(cir) == [], name_truth(cir))
+        check(f"proposal_prerelease_version:{p.slug}", cir.version.startswith("0."), cir.version)
+    # A proposal that names a fabric the tiler cannot make is refused at Product Truth.
+    bad = replace(pb.PROPOSALS[0], slug="w4-false-mosaic", title="Diamond Mosaic Dishcloth")
+    check("false_fabric_name_refused", name_truth(pb.proposal_cir(bad)) != [])
+
+    res = pb.board(today=date(2026, 10, 7), visual=False)
+    rows = res["candidates"]
+    assert rows, "empty board"
+    check("publication_never_advanced", res["advances_publication"] is False
+          and all(r["stages"].get("PUBLICATION", {}).get("status") != pb.PASS for r in rows))
+    # No stage is PASS unless every stage before it is PASS.
+    ok = True
+    for r in rows:
+        seen_gap = False
+        for s in pb.STAGES:
+            st = r["stages"].get(s, {}).get("status")
+            if st != pb.PASS:
+                seen_gap = True
+            elif seen_gap:
+                ok = False
+    check("no_stage_skipped", ok)
+    check("several_stages_occupied", sum(1 for v in res["at_stage"].values() if v) >= 3,
+          res["at_stage"])
+    by = {r["slug"]: r for r in rows}
+    check("proposals_reach_visual",
+          all(by[p.slug]["highest_passed"] == "PRODUCT_TRUTH" for p in pb.PROPOSALS),
+          {p.slug: by[p.slug]["highest_passed"] for p in pb.PROPOSALS})
+    check("retired_concept_blocked_at_design", by["hexie-coaster-set"]["stage"] == "DESIGN"
+          and by["hexie-coaster-set"]["stage_status"] == pb.BLOCKED)
+    check("uncalibrated_stitch_is_owner_gated",
+          by["heirloom-cable-blanket"]["stage"] == "PRODUCT_TRUTH"
+          and by["heirloom-cable-blanket"]["clearer"] == "OWNER")
+    check("launch_scope_drafts_include_coasters",
+          "hexagon-coaster-set" in pb.launch_scope_drafts())
+
+    # Inventory: company work is never reported as somebody else's job.
+    check("unknown_reason_is_company", inventory.classify_reason("anything new")[1] == "COMPANY")
+    check("taxonomy_is_external",
+          inventory.classify_reason("search certificate (F-005): category UNKNOWN -- x")[1]
+          == "EXTERNAL")
+    st = inventory.static_truth("cloudline-baby-blanket")
+    check("cloudline_product_truth", st["product_truth_ok"] and st["launch_scope"], st)
+    st = inventory.static_truth("spooky-garland")
+    b = inventory._blockers(st, None, None)
+    check("garland_assembly_is_company",
+          any(x["gate"] == "name_assembly_truth" and x["clearer"] == "COMPANY" for x in b), b)
+    check("ornaments_now_true", inventory.static_truth("nordic-star-ornaments")["title_promise"]["backed"])
+    if FAILED:
+        raise SystemExit(f"{len(FAILED)} failed: {FAILED}")
+
+
+if __name__ == "__main__":
+    main()

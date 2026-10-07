@@ -176,7 +176,7 @@ def _cir_for(slug: str, source: str):
 
 def _intelligence(c: Candidate, scored: dict, proposal: Proposal | None) -> None:
     if proposal is not None:
-        basis = proposal.demand_basis.split(":", 1)[0]
+        basis = proposal.demand_basis.split(":", 1)[0].split()[0]
         c.set("INTELLIGENCE", PASS if basis in ("SOURCED", "DERIVED", "ESTIMATED") else UNKNOWN,
               {"demand_basis": proposal.demand_basis, "rationale": proposal.rationale},
               "measure demand once the shop has search data (DATA)", "DATA")
@@ -346,6 +346,9 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
         c = Candidate(slug=slug, title=(proposal.title if proposal else
                                         sc.seed.title if sc else slug), source=source)
         _intelligence(c, scored, proposal)
+        if c.stages["INTELLIGENCE"]["status"] != PASS:
+            cands.append(c)
+            continue
         _design(c)
         if c.stages["DESIGN"]["status"] == PASS:
             c.title = c._cir.title  # type: ignore[attr-defined]
