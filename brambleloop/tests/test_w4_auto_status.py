@@ -174,6 +174,25 @@ def test_gate_blockers_name_who_they_wait_on_from_the_closure_classifier():
                 assert blk["kind"] == f"{blk['waiting_on']}_gate", blk
 
 
+def test_fm2_openapi_reverify_is_scheduled_authorised_banded_and_judged():
+    """W4-FM2 F-514: the weekly OpenAPI re-verification runs by itself."""
+    from brambleloop.runtime.worker import handlers
+    from brambleloop.swarm import orchestrate
+
+    jt = "etsy.openapi_reverify"
+    sched = [c for c in CADENCES if c[2] == jt]
+    assert len(sched) == 1 and sched[0][1] == "orchestrator", sched
+    assert sched[0][3] == 7 * 24 * 60 * 60, sched
+    orch = next(a for a in DEFAULT_AGENTS if a["name"] == "orchestrator")
+    assert jt in orch["allowed_job_types"]
+    assert handlers.get(jt) is not None, "no handler registered for the cadence"
+    assert orchestrate.band_for(jt)["mapped"]
+    assert pipeline.WORK_KEYS[jt] == ("affected",)
+    assert pipeline.did_no_work({"status": "current", "affected": 0, "writes_performed": 0}, jt)
+    assert not pipeline.did_no_work({"status": "drift", "affected": 2, "writes_performed": 0},
+                                    jt)
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in list(globals().items()) if n.startswith("test_")]

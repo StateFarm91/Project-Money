@@ -116,6 +116,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "creative.style_learning", "creative.outcome_learning",
                             # #118 / #121: white-space discovery and the four-season programme.
                             "creative.white_space", "creative.four_season",
+                            # W4-PIPE2 wiring: concept boards + taste-gate registration
+                            "creative.candidates_file",
                             # C-60 (#86): the creativity benchmark memory, daily.
                             "creative.benchmark_memory",
                             # C-60 (#116): construction readings + stored decompositions.
@@ -725,7 +727,10 @@ for _agent in DEFAULT_AGENTS:
     if _agent["name"] == "orchestrator":
         _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + [
             "etsy.credential_health", "etsy.shop_snapshot", "etsy.listing_census",
-            "store.live_drift"]
+            "store.live_drift",
+            # W4-FM2 F-514: weekly re-verification of the Etsy surface classifications
+            # against Etsy's published OpenAPI document (GREEN, public read-only GET, CA$0).
+            "etsy.openapi_reverify"]
     elif _agent["name"] == "store_operator":
         _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + ["store.activate"]
 for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):

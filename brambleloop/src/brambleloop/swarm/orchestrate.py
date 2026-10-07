@@ -775,6 +775,8 @@ JOB_BANDS: dict[str, str] = {
     # family and band as the probe. Observation, not a protected tier -- a read never claims
     # ahead of a customer or a truth defect.
     "etsy.shop_snapshot": "benchmark_change",
+    # F-514: a surface classification that may no longer match Etsy's published API.
+    "etsy.openapi_reverify": "truth_defect",
     "etsy.listing_census": "benchmark_change",
     "etsy.credential_health": "benchmark_change",
     "intel.gallery_analysis": "benchmark_change",
@@ -824,6 +826,7 @@ JOB_BANDS: dict[str, str] = {
     # Learning-centre scan: reads evidence, no committed value.
     "learn.scan": "exploration",
     "creative.white_space": "exploration",
+    "creative.candidates_file": "exploration",
     "commerce.readings": "exploration",
     "listing.outcomes": "exploration",          # W3 K3: same band as commerce.readings
     # W3 lane H via lane D: learning with no committed value until a challenger wins.

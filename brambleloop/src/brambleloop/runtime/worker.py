@@ -552,6 +552,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # #118 / #121: weekly white-space discovery and the four-season programme feed every
     # tournament and expedition brief.
     ("white_space_discovery", "creative_director", "creative.white_space", 7 * 24 * 60 * 60),
+    # W4-PIPE2: file each engineered creative candidate's concept board and register it
+    # with the taste gate in the live DB, so `creative.intake.regate_held` sees it.
+    ("creative_candidates_file", "creative_director", "creative.candidates_file",
+     24 * 60 * 60),
     ("four_season_programme", "creative_director", "creative.four_season", 7 * 24 * 60 * 60),
     # #92 / #95 / #180: sandbox trials and the challenger league, daily; #188 the governor,
     # hourly; C-42 / #41 support triage, hourly (drafts only, nothing is sent in shadow).
@@ -831,6 +835,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # compared with what we created, field drift and suspected takedowns as incidents.
     ("etsy_credential_health", "orchestrator", "etsy.credential_health", 24 * 60 * 60),
     ("etsy_shop_snapshot", "orchestrator", "etsy.shop_snapshot", 24 * 60 * 60),
+    # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
+    ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     # W4-STORE: read the stored live snapshot back against the canonical brand/owner fields;
     # drift becomes incidents and proposals, never an Etsy write.
     ("store_live_drift", "orchestrator", "store.live_drift", 86400),
