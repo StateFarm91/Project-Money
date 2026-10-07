@@ -693,8 +693,12 @@ def intelligence_candidates(findings: dict | None, answered: set[str]) -> list[C
 
 
 def board(*, today: date | None = None, store=None, visual: bool = True,
-          include_pool: bool = True, findings: dict | None = None) -> dict:
-    """Evaluate every candidate as far as it can go. Pure apart from rendering to `store`."""
+          include_pool: bool = True, findings: dict | None = None,
+          only: set[str] | frozenset[str] | None = None) -> dict:
+    """Evaluate every candidate as far as it can go. Pure apart from rendering to `store`.
+
+    `only` limits the board to those slugs (a bounded refresh of some rows; the caller
+    splices them into the full backlog)."""
     from ..products import inventory
     from ..radar.opportunity import score_pool
 
@@ -709,6 +713,8 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
             slugs.setdefault(slug, "radar_pool")
     for p in PROPOSALS:
         slugs[p.slug] = "proposal"
+    if only is not None:
+        slugs = {k: v for k, v in slugs.items() if k in only}
     cands: list[Candidate] = []
     for slug, source in sorted(slugs.items()):
         proposal = next((p for p in PROPOSALS if p.slug == slug), None)
@@ -719,10 +725,13 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
         _advance(c, proposal, scored, store, visual)
         cands.append(c)
     for c in creative_candidates():
+        if only is not None and c.slug not in only:
+            continue
         if "DESIGN" not in c.stages and c.stages["INTELLIGENCE"]["status"] == PASS:
             _advance(c, None, scored, store, visual)
         cands.append(c)
-    cands += intelligence_candidates(findings, {c.slug for c in cands})
+    if only is None:
+        cands += intelligence_candidates(findings, {c.slug for c in cands})
     return _summarise(cands, today, findings)
 
 
