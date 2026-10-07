@@ -81,6 +81,62 @@ VISUAL_ITEM = {
     "minutes": 3, "sources": ["lane VISUAL"],
 }
 
+# Build 2 OWNER-GATED rows that carry an executable company-side part (owner directive: never
+# convert company work into an owner gate). Checked against the code on this branch.
+MISLABELLED = [
+    {"row": 242, "gate": "ad_authority", "no_owner_part": True,
+     "owning_lane": "B2 (ledger) / growth",
+     "executable_part": "the organic-first proof is computed by the daily ads.adjust cadence "
+                        "(runtime/growth_ops.handle_ads_adjust, which runs whatever the ad "
+                        "authority); what it waits for is organic ListingOutcome/order data, so "
+                        "the row is DATA-GATED (live listings + transactions_r), not ad-gated"},
+    {"row": 243, "gate": "ad_authority", "no_owner_part": True,
+     "owning_lane": "B2 (ledger) / growth",
+     "executable_part": "risk-adjusted allowable CAC is computed in ads.adjust and refused "
+                        "under 20 orders: the blocker is order count (DATA-GATED), not ad "
+                        "authority"},
+    {"row": 244, "gate": "ad_authority", "no_owner_part": True,
+     "owning_lane": "B2 (ledger) / growth",
+     "executable_part": "the Offsite Ads economics guard is arithmetic over orders and fees "
+                        "computed in ads.adjust; Offsite Ads is a fee on attributed sales, not "
+                        "spend, so ad authority is not its gate (the enrolment choice is store "
+                        "decision OA-G2); remaining blocker = order data"},
+    {"row": 245, "gate": "ad_authority", "no_owner_part": True,
+     "owning_lane": "B2 (ledger) / growth",
+     "executable_part": "Share-and-Save/direct-link economics involve no spend at all; the "
+                        "computation is company work and its remaining blocker is order data"},
+    {"row": 10, "gate": "owned_surfaces", "owning_lane": "B2 / growth",
+     "executable_part": "the ledger note says no free work has been made: drafting a free "
+                        "lead-magnet asset through the product chain and running "
+                        "growth/free_to_paid.check_asset on it needs no surface (it stays "
+                        "unpublished in shadow); only publication waits on owned_surfaces"},
+    {"row": 165, "gate": "benchmark_purchases", "owning_lane": "B2 (ledger)",
+     "executable_part": "refresh detection (new category, strong competitor, format/market "
+                        "shift) is software and already runs (intel.benchmark_refresh, "
+                        "runtime/release.py); only buying the refreshed set is the owner's. "
+                        "The row should be split: detection PROVEN, purchase OWNER-GATED"},
+    {"row": 54, "gate": "insights_access", "owning_lane": "B2 (ledger)",
+     "executable_part": "the pre-Etsy launch readiness gate is company software "
+                        "(launch/readiness.assess, 2 tests, rollback rehearsal, search "
+                        "baseline from listing.query_portfolio); an Insights reading is one "
+                        "input that stays UNKNOWN until recorded. Gate = PROVEN, Insights "
+                        "input = OWNER-GATED under insights_reading"},
+]
+
+# Genuine owner gates whose ledger rows list no focused test although software exists: the
+# gate stays the owner's, the missing test mapping is company work for the ledger owner.
+EVIDENCE_GAPS = [
+    {"row": 254, "note": "tests/test_personalisation.py and runtime callers "
+                         "(runtime/commerce_readings.py, products/launch0.py) exist but the "
+                         "ledger lists 0 tests"},
+    {"row": 263, "note": "scale/leading.py reports all ten indicators; ledger lists 0 tests"},
+    {"row": 37, "note": "intel/insights_budget.py runs on commerce.readings; 0 tests mapped"},
+    {"row": 14, "note": "commerce/benchmarks.py; 0 tests mapped"},
+    {"row": 16, "note": "commerce/listing_tests.py, growth/experiments.py; 0 tests mapped"},
+    {"row": 9, "note": "growth/creators.py; 0 tests mapped"},
+    {"row": 51, "note": "core/continuity.py export path; 0 tests mapped"},
+]
+
 EXTRA_BATCHES = {"visual": {"id": "visual", "order": 9,
                             "title": "Paid image generation (visual plans)",
                             "why_batched": "three costed plans on one approval line"}}
@@ -100,25 +156,49 @@ def owner_actions() -> dict:
                                        for i in b["items"]])
                for b in packet["batches"]}
     by_item = {i["id"]: i for b in batches.values() for i in b["items"]}
+
+    def ensure_item(did: str) -> dict:
+        """The packet item for decision `did`; built from the table if the runtime inbox did
+        not surface it in this database (its gate parks nothing here)."""
+        if did in by_item:
+            return by_item[did]
+        d = next(x for x in Q.DECISIONS if x["id"] == did)
+        card = {"evidence": "ops/owner_queue.DECISIONS; executor gate(s) "
+                            + ", ".join(d["gates"] or ("-",))}
+        item = dict(Q.decision_fields(card, d), id=d["id"], batch=d["batch"],
+                    gates=list(d["gates"]), requirement_keys=list(d["keys"]),
+                    owner_action_ids=[], unblocks=[], ranks=[], sources=["ops/owner_queue"])
+        bmeta = Q.BATCH_BY_ID[d["batch"]]
+        batches.setdefault(d["batch"], {"id": bmeta["id"], "title": bmeta["title"],
+                                        "why_batched": bmeta["why_batched"],
+                                        "items": []})["items"].append(item)
+        by_item[did] = item
+        return item
+
+    # Build 2 OWNER-GATED rows (lane B2 ledger): each row lands on exactly one decision.
+    b2 = json.loads((HERE / "b2_owner_gated.json").read_text())["rows"]
+    assert b2, "B2 owner-gated rows missing"
+    b2_placed: dict[int, str] = {}
+    not_owner = {m["row"] for m in MISLABELLED if m.get("no_owner_part")}
+    for r in b2:
+        if r["id"] in not_owner:
+            b2_placed[r["id"]] = "NOT_AN_OWNER_DECISION (mislabelled_company_work)"
+            continue
+        d = Q.DECISION_BY_GATE.get(r["gate"])
+        assert d is not None, f"B2 row {r['id']} gate {r['gate']} has no decision"
+        item = ensure_item(d["id"])
+        item.setdefault("b2_rows", []).append(r["id"])
+        if "lane B2 ledger" not in item["sources"]:
+            item["sources"].append("lane B2 ledger")
+        b2_placed[r["id"]] = d["id"]
+    assert len(b2_placed) == len(b2)
     store = json.loads((HERE / "store_owner_actions.json").read_text())
     assert store, "store owner actions missing"
     company_work, deferred = [], []
     for a in store:
         m = STORE_MAP[a["id"]]
         if "merge_into" in m:
-            item = by_item.get(m["merge_into"])
-            if item is None:  # the runtime did not surface it here; build it from the table
-                d = next(x for x in Q.DECISIONS if x["id"] == m["merge_into"])
-                card = {"evidence": "ops/owner_queue.DECISIONS; executor gate(s) "
-                                    + ", ".join(d["gates"] or ("-",))}
-                item = dict(Q.decision_fields(card, d), id=d["id"], batch=d["batch"],
-                            gates=list(d["gates"]), requirement_keys=list(d["keys"]),
-                            owner_action_ids=[], unblocks=[], ranks=[], sources=[])
-                bmeta = Q.BATCH_BY_ID[d["batch"]]
-                batches.setdefault(d["batch"], {"id": bmeta["id"], "title": bmeta["title"],
-                                                "why_batched": bmeta["why_batched"],
-                                                "items": []})["items"].append(item)
-                by_item[item["id"]] = item
+            item = ensure_item(m["merge_into"])
             item["sources"].append(f"lane STORE {a['id']}")
             item.setdefault("store_detail", []).append(a["action"])
             continue
@@ -164,13 +244,14 @@ def owner_actions() -> dict:
             "items": [{k: i.get(k) for k in (
                 "id", "decision", "why", "evidence", "max_cost_cad", "max_cost_display",
                 "max_cost_basis", "consequence_of_yes", "consequence_of_no", "minutes",
-                "gates", "requirement_keys", "owner_action_ids", "sources", "store_detail",
+                "gates", "requirement_keys", "owner_action_ids", "b2_rows", "sources",
+                "store_detail",
                 "fields_missing")} for i in b["items"]]})
     items = [i for b in out_batches for i in b["items"]]
     assert items and not [i for i in items if i["fields_missing"]]
     for i in items:
         assert i["max_cost_cad"] is not None or "UNKNOWN" in i["max_cost_display"], i["id"]
-    before = len(PRODUCTION_9) + len(store) + 1 + len(inbox["cards"])
+    before = len(PRODUCTION_9) + len(store) + 3 + len(inbox["cards"])
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "lane": "W4-OWNER",
@@ -202,6 +283,14 @@ def owner_actions() -> dict:
                     "reads the gate, so 'open the Etsy shop' is not asked again; KYC/payout/"
                     "tax become the etsy_kyc_payout confirmation"}],
         "deferred": deferred,
+        "b2_owner_gated": {"rows": len(b2),
+                           "decisions": len({v for v in b2_placed.values()
+                                             if not v.startswith("NOT_")}),
+                           "placement": {str(k): v for k, v in sorted(b2_placed.items())},
+                           "source": json.loads((HERE / "b2_owner_gated.json").read_text())
+                           ["source"]},
+        "mislabelled_company_work": MISLABELLED,
+        "b2_genuine_gate_evidence_gaps": EVIDENCE_GAPS,
     }
 
 
@@ -238,6 +327,20 @@ def _md_owner(d: dict) -> str:
     lines += [f"- **{x['id']}**: {x['why']}" for x in d["no_longer_asked"]]
     lines += ["", "## Deferred (not askable yet)", ""]
     lines += [f"- **{x['id']}** {x['action']}: {x['why']}" for x in d["deferred"]]
+    b2 = d["b2_owner_gated"]
+    lines += ["", f"## Build 2 OWNER-GATED rows ({b2['rows']} rows -> {b2['decisions']} "
+              f"decisions above, each row exactly once)", "", f"Source: {b2['source']}.", ""]
+    by_dec: dict[str, list[str]] = {}
+    for row, did in b2["placement"].items():
+        by_dec.setdefault(did, []).append(row)
+    lines += [f"- `{did}`: #{', #'.join(rows)}" for did, rows in sorted(by_dec.items())]
+    lines += ["", "## Mislabelled company work inside B2 owner gates", "",
+              "| row | parked on | executable company part | owning lane |", "|---|---|---|---|"]
+    lines += [f"| #{m['row']} | {m['gate']} | {m['executable_part']} | {m['owning_lane']} |"
+              for m in d["mislabelled_company_work"]]
+    lines += ["", "Genuine owner gates with an unmapped test (company work for the ledger "
+              "owner): " + "; ".join(f"#{g['row']} {g['note']}"
+                                    for g in d["b2_genuine_gate_evidence_gaps"]) + "."]
     return "\n".join(lines) + "\n"
 
 
@@ -246,7 +349,7 @@ CLASS = {
                          "reconciles; legacy un-keyed rows close by rule"),
     "seasonal.calendar_behind": ("stale", "seasonal.sentinel reconciles per occurrence"),
     "seasonal.preparation_late": ("stale", "seasonal.sentinel reconciles per stream"),
-    "policy_stale": ("executable", "ops.policy_watch reads the policy and closes the row"),
+    "policy_stale": ("executable (company)", "ops.policy_watch reads the dated policy_knowledge reading and closes the row; readings dated 2026-09-26 go stale on the 30-day rule (2026-10-26) and are refreshed by a build session"),
     "stale-artefact": ("true condition", "artefacts sweep: closes when every artefact carries "
                        "a provenance row (company work, not owner)"),
     "build.stalled": ("stale", "build.tick reconciles on the watchdog verdict"),

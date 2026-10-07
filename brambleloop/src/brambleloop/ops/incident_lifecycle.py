@@ -166,9 +166,16 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "health": ("ops.health sweep", "resolves itself when the signal reads healthy again"),
     "stale-artefact": ("ops.sentinel + rebuild graph",
                        "rebuild enqueued by the sentinel; resolves when upstreams match"),
-    "policy_stale": ("owner", "read the Etsy policy page in a browser and record it with "
-                              "POST /api/policy/snapshot (operator credential); software is "
-                              "refused by Etsy (HTTP 403) and must not spoof a browser"),
+    # W4-OWNER: a stale reading is refreshed by the company -- a build session re-reads the
+    # search-engine excerpt of the official page into gates.policy_knowledge (dated, basis
+    # declared), as the 2026-09-26 readings were. Software must not spoof a browser past
+    # Etsy's 403; an owner page reading supersedes the excerpt but is never required.
+    "policy_stale": ("company", "a build session refreshes the dated search-engine-excerpt "
+                                "reading in gates.policy_knowledge (basis declared) and "
+                                "ops.policy_watch re-reads it; optionally the owner records a "
+                                "page reading with POST /api/policy/snapshot (operator "
+                                "credential), which supersedes the excerpt. Software is "
+                                "refused by Etsy (HTTP 403) and must not spoof a browser"),
     "policy_changed": ("owner", "review the material policy change and record the review on "
                                 "the snapshot; the affected workflows re-test"),
     "authority_chain_tamper": ("owner", "inspect the sealed authority chain; publication "
