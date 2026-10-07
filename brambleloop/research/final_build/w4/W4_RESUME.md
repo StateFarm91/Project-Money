@@ -33,3 +33,11 @@ Complete: MJS (5092b01), STORE (ba72ca8) — merged on claude/w4-INTEG, focused 
   push every worker branch → update every handoff, completion ledger and this manifest → stop work that cannot continue
   on the strongest appropriate model → after the reset resume from those exact checkpoints (no restart, re-audit or redo).
 
+
+## Checkpoint at 98% weekly usage (2026-10-07)
+Main: claude/visual-investigation @ 3219a13 (merged: MJS STORE CREATIVE B2 LEARN OWNER FM GATESI GATESB SEO SPEND SPENDA CC
+PIPE2 K9 VISUAL VISUAL2-partial CHAIN RENDER PIPE3; F-416 pin; CC snapshots; decision index D-FB-19/20).
+Running lanes, all pushed: AUTO b7fd8f5, PIPE 8e5f825, FM2 77d63d6, VISUAL2 1059763, CAND 766ce09, CREATIVE2 9d5fea3.
+Resume after reset (D-FB-20): for each running lane, relaunch "resume from handoff_<LANE>.md on branch claude/w4-<LANE>; merge
+origin/claude/visual-investigation first"; merge finished lanes; then the one validation run of the full suite on a frozen
+candidate for the owner's Command Center deploy (research/final_build/w4/CC_DEPLOY_PACKAGE.md). Do not redo merged work.
