@@ -111,10 +111,48 @@ def test_refusals():
     check("join_off_the_plane_refused", bool(why), why)
 
 
+def test_multi_piece_construction():
+    """CONSTRUCTION for a multi-piece product: every piece's profile, two count paths, layout QA."""
+    import copy
+    import io
+
+    from PIL import Image
+
+    from brambleloop.publish import layout_qa
+    from brambleloop.visual import gallery_frames as G
+
+    cirs = [pb.stocking_cir(), pb.pencil_roll_cir(), mc.creative_cir("mothers-day-heart-tea-cosy"),
+            mc.snowfall_advent_garland()]
+    assert cirs
+    for cir in cirs:
+        check(f"construction_applies_{cir.slug}", "CONSTRUCTION" in G.applicable_jobs(cir))
+        fr = G.render(cir, "CONSTRUCTION")
+        f = fr.manifest["facts"]
+        check(f"construction_every_piece_{cir.slug}",
+              [p["piece"] for p in f["pieces"]] == [c.name for c in cir.components]
+              and all(p["make"] == c.make for p, c in zip(f["pieces"], cir.components))
+              and f["joins"] == len(cir.assembly), f)
+        v = G.verify(fr.png, cir, fr.manifest)
+        check(f"construction_verifies_{cir.slug}", v["status"] == "PASS", v)
+        rep = layout_qa.inspect(Image.open(io.BytesIO(fr.png)).convert("RGB"), position=4,
+                                expect_text=True)
+        check(f"construction_layout_qa_{cir.slug}", not rep.problems, rep.problems)
+        bad = copy.deepcopy(fr.manifest)
+        bad["facts"]["pieces"][0]["profile"][-1]["stitches"] += 1
+        check(f"construction_tampered_facts_fail_{cir.slug}",
+              G.verify(G.draw(bad["facts"]), cir, bad)["status"] == "FAIL")
+    # one piece is still the single-piece frame (rounds only), unchanged
+    one = mc.housewarming_key_basket()
+    check("single_piece_construction_unchanged",
+          "pieces" not in G.facts(one, "CONSTRUCTION")
+          and G.applicable_jobs(pb.stocking_cir(), siblings=[one]).count("CONSTRUCTION") == 0)
+
+
 if __name__ == "__main__":
     test_stocking()
     test_cosy()
     test_refusals()
+    test_multi_piece_construction()
     if FAILED:
         print(f"FAILED: {FAILED}")
         sys.exit(1)

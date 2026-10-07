@@ -663,8 +663,41 @@
      "sha256": "9da1f44cb11ff8702130cf731715b450584ad0d2b30d0c04a89e5c793eb6cacc",
      "verify": "PASS",
      "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/first-christmas-stocking/gallery-construction.png",
+     "sha256": "e8dfd21c47d2ca78cbdd88f51e5249750e7a33a71a079d274d4bbca85ff58e5b",
+     "verify": "PASS",
+     "failed": []
     }
-   ]
+   ],
+   "gallery_jobs": {
+    "category": "stocking",
+    "applicable": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context 9da1f44cb11f",
+     "CONSTRUCTION": "gallery construction e8dfd21c47d2",
+     "DETAIL": "detail ed04bf95515f (verifier PASS)",
+     "MATERIALS": "gallery materials a886082e3317"
+    },
+    "missing": {
+     "ANGLE": "refused: first-christmas-stocking: 'angle' is not drawn for an assembled product",
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "hero drawn (assembled) but the pixel verifier says UNKNOWN",
+     "SCALE": "scale drawn (assembled) but the pixel verifier says UNKNOWN"
+    },
+    "supporting": []
+   }
   },
   "mothers-day-heart-tea-cosy": {
    "slug": "mothers-day-heart-tea-cosy",
@@ -804,8 +837,39 @@
      "sha256": "6a0459ae3348cbd5598804c744717b452c69ed7772b2a2a298a348d83a10f268",
      "verify": "PASS",
      "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/mothers-day-heart-tea-cosy/gallery-construction.png",
+     "sha256": "87a56d812a4211799492f5fcb6d4412efd6d5e838012a017f1fdbc642de68d65",
+     "verify": "PASS",
+     "failed": []
     }
-   ]
+   ],
+   "gallery_jobs": {
+    "category": "tea cosy",
+    "applicable": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context 6a0459ae3348",
+     "DETAIL": "detail cf352607ee85 (verifier PASS)",
+     "MATERIALS": "gallery materials e94e5bffac4d"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "hero drawn (assembled) but the pixel verifier says UNKNOWN",
+     "SCALE": "scale drawn (assembled) but the pixel verifier says UNKNOWN"
+    },
+    "supporting": [
+     "CONSTRUCTION"
+    ]
+   }
   },
   "snowfall-advent-garland": {
    "slug": "snowfall-advent-garland",
@@ -818,7 +882,54 @@
    "usable_as_listing_asset": false,
    "launch_blocked": [
     "renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
-   ]
+   ],
+   "gallery": [
+    {
+     "job": "MATERIALS",
+     "path": "render/snowfall-advent-garland/gallery-materials.png",
+     "sha256": "a886082e33170863d06cdf1138d01082a94904b5a989af742b7fdf3c4844c697",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "COLOUR_CONTEXT",
+     "path": "render/snowfall-advent-garland/gallery-colour_context.png",
+     "sha256": "226eea7d3d120c17961fef3f6d7a6678073a3dbea62d4b606e3b114ce96e6f3a",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/snowfall-advent-garland/gallery-construction.png",
+     "sha256": "a717dd596b2704d759deb378a79e76ed93624df9f7ceaf7785514bec161de8b5",
+     "verify": "PASS",
+     "failed": []
+    }
+   ],
+   "gallery_jobs": {
+    "category": "advent garland",
+    "applicable": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context 226eea7d3d12",
+     "MATERIALS": "gallery materials a886082e3317"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled",
+     "DETAIL": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled",
+     "SCALE": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+    },
+    "supporting": [
+     "CONSTRUCTION"
+    ]
+   }
   },
   "teacher-chevron-pencil-roll": {
    "slug": "teacher-chevron-pencil-roll",
@@ -958,8 +1069,39 @@
      "sha256": "d34179217f52795fe0dc69b33f3906107fb5a25a4bdbe1dedd4f22f7c36823c9",
      "verify": "PASS",
      "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/teacher-chevron-pencil-roll/gallery-construction.png",
+     "sha256": "1f554cc491a95a85983167aaac46f7acc90818c82ceb5228a8fcb6ec2d75d225",
+     "verify": "PASS",
+     "failed": []
     }
-   ]
+   ],
+   "gallery_jobs": {
+    "category": "pencil roll",
+    "applicable": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context d34179217f52",
+     "DETAIL": "detail f9fe90481193 (verifier PASS)",
+     "MATERIALS": "gallery materials cc7580dd6566"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "hero drawn (assembled) but the pixel verifier says UNKNOWN",
+     "SCALE": "scale drawn (assembled) but the pixel verifier says UNKNOWN"
+    },
+    "supporting": [
+     "CONSTRUCTION"
+    ]
+   }
   },
   "housewarming-key-basket": {
    "slug": "housewarming-key-basket",
@@ -1073,9 +1215,37 @@
      "verify": "PASS",
      "failed": []
     }
-   ]
+   ],
+   "gallery_jobs": {
+    "category": "basket",
+    "applicable": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "LIFESTYLE",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "ANGLE": "angle 93a3e1542684 (verifier PASS)",
+     "COLOUR_CONTEXT": "gallery colour_context ea433bc025cc",
+     "CONSTRUCTION": "gallery construction 26ef2c5e3ec3",
+     "DESIRE": "hero 75855b9f3ee0 (verifier PASS)",
+     "DETAIL": "detail 17a4d5a8108e (verifier PASS)",
+     "MATERIALS": "gallery materials 52ce3c878d2e",
+     "SCALE": "scale 50c75b25d134 (verifier PASS)"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "LIFESTYLE": "a room scene is a claim about a physical object in a place; it needs a photograph of a made sample or a protected-product composite whose background generation is paid (owner spend approval)"
+    },
+    "supporting": []
+   }
   }
  },
- "generated_at": "2026-10-07T08:24:23+00:00",
- "head": "80c688d"
+ "generated_at": "2026-10-07T08:39:44+00:00",
+ "head": "33f0666"
 }

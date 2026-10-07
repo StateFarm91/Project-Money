@@ -67,6 +67,9 @@ def run() -> dict:
         rec["usable_as_listing_asset"] = listing["usable_as_listing_asset"]
         rec["launch_blocked"] = listing["launch_blocked"]
         if not listing["made"]:
+            (OUT / slug).mkdir(parents=True, exist_ok=True)
+            rec["gallery"] = _gallery(cir, OUT / slug)
+            rec["gallery_jobs"] = _gallery_jobs(cir, rec, store)
             records[slug] = rec
             rows.append(c)
             print("refused", slug, listing["launch_blocked"][:1], flush=True)
@@ -98,20 +101,82 @@ def run() -> dict:
                                "unknown": direct["unknown"]},
                            "disclosure": f["disclosure"]})
         rec["frames"] = frames
-        gallery = []
-        for job in G.applicable_jobs(cir):
-            fr = G.render(cir, job)
-            v = G.verify(fr.png, cir, fr.manifest)
-            path = d / f"gallery-{job.lower()}.png"
-            path.write_bytes(fr.png)
-            gallery.append({"job": job, "path": str(path.relative_to(HERE)),
-                            "sha256": _sha(fr.png), "verify": v["status"],
-                            "failed": v["failed"]})
-        rec["gallery"] = gallery
+        rec["gallery"] = _gallery(cir, d)
+        rec["gallery_jobs"] = _gallery_jobs(cir, rec, store)
         records[slug] = rec
         rows.append(c)
         print("rendered", slug, c.current, c.stages[c.current]["status"], flush=True)
     return {"rows": [r.to_dict() for r in rows], "records": records}
+
+
+def _gallery(cir, d: Path) -> list[dict]:
+    """The disclosed gallery frames (`visual.gallery_frames`), each verified on its bytes."""
+    from brambleloop.visual import gallery_frames as G
+
+    gallery = []
+    for job in G.applicable_jobs(cir):
+        fr = G.render(cir, job)
+        v = G.verify(fr.png, cir, fr.manifest)
+        path = d / f"gallery-{job.lower()}.png"
+        path.write_bytes(fr.png)
+        gallery.append({"job": job, "path": str(path.relative_to(HERE)),
+                        "sha256": _sha(fr.png), "verify": v["status"], "failed": v["failed"]})
+    return gallery
+
+
+def _gallery_jobs(cir, rec: dict, store) -> dict:
+    """The gallery jobs K1 requires for this product (`eligibility.gallery_jobs_for`, by its
+    search category) and which frame covers each -- covered only by a frame that verified on
+    its bytes against the certified CIR; everything else is listed missing with the reason."""
+    from brambleloop.products import pipeline_board as pb
+    from brambleloop.publish import eligibility as el
+    from brambleloop.visual import disclosed_render as DR
+    from brambleloop.visual import gallery_frames as G
+    from brambleloop.visual import render_verification as RV
+
+    category = (pb.CREATIVE_SEARCH.get(cir.slug) or ("",))[0]
+    applicable = el.gallery_jobs_for(category, sizes=1, colours=len(cir.colors or {}))
+    covered, missing = {}, {}
+    view_job = {"hero": "DESIRE", "scale": "SCALE", "detail": "DETAIL"}
+    for f in rec.get("frames") or []:
+        st = f["verifier_against_certified_cir"]["status"]
+        if st == "PASS":
+            covered[view_job[f["view"]]] = f"{f['view']} {f['sha256'][:12]} (verifier PASS)"
+        else:
+            missing[view_job[f["view"]]] = (f"{f['view']} drawn ({f['form']}) but the pixel "
+                                            f"verifier says {st}")
+    for g in rec.get("gallery") or []:
+        if g["verify"] == "PASS":
+            covered[g["job"]] = f"gallery {g['job'].lower()} {g['sha256'][:12]}"
+    if "ANGLE" in applicable:
+        try:
+            fr = DR.render(cir, "angle")
+            v = RV.verify(fr.png, cir=cir, view="angle")
+            (OUT / cir.slug / "angle.png").write_bytes(fr.png)
+            if v["status"] == "PASS":
+                covered["ANGLE"] = f"angle {_sha(fr.png)[:12]} (verifier PASS)"
+            else:
+                missing["ANGLE"] = (f"angle drawn but the verifier says {v['status']}: "
+                                    f"failed {v['failed']} unknown {v['unknown']}")[:300]
+        except DR.RenderRefused as exc:
+            missing["ANGLE"] = f"refused: {exc}"[:300]
+    for job in applicable:
+        if job in covered or job in missing:
+            continue
+        if job in view_job.values() and not rec.get("made"):
+            missing[job] = ("disclosed renderer refused: "
+                            + "; ".join(rec.get("launch_blocked") or [])[:240])
+        elif job == "CONTENTS":
+            missing[job] = ("drawn by visual.contents_frame from the release's certified PDF; "
+                            "this product has no release yet (release gates, not imagery)")
+        elif job in G.NOT_DRAWABLE:
+            missing[job] = G.NOT_DRAWABLE[job]
+        else:
+            missing[job] = "no truthful producer for this job yet"
+    return {"category": category, "applicable": sorted(applicable),
+            "covered": {j: covered[j] for j in sorted(covered) if j in applicable},
+            "missing": {j: missing[j] for j in sorted(missing) if j in applicable},
+            "supporting": sorted(set(covered) - set(applicable))}
 
 
 def splice_backlog(rows: list[dict]) -> None:
@@ -160,6 +225,13 @@ def md(res: dict) -> str:
         nxt = (rec["launch_blocked"][0] if not rec["made"] else r["next_step"])
         L.append(f"| {r['slug']} | {rec['made']} | {forms} | {ver} | {gal} | {qa_s} | "
                  f"{r['stage']} {r['stage_status']} | {nxt[:220].replace('|', '/')} |")
+    L += ["", "Required gallery jobs (`publish.eligibility.gallery_jobs_for` by search category; "
+          "covered only by a frame verified on its bytes against the certified CIR):", ""]
+    for slug, rec in res["records"].items():
+        gj = rec.get("gallery_jobs")
+        miss = "; ".join(f"{j}: {w[:140]}" for j, w in gj["missing"].items()) or "none"
+        L.append(f"- **{slug}** ({gj['category'] or 'no category'}): covered "
+                 f"{sorted(gj['covered'])}; missing {miss}")
     L += ["", "Assembled frames: pieces placed only by the CIR's named-edge joins, hidden "
           "mirror back layers, structured folds and resumed holds (`visual.assembled_render`);"
           " what cannot be placed is listed per frame as not drawn."]
