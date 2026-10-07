@@ -167,11 +167,11 @@ def test_gate_blockers_name_who_they_wait_on_from_the_closure_classifier():
     b = status.gate_blocker("nobody.classified.this")
     assert b["waiting_on"] == "company" and b["closure_kind"] == "UNCLASSIFIED", b
     db = boot()
-    items = status.agents(db)["items"] or []
-    for row in items:
-        for blk in row.get("blockers") or []:
-            if blk.get("gate"):
-                assert blk["kind"] == f"{blk['waiting_on']}_gate", blk
+    gate_blks = [blk for row in status.summary(db)["items"] for blk in row.get("blockers", [])
+                 if blk.get("gate")]
+    assert gate_blks, "a fresh shadow company has closed gates; none reached the summary"
+    for blk in gate_blks:
+        assert blk["kind"] == f"{blk['waiting_on']}_gate", blk
 
 
 def test_fm2_openapi_reverify_is_scheduled_authorised_banded_and_judged():
@@ -191,6 +191,45 @@ def test_fm2_openapi_reverify_is_scheduled_authorised_banded_and_judged():
     assert pipeline.did_no_work({"status": "current", "affected": 0, "writes_performed": 0}, jt)
     assert not pipeline.did_no_work({"status": "drift", "affected": 2, "writes_performed": 0},
                                     jt)
+
+
+def test_long_read_only_analysis_does_not_starve_the_release_chain_at_boot():
+    """W4-CHAIN residual: maturity analysis is deferred at boot and banded behind the chain."""
+    from datetime import timedelta
+
+    from brambleloop.core.models import Job
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import worker as wm
+    from brambleloop.swarm import orchestrate
+
+    jt = "ops.maturity_disagreements"
+    assert jt in wm.BOOT_DEFERRED_SECONDS
+    chain = ("chain.rebuild", "cir.draft", "gate.certify", "assets.build")
+    for c in chain:
+        assert orchestrate.priority_for(jt) > orchestrate.priority_for(c), c
+    started = wm.utcnow()
+    assert wm.boot_deferred_run_after(jt, started + timedelta(seconds=5),
+                                      started_at=started) is not None
+    assert wm.boot_deferred_run_after(
+        jt, started + timedelta(seconds=wm.BOOT_DEFERRED_SECONDS[jt] + 1),
+        started_at=started) is None
+    assert wm.boot_deferred_run_after("chain.rebuild", started, started_at=started) is None
+    # The real scheduler, right after process start: the analysis is enqueued but not yet due,
+    # and a release-chain job enqueued at the same time is what the worker claims.
+    db = boot()
+    wm.Scheduler(db).tick(now=wm.PROCESS_STARTED_AT + timedelta(seconds=1))
+    with db.session() as s:
+        rows = [r for r in s.query(Job).filter(Job.job_type == jt)]
+    assert rows, "the maturity cadence was not enqueued"
+    ra = rows[0].run_after if rows[0].run_after.tzinfo else \
+        rows[0].run_after.replace(tzinfo=wm.PROCESS_STARTED_AT.tzinfo)
+    assert ra >= wm.PROCESS_STARTED_AT + timedelta(
+        seconds=wm.BOOT_DEFERRED_SECONDS[jt] - 1), ra
+    q = JobQueue(db)
+    q.enqueue("orchestrator", "chain.rebuild", {"probe": 1},
+              priority=orchestrate.priority_for("chain.rebuild"))
+    claimed = q.claim("w", job_types=[jt, "chain.rebuild"])
+    assert claimed is not None and claimed.job_type == "chain.rebuild", claimed
 
 
 if __name__ == "__main__":

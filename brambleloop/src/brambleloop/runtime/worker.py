@@ -835,11 +835,11 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # compared with what we created, field drift and suspected takedowns as incidents.
     ("etsy_credential_health", "orchestrator", "etsy.credential_health", 24 * 60 * 60),
     ("etsy_shop_snapshot", "orchestrator", "etsy.shop_snapshot", 24 * 60 * 60),
-    # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
-    ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     # W4-STORE: read the stored live snapshot back against the canonical brand/owner fields;
     # drift becomes incidents and proposals, never an Etsy write.
     ("store_live_drift", "orchestrator", "store.live_drift", 86400),
+    # W4-FM2 F-514: weekly OpenAPI re-verification of the Etsy surface classifications.
+    ("etsy_openapi_reverify", "orchestrator", "etsy.openapi_reverify", 7 * 24 * 60 * 60),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),
     # v1.1 lane A (PRIORITY ZERO, F-893/F-894): the Executive Orchestrator. Every fifteen
     # minutes it reads every department, reconciles the missions it created, and gives each
@@ -961,6 +961,28 @@ class _LeaseRenewal:
 from ..swarm.orchestrate import lane_hold, priority_for  # noqa: E402
 
 
+# W4-CHAIN residual: long read-only analysis cadences share the single embedded worker with
+# the release chain. At boot every cadence opens its window at once, and an ~80 s analysis
+# (`ops.maturity_disagreements` walks the whole reachability graph) claimed first holds the
+# worker while release-chain work waits behind it. Such a cadence is enqueued with its first
+# run deferred until the process has been up this long, so the boot burst's chain work is
+# claimed first; after that it runs on its normal window. Read-only, so a deferral loses
+# nothing but minutes of staleness. (The band, in `swarm.orchestrate.JOB_BANDS`, keeps it
+# behind chain work afterwards.)
+BOOT_DEFERRED_SECONDS: dict[str, int] = {"ops.maturity_disagreements": 10 * 60}
+PROCESS_STARTED_AT = utcnow()
+
+
+def boot_deferred_run_after(job_type: str, now, *, started_at=None):
+    """`run_after` for a cadence enqueue: None, or the end of its boot deferral."""
+    defer = BOOT_DEFERRED_SECONDS.get(job_type)
+    if not defer:
+        return None
+    started = started_at or PROCESS_STARTED_AT
+    until = started + timedelta(seconds=defer)
+    return until if now < until else None
+
+
 class Scheduler:
     def __init__(self, db: Database):
         self.db = db
@@ -1058,7 +1080,8 @@ class Scheduler:
                 key = f"cadence:{name}:{window}"
                 # The job type's band (#187), not how often it happens to be scheduled.
                 self.queue.enqueue(agent, job_type, {"cadence": name}, idempotency_key=key,
-                                   priority=priority_for(job_type))
+                                   priority=priority_for(job_type),
+                                   run_after=boot_deferred_run_after(job_type, now))
                 enqueued.append(name)
                 ok += 1
             except DuplicateJob:

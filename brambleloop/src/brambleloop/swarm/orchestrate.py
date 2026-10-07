@@ -852,7 +852,9 @@ JOB_BANDS: dict[str, str] = {
     "ops.capacity": "housekeeping",
     "ops.dependencies": "housekeeping",
     "ops.provenance_backfill": "housekeeping",
-    "ops.maturity_disagreements": "truth_defect",
+    # W4-CHAIN residual: a read-only internal analysis (~80 s) -- it must not be claimed
+    # ahead of release-chain work on the single embedded worker.
+    "ops.maturity_disagreements": "housekeeping",
     "swarm.review": "housekeeping",
     "swarm.allocate": "housekeeping",
     "swarm.orphans": "housekeeping",
