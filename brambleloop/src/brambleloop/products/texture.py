@@ -19,7 +19,7 @@ and arithmetic the compiler checks rather than a designer's confidence.
 from __future__ import annotations
 
 from ..cir import stitches as _stitches
-from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row, Seam
 from ..creative.prototype import gauge_for
 from ..gates.originality import catalogue_provenance
 
@@ -51,6 +51,10 @@ PILLOW_TARGET_CM = (43.8, 43.9)
 # design's stated yardage and/or size; a customer-visible figure cannot change under a
 # released version (tests/data/release_fingerprints.tsv pins content AND claims).
 DERIVED_VERSION = "1.2.0"
+# W4-PIPE (2026-10-07): the pillow cover's CIR was its front alone -- the back lived only in a
+# component note and nothing said how the two close round the pad (name truth, B-059 class).
+# The back panel and the closing seam are now pattern content, so the release moves a minor.
+PILLOW_VERSION = "1.3.0"
 CABLE_TARGET_CM = (90.0, 128.9)
 
 PINE = {"pine": "#244A3A"}
@@ -144,7 +148,7 @@ def build_ribbed_scarf(version: str = "1.0.0") -> CIR:
     )
 
 
-def build_bobble_pillow(version: str = DERIVED_VERSION) -> CIR:
+def build_bobble_pillow(version: str = PILLOW_VERSION) -> CIR:
     """A staggered bobble grid on a single crochet ground.
 
     The bobbles alternate position every second bobble row, which is what makes a grid rather
@@ -192,6 +196,15 @@ def build_bobble_pillow(version: str = DERIVED_VERSION) -> CIR:
                         ops=[Repeat([Op("sc", 2), Op("bob"), Op("sc", 2)], times=across)],
                         declared_count=width, color="gold", turning_chain=1))
 
+    # The back: plain single crochet, the front's width, worked to the front's height so the
+    # two perimeters agree within the assembly tolerance (cir.assembly.EDGE_TOLERANCE). The
+    # row count is derived from the heights, never copied from the front: a bobble row is
+    # not the height of a plain row.
+    front_cm = _row_height_cm(("sc",), WORSTED) + blocks * block_cm
+    back_rows = max(1, round(front_cm / _row_height_cm(("sc",), WORSTED)))
+    back = [Row(index=i, ops=[Op("sc", width)], declared_count=width, color="gold",
+                turning_chain=1) for i in range(1, back_rows + 1)]
+
     return CIR(
         slug="bobble-floor-pillow",
         title="Bobble Floor Pillow Cover",
@@ -204,8 +217,18 @@ def build_bobble_pillow(version: str = DERIVED_VERSION) -> CIR:
                             color_id="gold")],
         components=[Component(name="front", construction="flat_rows", rows=rows,
                               foundation=width,
-                              note="The front panel. The back is a plain panel of the same "
-                                   "stitch and row count.")],
+                              note="The front panel: the bobble grid."),
+                    Component(name="back", construction="flat_rows", rows=back,
+                              foundation=width,
+                              note="The back panel: plain single crochet, the front's width, "
+                                   "worked to the front's height.")],
+        # Placed over the back's whole height (rows 1..last): the join runs round the full
+        # perimeter of both panels, and the pad goes in before the last side closes (a pad is
+        # bought ready-made, so this is not a stuffing step).
+        assembly=[Seam("whipstitch", "front", "back", edge_a="perimeter", edge_b="perimeter",
+                       at_round=1, spans_rounds=back_rows,
+                       note="Hold the panels wrong sides together, whipstitch three sides, "
+                            "insert the pad, then close the fourth side.")],
         designer_notes=("Class B: the arithmetic and the fabric are verifiable, but a cushion "
                         "cover's fit around a pad depends on how firmly it is worked, so "
                         "nothing is claimed about that until a physical sample says so."),

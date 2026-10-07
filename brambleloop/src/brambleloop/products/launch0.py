@@ -120,6 +120,10 @@ TEXTURE_STITCHES: frozenset[str] = frozenset((
 # Forms that are more than one piece of fabric by definition, and therefore need `assembly`.
 ASSEMBLED_FORMS: tuple[str, ...] = (
     "garland", "bunting", "wall hanging", "mobile", "wreath",
+    # W4-PIPE: forms that cannot be one flat panel either -- a pillow cover has a back and a
+    # closing seam, a cosy/pouch/stocking is a closed shape, a pencil roll has a folded pocket
+    # row and a tie. A flat-panel CIR under these names promises a make it does not contain.
+    "pillow", "cushion", "cosy", "cozy", "pouch", "pencil roll", "stocking",
 )
 
 # Words that promise more than one finished piece without giving a number.
