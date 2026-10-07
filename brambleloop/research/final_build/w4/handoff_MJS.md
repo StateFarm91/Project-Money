@@ -37,3 +37,8 @@ the branch (updated at each commit).
 1. Re-run the focused tests listed in the final report.
 2. After any production deploy, run `snapshot_findings.py` (online) and confirm an `mjs.findings`
    audit row appears in `/api/audit?action=mjs.findings`.
+
+## Tests run (2026-10-07, all exit 0)
+test_w4_mjs_findings 4 OK; test_intel 41; test_cert_mjs 19; test_cert_intel_wave 9;
+test_cert_intel_wave2 15; test_vacuity 7; test_secret_scan 7; test_reachability 11;
+test_w3_tmp_hygiene 16. Next deterministic action: integrator merge, then the wiring requests above.
