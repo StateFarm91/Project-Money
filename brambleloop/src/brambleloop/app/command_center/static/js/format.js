@@ -117,7 +117,8 @@ export function utcStamp(iso) {
 export const STATUS_CLASS = { OK: "ok", DEGRADED: "warn", BLOCKED: "bad", UNKNOWN: "unknown",
   CRITICAL: "bad", HIGH: "bad", MEDIUM: "warn", LOW: "info", INFO: "info", WARNING: "warn",
   PENDING: "warn", APPROVED: "ok", REJECTED: "bad", STALE: "warn", PAUSED: "warn",
-  ACTIVE: "ok", RUNNING: "ok", FAILED: "bad", READY: "ok", GATED: "warn" };
+  ACTIVE: "ok", RUNNING: "ok", SLEEPING: "info", UNHEALTHY: "bad", QUEUED: "info",
+  REVIEW: "info", MERGED: "ok", DONE: "ok", ABANDONED: "unknown", FAILED: "bad", READY: "ok", GATED: "warn" };
 
 export function statusClass(s) {
   return STATUS_CLASS[String(s || "UNKNOWN").toUpperCase()] || "unknown";

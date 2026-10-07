@@ -76,7 +76,8 @@ export function createMock() {
       if (!authed(req)) return send(res, 401, { error: "not authenticated", code: "NOT_AUTHENTICATED" });
       const simple = { home: "home", "brief/morning": "morning", approvals: "approvals", store: "store", operations: "operations",
         autonomy: "autonomy", learn: "autonomy", insights: "insights", timeline: "timeline", notifications: "notifications",
-        account: "account", "account/sessions": "sessions", emergency: "emergency" };
+        account: "account", "account/sessions": "sessions", emergency: "emergency",
+        company: "company", completion: "completion" };
       if (Object.hasOwn(simple, route)) return send(res, 200, DATA[simple[route]]());
       if (route === "money") return send(res, 200, DATA.money(url.searchParams.get("period")));
       if (route === "money/drill") return send(res, 200, DATA.moneyDrill(url.searchParams.get("metric") || ""));
