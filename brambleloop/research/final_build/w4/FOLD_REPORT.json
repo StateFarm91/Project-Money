@@ -1,0 +1,2380 @@
+{
+ "head": "fee1cfe",
+ "folded": [
+  {
+   "uid": "F-001",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py",
+   "consumer": "`listing.seo` audit `search_stages` and `i[\"search_coverage\"]`. Shown side by side with `ranking_readiness` in `search_evidence`"
+  },
+  {
+   "uid": "F-002",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/app/storefront_api.py",
+   "consumer": "`GET /api/search-evidence` (`app/storefront_api.py`)"
+  },
+  {
+   "uid": "F-003",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_ranking_readiness.py"
+   ],
+   "producer": "src/brambleloop/commerce/ranking_readiness.py::profile",
+   "consumer": "runtime consumer per reachability: shop_wide is live: API get api_trust -> app/main.py:api_trust -> commerce/trust.py:may_scale_ads -> commerce/search_evidence.py:supremacy_gate -> commerce/search_evi"
+  },
+  {
+   "uid": "F-004",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_search_hero_publish.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/search.py::search_certificate; src/brambleloop/publish/release_gates.py::search_gate",
+   "consumer": "src/brambleloop/publish/release_gates.py::for_publish -> runtime/pipeline.py::_release_gates (store.publish refuses)"
+  },
+  {
+   "uid": "F-011",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/search.py::choose_tags",
+   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo"
+  },
+  {
+   "uid": "F-013",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_parity_copy.py",
+    "tests/test_commerce.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py",
+   "consumer": "blocking and the certificate; audit `intent_coverage`)"
+  },
+  {
+   "uid": "F-015",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_intent.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/search.py::build_query_set + commerce/intent.py::listing_language",
+   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo"
+  },
+  {
+   "uid": "F-020",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_intent.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/intent.py::listing_language",
+   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo"
+  },
+  {
+   "uid": "F-021",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py::build_title / check_listing_limits",
+   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo"
+  },
+  {
+   "uid": "F-022",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py",
+   "consumer": "`listing.seo` `check_search_copy(check_front_scan=True)`"
+  },
+  {
+   "uid": "F-028",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_layout_qa.py (LISTING_HERO_IS_AN_INFOGRAPHIC)",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/publish/hero_exception.py",
+   "consumer": "`assets.build` (audit `assets.hero_restraint_excepted`)"
+  },
+  {
+   "uid": "F-043",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fb4_ops.py"
+   ],
+   "producer": "src/brambleloop/support/response_watch.py::watch",
+   "consumer": "runtime consumer per reachability: record_buyer_message is live: API post api_support_messages -> app/main.py:api_support_messages"
+  },
+  {
+   "uid": "F-048",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/runtime/pipeline.py::_release_gates + runtime/release.py::handle_listing_seo",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish"
+  },
+  {
+   "uid": "F-049",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_listing_set.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/publish/listing_set.py::still_valid",
+   "consumer": "gate.certify recheck; store.publish"
+  },
+  {
+   "uid": "F-052",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/search.py::listing_attributes",
+   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo"
+  },
+  {
+   "uid": "F-058",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_growth_ops.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/search_evidence.py",
+   "consumer": "`GET /api/search-evidence`"
+  },
+  {
+   "uid": "F-060",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_trust.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/trust.py",
+   "consumer": "`may_scale_ads` callers (`release` 3752, `growth_ops`, `ads_readiness`, `/api` accelerator)"
+  },
+  {
+   "uid": "F-071",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_launch0.py"
+   ],
+   "producer": "src/brambleloop/build2/executor.py Gate physical_proof; launch/readiness.py",
+   "consumer": "src/brambleloop/launch/readiness.py::assess"
+  },
+  {
+   "uid": "F-072",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_gates.py",
+    "tests/test_risk_matrix.py"
+   ],
+   "producer": "src/brambleloop/gates/risk_matrix.py",
+   "consumer": "`runtime/release.py::handle_physical_record`, `gates/certificate.py::certify`"
+  },
+  {
+   "uid": "F-073",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_fastlane.py",
+    "tests/test_gates.py",
+    "tests/test_risk_matrix.py"
+   ],
+   "producer": "src/brambleloop/commerce/lanes.py",
+   "consumer": "`certify` (pipeline `handle_certify`), `lanes.route_certified`"
+  },
+  {
+   "uid": "F-074",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_gates.py",
+    "tests/test_physical_record_blocked.py"
+   ],
+   "producer": "src/brambleloop/gates/certificate.py::primitive_findings; src/brambleloop/cir/stitches.py::calibration_status; runtime/pipeline.py::calibrated_primitives",
+   "consumer": "runtime/pipeline.py::handle_certify -> certify (ERROR UNCALIBRATED_PRIMITIVE refuses grant); launch/readiness.py::unknowns"
+  },
+  {
+   "uid": "F-078",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_gates.py",
+    "tests/test_physical.py",
+    "tests/test_risk_matrix.py",
+    "tests/test_runrate.py",
+    "tests/test_scale.py"
+   ],
+   "producer": "src/brambleloop/runtime/pipeline.py",
+   "consumer": "`requirement_status.retest_required` \u2192 `pipeline._request_physical_retest` queues ONE OwnerAction (key `physical_evidence:slug@version:hash12`, idempotent) in Directive format + `physical.retest_reque"
+  },
+  {
+   "uid": "F-080",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_gates.py",
+    "tests/test_risk_matrix.py"
+   ],
+   "producer": "src/brambleloop/gates/risk_matrix.py",
+   "consumer": "`certify`"
+  },
+  {
+   "uid": "F-086",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_launch0.py",
+    "tests/test_risk_matrix.py"
+   ],
+   "producer": "src/brambleloop/launch/readiness.py",
+   "consumer": "`launch/readiness.assess`"
+  },
+  {
+   "uid": "F-105",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_cost_governance_wave2.py",
+    "tests/test_spend_governance.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_report.py::governance",
+   "consumer": "src/brambleloop/app/main.py::dashboard"
+  },
+  {
+   "uid": "F-109",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_chaos.py",
+    "tests/test_spend_governance.py",
+    "tests/test_w3_spend_paid_calls.py"
+   ],
+   "producer": "src/brambleloop/gateway/paid_calls.py",
+   "consumer": "runtime/worker.Worker.run_once -> finance/spend_report.attributed_to (job scope)"
+  },
+  {
+   "uid": "F-110",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_escalation.py",
+    "tests/test_spend_policy.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_policy.py",
+   "consumer": "`spend_report"
+  },
+  {
+   "uid": "F-115",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_artefacts.py",
+    "tests/test_cert_rebuild_chain.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/artefacts.py",
+   "consumer": "`ops.artefacts.check` marks un-instrumented artefacts of a superseded version (or a retired `LEGACY_DUPLICATES` slug) as retired. Their state stays `unproven` (never fresh), with `retired`/`invalidate"
+  },
+  {
+   "uid": "F-116",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_gates.py",
+    "tests/test_prototype.py"
+   ],
+   "producer": "src/brambleloop/creative/prototype.py::gauge_for",
+   "consumer": "src/brambleloop/runtime/pipeline.py::concept_to_cir"
+  },
+  {
+   "uid": "F-117",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_physical.py",
+    "tests/test_prototype.py",
+    "tests/test_risk_matrix.py"
+   ],
+   "producer": "src/brambleloop/products/garments.py",
+   "consumer": "`TWIN_DIMENSION_UNSUPPORTED`, drift \u2192 `TWIN_DIMENSION_IMPLAUSIBLE` (ERROR). Every launch0/garment statement verified inside tolerance."
+  },
+  {
+   "uid": "F-121",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_deploy.py",
+    "tests/test_maturity.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/truth.py",
+   "consumer": "`ops.truth.claim` refuses a positive claim that rests only on configuration, code existence or no errors. `audit_summary` flags an OK status with no sources. It runs over every CC provider in `ops.tru"
+  },
+  {
+   "uid": "F-122",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_dependency.py",
+    "tests/test_governor.py",
+    "tests/test_health.py",
+    "tests/test_reliability.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/truth.py",
+   "consumer": "`truth.rate` returns UNMEASURED or NOT-YET-OBSERVED when the denominator is 0. The live lint (`audit_summary`) flags a 0 rate printed next to a 0 denominator in any provider output. Provenance coverag"
+  },
+  {
+   "uid": "F-124",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_rebuild_chain.py",
+    "tests/test_continuity.py",
+    "tests/test_model_provider.py",
+    "tests/test_offsite.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/assurance.py",
+   "consumer": "`ops.assurance.postconditions` reads back restore digest, DONE jobs that have outputs, rebuilds, credentials served, cleanup, and the deployed tree's release record. A VIOLATED result opens a `postcon"
+  },
+  {
+   "uid": "F-125",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fb4_ops.py"
+   ],
+   "producer": "src/brambleloop/build2/maturity.py::record_disagreements",
+   "consumer": "runtime consumer per reachability: ladder is live: API get api_build2_maturity -> app/main.py:api_build2_maturity"
+  },
+  {
+   "uid": "F-127",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_first_customer_gate.py",
+    "tests/test_health.py",
+    "tests/test_model_provider.py",
+    "tests/test_spend_governance.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/truth.py",
+   "consumer": "`truth.NON_VALUES`, `normalise` and `is_non_value` form the shared vocabulary that maps existing module spellings"
+  },
+  {
+   "uid": "F-128",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_access.py",
+    "tests/test_executor.py",
+    "tests/test_health.py",
+    "tests/test_model_provider.py"
+   ],
+   "producer": "src/brambleloop/launch/access.py::accept_evidence",
+   "consumer": "src/brambleloop/build2/executor.py::sync"
+  },
+  {
+   "uid": "F-129",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_closure.py",
+    "tests/test_final_master_registry.py",
+    "tests/test_reachability.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-130",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_executor.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-131",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_capability_gates.py",
+    "tests/test_executor.py",
+    "tests/test_health.py",
+    "tests/test_model_provider.py",
+    "tests/test_provenance.py"
+   ],
+   "producer": "src/brambleloop/build2/executor.py::_model_usable",
+   "consumer": "src/brambleloop/build2/executor.py::sync"
+  },
+  {
+   "uid": "F-133",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_executor.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-136",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_closure.py",
+    "tests/test_executor.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-154",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_continuity.py",
+    "tests/test_offsite.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/app/command_center/auth.py",
+   "consumer": "functional probes: opsauth accepts a valid token and refuses a wrong one, default-deny on an unregistered route, the CSP middleware on a synthetic response, the owner login refuses a bad credential an"
+  },
+  {
+   "uid": "F-161",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_artefacts.py",
+    "tests/test_provenance_backfill.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/artefacts.py",
+   "consumer": "`artefacts.coverage` gives numerator and denominator per class. Reported in the `ops.sentinel` audit and in `/api/provenance` (graduation.coverage)"
+  },
+  {
+   "uid": "F-162",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_artefacts.py",
+    "tests/test_cert_provenance.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/artefacts.py",
+   "consumer": "`declare_graduations` (called by the `ops.sentinel` handler) records `provenance.class_graduated` once a class has artefacts and none of them are unproven. After that, `sweep` blocks release on a miss"
+  },
+  {
+   "uid": "F-167",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_provenance.py",
+    "tests/test_provenance_backfill.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/backfill.py",
+   "consumer": "`backfill.relevance` splits what remains unproven into launch_relevant (Launch-0 scope), retired (invalidated) and other. Recorded in the daily `ops.provenance_backfill` audit"
+  },
+  {
+   "uid": "F-168",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_artefacts.py",
+    "tests/test_cert_rebuild_chain.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/incident_lifecycle.py",
+   "consumer": "`incident_lifecycle.escalate_systemic`, run from the ops.health sweep, opens `systemic-halt:publication` when one failure family halts at least 3 products and at least 50% of the catalogue, or when th"
+  },
+  {
+   "uid": "F-173",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_deploy.py",
+    "tests/test_launch.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/ops/owner_queue.py",
+   "consumer": "`owner_queue.inventory`, built from the one queue (`executor.approval_inbox`). It covers capability, cost, minutes, requirement kind (credentials/legal/physical/spend/decision) and consequence, plus t"
+  },
+  {
+   "uid": "F-174",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_closure.py",
+    "tests/test_executor.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/ops/owner_queue.py",
+   "consumer": "`owner_queue.data_gates` lists the executor data gates and the 14 Final Master rows gated on data. A data-gated row labelled COMPLETE while the customers gate is closed sets the status to BLOCKED"
+  },
+  {
+   "uid": "F-179",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_health.py",
+    "tests/test_launch.py"
+   ],
+   "producer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+   "consumer": "src/brambleloop/app/main.py::dashboard"
+  },
+  {
+   "uid": "F-180",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_funding.py",
+    "tests/test_launch.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/ops/owner_queue.py",
+   "consumer": "adds the OwnerAction columns `state`, `state_at`, `state_reason` and `expires_at`. Supported states: open, satisfied, superseded, withdrawn, parked, expired, plus an honest `closed_unclassified` for a"
+  },
+  {
+   "uid": "F-181",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_executor.py"
+   ],
+   "producer": "src/brambleloop/build2/executor.py::approval_inbox",
+   "consumer": "src/brambleloop/app/main.py::dashboard"
+  },
+  {
+   "uid": "F-183",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_spend_governance.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_policy.py",
+   "consumer": "`spend_report"
+  },
+  {
+   "uid": "F-184",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_policy.py",
+   "consumer": "`spend_report"
+  },
+  {
+   "uid": "F-185",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_dashboard.py"
+   ],
+   "producer": "src/brambleloop/app/main.py::api_status",
+   "consumer": "src/brambleloop/app/main.py::dashboard"
+  },
+  {
+   "uid": "F-186",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_fin_truth_closure.py"
+   ],
+   "producer": "src/brambleloop/app/dashboard_truth.py::launch_inventory",
+   "consumer": "src/brambleloop/app/main.py::dashboard headline; GET /api/headline"
+  },
+  {
+   "uid": "F-188",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fin_truth_closure.py"
+   ],
+   "producer": "src/brambleloop/creative/audit.py::audit_catalogue",
+   "consumer": "src/brambleloop/app/main.py::dashboard._creative; app/dashboard_truth.py::creative_survivors"
+  },
+  {
+   "uid": "F-189",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_fin_truth_closure.py",
+    "tests/test_scale.py"
+   ],
+   "producer": "src/brambleloop/scale/confidence.py::probability (state/reported_probability/display)",
+   "consumer": "src/brambleloop/app/main.py::dashboard _scale block; GET /api/scale"
+  },
+  {
+   "uid": "F-195",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_incident_lifecycle.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/incident_lifecycle.py",
+   "consumer": "`incident_lifecycle.actionability` adds last_confirmed, applicability (current, UNCONFIRMED after 48h, or resolved) and remediation owner and path. Policy incidents get an explicit owner path (`POST /"
+  },
+  {
+   "uid": "F-197",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/app/command_center/approvals.py",
+   "consumer": "the physical_proof card asks for tester outreach and never asks the owner to crochet. Its `tester_route.tester_status` reads roster status, which is shown in the CC approvals card and at `/api/cc/trut"
+  },
+  {
+   "uid": "F-199",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/assurance.py",
+   "consumer": "`assurance.readiness_reproof` re-proves the last `launch.assessed` verdict and the clearance of every product against the current launch standard. It is recorded daily as `launch.reproved` from the op"
+  },
+  {
+   "uid": "F-202",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py"
+   ],
+   "producer": "src/brambleloop/app/main.py::api_verify (VERIFY_AUDIT_ACTION) + core/build.py::identity",
+   "consumer": "src/brambleloop/app/main.py::dashboard header"
+  },
+  {
+   "uid": "F-204",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/ops/owner_queue.py",
+   "consumer": "`owner_queue.empty_guard` reports PROVEN-EMPTY only when there is a launch.assessed within 26h, the gates were read live, and nothing is withheld. Otherwise it reports UNPROVEN-EMPTY. `closes_anything"
+  },
+  {
+   "uid": "F-212",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_identity.py",
+    "tests/test_image_bench.py",
+    "tests/test_model_photography.py",
+    "tests/test_w3_k12_model_photography.py"
+   ],
+   "producer": "src/brambleloop/gateway/images.py",
+   "consumer": "`reference_probe`, by the `image_bench` handler, and by the `visual.provider_trial` handler."
+  },
+  {
+   "uid": "F-215",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_model_photography.py"
+   ],
+   "producer": "src/brambleloop/publish/model_photography.py::make",
+   "consumer": "src/brambleloop/visual/parity.py::assess"
+  },
+  {
+   "uid": "F-234",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_shop_package.py"
+   ],
+   "producer": "src/brambleloop/commerce/shop_package.py::check_package",
+   "consumer": "src/brambleloop/brand/storefront.py::check_storefront (policy sections from shop_package.POLICY_SECTIONS); src/brambleloop/launch/readiness.py::assess"
+  },
+  {
+   "uid": "F-235",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_brand.py",
+    "tests/test_shop_package.py"
+   ],
+   "producer": "src/brambleloop/brand/storefront.py::build_storefront (ABOUT)",
+   "consumer": "src/brambleloop/launch/readiness.py::assess (length only via check_storefront)"
+  },
+  {
+   "uid": "F-236",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_shop_package.py",
+    "tests/test_storefront_fb4.py"
+   ],
+   "producer": "src/brambleloop/brand/storefront.py::check_storefront",
+   "consumer": "src/brambleloop/commerce/shop_package.py (package problems check only verifies field presence)"
+  },
+  {
+   "uid": "F-237",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_brand.py"
+   ],
+   "producer": "src/brambleloop/brand/storefront.py::SECTIONS / section_for",
+   "consumer": "src/brambleloop/brand/storefront.py::check_storefront (no-sections/duplicate/over-20 checks)"
+  },
+  {
+   "uid": "F-238",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_brand.py",
+    "tests/test_storefront_fb4.py"
+   ],
+   "producer": "src/brambleloop/brand/storefront.py::opening_grid",
+   "consumer": "runtime consumer per reachability: check_storefront is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess"
+  },
+  {
+   "uid": "F-242",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_platform_policy.py",
+    "tests/test_policy_intake.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py",
+   "consumer": "`listing.seo` (certificate `search_policy`), publish search gate"
+  },
+  {
+   "uid": "F-243",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "maturity": "EXERCISED",
+   "test_files": [
+    "tests/test_commerce.py"
+   ],
+   "producer": "src/brambleloop/runtime/release.py::handle_listing_seo (seo.build_title, search.choose_tags, seo.build_description, search.listing_attributes)",
+   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo (seo.check_listing_limits + search.check_attributes block the chain)"
+  },
+  {
+   "uid": "F-244",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_parity_copy.py",
+    "tests/test_intent.py",
+    "tests/test_portfolio.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/intent.py::listing_language (called in handle_listing_seo); src/brambleloop/runtime/release.py::_diversify_tags",
+   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo (tags chosen from observed buyer language; shared phrases re-spent)"
+  },
+  {
+   "uid": "F-245",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "EXERCISED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_portfolio.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py::build_title",
+   "consumer": "src/brambleloop/commerce/seo.py::check_listing_limits (length, 'pattern' present) in handle_listing_seo"
+  },
+  {
+   "uid": "F-247",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "maturity": "EXERCISED",
+   "test_files": [
+    "tests/test_commerce.py"
+   ],
+   "producer": "src/brambleloop/commerce/search.py::listing_attributes",
+   "consumer": "src/brambleloop/commerce/search.py::check_attributes in handle_listing_seo; src/brambleloop/publish/listing_schema.py::check_payload"
+  },
+  {
+   "uid": "F-250",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_k8_listing_estate.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/publish/release_gates.py",
+   "consumer": "runtime consumer per reachability: for_marketing is live: handler marketing.schedule (enqueued by runtime/release.py:handle_launch_plan) -> runtime/release.py:handle_marketing_schedule"
+  },
+  {
+   "uid": "F-251",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_search_truth.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py",
+   "consumer": "`listing.seo` copy gate"
+  },
+  {
+   "uid": "F-255",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "EXERCISED",
+   "test_files": [
+    "tests/test_commerce.py",
+    "tests/test_product_run.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/seo.py",
+   "consumer": "certificate)"
+  },
+  {
+   "uid": "F-257",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "EXERCISED",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_commerce.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/promotion.py",
+   "consumer": "`pricing.position`"
+  },
+  {
+   "uid": "F-258",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py",
+    "tests/test_leading.py"
+   ],
+   "producer": "src/brambleloop/runtime/listing_outcomes.py",
+   "consumer": "`runtime/listing_outcomes.run` \u2192 `commerce/listing_outcomes.produce` \u2192 `style_learning.record_outcome` \u2192 `ListingOutcome`; the reading is `operating_readings[listing_outcomes.reading]`"
+  },
+  {
+   "uid": "F-259",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_benchmarks.py",
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py",
+    "tests/test_trust.py"
+   ],
+   "producer": "src/brambleloop/commerce/listing_outcomes.py",
+   "consumer": "`portfolio.review` (weekly) reads the produced rows"
+  },
+  {
+   "uid": "F-260",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_growth_seasonal.py",
+    "tests/test_cert_publish_gates.py",
+    "tests/test_k3_listing_outcomes.py",
+    "tests/test_listing_tests.py"
+   ],
+   "producer": "src/brambleloop/growth/experiments.py",
+   "consumer": "`experiments.conclude_all` \u2192 `listing_discipline` \u2192 `commerce.listing_tests.exposure_refusal` (one shared rule)"
+  },
+  {
+   "uid": "F-261",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py"
+   ],
+   "producer": "src/brambleloop/commerce/listing_outcomes.py",
+   "consumer": "`portfolio.review`"
+  },
+  {
+   "uid": "F-275",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_launch0.py",
+    "tests/test_w3_k4_launch_verdict.py"
+   ],
+   "producer": "src/brambleloop/launch/demand.py",
+   "consumer": "`launch.demand.capture_plan`, a hard part of `transition_verdict` (it gates the phase change); visibility view"
+  },
+  {
+   "uid": "F-276",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_growth_seasonal.py",
+    "tests/test_compression.py",
+    "tests/test_w3_k4_launch_verdict.py"
+   ],
+   "producer": "src/brambleloop/launch/demand.py",
+   "consumer": "visibility `seasonal_readiness`"
+  },
+  {
+   "uid": "F-279",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_takeover.py",
+    "tests/test_takeover.py"
+   ],
+   "producer": "src/brambleloop/seasonal/daily.py (takeover changes from season members) -> brand/takeover.py::plan/execute",
+   "consumer": "src/brambleloop/brand/storefront.py::build_storefront -> launch/readiness.py::assess"
+  },
+  {
+   "uid": "F-281",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch0.py",
+    "tests/test_w3_k4_launch_verdict.py"
+   ],
+   "producer": "src/brambleloop/launch/demand.py",
+   "consumer": "`launch.demand.learning_plan`. `record_due_reviews` is called by the daily `launch.readiness` handler and writes `launch.learning_review` rows."
+  },
+  {
+   "uid": "F-282",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py"
+   ],
+   "producer": "src/brambleloop/commerce/listing_outcomes.py",
+   "consumer": "`portfolio.review`"
+  },
+  {
+   "uid": "F-286",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_growth_seasonal.py",
+    "tests/test_leading.py",
+    "tests/test_w3_k4_launch_verdict.py"
+   ],
+   "producer": "src/brambleloop/launch/success.py",
+   "consumer": "visibility `launch_success`"
+  },
+  {
+   "uid": "F-288",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_growth_ops.py",
+    "tests/test_launch.py",
+    "tests/test_w3_k4_launch_verdict.py"
+   ],
+   "producer": "src/brambleloop/launch/recommendations.py",
+   "consumer": "visibility `recommendations`"
+  },
+  {
+   "uid": "F-289",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_growth.py",
+    "tests/test_w3_k4_launch_verdict.py"
+   ],
+   "producer": "src/brambleloop/finance/sources.py",
+   "consumer": "The ingest label had already been fixed (`finance.sources`). The visibility `traffic_sources` table shows four channels plus `unattributed`, never blended."
+  },
+  {
+   "uid": "F-291",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_platform_policy.py",
+    "tests/test_policy_intake.py",
+    "tests/test_w3_k1_search.py"
+   ],
+   "producer": "src/brambleloop/commerce/search_policy.py",
+   "consumer": "`test_onsite_ads_thresholds_\u2026`. **GATED(etsy.com 403):** automated re-fetch is impossible. A new reading enters through `record_page_reading` or `record_snapshot`, which decide material change"
+  },
+  {
+   "uid": "F-294",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_listing_set.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/publish/listing_set.py::certify (via publish/release_gates.certificate_step)",
+   "consumer": "src/brambleloop/runtime/pipeline.py::_release_gates (store.publish); gate.certify rechecks still_valid"
+  },
+  {
+   "uid": "F-297",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_benchmarks.py",
+    "tests/test_cert_growth_ops.py",
+    "tests/test_k3_listing_outcomes.py"
+   ],
+   "producer": "src/brambleloop/runtime/growth_ops.py",
+   "consumer": "`growth_ops.ads_plan` (blocker `measurement before optimisation (#297)`); `growth.steer` \u2192 `growth_ops.steer` (`measurement.winner_credit_held`)"
+  },
+  {
+   "uid": "F-298",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "EXERCISED",
+   "test_files": [
+    "tests/test_cert_parity_copy.py",
+    "tests/test_commerce.py",
+    "tests/test_search_truth.py"
+   ],
+   "producer": "src/brambleloop/runtime/release.py::handle_listing_seo (check_listing, _quote_screen, platform_policy.classify_release, check_listing_limits)",
+   "consumer": "store.publish re-checks classification and disclosures"
+  },
+  {
+   "uid": "F-300",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_k8_shop_cx.py",
+    "tests/test_launch.py",
+    "tests/test_w3_k4_launch_verdict.py"
+   ],
+   "producer": "src/brambleloop/app/phase_api.py",
+   "consumer": "staging, every step, fail-closed, authority first, rollback never needing readiness, the verdict sealed in the chain, a phase change during evaluation) and `test_routes_*`"
+  },
+  {
+   "uid": "F-303",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_spend_policy.py"
+   ],
+   "producer": "src/brambleloop/finance/economics.py",
+   "consumer": "runtime consumer per reachability: by_class is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/moat.py:inventory -> brand/moat.py:evidence -> brand/moat.py:meas"
+  },
+  {
+   "uid": "F-305",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_governor.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_hygiene.py",
+   "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty"
+  },
+  {
+   "uid": "F-306",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_image_bench.py",
+    "tests/test_intel.py",
+    "tests/test_model_access.py",
+    "tests/test_model_photography.py"
+   ],
+   "producer": "src/brambleloop/intel/vision.py::_mark_judged",
+   "consumer": "src/brambleloop/intel/vision.py::pending"
+  },
+  {
+   "uid": "F-307",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_orchestration.py",
+    "tests/test_model_photography.py",
+    "tests/test_provider_trial.py",
+    "tests/test_w3_spend_paid_calls.py"
+   ],
+   "producer": "src/brambleloop/gateway/paid_calls.py",
+   "consumer": "the worker's `spend_report.attributed_to` opens the job scope."
+  },
+  {
+   "uid": "F-308",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_funding.py",
+    "tests/test_gateway.py",
+    "tests/test_provider_trial.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_hygiene.py",
+   "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty"
+  },
+  {
+   "uid": "F-315",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_gateway.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_hygiene.py",
+   "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty"
+  },
+  {
+   "uid": "F-320",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_governor.py"
+   ],
+   "producer": "src/brambleloop/finance/economics.py",
+   "consumer": "runtime consumer per reachability: by_class is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/moat.py:inventory -> brand/moat.py:evidence -> brand/moat.py:meas"
+  },
+  {
+   "uid": "F-324",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fin_truth_closure.py",
+    "tests/test_money_truth.py"
+   ],
+   "producer": "src/brambleloop/finance/sustainability.py::break_even",
+   "consumer": "src/brambleloop/launch/readiness.py::assess (sustainable_economics evidence.break_even)"
+  },
+  {
+   "uid": "F-326",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_governor.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_hygiene.py",
+   "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty"
+  },
+  {
+   "uid": "F-329",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fin_truth_closure.py",
+    "tests/test_launch.py",
+    "tests/test_money_truth.py"
+   ],
+   "producer": "src/brambleloop/finance/sustainability.py::verdict",
+   "consumer": "src/brambleloop/launch/readiness.py::assess (Requirement sustainable_economics, blocked_by build)"
+  },
+  {
+   "uid": "F-337",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_w3_k7_ops_truth.py",
+    "tests/test_waiter.py"
+   ],
+   "producer": "src/brambleloop/ops/job_watch.py",
+   "consumer": "`ops.job_watch.watch` takes the rolling median per job_type (at least 5 samples) and flags a run above 3x it. Signal `job_durations` in `ops.health.read` goes DEGRADED, which leads to the existing per"
+  },
+  {
+   "uid": "F-338",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_board_restart.py (check 'the lane the restart killed is INTERRUPTED, not silently stalled')",
+    "tests/test_health.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/job_watch.py",
+   "consumer": "`job_watch.diagnose` classifies a job as alive, advancing, completed_but_unobserved, blocked_on_dependency or duplicated. It never mutates anything, and outputs are preserved"
+  },
+  {
+   "uid": "F-339",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_persistence.py",
+    "tests/test_w3_spend_paid_calls.py"
+   ],
+   "producer": "src/brambleloop/gateway/paid_calls.py",
+   "consumer": "the worker's `spend_report.attributed_to` opens the job scope."
+  },
+  {
+   "uid": "F-343",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_health.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/job_watch.py",
+   "consumer": "`job_watch.activity` returns work_executing, work_completed, observer_waiting, blocked or unknown. Self-observing jobs are excluded. The value goes into `health.verdict()[\"activity\"]` and the `ops.hea"
+  },
+  {
+   "uid": "F-380",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_persistence.py",
+    "tests/test_tiers.py"
+   ],
+   "producer": "src/brambleloop/runtime/release.py",
+   "consumer": "runtime consumer per reachability: runtime root"
+  },
+  {
+   "uid": "F-381",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_improve_wave.py",
+    "tests/test_improve_director.py",
+    "tests/test_launch.py (rollback.rehearse)",
+    "tests/test_league_holdout.py"
+   ],
+   "producer": "src/brambleloop/runtime/release.py",
+   "consumer": "runtime consumer per reachability: runtime root"
+  },
+  {
+   "uid": "F-382",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_maturity.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-392",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_acceptance_gates.py",
+    "tests/test_incident_lifecycle.py",
+    "tests/test_w3_k7_ops_truth.py"
+   ],
+   "producer": "src/brambleloop/ops/health.py",
+   "consumer": "`record_learning` requires root_cause, prevention_ref and regression_ref. `learning()` lists meaningful resolved incidents that lack learning, and open incidents in a family whose prevention was alrea"
+  },
+  {
+   "uid": "F-397",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_offsite.py"
+   ],
+   "producer": "src/brambleloop/core/artifacts.py::ArtifactStore",
+   "consumer": "src/brambleloop/app/main.py"
+  },
+  {
+   "uid": "F-400",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-418",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_spend_policy.py"
+   ],
+   "producer": "src/brambleloop/finance/spend_policy.py::headroom",
+   "consumer": "src/brambleloop/gateway/routing.py::budget"
+  },
+  {
+   "uid": "F-425",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_childrens.py"
+   ],
+   "producer": "src/brambleloop/intel/childrens.py::render_statements",
+   "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf"
+  },
+  {
+   "uid": "F-430",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_improve.py",
+    "tests/test_learning.py"
+   ],
+   "producer": "src/brambleloop/improve/governance.py::check",
+   "consumer": "src/brambleloop/improve/cells.py::promote"
+  },
+  {
+   "uid": "F-445",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_childrens.py",
+    "tests/test_learning.py"
+   ],
+   "producer": "src/brambleloop/intel/childrens.py::statements_citing_a_missing_source",
+   "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf"
+  },
+  {
+   "uid": "F-447",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_improve.py",
+    "tests/test_tiers.py"
+   ],
+   "producer": "src/brambleloop/improve/governance.py::check_owner_authority",
+   "consumer": "src/brambleloop/improve/cells.py::promote"
+  },
+  {
+   "uid": "F-474",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_orchestration.py",
+    "tests/test_persistence.py"
+   ],
+   "producer": "src/brambleloop/queue/durable.py::JobQueue",
+   "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once"
+  },
+  {
+   "uid": "F-477",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_improve_autonomy.py",
+    "tests/test_improve.py"
+   ],
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish"
+  },
+  {
+   "uid": "F-497",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_orchestration.py",
+    "tests/test_etsy_exercise.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/authority/classes.py",
+   "consumer": "runtime consumer per reachability: class_value is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/execut"
+  },
+  {
+   "uid": "F-537",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_assembly.py",
+    "tests/test_deliverable_qa.py",
+    "tests/test_k8_shop_cx.py",
+    "tests/test_shop_package.py"
+   ],
+   "producer": "src/brambleloop/integrations/etsy.py",
+   "consumer": "`etsy.shop_snapshot`. Each live policy field is checked against its one canonical source, and the FACT contradiction patterns are applied. The result opens `etsy.shop:policy_inconsistent`: P1 on a con"
+  },
+  {
+   "uid": "F-541",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_fb4_ops.py",
+    "tests/test_money_truth.py"
+   ],
+   "producer": "src/brambleloop/runtime/etsy_ops.py::record_auth_needs_owner; src/brambleloop/commerce/orders_ingest.py::needs_owner",
+   "consumer": "runtime/pipeline.py::handle_store_publish / handle_store_activate; etsy.* cadences; commerce.orders_ingest cadence; launch readiness no_open_incidents"
+  },
+  {
+   "uid": "F-544",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_k8_listing_estate.py"
+   ],
+   "producer": "src/brambleloop/commerce/listing_estate.py",
+   "consumer": "census `asset_audit`. Drift opens the existing halting reconcile incident and is never overwritten. The tests assert that no non-GET request is made."
+  },
+  {
+   "uid": "F-545",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_exercise.py",
+    "tests/test_etsy_transport.py",
+    "tests/test_k8_listing_estate.py"
+   ],
+   "producer": "src/brambleloop/commerce/listing_lifecycle.py",
+   "consumer": "runtime consumer per reachability: summary is live: handler etsy.listing_census (cadence in runtime/worker.py:module constant) -> runtime/etsy_ops.py:handle_listing_census"
+  },
+  {
+   "uid": "F-547",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py"
+   ],
+   "producer": "src/brambleloop/build2/executor.py::approval_inbox",
+   "consumer": "src/brambleloop/app/main.py::dashboard"
+  },
+  {
+   "uid": "F-553",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py",
+    "tests/test_k8_listing_estate.py"
+   ],
+   "producer": "src/brambleloop/integrations/etsy.py",
+   "consumer": "`etsy.listing_census`, which now stores `listing_estate.estate_row`. Each row records state vs intended state, family, taxonomy, properties, images, files, expiry, days left, renewal mode and fee. The"
+  },
+  {
+   "uid": "F-559",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_k8_listing_estate.py"
+   ],
+   "producer": "src/brambleloop/commerce/listing_estate.py",
+   "consumer": "runtime consumer per reachability: asset_audit is live: handler etsy.listing_census (cadence in runtime/worker.py:module constant) -> runtime/etsy_ops.py:handle_listing_census"
+  },
+  {
+   "uid": "F-593",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py",
+    "tests/test_launch.py"
+   ],
+   "producer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+   "consumer": "src/brambleloop/app/main.py::api_owner_actions"
+  },
+  {
+   "uid": "F-623",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_w3_k7_ops_truth.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/app/command_center/approvals.py",
+   "consumer": "every card carries `rank`, `urgency`, `steps`, minutes, cost and consequence. `GET /api/cc/drill?provider=&index=` drills any provider item to source, timestamp, transformation, confidence, reconcilia"
+  },
+  {
+   "uid": "F-658",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_executor.py",
+    "tests/test_persistence.py",
+    "tests/test_rebuild_graph.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/authority/dag.py",
+   "consumer": "runtime consumer per reachability: approve is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router"
+  },
+  {
+   "uid": "F-663",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_access.py",
+    "tests/test_cert_dashboard.py",
+    "tests/test_health.py",
+    "tests/test_launch.py"
+   ],
+   "producer": "src/brambleloop/launch/readiness.py::assess",
+   "consumer": "src/brambleloop/build2/executor.py::approval_inbox"
+  },
+  {
+   "uid": "F-665",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_dashboard.py",
+    "tests/test_provenance.py",
+    "tests/test_provenance_write_path.py",
+    "tests/test_w3_k7_ops_truth.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/app/dashboard_truth.py",
+   "consumer": "runtime consumer per reachability: headline is live: API get dashboard -> app/main.py:dashboard"
+  },
+  {
+   "uid": "F-669",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_chaos.py",
+    "tests/test_etsy_transport.py",
+    "tests/test_improve.py",
+    "tests/test_shadow.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/authority/policy.py",
+   "consumer": "runtime consumer per reachability: grant is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router"
+  },
+  {
+   "uid": "F-696",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_continuity.py",
+    "tests/test_customer_data_auth.py",
+    "tests/test_oauth_security_audit.py (check-based)"
+   ],
+   "producer": "src/brambleloop/core/opsauth.py::check",
+   "consumer": "src/brambleloop/app/main.py (write routes)"
+  },
+  {
+   "uid": "F-700",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_improve.py",
+    "tests/test_shadow.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/authority/constitution.py",
+   "consumer": "runtime consumer per reachability: evaluate is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/executive"
+  },
+  {
+   "uid": "F-702",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_chaos.py",
+    "tests/test_executor.py",
+    "tests/test_shadow.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/authority/classes.py",
+   "consumer": "runtime consumer per reachability: class_value is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/execut"
+  },
+  {
+   "uid": "F-703",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_exercise.py",
+    "tests/test_etsy_transport.py",
+    "tests/test_improve.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/authority/policy.py",
+   "consumer": "runtime consumer per reachability: grant is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router"
+  },
+  {
+   "uid": "F-704",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_improve_autonomy.py",
+    "tests/test_fb4_launch.py",
+    "tests/test_health.py",
+    "tests/test_upgrades.py"
+   ],
+   "producer": "src/brambleloop/build2/executor.py::approval_inbox",
+   "consumer": "src/brambleloop/app/main.py::api_console"
+  },
+  {
+   "uid": "F-708",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_learning.py",
+    "tests/test_improve.py",
+    "tests/test_improve_director.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/improve/governance.py",
+   "consumer": "runtime consumer per reachability: check is live: API post api_teardown_qa -> app/main.py:api_teardown_qa -> teardown/lab.py:product_qa_all -> teardown/lab.py:product_qa -> teardown/lab.py:_act_on_del"
+  },
+  {
+   "uid": "F-718",
+   "source": "REGATE",
+   "verdict": "GATED",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_cert_claude_independence.py",
+    "tests/test_executor.py",
+    "tests/test_model_identity.py"
+   ],
+   "producer": "src/brambleloop/core/db.py",
+   "consumer": "src/brambleloop/runtime/worker.py"
+  },
+  {
+   "uid": "F-721",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_chaos.py",
+    "tests/test_executor.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/authority/classes.py",
+   "consumer": "runtime consumer per reachability: class_value is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/execut"
+  },
+  {
+   "uid": "F-726",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_fb4_launch.py",
+    "tests/test_launch.py",
+    "tests/test_shadow.py"
+   ],
+   "producer": "src/brambleloop/core/models.py::Phase",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish"
+  },
+  {
+   "uid": "F-743",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_model_freeze.py",
+    "tests/test_model_identity.py",
+    "tests/test_w3_k11_authority.py"
+   ],
+   "producer": "src/brambleloop/improve/cells.py",
+   "consumer": "runtime consumer per reachability: retrospective is live: API get dashboard -> app/main.py:dashboard"
+  },
+  {
+   "uid": "F-749",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_design.py",
+    "tests/test_originality.py",
+    "tests/test_specification.py",
+    "tests/test_teardown.py"
+   ],
+   "producer": "src/brambleloop/gates/certificate.py::specification_findings -> cir/specification.py::refuse_a_benchmark_in_our_clothes; teardown/library.py::retrieve (role quarantine)",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify"
+  },
+  {
+   "uid": "F-752",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_disclosed_render.py",
+    "tests/test_final_visual_authority.py"
+   ],
+   "producer": "src/brambleloop/visual/render_verification.py (raised_stitch_placement, counts); src/brambleloop/visual/product_authority.py::structural_floor",
+   "consumer": "src/brambleloop/visual/parity.py::assess (PRODUCT_TRUTH)"
+  },
+  {
+   "uid": "F-754",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fb4_lc.py"
+   ],
+   "producer": "src/brambleloop/gates/certificate.py::component_gauge_findings",
+   "consumer": "runtime consumer per reachability: certify is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run"
+  },
+  {
+   "uid": "F-757",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_dimensions.py",
+    "tests/test_fb4_lc.py"
+   ],
+   "producer": "src/brambleloop/publish/listing_set.py::certify",
+   "consumer": "runtime consumer per reachability: CertifiedFrame.__post_init__ is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise."
+  },
+  {
+   "uid": "F-760",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_final_visual_authority.py",
+    "tests/test_model_photography.py",
+    "tests/test_parity.py"
+   ],
+   "producer": "src/brambleloop/visual/parity.py::assess (eight dimensions, unjudged blocks); publish/model_photography.py six floors",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish -> _listing_parity"
+  },
+  {
+   "uid": "F-765",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_schematic.py"
+   ],
+   "producer": "src/brambleloop/publish/pdf.py::construction_overview",
+   "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf (runtime/release.py::handle_assets_build)"
+  },
+  {
+   "uid": "F-782",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_originality.py",
+    "tests/test_specification.py"
+   ],
+   "producer": "src/brambleloop/gates/certificate.py::specification_findings",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify"
+  },
+  {
+   "uid": "F-783",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_design.py",
+    "tests/test_cir_roundtrip.py",
+    "tests/test_originality.py"
+   ],
+   "producer": "src/brambleloop/cir/graded.py (stamps cir.provenance)",
+   "consumer": "none at release (not required by gate.certify)"
+  },
+  {
+   "uid": "F-785",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_gates.py",
+    "tests/test_image_reference_hash_failclosed.py",
+    "tests/test_originality.py"
+   ],
+   "producer": "src/brambleloop/gates/asset_truth.py (ASSET_COMPETITOR_SOURCE)",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify"
+  },
+  {
+   "uid": "F-786",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fb4_lc.py",
+    "tests/test_originality.py",
+    "tests/test_originality_runtime.py"
+   ],
+   "producer": "src/brambleloop/teardown/licence.py::capture_purchase (teardown/intake.py::receive)",
+   "consumer": "src/brambleloop/gates/originality.py::release_findings (gates/certificate.py certify; publish/release_gates.py); teardown/library.py::retrieve(db=, use=)"
+  },
+  {
+   "uid": "F-787",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fb4_lc.py",
+    "tests/test_originality.py",
+    "tests/test_teardown.py"
+   ],
+   "producer": "src/brambleloop/teardown/licence.py::register_public_source",
+   "consumer": "src/brambleloop/gates/originality.py::release_findings (live, but has no public-source rows to read)"
+  },
+  {
+   "uid": "F-790",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_design.py",
+    "tests/test_originality.py"
+   ],
+   "producer": "src/brambleloop/gates/certificate.py::specification_findings; products/garments.py (no benchmark imports)",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify"
+  },
+  {
+   "uid": "F-798",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_design.py",
+    "tests/test_gates.py",
+    "tests/test_originality.py"
+   ],
+   "producer": "src/brambleloop/gates/certificate.py (originality + specification stages)",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify"
+  },
+  {
+   "uid": "F-799",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_learn_launch.py",
+    "tests/test_w3_k10_learn.py"
+   ],
+   "producer": "src/brambleloop/learn/runtime.py",
+   "consumer": "`learn.scan` handler (`learn/runtime.py`, hourly cadence) audits `metrics` each run; `improve.measure` (daily cadence) records the new `learn` cell via `measure_learn`; `learn.improvement_status.summa"
+  },
+  {
+   "uid": "F-801",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_learn_launch.py",
+    "tests/test_w3_k10_learn.py"
+   ],
+   "producer": "src/brambleloop/learn/service.py",
+   "consumer": "`learn.service.scan` (worker `learn.scan`) now uses `pattern_topics`; same function feeds PDF/listing/support help links"
+  },
+  {
+   "uid": "F-805",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_learn_input_shapes.py",
+    "tests/test_learn_launch.py",
+    "tests/test_w3_k10_learn.py"
+   ],
+   "producer": "src/brambleloop/learn/service.py",
+   "consumer": "`save_lesson` / `eligible` (gates public read, help links); `GET /learn/{slug}` serves `swatch_instructions` written from the compiled CIR"
+  },
+  {
+   "uid": "F-815",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fb4_lc.py",
+    "tests/test_learn_launch.py"
+   ],
+   "producer": "src/brambleloop/learn/service.py::scan; src/brambleloop/learn/service.py::save_lesson",
+   "consumer": "runtime consumer per reachability: graph is live: module body app/main.py -> app/main.py:<module> -> learn/api.py:router"
+  },
+  {
+   "uid": "F-821",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_fb4_lc.py",
+    "tests/test_learn_launch.py"
+   ],
+   "producer": "src/brambleloop/learn/service.py::validate_spec",
+   "consumer": "src/brambleloop/learn/service.py::eligible"
+  },
+  {
+   "uid": "F-826",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_learn_launch.py",
+    "tests/test_w3_k10_learn.py"
+   ],
+   "producer": "src/brambleloop/learn/service.py",
+   "consumer": "`PUT /api/learn/lessons/{slug}` gap check; `scan` decision WATCH"
+  },
+  {
+   "uid": "F-831",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_closure.py",
+    "tests/test_reachability.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-832",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_closure.py",
+    "tests/test_reachability.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-833",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_reachability.py"
+   ],
+   "producer": "src/brambleloop/build2/reachability.py::reached",
+   "consumer": "build2/closure.py::classify"
+  },
+  {
+   "uid": "F-835",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_improve_wave.py",
+    "tests/test_cert_publish_gates.py",
+    "tests/test_draft_intent_precreate_refusal.py",
+    "tests/test_operating_cost_basis.py"
+   ],
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish"
+  },
+  {
+   "uid": "F-838",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_closure.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-844",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_maturity.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-853",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_disclosed_render.py",
+    "tests/test_final_visual_authority.py"
+   ],
+   "producer": "src/brambleloop/visual/product_authority.py::structural_floor",
+   "consumer": "src/brambleloop/visual/parity.py::assess; src/brambleloop/publish/disclosed_listing.py"
+  },
+  {
+   "uid": "F-854",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_disclosed_render.py"
+   ],
+   "producer": "src/brambleloop/visual/disclosed_render.py::listing_set",
+   "consumer": "src/brambleloop/visual/render_verification.py::verify via visual/product_authority.py::disclosed_render_floor"
+  },
+  {
+   "uid": "F-856",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "DEPLOYED",
+   "test_files": [
+    "tests/test_final_visual_authority.py",
+    "tests/test_model_photography.py",
+    "tests/test_parity.py"
+   ],
+   "producer": "src/brambleloop/visual/parity.py::assess; publish/model_photography.py FLOORS",
+   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish"
+  },
+  {
+   "uid": "F-860",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_lanes_capacity.py",
+    "tests/test_executor.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-867",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_final_proof.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  },
+  {
+   "uid": "F-870",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_surfaces.py",
+    "tests/test_executor.py",
+    "tests/test_launch.py",
+    "tests/test_w3_k7_owner_queue.py"
+   ],
+   "producer": "src/brambleloop/app/command_center/approvals.py",
+   "consumer": "each card has `why_software_cannot` (from `GATE_PACKETS`, or the new OwnerAction column), `requirement_kind`, `packet_missing` and `packet_complete`. A spend gate with no stated ceiling gets `max_cost"
+  },
+  {
+   "uid": "F-874",
+   "source": "FOLD-R",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py",
+    "tests/test_fb4_ops.py"
+   ],
+   "producer": "src/brambleloop/runtime/etsy_ops.py::seed_owner_queue (from intel/etsy_surfaces.py::owner_queue)",
+   "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness"
+  },
+  {
+   "uid": "F-877",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_cert_spend_hosts.py",
+    "tests/test_provider_trial.py",
+    "tests/test_w3_k12_model_photography.py"
+   ],
+   "producer": "src/brambleloop/visual/spend_plan.py",
+   "consumer": "runtime consumer per reachability: validate is live: handler visual.provider_trial (enqueued by app/main.py:_startup) -> runtime/release.py:handle_provider_trial -> visual/provider_trial.py:run"
+  },
+  {
+   "uid": "F-879",
+   "source": "FOLD",
+   "verdict": "COMPLETE",
+   "maturity": "INTEGRATED",
+   "test_files": [
+    "tests/test_launch.py",
+    "tests/test_w3_final_master_gate.py"
+   ],
+   "producer": "src/brambleloop/build2/final_master.py",
+   "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report"
+  }
+ ],
+ "kept_open": [
+  {
+   "uid": "F-030",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED; coverage PARTIAL: lane claim qualifier: (the reading). Frames still missing (see below)."
+  },
+  {
+   "uid": "F-158",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: producer module 'scripts/lock_requirements.py' not reached from a live root -> capped at TESTED; maturity TESTED below target INTEGRATED"
+  },
+  {
+   "uid": "F-159",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: producer module 'tests/test_secret_scan.py' not reached from a live root -> capped at TESTED; maturity TESTED below target INTEGRATED"
+  },
+  {
+   "uid": "F-176",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED; producer module 'ops/assurance.py' absent from production fcb982d -> capped at INTEGRATED; coverage PARTIAL: lane claim qualifier: (record), recoverable=false today"
+  },
+  {
+   "uid": "F-178",
+   "source": "FOLD-R",
+   "why": "overlay does not compute COMPLETE/GATED: producer module 'research/final_build/aggregate.py' not reached from a live root -> capped at TESTED; maturity TESTED below target INTEGRATED"
+  },
+  {
+   "uid": "F-203",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: for the CC; dashboard part is a WIRING REQUEST; defect recorded: query-time as-of on blocks that summarise older snapshots (e.g. benchmark observations, last scan) can still present mixed snapshots as current"
+  },
+  {
+   "uid": "F-254",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (the reading). Frames still missing (see below)."
+  },
+  {
+   "uid": "F-287",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (owner route). Command Center card pending lane F wiring."
+  },
+  {
+   "uid": "F-331",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (structural)"
+  },
+  {
+   "uid": "F-333",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (structural)"
+  },
+  {
+   "uid": "F-335",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (structural)"
+  },
+  {
+   "uid": "F-341",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (structural)"
+  },
+  {
+   "uid": "F-342",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: producer module 'ops/board.py' not reached from a live root -> capped at TESTED; maturity TESTED below target INTEGRATED; coverage PARTIAL: lane claim qualifier: (structural)"
+  },
+  {
+   "uid": "F-535",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (fakes)"
+  },
+  {
+   "uid": "F-568",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (owner intake needs W1)"
+  },
+  {
+   "uid": "F-585",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (browser-only half needs W1)"
+  },
+  {
+   "uid": "F-592",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (apps and shared-access readings need W1)"
+  },
+  {
+   "uid": "F-689",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (operator view needs W1); defect recorded: customer message text exposed on unauthenticated /api/support"
+  },
+  {
+   "uid": "F-806",
+   "source": "FOLD",
+   "why": "overlay does not compute COMPLETE/GATED: coverage PARTIAL: lane claim qualifier: (diagrams); photos refused; defect recorded: proxy: visual truth rests on human attestation, honestly labelled (automated_truth_proof=false) but not measured"
+  },
+  {
+   "uid": "F-836",
+   "source": "FOLD-R",
+   "why": "overlay does not compute COMPLETE/GATED: producer module 'build2/final_proof.py' not reached from a live root -> capped at TESTED; maturity TESTED below target INTEGRATED"
+  },
+  {
+   "uid": "F-837",
+   "source": "FOLD-R",
+   "why": "overlay does not compute COMPLETE/GATED: producer module 'build2/final_proof.py' not reached from a live root -> capped at TESTED; maturity TESTED below target INTEGRATED"
+  },
+  {
+   "uid": "F-847",
+   "source": "FOLD-R",
+   "why": "overlay does not compute COMPLETE/GATED: producer module None not reached from a live root -> capped at TESTED; maturity TESTED below target INTEGRATED"
+  }
+ ],
+ "counts": {
+  "folded": 180,
+  "kept": 22
+ }
+}

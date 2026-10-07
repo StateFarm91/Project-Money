@@ -27,9 +27,16 @@ def _matrix():
 
 def test_every_registry_record_is_mapped_exactly_once_without_problems():
     reg = json.loads((FB / "master_registry.json").read_text())
+    # v1.1 (F-880..F-930) is additive to v1.0 (§96): its rows are registry records too, so the
+    # matrix maps v1.0 + v1.1 exactly once each (wave 4, lane FM).
+    v11 = json.loads((FB / "master_registry_v1_1.json").read_text())
+    uids = [r["uid"] for r in reg["requirements"]] + [r["id"] for r in v11["requirements"]]
+    assert len(v11["requirements"]) == 51 and len(set(uids)) == len(uids)
     m = _matrix()
     assert m["summary"]["unmapped"] == [] and m["summary"]["problems"] == []
-    assert sorted(r["uid"] for r in m["matrix"]) == sorted(r["uid"] for r in reg["requirements"])
+    assert sorted(r["uid"] for r in m["matrix"]) == sorted(uids)
+    assert {r["uid"] for r in m["matrix"] if r["version"] == "v1.1"} == \
+        {r["id"] for r in v11["requirements"]}
 
 
 def test_no_row_claims_commercial_evidence_that_does_not_exist():
