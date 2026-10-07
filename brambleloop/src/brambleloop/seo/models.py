@@ -85,7 +85,37 @@ class SeoCycle(Base):
     __table_args__ = (UniqueConstraint("fingerprint", name="uq_seo_cycle_fp"),)
 
 
-TABLES = (SeoKeywordEvidence, SeoProposal, SeoCycle)
+class SeoSearchPackage(Base):
+    """One listing's assembled Etsy search package (`seo.packages`), versioned.
+
+    CURRENT is the package that describes the listing now; a changed package supersedes the
+    previous one, which is kept. `listing_fingerprint` binds it to the profile/copy it was
+    assembled from, so a consumer can tell a stale package from a current one.
+    """
+
+    __tablename__ = "seo_search_packages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    package_version: Mapped[str] = mapped_column(String(40))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    listing_fingerprint: Mapped[str] = mapped_column(String(64), default="")
+    state: Mapped[str] = mapped_column(String(20), default="CURRENT", index=True)
+    readiness: Mapped[str] = mapped_column(String(20), default="", index=True)
+    verdict: Mapped[str] = mapped_column(String(20), default="")
+    learning_status: Mapped[str] = mapped_column(String(20), default="UNKNOWN")
+    package: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                           nullable=True)
+
+    __table_args__ = (UniqueConstraint("product_slug", "version", "fingerprint",
+                                       name="uq_seo_search_package_fp"),)
+
+
+TABLES = (SeoKeywordEvidence, SeoProposal, SeoCycle, SeoSearchPackage)
 
 
 def ensure_tables(db) -> None:

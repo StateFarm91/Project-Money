@@ -92,7 +92,17 @@ def run_cycle(db, *, now: datetime | None = None, facts_list=None) -> dict:
         written.append(f.slug)
 
     attribution = measure.attribution(db, tags_by_slug, evidence_rows=rows)
-    changed = bool(written or ingested["added"])
+    # W4-SEO: every drafted listing's search package is re-assembled from the release
+    # records, the evidence store and the recorded Stats periods -- the post-launch update
+    # loop. Idempotent: an unchanged package writes nothing.
+    try:
+        from . import packages as packages_mod
+
+        package_run = packages_mod.refresh(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - a package failure never stops the cycle
+        package_run = {"packages": 0, "written": [], "unchanged": [], "readiness": {},
+                       "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    changed = bool(written or ingested["added"] or package_run.get("written"))
     cycle_fp = _fp(sorted(input_fps))
     if changed:
         with session(db) as s:
@@ -116,4 +126,5 @@ def run_cycle(db, *, now: datetime | None = None, facts_list=None) -> dict:
             "evidence_seen": ingested["seen"], "proposals_written": written,
             "proposals_unchanged": skipped, "cycle_fingerprint": cycle_fp,
             "taxonomy": taxonomy.counts(list(tax_rows.values())),
-            "attribution_status": attribution["status"], "writes_to_etsy": False}
+            "attribution_status": attribution["status"], "packages": package_run,
+            "writes_to_etsy": False}
