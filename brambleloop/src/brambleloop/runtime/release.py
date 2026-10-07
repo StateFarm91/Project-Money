@@ -530,7 +530,7 @@ def _disclosed_render_set(ctx: JobContext, cir, slug: str, version: str, store,
     """
     from ..publish import disclosed_listing, listing_asset
 
-    if not listing_asset._in_launch_scope(slug):
+    if not listing_asset.has_render_authority(slug):
         return None
     current = listing_asset.last(ctx.db, slug=slug)
     if current and current.get("kind") != "disclosed_render" and listing_asset.usable(current):
@@ -1193,6 +1193,17 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # certified image set is judged and the completed certificate written back with its
     # evidence -- the stored verdict reaches PASS on the merits or stays PENDING/REFUSED.
     hero_reading = _judge_search_hero(ctx, slug, version)
+    # W4-SEO: the listing's Etsy search package (intents, title, 13 tags, attributes,
+    # category, description, price context, seasonality, evidence, certificate, readiness)
+    # is assembled from what this handler just stored and persisted as a durable record.
+    # Recorded, never blocking: a package failure leaves the draft exactly as it is.
+    try:
+        from ..seo import packages as _packages
+
+        i["search_package"] = _packages.record_from_release(ctx.db, slug, version)
+    except Exception as exc:  # noqa: BLE001
+        i["search_package"] = {"written": False,
+                               "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
 
     # #41 / C-47: the disclosure check reads the stored Listing row, so it runs here, after
     # the row exists -- run before it (as listing.draft did) it could only ever say
@@ -1231,7 +1242,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading,
-            "search_hero": hero_reading}
+            "search_hero": hero_reading,
+            "search_package": i.get("search_package")}
 
 
 def _judge_search_hero(ctx: JobContext, slug: str, version: str) -> dict:
@@ -2384,6 +2396,24 @@ def _motifs_for(slug: str) -> list[str]:
     words = [w for w in slug.replace("_", "-").split("-")
              if w not in {"mosaic", "pattern", "concept", "throw", "blanket", "set",
                           "trio", "pair", "library", "bundle"} and not w.isdigit()]
+    # W4-PIPE: a slug is a permanent id, not a description. A catalogue design retitled to
+    # what it makes ("winter-village-graphghan" is a snowfall relief throw) must not have the
+    # slug's old words put back into its listing: imagery its motif does not depict
+    # (`creative.emotional_brief.title_conflicts`) and colourwork its one-colour-per-row
+    # fabric cannot make are replaced by the motif's own words. `publish.eligibility.
+    # name_truth` and `colourwork_findings` refuse either at publish if it got through.
+    from ..products import builder as _builder
+
+    design = _builder.CATALOGUE.get(slug)
+    if design is not None:
+        from ..creative.emotional_brief import title_conflicts
+
+        false = set(title_conflicts(" ".join(words), design.motif)) | (
+            set(words) & {"graphghan", "tapestry", "intarsia"})
+        if false:
+            words = [w for w in words if w not in false]
+            words += [w for w in design.motif.split("-")
+                      if w not in ("and", "row", "band") and w not in words]
     return words[:3]
 
 
@@ -4276,7 +4306,8 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
 def handle_policy_watch(ctx: JobContext) -> dict:
     """Check how old this company's reading of Etsy's rules is, and block what it must.
 
-    Requirement 39. Deliberately does *not* fetch: no policy fetcher is connected, and a
+    Requirement 39. Fetches only through a sanctioned endpoint (W4-GATESI: the Help Center
+    article API, `gates.policy_reader`); etsy.com/legal is never fetched, and a
     cadence that fails on every run because a dependency is absent is a dead letter with a
     schedule. What it does is the part that does not need the network — notice that a reading
     is stale or missing, and open a blocking incident for the workflows that reading governs.
@@ -4284,8 +4315,9 @@ def handle_policy_watch(ctx: JobContext) -> dict:
     The incident is per source and opened once. A blocking incident re-raised every six hours
     is an alert people filter, which is the same as no alert but with more rows.
 
-    GREEN by the authority matrix: it reads its own tables, writes audit rows and opens
-    incidents. It fetches nothing, publishes nothing and spends nothing.
+    GREEN by the authority matrix: it reads its own tables, makes read-only GETs of a public
+    sanctioned API, writes audit rows and opens incidents. It publishes nothing and spends
+    nothing.
     """
     from sqlalchemy import select
 
@@ -4297,6 +4329,19 @@ def handle_policy_watch(ctx: JobContext) -> dict:
     # is a reading: seeded once for a source nobody has ever read, never over a page reading,
     # and reported stale on the same 30-day rule as any other snapshot.
     seeded = policy_knowledge.seed_snapshots(ctx.db)
+    # W4-GATESI: the watched sources that live in Etsy's Help Center are read through its
+    # public article API (sanctioned, robots-allowed, no browser); etsy.com/legal stays a
+    # person's reading because DataDome refuses automated clients and is never evaded.
+    from ..gates import policy_reader
+
+    if not policy_reader.enabled():
+        help_center = {"skipped": "not the hosted container and BRAMBLELOOP_POLICY_READER "
+                                  "is not 1: no network read from a test or laptop"}
+    else:
+        try:
+            help_center = policy_reader.read_help_center(ctx.db)
+        except Exception as exc:  # noqa: BLE001 - a reader fault must not stop the watch
+            help_center = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
     report = freshness(ctx.db)
     unread = list(report["never_checked"])
     stale = [e["source"] for e in report["stale"]]
@@ -4373,17 +4418,24 @@ def handle_policy_watch(ctx: JobContext) -> dict:
         "changes_opened": changes_opened, "changes_resolved": change_life["resolved"],
         "all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
         "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
-        "blocked_workflows": report["blocked_workflows"]})
+        "blocked_workflows": report["blocked_workflows"],
+        "help_center": {k: help_center.get(k) for k in ("read", "failed", "external", "error",
+                                                       "skipped") if k in help_center}})
 
     return {"all_fresh": report["all_fresh"], "never_checked": unread, "stale": stale,
             "changes_opened": changes_opened, "changes_unreviewed": sorted(
                 c["source"] for c in changed.values()),
             "incidents_opened": opened, "incidents_resolved": resolved, "seeded": seeded["seeded"],
             "blocked_workflows": report["blocked_workflows"],
-            "note": ("This cadence does not fetch: direct retrieval is refused by Etsy's bot "
-                     "protection (recorded in gates.policy_knowledge.RETRIEVAL_BLOCK). It seeds the "
-                     "repository's dated reading of a source nobody has read, and otherwise "
-                     "reports staleness honestly.")}
+            "help_center": {k: help_center.get(k) for k in ("read", "failed", "external",
+                                                             "error", "skipped")
+                            if k in help_center},
+            "note": ("Help-Center-hosted sources are read through Etsy's public Help Center "
+                     "article API (gates.policy_reader). etsy.com/legal is not fetched: direct "
+                     "retrieval is refused by Etsy's bot protection (recorded in "
+                     "gates.policy_knowledge.RETRIEVAL_BLOCK). It seeds the repository's dated "
+                     "reading of a source nobody has read, and otherwise reports staleness "
+                     "honestly.")}
 
 
 @handlers.register("build.tick")

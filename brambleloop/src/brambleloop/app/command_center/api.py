@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from . import approvals, ask as ask_mod, auth, emergency, notifications, providers, tabs
+from . import company as company_mod
 from . import private_context
 
 
@@ -158,12 +159,21 @@ def make_router(db) -> APIRouter:
         return ok(tabs.store(db))
 
     @router.get("/money")
-    def money(request: Request):
-        return ok(tabs.money(db))
+    def money(request: Request, period: str = "", window: str = ""):
+        # F-914: a period (PWA `period`, or `window`) reaches the accounting summary.
+        try:
+            w = tabs.money_window((window or period)[:20])
+        except ValueError as exc:
+            return ok({"error": str(exc), "code": "BAD_PERIOD"}, 400)
+        return ok(tabs.money(db, w))
 
     @router.get("/money/drill")
-    def money_drill(request: Request, metric: str = ""):
-        return ok(tabs.money_drill(db, metric))
+    def money_drill(request: Request, metric: str = "", period: str = "", window: str = ""):
+        try:
+            w = tabs.money_window((window or period)[:20])
+        except ValueError as exc:
+            return ok({"error": str(exc), "code": "BAD_PERIOD"}, 400)
+        return ok(tabs.money_drill(db, metric, w))
 
     @router.get("/operations")
     def operations(request: Request):
@@ -193,6 +203,16 @@ def make_router(db) -> APIRouter:
     @router.get("/learn")
     def learn(request: Request):
         return ok(tabs.autonomy(db))
+
+    # W4-CC: the company overview and the completion-effort board (read-only, owner session).
+    @router.get("/company")
+    def company_view(request: Request):
+        return ok(company_mod.company(db))
+
+    @router.get("/completion")
+    def completion_view(request: Request):
+        return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
+                   "sections": {"board": company_mod.completion(db)}})
 
     @router.get("/insights")
     def insights(request: Request):
@@ -725,6 +745,8 @@ def make_router(db) -> APIRouter:
 
 STORE_PREVIEW_PATH = "/cc/store-preview"
 LOGIN_RECOVERY_PATH = "/api/owner/cc/login-recovery"
+#: W4-STORE wiring: the owner records what the live Etsy storefront shows (owner session).
+LIVE_OBSERVATION_PATH = "/api/store/live_observation"
 
 
 def login_recovery_handler(db):
@@ -771,3 +793,39 @@ def store_preview_handler(db):
                                      "X-Robots-Tag": "noindex, nofollow"})
 
     return owner_store_preview
+
+
+def live_observation_handler(db):
+    """W4-STORE: `POST /api/store/live_observation` -- the owner's dated reading of the live shop.
+
+    `security.owner_session_route` names this path, so `operator_gate` -> `auth.gate` has
+    already required a live owner session, a same-origin request, the CSRF token and a fresh
+    nonce. The body is `{observed_at, fields: {field: live value}, statement}`; the domain
+    call (`store_foundation.live_state.record_observation`) validates it and appends one
+    `store.live_observation` audit row. Nothing here writes to Etsy: the drift job reads the
+    observation and can only propose ADOPT_LIVE_INTO_REPO or owner instructions.
+    """
+    async def record_live_observation(request: Request):
+        from ...store_foundation import live_state
+
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001
+            body = None
+        sid = auth.current_public_id(request)
+        if not isinstance(body, dict):
+            raise auth.refuse(db, request, 400, "BAD_REQUEST", "body must be a JSON object",
+                              kind="action", session_public_id=sid)
+        try:
+            out = await run_in_threadpool(lambda: live_state.record_observation(
+                db, observed_at=body.get("observed_at"), fields=body.get("fields"),
+                statement=str(body.get("statement") or ""), recorded_by=f"owner:cc:{sid}"))
+        except (live_state.ObservationRefused, live_state.OwnerFieldProtected) as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:500], kind="action",
+                              session_public_id=sid) from None
+        drift = await run_in_threadpool(lambda: live_state.drift(db))
+        return JSONResponse({"ok": True, "observation": out, "drift_counts": drift["counts"],
+                             "writes_performed": drift.get("writes_performed", 0)},
+                            status_code=201, headers={"Cache-Control": "no-store"})
+
+    return record_live_observation

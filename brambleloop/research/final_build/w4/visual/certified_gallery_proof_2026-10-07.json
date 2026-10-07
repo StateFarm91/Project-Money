@@ -1,0 +1,234 @@
+{
+ "generated_at": "2026-10-07T03:12:58Z",
+ "products": {
+  "harvest-table-runner": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": false,
+   "launch_blocked": [
+    "hero: 340 px legibility ['the product fills 13% of the frame at 340 px']",
+    "scale: 340 px legibility ['the product fills 14% of the frame at 340 px']"
+   ],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "17191db594931fe094f09f2a96b23b29b645c5d43999bfa813a396fed8cde707",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "e8a5c57cb91f5ed5b0b42fab1abe413bb30d1ce43558a1b3a062caa6188936cf",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "641da5f67bb7b0469844f461fb1a6a9a2ad07de6e65491cbfd1be3d2205b1869",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": true,
+    "reasons": [
+     "disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']",
+     "listing-set certificate (#70): no disclosed-set certificate is issued while any precondition or gate above fails"
+    ],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": false
+   },
+   "upload_path": {
+    "images": 0,
+    "problems": [
+     "no valid listing-set certificate for harvest-table-runner@1.2.0: there are no certified images to upload"
+    ]
+   }
+  },
+  "pet-snuggle-mat": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "30266863daa3998134dbe2696d23706883636e8760f78693a37ee3e1441c79ec",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "7b75bbd6f85c4bfdaba4477c6c30f2a5899bbf9cba8aa1bccd1ec043d4be0731",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "96a345c9ef5368654ecfbf9fd988863d2a829c078165bec002c08a5fec8730ad",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS"
+     ],
+     "refused": {
+      "ANGLE": "RenderRefused: pet-snuggle-mat: a flat piece's back is its front; an angle view would repeat the hero",
+      "CONSTRUCTION": "the CIR does not carry what this job draws"
+     }
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 5,
+    "problems": []
+   }
+  },
+  "cloudline-baby-blanket": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "bf30686b90bff8e07e276da02650da258531d2710d152cf10e08c967e82aeba6",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "a111813d7165a1efc5f8a8e77e7aeabb8d085dd0088177951b6d09c04e79d286",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "8826b569457c4a0a1af32d96466bf63c99152f55c533907815608b6614590450",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 5,
+    "problems": []
+   }
+  },
+  "hexagon-coaster-set": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "dde60f6bbe780d18501942ae4fd54753fac7aa3de34f661ac9efc136bc2c4f71",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "2799a819d949550e281cadad50a687f96a76351ba407ba2d75f80d6ae2404ebb",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "d5048079e37780b9aef8a72fc78310f77b0219e0987f9f703192b04d9d9e648e",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 5,
+    "problems": []
+   }
+  },
+  "market-basket-small": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "a16ae6095d757310939d7e132035ca5128522d1dc9af36c0d5e0147651cef13f",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "43c10f1776e8a8753cadc9a05ae76cf365d7da2f02fbf1148a74cfd1887b300b",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "a0a73285cb1129163e476ba449af7610f193053f91231dff6c03bb66557e505e",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "ANGLE",
+      "CONSTRUCTION",
+      "COLOUR_CONTEXT",
+      "SIZING",
+      "MATERIALS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 8,
+    "problems": []
+   }
+  }
+ }
+}

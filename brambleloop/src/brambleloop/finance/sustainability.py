@@ -74,15 +74,17 @@ MAX_AI_SHARE_OF_CONTRIBUTION = 0.50
 # as one; the measured unit costs they multiply are read from the database.
 SCENARIOS: dict[str, dict] = {
     "low": {"catalogue_listings": 10, "sales_per_month": 20, "support_rate": 0.05,
-            "new_products_per_month": 1, "platform_factor": 0.5,
+            "new_products_per_month": 1, "platform_factor": 0.5, "observation_factor": 0.5,
             "why": "a small opening catalogue, slow first months, development spend wound "
                    "down to half its current rate"},
     "base": {"catalogue_listings": 25, "sales_per_month": 60, "support_rate": 0.08,
              "new_products_per_month": 3, "platform_factor": 1.0,
+             "observation_factor": 1.0,
              "why": "the planned catalogue at modest traction, platform spend continuing at "
                     "its recorded rate"},
     "high": {"catalogue_listings": 60, "sales_per_month": 200, "support_rate": 0.12,
              "new_products_per_month": 6, "platform_factor": 1.5,
+             "observation_factor": 1.5,
              "why": "a larger catalogue with real traction, heavier observation and support, "
                     "platform spend half again its recorded rate"},
 }
@@ -262,6 +264,14 @@ def break_even(db) -> dict:
 # F-325
 
 
+# F-325: observation cadence is its own forecast term rather than a slice of platform spend.
+# These are the recurring market/competitor observation tasks (`gateway.routing.TASKS`); their
+# platform rows are split out of `platform` so nothing is counted twice, and scaled by each
+# scenario's `observation_factor`: runs per day x measured cost per run x 30.
+OBSERVATION_PURPOSES = ("gallery_observation", "listing_classify", "listing_mechanisms",
+                        "topic_filing", "seasonal_signal", "construction_reading")
+
+
 def forecast(db, *, now: datetime | None = None) -> dict:
     """Steady-state monthly AI/API cost and contribution, low/base/high, or a refusal."""
     now = now or datetime.now(timezone.utc)
@@ -287,9 +297,16 @@ def forecast(db, *, now: datetime | None = None) -> dict:
 
     window_start = now - timedelta(days=WINDOW_DAYS)
     window_days = min(WINDOW_DAYS, max(history_days, 1))
-    platform_window = sum(a for at, k, a, slug, _p, _g, _basis in ai
-                          if not slug and at >= window_start)
+    obs_rows = [a for at, k, a, slug, p, _g, _basis in ai
+                if not slug and at >= window_start and p in OBSERVATION_PURPOSES]
+    platform_window = sum(a for at, k, a, slug, p, _g, _basis in ai
+                          if not slug and at >= window_start
+                          and p not in OBSERVATION_PURPOSES)
     platform_monthly = round(platform_window * 30.0 / window_days, 2)
+    observation_runs_per_day = round(len(obs_rows) / window_days, 4)
+    cost_per_observation_run = (round(sum(obs_rows) / len(obs_rows), 6)
+                                if obs_rows else None)
+    observation_monthly = round(sum(obs_rows) * 30.0 / window_days, 2)
     support_rows = [a for at, k, a, slug, p, g, _basis in ai
                     if at >= window_start and ("support" in p or g == "support")]
     maintenance = listing_maintenance_cost(db, now=now)
@@ -298,6 +315,9 @@ def forecast(db, *, now: datetime | None = None) -> dict:
         "history_days": history_days,
         "costed_calls": len(ai),
         "platform_monthly_cad": platform_monthly,
+        "observation_runs_per_day": observation_runs_per_day,
+        "cost_per_observation_run_cad": cost_per_observation_run,
+        "observation_monthly_cad": observation_monthly,
         "creation_cost_per_product_cad": (round(sum(created) / len(created), 4)
                                           if created else None),
         "maintenance_per_listing_month_cad": maintenance["per_listing_month_cad"],
@@ -311,7 +331,7 @@ def forecast(db, *, now: datetime | None = None) -> dict:
             "cost_basis": split["cost_basis"],
             "input_label": "legacy measured key includes recorded/modelled costs; see cost_basis",
             "missing": missing,
-            "known_floor_monthly_cad": platform_monthly,
+            "known_floor_monthly_cad": round(platform_monthly + observation_monthly, 2),
             "why": ("a precise steady-state forecast is refused: the operational data "
                     "underneath it is too thin. The recorded platform exposure is shown as a "
                     "floor, not a forecast"),
@@ -321,18 +341,22 @@ def forecast(db, *, now: datetime | None = None) -> dict:
     scenarios = {}
     for name, a in SCENARIOS.items():
         platform = platform_monthly * a["platform_factor"]
+        observation = (observation_runs_per_day * 30.0 * (cost_per_observation_run or 0.0)
+                       * a["observation_factor"])
         creation = a["new_products_per_month"] * measured["creation_cost_per_product_cad"]
         upkeep = a["catalogue_listings"] * (measured["maintenance_per_listing_month_cad"] or 0.0)
         support = (a["sales_per_month"] * a["support_rate"]
                    * (measured["support_cost_per_case_cad"] or 0.0))
-        ai_cost = round(platform + creation + upkeep + support, 2)
+        ai_cost = round(platform + observation + creation + upkeep + support, 2)
         contribution = round(a["sales_per_month"] * per_sale["per_sale_cad"], 2)
         scenarios[name] = {
             "basis": "MODELLED", "volume_basis": "ASSUMED",
             "price_basis": "recorded opening price", "fee_basis": "modelled",
             "assumptions": {k: v for k, v in a.items() if k != "why"}, "why": a["why"],
             "ai_cost_monthly_cad": ai_cost,
-            "components_cad": {"platform": round(platform, 2), "creation": round(creation, 2),
+            "components_cad": {"platform": round(platform, 2),
+                               "observation": round(observation, 2),
+                               "creation": round(creation, 2),
                                "maintenance": round(upkeep, 2), "support": round(support, 2)},
             "contribution_monthly_cad": contribution,
             "net_monthly_cad": round(contribution - ai_cost, 2),
@@ -341,7 +365,8 @@ def forecast(db, *, now: datetime | None = None) -> dict:
         }
     unmeasured_terms = [t for t, v in (
         ("maintenance_per_listing", measured["maintenance_per_listing_month_cad"]),
-        ("support_cost_per_case", measured["support_cost_per_case_cad"])) if v is None]
+        ("support_cost_per_case", measured["support_cost_per_case_cad"]),
+        ("observation_cadence", measured["cost_per_observation_run_cad"])) if v is None]
     return {
         "status": "computed", "basis": "MODELLED", "scenarios": scenarios,
         "measured": measured,

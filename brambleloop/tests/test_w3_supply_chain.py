@@ -47,11 +47,10 @@ def test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named():
     assert v["distributions"] > 20 and v["hashes"] >= v["distributions"]
     entries = v["_entries"]
     assert entries and all(e["hashes"] and e["version"] for e in entries.values())
-    # Honest about what is still unpinned in the build (the deploy-path change is owner/
-    # integrator-applied, not made by this lane).
-    ids = {f["id"] for f in v["findings"]}
-    assert "base_image_not_digest_pinned" in ids, v["findings"]
-    assert all(f["remedy"] for f in v["findings"])
+    # F-416 applied by the integrator 2026-10-07: base image digest-pinned, apt package versioned,
+    # so the committed build has no open pin; any finding that reappears must carry a remedy.
+    assert v["findings"] == [], v["findings"]
+    assert "@sha256:" in (ROOT / "Dockerfile").read_text().split("FROM", 1)[1].splitlines()[0]
 
 
 def test_a_lock_that_is_not_exact_pinned_and_hashed_is_refused():
@@ -164,7 +163,10 @@ def test_the_cli_verify_exits_zero_on_the_repo_and_strict_fails_on_open_pins():
     assert json.loads(ok.stdout)["ok"] is True
     strict = subprocess.run([py, str(ROOT / "scripts" / "supply_chain.py"), "verify",
                              "--strict"], capture_output=True, text=True, timeout=60)
-    assert strict.returncode == 1          # the base image is not digest-pinned yet
+    # F-416 (2026-10-07): the base image is digest-pinned and the apt font package versioned, so
+    # strict verification now passes too; an unpinned base or package would make it exit 1 again.
+    assert strict.returncode == 0, strict.stdout + strict.stderr
+    assert json.loads(strict.stdout)["findings"] == []
 
 
 if __name__ == "__main__":

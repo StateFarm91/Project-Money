@@ -67,8 +67,6 @@ orphan double-counts that one call in the conservative direction.
 """
 from __future__ import annotations
 
-import hashlib
-import json
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -235,8 +233,9 @@ def ensure_table(db) -> None:
 
 
 def fingerprint(*parts) -> str:
-    blob = json.dumps(parts, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    from .evidence_key import content
+
+    return content(parts)
 
 
 def _update(db, key: str, **kw) -> None:

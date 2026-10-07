@@ -417,3 +417,131 @@ def state() -> dict:
                  "context that produced it, and reopens when the caller names what changed "
                  "(#16)."),
     }
+
+
+# ---- variant content and activation (F-779) -----------------------------------------------
+#
+# Conversion work may change the words, the order, the first image and the price. It may not
+# change what the buyer receives or what the design is. A variant is the treatment arm's
+# content, and `activate_variant` is the one step it passes before it is shown to anybody:
+# the full listing policy check against the CIR (fit, size coverage, untraceable claims,
+# difficulty/proof claims), and a truth diff against the certified control copy so that no
+# product fact appears in the variant that the certified listing does not already carry.
+
+# The product facts conversion copy may not distort, each as phrases a reader takes as a
+# statement about the product. A fact in the variant and not in the control is a new product
+# claim made for conversion, which is exactly what F-779 forbids.
+TRUTH_FACTS: dict[str, tuple[str, ...]] = {
+    "difficulty": (r"\bbeginner\b", r"\beasy\b", r"\bconfident beginner\b",
+                   r"\bintermediate\b", r"\badvanced\b", r"\bexpert\b", r"\bsimple\b"),
+    "materials": (r"\blace weight\b", r"\bfingering\b", r"\bsport weight\b", r"\bdk\b",
+                  r"\bworsted\b", r"\baran\b", r"\bsuper bulky\b", r"\bbulky\b",
+                  r"\bchunky\b", r"\bjumbo\b", r"\bcotton\b", r"\bwool\b", r"\bacrylic\b",
+                  r"\bmerino\b", r"\balpaca\b", r"\bbamboo\b"),
+    "construction": (r"\btop[- ]down\b", r"\bbottom[- ]up\b", r"\bseamless\b",
+                     r"\bno[- ]sew\b", r"\braglan\b", r"\bdrop[- ]shoulder\b",
+                     r"\bin the round\b", r"\bside[- ]to[- ]side\b", r"\bone[- ]piece\b",
+                     r"\bjoin[- ]as[- ]you[- ]go\b"),
+    "stitch_appearance": (r"\bcables?\b", r"\bbobbles?\b", r"\bpopcorn\b", r"\bpuff\b",
+                          r"\bstar stitch\b", r"\bwaffle\b", r"\bmoss stitch\b",
+                          r"\blinen stitch\b", r"\bshells?\b", r"\bribbed\b",
+                          r"\bpost stitch\b", r"\bmosaic\b", r"\bgranny\b", r"\bc2c\b",
+                          r"\bcorner[- ]to[- ]corner\b", r"\btapestry\b", r"\blace\b"),
+    "deliverables": (r"\bkit\b", r"\byarn included\b", r"\bphysical\b", r"\bfinished item\b",
+                     r"\bready[- ]made\b", r"\bprinted\b", r"\bshipped\b", r"\bvideo\b",
+                     r"\bcharts?\b", r"\bwritten instructions\b", r"\bphoto tutorial\b",
+                     r"\bsvg\b", r"\bhook included\b", r"\bpdf\b"),
+}
+# Which listing fields each variable may change. A variant that changes anything else changes
+# a variable the test did not declare, and its result could not be attributed.
+VARIABLE_FIELDS: dict[str, tuple[str, ...]] = {
+    "title": ("title",), "description": ("description",), "tags": ("tags",),
+    "price": ("price_cad",), "thumbnail": ("thumbnail",), "hero_image": ("hero_image",),
+    "video": ("video",), "bundle": ("bundle",),
+}
+_VARIANT_FIELDS = ("title", "description", "tags", "price_cad", "thumbnail", "hero_image",
+                   "video", "bundle")
+
+
+@dataclass(frozen=True)
+class ListingVariant:
+    """The treatment arm's content: the control listing with the tested variables changed."""
+
+    test_key: str
+    title: str
+    description: str
+    tags: tuple[str, ...] = ()
+    price_cad: float = 0.0
+    thumbnail: str | None = None
+    hero_image: str | None = None
+    video: str | None = None
+    bundle: str | None = None
+
+
+def _facts(text: str) -> dict[str, set[str]]:
+    import re
+
+    low = (text or "").lower()
+    out: dict[str, set[str]] = {}
+    for family, patterns in TRUTH_FACTS.items():
+        found = {m.group(0).replace("-", " ") for p in patterns for m in re.finditer(p, low)}
+        out[family] = found
+    return out
+
+
+def truth_drift(control_text: str, variant_text: str) -> dict[str, list[str]]:
+    """Product facts the variant states that the certified control copy does not."""
+    before, after = _facts(control_text), _facts(variant_text)
+    return {fam: sorted(after[fam] - before[fam]) for fam in TRUTH_FACTS
+            if after[fam] - before[fam]}
+
+
+def variant_findings(test: ListingTest, variant: ListingVariant, *, control: ListingVariant,
+                     cir=None, certified_assets: frozenset[str] | set[str] = frozenset(),
+                     proof_states: dict | None = None, classification=None) -> list[str]:
+    """Every reason this variant may not be shown. Empty means it may be activated."""
+    from ..gates.policy import ListingDraft, check_listing
+
+    problems: list[str] = []
+    if variant.test_key != test.key:
+        problems.append(f"variant belongs to {variant.test_key!r}, not test {test.key!r}")
+    allowed = {f for v in test.variables for f in VARIABLE_FIELDS[v]}
+    changed = [f for f in _VARIANT_FIELDS if getattr(variant, f) != getattr(control, f)]
+    undeclared = [f for f in changed if f not in allowed]
+    if undeclared:
+        problems.append(f"VARIANT_UNDECLARED_CHANGE: {undeclared} changed, but the test "
+                        f"declares only {list(test.variables)}")
+    if cir is None:
+        problems.append("VARIANT_NO_PRODUCT_TRUTH: no certified CIR to check the copy against; "
+                        "an unchecked variant is not activated")
+    else:
+        draft = ListingDraft(title=variant.title, description=variant.description,
+                             tags=list(variant.tags), price_cad=variant.price_cad)
+        for f in check_listing(draft, cir, proof_states=proof_states,
+                               classification=classification):
+            if f.is_error:
+                problems.append(f"{f.code}: {f.message}")
+    control_text = " ".join([control.title, control.description, *control.tags])
+    variant_text = " ".join([variant.title, variant.description, *variant.tags])
+    for family, words in truth_drift(control_text, variant_text).items():
+        problems.append(f"VARIANT_TRUTH_DRIFT: {family} {words} stated by the variant and not "
+                        f"by the certified listing (F-779: conversion may not distort "
+                        f"{family.replace('_', ' ')})")
+    for field_name in ("thumbnail", "hero_image"):
+        ref = getattr(variant, field_name)
+        if field_name in changed and ref not in certified_assets:
+            problems.append(f"VARIANT_IMAGE_UNCERTIFIED: {field_name} {ref!r} is not one of "
+                            f"this release's certified listing assets")
+    return problems
+
+
+def activate_variant(test: ListingTest, variant: ListingVariant, *, control: ListingVariant,
+                     cir=None, certified_assets: frozenset[str] | set[str] = frozenset(),
+                     proof_states: dict | None = None, classification=None) -> dict:
+    """The one door a listing-test variant passes before anybody sees it (F-779)."""
+    problems = variant_findings(test, variant, control=control, cir=cir,
+                                certified_assets=certified_assets, proof_states=proof_states,
+                                classification=classification)
+    return {"test_key": test.key, "activated": not problems, "problems": problems,
+            "changed": [f for f in _VARIANT_FIELDS
+                        if getattr(variant, f) != getattr(control, f)]}

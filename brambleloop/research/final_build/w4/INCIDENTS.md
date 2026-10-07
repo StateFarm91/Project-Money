@@ -1,6 +1,6 @@
 # Incidents -- the 18 production held open (W4-OWNER)
 
-Generated 2026-10-07T01:12:53+00:00. Source: production /api/status open_incidents=18 (fcb982d, 2026-10-06); reproduced by tests/test_w4_owner_incidents.py.
+Generated 2026-10-07T02:35:16+00:00. Source: production /api/status open_incidents=18 (fcb982d, 2026-10-06); reproduced by tests/test_w4_owner_incidents.py.
 
 **Before:** 18 open. **After (this build's handlers):** 17 closed by rule with a resolution and resolved_at, 1 open because its condition is true; 0 need the owner; 5 current conditions re-raised year-keyed. Production converges after the next deploy (owner decision `production_window`).
 

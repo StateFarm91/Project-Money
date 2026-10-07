@@ -851,7 +851,11 @@ def board_for(db, slug: str) -> str:
         ref = str(frame.get("image_ref") or frame.get("image") or "").strip()
         if ref:
             return ref
-    return ""
+    # W4-PIPE2: an engineered candidate's concept board (products.moment_candidates).
+    from ..products.moment_candidates import board_record
+
+    record = board_record(db, slug) or {}
+    return str(record.get("image_ref") or "").strip()
 
 
 def _sha256_hex(value) -> str:
@@ -889,7 +893,10 @@ def board_digest_for(db, slug: str) -> str:
         except (OSError, ValueError):
             pass
         return ""
-    return ""
+    # W4-PIPE2: the digest the artefact store recorded for an engineered candidate's board.
+    from ..products.moment_candidates import board_record
+
+    return _sha256_hex(((board_record(db, slug) or {}).get("image") or {}).get("sha256"))
 
 
 def parse_judgement(text: str) -> dict:

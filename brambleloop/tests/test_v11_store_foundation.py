@@ -146,13 +146,15 @@ def test_opening_grid_counts_products_not_sizes():
 
     rows, s = _rows()
     products = s["opening_grid"].value
+    # W4-PIPE 2026-10-07: the snowflake ornaments and the snowfall throw joined Launch-0.
     assert [p["candidate"] for p in products] == [
-        "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set"]
-    assert [p["price_cad"] for p in products] == [6.50, 7.50, 4.00]
+        "nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
+        "nordic-star-ornaments", "winter-village-graphghan"]
+    assert [p["price_cad"] for p in products] == [6.50, 7.50, 4.00, 4.50, 7.50]
     assert products[0]["variant_count"] == 3
     assert lr.MIN_LISTINGS_TO_OPEN == 8           # not lowered by this lane
     depth = [f for f in rows["opening_grid"]["findings"] if f["code"] == "CATALOGUE_DEPTH"]
-    assert depth and "3 Launch-0 products" in depth[0]["detail"]
+    assert depth and "5 Launch-0 products" in depth[0]["detail"]
     assert depth[0]["severity"] == "owner"
 
 

@@ -628,8 +628,13 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
             store=store_root)
     except disclosed_listing.DisclosureMissing as e:
         reasons.append(f"disclosed export (D-FB-7): {str(e)[:400]}")
+    supplements, supplement_qa, supplement_notes = (
+        disclosed_supplements(rec, images, slug=slug, version=version, store_root=store_root,
+                              release_fingerprint=getattr(cir, "fingerprint", "") or "")
+        if images else ([], None, {}))
     gate_results = ls.disclosed_gate_results(rec, exported=bool(images) and not any(
-        r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"])
+        r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"],
+        supplement_qa=supplement_qa if supplements else None)
 
     geometry = geometry_of(twin, cir)
     claims = claims_of(listing, frames, _search_profile(db, slug, version))
@@ -643,7 +648,8 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
             dimensions_ok=dim["ok"],
             # F-757 / PT-13: the configuration the certified release encodes is what the
             # listing sells; the set must have been rendered for it.
-            listing_variant=cir.variant_key) if not reasons else None
+            listing_variant=cir.variant_key, supplements=supplements,
+            supplement_qa=supplement_qa) if not reasons else None
     except ls.ListingSetRefused as e:
         certificate = None
         reasons.append(f"listing-set certificate (#70): {str(e)[:400]}")
@@ -667,10 +673,93 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
                    | {"gates": dict(gate_results)}
                    for f in sorted(rec.get("frames") or [], key=lambda f: f["position"])],
         "frame_set": {"ok": bool(((rec.get("qa") or {}).get("frame_set") or {}).get("ok"))},
+        "supplements": {"certified": [f.job for f in supplements],
+                        "refused": supplement_notes},
         "dimensions": {k: dim[k] for k in ("ok", "problems", "sources", "displayed",
                                            "references")},
         "certificate": cert,
     }
+
+
+def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
+                          store_root=None, release_fingerprint: str | None = None
+                          ) -> tuple[list, dict | None, dict]:
+    """The verified gallery frames (F-030/F-254) a disclosed set is certified with, their
+    QA readings over the whole ordered set, and why any applicable job was left out.
+
+    A frame is offered only after `visual.launch_imagery.check_supplement` passes it on its
+    bytes and `layout_qa.inspect` passes it at listing scale (type expected); a frame that
+    fails either is left out with the reason, never certified. The readings returned feed
+    `listing_set.disclosed_gate_results` beside the set's own -- they add to it, never replace it.
+    """
+    import io as _io
+
+    from PIL import Image
+
+    from ..core.artifacts import ArtifactStore
+    from ..gates.asset_truth import AssetClass
+    from ..visual import launch_imagery as LI
+    from . import eligibility as el
+    from . import layout_qa
+
+    ordered = sorted(rec.get("frames") or [], key=lambda f: int(f.get("position") or 0))
+    taken = {(f.get("disclosed_render") or {}).get("job") for f in ordered}
+    try:
+        offer = LI.supplements_for_certificate(slug, version, start=len(images) + 1,
+                                               exclude_jobs=taken,
+                                               store=ArtifactStore(store_root),
+                                               release_fingerprint=release_fingerprint)
+    except Exception as exc:  # noqa: BLE001 - no supplements is a coverage gap, not a block
+        return [], None, {"*": f"{type(exc).__name__}: {exc}"[:300]}
+    notes = dict(offer.get("refused") or {})
+    base = [Image.open(_io.BytesIO(data)).convert("RGB") for _n, data, _a in images]
+
+    class _F:
+        def __init__(self, image, position):
+            self.image, self.position = image, position
+
+    kept = []
+    for f in offer.get("frames") or []:
+        img = Image.open(_io.BytesIO(f["png"])).convert("RGB")
+        report = layout_qa.inspect(img, position=f["position"], expect_text=True)
+        if report.problems:
+            notes[f["job"]] = "layout QA: " + "; ".join(report.problems)[:280]
+            continue
+        kept.append((f, img))
+    supplements: list = []
+    for i, (f, _img) in enumerate(kept):
+        supplements.append(ls.CertifiedFrame(
+            position=len(images) + 1 + i, asset_id=f"{slug}-gallery-{f['job'].lower()}",
+            sha256=f["sha256"], job=f["job"], purpose=f["purpose"],
+            medium=AssetClass.DIGITAL_TWIN_RENDER.value,
+            honesty_label=ls_disclosure(), kind=ls.DISCLOSED_SUPPLEMENT,
+            alt_text=f["alt_text"], represented_variant=f["represented_variant"]))
+    if not supplements:
+        return [], None, notes
+    layout = layout_qa.check_frames(
+        [_F(im, i + 1) for i, im in enumerate(base + [im for _f, im in kept])],
+        text_positions=tuple(range(1, len(base) + len(kept) + 1)))
+    purpose = {"hero": el.CONVERSION_CREATIVE, "scale": el.CUSTOMER_INFORMATION,
+               "detail": el.ENGINEERING_EVIDENCE}
+    candidates = [el.Candidate(asset_id=f"{slug}:{f.get('view')}",
+                               medium=AssetClass.DIGITAL_TWIN_RENDER,
+                               purpose=purpose.get(f.get("view") or "", el.CUSTOMER_INFORMATION),
+                               job=(f.get("disclosed_render") or {}).get("job") or "",
+                               position=int(f["position"])) for f in ordered]
+    candidates += [el.Candidate(asset_id=c.asset_id, medium=AssetClass.DIGITAL_TWIN_RENDER,
+                                purpose=c.purpose, job=c.job, position=c.position)
+                   for c in supplements]
+    frame_set = el.check_set(candidates)
+    qa = {"verified": [True] * len(supplements),
+          "layout_qa": {"ok": not layout, "problems": layout},
+          "frame_set": {"ok": frame_set["ok"], "problems": frame_set["problems"]}}
+    return supplements, qa, notes
+
+
+def ls_disclosure() -> str:
+    from .disclosed_listing import DISCLOSURE
+
+    return DISCLOSURE
 
 
 def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, issue: bool,
@@ -954,7 +1043,21 @@ def staleness(db, *, slug: str) -> dict:
             "outstanding_only_marketing": only_marketing}
 
 
-def originality_gate(db, *, slug: str, version: str) -> dict:
+def _frame_bytes(db, slug: str, version: str, store_root=None) -> dict[str, bytes]:
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+
+    store = ArtifactStore(store_root)
+    out: dict[str, bytes] = {}
+    for f in _frames(db, slug, version):
+        if f.sha256:
+            try:
+                out[f"frame-{f.position}"] = store.get(f.sha256, db=db)
+            except (ArtifactMissing, OSError):
+                continue
+    return out
+
+
+def originality_gate(db, *, slug: str, version: str, store_root=None) -> dict:
     """Current corpus/rights at protected execution, including evidence added after QA."""
     from ..cir.compiler import compile_cir
     from ..cir.writer import write_pattern
@@ -969,9 +1072,15 @@ def originality_gate(db, *, slug: str, version: str) -> dict:
             return {"blocks": True, "reasons": ["originality: source CIR no longer compiles"],
                     "state": "UNKNOWN"}
         findings = originality.release_findings(cir, pattern_text=write_pattern(cir, result), db=db)
+        # F-784 / F-795: presentation -- this release's listing frames against every
+        # benchmark image, by perceptual hash.
+        findings.extend(originality.presentation_review(
+            db, frames=_frame_bytes(db, slug, version, store_root)))
         reasons = [f"{f.code}: {f.message}" for f in findings if f.is_error]
         return {"blocks": bool(reasons), "reasons": reasons,
                 "state": "REFUSED" if reasons else "CHECKED", "release_hash": release_hash,
+                "presentation_warnings": [f.message for f in findings
+                                          if f.code == "SIMILARITY_UNMEASURED"],
                 "limitation": "deterministic comparison is not independent legal/creative adjudication"}
     except Exception as exc:
         return {"blocks": True, "reasons": ["originality evidence unavailable: " + type(exc).__name__],
@@ -987,7 +1096,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     set_verdict = listing_set(db, slug=slug, version=version, store_root=store_root,
                               issue=not stale["blocks"] and window["may_launch_seasonally"])
     reasons = list(stale["reasons"])
-    originality = originality_gate(db, slug=slug, version=version)
+    originality = originality_gate(db, slug=slug, version=version, store_root=store_root)
     reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")

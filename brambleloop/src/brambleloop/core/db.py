@@ -148,6 +148,8 @@ class Database:
         from ..ops import slo as _slo_tables  # noqa: F401; SLO samples + leases (I)
         from ..app.command_center import models as cc_models  # noqa: F401; owner CC (C)
         from ..laura.core import models as laura_core_models  # noqa: F401; Laura (W3-D)
+        from ..finance import cost_attribution as _cost_attr  # noqa: F401; F-304 (W4-SPENDA)
+        from ..finance import credits as _credits  # noqa: F401; F-629 credits (W4-SPENDA)
         from ..visual.rnd import models as visual_rnd_models  # noqa: F401; Visual R&D (H, w3)
         from ..gateway import paid_calls as _paid_calls  # noqa: F401; PaidCallRecord (SPEND)
         from ..authority import models as _authority_models  # noqa: F401; authority (W3-K11)

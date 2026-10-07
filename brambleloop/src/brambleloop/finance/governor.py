@@ -33,6 +33,8 @@ one number it has -- which would always recommend whatever was running when some
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 from datetime import datetime, timedelta, timezone
 from statistics import median
 
@@ -385,10 +387,102 @@ def parallelism(observations: list[dict]) -> dict:
     }
 
 
+# F-319: the product milestones a listing advances through, each an audit row whose artifact
+# is the product slug. "Advanced" means a milestone reached in the window that the product had
+# not reached before it -- re-running a step is not progress.
+ADVANCEMENT_ACTIONS: tuple[str, ...] = ("gate.certified", "listing.seo_drafted",
+                                        "listing.drafted", "listing.mobile_qa",
+                                        "listing.parity")
+LISTING_MILESTONE = "listing.drafted"
+
+
+@contextmanager
+def _reader(db):
+    """A session from a `Database`, or the session itself (`/api/governor` passes one)."""
+    if callable(getattr(db, "session", None)):
+        with db.session() as s:
+            yield s
+    else:
+        yield db
+
+
+def spend_to_progress(db, *, days: int = 30, now: datetime | None = None) -> dict:
+    """F-319: cost per milestone and per listing advanced, by product, from the ledger.
+
+    Spend is joined to progress by product (`CostEntry.product_slug` against the milestone's
+    audit artifact). Spend with no product is reported as shared, never spread across the
+    products to flatter them. A product that spent and advanced nothing has no ratio -- its
+    cost per advance is None and it is named, because dividing by zero progress is the thing
+    this ratio exists to expose."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, CostEntry
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=days)
+    with _reader(db) as s:
+        spend: dict[str, float] = {}
+        shared = 0.0
+        for slug, amount in s.execute(select(CostEntry.product_slug, CostEntry.amount_cad)
+                                      .where(CostEntry.at >= since)).all():
+            if slug:
+                spend[slug] = spend.get(slug, 0.0) + float(amount or 0.0)
+            else:
+                shared += float(amount or 0.0)
+        before: set[tuple[str, str]] = set()
+        reached: dict[str, set[str]] = {}
+        for action, artifact, at in s.execute(select(
+                AuditLog.action, AuditLog.artifact, AuditLog.at)
+                .where(AuditLog.action.in_(ADVANCEMENT_ACTIONS))).all():
+            if not artifact:
+                continue
+            if _aware(at) < since:
+                before.add((artifact, action))
+            else:
+                reached.setdefault(artifact, set()).add(action)
+    products = {}
+    for slug in sorted(set(spend) | set(reached)):
+        new = sorted(a for a in reached.get(slug, set()) if (slug, a) not in before)
+        cad = round(spend.get(slug, 0.0), 6)
+        listing = LISTING_MILESTONE in new
+        products[slug] = {
+            "spent_cad": cad, "milestones_advanced": new,
+            "cad_per_milestone": round(cad / len(new), 6) if new else None,
+            "listing_advanced": listing,
+            "spent_without_progress": bool(cad > 0 and not new)}
+    advanced = sum(len(p["milestones_advanced"]) for p in products.values())
+    listings = sum(1 for p in products.values() if p["listing_advanced"])
+    attributed = round(sum(spend.values()), 6)
+    return {
+        "window_days": days, "attributed_cad": attributed, "shared_cad": round(shared, 6),
+        "milestones_advanced": advanced, "listings_advanced": listings,
+        "cad_per_milestone_advanced": round(attributed / advanced, 6) if advanced else None,
+        "cad_per_listing_advanced": round(attributed / listings, 6) if listings else None,
+        "spent_without_progress": sorted(k for k, v in products.items()
+                                         if v["spent_without_progress"]),
+        "products": products,
+        "milestones": list(ADVANCEMENT_ACTIONS),
+        "note": ("product spend over milestones that product newly reached; shared spend is "
+                 "kept apart rather than spread, so a ratio is never flattered by money no "
+                 "product owns")}
+
+
+def _per_operation(db, *, days: int, now: datetime | None) -> dict:
+    """F-304: spend by listing and image, read from the attribution sidecar."""
+    from . import cost_attribution
+
+    try:
+        return cost_attribution.report(db, days=days, now=now)
+    except Exception as exc:  # noqa: BLE001 - one unreadable part must not hide the rest
+        return {"unavailable": f"{type(exc).__name__}: {exc}"[:200]}
+
+
 def report(db, *, days: int = 30, now: datetime | None = None) -> dict:
     """Everything the governor can honestly say today."""
     return {
         "attribution": attribution(db, days=days, now=now),
+        "spend_to_progress": spend_to_progress(db, days=days, now=now),
+        "per_operation": _per_operation(db, days=days, now=now),
         "anomaly": anomaly(db, now=now),
         "marginal_value": marginal_value(db, days=days, now=now),
         "parallelism": parallelism([]),
@@ -742,10 +836,20 @@ def enforce(db, *, days: int = 30, now: datetime | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001 - a detector fault must not stop the governor
         hygiene = {"error": f"{type(exc).__name__}: {exc}"[:300]}
 
+    # F-106/F-103: settle the ledger against each provider's own bill where the owner has
+    # granted a read; a provider without an admin key is reported OWNER_GATED (no network).
+    try:
+        from ..ops import provider_accounts
+
+        settlement = provider_accounts.settle_all(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - a billing read fault must not stop the governor
+        settlement = {"error": f"{type(exc).__name__}: {exc}"[:300]}
+
     detail = {
         "at": now.isoformat(),
         "unit_cost": throughput,
         "hygiene": hygiene,
+        "provider_settlement": settlement,
         "company_anomaly": company,
         "agent_anomalies": {"spiking": agents["spiking"],
                             "unmeasurable": agents["unmeasurable"],

@@ -6,6 +6,8 @@ export const TABS = [
   { id: "approvals", label: "Approvals", icon: "approvals", primary: true },
   { id: "money", label: "Money", icon: "money", primary: true },
   { id: "store", label: "Store", icon: "store", primary: true },
+  { id: "company", label: "Company", icon: "operations" },
+  { id: "completion", label: "Completion effort", icon: "approvals" },
   { id: "operations", label: "Operations", icon: "operations" },
   { id: "learn", label: "Autonomy & Learn", icon: "learn" },
   { id: "insights", label: "Insights", icon: "insights" },

@@ -64,9 +64,34 @@ def _adapt_accounting(acct: dict) -> dict:
                               else i for i in items]}
 
 
-def money_section(db) -> dict:
+# F-914: the PWA's period choices -> the accountant's `summary(window=...)` grammar.
+_PERIOD_ALIASES = {"month": "mtd", "this_month": "mtd", "mtd": "mtd", "30d": "30d",
+                   "ytd": "ytd", "all": "all"}
+
+
+def money_window(period: str | None, now: datetime | None = None) -> str | None:
+    """Translate a requested period into an accounting window. None = provider default.
+    Raises ValueError for anything the accountant cannot answer (never silently ignored)."""
+    p = (period or "").strip().lower()
+    if not p:
+        return None
+    if p in _PERIOD_ALIASES:
+        return _PERIOD_ALIASES[p]
+    if p == "last_month":
+        now = now or datetime.now(timezone.utc)
+        first = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        prev = first - timedelta(days=1)
+        return f"{prev.year:04d}-{prev.month:02d}"
+    if len(p) == 7 and p[4] == "-" and p[:4].isdigit() and p[5:].isdigit() \
+            and 1 <= int(p[5:]) <= 12:
+        return p
+    raise ValueError(f"period {period!r}: use month, last_month, 30d, ytd, all or YYYY-MM")
+
+
+def money_section(db, window: str | None = None) -> dict:
     """The Accountant provider is primary; fallback readers only state what they measure."""
-    acct = _adapt_accounting(providers.call("accounting", db))
+    acct = _adapt_accounting(providers.call("accounting", db, window=window) if window
+                             else providers.call("accounting", db))
     profit_item = next((i for i in acct.get("items") or []
                         if isinstance(i, dict) and i.get("metric") == "profit"
                         and "state" in i), None)
@@ -174,22 +199,56 @@ def _spend_with_basis(db, spent: dict) -> dict:
             f"CA${float(spent['value_cad']):,.2f} (recorded; CA${not_measured:,.2f} not measured)"}
 
 
-def money(db) -> dict:
-    m = money_section(db)
-    return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db)},
+SETTLEMENT_GATE = ("OWNER-GATED: settling recorded model spend against the provider's own "
+                   "billing needs provider usage-API (admin) access, which only the owner can "
+                   "grant; until then 'actual' means the recorded per-call cost, not the invoice")
+
+
+def estimate_drift_reading(db) -> dict:
+    """F-103 (W4-SPEND): pre-call estimates vs recorded per-call cost this month. Labelled
+    estimated-vs-actual; settlement against provider billing is OWNER-GATED and says so."""
+    from ...finance import spend_report
+
+    d = spend_report.estimate_drift(db)
+    return {"label": "estimated vs actual (recorded per-call cost) model spend, this month",
+            "state": d.get("state"), "degraded": d.get("degraded"),
+            "why": d.get("why") or None,
+            "token_priced_calls": d.get("token_priced_calls"),
+            "purposes_outside_tolerance": sorted((d.get("purposes_outside_tolerance") or {})),
+            "purposes_too_few_calls_to_judge": d.get("purposes_too_few_calls_to_judge"),
+            "calls_with_no_reservation_share": d.get("calls_with_no_reservation_share"),
+            "tolerance": d.get("tolerance"),
+            "settlement_against_provider_billing": "OWNER-GATED",
+            "settlement_why": SETTLEMENT_GATE,
+            "sources": ["finance.spend_report.estimate_drift", "cost_entries"]}
+
+
+def money(db, window: str | None = None) -> dict:
+    m = money_section(db, window)
+    acct = m["accounting"] if isinstance(m["accounting"], dict) else {}
+    # F-914: the period is echoed only when the accountant confirmed it; revenue and recorded
+    # spend headline tiles are the command center's own all-time readers and say so.
+    echoed = (acct.get("window") or acct.get("period") or window) if window else None
+    drift = guard("estimate_drift", lambda: estimate_drift_reading(db))
+    return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db),
+                          "estimate_drift": drift},
                 status=m["status"], revenue=m["revenue"], profit=m["profit"],
                 recorded_spend=m["recorded_spend"], source_health=m["source_health"],
-                reason=m["reason"])
+                reason=m["reason"], window=window,
+                period=(echoed if isinstance(echoed, str) else
+                        (echoed or {}).get("label") if isinstance(echoed, dict) else None),
+                period_applies_to=(["accounting"] if window else None))
 
 
-def money_drill(db, metric: str) -> dict:
+def money_drill(db, metric: str, window: str | None = None) -> dict:
     metric = str(metric or "")[:80]
     if not metric:
         return unknown("metric required", "money.drill")
     # The command center's own figures (revenue, recorded_spend) drill into its own readers;
     # every other metric is the accountant's (lane E) and goes through its drill (F-915).
     if metric not in ("revenue", "recorded_spend") and providers.available("accounting_drill"):
-        out, why = providers.call_raw("accounting_drill", db, metric)
+        out, why = (providers.call_raw("accounting_drill", db, metric, window=window) if window
+                    else providers.call_raw("accounting_drill", db, metric))
         if out is not None:
             return out if isinstance(out, dict) else {"metric": metric, "rows": out}
         return unknown(why or "drill failed", "finance.accounting.dashboard.drill")
@@ -430,7 +489,15 @@ def _seo_w3(seo: dict) -> dict:
 
 def store(db) -> dict:
     seo = providers.call("seo", db)
+    from . import company as company_mod
+
     return _tab("STORE", {"store_foundation": providers.call("store_foundation", db),
+                          "live_drift": guard("live_drift",
+                                              lambda: company_mod.store_live_drift(db)),
+                          "store_readiness": guard("store_readiness",
+                                                   lambda: company_mod.store_readiness(db)),
+                          "competitor_intel": guard("competitor_intel",
+                                                    lambda: company_mod.competitor_intel(db)),
                           "seo": seo, "seo_w3": _seo_w3(seo),
                           "products": readers.products(db),
                           "launch_verdict": guard("launch_verdict", lambda: launch_verdict(db),
