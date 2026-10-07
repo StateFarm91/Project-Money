@@ -50,7 +50,7 @@ Worktree `/home/user/Project-Money/.claude/worktrees/W4-CC`. TMPDIR `/home/user/
   non-costed = UNKNOWN). Wiring W4L-2: `company.learn_outcomes` (pre-sale N / 9, post-launch-only
   cells DATA-GATED, CA$5K UNMEASURED) + dashboard Improvement rows. F-914: `/api/cc/money` and
   `/money/drill` accept `period`/`window` -> `tabs.money_window` -> accounting
-  `summary(window=)`; bad period 400 BAD_PERIOD. Tests: test_w4_cc_company 21/21
+  `summary(window=)`; bad period 400 BAD_PERIOD. Tests: test_w4_cc_company 23/23
   (test_owner_decision_batches_in_approvals, test_learn_outcomes_presale_post_launch_and_ca5k_unmeasured,
   test_money_period_reaches_accounting_window). CC_DEPLOY_PACKAGE §7 now includes GATESI owner
   actions (credits, Backblaze env vars, policy snapshots).
@@ -58,7 +58,7 @@ Worktree `/home/user/Project-Money/.claude/worktrees/W4-CC`. TMPDIR `/home/user/
   7d is refused 400 rather than silently answered with 30d. Adding 7d is a finance-lane change.
 
 ## Tests run
-test_w4_cc_company 12/12; test_v11_pwa_browser 108/108; test_route_auth_default_deny 7/7;
+test_w4_cc_company 23/23 (post-merge incl. GATESI+GATESB); test_vacuity 7, test_secret_scan 7, test_w3_tmp_hygiene 16, test_reachability 11, test_v11_pwa_static 81, test_cert_dashboard 18, test_r2_finance_views 4; test_v11_pwa_browser 108/108; test_route_auth_default_deny 7/7;
 test_rc1_auth 11/11; others: see final report.
 
 ## WIRING REQUESTS
@@ -73,5 +73,7 @@ test_rc1_auth 11/11; others: see final report.
 
 ## Remaining / next deterministic action
 - DONE: merged visual-investigation incl. W4-GATESI. F-103 wiring (W4-SPEND): `tabs.estimate_drift_reading` on Money tab + `/api/verify` `readbacks.estimate_drift` (not a check; settlement OWNER-GATED); sw shell v7. Test: test_estimate_drift_on_verify_and_money_labelled_settlement_owner_gated.
+- DONE: GATESB wiring: Approvals `not_yet_askable` (askable_when = precondition; customers filtered; absent = UNKNOWN). Test: test_not_yet_askable_listed_with_precondition_customers_never_a_card. Integrator board lanes missing useful_output/blocker/next_action normalised to null (UNKNOWN).
+- All requested wirings done; remaining = owner deploy (CC_DEPLOY_PACKAGE §7) + integrator Dockerfile COPY requests below.
 - DONE: MEDIUM availability finding mitigated (main.closure_matrix_shared / maturity_report_shared).
 - Owner actions (deploy approval, variables): CC_DEPLOY_PACKAGE §7.

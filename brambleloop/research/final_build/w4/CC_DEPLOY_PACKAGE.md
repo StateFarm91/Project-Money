@@ -46,6 +46,8 @@ of public, unauthenticated endpoints, or repository history.
   UNMEASURED while its evidence gate is unmet. **Money** period buttons now reach the
   accountant (`GET /api/cc/money?period=month|last_month|ytd|all|30d|YYYY-MM` or `window=`
   -> `dashboard.summary(window=...)`; anything else 400 BAD_PERIOD; F-914).
+- **Approvals** also lists "Not yet askable" decisions (lane GATESB, e.g. ad_authority until a
+  listing can sell), each with what makes it askable; `customers` is never an owner card.
 - **Money** "Model spend: estimated vs actual" section and `/api/verify` `readbacks.estimate_drift`
   (F-103, lane SPEND): pre-call estimates vs recorded per-call cost this month; a readback,
   not a pass/fail check; settlement against the provider's own billing is labelled
@@ -94,7 +96,7 @@ No secret is stored in the repository; the hash and TOTP secret are entered in R
 | Class | Count | Control | Verdict |
 |---|---|---|---|
 | `/api/cc/*` owner-session | 61 (+2 public: `GET /api/cc/auth/status`, `POST /api/cc/auth/login`) | `security.operator_gate` → `auth.gate`: default-deny for the whole prefix; `__Host-bl_cc` cookie `HttpOnly; Secure; SameSite=Strict`, only SHA-256 stored, 12 h absolute / 2 h idle, revocable; every mutation needs `X-CSRF-Token` (HMAC of session) + fresh `X-CC-Nonce` + `X-CC-Timestamp` (±120 s, single use) + same-origin `Origin`/`Sec-Fetch-Site`; consequential actions need step-up within 5 min (5 failed step-ups revoke); login and mutation rate limits; every refusal audited in `cc_security_events`. The operator bearer token is **not** accepted as an owner session (tested). | PASS — `test_route_auth_default_deny` 7/7, `test_rc1_auth` 11/11, `test_v11_cc_auth`, `test_w4_cc_company::test_routes_default_deny_without_owner_session` |
-| W4 wiring routes | 2 | `POST /api/store/live_observation`: in `security.OWNER_SESSION_PAGES`, so `auth.gate` requires owner session + same-origin + CSRF + fresh nonce; body validated by `live_state.record_observation` (unknown fields/future dates refused, 400 audited in `cc_security_events`); success appends one `store.live_observation` audit row with actor `owner:cc:<session>`; performs no Etsy write. `GET /api/mjs/findings`: in `OPERATOR_GET_ROUTES` (operator bearer; the owner reads the same data through `/api/cc/company` and `/api/cc/store`). | PASS — `test_w4_cc_company` (21/21) incl. no-session 401, bearer-only 401, no-CSRF 403; `test_route_auth_default_deny` |
+| W4 wiring routes | 2 | `POST /api/store/live_observation`: in `security.OWNER_SESSION_PAGES`, so `auth.gate` requires owner session + same-origin + CSRF + fresh nonce; body validated by `live_state.record_observation` (unknown fields/future dates refused, 400 audited in `cc_security_events`); success appends one `store.live_observation` audit row with actor `owner:cc:<session>`; performs no Etsy write. `GET /api/mjs/findings`: in `OPERATOR_GET_ROUTES` (operator bearer; the owner reads the same data through `/api/cc/company` and `/api/cc/store`). | PASS — `test_w4_cc_company` (23/23) incl. no-session 401, bearer-only 401, no-CSRF 403; `test_route_auth_default_deny` |
 | `/cc/` static PWA shell + `/cc/store-preview` | static; store-preview owner-session gated | `_StrictStatic`: CSP `default-src 'none'; script-src 'self'; style-src 'self'; … frame-ancestors 'none'; object-src 'none'` (no inline script or style), `Cache-Control: no-cache`; the shell holds no data; service worker never caches `/api/` | PASS — `test_v11_pwa_static`, `test_v11_pwa_browser` (108 checks at 390×844, 0 console/CSP errors) |
 | operator-bearer routes | 61 (all non-GET outside `/api/cc/` + `OPERATOR_GET_ROUTES`) | `core.opsauth` bearer; 503 when unconfigured, 401/403 when wrong | PASS (default-deny test walks every route incl. routers) |
 | public mutating, justified | 1 (`POST /api/learn/lessons/{slug}/review`, own reviewer credential) | separate credential | unchanged |
@@ -118,7 +120,7 @@ Therefore the bounded validation lane must: run the full suite on the integrated
 
 **Deploy target:** the integrated head of `claude/visual-investigation` after it contains
 `claude/w4-CC` and `claude/w4-GATESI` (`claude/w4-CC` now contains visual-investigation incl.
-GATESI a63eb2a; see `git log -1 origin/claude/w4-CC`), plus the
+GATESI and GATESB; see `git log -1 origin/claude/w4-CC`), plus the
 release-record commit Y (§6). Mechanism: `ops/deploy.sh` (fast-forward push of Y to
 `claude/repository-setup-nc9x6o`; Railway service `brambleloop-os` builds on push) or the PR
 merge. Migrations: automatic, additive (`create_all` + `core.migrate.apply`, §3); none manual.
