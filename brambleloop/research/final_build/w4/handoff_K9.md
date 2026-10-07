@@ -1,7 +1,7 @@
 # handoff_K9 — Final Master cluster K9 (pattern Product Truth, graded garments)
 
 Branch: claude/w4-K9 (latest pushed SHA: see `git log -1 origin/claude/w4-K9`).
-Test: tests/test_k9_graded_truth.py (8 tests). Run:
+Tests: tests/test_k9_graded_truth.py (8 tests), tests/test_k9_rows.py (continuation rows). Run:
 `cd brambleloop && TMPDIR=/home/user/bl-tmp-K9 PYTHONPATH=src /home/user/Project-Money/brambleloop/.venv/bin/python tests/test_k9_graded_truth.py`
 
 ## Rows -> status -> evidence
@@ -21,7 +21,7 @@ Test: tests/test_k9_graded_truth.py (8 tests). Run:
 | F-753 | OPEN-DEFECT | next: per-region gauge (F-754) + deterministic apparent-gauge image measure (visual lane) |
 | F-755 | OPEN-DEFECT | next: promote research/bench2 all-size parser into teardown/reader.py |
 | F-756 | OPEN-DEFECT | next: reconcile stated measurement table vs counts x gauge -> CONFLICT/UNKNOWN |
-| F-779 | OPEN-DEFECT | next: commerce/listing_tests has no variant content/activation path; add variant draft + check_listing/brief subset before activation (commerce lane) |
+| F-779 | PROVEN | commerce/listing_tests ListingVariant + activate_variant/variant_findings: check_listing vs CIR (fit, size coverage, untraceable claims) + truth_drift vs certified control (difficulty, materials, construction, stitch appearance, deliverables) + undeclared-field change + uncertified thumbnail/hero refused; tests/test_k9_rows.py test_a_listing_variant_may_not_distort_product_truth. No variant-serving runtime path exists (no Etsy writes); see wiring request |
 | F-784, F-795 | OPEN-DEFECT | next: gates/similarity.py (numeric/feature/construction-sequence via topology.construction_fingerprint, presentation) before store.publish |
 | F-792 | OPEN-DEFECT | next: spec-freeze event (CIR fingerprint+ts) before writer for competitor-informed products, audit_log check |
 
@@ -34,4 +34,5 @@ Test: tests/test_k9_graded_truth.py (8 tests). Run:
 test_k9_graded_truth, test_release_versions, test_graded, test_cert_grading, test_garments, test_garment_design, test_childrens, test_gates, test_reverse, test_cir_roundtrip, test_specification, test_originality, test_certification, test_commerce, test_vacuity, test_secret_scan, test_reachability, test_w3_tmp_hygiene , test_cert_commerce, test_deliverable_qa, test_launch0, test_cert_design, test_schematic
 
 ## Wiring requests
+- CC/commerce: any future path that serves a listing-test treatment (API or Etsy write) must call `commerce.listing_tests.activate_variant` with the certified control, the release CIR and the certified frame ids, and refuse when `activated` is False (F-779).
 - B2/FM lane: flip ledger rows above to their statuses (this lane does not own *ledger*).
