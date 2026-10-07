@@ -306,7 +306,14 @@ def test_gate_open_ingest_writes_customers_orders_versions_and_ledger():
     assert any(r.get("transaction_id") == "20050" for r in got["not_recorded"])
     assert not any(o.external_ref.endswith(":20050") for o in orders)
     assert all(o.source == "etsy_receipts" for o in orders)
-    assert {v.version for v in versions} == {cir.version}   # recorded at sale time
+    # Recorded at sale time: each line carries the version listed under its Etsy listing id
+    # (the fixture lists A at its own release and B, C at theirs -- since W4-PIPE A is 1.3.0
+    # while B and C stay 1.2.0, so the versions are compared per listing, not as one set).
+    with db.session() as s:
+        listed = {r.product_slug: r.version for r in s.scalars(select(Listing))}
+    assert listed[cir.slug] == cir.version
+    assert all(v.version and v.version == listed[v.product_slug] for v in versions)
+    assert {v.version for v in versions if v.product_slug == cir.slug} == {cir.version}
     assert sum(1 for v in versions if v.product_slug == cir.slug) == 40
     assert len(versions) == 44
     usd = next(o for o in orders if o.currency == "USD")
