@@ -2076,6 +2076,8 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
 
     pieces = content_mod.build_ecosystem(facts, launch_on=launch_on)
     problems = content_mod.check_ecosystem(pieces, facts)
+    # #147: Content reads its cultural-timing inbox where the plan is drafted.
+    cultural_timing = content_mod.apply_cultural_timing(ctx.db, facts, pieces)
 
     with ctx.db.session() as s:
         from sqlalchemy import select
@@ -2121,7 +2123,8 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     ctx.audit("marketing.scheduled" if not problems else "marketing.blocked",
               artifact=f"{slug}@{version}",
               detail={"pieces": len(pieces), "channels": sorted({p.channel for p in pieces}),
-                      "problems": problems[:5], "published": False})
+                      "problems": problems[:5], "published": False,
+                      "cultural_timing": [n["lesson"] for n in cultural_timing]})
     return {"slug": slug, "version": version, "pieces": len(pieces),
             "problems": problems, "published": False}
 

@@ -1,0 +1,18 @@
+{
+ "_source": "GET /api/build2 production fcb982d (read-only) 2026-10-07",
+ "coverage": {
+  "total": 320,
+  "by_status": {
+   "covered": 227,
+   "partial": 45,
+   "missing": 0,
+   "owner_gated": 28,
+   "data_gated": 20
+  },
+  "executable_remaining": 45,
+  "blocked_on_owner": 28,
+  "blocked_on_data": 20,
+  "complete": 227,
+  "percent_complete": 70.9
+ }
+}

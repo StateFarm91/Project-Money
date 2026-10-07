@@ -20,5 +20,28 @@ Re-evaluated with production's live gate readings (/api/build at fcb982d): still
 gate open in production (benchmark_observation, etsy_shop, etsy_api, canonical_model, culture_feed)
 parks no current row.
 
-## In progress
-Ledger generator + dashboard summary from closure (see below once committed).
+## Done (2026-10-07, after container restart)
+- Reviewed integrator WIP a5cdc1b: closure.dashboard()/ledger(), #280 colour signals via culture
+  feed, browser_vision note corrections -- kept as correct; tests/test_w4_b2_build2_ledger.py 18/18 OK.
+- BUILD2_LEDGER.json/.md regenerated (build2_ledger.py + evidence_B2/prod_gates_fcb982d.json):
+  PROVEN 215 / NOT-APPLICABLE 3 / OWNER 58 / DATA 37 / EXTERNAL 7 / OPEN-DEFECT 0.
+- Note-level scan of all gated rows for executable remainders: found #147 (Content + Seasonal
+  Planning never read culture lessons). FIXED: seasonal/daily.culture_lessons,
+  growth/content.apply_cultural_timing (+ marketing.schedule call in runtime/release.py);
+  tests/test_w4_b2_culture_consumers.py 9/9 OK.
+- B2_OPEN_CLUSTERS.json: before OPEN 2 (#147, #280) -> after 0.
+- Tests run (all rc=0): test_w4_b2_build2_ledger, test_w4_b2_culture_consumers, test_colour,
+  test_culture_feed, test_cert_growth_seasonal, test_cert_improve_wave, test_cert_growth_ops,
+  test_build2, test_closure, test_vacuity, test_secret_scan, test_w3_tmp_hygiene, test_reachability.
+
+## WIRING REQUEST (lane CC, app/main.py)
+1. `/api/build2`: add `"reconciled": closure.dashboard(db)` and label `coverage` as
+   "registry claim (not proof)". 2. `/console` `_build2()` tile: headline from
+   `closure.dashboard(db, m=closure.matrix(db))` (it already computes matrix -- reuse it):
+   complete/proven/NA, owner/data/external gated, executable_remaining = OPEN only; demote
+   `reqs.coverage()` cards to a "registry claim" row. Production also needs a redeploy (owner
+   decision) -- it serves fcb982d's 2026-09-22 registry, which is why the owner sees 227/45/28/20.
+
+## Remaining
+None executable in B2 scope; every non-PROVEN row is parked on a named gate (ledger `gate`).
+Next action if resumed: none beyond integrator merge + CC wiring.

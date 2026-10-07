@@ -509,7 +509,9 @@ def route_findings(db, *, today=None, limit: int = 20) -> dict:
         # ...and onto the lesson bus, whose subjects route to the departments #147 names:
         # a territory to Market Radar, Creativity, SEO and Portfolio; its timing to Market
         # Radar, Growth (content), Portfolio and Creativity. Those departments read their
-        # inboxes where they decide (radar.score, listing.seo, seasonal.engine), and record
+        # inboxes where they decide (radar.score, listing.seo, seasonal.engine via
+        # seasonal.daily.culture_lessons, marketing.schedule via
+        # growth.content.apply_cultural_timing), and record
         # acting on it; idempotent per signal and direction.
         from ..improve import bus
 
