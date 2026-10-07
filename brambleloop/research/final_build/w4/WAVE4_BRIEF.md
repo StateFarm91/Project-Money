@@ -69,3 +69,10 @@ counts, runtime proof, wiring requests, what remains and why (exact gate).
   commit → push → update handoff. No long narrative reports. Never run the full suite.
 - After a reset, resume from your pushed handoff + research/final_build/w4/COMPLETION_BOARD.json;
   do not re-audit completed work.
+
+## Resources (after the 2026-10-07 container restart — 12 lanes exhausted 4 cores / 15 GB)
+- Run at most ONE test/proof process at a time in your lane; never `xargs -P` or parallel loops.
+- Prefer the smallest test file that proves the change; image-rendering suites (acceptance_gates,
+  product_run, cert_listing_frames, pwa_browser) only when you changed their code path.
+- Runtime proofs: bound them (≤ 15 minutes, `timeout`), small fixtures, delete DBs/TMPDIR after.
+- Background jobs you start must be killed by PID before you report.
