@@ -23,3 +23,6 @@ tmp/
 # because the checkout does, which is the whole requirement. The integration record that
 # matters long term is the merge commit itself, and that is already in git.
 ops/JOBS.json
+
+# transient directory created and removed by tests/test_secret_scan.py while it runs
+brambleloop/research/_secret_scan_probe/
