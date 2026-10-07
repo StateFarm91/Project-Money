@@ -255,3 +255,4 @@ Repairs land on a successor, never on this tag. Not pushed (classifier); not dep
   worker 16:31:27Z. Nothing pushed to the production branch.
 
 - Heartbeat 2026-10-07T00:14Z (trig_019rtbCKLSFc8hNajuiWm9E4): GET production /api/verify → HTTP 200, ok=true, 12/12 checks passing. Handled read-only per standing instruction (no lock, no push to the production branch, no full suite — wave-4 completion team running; owner directive: no serial certification cycles).
+- Heartbeat 2026-10-07T08:15Z (trig_019rtbCKLSFc8hNajuiWm9E4): production /api/verify → HTTP 200, ok=true, 12/12 checks passing. Read-only per standing instruction (wave-4 completion team running; no lock, no production-branch push, no full suite).

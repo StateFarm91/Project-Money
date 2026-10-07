@@ -13,6 +13,8 @@ deterministic drawing can answer *truthfully*, and only those:
     from the compiled pattern and drawn as a proportional band of stitch tiles.
   * CONSTRUCTION -- (shaped/round work) the stitch-count profile: one bar per round or row,
     its length the stitch count, its colour that round's yarn, stacked in working order.
+    A multi-piece product (W4-RENDER) gets one such profile per piece, lettered with the
+    piece, its make, its row count and widest row, and the number of joins the CIR makes.
   * SIZING -- (a listing selling several sizes) every size's finished outline drawn to one
     common scale with its finished width and height.
 
@@ -115,8 +117,102 @@ def _shares(counts: dict[str, int]) -> list[dict]:
              "percent": round(100.0 * counts[c] / total, 1)} for c in order]
 
 
+MULTI_PIECE_JOBS = (MATERIALS, COLOUR_CONTEXT, CONSTRUCTION)
+
+
+def _multi_profiles_twins(cir) -> list[dict]:
+    """W4-RENDER: every piece's stitch-count profile from its twin cells (producer's path)."""
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise FrameRefused(f"{cir.slug} does not compile; nothing true to draw")
+    out = []
+    for comp in cir.components:
+        rows: dict[int, list] = {}
+        for cell in build_twin(cir, result, component=comp.name).cells:
+            rows.setdefault(cell.row, []).append(cell)
+        out.append({"piece": comp.name, "construction": comp.construction, "make": comp.make,
+                    "profile": [{"row": r, "stitches": len(cs), "colour": cs[0].color}
+                                for r, cs in sorted(rows.items())]})
+    return out
+
+
+def _multi_profiles_rows(cir) -> list[dict]:
+    """The same from the compiler's row stitch counts (the verifier's path)."""
+    from ..cir.compiler import compile_cir
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise FrameRefused(f"{cir.slug} does not compile")
+    out = []
+    for comp in cir.components:
+        colour_of = {r.index: r.color for r in comp.rows}
+        rows = sorted((r for r in result.rows if r.component == comp.name),
+                      key=lambda x: x.index)
+        out.append({"piece": comp.name, "construction": comp.construction, "make": comp.make,
+                    "profile": [{"row": r.index, "stitches": r.stitch_count,
+                                 "colour": colour_of.get(r.index) or r.color} for r in rows]})
+    return out
+
+
+def _multi_counts_twins(cir) -> dict[str, int]:
+    """W4-RENDER: a multi-piece product's stitches by colour, every piece times its `make`,
+    counted from each piece's twin cells (the producer's path)."""
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise FrameRefused(f"{cir.slug} does not compile; nothing true to draw")
+    counts: dict[str, int] = {}
+    for comp in cir.components:
+        for cell in build_twin(cir, result, component=comp.name).cells:
+            counts[cell.color] = counts.get(cell.color, 0) + comp.make
+    return counts
+
+
+def _multi_counts_rows(cir) -> dict[str, int]:
+    """The same from the compiler's row stitch counts (the verifier's path)."""
+    from ..cir.compiler import compile_cir
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise FrameRefused(f"{cir.slug} does not compile")
+    counts: dict[str, int] = {}
+    for comp in cir.components:
+        colour_of = {r.index: r.color for r in comp.rows}
+        for r in result.rows:
+            if r.component == comp.name:
+                col = colour_of.get(r.index) or r.color
+                counts[col] = counts.get(col, 0) + r.stitch_count * comp.make
+    return counts
+
+
+def _multi_facts(cir, job: str, counts: dict[str, int], profiles=None) -> dict:
+    if job not in MULTI_PIECE_JOBS:
+        raise FrameRefused(f"{cir.slug}: {job} is drawn for one piece; this product has "
+                           f"{len(cir.components)}")
+    base = {"job": job, "slug": cir.slug, "version": cir.version,
+            "cir_fingerprint": cir.fingerprint, "colours": dict(cir.colors or {})}
+    if job == MATERIALS:
+        return base | {"yarn": _yarn(cir), "colours_used": sorted(c for c, n in counts.items()
+                                                                  if n)}
+    if job == CONSTRUCTION:
+        # Every piece the pattern makes, each with its own stitch-count profile, and how many
+        # joins the CIR's finishing makes between them.
+        return base | {"construction": "pieces", "pieces": profiles,
+                       "joins": len(cir.assembly or [])}
+    return base | {"total_stitches": sum(counts.values()), "shares": _shares(counts)}
+
+
 def facts(cir, job: str, *, siblings=None) -> dict:
     """What a frame of this job states, from the twin (the producer's path)."""
+    if len(cir.components) > 1 and not siblings:
+        if job == CONSTRUCTION:
+            return _multi_facts(cir, job, {}, _multi_profiles_twins(cir))
+        return _multi_facts(cir, job, _multi_counts_twins(cir))
     result, twin = _compiled(cir)
     base = {"job": job, "slug": cir.slug, "version": cir.version,
             "cir_fingerprint": cir.fingerprint, "colours": dict(cir.colors or {})}
@@ -155,6 +251,10 @@ def independent_facts(cir, job: str, *, siblings=None) -> dict:
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
 
+    if len(cir.components) > 1 and not siblings:
+        if job == CONSTRUCTION:
+            return _multi_facts(cir, job, {}, _multi_profiles_rows(cir))
+        return _multi_facts(cir, job, _multi_counts_rows(cir))
     if len(cir.components) != 1:
         raise FrameRefused(f"{cir.slug}: {len(cir.components)} components; one is drawable")
     result = compile_cir(cir)
@@ -234,6 +334,47 @@ def _n(v) -> str:
     return f"{v:.0f}" if v == int(v) else f"{v:.1f}"
 
 
+def _draw_pieces(d, f: dict, rgb: dict, zone) -> None:
+    """W4-RENDER: a multi-piece product's construction -- one small panel per piece, each its
+    stitch-count profile (row/round 1 at the bottom, as worked), lettered with the piece, its
+    make, its row count and its widest row's stitch count (each panel is drawn to its own
+    widest row, so the lettered count is what says how the pieces compare)."""
+    x0, y0, x1, y1 = zone
+    pieces = f["pieces"]
+    y = y0
+    joins = f["joins"]
+    y += _text(d, (x0, y), f"How it is made: {len(pieces)} pieces, {joins} "
+                           f"join{'' if joins == 1 else 's'}", BODY_PX) + 20
+    cols = math.ceil(math.sqrt(len(pieces) * (x1 - x0) / max(1, (y1 - y))))
+    cols = max(1, min(len(pieces), cols))
+    grid_rows = math.ceil(len(pieces) / cols)
+    gap = 30
+    cw = ((x1 - x0) - gap * (cols - 1)) / cols
+    ch = ((y1 - y) - gap * (grid_rows - 1)) / grid_rows
+    label_h = 2 * int(SMALL_PX * 1.35)
+    for i, pc in enumerate(pieces):
+        px0 = x0 + (i % cols) * (cw + gap)
+        py0 = y + (i // cols) * (ch + gap)
+        prof = pc["profile"]
+        how = "round" if pc["construction"] != "flat_rows" else "row"
+        n = len(prof)
+        most = max(p["stitches"] for p in prof)
+        make = f" x{pc['make']}" if pc["make"] > 1 else ""
+        line = int(SMALL_PX * 1.35)
+        _text(d, (round(px0), round(py0)), f"{pc['piece']}{make}", SMALL_PX)
+        _text(d, (round(px0), round(py0) + line),
+              f"{n} {how}{'' if n == 1 else 's'}, widest {most} sts", SMALL_PX)
+        top, bottom = py0 + label_h + 6, py0 + ch
+        bar_h = (bottom - top) / len(prof)
+        cx = px0 + cw / 2
+        for k, p in enumerate(prof):
+            yb = bottom - (k + 1) * bar_h
+            w = max(1.0, cw * p["stitches"] / most)
+            d.rectangle([round(cx - w / 2), round(yb), round(cx + w / 2) - 1,
+                         round(yb + bar_h) - 1], fill=rgb[p["colour"]], outline=K.GAP,
+                        width=1 if bar_h < 8 else K.GAP_PX)
+
+
 def draw(f: dict) -> bytes:
     """Pixels from facts alone. Both producer and verifier call this; they differ in facts."""
     img, d = _canvas()
@@ -287,6 +428,8 @@ def draw(f: dict) -> bytes:
         y += 20
         _text(d, (x0, y), "Counted from the pattern; on-screen colour varies by display",
               SMALL_PX)
+    elif job == CONSTRUCTION and f.get("construction") == "pieces":
+        _draw_pieces(d, f, rgb, (x0, y0, x1, y1))
     elif job == CONSTRUCTION:
         prof = f["profile"]
         y = y0
@@ -345,7 +488,8 @@ def applicable_jobs(cir, *, siblings=None) -> list[str]:
     jobs = [MATERIALS]
     if len(cir.colors or {}) > 1:
         jobs.append(COLOUR_CONTEXT)
-    if cir.components and cir.components[0].construction != "flat_rows":
+    if (len(cir.components) == 1 and cir.components[0].construction != "flat_rows") or (
+            len(cir.components) > 1 and not siblings):
         jobs.append(CONSTRUCTION)
     if siblings:
         jobs.append(SIZING)

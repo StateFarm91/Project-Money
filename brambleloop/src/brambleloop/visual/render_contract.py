@@ -168,6 +168,10 @@ def annotation_lines(view: str, form: str, dims: dict) -> list[str]:
         return []
     if view != "scale":
         return []
+    if form == "assembled":
+        # W4-RENDER: the assembled object as drawn (pieces placed by the CIR's joins).
+        return [f"Assembled at the stated gauge: {n1(dims['width'])} cm wide x "
+                f"{n1(dims['height'])} cm tall"]
     if form == "flat":
         return [f"Finished size at the stated gauge: {n1(dims['width'])} cm wide x "
                 f"{n1(dims['height'])} cm long"]

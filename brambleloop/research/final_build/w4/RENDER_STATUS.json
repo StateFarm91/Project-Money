@@ -1,0 +1,1251 @@
+{
+ "rows": [
+  {
+   "slug": "first-christmas-stocking",
+   "title": "First Christmas Fir and Star Relief Stocking",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A fir and star stocking in forest and cream with a plain cuff band waiting for the baby's initial.",
+      "function": "marks a baby's first Christmas and hangs on the mantel every December of their childhood",
+      "occasion": "christmas",
+      "pod": "seasonal",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "leg_front",
+        1
+       ],
+       [
+        "leg_back",
+        1
+       ],
+       [
+        "foot_front",
+        1
+       ],
+       [
+        "foot_back",
+        1
+       ],
+       [
+        "toe_front",
+        1
+       ],
+       [
+        "toe_back",
+        1
+       ],
+       [
+        "cuff",
+        1
+       ],
+       [
+        "loop",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "37997da15179",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "mothers-day-heart-tea-cosy",
+   "title": "Heart Row Tea Cosy",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A heart row tea cosy in cream and wine fits the round teapot that comes out when the family visits.",
+      "function": "keeps the Sunday teapot hot through a long conversation at the kitchen table",
+      "occasion": "mothers_day",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "cosy",
+        1
+       ],
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "96408a469e36",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": true
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "snowfall-advent-garland",
+   "title": "Snowfall Mitten Advent Garland",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "Twenty-four numbered mitten pockets banded in snowfall, forest and cream, hang along the stairs for the December countdown.",
+      "function": "holds a note or small treat for each morning of December so the children count down together",
+      "occasion": "christmas",
+      "pod": "seasonal",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "mitten",
+        24
+       ],
+       [
+        "thumb",
+        24
+       ],
+       [
+        "loop_tab",
+        24
+       ],
+       [
+        "cord",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "8a79bd978d0f",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "teacher-chevron-pencil-roll",
+   "title": "Chevron Pencil Roll",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A chevron band pencil roll in wine and gold ties shut with a single crocheted cord.",
+      "function": "carries a full set of pencils between classroom and home and unrolls flat across the desk",
+      "occasion": "back_to_school",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ],
+       [
+        "tie",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "25411a7789ab",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "hero: 340 px legibility ['the product fills 10% of the frame at 340 px']",
+       "scale: structural truth UNKNOWN",
+       "scale: 340 px legibility ['the product fills 12% of the frame at 340 px']"
+      ],
+      "launch_scope": false,
+      "assembled": true
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "housewarming-key-basket",
+   "title": "Housewarming Key Basket",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A round basketweave catch-all in pine and cream sits on the hall table to hold the keys of a first home.",
+      "function": "keeps the keys, letters and dog lead of a first home together in one place by the door",
+      "occasion": "housewarming",
+      "pod": "home_decor",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "basket",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "142b52f0f9c6",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false,
+      "assembled": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  }
+ ],
+ "records": {
+  "first-christmas-stocking": {
+   "slug": "first-christmas-stocking",
+   "version": "0.1.0",
+   "fingerprint": "b373ef46108d",
+   "stage": "VISUAL",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+   "made": true,
+   "usable_as_listing_asset": false,
+   "launch_blocked": [
+    "hero: structural truth UNKNOWN",
+    "scale: structural truth UNKNOWN",
+    "detail: structural truth UNKNOWN"
+   ],
+   "registered": {
+    "action": "assets.disclosed_render",
+    "read_back": true,
+    "frames": 3
+   },
+   "qa": {
+    "layout_qa": true,
+    "asset_truth": true,
+    "frame_set": true,
+    "mobile": true,
+    "hero_thumbnail": true,
+    "legibility_340": {
+     "hero": true,
+     "scale": true,
+     "detail": true
+    }
+   },
+   "frames": [
+    {
+     "view": "hero",
+     "path": "render/first-christmas-stocking/hero.png",
+     "sha256": "f6a259cc90c06f186ad20867720fccc96d8307e8fdde2ef02beeefceb28d1641",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "planar",
+      "body": "leg_front",
+      "drawn": [
+       "leg_front",
+       "foot_front",
+       "cuff",
+       "toe_front"
+      ],
+      "hidden": {
+       "foot_back": "behind foot_front: the back layer mirrors the front",
+       "leg_back": "behind leg_front: the back layer mirrors the front",
+       "toe_back": "behind toe_front: the back layer mirrors the front"
+      },
+      "not_drawn": {
+       "loop": "its seam note folds it, and the fold is not a structured join, so its finished shape is not derivable"
+      }
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: the assembled pieces seen from the front, in cream and forest. About 26.8 x 40.2 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "scale",
+     "path": "render/first-christmas-stocking/scale.png",
+     "sha256": "5458f47d7b98c3fae50725a788dd13120291b2f913ef8e8467c72d36562b9d24",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "planar",
+      "body": "leg_front",
+      "drawn": [
+       "leg_front",
+       "foot_front",
+       "cuff",
+       "toe_front"
+      ],
+      "hidden": {
+       "foot_back": "behind foot_front: the back layer mirrors the front",
+       "leg_back": "behind leg_front: the back layer mirrors the front",
+       "toe_back": "behind toe_front: the back layer mirrors the front"
+      },
+      "not_drawn": {
+       "loop": "its seam note folds it, and the fold is not a structured join, so its finished shape is not derivable"
+      }
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: the assembled pieces with their assembled width and height marked, in cream and forest. About 26.8 x 40.2 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "detail",
+     "path": "render/first-christmas-stocking/detail.png",
+     "sha256": "ed04bf95515f5f2732c21fa18ed8ca315f47c056bacd162bb78c2db93a4c676a",
+     "form": "flat",
+     "renderer_version": "disclosed-render/2.0.0",
+     "assembly": {
+      "form": "planar",
+      "body": "leg_front",
+      "drawn": [
+       "leg_front",
+       "foot_front",
+       "cuff",
+       "toe_front"
+      ],
+      "hidden": {
+       "foot_back": "behind foot_front: the back layer mirrors the front",
+       "leg_back": "behind leg_front: the back layer mirrors the front",
+       "toe_back": "behind toe_front: the back layer mirrors the front"
+      },
+      "not_drawn": {
+       "loop": "its seam note folds it, and the fold is not a structured join, so its finished shape is not derivable"
+      }
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: a close view of one corner, stitch for stitch, in cream and forest. About 19.2 x 22.6 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "PASS",
+      "failed": [],
+      "unknown": []
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    }
+   ],
+   "gallery": [
+    {
+     "job": "MATERIALS",
+     "path": "render/first-christmas-stocking/gallery-materials.png",
+     "sha256": "a886082e33170863d06cdf1138d01082a94904b5a989af742b7fdf3c4844c697",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "COLOUR_CONTEXT",
+     "path": "render/first-christmas-stocking/gallery-colour_context.png",
+     "sha256": "9da1f44cb11ff8702130cf731715b450584ad0d2b30d0c04a89e5c793eb6cacc",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/first-christmas-stocking/gallery-construction.png",
+     "sha256": "e8dfd21c47d2ca78cbdd88f51e5249750e7a33a71a079d274d4bbca85ff58e5b",
+     "verify": "PASS",
+     "failed": []
+    }
+   ],
+   "gallery_jobs": {
+    "category": "stocking",
+    "applicable": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context 9da1f44cb11f",
+     "CONSTRUCTION": "gallery construction e8dfd21c47d2",
+     "DETAIL": "detail ed04bf95515f (verifier PASS)",
+     "MATERIALS": "gallery materials a886082e3317"
+    },
+    "missing": {
+     "ANGLE": "refused: first-christmas-stocking: 'angle' is not drawn for an assembled product",
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "hero drawn (assembled) but the pixel verifier says UNKNOWN",
+     "SCALE": "scale drawn (assembled) but the pixel verifier says UNKNOWN"
+    },
+    "supporting": []
+   }
+  },
+  "mothers-day-heart-tea-cosy": {
+   "slug": "mothers-day-heart-tea-cosy",
+   "version": "0.1.0",
+   "fingerprint": "c7e4b554f1fa",
+   "stage": "VISUAL",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+   "made": true,
+   "usable_as_listing_asset": false,
+   "launch_blocked": [
+    "hero: structural truth UNKNOWN",
+    "scale: structural truth UNKNOWN",
+    "detail: structural truth UNKNOWN"
+   ],
+   "registered": {
+    "action": "assets.disclosed_render",
+    "read_back": true,
+    "frames": 3
+   },
+   "qa": {
+    "layout_qa": true,
+    "asset_truth": true,
+    "frame_set": true,
+    "mobile": true,
+    "hero_thumbnail": true,
+    "legibility_340": {
+     "hero": true,
+     "scale": true,
+     "detail": true
+    }
+   },
+   "frames": [
+    {
+     "view": "hero",
+     "path": "render/mothers-day-heart-tea-cosy/hero.png",
+     "sha256": "46739ca7475b2a42991e0176ffae16bdfec5975a30537b846a11dd84768bd3b1",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "vessel_skirts",
+      "body": "cosy",
+      "drawn": [
+       "cosy",
+       "front",
+       "back"
+      ],
+      "hidden": {},
+      "not_drawn": {}
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Heart Row Tea Cosy: the assembled piece seen from slightly above, in cream and wine. About 19.758 x 19.188 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "scale",
+     "path": "render/mothers-day-heart-tea-cosy/scale.png",
+     "sha256": "b1b71d98f5e05f8c8b96288c2c3da06b8da070a33f228260dc32f6a056869e77",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "vessel_skirts",
+      "body": "cosy",
+      "drawn": [
+       "cosy",
+       "front",
+       "back"
+      ],
+      "hidden": {},
+      "not_drawn": {}
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Heart Row Tea Cosy: the assembled pieces with their assembled width and height marked, in cream and wine. About 19.758 x 19.188 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "detail",
+     "path": "render/mothers-day-heart-tea-cosy/detail.png",
+     "sha256": "cf352607ee8528dd696c3d28b349220c9e751945996bbdf785aba15f2cb03707",
+     "form": "rounds",
+     "renderer_version": "disclosed-render/2.0.0",
+     "assembly": {
+      "form": "vessel_skirts",
+      "body": "cosy",
+      "drawn": [
+       "cosy",
+       "front",
+       "back"
+      ],
+      "hidden": {},
+      "not_drawn": {}
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Heart Row Tea Cosy: the base seen from above, every base round stitch for stitch, in cream and wine. About 19.8 x 11.1 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "PASS",
+      "failed": [],
+      "unknown": []
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    }
+   ],
+   "gallery": [
+    {
+     "job": "MATERIALS",
+     "path": "render/mothers-day-heart-tea-cosy/gallery-materials.png",
+     "sha256": "e94e5bffac4d60f87b830a37ea29be1a72180f2ec270545c0ed90b75d29b412c",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "COLOUR_CONTEXT",
+     "path": "render/mothers-day-heart-tea-cosy/gallery-colour_context.png",
+     "sha256": "6a0459ae3348cbd5598804c744717b452c69ed7772b2a2a298a348d83a10f268",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/mothers-day-heart-tea-cosy/gallery-construction.png",
+     "sha256": "87a56d812a4211799492f5fcb6d4412efd6d5e838012a017f1fdbc642de68d65",
+     "verify": "PASS",
+     "failed": []
+    }
+   ],
+   "gallery_jobs": {
+    "category": "tea cosy",
+    "applicable": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context 6a0459ae3348",
+     "DETAIL": "detail cf352607ee85 (verifier PASS)",
+     "MATERIALS": "gallery materials e94e5bffac4d"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "hero drawn (assembled) but the pixel verifier says UNKNOWN",
+     "SCALE": "scale drawn (assembled) but the pixel verifier says UNKNOWN"
+    },
+    "supporting": [
+     "CONSTRUCTION"
+    ]
+   }
+  },
+  "snowfall-advent-garland": {
+   "slug": "snowfall-advent-garland",
+   "version": "0.1.0",
+   "fingerprint": "186a3aae2f74",
+   "stage": "VISUAL",
+   "stage_status": "FAIL",
+   "next_step": "the CIR does not place every piece structurally (no named-edge Seam, Hold/resume or structured fold for: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled); add the joins to the CIR (new version) -- the assembled renderer draws only stated arrangements",
+   "made": false,
+   "usable_as_listing_asset": false,
+   "launch_blocked": [
+    "renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+   ],
+   "gallery": [
+    {
+     "job": "MATERIALS",
+     "path": "render/snowfall-advent-garland/gallery-materials.png",
+     "sha256": "a886082e33170863d06cdf1138d01082a94904b5a989af742b7fdf3c4844c697",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "COLOUR_CONTEXT",
+     "path": "render/snowfall-advent-garland/gallery-colour_context.png",
+     "sha256": "226eea7d3d120c17961fef3f6d7a6678073a3dbea62d4b606e3b114ce96e6f3a",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/snowfall-advent-garland/gallery-construction.png",
+     "sha256": "a717dd596b2704d759deb378a79e76ed93624df9f7ceaf7785514bec161de8b5",
+     "verify": "PASS",
+     "failed": []
+    }
+   ],
+   "gallery_jobs": {
+    "category": "advent garland",
+    "applicable": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context 226eea7d3d12",
+     "MATERIALS": "gallery materials a886082e3317"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled",
+     "DETAIL": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled",
+     "SCALE": "disclosed renderer refused: renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled"
+    },
+    "supporting": [
+     "CONSTRUCTION"
+    ]
+   }
+  },
+  "teacher-chevron-pencil-roll": {
+   "slug": "teacher-chevron-pencil-roll",
+   "version": "0.1.0",
+   "fingerprint": "7843a34a9781",
+   "stage": "VISUAL",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
+   "made": true,
+   "usable_as_listing_asset": false,
+   "launch_blocked": [
+    "hero: structural truth UNKNOWN",
+    "hero: 340 px legibility ['the product fills 10% of the frame at 340 px']",
+    "scale: structural truth UNKNOWN",
+    "scale: 340 px legibility ['the product fills 12% of the frame at 340 px']",
+    "detail: structural truth UNKNOWN",
+    "layout_qa: ['FRAME_FLAT: 94.8% of frame 1 is one colour. Whatever was composed on it is not visible, and every check upstream of the pixels reported success', 'FRAME_FLAT: 94.9% of frame 2 is one colour. Whatever was composed on it is not visible, and every check upstream of the pixels reported success']"
+   ],
+   "registered": {
+    "action": "assets.disclosed_render",
+    "read_back": true,
+    "frames": 3
+   },
+   "qa": {
+    "layout_qa": false,
+    "asset_truth": true,
+    "frame_set": true,
+    "mobile": true,
+    "hero_thumbnail": true,
+    "legibility_340": {
+     "hero": false,
+     "scale": false,
+     "detail": true
+    }
+   },
+   "frames": [
+    {
+     "view": "hero",
+     "path": "render/teacher-chevron-pencil-roll/hero.png",
+     "sha256": "5094e11fccd26d6a956cab68dece22dee58d574c1ba992b7e21713464c109ad1",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "planar",
+      "body": "panel",
+      "drawn": [
+       "panel",
+       "tie"
+      ],
+      "hidden": {},
+      "not_drawn": {}
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: the assembled pieces seen from the front, in gold and wine. About 92 x 13.406 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "scale",
+     "path": "render/teacher-chevron-pencil-roll/scale.png",
+     "sha256": "e433586362f95de7fd31e486fc8f9c6c226fac93c797f8fc11473b6a3cb5f49d",
+     "form": "assembled",
+     "renderer_version": "disclosed-render-assembled/1.0.0",
+     "assembly": {
+      "form": "planar",
+      "body": "panel",
+      "drawn": [
+       "panel",
+       "tie"
+      ],
+      "hidden": {},
+      "not_drawn": {}
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: the assembled pieces with their assembled width and height marked, in gold and wine. About 92 x 13.406 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "UNKNOWN",
+      "failed": [],
+      "unknown": [
+       "assembled_object"
+      ]
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "detail",
+     "path": "render/teacher-chevron-pencil-roll/detail.png",
+     "sha256": "f9fe90481193e8f725151c8fbe718ac3d39a3594284eef25e5c7ffd76819fdab",
+     "form": "flat",
+     "renderer_version": "disclosed-render/2.0.0",
+     "assembly": {
+      "form": "planar",
+      "body": "panel",
+      "drawn": [
+       "panel",
+       "tie"
+      ],
+      "hidden": {},
+      "not_drawn": {}
+     },
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: a close view of one corner, stitch for stitch, in gold and wine. About 32 x 24.4 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "PASS",
+      "failed": [],
+      "unknown": []
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    }
+   ],
+   "gallery": [
+    {
+     "job": "MATERIALS",
+     "path": "render/teacher-chevron-pencil-roll/gallery-materials.png",
+     "sha256": "cc7580dd656673debe2aadc0bca2bf84f331f1ba41a167d064b264d3572e3db1",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "COLOUR_CONTEXT",
+     "path": "render/teacher-chevron-pencil-roll/gallery-colour_context.png",
+     "sha256": "d34179217f52795fe0dc69b33f3906107fb5a25a4bdbe1dedd4f22f7c36823c9",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/teacher-chevron-pencil-roll/gallery-construction.png",
+     "sha256": "1f554cc491a95a85983167aaac46f7acc90818c82ceb5228a8fcb6ec2d75d225",
+     "verify": "PASS",
+     "failed": []
+    }
+   ],
+   "gallery_jobs": {
+    "category": "pencil roll",
+    "applicable": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "COLOUR_CONTEXT": "gallery colour_context d34179217f52",
+     "DETAIL": "detail f9fe90481193 (verifier PASS)",
+     "MATERIALS": "gallery materials cc7580dd6566"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "DESIRE": "hero drawn (assembled) but the pixel verifier says UNKNOWN",
+     "SCALE": "scale drawn (assembled) but the pixel verifier says UNKNOWN"
+    },
+    "supporting": [
+     "CONSTRUCTION"
+    ]
+   }
+  },
+  "housewarming-key-basket": {
+   "slug": "housewarming-key-basket",
+   "version": "0.1.0",
+   "fingerprint": "c63743691cf8",
+   "stage": "VISUAL",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "made": true,
+   "usable_as_listing_asset": false,
+   "launch_blocked": [
+    "hero: structural truth UNKNOWN",
+    "scale: structural truth UNKNOWN",
+    "detail: structural truth UNKNOWN"
+   ],
+   "registered": {
+    "action": "assets.disclosed_render",
+    "read_back": true,
+    "frames": 3
+   },
+   "qa": {
+    "layout_qa": true,
+    "asset_truth": true,
+    "frame_set": true,
+    "mobile": true,
+    "hero_thumbnail": true,
+    "legibility_340": {
+     "hero": true,
+     "scale": true,
+     "detail": true
+    }
+   },
+   "frames": [
+    {
+     "view": "hero",
+     "path": "render/housewarming-key-basket/hero.png",
+     "sha256": "75855b9f3ee03e47ef4dc61775e1a6a215b706a0d1adcd77c849c8a1a2344569",
+     "form": "rounds",
+     "renderer_version": "disclosed-render/2.0.0",
+     "assembly": null,
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Housewarming Key Basket: the finished basket seen from slightly above, in cream and pine. About 18.3 x 11.1 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "PASS",
+      "failed": [],
+      "unknown": []
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "scale",
+     "path": "render/housewarming-key-basket/scale.png",
+     "sha256": "50c75b25d13477ea3958bc3fa5511b7d5be334afb48ca48d3ff75d54faa0d3ec",
+     "form": "rounds",
+     "renderer_version": "disclosed-render/2.0.0",
+     "assembly": null,
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Housewarming Key Basket: the finished piece with its size marked, in cream and pine. About 18.3 x 11.1 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "PASS",
+      "failed": [],
+      "unknown": []
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    },
+    {
+     "view": "detail",
+     "path": "render/housewarming-key-basket/detail.png",
+     "sha256": "17a4d5a8108eebe21a65c840d1da826d47316bca935fc317c62c876fe6aeffb0",
+     "form": "rounds",
+     "renderer_version": "disclosed-render/2.0.0",
+     "assembly": null,
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Housewarming Key Basket: the base seen from above, every base round stitch for stitch, in cream and pine. About 18.3 x 11.1 cm at the stated gauge, with a centimetre scale bar.",
+     "structural_truth_in_pipeline": "UNKNOWN",
+     "verifier_against_certified_cir": {
+      "status": "PASS",
+      "failed": [],
+      "unknown": []
+     },
+     "disclosure": {
+      "in_image": true,
+      "in_alt_text": true
+     }
+    }
+   ],
+   "gallery": [
+    {
+     "job": "MATERIALS",
+     "path": "render/housewarming-key-basket/gallery-materials.png",
+     "sha256": "52ce3c878d2e482ed041d7df0ed6993c59a862f545d5e90ef1b3c6d5c6c7df01",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "COLOUR_CONTEXT",
+     "path": "render/housewarming-key-basket/gallery-colour_context.png",
+     "sha256": "ea433bc025cc620627a7a5ed3eb43c22e8eb5aae9c2f9117d0ac8545a20a7646",
+     "verify": "PASS",
+     "failed": []
+    },
+    {
+     "job": "CONSTRUCTION",
+     "path": "render/housewarming-key-basket/gallery-construction.png",
+     "sha256": "26ef2c5e3ec3c1cf37133b8b1ef1644ce6537a46654d7eb1539604d106cc6350",
+     "verify": "PASS",
+     "failed": []
+    }
+   ],
+   "gallery_jobs": {
+    "category": "basket",
+    "applicable": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "LIFESTYLE",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "covered": {
+     "ANGLE": "angle 93a3e1542684 (verifier PASS)",
+     "COLOUR_CONTEXT": "gallery colour_context ea433bc025cc",
+     "CONSTRUCTION": "gallery construction 26ef2c5e3ec3",
+     "DESIRE": "hero 75855b9f3ee0 (verifier PASS)",
+     "DETAIL": "detail 17a4d5a8108e (verifier PASS)",
+     "MATERIALS": "gallery materials 52ce3c878d2e",
+     "SCALE": "scale 50c75b25d134 (verifier PASS)"
+    },
+    "missing": {
+     "CONTENTS": "drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery)",
+     "LIFESTYLE": "a room scene is a claim about a physical object in a place; it needs a photograph of a made sample or a protected-product composite whose background generation is paid (owner spend approval)"
+    },
+    "supporting": []
+   }
+  }
+ },
+ "generated_at": "2026-10-07T08:39:44+00:00",
+ "head": "33f0666"
+}
