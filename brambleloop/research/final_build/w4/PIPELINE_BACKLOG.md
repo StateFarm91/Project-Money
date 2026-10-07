@@ -7,10 +7,10 @@ Generated 2026-10-07T01:44:01+00:00 at `e72f086` by `research/final_build/w4/pip
 | stage | at stage | passed |
 |---|---|---|
 | INTELLIGENCE | 0 | 57 |
-| DESIGN | 30 | 27 |
-| PRODUCT | 0 | 27 |
-| PRODUCT_TRUTH | 7 | 20 |
-| VISUAL | 15 | 5 |
+| DESIGN | 29 | 28 |
+| PRODUCT | 0 | 28 |
+| PRODUCT_TRUTH | 7 | 21 |
+| VISUAL | 16 | 5 |
 | SEARCH | 5 | 0 |
 | LISTING_READINESS | 0 | 0 |
 | PUBLICATION | 0 | 0 |
@@ -39,6 +39,7 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 | cottage-wall-hanging | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | diamond-lattice-dishcloth | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | fir-star-relief-table-runner | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
+| first-christmas-stocking | creative | VISUAL | FAIL | the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed) | COMPANY |
 | harvest-table-runner | catalogue | VISUAL | FAIL | renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify | COMPANY |
 | heart-relief-table-runner | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | mosaic-placemat-pair | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
@@ -61,7 +62,6 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 | cropped-cardigan | radar_pool | DESIGN | NOT_RUN | Class C: needs physical testing and graded sizing before design (OWNER/tester) | COMPANY |
 | easter-egg-cosies | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
 | everyday-market-tote | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
-| first-christmas-stocking | creative | DESIGN | NOT_RUN | engineer a in_the_round builder for a stocking (fir-and-star, forest and cream); the products.builder tiler makes flat rows only | COMPANY |
 | gap-amigurumi-and-soft-sculpture | intelligence | DESIGN | NOT_RUN | W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark | COMPANY |
 | gap-education-and-guidebooks | intelligence | DESIGN | NOT_RUN | W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark | COMPANY |
 | gap-garments-and-clothing | intelligence | DESIGN | NOT_RUN | W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark | COMPANY |

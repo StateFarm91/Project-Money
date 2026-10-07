@@ -1,0 +1,218 @@
+{
+ "rows": [
+  {
+   "slug": "first-christmas-stocking",
+   "title": "First Christmas Fir and Star Stocking",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A fir and star stocking in forest and cream with a plain cuff band waiting for the baby's initial.",
+      "function": "marks a baby's first Christmas and hangs on the mantel every December of their childhood",
+      "occasion": "christmas",
+      "pod": "seasonal",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "stocking",
+        1
+       ],
+       [
+        "heel",
+        1
+       ],
+       [
+        "hanging_tab",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "d359be1fe04d",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: first-christmas-stocking: 3 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  }
+ ],
+ "records": {
+  "first-christmas-stocking": {
+   "slug": "first-christmas-stocking",
+   "title": "First Christmas Fir and Star Stocking",
+   "version": "0.1.0",
+   "fingerprint": "1b94f24220b8",
+   "risk_class": "B",
+   "components": [
+    [
+     "stocking",
+     1,
+     "joined_rounds"
+    ],
+    [
+     "heel",
+     1,
+     "joined_rounds"
+    ],
+    [
+     "hanging_tab",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineering_note": "Brief techniques named stranded colourwork and a turned heel. Per-stitch colour is not expressible in the CIR, so the firs and stars are a dc relief, one colour per round; the heel is an afterthought heel worked into a chain-bridged opening.",
+   "pdf": {
+    "path": "pipe2/first-christmas-stocking/first-christmas-stocking-0.1.0-US.pdf",
+    "pages": 10,
+    "sha256": "16fa4c757266d0ec33687a604ab3de2a9f187b789621bcd18ded044007c8e8e9",
+    "finished_size_cm": [
+     12.2,
+     39.5
+    ],
+    "yardage_by_color": {
+     "cream": 64.8,
+     "forest": 69.8
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "first-christmas-stocking",
+    "version": "0.1.0",
+    "fingerprint": "1b94f24220b8",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "8e0df827312d3ffb38c4e793364decd9ae025e9484c28f0757f817335dcc8c95"
+    },
+    "image_ref": "sha256:8e0df827312d3ffb38c4e793364decd9ae025e9484c28f0757f817335dcc8c95",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/first-christmas-stocking/concept-board.png",
+    "file_sha256": "8e0df827312d3ffb38c4e793364decd9ae025e9484c28f0757f817335dcc8c95"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [
+    {
+     "finding": "demand_by_pod",
+     "digest": "5728fb2aed",
+     "grade": "proxy",
+     "sample": 437,
+     "says": "median favourites per benchmark listing: garments 1701, stockings 1472.5, home_decor 911, kitchen_bath 738.5, seasonal_gift 491; stockings are underserved (above-median favourites on below-median shelf depth)",
+     "fit": "stockings: the underserved pod"
+    },
+    {
+     "finding": "seasonality",
+     "digest": "45dac5b8f5",
+     "grade": "proxy",
+     "sample": 441,
+     "says": "Christmas 2026-12-25 is inside the buying window (79 days on 2026-10-07); the benchmark carries 10 stocking and 13 ornament listings",
+     "fit": "a Christmas stocking inside the window"
+    },
+    {
+     "finding": "coverage_gaps",
+     "digest": "cc58125e5d",
+     "grade": "observed",
+     "sample": 7,
+     "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+     "fit": "Christmas stockings arena is uncovered"
+    }
+   ],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:8e0df827312d3ffb38c4e793364decd9ae025e9484c28f0757f817335dcc8c95",
+    "board_digest_for": "8e0df827312d3ffb38c4e793364decd9ae025e9484c28f0757f817335dcc8c95",
+    "vision_usable": false
+   }
+  }
+ },
+ "queue": [
+  "first-christmas-stocking"
+ ],
+ "regate_held": {
+  "presented": [],
+  "queued": [],
+  "held": [
+   {
+    "slug": "first-christmas-stocking",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   }
+  ],
+  "vision_usable": false
+ },
+ "generated_at": "2026-10-07T02:49:38+00:00",
+ "head": "44b3f64"
+}

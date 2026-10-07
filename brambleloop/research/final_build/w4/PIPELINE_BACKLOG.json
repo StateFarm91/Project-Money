@@ -3217,10 +3217,10 @@
    "slug": "first-christmas-stocking",
    "title": "First Christmas Fir and Star Stocking",
    "source": "creative",
-   "stage": "DESIGN",
-   "highest_passed": "INTELLIGENCE",
-   "stage_status": "NOT_RUN",
-   "next_step": "engineer a in_the_round builder for a stocking (fir-and-star, forest and cream); the products.builder tiler makes flat rows only",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -3237,16 +3237,63 @@
      "clearer": "COMPANY"
     },
     "DESIGN": {
-     "status": "NOT_RUN",
+     "status": "PASS",
      "evidence": {
-      "construction": "in_the_round",
-      "form": "stocking",
-      "motif": "fir-and-star",
-      "assembled_form_named": [
-       "stocking"
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "stocking",
+        1
+       ],
+       [
+        "heel",
+        1
+       ],
+       [
+        "hanging_tab",
+        1
+       ]
       ]
      },
-     "next_step": "engineer a in_the_round builder for a stocking (fir-and-star, forest and cream); the products.builder tiler makes flat rows only",
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "d359be1fe04d",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: first-christmas-stocking: 3 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
      "clearer": "COMPANY"
     }
    }
@@ -3629,19 +3676,19 @@
  ],
  "at_stage": {
   "INTELLIGENCE": 0,
-  "DESIGN": 30,
+  "DESIGN": 29,
   "PRODUCT": 0,
   "PRODUCT_TRUTH": 7,
-  "VISUAL": 15,
+  "VISUAL": 16,
   "SEARCH": 5,
   "LISTING_READINESS": 0,
   "PUBLICATION": 0
  },
  "passed_stage": {
   "INTELLIGENCE": 57,
-  "DESIGN": 27,
-  "PRODUCT": 27,
-  "PRODUCT_TRUTH": 20,
+  "DESIGN": 28,
+  "PRODUCT": 28,
+  "PRODUCT_TRUTH": 21,
   "VISUAL": 5,
   "SEARCH": 0,
   "LISTING_READINESS": 0,
@@ -3683,5 +3730,13 @@
  "advances_publication": false,
  "publication_gate": "owner: shop/KYC, payout, fees, phase, sealed publication grant per release (D-FB-10); never advanced by this board",
  "generated_at": "2026-10-07T01:44:01+00:00",
- "head": "e72f086"
+ "head": "e72f086",
+ "pipe2_rows": {
+  "by": "W4-PIPE2 research/final_build/w4/pipe2_run.py",
+  "slugs": [
+   "first-christmas-stocking"
+  ],
+  "at": "2026-10-07T02:49:38+00:00",
+  "detail": "PIPE2_CANDIDATES.json"
+ }
 }
