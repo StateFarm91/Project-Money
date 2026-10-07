@@ -1750,7 +1750,7 @@
    "reason": "certification contract: suite totals/SHA from the runner",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-171",
@@ -1820,7 +1820,7 @@
    "reason": "certification contract: Final Master reconciled to Build-2 first",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-178",
@@ -1830,7 +1830,7 @@
    "reason": "certification contract: completion standard",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-179",
@@ -2100,7 +2100,7 @@
    "reason": "truthful owner visibility (dashboard/owner-state hardening)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-206",
@@ -3394,7 +3394,7 @@
    "reason": "P0 addendum (source-stated): durable job observation; operator tooling, not customer runtime",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-333",
@@ -3414,7 +3414,7 @@
    "reason": "P0 addendum (source-stated): waiter deduplication; operator tooling",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-335",
@@ -3474,7 +3474,7 @@
    "reason": "P0 addendum (source-stated): waiter resource bound; operator tooling",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-341",
@@ -3494,7 +3494,7 @@
    "reason": "P0 addendum (source-stated): observer/work separation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-343",
@@ -3514,7 +3514,7 @@
    "reason": "P0 addendum (s38 durable job observation): truthful owner visibility of reliability, runtime durability of the build process.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-345",
@@ -3524,7 +3524,7 @@
    "reason": "P0 addendum s38; deploy_guard and release eligibility depend on a durable suite record.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-346",
@@ -3534,7 +3534,7 @@
    "reason": "P0 addendum s38.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-347",
@@ -3544,7 +3544,7 @@
    "reason": "P0 addendum s38.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-348",
@@ -3554,7 +3554,7 @@
    "reason": "P0 addendum s38; the requirement is the regression tests themselves.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-349",
@@ -3564,7 +3564,7 @@
    "reason": "P0 addendum s38.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-350",
@@ -3574,7 +3574,7 @@
    "reason": "P0 addendum s38; trust/reliability incidents.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-351",
@@ -8316,7 +8316,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-837",
@@ -8326,7 +8326,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-838",
@@ -8386,7 +8386,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-844",
@@ -8426,7 +8426,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-848",
