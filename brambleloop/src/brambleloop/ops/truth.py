@@ -319,6 +319,12 @@ def sweep(db, *, now: datetime | None = None) -> dict:
             return incident_lifecycle.escalate_systemic(s, now=now)
     run("systemic", systemic)
 
+    def incident_hygiene():
+        # W4-OWNER: duplicate and recovered-cadence incidents close by rule, with a reason.
+        with db.session() as s:
+            return incident_lifecycle.hygiene(s, now=now)
+    run("incident_hygiene", incident_hygiene)
+
     def post():
         pcs = assurance.postconditions(db, now=now)
         violated = {p["postcondition"]: p for p in pcs["postconditions"]
