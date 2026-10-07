@@ -90,21 +90,21 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 350,
+   "COMPLETE": 351,
    "GATED": 124,
    "POST-LAUNCH": 420,
-   "OPEN": 16,
+   "OPEN": 15,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 350,
+   "COMPLETE": 351,
    "GATED": 124,
-   "OPEN": 16
+   "OPEN": 15
   },
-  "launch_critical_open": 16,
+  "launch_critical_open": 15,
   "launch_critical_open_reasons": {
    "coverage PARTIAL": 14,
-   "maturity TESTED": 6,
+   "maturity TESTED": 5,
    "defect recorded": 1,
    "maturity IMPLEMENTED": 3
   },
@@ -122,6 +122,7 @@
   },
   "orphaned_partials": [],
   "structural_target_overrides": [
+   "F-123",
    "F-170",
    "F-177",
    "F-178",
@@ -5810,7 +5811,12 @@
    "searched": " | w4-FM2 close",
    "slice": "s2",
    "maturity_claimed": "TESTED",
-   "adjudication": [],
+   "completion_target": "TESTED",
+   "completion_target_basis": "producer is operator tooling / offline adjudicator: tests/test_vacuity.py",
+   "adjudication": [
+    "override completion_target: None -> 'TESTED' (Its producer is tests/test_vacuity.py::findings_in (the vacuous-loop detector), operator tooling no runtime root can import, so INTEGRATED is unreachable by construction (aggregate.structural_producer). The BASELINE is empty: every loop in the suite that asserts over an iterable has a non-emptiness guard or a reasoned vacuity-ok pragma, test_no_new_vacuous_risk_loop_anywhere_in_the_suite and test_the_baseline_only_shrinks pass, and each guarded suite was run green.; accepted by integrator 2026-10-07 (test tooling outside runtime roots; vacuity baseline 109->0; guards pass))",
+    "override completion_target_basis: None -> 'producer is operator tooling / offline adjudicator: tests/test_vacuity.py' (Its producer is tests/test_vacuity.py::findings_in (the vacuous-loop detector), operator tooling no runtime root can import, so INTEGRATED is unreachable by construction (aggregate.structural_producer). The BASELINE is empty: every loop in the suite that asserts over an iterable has a non-emptiness guard or a reasoned vacuity-ok pragma, test_no_new_vacuous_risk_loop_anywhere_in_the_suite and test_the_baseline_only_shrinks pass, and each guarded suite was run green.; accepted by integrator 2026-10-07 (test tooling outside runtime roots; vacuity baseline 109->0; guards pass))"
+   ],
    "id": "F-123",
    "title": "Vacuous-Test Detector",
    "version": "v0.4",
@@ -5818,10 +5824,8 @@
    "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "F",

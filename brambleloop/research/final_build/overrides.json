@@ -1,4 +1,9 @@
 {
+ "F-123": {
+  "accepted_by": "integrator 2026-10-07 (test tooling outside runtime roots; vacuity baseline 109->0; guards pass)",
+  "completion_target": "TESTED",
+  "reason": "Its producer is tests/test_vacuity.py::findings_in (the vacuous-loop detector), operator tooling no runtime root can import, so INTEGRATED is unreachable by construction (aggregate.structural_producer). The BASELINE is empty: every loop in the suite that asserts over an iterable has a non-emptiness guard or a reasoned vacuity-ok pragma, test_no_new_vacuous_risk_loop_anywhere_in_the_suite and test_the_baseline_only_shrinks pass, and each guarded suite was run green."
+ },
  "F-170": {
   "accepted_by": "integrator 2026-10-07 (wave 4 review: operator/build tooling rows outside runtime roots; completion target TESTED with named tests; dry run 0 problems)",
   "completion_target": "TESTED",
