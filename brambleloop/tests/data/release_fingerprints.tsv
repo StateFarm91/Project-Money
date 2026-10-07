@@ -25,9 +25,10 @@
 # 2026-10-07 (W4-K9, F-762/F-763): every graded size carries its family's size matrix and stated
 # fit (CIR.grading), printed as the PDF size chart: harbour 1.2.0 -> 1.3.0, pebble 1.1.0 -> 1.2.0.
 # 2026-10-07 (W4-PIPE3, gauge truth): autumn-oak 1.3.0 -> 1.4.0 (re-engineered from its
-# declared yarn; 1.3.0 is still built by products.builder.as_drawn and still refused).
+# declared yarn; 1.3.0 is still built by products.builder.as_drawn and still refused);
+# bobble-floor-pillow 1.3.0 -> 1.4.0 (back worked in whole four-row blocks: 63 -> 61 rows).
 autumn-oak-mosaic-throw	1.4.0	836483c58b66	e6be557df8ea
-bobble-floor-pillow	1.3.0	2dfdd21e9d5c	9d594fda68f9
+bobble-floor-pillow	1.4.0	bef6edc86937	44260a24b262
 chunky-ribbed-scarf	1.0.0	f448cc0f7c80	7d5a5845e3ee
 cloudline-baby-blanket	1.2.0	bbce94ae1e9b	0901f575a487
 cottage-wall-hanging	1.3.0	6f1c5230349a	ed02b980c1d8

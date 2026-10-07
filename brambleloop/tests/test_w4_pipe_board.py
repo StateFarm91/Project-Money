@@ -137,7 +137,7 @@ def main():
     front_only = replace(pillow, components=pillow.components[:1], assembly=[])
     check("pillow_front_only_fails_name_truth",
           any(n.startswith("assembly") for n in name_truth(front_only)), name_truth(front_only))
-    check("pillow_release_is_name_true", name_truth(pillow) == [] and pillow.version == "1.3.0"
+    check("pillow_release_is_name_true", name_truth(pillow) == [] and pillow.version == "1.4.0"
           and [c.name for c in pillow.components] == ["front", "back"], name_truth(pillow))
     bp = by["bobble-floor-pillow"]
     check("pillow_only_owner_calibration_remains",

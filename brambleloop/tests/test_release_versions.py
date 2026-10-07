@@ -159,7 +159,8 @@ def test_the_pt_redesigns_carry_a_new_version():
         assert built[f"nordic-forest-mosaic-throw-{size}"].version == "1.3.0"
     assert built["heirloom-cable-blanket"].version == "1.2.0"
     # W4-PIPE 2026-10-07: back panel + closing seam became pattern content (name truth).
-    assert built["bobble-floor-pillow"].version == "1.3.0"
+    # W4-PIPE3 2026-10-07: back worked in whole four-row blocks (readable written pattern).
+    assert built["bobble-floor-pillow"].version == "1.4.0"
     assert built["chunky-ribbed-scarf"].version == "1.0.0"
     # W4-PIPE 1.3.0 retitle to what the motif and fabric are; W4-PIPE3 1.4.0 re-engineered
     # from the declared yarn (the 1.3.0 typed-gauge record is builder.as_drawn, still refused).

@@ -54,7 +54,11 @@ DERIVED_VERSION = "1.2.0"
 # W4-PIPE (2026-10-07): the pillow cover's CIR was its front alone -- the back lived only in a
 # component note and nothing said how the two close round the pad (name truth, B-059 class).
 # The back panel and the closing seam are now pattern content, so the release moves a minor.
-PILLOW_VERSION = "1.3.0"
+# W4-PIPE3 (2026-10-07): the back is worked as the front is -- a foundation row, then whole
+# four-row blocks, the block count the nearest to the front's height -- so the written pattern
+# collapses it to one block (it printed 63 identical rows as seven before the repeat line) and
+# the maker counts both panels the same way. Back row count changed, so a new release.
+PILLOW_VERSION = "1.4.0"
 CABLE_TARGET_CM = (90.0, 128.9)
 
 PINE = {"pine": "#244A3A"}
@@ -200,8 +204,12 @@ def build_bobble_pillow(version: str = PILLOW_VERSION) -> CIR:
     # two perimeters agree within the assembly tolerance (cir.assembly.EDGE_TOLERANCE). The
     # row count is derived from the heights, never copied from the front: a bobble row is
     # not the height of a plain row.
-    front_cm = _row_height_cm(("sc",), WORSTED) + blocks * block_cm
-    back_rows = max(1, round(front_cm / _row_height_cm(("sc",), WORSTED)))
+    # W4-PIPE3: counted the way the front is -- one foundation row, then whole four-row blocks
+    # (the front's own `_nearest` rule) -- so the written pattern collapses the back to a
+    # single block instead of printing seven identical rows before its repeat line.
+    sc_cm = _row_height_cm(("sc",), WORSTED)
+    front_cm = sc_cm + blocks * block_cm
+    back_rows = 1 + 4 * max(1, _nearest(front_cm - sc_cm, 4 * sc_cm))
     back = [Row(index=i, ops=[Op("sc", width)], declared_count=width, color="gold",
                 turning_chain=1) for i in range(1, back_rows + 1)]
 

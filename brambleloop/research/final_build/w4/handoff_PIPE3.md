@@ -26,5 +26,5 @@ scratch SQLite, network closed). Evidence: `evidence_PIPE3/pipe3_run.json` (`pro
 test_release_versions OK, test_launch0_gauge 5 OK, test_w4_pipe_name_truth OK.
 
 ## Remaining / next
-- bobble-floor-pillow OPEN-DEFECT from W4-PIPE: test_texture::test_the_written_patterns_stay_readable (back panel prints rows 1-7) — next action.
+- bobble-floor-pillow readability OPEN-DEFECT: FIXED 1.4.0 (back = foundation + whole 4-row blocks, 61 rows; prints 5 Row lines). test_texture 25 OK, test_w4_pipe_board 57 OK.
 - WIRING REQUEST W4-CREATIVE: drop the 5 retitled slugs from `creative.emotional_brief.HELD` (see handoff_PIPE.md).
