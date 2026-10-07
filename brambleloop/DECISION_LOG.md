@@ -1704,3 +1704,26 @@ leaving them parked:
 9. Contacting a real person (tester outreach) still requires a separate explicit owner confirmation of the exact message.
 Unchanged: phase stays shadow; production deployment remains owner-controlled; no Etsy publication without
 authorisation; CAPTCHA/anti-bot measures are never bypassed.
+
+## D-W4-GATESB-1 (2026-10-07) — The company selects the second-market benchmark shops (#268)
+
+Under the owner's 2026-10-07 authorisation to clear the business gates. DECISION_LOG B-482/B-508
+already make `second_market_benchmark` "a choice of shop -- no credential, no capability, no
+spend", and neither the Final Master nor the Execution Directive reserves the choice to the
+owner, so the company makes it (this is not an owner action and is not asked).
+
+1. **Selected, ranked:** `LakesideLoops` (Canada; stated location Fredericton NB; ~86,500 lifetime
+   sales, ~12 years; modern crochet patterns) first, because Canada is this company's home market
+   and the one #268 most needs separated from the US anchor (same US terms, different holidays,
+   CAD pricing); `HanJanCrochet` (United Kingdom; ~103,768 sales; ~14 years) second, for the
+   "other" market where UK stitch terms change the fabric. Alternates recorded, not registered:
+   PippaPatternsCrochet (UK), NikByDesign (CA), CrochetPatternHouse (CA).
+2. **Evidence basis is labelled:** search-engine index snippets of the shops' public Etsy pages,
+   read 2026-10-07 (Etsy answers 403 to automated page readers, B-268). That is a claim about
+   the shop, not an observation by this system.
+3. **Verified before it counts:** `intel.second_market.ensure_selected` (run inside the weekly
+   `intel.panel_discovery` cadence) joins a shop only after the sanctioned reader resolves the
+   exact name and `getShop` states a location in the expected, not-yet-covered market; a
+   mismatch is refused and recorded. The gate still opens only on observed listings from two
+   markets (`executor._second_market_observed`).
+4. Observation only: demand and merchandising intelligence; nothing is copied.
