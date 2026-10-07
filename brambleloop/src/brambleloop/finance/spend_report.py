@@ -489,8 +489,16 @@ def per_agent_today(db, *, now: datetime | None = None) -> dict:
 def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "",
            model: str = "", department: str = "", product_slug: str = "",
            estimated_cad: float = 0.0, tokens_in: int = 0, tokens_out: int = 0,
-           job_id: int | None = None, kind: str = "llm", detail: dict | None = None) -> int:
+           job_id: int | None = None, kind: str = "llm", detail: dict | None = None,
+           listing_id: int | None = None, image_count: int | None = None,
+           observed_cad: float | None = None, observed_basis: str = "",
+           evidence_ref: str = "") -> int:
     """One billable call, with every dimension the owner asked to see it by.
+
+    F-304: the listing, image count, provider-observed actual and evidence reference are
+    written beside the row (`finance.cost_attribution`) in the same transaction. Each is NULL
+    when unknown -- never 0 -- and `observed_cad` is only ever a provider-reported figure,
+    never this system's own estimate.
 
     A single writer so the dimensions cannot be optional by accident. They were optional
     before -- written into a JSON blob where somebody remembered -- and the result was a
@@ -514,6 +522,8 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
     if not math.isfinite(amt) or amt < 0:
         raise ValueError(f"amount_cad {amount_cad!r} must be a finite, non-negative CAD "
                          "amount; a credit or refund is not recorded as a negative cost")
+    if observed_cad is not None and not observed_basis:
+        raise ValueError("observed_cad is a provider-reported figure and must name its source")
     product_slug, detail = attribution(product_slug, detail)
     # F-307: tie the row to the write-ahead paid-call intent it bills, and label a replayed
     # answer (nothing sent, so a zero amount) as exactly that rather than as a free call.
@@ -535,6 +545,14 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
                            artifact=str(detail["shared_override_of"])[:200],
                            detail={"purpose": purpose, "amount_cad": round(float(amount_cad), 8),
                                    "kind": kind, "provider": provider, "job_id": job_id}))
+    from . import cost_attribution
+
+    try:
+        cost_attribution.ensure_table(db)
+        sidecar = True
+    except Exception:  # noqa: BLE001 - the bill is written even when the sidecar cannot be
+        sidecar = False
+        detail["cost_attribution"] = "unavailable: sidecar table could not be ensured"
     with db.session() as s:
         row = CostEntry(
             agent=agent, job_id=job_id, kind=kind,
@@ -546,6 +564,12 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
             detail=dict(detail or {}))
         s.add(row)
         s.flush()
+        if sidecar:
+            cost_attribution.write(
+                s, cost_entry_id=row.id, kind=kind, product_slug=product_slug,
+                detail=dict(detail or {}), job_id=job_id, listing_id=listing_id,
+                image_count=image_count, observed_cad=observed_cad,
+                observed_basis=observed_basis, evidence_ref=evidence_ref)
         return row.id
 
 
@@ -689,6 +713,12 @@ def governance(db, *, now: datetime | None = None) -> dict:
     # F-105: measured, estimated/upper-bound and historical-unknown spend kept apart.
     _part("honesty", lambda: _honesty(db, now))
     _part("vocabulary", lambda: spend_policy.vocabulary(db))
+    # F-304: spend by listing, images billed, recorded vs provider-observed.
+    from . import cost_attribution
+    _part("per_operation", lambda: cost_attribution.report(db, now=now))
+    # F-629: promotional/cloud credits kept apart from cash exposure.
+    from . import credits
+    _part("credits", lambda: credits.wallet(db, now=now))
 
     def _scoped():
         with db.session() as s:

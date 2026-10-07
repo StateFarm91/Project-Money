@@ -219,4 +219,275 @@ def reconcile(db, *, now: datetime | None = None) -> dict:
             "US$10 added, and the third refused every call -- and a single combined number "
             "would have had to be wrong about two of them"),
         "not_a_budget": NOT_A_BUDGET,
+        # F-106/F-103: the provider's own bill, once readable; the gap check on the
+        # owner-reported figures (`finance.spend_hygiene.provider_discrepancy`) beside it.
+        "provider_billing": last_settlements(db),
+        "reported_vs_ledger": _reported_gaps(db, now),
     }
+
+
+def _reported_gaps(db, now):
+    try:
+        from ..finance.spend_hygiene import provider_discrepancy
+
+        return provider_discrepancy(db, now)
+    except Exception as exc:  # noqa: BLE001 - one unreadable part must not hide the rest
+        return {"unavailable": f"{type(exc).__name__}: {exc}"[:200]}
+
+
+# ---------------------------------------------------------------------------
+# F-106 / F-103: provider-side billing, read when (and only when) the owner grants it.
+#
+# Until now the "provider side" of every reconciliation was a figure the owner typed. The
+# providers do publish what they billed -- Anthropic's Admin API `cost_report` (daily, USD
+# as decimal strings in cents, grouped by description -> model) and OpenAI's organisation
+# `costs` endpoint (daily buckets, USD) -- but both need an *admin* credential that is not
+# the inference key. That credential is an OWNER ACTION. Everything below works the day it
+# exists: the fetch is a read-only GET, the parse is tested against the published shapes,
+# and settlement compares the provider's bill with this ledger day by day and model by model.
+#
+# What settlement does and does not claim:
+# * The provider's figure is OBSERVED billing; this ledger's figure is RECORDED at assumed
+#   list prices. They are kept side by side and never merged.
+# * A provider reports per day and model, not per call, so a per-call `observed_cad` is
+#   written only where one ledger row is the whole (day, model) bucket. Otherwise the bucket
+#   is settled and the rows stay unobserved (NULL) -- never apportioned and called observed.
+# * A material gap opens an incident. Nothing here changes a ceiling.
+
+ADMIN_KEY_ENV: dict[str, str] = {"anthropic": "ANTHROPIC_ADMIN_KEY",
+                                 "openai": "OPENAI_ADMIN_KEY"}
+SETTLEMENT_ACTION = "spend.provider_settlement"
+SETTLEMENT_SIGNATURE = "provider-billing-settlement-gap"
+# A (day, model) bucket is materially off when it differs by at least this much CAD and by
+# this share of the provider's figure. Both, so a cent on a cent is not an incident.
+SETTLEMENT_FLOOR_CAD = 0.50
+SETTLEMENT_SHARE = 0.10
+OBSERVED_BASIS = "provider_cost_report:single_call_day_model_bucket"
+
+
+class ProviderUsageUnavailable(RuntimeError):
+    """No admin credential for this provider, or the provider refused the read."""
+
+
+def admin_key_present(provider: str, env: dict | None = None) -> bool:
+    import os
+
+    name = ADMIN_KEY_ENV.get(provider)
+    return bool(name and (env if env is not None else os.environ).get(name))
+
+
+def _cents(value) -> float:
+    return float(str(value)) / 100.0
+
+
+def parse_anthropic_cost_report(payload: dict) -> list[dict]:
+    """Anthropic `GET /v1/organizations/cost_report?group_by[]=description` -> day/model USD."""
+    out: dict[tuple[str, str], float] = {}
+    for bucket in payload.get("data") or []:
+        day = str(bucket.get("starting_at") or "")[:10]
+        for r in bucket.get("results") or []:
+            if str(r.get("currency") or "USD").upper() != "USD":
+                raise ProviderUsageUnavailable(f"unexpected currency {r.get('currency')!r}")
+            model = str(r.get("model") or r.get("description") or "unattributed")
+            out[(day, model)] = out.get((day, model), 0.0) + _cents(r.get("amount") or 0)
+    return [{"day": d, "model": m, "usd": round(v, 6)} for (d, m), v in sorted(out.items())]
+
+
+def parse_openai_costs(payload: dict) -> list[dict]:
+    """OpenAI `GET /v1/organization/costs?bucket_width=1d` -> per-day USD (model "*")."""
+    out: dict[tuple[str, str], float] = {}
+    for bucket in payload.get("data") or []:
+        start = bucket.get("start_time")
+        day = (datetime.fromtimestamp(int(start), tz=timezone.utc).date().isoformat()
+               if start is not None else "")
+        for r in bucket.get("results") or []:
+            amount = r.get("amount") or {}
+            if str(amount.get("currency") or "usd").lower() != "usd":
+                raise ProviderUsageUnavailable(f"unexpected currency {amount.get('currency')!r}")
+            # Line items ("Image models", ...) are not model ids, so OpenAI settles per day.
+            out[(day, "*")] = out.get((day, "*"), 0.0) + float(amount.get("value") or 0.0)
+    return [{"day": d, "model": m, "usd": round(v, 6)} for (d, m), v in sorted(out.items())]
+
+
+def _http_get_json(url: str, headers: dict, timeout: float = 30.0) -> dict:
+    import json
+    import urllib.request
+
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - fixed https hosts
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def fetch_provider_costs(provider: str, *, start: datetime, end: datetime,
+                         env: dict | None = None, transport=None) -> list[dict]:
+    """Read-only: the provider's own billed cost per day and model. Raises when ungranted."""
+    import os
+    from urllib.parse import urlencode
+
+    source = env if env is not None else os.environ
+    key = source.get(ADMIN_KEY_ENV.get(provider, ""), "")
+    if not key:
+        raise ProviderUsageUnavailable(
+            f"no {ADMIN_KEY_ENV.get(provider, provider + ' admin key')} is configured: reading "
+            f"{provider}'s billing needs an admin (usage/cost read) credential, an owner action")
+    get = transport or _http_get_json
+    rows: list[dict] = []
+    if provider == "anthropic":
+        params = {"starting_at": start.strftime("%Y-%m-%dT00:00:00Z"),
+                  "ending_at": end.strftime("%Y-%m-%dT00:00:00Z"),
+                  "group_by[]": "description", "bucket_width": "1d", "limit": 31}
+        url = "https://api.anthropic.com/v1/organizations/cost_report?" + urlencode(params)
+        headers = {"x-api-key": key, "anthropic-version": "2023-06-01"}
+        page = get(url, headers)
+        rows += parse_anthropic_cost_report(page)
+        while page.get("has_more") and page.get("next_page"):
+            page = get(url + "&" + urlencode({"page": page["next_page"]}), headers)
+            rows += parse_anthropic_cost_report(page)
+    elif provider == "openai":
+        params = {"start_time": int(start.timestamp()), "end_time": int(end.timestamp()),
+                  "bucket_width": "1d", "group_by": "line_item", "limit": 31}
+        url = "https://api.openai.com/v1/organization/costs?" + urlencode(params)
+        headers = {"Authorization": f"Bearer {key}"}
+        page = get(url, headers)
+        rows += parse_openai_costs(page)
+        while page.get("has_more") and page.get("next_page"):
+            page = get(url + "&" + urlencode({"page": page["next_page"]}), headers)
+            rows += parse_openai_costs(page)
+    else:
+        raise ProviderUsageUnavailable(f"no billing reader exists for {provider!r}")
+    return rows
+
+
+def settle(db, provider: str, provider_rows: list[dict], *,
+           now: datetime | None = None) -> dict:
+    """Compare the provider's billed (day, model) costs with this ledger and record the result.
+
+    `provider_rows` are `{day, model, usd}` from `fetch_provider_costs`. Opens an incident for
+    each materially different bucket; writes `observed_cad` only where a single ledger row is
+    the whole bucket. Returns the settlement, which is also audited (`SETTLEMENT_ACTION`).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, CostEntry
+    from ..finance import cost_attribution
+    from ..finance.governor import _open_incident
+    from ..gateway.routing import USD_PER_CAD
+
+    now = now or datetime.now(timezone.utc)
+    cost_attribution.ensure_table(db)
+    days = sorted({r["day"] for r in provider_rows if r.get("day")})
+    # A provider that bills per day only (model "*") is settled per day.
+    by_model = all(r.get("model") != "*" for r in provider_rows)
+    buckets = []
+    gaps = []
+    with db.session() as s:
+        ledger: dict[tuple[str, str], list] = {}
+        if days:
+            lo = datetime.fromisoformat(days[0]).replace(tzinfo=timezone.utc)
+            for e in s.scalars(select(CostEntry).where(CostEntry.provider == provider,
+                                                       CostEntry.at >= lo)):
+                at = e.at if e.at.tzinfo else e.at.replace(tzinfo=timezone.utc)
+                ledger.setdefault((at.date().isoformat(),
+                                   (e.model or "") if by_model else "*"), []).append(e)
+        seen = set()
+        for r in provider_rows:
+            key = (r["day"], r["model"])
+            seen.add(key)
+            entries = ledger.get(key, [])
+            provider_cad = round(float(r["usd"]) / USD_PER_CAD, 6)
+            ledger_cad = round(sum(float(e.amount_cad or 0.0) for e in entries), 6)
+            diff = round(provider_cad - ledger_cad, 6)
+            material = abs(diff) >= max(SETTLEMENT_FLOOR_CAD, SETTLEMENT_SHARE * provider_cad)
+            observed_written = False
+            if len(entries) == 1:
+                attr = s.scalar(select(cost_attribution.CostAttribution).where(
+                    cost_attribution.CostAttribution.cost_entry_id == entries[0].id))
+                if attr is not None:
+                    attr.observed_cad = provider_cad
+                    attr.observed_basis = OBSERVED_BASIS
+                    observed_written = True
+            b = {"day": r["day"], "model": r["model"], "provider_usd": r["usd"],
+                 "provider_cad": provider_cad, "ledger_cad": ledger_cad,
+                 "ledger_rows": len(entries), "difference_cad": diff, "material": material,
+                 "per_call_observed_written": observed_written}
+            buckets.append(b)
+            if material:
+                gaps.append(b)
+        # Ledger buckets the provider did not bill at all, inside the reported days.
+        for (day, model), entries in sorted(ledger.items()):
+            if day in days and (day, model) not in seen:
+                cad = round(sum(float(e.amount_cad or 0.0) for e in entries), 6)
+                b = {"day": day, "model": model, "provider_usd": None, "provider_cad": None,
+                     "ledger_cad": cad, "ledger_rows": len(entries), "difference_cad": None,
+                     "material": cad >= SETTLEMENT_FLOOR_CAD,
+                     "why": "recorded here, absent from the provider's bill"}
+                buckets.append(b)
+                if b["material"]:
+                    gaps.append(b)
+        incident = None
+        if gaps:
+            incident = _open_incident(
+                s, signature=f"{SETTLEMENT_SIGNATURE}:{provider}:{now.strftime('%Y-%m')}",
+                summary=(f"{provider} billing differs from this ledger in {len(gaps)} "
+                         f"day/model bucket(s): provider-observed cost against costs recorded "
+                         f"at assumed list prices. Other usage on the account or wrong prices"),
+                detail={"provider": provider, "gaps": gaps[:50]}, severity="P2")
+        out = {"provider": provider, "at": now.isoformat(), "basis": "provider_cost_report",
+               "days": days, "buckets": buckets, "material_gaps": len(gaps),
+               "provider_cad": round(sum(b["provider_cad"] or 0.0 for b in buckets), 6),
+               "ledger_cad": round(sum(b["ledger_cad"] or 0.0 for b in buckets), 6),
+               "incident": incident, "ceilings_changed": 0}
+        s.add(AuditLog(actor="cfo", action=SETTLEMENT_ACTION, artifact=provider,
+                       detail={k: v for k, v in out.items() if k != "buckets"}
+                       | {"buckets": buckets[:200]}))
+    return out
+
+
+def settle_all(db, *, now: datetime | None = None, env: dict | None = None,
+               transport=None) -> dict:
+    """The governor pass: settle each provider whose billing read is granted; name the rest.
+
+    Makes no network call for a provider without an admin key -- it reports OWNER_GATED.
+    """
+    from datetime import timedelta
+
+    now = now or datetime.now(timezone.utc)
+    start = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    out = {}
+    for provider in sorted(ADMIN_KEY_ENV):
+        if not admin_key_present(provider, env):
+            out[provider] = {"state": "OWNER_GATED",
+                             "needs": ADMIN_KEY_ENV[provider],
+                             "why": "provider billing is unread without an admin usage key"}
+            continue
+        try:
+            rows = fetch_provider_costs(provider, start=start, end=end, env=env,
+                                        transport=transport)
+        except Exception as exc:  # noqa: BLE001 - an unreadable bill is reported, not zero
+            out[provider] = {"state": "UNREADABLE", "why": f"{type(exc).__name__}: {exc}"[:300]}
+            continue
+        got = settle(db, provider, rows, now=now)
+        out[provider] = {"state": "SETTLED", **{k: v for k, v in got.items() if k != "buckets"}}
+    return out
+
+
+def last_settlements(db) -> dict:
+    """The latest recorded settlement per provider, for `reconcile` (no network)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    out = {}
+    with db.session() as s:
+        for provider in sorted(ADMIN_KEY_ENV):
+            row = s.scalar(select(AuditLog).where(AuditLog.action == SETTLEMENT_ACTION,
+                                                  AuditLog.artifact == provider)
+                           .order_by(desc(AuditLog.id)).limit(1))
+            out[provider] = ({**(row.detail or {}), "state": "SETTLED"} if row is not None else
+                             {"state": "OWNER_GATED" if not admin_key_present(provider)
+                              else "NOT_YET_SETTLED",
+                              "needs": ADMIN_KEY_ENV[provider],
+                              "why": ("no provider billing has been read: only owner-reported "
+                                      "dashboard figures exist for this provider")})
+    return out
