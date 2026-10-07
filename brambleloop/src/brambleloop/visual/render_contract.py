@@ -53,6 +53,15 @@ LABEL_PX = 30
 # Oblique camera for vessel heroes: elevated this far above horizontal, looking at a flat
 # face. Dimensions views use 0 (a true elevation), so heights read without projection.
 OBLIQUE_DEG = 25.0
+# The vessel ANGLE view (F-254 "the side, back or inside the hero cannot show"): the same
+# camera raised to this elevation, so the inside of the back wall and the base's upper face
+# read over the rim. Measured by `render_verification` with the same un-projection.
+ANGLE_DEG = 50.0
+
+
+def camera_deg(view: str) -> float:
+    """The camera elevation a vessel view is drawn and verified at."""
+    return {"hero": OBLIQUE_DEG, "angle": ANGLE_DEG}.get(view, 0.0)
 
 # Gap between stitch glyphs, in pixels. Two pixels is the smallest gap that keeps adjacent
 # stitches separate connected components under every scale the producer uses.

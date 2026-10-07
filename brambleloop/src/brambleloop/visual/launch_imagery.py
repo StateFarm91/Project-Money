@@ -24,6 +24,30 @@ ACTION = "assets.gallery_frames"
 
 # What the disclosed renderer's views serve (visual.disclosed_render.VIEWS).
 _DISCLOSED_JOBS = ("DESIRE", "SCALE", "DETAIL")
+# The vessel ANGLE view (disclosed_render view "angle", verified by render_verification at
+# the same camera elevation). Bumped when the view or its verification changes.
+ANGLE_METHOD = "disclosed-angle/1"
+
+
+def _angle_frame(primary, store) -> tuple[dict | None, str]:
+    """The disclosed ANGLE frame for a vessel, verified on its bytes, or why there is none."""
+    from . import disclosed_render as DR
+    from . import render_verification as RV
+
+    try:
+        fr = DR.render(primary, "angle")
+    except DR.RenderRefused as exc:
+        return None, str(exc)
+    verdict = RV.verify(fr.png, cir=primary, view="angle")
+    stored = store.put(f"{primary.slug}/{primary.version}/disclosed-angle.png", fr.png,
+                       "image/png")
+    return ({"job": "ANGLE", "view": "angle", "sha256": stored.sha256,
+             "verification": verdict["status"],
+             "failed": list(verdict.get("failed") or []),
+             "unknown": list(verdict.get("unknown") or []),
+             "camera_deg": fr.manifest["layout"].get("alpha_deg"),
+             "disclosure": fr.manifest["disclosure"],
+             "renderer_version": fr.manifest["renderer_version"]}, "")
 
 
 def _listing_parts(slug: str):
@@ -76,6 +100,17 @@ def assemble(slug: str, *, store=None) -> dict:
                        "failed": verdict["failed"], "manifest": fr.manifest,
                        "disclosure": fr.manifest["disclosure"]})
 
+    angle_frames = []
+    if "ANGLE" in applicable:
+        af, why = _angle_frame(primary, store)
+        if af is None:
+            refused["ANGLE"] = why
+        else:
+            angle_frames.append(af)
+            if af["verification"] != "PASS":
+                refused["ANGLE"] = (f"the angle view did not verify on its bytes: "
+                                    f"failed {af['failed']}, unknown {af['unknown']}")[:300]
+
     covered: dict[str, str] = {}
     hero = disclosed[primary.slug]
     if hero["usable"]:
@@ -85,6 +120,9 @@ def assemble(slug: str, *, store=None) -> dict:
     for f in frames:
         if f["verification"] == "PASS":
             covered[f["job"]] = f"gallery frame {f['job'].lower()} {f['sha256'][:12]}"
+    for f in angle_frames:
+        if f["verification"] == "PASS":
+            covered["ANGLE"] = f"disclosed render {primary.slug} angle {f['sha256'][:12]}"
 
     # A verified frame for a job K1 does not list for this category is kept as a supporting
     # frame, never counted as coverage.
@@ -92,10 +130,10 @@ def assemble(slug: str, *, store=None) -> dict:
     covered = {j: v for j, v in covered.items() if j in applicable}
     missing = {}
     for job in sorted(set(applicable) - set(covered)):
-        if job in G.NOT_DRAWABLE:
-            missing[job] = G.NOT_DRAWABLE[job]
-        elif job in refused:
+        if job in refused:
             missing[job] = f"refused: {refused[job]}"
+        elif job in G.NOT_DRAWABLE:
+            missing[job] = G.NOT_DRAWABLE[job]
         elif job in _DISCLOSED_JOBS:
             missing[job] = "disclosed render not usable: " + "; ".join(hero["blocked"])[:400]
         else:
@@ -104,11 +142,12 @@ def assemble(slug: str, *, store=None) -> dict:
             "variants": [c.slug for c in cirs], "version": primary.version,
             "applicable_jobs": sorted(applicable), "covered": covered, "missing": missing,
             "supporting": supporting,
-            "disclosed": disclosed, "gallery_frames": frames,
+            "disclosed": disclosed, "gallery_frames": frames, "angle_frames": angle_frames,
             "hero_ready": "DESIRE" in covered,
             "complete": not missing,
             "paid_or_physical_only": sorted(j for j in missing if j in ("LIFESTYLE", "FIT")),
-            "method": {"disclosed_render": DL.ACTION, "gallery_frames": G.VERSION}}
+            "method": {"disclosed_render": DL.ACTION, "gallery_frames": G.VERSION,
+                       "angle_view": ANGLE_METHOD}}
 
 
 def assemble_all(*, store=None) -> list[dict]:
@@ -136,7 +175,8 @@ def refresh(db, *, store=None) -> dict:
             fps = _fingerprints(slug)
             prev = last(db, slug)
             if (prev and prev.get("fingerprints") == fps
-                    and (prev.get("method") or {}).get("gallery_frames") == G.VERSION):
+                    and (prev.get("method") or {}).get("gallery_frames") == G.VERSION
+                    and (prev.get("method") or {}).get("angle_view") == ANGLE_METHOD):
                 out[slug] = {"refreshed": False, "covered": sorted(prev.get("covered") or []),
                              "missing": sorted(prev.get("missing") or [])}
                 continue
