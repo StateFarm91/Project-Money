@@ -270,3 +270,122 @@ def matrix(db=None, *, env=None) -> dict:
         "open": open_rows,
         "rows": rows,
     }
+
+
+# ---------------------------------------------------------------------------------------------
+# W4-B2: the dashboard's Build 2 figures and the per-row ledger, both from this matrix.
+#
+# The owner's dashboard read "Build 2: 227/320 complete (70.9%), executable remaining 45,
+# owner-gated 28, data-gated 20" on 2026-10-07. That is `requirements.coverage()` served by
+# production at fcb982d -- the registry of 2026-09-22 -- and it is wrong twice over: stale (the
+# 2026-09-27/28 certification reopened and re-parked rows the deployed registry still calls
+# covered or owner_gated), and miscounted in meaning (`executable_remaining` is partial+missing,
+# so a partial row parked on an owner, data or external gate is reported as executable work, and
+# "complete" is the registry's claim rather than a proof). The figures below are the closure's:
+# computed from evidence, with gated work split by the kind of its gate and OPEN being the only
+# executable remainder.
+
+LEDGER_STATES = ("PROVEN", "OWNER-GATED", "DATA-GATED", "EXTERNAL-GATED", "NOT-APPLICABLE",
+                 "OPEN-DEFECT")
+_LEDGER_OF = {COMPLETE_PROVEN: "PROVEN", OWNER_GATED: "OWNER-GATED", DATA_GATED: "DATA-GATED",
+              EXTERNAL_BLOCKED: "EXTERNAL-GATED", OPEN: "OPEN-DEFECT"}
+
+
+def ledger_state(row: dict) -> str:
+    """The ledger's vocabulary for one classified row.
+
+    A process directive to the auditor (merge order, canonical reconciliation) is closed as
+    followed by the matrix; the ledger calls it NOT-APPLICABLE because nothing was built, so the
+    PROVEN count is only rows whose machinery exists, is tested and is reached."""
+    if row["state"] == COMPLETE_PROVEN and (row.get("proof") or {}).get("directive"):
+        return "NOT-APPLICABLE"
+    return _LEDGER_OF[row["state"]]
+
+
+def dashboard(db=None, *, env=None, m: dict | None = None) -> dict:
+    """The Build 2 headline the owner's dashboard should show, from the closure matrix.
+
+    `executable_remaining` here is OPEN only -- executable work nothing is waiting for. Rows
+    parked on a gate are counted under the kind of that gate, never as executable work."""
+    m = m if m is not None else matrix(db, env=env)
+    c = m["counts"]
+    na = sum(1 for r in m["rows"] if ledger_state(r) == "NOT-APPLICABLE")
+    proven = c[COMPLETE_PROVEN] - na
+    return {
+        "basis": "build2.closure.matrix (evidence: module exists, is tested and is reached; "
+                 "gated rows by the kind of their gate) -- not the registry's own status",
+        "total": m["total"],
+        "proven": proven,
+        "not_applicable": na,
+        "complete": c[COMPLETE_PROVEN],
+        "percent_complete": round(100.0 * c[COMPLETE_PROVEN] / m["total"], 1),
+        "owner_gated": c[OWNER_GATED],
+        "data_gated": c[DATA_GATED],
+        "external_gated": c[EXTERNAL_BLOCKED],
+        "open_defects": c[OPEN],
+        "executable_remaining": c[OPEN],
+        "gates_checked_live": m["gates_checked_live"],
+        "closed_out": m["closed_out"],
+        "as_of": m["as_of"],
+    }
+
+
+def _runtime_path(proof: dict) -> list[dict]:
+    """The live consumer path of each reached module, as reachability states it."""
+    from . import reachability
+
+    out = []
+    for mod in (proof or {}).get("reached", [])[:3]:
+        v = reachability.reached(mod)
+        out.append({"module": mod, "why": v.get("why"), "live": v.get("live", [])[:4]})
+    return out
+
+
+@reachability._graph_boundary
+@maturity._with_test_import_snapshot
+def ledger(db=None, *, env=None, gate_open: dict[str, bool] | None = None,
+           gate_source: str = "") -> dict:
+    """Every requirement -> one ledger state with its evidence and, when gated, its exact gate.
+
+    `gate_open` lets a caller supply gate readings taken elsewhere (for example production's
+    `/api/build` read-only) when no database is at hand; `gate_source` says where they came
+    from. A gate absent from the readings is unchecked, never assumed open."""
+    if db is not None and gate_open is None:
+        gate_open = {k: bool(v.get("open")) for k, v in executor.gate_states(db, env).items()}
+        gate_source = gate_source or "executor.gate_states(db)"
+    rows = [classify(r, gate_open=gate_open) for r in reg.load()]
+    by_req = {r.id: r for r in reg.load()}
+    out = []
+    for row in rows:
+        state = ledger_state(row)
+        proof = row.get("proof") or {}
+        entry = {"id": row["id"], "title": row["title"], "section": row["section"],
+                 "registry_status": row["status"], "state": state,
+                 "closure_state": row["state"], "why": row["why"],
+                 "evidence": {"tests": sorted(set(proof.get("tests", []))),
+                              "tested_modules": proof.get("tested", []),
+                              "artefacts": proof.get("existing", []),
+                              "runtime_consumers": _runtime_path(proof)}}
+        if proof.get("directive"):
+            entry["evidence"]["directive"] = proof["directive"]
+        gate = row.get("gate")
+        if gate and state in ("OWNER-GATED", "DATA-GATED", "EXTERNAL-GATED"):
+            g = executor.GATE_BY_KEY.get(gate)
+            entry["gate"] = {
+                "key": gate, "kind": kind_of(gate),
+                "what": g.what if g else None,
+                "opens_when": g.how if g else None,
+                "external_evidence": EXTERNAL_GATES.get(gate),
+                "state": ("open" if (gate_open or {}).get(gate) else
+                          "closed" if gate_open is not None and gate in gate_open else
+                          "unchecked"),
+                "state_source": gate_source if gate_open is not None and gate in gate_open
+                                else "not readable: no live reading of this gate was given",
+                "remaining_note": by_req[row["id"]].note[-400:],
+            }
+        out.append(entry)
+    counts = {s: sum(1 for e in out if e["state"] == s) for s in LEDGER_STATES}
+    return {"as_of": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
+            "total": len(out), "counts": counts, "gate_source": gate_source or None,
+            "rows": out}
