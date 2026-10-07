@@ -186,14 +186,18 @@ def health(db, *, now: datetime | None = None, window: timedelta = HEALTH_WINDOW
     return out
 
 
-def candidates(task_key: str) -> list[str]:
-    """The task's tier model, then its approved stronger fallbacks. Refuses compiler tasks."""
-    task, tier = routing.route(task_key)
+def candidates(task_key: str, *, tier: "routing.Tier | None" = None) -> list[str]:
+    """The task's tier model, then its approved stronger fallbacks. Refuses compiler tasks.
+
+    `tier` is the route in force when an evidenced override (`routing.effective_route`,
+    F-313) moved the task; the fallbacks are then that tier's, which still only go up."""
+    task, declared = routing.route(task_key)
+    tier = tier or declared
     base = CAPABILITY_RANK.get(tier.model, 0)
     chain = [tier.model]
     if not task.stronger_fallback:
         return chain
-    for m in APPROVED_FALLBACKS.get(task.tier, ()):
+    for m in APPROVED_FALLBACKS.get(tier.key, ()):
         if CAPABILITY_RANK.get(m, 0) < base:
             raise ValueError(f"{m!r} is weaker than {tier.model!r}: a fallback may never "
                              f"route a task below its declared tier")
@@ -240,9 +244,11 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
     now = _now(now)
     try:
         task, _tier = routing.route(task_key)
-        chain = candidates(task_key)
     except routing.TaskRefused as exc:
         return Decision(REFUSED, task_key, agent, reason=str(exc))
+    # F-313: an evidenced cheaper route, re-checked against the latest evidence every call.
+    _t, in_force, route_basis = routing.effective_route(_DbView(db), task_key)
+    chain = candidates(task_key, tier=in_force)
     if payload is not None and task.cacheable:
         cached = routing.cached_analysis(_DbView(db), task_key, payload)
         if cached is not None:
@@ -273,6 +279,8 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
         chosen = order[0]
         why = ("the declared tier's model" if chosen == chain[0] else
                f"approved stronger fallback: {chain[0]} is {rows[0]['health']}")
+        if route_basis.get("basis") == "evidenced_override":
+            why += f" (evidenced route override to {in_force.key}, F-313)"
         return Decision(CALL, task_key, agent, chosen=chosen, order=order, candidates=rows,
                         reason=why)
     unaffordable = [r["model"] for r in rows if r["health"] != DOWN]
@@ -329,7 +337,13 @@ def gateway_for(db, task_key: str, *, registry, agent: str, job_id: int | None =
         def provider_factory(model: str):
             return AnthropicProvider(model=model)
     providers = [provider_factory(m) for m in decision.order]
-    return ModelGateway(providers, registry=registry, job_id=job_id), decision
+    gateway = ModelGateway(providers, registry=registry, job_id=job_id)
+    # F-314: an unsure answer from this tier is asked once more on the next stronger tier --
+    # through the same gateway machinery (budget check, reservation, paid-call guard, billing).
+    up = routing.escalation_tier(task_key)
+    if up is not None and up.model not in decision.order[:1]:
+        gateway.escalation = [provider_factory(up.model)]
+    return gateway, decision
 
 
 def job_gateway(db, task_key: str, *, registry, agent: str, job_id: int | None = None,

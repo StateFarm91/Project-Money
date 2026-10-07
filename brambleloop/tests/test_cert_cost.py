@@ -139,7 +139,7 @@ def test_agent_daily_ceiling_refuses_and_names_itself():
     db = _db()
     _spend(db, 0.99, agent="quality_director")
     e = _raises(lambda: gw.check_budget_cad(db, estimate_cad=0.05, agent="quality_director",
-                                            holder="h1"), gw.AgentCeilingExceeded)
+                                            holder="h1", purpose="test.unnamed"), gw.AgentCeilingExceeded)
     assert "daily" in str(e)
     assert _refusals(db)[-1]["which"] == "agent_daily_ceiling"
     assert _reservations(db) == []
@@ -150,14 +150,14 @@ def test_agent_daily_ceiling_refuses_and_names_itself():
 def test_two_holders_cannot_together_exceed_the_monthly_ceiling():
     db = _db()
     _spend(db, spend_policy.CEILING_CAD - 1.0)
-    a = gw.check_budget_cad(db, estimate_cad=0.45, holder="A")
-    b = gw.check_budget_cad(db, estimate_cad=0.45, holder="B")
+    a = gw.check_budget_cad(db, estimate_cad=0.45, holder="A", purpose="test.unnamed")
+    b = gw.check_budget_cad(db, estimate_cad=0.45, holder="B", purpose="test.unnamed")
     assert a["reservation_id"] and b["reservation_id"]
-    _raises(lambda: gw.check_budget_cad(db, estimate_cad=0.45, holder="C"), gw.BudgetExceeded)
+    _raises(lambda: gw.check_budget_cad(db, estimate_cad=0.45, holder="C", purpose="test.unnamed"), gw.BudgetExceeded)
     # A second reservation by the SAME holder is not counted against itself: the holder is
     # trusted to pass its own in-flight spend as uncommitted_cad.
     same = _raises(lambda: gw.check_budget_cad(db, estimate_cad=0.45, holder="A",
-                                               uncommitted_cad=0.45), gw.BudgetExceeded)
+                                               uncommitted_cad=0.45, purpose="test.unnamed"), gw.BudgetExceeded)
     assert same
 
 
@@ -166,9 +166,9 @@ def test_two_holders_cannot_together_exceed_an_agents_daily_ceiling():
     live reservations for the same agent are ignored, so two concurrent callers for one
     agent each fit and together overshoot."""
     db = _db()                                   # quality_director: CA$1.00/day
-    gw.check_budget_cad(db, estimate_cad=0.6, agent="quality_director", holder="A")
+    gw.check_budget_cad(db, estimate_cad=0.6, agent="quality_director", holder="A", purpose="test.unnamed")
     _raises(lambda: gw.check_budget_cad(db, estimate_cad=0.6, agent="quality_director",
-                                        holder="B"), gw.AgentCeilingExceeded)
+                                        holder="B", purpose="test.unnamed"), gw.AgentCeilingExceeded)
 
 
 def test_two_holders_cannot_together_exceed_a_provider_ceiling():
@@ -176,9 +176,9 @@ def test_two_holders_cannot_together_exceed_a_provider_ceiling():
     saved = dict(spend_policy.PROVIDER_CEILINGS_CAD)
     spend_policy.PROVIDER_CEILINGS_CAD["anthropic"] = 1.0
     try:
-        gw.check_budget_cad(db, estimate_cad=0.6, provider="anthropic", holder="A")
+        gw.check_budget_cad(db, estimate_cad=0.6, provider="anthropic", holder="A", purpose="test.unnamed")
         _raises(lambda: gw.check_budget_cad(db, estimate_cad=0.6, provider="anthropic",
-                                            holder="B"), gw.BudgetExceeded)
+                                            holder="B", purpose="test.unnamed"), gw.BudgetExceeded)
     finally:
         spend_policy.PROVIDER_CEILINGS_CAD.clear()
         spend_policy.PROVIDER_CEILINGS_CAD.update(saved)
@@ -219,7 +219,7 @@ def test_a_successful_image_render_releases_with_its_price():
 def test_release_returns_headroom_and_cannot_be_replayed():
     db = _db()
     base = gw.check_budget_cad(db, estimate_cad=0.0, holder="B", reserve=False)["headroom_cad"]
-    a = gw.check_budget_cad(db, estimate_cad=2.0, holder="A")
+    a = gw.check_budget_cad(db, estimate_cad=2.0, holder="A", purpose="test.unnamed")
     during = gw.check_budget_cad(db, estimate_cad=0.0, holder="B", reserve=False)
     assert round(base - during["headroom_cad"], 6) == 2.0
     assert gw.release_reservation(db, a["reservation_id"], actual_cad=1.7) is True
@@ -283,7 +283,7 @@ def test_a_provider_ceiling_binds_on_spend_made_through_the_model_gateway():
 def test_an_unpriced_anthropic_model_is_refused_not_priced_at_zero():
     db = _db()
     _raises(lambda: gw.check_budget(db, model="claude-imaginary-9", input_tokens=10,
-                                    max_tokens=10, agent="market_radar"), gw.BudgetExceeded)
+                                    max_tokens=10, agent="market_radar", purpose="test.unnamed"), gw.BudgetExceeded)
     assert _refusals(db)[-1]["which"] == "unpriced_model"
     _raises(lambda: gw.AnthropicProvider(model="claude-imaginary-9"), gw.BudgetExceeded)
     _raises(lambda: gw.estimate_cad("", input_tokens=1, output_tokens=1), gw.BudgetExceeded)
@@ -372,7 +372,7 @@ def test_an_entry_in_either_table_is_enforced():
         spend_policy.PROVIDER_CEILINGS_CAD["anthropic"] = 0.5
         spend_policy.DEPARTMENT_ALLOCATION["intel"] = 0.004       # CA$0.40 of 100
         _raises(lambda: gw.check_budget_cad(db, estimate_cad=0.02, provider="anthropic",
-                                            holder="A"), gw.BudgetExceeded)
+                                            holder="A", purpose="test.unnamed"), gw.BudgetExceeded)
         assert _refusals(db)[-1]["which"] == "provider_ceiling"
         gw.check_budget_cad(db, estimate_cad=0.02, provider="gpt-image-2", holder="A",
                             reserve=False)   # other providers unaffected
