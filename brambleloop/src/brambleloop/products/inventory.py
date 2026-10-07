@@ -141,8 +141,11 @@ def static_truth(slug: str) -> dict:
     return out
 
 
-def chain_evidence(db, slug: str, version: str | None = None) -> dict:
-    """What the release chain left in `db` for this product: release, imagery, search, verdict."""
+def chain_evidence(db, slug: str, version: str | None = None, *, today=None) -> dict:
+    """What the release chain left in `db` for this product: release, imagery, publish verdict.
+
+    `for_publish` records the verdicts it computes (listing-set certificate, hero), so `db`
+    must be a scratch shadow database, never production's."""
     from sqlalchemy import select
 
     from ..core.models import AuditLog, Job, JobStatus, Listing, PatternVersion, Product
@@ -180,7 +183,8 @@ def chain_evidence(db, slug: str, version: str | None = None) -> dict:
         refusals = [r.detail for r in s.scalars(
             select(AuditLog).where(AuditLog.action == "store.publish_refused")
             .order_by(AuditLog.id.desc())) if (r.artifact or "").startswith(slug + "@")]
-        out["publish_refusal"] = refusals[0] if refusals else None
+        out["publish_refusal"] = (None if not refusals else
+                                  {k: str(v)[:300] for k, v in refusals[0].items()})
     version = (out["release"] or {}).get("version") or version
     # Imagery: the record the listing would export.
     try:
@@ -195,24 +199,21 @@ def chain_evidence(db, slug: str, version: str | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001
         out["imagery"] = {"error": f"{type(exc).__name__}: {exc}"[:200]}
     if version:
+        # The verdict store.publish itself computes (release_gates.for_publish): staleness,
+        # window, listing set, search certificate, standards, withholding and the product
+        # scope (legacy quarantine, name truth, first-customer gate) -- every reason.
         try:
-            from ..publish.release_gates import search_gate
+            from datetime import date as _date
 
-            sg = search_gate(db, slug=slug, version=version)
-            out["search"] = {"verdict": sg["verdict"], "reasons": sg["reasons"][:6],
-                             "category_status": sg.get("category_status")}
-        except Exception as exc:  # noqa: BLE001
-            out["search"] = {"error": f"{type(exc).__name__}: {exc}"[:200]}
-        try:
-            from ..publish.eligibility import product_publication
+            from ..publish.release_gates import for_publish
 
-            pp = product_publication(db, slug, version)
-            out["publication"] = {"publishable": pp["publishable"],
-                                  "reasons": [f"{r['code']}: {r['why']}"[:260]
-                                              for r in pp["reasons"]],
-                                  "owner_review_required": pp["owner_review_required"]}
-        except Exception as exc:  # noqa: BLE001
-            out["publication"] = {"error": f"{type(exc).__name__}: {exc}"[:200]}
+            verdict = for_publish(db, slug=slug, version=version, today=today or _date.today())
+            out["publish_verdict"] = {"blocks_release": verdict["blocks_release"],
+                                      "reasons": [str(r)[:300] for r in verdict["reasons"]],
+                                      "search": (verdict.get("search") or {}).get("verdict")}
+        except Exception as exc:  # noqa: BLE001 - an uncomputable verdict is a finding
+            out["publish_verdict"] = {"error": f"{type(exc).__name__}: {exc}"[:300],
+                                      "blocks_release": True, "reasons": []}
     return out
 
 
@@ -261,26 +262,15 @@ def _blockers(st: dict, ch: dict | None, prod: dict | None) -> list[dict]:
         if st.get("launch_scope") and not (img and img.get("usable")):
             add("listing_imagery", COMPANY,
                 f"no usable listing imagery on the chain DB: {img}", "re-run assets.build")
-        srch = ch.get("search") or {}
-        if srch.get("verdict") and srch["verdict"] != "PASS":
-            for r in srch.get("reasons", [])[:4]:
-                clearer = OWNER if "hero" in r and "vision" in r.lower() else COMPANY
-                add("search_certificate", clearer, r, "re-run listing.seo once inputs exist")
-        pub = ch.get("publication") or {}
-        for r in pub.get("reasons", []):
-            if r.startswith("FIRST_CUSTOMER_BLOCKING"):
-                low = r.lower()
-                if "fulfilment" in low:
-                    clearer = OWNER
-                elif "gauge_and_size" in low or "unresolved" in low:
-                    clearer = OWNER
-                elif "etsy_remote_state" in low:
-                    clearer = EXTERNAL
-                else:
-                    clearer = COMPANY
-                add("first_customer", clearer, r)
-            elif r.startswith(("LEGACY_PRE_CALIBRATION", "NOT_CERTIFIED")):
-                add("release_on_file", COMPANY, r, "re-certify under the current standard")
+        if ch.get("release") is None:
+            add("not_built_by_planner", COMPANY,
+                f"the shadow plan.cycle never drafted this product (jobs: {ch.get('jobs')})",
+                "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)")
+        for r in (ch.get("publish_verdict") or {}).get("reasons", []):
+            gate, clearer, action = classify_reason(r)
+            add(gate, clearer, r, action)
+        if (ch.get("publish_verdict") or {}).get("error"):
+            add("publish_verdict_error", COMPANY, ch["publish_verdict"]["error"], "fix the crash")
     if prod:
         if prod.get("version") and st.get("version") and prod["version"] != st["version"]:
             add("production_stale", DEPLOY,
@@ -293,6 +283,43 @@ def _blockers(st: dict, ch: dict | None, prod: dict | None) -> list[dict]:
                 "deploy (Launch-0 disclosed renders exist in this code)"
                 if st.get("launch_scope") else "no imagery route outside Launch-0")
     return out
+
+
+# store.publish reason text -> (gate, clearer, action). First match wins; the default is
+# company work, so an unrecognised reason can never be reported as somebody else's job.
+REASON_RULES: tuple[tuple[str, str, str, str], ...] = (
+    ("category UNKNOWN", "etsy_taxonomy_snapshot", EXTERNAL,
+     "listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's "
+     "Etsy credentials); no node is assumed"),
+    ("no category, so no property schema", "etsy_taxonomy_snapshot", EXTERNAL,
+     "follows the taxonomy snapshot"),
+    ("gauge_and_size_claims", "physical_sample", OWNER,
+     "a pattern tester works this content (tester_roster); owner parked self-crocheting"),
+    ("etsy_remote_state", "etsy_remote_confirmation", EXTERNAL,
+     "first authorised Etsy draft confirms image upload / remote state"),
+    ("fulfilment_and_download", "durable_artifact_storage", OWNER,
+     "owner approves object storage (CA$1-5/month, existing ceiling)"),
+    ("NAME_OUTRUNS_PATTERN", "name_truth", COMPANY,
+     "rename to what the pattern makes or change the CIR (new version)"),
+    ("RETIRED_DUPLICATE", "retired_duplicate", COMPANY, "withdraw; publish the successor"),
+    ("LEGACY_PRE_CALIBRATION", "release_on_file", COMPANY, "re-certify under current standard"),
+    ("NOT_CERTIFIED", "release_on_file", COMPANY, "certify"),
+    ("image_vision", "image_vision_hero", OWNER, "owner ruling on the vision gate"),
+    ("missed window", "seasonal_window", COMPANY, "reschedule to the next buying window"),
+    ("owner veto", "owner_veto", OWNER, "owner rules on the veto"),
+    ("mobile QA", "listing_imagery_qa", COMPANY, "repair the frames the mobile QA flags"),
+    ("listing-set certificate", "listing_set_certificate", COMPANY,
+     "issue the listing-set certificate once the frame gates pass"),
+    ("hero", "search_hero", COMPANY, "frame 1 must pass all four gates"),
+    ("search certificate", "search_certificate", COMPANY, "re-run listing.seo"),
+)
+
+
+def classify_reason(reason: str) -> tuple[str, str, str]:
+    for needle, gate, clearer, action in REASON_RULES:
+        if needle in reason:
+            return gate, clearer, action
+    return "publish_gate", COMPANY, "clear the named gate"
 
 
 def shortest_path(st: dict, blockers: list[dict]) -> list[str]:
@@ -327,13 +354,14 @@ def classify(st: dict, blockers: list[dict]) -> str:
     return "OWNER_AND_DEPLOY_GATED"
 
 
-def inventory(*, db=None, production: dict | None = None, extra_slugs=()) -> dict:
+def inventory(*, db=None, production: dict | None = None, extra_slugs=(), today=None) -> dict:
     """The full product inventory. `production` maps slug -> observed production listing."""
     production = production or {}
     items = []
     for slug in universe(tuple(extra_slugs) + tuple(production)):
         st = static_truth(slug)
-        ch = chain_evidence(db, slug, st.get("version")) if (db is not None and st.get("exists")) else None
+        ch = (chain_evidence(db, slug, st.get("version"), today=today)
+              if (db is not None and st.get("exists")) else None)
         prod = production.get(slug)
         blockers = _blockers(st, ch, prod)
         items.append({"slug": slug, "status": classify(st, blockers), "static": st,

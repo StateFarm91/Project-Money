@@ -46,6 +46,9 @@ class Design:
     yarn: str = "worsted acrylic"
     yarn_weight: str = "worsted"
     note: str = ""
+    # How many identical pieces the pattern tells the maker to work (Component.make). A
+    # title that names a set or a pair is backed only by this (launch0.title_promise).
+    pieces: int = 1
 
 
 class DesignDoesNotFit(ValueError):
@@ -242,7 +245,8 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
         materials=[Material(name=design.yarn, yarn_weight=design.yarn_weight, color_id=c)
                    for c in colour_names],
         components=[Component(name="panel", construction="flat_rows", rows=rows,
-                              foundation=design.width_stitches, foundation_kind="chain")],
+                              foundation=design.width_stitches, foundation_kind="chain",
+                              make=design.pieces)],
         designer_notes=(
             f"{motif.name} on a {motif.width}-stitch repeat, {across} across and "
             + (f"{design.motif_repeats} up ({design.motif_repeats * len(motif.grid)} motif rows). "
@@ -256,7 +260,11 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
         # F-783: where this design came from. Built from the Brambleloop motif library and
         # palette table by this module's deterministic tiler; no benchmark was consulted.
         provenance=catalogue_provenance(
-            design.slug, {"builder": "products.builder.build", "design": vars(design),
+            design.slug, {"builder": "products.builder.build",
+             # `pieces` is recorded only when it says something (W4-PIPE): a field added
+             # with its default must not change the content of designs already released.
+             "design": {k: v for k, v in vars(design).items()
+                        if not (k == "pieces" and v == 1)},
                           "motif_grid": list(motif.grid)},
             ("products.builder", f"products.motifs:{motif.slug}",
              f"products.builder.PALETTES:{design.palette}")),
@@ -297,14 +305,20 @@ CATALOGUE: dict[str, Design] = {
     "harvest-table-runner": Design(
         slug="harvest-table-runner", title="Harvest Table Runner",
         motif="chevron-band", palette="autumn", width_stitches=48, motif_repeats=14),
+    # W4-PIPE 1.3.0: the title claimed a pair and a mosaic; the CIR made one panel with one
+    # colour per row. It now makes two (pieces=2) and is named for the relief it works.
     "mosaic-placemat-pair": Design(
-        slug="mosaic-placemat-pair", title="Mosaic Placemat Pair",
-        motif="diamond-lattice", palette="cottage", width_stitches=45, motif_repeats=5),
+        slug="mosaic-placemat-pair", title="Diamond Lattice Placemat Pair",
+        motif="diamond-lattice", palette="cottage", width_stitches=45, motif_repeats=5,
+        pieces=2,
+        note="Make two. The lattice is a relief: double crochet standing above a "
+             "single-crochet ground, one colour per row."),
+    # W4-PIPE 1.3.0: "Set (6)" over a CIR that made one ornament; the pattern now makes six.
     "nordic-star-ornaments": Design(
         slug="nordic-star-ornaments", title="Nordic Star Ornament Set (6)",
-        motif="snowfall", palette="nordic", width_stitches=12, motif_repeats=1,
+        motif="snowfall", palette="nordic", width_stitches=12, motif_repeats=1, pieces=6,
         note="One ornament per repeat; the twelve-row snowfall keeps each one ornament-sized "
-             "rather than the twenty-four rows the fir band would impose."),
+             "rather than the twenty-four rows the fir band would impose. Make six."),
     "spooky-garland": Design(
         slug="spooky-garland", title="Spooky Bunting Garland",
         motif="pumpkin-row", palette="autumn", width_stitches=40, motif_repeats=2),
@@ -352,6 +366,10 @@ YARN_DERIVED: frozenset[str] = frozenset(CATALOGUE) - frozenset(LEGACY_HELD)
 # longer measured as a dc row), and colour-change notes that the rows can actually obey.
 RELEASE_VERSIONS: dict[str, str] = {slug: "1.2.0" for slug in CATALOGUE}
 RELEASE_VERSIONS["autumn-oak-mosaic-throw"] = "1.1.0"   # LEGACY_HELD, never re-derived
+# W4-PIPE (2026-10-07): piece count made true (pieces=2 / pieces=6) and the placemat named for
+# the relief fabric it works rather than a mosaic it cannot.
+RELEASE_VERSIONS["mosaic-placemat-pair"] = "1.3.0"
+RELEASE_VERSIONS["nordic-star-ornaments"] = "1.3.0"
 
 
 def for_slug(slug: str, version: str = "1.0.0") -> CIR | None:
