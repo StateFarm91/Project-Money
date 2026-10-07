@@ -3001,6 +3001,13 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
         slug, event = (parts[1:3] + ["", ""])[:2]
         year = parts[3] if len(parts) > 3 else None
         current = plan_for.get((slug, event))
+        if current is None and occasion_for(slug) == event:
+            # W4-OWNER: the occasion matches, so "not merchandised for it" would be false;
+            # what is true is that no certified plan schedules this product any more.
+            return (f"{slug} has no seasonal plan this run (it is not a certified product "
+                    f"in the catalogue the calendar schedules), so it has no {event} launch "
+                    f"window to be at risk in. It is raised again if it is certified and "
+                    f"still at risk.")
         if current is None:
             return (f"{slug} is not merchandised for {event} (its occasion is "
                     f"{occasion_for(slug)}), so it has no {event} window to be at risk in. "

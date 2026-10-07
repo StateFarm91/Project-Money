@@ -184,7 +184,101 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "postcondition": ("ops.truth sweep", "the postcondition reads VERIFIED again"),
     "etsy.oauth.needs_owner": ("owner", "re-authorise the Etsy app in a browser"),
     "etsy.auth_needs_owner": ("owner", "re-authorise the Etsy app in a browser"),
+    # W4-OWNER: the families production actually held open on 2026-10-06 (18 rows), each
+    # with the detector that reconciles it. None of them is the owner's.
+    "seasonal.at_risk": ("seasonal.sentinel", "re-keyed by event and year; resolves when the "
+                                              "product is no longer at risk, its occasion "
+                                              "does not match, or the occurrence passes"),
+    "seasonal.calendar_behind": ("seasonal.sentinel", "resolves when the milestones have "
+                                                      "evidence, no lane can still reach a "
+                                                      "customer, or the occurrence passes"),
+    "seasonal.preparation_late": ("seasonal.sentinel", "resolves when the stream's "
+                                                       "preparation evidence is recorded"),
+    "build.stalled": ("build.tick", "resolves when the watchdog verdict is not a claimed-"
+                                    "but-idle stall (moving / awaiting a build session / "
+                                    "waiting on gates)"),
+    "scheduler.cadence_failed": ("ops.health hygiene", "resolves when the cadence enqueues "
+                                                       "a job again after the failure"),
+    "paid_call.unresolved": ("operator", "reconcile the paid call's outcome at the provider; "
+                                         "never re-sent automatically (F-339)"),
+    "effect.reconcile": ("operator", "reconcile the external effect's outcome; automatic "
+                                     "repeat is refused"),
 }
+
+
+# ---- W4-OWNER: rule-based hygiene. Closing is by rule with a stated reason, never deletion.
+
+def close_duplicates(session, *, now: datetime | None = None) -> list[dict]:
+    """Two open rows with one signature are one condition: keep the oldest, fold the others'
+    report counts into it and resolve them as duplicates of it (with resolved_at)."""
+    from sqlalchemy import select
+
+    by_sig: dict[str, list[Incident]] = {}
+    for row in session.scalars(select(Incident).where(
+            Incident.resolved == False).order_by(Incident.id)):  # noqa: E712
+        by_sig.setdefault(row.signature, []).append(row)
+    out = []
+    for sig, rows in by_sig.items():
+        if len(rows) < 2:
+            continue
+        keep, dups = rows[0], rows[1:]
+        keep.report_count = int(keep.report_count or 1) + sum(int(d.report_count or 1)
+                                                               for d in dups)
+        for d in dups:
+            merged = dict(d.detail or {})
+            merged["resolution"] = (f"duplicate of incident #{keep.id} (same signature "
+                                    f"{sig!r}); its reports were folded into that row")
+            merged["resolved_at"] = _now_iso(now)
+            merged["duplicate_of"] = keep.id
+            merged.setdefault("last_seen", merged.get("first_seen") or _aware(d.at).isoformat())
+            d.detail = merged
+            d.resolved = True
+            out.append({"id": d.id, "duplicate_of": keep.id, "signature": sig})
+    return out
+
+
+CADENCE_FAILED = "scheduler.cadence_failed:"
+
+
+def close_recovered_cadences(session, *, now: datetime | None = None) -> list[str]:
+    """`scheduler.cadence_failed:<name>` stops holding once that cadence's job type has been
+    enqueued again after the failure was last seen."""
+    from sqlalchemy import select
+
+    from ..core.models import Job
+
+    resolved = []
+    for row in session.scalars(select(Incident).where(
+            Incident.signature.like(f"{CADENCE_FAILED}%"),
+            Incident.resolved == False)):  # noqa: E712
+        detail = row.detail or {}
+        job_type = detail.get("job_type")
+        if not job_type:
+            continue
+        last = detail.get("last_seen")
+        try:
+            since = _aware(datetime.fromisoformat(last)) if last else _aware(row.at)
+        except ValueError:
+            since = _aware(row.at)
+        job = session.scalar(select(Job).where(Job.job_type == job_type)
+                             .order_by(Job.id.desc()).limit(1))
+        if job is None or job.created_at is None or _aware(job.created_at) <= since:
+            continue
+        merged = dict(detail)
+        merged["resolution"] = (f"cadence recovered: {job_type} job #{job.id} was enqueued at "
+                                f"{_aware(job.created_at).isoformat()}, after the failure")
+        merged["resolved_at"] = _now_iso(now)
+        merged.setdefault("last_seen", _aware(row.at).isoformat())
+        row.detail = merged
+        row.resolved = True
+        resolved.append(row.signature)
+    return resolved
+
+
+def hygiene(session, *, now: datetime | None = None) -> dict:
+    """The rule-based closes run on the ops.health sweep. Never deletes a row."""
+    return {"duplicates": close_duplicates(session, now=now),
+            "cadences_recovered": close_recovered_cadences(session, now=now)}
 CONFIRMED_WITHIN_HOURS = 48
 
 
