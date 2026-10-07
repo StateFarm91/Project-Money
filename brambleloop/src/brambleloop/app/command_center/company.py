@@ -546,6 +546,7 @@ def company(db) -> dict:
         "finance": money,
         "autonomy": auto,
         "learn": improve,
+        "learn_outcomes": guard("learn_outcomes", lambda: learn_outcomes(db, improve)),
         "build2_closure": b2,
         "final_master_closure": fm,
         "visual": visual,
@@ -713,6 +714,57 @@ def visual_stages() -> dict:
                     reason=None if items else "no stages in the visual status file",
                     stage_display={i["stage"]: f"{i['status']} ({i['basis']})" for i in items},
                     launch_imagery=data.get("launch_imagery"))
+
+
+# ---- W4-LEARN wiring (W4L-2): what learning can measure before a sale ----------------------
+
+
+def learn_outcomes(db, improve: dict | None = None) -> dict:
+    """Pre-sale internal outcomes (N / 9, never customer outcomes), the capability cells that
+    can only be measured after launch, and the CA$5,000/month model state. UNMEASURED is
+    shown as UNMEASURED, never 0 / 0.00."""
+    if not isinstance(improve, dict) or "presale" not in improve:
+        from ...learn import improvement_status
+
+        improve = improvement_status.summary(db)
+    pre = improve.get("presale") or {}
+    cells = improve.get("cells") or {}
+    items = []
+    n, of = pre.get("measured"), pre.get("of")
+    items.append({"metric": "presale_outcomes_measured", "label": "pre-sale outcomes measured "
+                  "(internal, not customer outcomes)",
+                  "value": f"{n} / {of}" if isinstance(n, int) else "UNKNOWN",
+                  "state": "MEASURED" if isinstance(n, int) else "UNKNOWN",
+                  "why": pre.get("reason") or pre.get("note")})
+    if "error" in cells or not cells:
+        items.append({"metric": "capability_cells", "label": "capability cells measured",
+                      "value": "UNKNOWN", "state": "UNKNOWN",
+                      "why": cells.get("error") or "cells not reported"})
+    else:
+        items.append({"metric": "capability_cells", "label": "capability cells measured",
+                      "value": f"{cells.get('measured')} / {cells.get('cells')}",
+                      "state": "MEASURED"})
+        pl = list(cells.get("post_launch_only") or [])
+        items.append({"metric": "post_launch_only_cells", "label": "cells measurable only "
+                      "after launch (DATA-GATED: no customer evidence yet)",
+                      "value": ", ".join(pl) if pl else "none", "count": len(pl),
+                      "state": "DATA-GATED" if pl else "MEASURED"})
+    try:
+        from ...scale.confidence import probability
+
+        p = probability(db)
+        items.append({"metric": "ca5k_model", "label": "modelled probability of CA$5,000/month",
+                      "value": p.get("display"), "state": p.get("state"),
+                      "why": None if p.get("state") == "MEASURED" else
+                      "evidence gate unmet: " + ", ".join(
+                          sorted((p.get("evidence_gate") or {}).get("unmet") or []))})
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never 0.00
+        items.append({"metric": "ca5k_model", "label": "modelled probability of CA$5,000/month",
+                      "value": "UNKNOWN", "state": "UNKNOWN",
+                      "why": f"unreadable: {type(exc).__name__}"})
+    return envelope("OK", items, ["learn.improvement_status.summary", "improve.presale",
+                                  "improve.cells", "scale.confidence.probability"],
+                    provider="learn.outcomes", basis="measured")
 
 
 # ---- W4-OWNER wiring: the consolidated owner decision packet -------------------------------

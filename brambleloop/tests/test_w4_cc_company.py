@@ -549,6 +549,90 @@ def test_visual_stages_show_partial_measured_or_unknown():
             os.environ[company.VISUAL_ENV] = prev
 
 
+def test_owner_decision_batches_in_approvals():
+    """W4-OWNER: the committed decision packet renders batch first; a missing packet falls
+    back to the live inbox batches; a non-costed item is UNKNOWN, never CA$0."""
+    prev = os.environ.get(company.OWNER_ACTIONS_ENV)
+    try:
+        os.environ.pop(company.OWNER_ACTIONS_ENV, None)
+        env = company.owner_decision_batches({})
+        assert env["status"] == "OK" and env["items"], env.get("reason")
+        assert env["decisions"] == sum(int(b["decisions"] or 0) for b in env["items"])
+        for b in env["items"]:
+            assert b["max_cost"], b
+            for d in b["items"]:
+                assert "CA$0.00" != d["max_cost"] or d["max_cost_cad"] == 0, d
+        os.environ[company.OWNER_ACTIONS_ENV] = _write_board({
+            "generated_at": "2026-10-07", "batches": [{"id": "b", "title": "B", "items": [
+                {"id": "x", "decision": "d", "why": "w", "minutes": 3}]}]})
+        one = company.owner_decision_batches({})
+        assert one["items"][0]["items"][0]["max_cost"] == "UNKNOWN (not costed)"
+        assert one["items"][0]["max_cost"].startswith("UNKNOWN")
+        os.environ[company.OWNER_ACTIONS_ENV] = os.path.join(_TMP, "absent_owner.json")
+        assert company.owner_decision_batches({})["status"] == "UNKNOWN"
+        live = company.owner_decision_batches({"batches": [{"id": "l", "items": [{"id": "y"}]}]})
+        assert live["status"] == "OK" and "live" in live["sources"][0]
+        os.environ.pop(company.OWNER_ACTIONS_ENV, None)
+        r = session().get("/api/cc/approvals")
+        assert r.status_code == 200, r.text[:300]
+        db_ = r.json().get("decision_batches")
+        assert isinstance(db_, dict) and db_.get("status") in providers.STATUSES, db_
+    finally:
+        if prev is None:
+            os.environ.pop(company.OWNER_ACTIONS_ENV, None)
+        else:
+            os.environ[company.OWNER_ACTIONS_ENV] = prev
+
+
+def test_learn_outcomes_presale_post_launch_and_ca5k_unmeasured():
+    """W4L-2: pre-sale outcomes N / 9 (internal), post-launch-only cells DATA-GATED, and the
+    CA$5K model UNMEASURED (never 0.00) on a fresh shadow DB; also on the dashboard."""
+    env = company.learn_outcomes(DB)
+    by = {i["metric"]: i for i in env["items"]}
+    assert by, env
+    assert re.fullmatch(r"\d+ / 9", by["presale_outcomes_measured"]["value"]), by
+    assert "post_launch_only_cells" in by, by
+    assert by["post_launch_only_cells"]["state"] == "DATA-GATED", by["post_launch_only_cells"]
+    k = by["ca5k_model"]
+    assert k["state"] == "UNMEASURED" and "0.00" not in str(k["value"]), k
+    r = session().get("/api/cc/company")
+    assert r.status_code == 200
+    lo = r.json()["sections"]["learn_outcomes"]
+    assert lo["status"] in providers.STATUSES and lo["items"], lo
+    html = TestClient(main.app, base_url="https://testserver").get("/").text
+    assert "pre-sale outcomes measured" in html and "post-launch-only cells" in html
+
+
+def test_money_period_reaches_accounting_window():
+    """F-914: GET /api/cc/money?period=/window= is passed to dashboard.summary(window=...)."""
+    from brambleloop.app.command_center import tabs
+
+    assert tabs.money_window("") is None
+    assert tabs.money_window("month") == "mtd" and tabs.money_window("ytd") == "ytd"
+    assert tabs.money_window("last_month", datetime(2026, 1, 15, tzinfo=timezone.utc)) == "2025-12"
+    assert tabs.money_window("2026-09") == "2026-09"
+    for bad in ("7d", "2026-13", "drop table"):
+        try:
+            tabs.money_window(bad)
+            raise AssertionError(bad)
+        except ValueError:
+            pass
+    c = session()
+    r = c.get("/api/cc/money?window=ytd")
+    assert r.status_code == 200, r.text[:300]
+    d = r.json()
+    assert d["window"] == "ytd", d.get("window")
+    acct = d["sections"]["accounting"]
+    if acct["status"] != "UNKNOWN":
+        assert str(acct.get("window", "")).startswith("year to date"), acct.get("window")
+        assert d["period"].startswith("year to date"), d.get("period")
+    r = c.get("/api/cc/money?period=all")
+    assert r.status_code == 200 and r.json()["window"] == "all"
+    r = c.get("/api/cc/money?period=bogus")
+    assert r.status_code == 400 and r.json()["code"] == "BAD_PERIOD"
+    assert c.get("/api/cc/money").json()["window"] is None
+
+
 if __name__ == "__main__":
     t0 = time.monotonic()
     fails = 0

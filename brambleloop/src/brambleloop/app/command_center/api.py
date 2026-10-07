@@ -159,12 +159,21 @@ def make_router(db) -> APIRouter:
         return ok(tabs.store(db))
 
     @router.get("/money")
-    def money(request: Request):
-        return ok(tabs.money(db))
+    def money(request: Request, period: str = "", window: str = ""):
+        # F-914: a period (PWA `period`, or `window`) reaches the accounting summary.
+        try:
+            w = tabs.money_window((window or period)[:20])
+        except ValueError as exc:
+            return ok({"error": str(exc), "code": "BAD_PERIOD"}, 400)
+        return ok(tabs.money(db, w))
 
     @router.get("/money/drill")
-    def money_drill(request: Request, metric: str = ""):
-        return ok(tabs.money_drill(db, metric))
+    def money_drill(request: Request, metric: str = "", period: str = "", window: str = ""):
+        try:
+            w = tabs.money_window((window or period)[:20])
+        except ValueError as exc:
+            return ok({"error": str(exc), "code": "BAD_PERIOD"}, 400)
+        return ok(tabs.money_drill(db, metric, w))
 
     @router.get("/operations")
     def operations(request: Request):

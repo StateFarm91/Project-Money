@@ -130,7 +130,7 @@ export async function render({ params }) {
     finalMasterCard(s.final_master_closure, result),
     ...renderAll(data, [["blockers", "Blockers"], ["owner_actions", "Your actions"], ["approvals", "Approvals"],
       ["finance", "Finance"], ["store", "Store"], ["store_visibility", "Store visibility"], ["product_pipeline", "Product pipeline"],
-      ["autonomy", "Autonomy"], ["learn", "Learn / improvement"], ["visual_stages", "Visual pipeline stages"], ["visual", "Visual R&D"],
+      ["autonomy", "Autonomy"], ["learn", "Learn / improvement"], ["learn_outcomes", "Learning: pre-sale and post-launch"], ["visual_stages", "Visual pipeline stages"], ["visual", "Visual R&D"],
       ["store_live_drift", "Live shop vs repo drafts"], ["competitor_intel", "Competitor findings"], ["laura", "Laura"],
       ["completion_effort", "Completion effort"]],
     { result, required: ["blockers", "finance", "store", "product_pipeline", "visual", "visual_stages"],

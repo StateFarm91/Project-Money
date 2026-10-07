@@ -5454,7 +5454,27 @@ def dashboard() -> str:
             ("regressed", ", ".join(report["regressed_cells"]) or "none"),
             ("bottleneck", str(report["bottleneck"] or "none")),
             ("lessons acted on", f"{comp['acted_on']} / {comp['routed']}"),
+            # W4L-2: what can move before a sale (internal, never a customer outcome), and
+            # which cells only customer evidence can measure (DATA-GATED, not "0 measured").
+            *_learn_presale_rows(report["unmeasured_cells"]),
         ], [["Improvement", "Value"]], "")
+
+    def _learn_presale_rows(unmeasured: list) -> list:
+        from ..improve.measure import DATA_GATED_CELLS
+
+        post = [c for c in unmeasured if c in DATA_GATED_CELLS]
+        out = [("post-launch-only cells (DATA-GATED: no customer evidence yet)",
+                ", ".join(post) if post else "none")]
+        try:
+            from ..improve import presale
+
+            pre = presale.summary(db)
+            n = pre.get("measured")
+            val = (f"{n} / {pre.get('of')}" if isinstance(n, int) else
+                   f"UNKNOWN: {pre.get('reason') or 'unreadable'}")
+        except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never 0
+            val = f"UNKNOWN: {type(exc).__name__}"
+        return [("pre-sale outcomes measured (internal, not customer outcomes)", val)] + out
 
     def _models() -> str:
         from ..gateway.routing import budget
