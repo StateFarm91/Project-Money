@@ -75,6 +75,28 @@ def test_mine_publishes_no_lesson_for_a_shadow_refusal():
     db.engine.dispose()
 
 
+def test_mine_turns_a_release_gate_block_into_one_routed_lesson():
+    from brambleloop.core.models import AuditLog
+    from brambleloop.improve import bus, mine
+    db = _db()
+    with db.session() as s:
+        for slug in ("a", "b", "c"):
+            s.add(AuditLog(actor="store", action="store.release_gates", artifact=slug,
+                           detail={"slug": slug, "blocks_release": True, "reasons": [
+                               "search certificate (F-005): category UNKNOWN -- no stored "
+                               "Etsy taxonomy snapshot"]}))
+        s.add(AuditLog(actor="store", action="store.release_gates", artifact="d",
+                       detail={"slug": "d", "blocks_release": False, "reasons": []}))
+    out = mine.mine(db)
+    assert out["found"] == 1, out
+    entry = out["published"][0]
+    assert entry["evidence_ref"] == "store.release_gates:search certificate f-005", entry
+    assert "learn" in entry["routed_to"]
+    assert mine.mine(db)["found"] == 0                   # idempotent on evidence
+    assert bus.compounding(db)["lessons"] == 1
+    db.engine.dispose()
+
+
 # ---- post-launch ingestion paths (verified with fixture rows; no customer exists) ------------
 
 
