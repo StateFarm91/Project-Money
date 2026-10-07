@@ -413,6 +413,11 @@ def read(relative_path: str, *, role: str = ANALYST_ROLE, env: dict[str, str] | 
     inv = inventory(data)
     out = {"ref": ref, "file": relative_path, "read_by": available(),
            "role": role, **inv.to_dict()}
+    # F-755: the whole size family is parsed and checked before any one size is frozen for a
+    # benchmark or a render (numbers and page numbers only).
+    from .size_family import all_size_parse, numeric_summary
+
+    out["size_family"] = numeric_summary(all_size_parse(_pages(data)[0]))
     if db is not None:
         from ..gates.originality import record_fingerprint
         from .licence import ref_of

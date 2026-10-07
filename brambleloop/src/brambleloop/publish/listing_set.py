@@ -48,6 +48,8 @@ DISCLOSED_RENDER = "disclosed_render"
 # (`visual.launch_imagery.check_supplement`). Held to the same disclosure rules as a
 # disclosed render. Mirrors `visual.launch_imagery.SUPPLEMENT_KIND`.
 DISCLOSED_SUPPLEMENT = "disclosed_gallery_frame"
+# W4-VISUAL2: the medium of the CONTENTS supplement (pages of the certified pattern PDF).
+PREVIEW_MEDIUM = "PATTERN_PREVIEW"   # gates.asset_truth.AssetClass.PATTERN_PREVIEW.value
 # Mirrors `cir.model.SINGLE_VARIANT`: a product with no optional features has one variant.
 SINGLE_VARIANT = "single"
 
@@ -81,7 +83,25 @@ class CertifiedFrame:
     represented_variant: str = ""
 
     def __post_init__(self) -> None:
-        if self.kind in (DISCLOSED_RENDER, DISCLOSED_SUPPLEMENT):
+        if self.kind == DISCLOSED_SUPPLEMENT and self.medium == PREVIEW_MEDIUM:
+            # W4-VISUAL2: the CONTENTS frame previews the certified pattern PDF. It is not a
+            # render of the finished design, so it carries the pattern-preview label
+            # (`eligibility.PREVIEW_LABEL`, the label its medium computes) first in its alt
+            # text and as its honesty label -- never the render disclosure, which would
+            # describe something it does not show -- and it may do CONTENTS only.
+            from .disclosed_listing import ALT_TEXT_MAX
+
+            if self.job != eligibility.CONTENTS:
+                raise ListingSetRefused(f"{self.asset_id}: a pattern preview supplement does "
+                                        f"CONTENTS only, not {self.job}")
+            if self.honesty_label != eligibility.PREVIEW_LABEL or not (
+                    self.alt_text or "").startswith(eligibility.PREVIEW_LABEL):
+                raise ListingSetRefused(f"{self.asset_id}: a pattern preview is certified only "
+                                        f"with the preview label as its honesty label and "
+                                        f"first in its alt text")
+            if len(self.alt_text) > ALT_TEXT_MAX:
+                raise ListingSetRefused(f"{self.asset_id}: alt text longer than Etsy allows")
+        elif self.kind in (DISCLOSED_RENDER, DISCLOSED_SUPPLEMENT):
             from .disclosed_listing import ALT_TEXT_MAX, DISCLOSURE, _phrase_in
 
             if not _phrase_in(self.alt_text):
@@ -349,7 +369,9 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
                                     f"at positions {expected}")
         taken = {f.job for f in frames}
         for f in supplements:
-            if f.kind != DISCLOSED_SUPPLEMENT or f.medium != frames[0].medium:
+            preview = f.medium == PREVIEW_MEDIUM and f.job == eligibility.CONTENTS
+            if f.kind != DISCLOSED_SUPPLEMENT or (f.medium != frames[0].medium
+                                                  and not preview):
                 raise ListingSetRefused(f"{f.asset_id}: only a disclosed gallery frame may "
                                         f"supplement a disclosed set")
             if f.job in taken:
@@ -370,7 +392,9 @@ def certify_disclosed(*, slug: str, version: str, rec: dict,
                                                        supplement_qa=supplement_qa
                                                        if supplements else None),
                    geometry=geometry, claims=claims, policy_version=policy_version,
-                   platform_policy=platform_policy, disclosures=(DISCLOSURE,),
+                   platform_policy=platform_policy,
+                   disclosures=(DISCLOSURE,) + ((eligibility.PREVIEW_LABEL,) if any(
+                       f.medium == PREVIEW_MEDIUM for f in frames) else ()),
                    variant=listing_variant if listing_variant is not None else filed)
 
 

@@ -223,14 +223,24 @@ def _imports_cached(snapshot, mod: str) -> frozenset[str]:
 _DOTTED_MODULE = re.compile(r"brambleloop(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
 
 
-@_graph_boundary
-def _dynamic_importer(mod: str) -> bool:
-    """Does this module import by name (importlib.import_module / __import__)?"""
+@lru_cache(maxsize=1024)
+def _dynamic_importer_cached(snapshot, mod: str) -> bool:
     tree = _parse(mod)
     if tree is None:
         return False
     return any(isinstance(n, ast.Call) and _call_name(n) in ("import_module", "__import__")
                for n in ast.walk(tree))
+
+
+@_graph_boundary
+def _dynamic_importer(mod: str) -> bool:
+    """Does this module import by name (importlib.import_module / __import__)?
+
+    Cached per source snapshot, like `_imports`: `_Analysis._provider_pairs` asks this once
+    per visited function, and an uncached answer re-walks the whole module tree each time
+    (~11k full walks of modules like runtime/release.py: minutes of CPU inside the daily
+    `ops.maturity_disagreements` job, which starved the single embedded worker)."""
+    return _dynamic_importer_cached(_GRAPH_SCOPE.get()["key"], mod)
 
 
 @_graph_boundary
@@ -787,6 +797,7 @@ def function_reached(rel: str, qual: str) -> dict:
 def clear_cache() -> None:
     _parse_source.cache_clear()
     _imports_cached.cache_clear()
+    _dynamic_importer_cached.cache_clear()
     _reachable_cached.cache_clear()
     _references_cached.cache_clear()
 
@@ -794,5 +805,6 @@ def clear_cache() -> None:
 # Existing certification callers explicitly clear these caches between fixtures.
 _parse.cache_clear = _parse_source.cache_clear
 _imports.cache_clear = _imports_cached.cache_clear
+_dynamic_importer.cache_clear = _dynamic_importer_cached.cache_clear
 reachable.cache_clear = _reachable_cached.cache_clear
 _references.cache_clear = _references_cached.cache_clear

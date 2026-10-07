@@ -558,7 +558,8 @@ def disclosed_imagery(db, slug: str, version: str) -> dict | None:
             except ArtifactMissing:
                 problems.append(f"gallery frame {f.get('position')} bytes are not on file")
                 continue
-            v = check_supplement(slug, version, str(f.get("job") or ""), data)
+            v = check_supplement(slug, version, str(f.get("job") or ""), data, db=db,
+                                 store=store)
             if v["status"] != "PASS":
                 problems.append(f"gallery frame {f.get('position')} ({f.get('job')}) does not "
                                 f"re-verify: {v['why']}"[:200])

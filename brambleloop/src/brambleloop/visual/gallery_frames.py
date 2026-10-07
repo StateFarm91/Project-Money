@@ -55,8 +55,9 @@ NOT_DRAWABLE = {
     "FIT": "a worn item's fit can only be evidenced by a photograph of it worn",
     "ANGLE": ("a further projection of the 3-D object that the independent pixel verifier "
               "(render_verification) does not yet measure; drawable once it does"),
-    "CONTENTS": ("the pattern PDF's pages; served by the pattern/PDF preview path "
-                 "(publish.pdf), not by a drawing of the object"),
+    "CONTENTS": ("the pattern PDF's pages; not a drawing of the object. Served by "
+                 "visual.contents_frame from the release's certified PDF at listing-set "
+                 "certification (it needs the assets.built PDF on record)"),
 }
 
 TITLE_PX = 64

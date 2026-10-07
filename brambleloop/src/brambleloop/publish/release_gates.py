@@ -630,7 +630,8 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
         reasons.append(f"disclosed export (D-FB-7): {str(e)[:400]}")
     supplements, supplement_qa, supplement_notes = (
         disclosed_supplements(rec, images, slug=slug, version=version, store_root=store_root,
-                              release_fingerprint=getattr(cir, "fingerprint", "") or "")
+                              release_fingerprint=getattr(cir, "fingerprint", "") or "",
+                              db=db)
         if images else ([], None, {}))
     gate_results = ls.disclosed_gate_results(rec, exported=bool(images) and not any(
         r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"],
@@ -682,8 +683,8 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
 
 
 def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
-                          store_root=None, release_fingerprint: str | None = None
-                          ) -> tuple[list, dict | None, dict]:
+                          store_root=None, release_fingerprint: str | None = None,
+                          db=None) -> tuple[list, dict | None, dict]:
     """The verified gallery frames (F-030/F-254) a disclosed set is certified with, their
     QA readings over the whole ordered set, and why any applicable job was left out.
 
@@ -708,7 +709,8 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
         offer = LI.supplements_for_certificate(slug, version, start=len(images) + 1,
                                                exclude_jobs=taken,
                                                store=ArtifactStore(store_root),
-                                               release_fingerprint=release_fingerprint)
+                                               release_fingerprint=release_fingerprint,
+                                               db=db)
     except Exception as exc:  # noqa: BLE001 - no supplements is a coverage gap, not a block
         return [], None, {"*": f"{type(exc).__name__}: {exc}"[:300]}
     notes = dict(offer.get("refused") or {})
@@ -731,8 +733,9 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
         supplements.append(ls.CertifiedFrame(
             position=len(images) + 1 + i, asset_id=f"{slug}-gallery-{f['job'].lower()}",
             sha256=f["sha256"], job=f["job"], purpose=f["purpose"],
-            medium=AssetClass.DIGITAL_TWIN_RENDER.value,
-            honesty_label=ls_disclosure(), kind=ls.DISCLOSED_SUPPLEMENT,
+            medium=f.get("medium") or AssetClass.DIGITAL_TWIN_RENDER.value,
+            honesty_label=f.get("honesty_label") or ls_disclosure(),
+            kind=ls.DISCLOSED_SUPPLEMENT,
             alt_text=f["alt_text"], represented_variant=f["represented_variant"]))
     if not supplements:
         return [], None, notes
@@ -746,7 +749,7 @@ def disclosed_supplements(rec: dict, images: list, *, slug: str, version: str,
                                purpose=purpose.get(f.get("view") or "", el.CUSTOMER_INFORMATION),
                                job=(f.get("disclosed_render") or {}).get("job") or "",
                                position=int(f["position"])) for f in ordered]
-    candidates += [el.Candidate(asset_id=c.asset_id, medium=AssetClass.DIGITAL_TWIN_RENDER,
+    candidates += [el.Candidate(asset_id=c.asset_id, medium=AssetClass(c.medium),
                                 purpose=c.purpose, job=c.job, position=c.position)
                    for c in supplements]
     frame_set = el.check_set(candidates)
@@ -1043,7 +1046,21 @@ def staleness(db, *, slug: str) -> dict:
             "outstanding_only_marketing": only_marketing}
 
 
-def originality_gate(db, *, slug: str, version: str) -> dict:
+def _frame_bytes(db, slug: str, version: str, store_root=None) -> dict[str, bytes]:
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+
+    store = ArtifactStore(store_root)
+    out: dict[str, bytes] = {}
+    for f in _frames(db, slug, version):
+        if f.sha256:
+            try:
+                out[f"frame-{f.position}"] = store.get(f.sha256, db=db)
+            except (ArtifactMissing, OSError):
+                continue
+    return out
+
+
+def originality_gate(db, *, slug: str, version: str, store_root=None) -> dict:
     """Current corpus/rights at protected execution, including evidence added after QA."""
     from ..cir.compiler import compile_cir
     from ..cir.writer import write_pattern
@@ -1058,9 +1075,15 @@ def originality_gate(db, *, slug: str, version: str) -> dict:
             return {"blocks": True, "reasons": ["originality: source CIR no longer compiles"],
                     "state": "UNKNOWN"}
         findings = originality.release_findings(cir, pattern_text=write_pattern(cir, result), db=db)
+        # F-784 / F-795: presentation -- this release's listing frames against every
+        # benchmark image, by perceptual hash.
+        findings.extend(originality.presentation_review(
+            db, frames=_frame_bytes(db, slug, version, store_root)))
         reasons = [f"{f.code}: {f.message}" for f in findings if f.is_error]
         return {"blocks": bool(reasons), "reasons": reasons,
                 "state": "REFUSED" if reasons else "CHECKED", "release_hash": release_hash,
+                "presentation_warnings": [f.message for f in findings
+                                          if f.code == "SIMILARITY_UNMEASURED"],
                 "limitation": "deterministic comparison is not independent legal/creative adjudication"}
     except Exception as exc:
         return {"blocks": True, "reasons": ["originality evidence unavailable: " + type(exc).__name__],
@@ -1076,7 +1099,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     set_verdict = listing_set(db, slug=slug, version=version, store_root=store_root,
                               issue=not stale["blocks"] and window["may_launch_seasonally"])
     reasons = list(stale["reasons"])
-    originality = originality_gate(db, slug=slug, version=version)
+    originality = originality_gate(db, slug=slug, version=version, store_root=store_root)
     reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")

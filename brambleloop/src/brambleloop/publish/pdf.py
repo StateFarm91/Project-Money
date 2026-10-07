@@ -957,6 +957,15 @@ def _refuse_what_the_childrens_assessment_refuses(cir: CIR,
         cir, subcategory=subcategory, audience=audience,
         stated_statements=ch.required_statements(subcategory, audience))
     refused = [f for f in ch.assess(concept) if f.severity == ch.REFUSE]
+    # A wearable is also held to physical plausibility: seams, closures, openings,
+    # proportion and trim, read off the CIR (F-363).
+    if getattr(cir, "grading", None) is not None or subcategory == "childrens_garment":
+        implausible = ch.physical_plausibility(cir)
+        if implausible:
+            raise ValueError(
+                f"refusing to render {cir.slug}: a children's wearable the pattern would make "
+                f"impractical -- " + "; ".join(f"{p['code']}: {p['detail']}"
+                                               for p in implausible))
     if refused:
         raise ValueError(
             f"refusing to render {cir.slug}: it is a {subcategory} product for children "
