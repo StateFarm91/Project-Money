@@ -115,7 +115,22 @@ def authoritative_cir(slug: str, version: str | None = None):
             cir = launch0.cir_for(v.build)
             if cir.slug == slug and (version is None or cir.version == version):
                 return cir
-    return None
+    # W4-VISUAL: a catalogue product outside Launch-0 is measured against the design its
+    # release is engineered from, at its released version (`runtime.pipeline._engineered_cir`: the registered
+    # engineered builder, else `products.builder` CATALOGUE) -- the same definition the
+    # release certifies. A slug no registry defines has no authority and stays None.
+    try:
+        from ..runtime.pipeline import _engineered_cir
+
+        # The builder's own released version only: a builder can stamp any version on
+        # request, and an authority that answered for any asked-for version would be a
+        # frame verified against itself.
+        cir = _engineered_cir(slug)
+    except Exception:  # noqa: BLE001 - a design that cannot be built is no authority
+        return None
+    if cir is None or cir.slug != slug or (version is not None and cir.version != version):
+        return None
+    return cir
 
 
 def body_component(cir, result=None) -> str:

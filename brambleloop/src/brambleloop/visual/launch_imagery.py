@@ -258,16 +258,37 @@ def expected_alt_text(slug: str, job: str) -> str | None:
     return supplement_alt_text(job, found[1])
 
 
+def _category_of(slug: str) -> str:
+    """The product's catalogue category, from where the release chain reads it."""
+    try:
+        from ..runtime.release import _product_record
+
+        return str((_product_record(slug, {}) or {}).get("category") or "")
+    except Exception:  # noqa: BLE001 - an unknown record is an unknown category
+        return ""
+
+
 def _primary_for(slug: str):
-    """(listing slug, candidate title, primary CIR, sibling CIRs) for a release slug that is
-    the primary variant of a Launch-0 listing, else None."""
+    """(listing slug, title, primary CIR, sibling CIRs, category) for a release slug that is
+    a variant of a Launch-0 listing (siblings without SIZING), or a single-variant catalogue product with a
+    render authority (`render_verification.authoritative_cir`); else None."""
     from ..products import launch0
 
     for listing in launch0.LAUNCH0_SLUGS:
-        cand, cirs, _cat = _listing_parts(listing)
+        cand, cirs, cat = _listing_parts(listing)
         if cirs[0].slug == slug:
-            return listing, getattr(cand, "title", listing), cirs[0], cirs[1:]
-    return None
+            return listing, getattr(cand, "title", listing), cirs[0], cirs[1:], cat
+        for c in cirs[1:]:
+            if c.slug == slug:
+                # A sibling variant released under its own slug gets the frames of its own
+                # CIR; SIZING (every size together) stays with the primary's listing.
+                return listing, getattr(cand, "title", listing), c, [], cat
+    from .render_verification import authoritative_cir
+
+    cir = authoritative_cir(slug)
+    if cir is None:
+        return None
+    return slug, cir.title or slug, cir, [], _category_of(slug)
 
 
 def check_supplement(slug: str, version: str, job: str, data: bytes) -> dict:
@@ -283,7 +304,7 @@ def check_supplement(slug: str, version: str, job: str, data: bytes) -> dict:
     found = _primary_for(slug)
     if found is None:
         return {"status": "FAIL", "why": f"{slug} is not the primary variant of a Launch-0 listing"}
-    _listing, _title, primary, siblings = found
+    _listing, _title, primary, siblings, _cat = found
     if primary.version != version:
         return {"status": "FAIL", "why": f"{slug}: certified CIR is {primary.version}, not {version}"}
     sha = hashlib.sha256(data).hexdigest()
@@ -329,14 +350,13 @@ def supplements_for_certificate(slug: str, version: str, *, start: int,
     found = _primary_for(slug)
     if found is None:
         return {"frames": [], "refused": {}, "listing": None}
-    listing, title, primary, siblings = found
+    listing, title, primary, siblings, category = found
     if primary.version != version:
         return {"frames": [], "refused": {"*": f"certified CIR is {primary.version}"},
                 "listing": listing}
     if release_fingerprint is not None and release_fingerprint != primary.fingerprint:
         return {"frames": [], "refused": {"*": "the release's CIR is not the certified CIR the "
                                                "frames are drawn from"}, "listing": listing}
-    _cand, _cirs, category = _listing_parts(listing)
     applicable = el.gallery_jobs_for(category, sizes=1 + len(siblings),
                                      colours=len(primary.colors or {}))
     store = store if store is not None else ArtifactStore()

@@ -187,11 +187,26 @@ def relief(rgb: tuple[int, int, int]) -> tuple[int, int, int]:
 
     A light yarn is drawn 15 % darker on its raised post, a dark yarn 30 % lighter: the
     post is the same yarn catching light differently, and the tone is a contract colour so
-    the verifier can tell a raised stitch from a ground stitch by its pixels alone."""
+    the verifier can tell a raised stitch from a ground stitch by its pixels alone.
+
+    W4-VISUAL: when that default tone lands inside MIN_SEPARATION of its own yarn (a
+    mid-light yarn such as gold #C49545 darkened 15 % sits 39.4 away), the post is drawn
+    5 % further per step until it clears the separation. The minimum is not changed; the
+    tone is made distinct. Every palette whose default tone already clears it -- all Launch-0
+    palettes -- is drawn exactly as before."""
     r, g, b = rgb
-    if 0.2126 * r + 0.7152 * g + 0.0722 * b > 128:
-        return (int(r * 0.85), int(g * 0.85), int(b * 0.85))
-    return (int(r + (255 - r) * 0.30), int(g + (255 - g) * 0.30), int(b + (255 - b) * 0.30))
+    light = 0.2126 * r + 0.7152 * g + 0.0722 * b > 128
+    tone = rgb
+    for step in range(8):
+        if light:
+            f = 0.85 - 0.05 * step
+            tone = (int(r * f), int(g * f), int(b * f))
+        else:
+            f = 0.30 + 0.05 * step
+            tone = (int(r + (255 - r) * f), int(g + (255 - g) * f), int(b + (255 - b) * f))
+        if _dist(tone, rgb) >= MIN_SEPARATION:
+            return tone
+    return tone
 
 
 def separation(yarn: dict[str, tuple[int, int, int]]) -> float:

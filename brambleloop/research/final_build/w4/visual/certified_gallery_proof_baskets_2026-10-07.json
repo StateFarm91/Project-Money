@@ -1,0 +1,95 @@
+{
+ "generated_at": "2026-10-07T03:19:10Z",
+ "products": {
+  "market-basket-medium": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "2853edb459191a8d65a4adaa4ee5782b06c4a33d5340f215ad169a817b55a48a",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "63cbb8b1d67e07cdc2d03a68d57fd54ffcb9c39772b2c1ffc3e4888a00a04946",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "c808e35866fe1402d137f8006c66a49408e5d89585b9bd316bbd73343599bc93",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "ANGLE",
+      "CONSTRUCTION",
+      "COLOUR_CONTEXT",
+      "MATERIALS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 7,
+    "problems": []
+   }
+  },
+  "market-basket-large": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "e4de773ba6b2401ed5b8322feea81563993c23194d0fcab3b957dce005ef2aba",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "9d685d32f7546421bd2d7a1f27e83e2fb1f64ddfd67bdcc42480b61c809bacca",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "4310a0c65f5405890f76a6ac026ec821106c1b2616b7cd0fa5c5946758e0c9ee",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "ANGLE",
+      "CONSTRUCTION",
+      "COLOUR_CONTEXT",
+      "MATERIALS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 7,
+    "problems": []
+   }
+  }
+ }
+}

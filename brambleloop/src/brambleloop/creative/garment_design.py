@@ -74,8 +74,10 @@ QUICK_LANES = frozenset({"QUICK", "SHORT"})
 SC_WORSTED = (gauge_for("worsted"), Material(name="worsted wool", yarn_weight="worsted"))
 # Patterns are software releases: a design generated on SC_WORSTED changed content when its
 # gauge was derived (D-FB-6), so it is released as 1.1.0; DC_DK designs are unchanged at 1.0.0.
-SC_WORSTED_VERSION = "1.1.0"
-DC_DK_VERSION = "1.0.0"
+# F-762 (2026-10-07): every size now carries its family's size matrix and stated fit
+# (`CIR.grading`), new customer-visible content, so each moved one minor.
+SC_WORSTED_VERSION = "1.2.0"
+DC_DK_VERSION = "1.1.0"
 DC_DK = (Gauge(stitches_per_10cm=14, rows_per_10cm=8, stitch_type="dc", hook_mm=4.5,
                yarn_weight="dk"), Material(name="dk cotton", yarn_weight="dk"))
 
@@ -338,7 +340,7 @@ def design_for(concept: Concept) -> GradedDesign:
         requires, primitives = G.DROP_SHOULDER_REQUIRES, ("cir.graded", "cir.shaping.taper",
                                                           "Seam")
     design = GradedDesign(key=key, title=title, table=table, gauge=gauge,
-                          fit=FitIntent(ease), requires=requires, primitives=primitives,
+                          fit=FitIntent(ease, character=ch.ease), requires=requires, primitives=primitives,
                           template=template, measure=G.built_measures)
     design.choices = ch
     return design
