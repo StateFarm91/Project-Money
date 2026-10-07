@@ -571,6 +571,18 @@ VISUAL_ENV = "BRAMBLELOOP_VISUAL_STATUS"
 VISUAL_REL = Path("research") / "final_build" / "w4" / "VISUAL_STATUS.json"
 
 
+# Integrator (W4): the deploy image ships src/ but not research/, so each committed W4 JSON the
+# owner views read has a shipped snapshot under app/command_center/snapshots/ (kept identical by
+# tests/test_w4_cc_snapshots.py; refresh with `python -m brambleloop.app.command_center.snapshots`).
+SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots"
+
+
+def _research_or_snapshot(rel: Path) -> Path:
+    """The research file in a checkout; otherwise the shipped snapshot of the same name."""
+    p = _REPO / rel
+    return p if p.exists() else SNAPSHOT_DIR / rel.name
+
+
 def competitor_intel(db) -> dict:
     """The latest `mjs.findings` reading: each finding with provenance and confidence."""
     from ...intel import findings as intel_findings
@@ -680,7 +692,7 @@ def store_readiness(db, *, now: datetime | None = None) -> dict:
 
 def visual_status_path() -> Path:
     env = (os.environ.get(VISUAL_ENV) or "").strip()
-    return Path(env) if env else _REPO / VISUAL_REL
+    return Path(env) if env else _research_or_snapshot(VISUAL_REL)
 
 
 def visual_stages() -> dict:
@@ -786,7 +798,7 @@ def owner_decision_batches(live: dict | None = None) -> dict:
     ask consolidated incl. store/visual items), else the runtime `approval_inbox()["batches"]`.
     A cost the producer did not state is UNKNOWN, never CA$0."""
     env = (os.environ.get(OWNER_ACTIONS_ENV) or "").strip()
-    path = Path(env) if env else _REPO / OWNER_ACTIONS_REL
+    path = Path(env) if env else _research_or_snapshot(OWNER_ACTIONS_REL)
     src_file = str(OWNER_ACTIONS_REL) if not env else env
     data, why = None, None
     try:
@@ -852,7 +864,7 @@ def board_path() -> Path:
     env = (os.environ.get(BOARD_ENV) or "").strip()
     if env:
         return Path(env)
-    return Path(__file__).resolve().parents[4] / BOARD_REL
+    return _research_or_snapshot(BOARD_REL)
 
 
 def _parse_ts(v):
