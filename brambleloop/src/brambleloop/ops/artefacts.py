@@ -738,9 +738,21 @@ def sweep(db, *, current: dict[str, str],
             backlog_row.detail = {"unproven": len(unproven),
                                   "classes": sorted({v.artefact_class for v in unproven})}
     elif backlog_row is not None and not unproven:
+        # W4-OWNER: a close says when, or the incident page counts it as resolved without
+        # evidence (`incident_lifecycle.snapshot`).
         backlog_row.resolved = True
         backlog_row.detail = dict(backlog_row.detail or {},
-                                  resolution="every artefact that exists carries a row")
+                                  resolution="every artefact that exists carries a row",
+                                  resolved_at=datetime.now(timezone.utc).isoformat())
+    elif backlog_row is not None and block_unproven:
+        # W4-OWNER: once absence is enforced, each unproven artefact blocks on its own row,
+        # so the non-blocking backlog counter no longer describes anything.
+        backlog_row.resolved = True
+        backlog_row.detail = dict(backlog_row.detail or {},
+                                  resolution=("unproven artefacts are now enforced per "
+                                              "artefact (block_unproven); the backlog "
+                                              "counter is superseded by those rows"),
+                                  resolved_at=datetime.now(timezone.utc).isoformat())
 
     # A stale artefact whose upstreams have since come back into line is resolved here, so
     # the sweep can clear a block it raised. A sentinel that can only ever add incidents
@@ -755,6 +767,7 @@ def sweep(db, *, current: dict[str, str],
             row.resolved = True
             detail = dict(row.detail or {})
             detail["resolution"] = "the upstreams match again; the artefact was rebuilt"
+            detail["resolved_at"] = datetime.now(timezone.utc).isoformat()
             row.detail = detail
             cleared.append(row.signature)
     db.flush()

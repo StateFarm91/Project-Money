@@ -413,3 +413,325 @@ def data_gates(db, env: dict | None = None) -> dict:
                      "COMPLETE while the customers gate is closed"),
             "sources": ["build2.executor.approval_inbox.waiting_on_data",
                         "build2/final_master_closure.json (gate.kind == data)"]}
+
+
+# ---- W4-OWNER: the owner's decision packet -- batches -> decisions -> fields ---------------
+#
+# The owner saw one card per gate and one row per producer: the same Anthropic top-up twice
+# (owner actions 19/20), "open the Etsy shop" for a shop open since 2026-09-19, shadow-mode
+# graduation as both a readiness row and a `live_listings` gate, and tester outreach as both
+# `tester_roster` and `physical_proof`. A decision is the unit the owner answers, so cards and
+# rows are merged into decisions, and related decisions are presented together as a batch.
+#
+# Every decision carries the seven fields below. `max_cost_cad` None means UNKNOWN and is
+# printed as UNKNOWN, never CA$0. Figures marked `estimated` are estimates, not quotes.
+
+DECISION_FIELDS = ("decision", "why", "evidence", "max_cost_cad", "consequence_of_yes",
+                   "consequence_of_no", "minutes")
+
+BATCHES: tuple[dict, ...] = (
+    {"id": "go_live", "order": 1, "title": "Go live on Etsy (one sitting in Shop Manager)",
+     "why_batched": ("each of these is a step of the same move out of shadow mode; none is "
+                     "useful alone, and answering them together takes one Etsy session")},
+    {"id": "model_funding", "order": 2, "title": "Fund the model provider",
+     "why_batched": ("model_provider, image_vision and the funding rows are one Anthropic "
+                     "balance: one top-up opens all of them")},
+    {"id": "rulings", "order": 3, "title": "Rulings only the owner can make (free, minutes)",
+     "why_batched": "free decisions with no account or spend behind them"},
+    {"id": "etsy_account", "order": 4, "title": "Owner-only Etsy account screens",
+     "why_batched": ("each needs the signed-in account holder in a browser, so they are done "
+                     "in the same login")},
+    {"id": "storage", "order": 5, "title": "Storage and continuity spend",
+     "why_batched": "both are storage accounts outside the code, approved as one spend line"},
+    {"id": "infra", "order": 5, "title": "Infrastructure services the code cannot create",
+     "why_batched": "third-party service accounts with a recurring cost, approved together"},
+    {"id": "benchmark", "order": 6, "title": "Competitive benchmark purchases",
+     "why_batched": ("the purchase gate and the pre-launch benchmark challenge wait on the "
+                     "same purchased patterns")},
+    {"id": "channels", "order": 7, "title": "Owned publishing channels",
+     "why_batched": "accounts that accept a platform's terms in the owner's name"},
+    {"id": "paid_media", "order": 8, "title": "Paid media (after organic sales exist)",
+     "why_batched": "advertising authority; recommended only after the shop has sold"},
+    {"id": "other", "order": 99, "title": "Other open decisions",
+     "why_batched": "decisions raised by producers outside the table above, as they stand"},
+)
+BATCH_BY_ID = {b["id"]: b for b in BATCHES}
+
+# One entry per decision. `gates` / `keys` are the executor gates and OwnerAction
+# requirement_keys that are this one decision. A card's own stated figure (from its
+# producer's row or the access registry) wins over the table's.
+DECISIONS: tuple[dict, ...] = (
+    {"id": "etsy_kyc_payout", "batch": "go_live", "kind": "legal",
+     "gates": ("etsy_shop",), "keys": ("etsy_shop", "payout"),
+     "decision": ("Confirm in Etsy Shop Manager > Settings > Payment settings that identity "
+                  "verification, the payout bank account (Canadian chequing) and tax details "
+                  "(GST/HST number or small-supplier declaration) show complete; complete any "
+                  "that do not."),
+     "why": ("Etsy will not pay out or open a shop to buyers without them, and KYC/banking may "
+             "only be entered by the account holder. The shop itself exists "
+             "(BrambleloopStudio, executor gate etsy_shop, 2026-09-19)."),
+     "max_cost_cad": 0.0, "cost_basis": "stated (Etsy charges nothing for this step)",
+     "minutes": 15,
+     "consequence_of_yes": "the payout prerequisite for publishing is met",
+     "consequence_of_no": "listings cannot go live and no revenue can be paid out"},
+    {"id": "listing_fees", "batch": "go_live", "kind": "spend",
+     "gates": (), "keys": ("listing_fees",),
+     "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
+     "why": "the first money that leaves the account; no consequential spend without approval",
+     "max_cost_cad": None, "cost_basis": "from the readiness request (catalogue-derived)",
+     "minutes": 2,
+     "consequence_of_yes": "publishing is no longer blocked on fees",
+     "consequence_of_no": "publishing stays blocked on a two-minute decision"},
+    {"id": "leave_shadow", "batch": "go_live", "kind": "decision",
+     "gates": ("live_listings",), "keys": ("phase",),
+     "decision": ("Authorise graduation from shadow to staging, then limited production, one "
+                  "step at a time, once the steps above are done."),
+     "why": ("leaving shadow mode is a phase change only the owner authorises; the "
+             "live_listings gate and the readiness 'phase' row are this one decision"),
+     "max_cost_cad": 0.0, "cost_basis": "stated: no spend beyond the listing fees above",
+     "minutes": 5,
+     "consequence_of_yes": ("listings can be published under the publication authority; the "
+                            "live-listing requirements un-park"),
+     "consequence_of_no": "everything stays drafted and nothing reaches a customer"},
+    {"id": "tester_outreach", "batch": "go_live", "kind": "decision",
+     "gates": ("tester_roster", "physical_proof"), "keys": ("physical_calibration",),
+     "decision": ("Authorise outreach to independent pattern testers and one paid sample make "
+                  "(the 20 cm storage basket). You are not asked to crochet."),
+     "why": ("recruiting testers is outreach to real people (an exit from shadow mode); the "
+             "physical proof is made by that tester, so both gates are this one decision"),
+     "max_cost_cad": None, "cost_basis": "estimated from gates.risk_matrix tester fee",
+     "minutes": 5,
+     "consequence_of_yes": ("a measured sample calibrates yardage and Class C products can "
+                            "become shippable"),
+     "consequence_of_no": ("yardage stays a +/-20% tolerance, Class C stays unshippable, the "
+                           "first buyer becomes the tester")},
+    {"id": "trademark_filing", "batch": "go_live", "kind": "spend",
+     "gates": (), "keys": ("brand_clearance",),
+     "decision": ("Decide whether to file a Canadian trademark for 'Brambleloop Studio' "
+                  "(CA$458.05 first class). The free knock-out search is company work."),
+     "why": "a filing is legal spend in the owner's name",
+     "max_cost_cad": 460.0, "cost_basis": "stated (CIPO first-class fee, rounded up)",
+     "minutes": 20,
+     "consequence_of_yes": "the name is protected before brand equity accumulates on it",
+     "consequence_of_no": "low risk at zero sales, rising with every sale"},
+    {"id": "fund_model", "batch": "model_funding", "kind": "spend",
+     "gates": ("model_provider", "image_vision", "image_generation"),
+     "keys": ("model_credits", "model_provider_balance"),
+     "decision": ("Add credit to the Anthropic account the API key belongs to "
+                  "(console.anthropic.com -> Plans & Billing)."),
+     "why": ("the balance is spent; the CA$100/month ceiling stays enforced in code, so a "
+             "larger balance cannot be spent faster"),
+     "max_cost_cad": 25.0, "cost_basis": "stated (smallest useful top-up)",
+     "minutes": 5,
+     "consequence_of_yes": ("judging, vision and text calls run again: identity "
+                            "measurement, asset-truth checks, gallery analysis, #94"),
+     "consequence_of_no": "every check that needs a model stays refused before spending"},
+    {"id": "acceptance_ruling", "batch": "rulings", "kind": "decision",
+     "gates": ("acceptance_ruling",), "keys": (),
+     "decision": ("Rule whether an API + vision traversal satisfies the 'browser/vision' "
+                  "wording of #189/#221/#222/#320 (yes / no)."),
+     "why": "the acceptance wording is the owner's ruling",
+     "max_cost_cad": 0.0, "cost_basis": "stated", "minutes": 2,
+     "consequence_of_yes": "four requirements are graded against the API path",
+     "consequence_of_no": "they stay parked and every acceptance grade stays provisional"},
+    {"id": "production_window", "batch": "rulings", "kind": "decision",
+     "gates": ("production_window",), "keys": (),
+     "decision": ("Authorise deploying the reviewed build to the existing service for one "
+                  "unattended window (phase stays shadow)."),
+     "why": "deploying is the owner's call under the Execution Directive",
+     "max_cost_cad": 0.0, "cost_basis": "stated: the existing service, no new spend",
+     "minutes": 10,
+     "consequence_of_yes": ("the off-device proof (#195) can be read from real rows, and the "
+                            "fixes that close stale production incidents take effect"),
+     "consequence_of_no": "#195 stays parked and production keeps the stale rows"},
+    {"id": "transactions_scope", "batch": "etsy_account", "kind": "credentials",
+     "gates": ("transactions_r",), "keys": ("reauthorise_transactions_r",),
+     "decision": "Re-authorise the Etsy app with the transactions_r scope (consent screen).",
+     "why": "the OAuth consent screen is shown only to the signed-in account holder",
+     "max_cost_cad": 0.0, "cost_basis": "stated", "minutes": 3,
+     "consequence_of_yes": "orders can be read (#11, #12)",
+     "consequence_of_no": "the order source stays closed"},
+    {"id": "insights_reading", "batch": "etsy_account", "kind": "credentials",
+     "gates": ("insights_access",), "keys": (),
+     "decision": ("Record one Marketplace Insights reading from Shop Manager "
+                  "(POST the reading; no API exists)."),
+     "why": "Shop Manager Insights has no authorised API; only the signed-in owner can read it",
+     "max_cost_cad": 0.0, "cost_basis": "stated", "minutes": 10,
+     "consequence_of_yes": "search-demand requirements (#1, #37, #236) get real readings",
+     "consequence_of_no": "they stay parked on proxies"},
+    {"id": "storage_durable", "batch": "storage", "kind": "spend",
+     "gates": (), "keys": ("artifact_storage",),
+     "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
+     "why": "container files do not survive a restart; a buyer's download link must",
+     "max_cost_cad": 5.0, "cost_basis": "stated (per month)", "minutes": 10,
+     "consequence_of_yes": "purchased files survive deploys",
+     "consequence_of_no": "harmless in shadow; a broken download for a paying customer once live"},
+    {"id": "storage_offsite", "batch": "storage", "kind": "credentials",
+     "gates": ("offsite_storage",), "keys": (),
+     "decision": "Create an object-storage bucket outside this provider and its credential.",
+     "why": "an account and credential only the owner can create",
+     "max_cost_cad": None, "cost_basis": "UNKNOWN (provider not chosen)", "minutes": 15,
+     "consequence_of_yes": "the continuity archive survives losing the provider (#51)",
+     "consequence_of_no": "a provider loss loses the archive with it"},
+    {"id": "browser_worker", "batch": "infra", "kind": "spend",
+     "gates": ("rendered_pages",), "keys": (),
+     "decision": ("Approve a hosted browser worker account (provider and plan per the "
+                  "W4-GATESI clearance packet) so policy pages can be read as a buyer sees "
+                  "them; no CAPTCHA or bot-protection bypass is permitted."),
+     "why": ("a third-party service account with a recurring cost; Etsy refuses automated "
+             "fetchers (HTTP 403) and software must not spoof a browser"),
+     "max_cost_cad": None, "cost_basis": "UNKNOWN until the W4-GATESI packet names a plan",
+     "minutes": 10,
+     "consequence_of_yes": ("#35 and #39 can read current policy pages instead of "
+                            "search-engine excerpts"),
+     "consequence_of_no": ("policy knowledge stays on dated search-engine excerpts, "
+                           "refreshed by a build session every 30 days")},
+    {"id": "benchmark_purchase", "batch": "benchmark", "kind": "spend",
+     "gates": ("benchmark_purchases",), "keys": ("benchmark_challenge",),
+     "decision": ("Buy the selected benchmark patterns (/api/benchmark-selection) and upload "
+                  "them at /ops/teardown."),
+     "why": "buying competitor patterns is consequential spend",
+     "max_cost_cad": 300.0, "cost_basis": "stated", "minutes": 30,
+     "consequence_of_yes": "the pre-launch challenge (#168) and teardowns can run",
+     "consequence_of_no": "the first honest comparison happens in a buyer's downloads"},
+    {"id": "owned_surfaces", "batch": "channels", "kind": "credentials",
+     "gates": ("owned_surfaces",), "keys": (),
+     "decision": "Open a Pinterest business account and/or a site this company can publish to.",
+     "why": "a person accepts the platform's terms",
+     "max_cost_cad": None, "cost_basis": "UNKNOWN (a domain/site has a cost; Pinterest is free)",
+     "minutes": 20,
+     "consequence_of_yes": "off-Etsy content requirements un-park",
+     "consequence_of_no": "they stay parked; Etsy-only discovery"},
+    {"id": "ad_budget", "batch": "paid_media", "kind": "spend",
+     "gates": ("ad_authority",), "keys": (),
+     "decision": "Set a daily advertising cap (CA$/day) or decline paid media for now.",
+     "why": "advertising money leaves only on approval; ceilings are enforced in code",
+     "max_cost_cad": None, "cost_basis": "UNKNOWN until the owner names a cap", "minutes": 5,
+     "consequence_of_yes": "the ads requirements un-park under that cap",
+     "consequence_of_no": "no paid media; recommended until organic sales exist"},
+)
+DECISION_BY_GATE = {g: d for d in DECISIONS for g in d["gates"]}
+DECISION_BY_KEY = {k: d for d in DECISIONS for k in d["keys"]}
+
+# Gates the company opens itself. Listed so the owner is never asked for them.
+COMPANY_OPENED_GATES: dict[str, str] = {
+    "culture_feed": ("opened by the company's own daily `culture.sweep` cadence (Wikimedia "
+                     "Pageviews: free, no key, no account) on its first sourced "
+                     "CultureObservation row; no owner action opens or speeds it"),
+}
+
+
+def _decision_for(card: dict) -> dict | None:
+    return DECISION_BY_GATE.get(card.get("gate") or "") or DECISION_BY_KEY.get(
+        card.get("requirement_key") or "")
+
+
+def decision_fields(card: dict, decision: dict | None = None) -> dict:
+    """The seven fields for one card, from its decision entry where one exists."""
+    d = decision if decision is not None else _decision_for(card)
+    stated = card.get("max_cost_cad")
+    if card.get("max_cost_basis") == "UNKNOWN":
+        stated = None
+    if d is not None:
+        cost = stated if stated is not None and (stated or d["max_cost_cad"] == 0.0) \
+            else d["max_cost_cad"]
+        basis = ("stated by the producer" if cost == stated and stated is not None
+                 else d["cost_basis"])
+        out = {"decision": d["decision"], "why": card.get("why") or d["why"],
+               "minutes": d["minutes"],
+               "consequence_of_yes": d["consequence_of_yes"],
+               "consequence_of_no": (card.get("consequence_of_waiting")
+                                     if card.get("consequence_of_waiting") not in
+                                     (None, "", "not stated") and not str(
+                                         card.get("consequence_of_waiting")).startswith(
+                                         "requirements [")
+                                     else d["consequence_of_no"]),
+               "requirement_kind": d["kind"]}
+    else:
+        cost, basis = stated, ("stated by the producer" if stated is not None else "UNKNOWN")
+        cyes = card.get("capability_unlocked") or ""
+        out = {"decision": card.get("action") or card.get("what") or "",
+               "why": card.get("why") or "",
+               "minutes": card.get("minutes") or None,
+               "consequence_of_yes": (f"unlocks: {cyes}" if cyes else ""),
+               "consequence_of_no": (card.get("consequence_of_waiting")
+                                     if card.get("consequence_of_waiting") != "not stated"
+                                     else ""),
+               "requirement_kind": card.get("requirement_kind")}
+    out["max_cost_cad"] = cost
+    out["max_cost_basis"] = "UNKNOWN" if cost is None else basis
+    out["max_cost_display"] = "UNKNOWN" if cost is None else f"CA${cost:,.2f}"
+    out["evidence"] = card.get("evidence") or card.get("how_it_is_checked") or ""
+    missing = [f for f in DECISION_FIELDS if f != "max_cost_cad"
+               and (out.get(f) in (None, "") or (isinstance(out.get(f), str)
+                                                 and not out[f].strip()))]
+    out["fields_missing"] = missing
+    return out
+
+
+def batch_cards(cards: list[dict]) -> dict:
+    """Cards -> decisions (merged) -> batches, in the order the owner should answer them."""
+    decisions: dict[str, dict] = {}
+    for c in cards:
+        d = _decision_for(c)
+        did = d["id"] if d else f"card:{c.get('gate') or c.get('requirement_key')}"
+        batch = d["batch"] if d else "other"
+        item = decisions.get(did)
+        if item is None:
+            item = dict(decision_fields(c, d), id=did, batch=batch,
+                        gates=[], requirement_keys=[], owner_action_ids=[], unblocks=[],
+                        ranks=[])
+            decisions[did] = item
+        if c.get("gate") and c["gate"] not in item["gates"]:
+            item["gates"].append(c["gate"])
+        rk = c.get("requirement_key")
+        if rk and rk not in item["requirement_keys"]:
+            item["requirement_keys"].append(rk)
+        for oid in c.get("merged_owner_action_ids") or (
+                [c["owner_action_id"]] if c.get("owner_action_id") else []):
+            if oid not in item["owner_action_ids"]:
+                item["owner_action_ids"].append(oid)
+        for u in c.get("unblocks") or []:
+            if u not in item["unblocks"]:
+                item["unblocks"].append(u)
+        if c.get("rank") is not None:
+            item["ranks"].append(c["rank"])
+    batches = []
+    for b in sorted(BATCHES, key=lambda x: x["order"]):
+        items = [i for i in decisions.values() if i["batch"] == b["id"]]
+        if not items:
+            continue
+        costs = [i["max_cost_cad"] for i in items]
+        batches.append({
+            "id": b["id"], "title": b["title"], "why_batched": b["why_batched"],
+            "items": items, "decisions": len(items),
+            "minutes_total": sum(int(i["minutes"] or 0) for i in items),
+            "minutes_known": all(i["minutes"] for i in items),
+            "max_cost_cad_total": (None if any(c is None for c in costs)
+                                   else round(sum(costs), 2)),
+            "max_cost_display": ("UNKNOWN (at least one item is not costed)"
+                                 if any(c is None for c in costs)
+                                 else f"CA${sum(costs):,.2f}")})
+    incomplete = [i["id"] for b in batches for i in b["items"] if i["fields_missing"]]
+    return {"batches": batches, "decisions": sum(b["decisions"] for b in batches),
+            "cards": len(cards), "incomplete": incomplete,
+            "fields": list(DECISION_FIELDS),
+            "rule": ("one decision per thing the owner answers: gates and producer rows that "
+                     "are the same decision are merged; related decisions are batched; an "
+                     "unknown cost is UNKNOWN, never CA$0")}
+
+
+def _tester_estimate() -> float | None:
+    try:
+        from ..gates import risk_matrix as rm
+
+        return round(8 * rm.TESTER_FEE_CAD_PER_HOUR + 25.0, 2)
+    except Exception:  # noqa: BLE001 - an unreadable estimate is UNKNOWN, never 0
+        return None
+
+
+for _d in DECISIONS:
+    if _d["id"] == "tester_outreach":
+        _d["max_cost_cad"] = _tester_estimate()
+        if _d["max_cost_cad"] is None:
+            _d["cost_basis"] = "UNKNOWN"
