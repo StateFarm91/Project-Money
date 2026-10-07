@@ -25,12 +25,11 @@ All lanes stopped. Uncommitted tracked work of B2/FM/OWNER was committed as WIP 
 Resumed (8, resource-limited): B2, FM, AUTO, CC, PIPE, CREATIVE, SEO, OWNER. Queued: LEARN, VISUAL, SPEND (K5a+K5b), K9.
 Complete: MJS (5092b01), STORE (ba72ca8) — merged on claude/w4-INTEG, focused tests passing so far; ff into visual-investigation next.
 
-## TEMPORARY owner directive — Fable fallback (2026-10-07; EXPIRES at the next All Models weekly reset, Friday)
-- Default and permanent policy: the strongest appropriate model. Fable is NOT a permanent fallback.
-- One-time exception, this completion run only: if the All Models weekly allowance reaches 99%, bounded completion
-  work may continue on Fable (medium effort) only as necessary to keep useful work moving until the weekly reset.
-- Never on Fable, even during the exception: architecture, integration, security, finance, identity, authority and
-  difficult debugging. If the stronger-model allowance is exhausted, checkpoint those (commit, push, handoff) and
-  resume them after the reset.
-- On the reset: return automatically to the strongest appropriate model and delete this section.
-- Same checkpoint/push/handoff rules throughout.
+## Model policy (owner, 2026-10-07 — FINAL; supersedes every earlier version)
+- The ONLY policy: the strongest appropriate model. No Brambleloop work is ever switched to Fable because of usage limits.
+- The temporary Fable fallback (recorded here earlier on 2026-10-07, commit afcc83c) was EXPLICITLY REVOKED by the owner
+  (DECISION_LOG D-FB-20). Any older commit, handoff or manifest mentioning a Fable fallback is void; never resurrect it.
+- If the All Models weekly allowance is exhausted: finish/checkpoint the current atomic work where practical → commit and
+  push every worker branch → update every handoff, completion ledger and this manifest → stop work that cannot continue
+  on the strongest appropriate model → after the reset resume from those exact checkpoints (no restart, re-audit or redo).
+
