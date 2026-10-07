@@ -21,6 +21,10 @@ from ..runtime.worker import Scheduler
 logging.basicConfig(level=os.environ.get("BRAMBLELOOP_LOG_LEVEL", "INFO"),
                     format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("brambleloop.scheduler")
+# F-159: no secret reaches the platform's log store from this process.
+from ..ops import log_secret_guard as _log_secret_guard  # noqa: E402
+
+_log_secret_guard.install()
 
 
 def main() -> int:

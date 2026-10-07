@@ -21,6 +21,10 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 log = logging.getLogger("brambleloop.worker")
+# F-159: no secret reaches the platform's log store from this process.
+from ..ops import log_secret_guard as _log_secret_guard  # noqa: E402
+
+_log_secret_guard.install()
 
 
 def main() -> int:

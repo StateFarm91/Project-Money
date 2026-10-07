@@ -61,6 +61,10 @@ CENSUS_READING = "etsy.listing_census"
 CREDENTIAL_READING = "etsy.credential_health"
 INVENTORY_READING = "etsy.surface_inventory"
 LIFECYCLE_READING = "etsy.listing_lifecycle"
+OPENAPI_READING = "etsy.openapi_reverification"
+OPENAPI_DRIFT = "etsy.openapi_drift"
+#: How long one re-verification of the surface classifications stands (F-514).
+OPENAPI_REVERIFY_DAYS = 7
 
 #: The scopes the publish, read-back and census paths use. A stored credential missing any
 #: of them is scope drift (F-540/F-541): the next write or read would be refused.
@@ -1285,3 +1289,69 @@ def handle_store_live_drift(ctx: JobContext) -> dict:
     return {"counts": report["counts"], "unknown": len(report["unknown"]),
             "proposals": len(report["proposals"]), "findings": len(report["findings"]),
             "incidents_opened": opened, "writes_performed": 0}
+
+
+# ---- F-514: the surface classifications re-verified against Etsy's API document --------
+
+
+def reverify_openapi(db, *, transport=None, now: datetime | None = None,
+                     force: bool = False) -> dict:
+    """Read Etsy's public OpenAPI document (read-only, no credential) and re-verify every
+    surface's classification against it (`etsy_surfaces.openapi_reverify`).
+
+    A reading younger than OPENAPI_REVERIFY_DAYS stands unless `force`. A failed fetch or an
+    unreadable document is stored as UNREADABLE -- the classifications are then unconfirmed,
+    never assumed current. DRIFTED opens one P2 incident naming the affected surfaces; a later
+    CURRENT reading resolves it. Nothing is written to Etsy.
+    """
+    from ..integrations.http import UrllibTransport
+    from ..intel import etsy_surfaces
+    from ..ops import incident_lifecycle as lifecycle
+
+    now = now or _now()
+    previous = latest_reading(db, OPENAPI_READING)
+    if previous and not force and previous.get("status") != etsy_surfaces.OPENAPI_UNREADABLE:
+        try:
+            age = now - datetime.fromisoformat(previous["checked_at"])
+        except (KeyError, TypeError, ValueError):
+            age = None
+        if age is not None and age < timedelta(days=OPENAPI_REVERIFY_DAYS):
+            return {**previous, "reused": True}
+    transport = transport or UrllibTransport()
+    try:
+        response = transport.request("GET", etsy_surfaces.OPENAPI_URL, headers={})
+        if response.status != 200:
+            raise RuntimeError(f"HTTP {response.status}")
+        result = etsy_surfaces.openapi_reverify(response.body)
+    except Exception as e:  # noqa: BLE001 - an unread document confirms nothing
+        result = {"status": etsy_surfaces.OPENAPI_UNREADABLE, "affected": [],
+                  "why": f"Etsy's OpenAPI document could not be read: "
+                         f"{type(e).__name__}: {str(e)[:200]}"}
+    result = {**result, "checked_at": now.isoformat(), "source": etsy_surfaces.OPENAPI_URL}
+    store_reading(db, OPENAPI_READING, result, now=now)
+    with db.session() as s:
+        if result["status"] == etsy_surfaces.OPENAPI_DRIFTED:
+            lifecycle.open_or_restate(
+                s, signature=OPENAPI_DRIFT, severity="P2",
+                summary=("Etsy's API document moved under the surface registry: "
+                         + ", ".join(a["surface"] for a in result["affected"][:6])
+                         + (" (operations added/removed)" if not result["affected"] else "")),
+                detail={k: result.get(k) for k in ("version", "removed_operations",
+                                                   "added_operations", "absence_drift",
+                                                   "affected")})
+        elif result["status"] == etsy_surfaces.OPENAPI_CURRENT:
+            lifecycle.resolve_signatures(
+                s, [OPENAPI_DRIFT], resolution=f"re-verified CURRENT at {now.isoformat()}")
+    return result
+
+
+@handlers.register("etsy.openapi_reverify")
+def handle_openapi_reverify(ctx: JobContext) -> dict:
+    """Weekly: the surface classifications re-verified against Etsy's published document."""
+    result = reverify_openapi(ctx.db)
+    ctx.audit("etsy.openapi_reverify", detail={
+        "status": result["status"], "reused": bool(result.get("reused")),
+        "affected": [a["surface"] for a in result.get("affected") or []][:20],
+        "writes_performed": 0})
+    return {"status": result["status"], "affected": len(result.get("affected") or []),
+            "writes_performed": 0}
