@@ -213,3 +213,162 @@ def last(db, slug: str) -> dict | None:
             AuditLog.artifact.startswith(f"{slug}@", autoescape=True))
             .order_by(desc(AuditLog.id)).limit(1))
         return dict(row.detail or {}) if row is not None else None
+
+
+# --------------------------------------------------------------------------- certification
+#
+# F-030 / F-254: the verified gallery and angle frames enter the listing-set certificate
+# beside the disclosed hero/scale/detail set, as frames of kind SUPPLEMENT_KIND. Nothing is
+# taken from the registered record on trust: every frame is re-rendered from the certified
+# CIR, its bytes must be exactly the stored ones, and it is re-verified on those bytes by the
+# independent verifier (`gallery_frames.verify` / `render_verification.verify`) here, at
+# certification, and again at upload (`runtime.etsy_ops.certified_images`).
+
+SUPPLEMENT_KIND = "disclosed_gallery_frame"
+# The order the further jobs take after hero, scale and detail.
+SUPPLEMENT_ORDER = ("ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "SIZING", "MATERIALS")
+_SUPPLEMENT_TEXT = {
+    "ANGLE": "the finished piece seen from the side at a raised angle",
+    "CONSTRUCTION": "how it is built: the stitch count of every round or row, in working order",
+    "COLOUR_CONTEXT": "each yarn colour's share of the finished piece, counted from the pattern",
+    "SIZING": "every size sold, drawn to one scale with its finished measurements",
+    "MATERIALS": "the yarn colours, yarn weight, hook size and gauge the pattern calls for",
+}
+
+
+def supplement_purpose(job: str) -> str:
+    from ..publish import eligibility as el
+
+    return el.ENGINEERING_EVIDENCE if job == "ANGLE" else el.CUSTOMER_INFORMATION
+
+
+def supplement_alt_text(job: str, title: str) -> str:
+    """The alt text a supplement frame is certified with: the disclosure first (as every
+    disclosed render's is), then what it shows."""
+    from ..publish.disclosed_listing import ALT_TEXT_MAX, DISCLOSURE
+
+    return f"{DISCLOSURE}. {title}: {_SUPPLEMENT_TEXT[job]}."[:ALT_TEXT_MAX]
+
+
+def expected_alt_text(slug: str, job: str) -> str | None:
+    """The alt text a supplement frame of `slug` doing `job` is certified with, or None."""
+    found = _primary_for(slug)
+    if found is None or job not in _SUPPLEMENT_TEXT:
+        return None
+    return supplement_alt_text(job, found[1])
+
+
+def _primary_for(slug: str):
+    """(listing slug, candidate title, primary CIR, sibling CIRs) for a release slug that is
+    the primary variant of a Launch-0 listing, else None."""
+    from ..products import launch0
+
+    for listing in launch0.LAUNCH0_SLUGS:
+        cand, cirs, _cat = _listing_parts(listing)
+        if cirs[0].slug == slug:
+            return listing, getattr(cand, "title", listing), cirs[0], cirs[1:]
+    return None
+
+
+def check_supplement(slug: str, version: str, job: str, data: bytes) -> dict:
+    """Re-verify one supplement frame on its exact bytes against the certified CIR.
+
+    PASS only when the release slug is a Launch-0 listing's primary variant at `version`,
+    the bytes are exactly what the producer draws from the certified CIR today, and the
+    independent verifier passes them. Anything else is FAIL with the reason; never assumed."""
+    import hashlib
+
+    from . import gallery_frames as G
+
+    found = _primary_for(slug)
+    if found is None:
+        return {"status": "FAIL", "why": f"{slug} is not the primary variant of a Launch-0 listing"}
+    _listing, _title, primary, siblings = found
+    if primary.version != version:
+        return {"status": "FAIL", "why": f"{slug}: certified CIR is {primary.version}, not {version}"}
+    sha = hashlib.sha256(data).hexdigest()
+    if job == "ANGLE":
+        from . import disclosed_render as DR
+        from . import render_verification as RV
+
+        try:
+            fr = DR.render(primary, "angle")
+        except DR.RenderRefused as exc:
+            return {"status": "FAIL", "why": f"angle view refused: {exc}"[:300]}
+        if hashlib.sha256(fr.png).hexdigest() != sha:
+            return {"status": "FAIL", "why": "bytes are not the angle view of the certified CIR"}
+        v = RV.verify(data, cir=primary, view="angle")
+        return {"status": v["status"], "why": "" if v["status"] == "PASS" else
+                f"render_verification failed {v.get('failed')} unknown {v.get('unknown')}"[:300]}
+    if job not in G.JOBS:
+        return {"status": "FAIL", "why": f"{job!r} has no deterministic producer"}
+    try:
+        fr = G.render(primary, job, siblings=siblings)
+    except G.FrameRefused as exc:
+        return {"status": "FAIL", "why": f"refused: {exc}"[:300]}
+    if fr.manifest["image_sha256"] != sha:
+        return {"status": "FAIL", "why": "bytes are not the frame the certified CIR draws"}
+    v = G.verify(data, primary, fr.manifest, siblings=siblings)
+    return {"status": v["status"], "why": "" if v["status"] == "PASS" else
+            f"gallery_frames.verify failed {v.get('failed')}"[:300]}
+
+
+def supplements_for_certificate(slug: str, version: str, *, start: int,
+                                exclude_jobs=(), store=None,
+                                release_fingerprint: str | None = None) -> dict:
+    """The verified supplement frames a disclosed set for `slug@version` may be certified with.
+
+    Returns {"frames": [{position, job, sha256, purpose, alt_text, png, represented_variant}],
+    "refused": {job: why}, "listing": slug-or-None}. Only jobs applicable to the listing's
+    category (`eligibility.gallery_jobs_for`) and not already done by the disclosed set are
+    offered; a job whose frame does not verify on its bytes is refused, never padded in.
+    Deterministic and local: no model, provider or network call."""
+    from ..core.artifacts import ArtifactStore
+    from ..publish import eligibility as el
+
+    found = _primary_for(slug)
+    if found is None:
+        return {"frames": [], "refused": {}, "listing": None}
+    listing, title, primary, siblings = found
+    if primary.version != version:
+        return {"frames": [], "refused": {"*": f"certified CIR is {primary.version}"},
+                "listing": listing}
+    if release_fingerprint is not None and release_fingerprint != primary.fingerprint:
+        return {"frames": [], "refused": {"*": "the release's CIR is not the certified CIR the "
+                                               "frames are drawn from"}, "listing": listing}
+    _cand, _cirs, category = _listing_parts(listing)
+    applicable = el.gallery_jobs_for(category, sizes=1 + len(siblings),
+                                     colours=len(primary.colors or {}))
+    store = store if store is not None else ArtifactStore()
+    out, refused = [], {}
+    position = start
+    for job in SUPPLEMENT_ORDER:
+        if job not in applicable or job in set(exclude_jobs):
+            continue
+        try:
+            if job == "ANGLE":
+                from . import disclosed_render as DR
+
+                png = DR.render(primary, "angle").png
+            else:
+                from . import gallery_frames as G
+
+                if job not in G.applicable_jobs(primary, siblings=siblings):
+                    refused[job] = "the CIR does not carry what this job draws"
+                    continue
+                png = G.render(primary, job, siblings=siblings).png
+        except Exception as exc:  # noqa: BLE001 - a refused producer is a refused job
+            refused[job] = f"{type(exc).__name__}: {exc}"[:300]
+            continue
+        verdict = check_supplement(slug, version, job, png)
+        if verdict["status"] != "PASS":
+            refused[job] = verdict["why"] or verdict["status"]
+            continue
+        stored = store.put(f"{primary.slug}/{primary.version}/certified-{job.lower()}.png",
+                           png, "image/png")
+        out.append({"position": position, "job": job, "sha256": stored.sha256,
+                    "purpose": supplement_purpose(job),
+                    "alt_text": supplement_alt_text(job, title), "png": png,
+                    "represented_variant": primary.variant_key})
+        position += 1
+    return {"frames": out, "refused": refused, "listing": listing}

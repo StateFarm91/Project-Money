@@ -41,7 +41,7 @@ from PIL import Image, ImageDraw
 from . import render_contract as K
 
 KIND = "disclosed_gallery_frame"
-VERSION = "gallery-frames/1.0.0"
+VERSION = "gallery-frames/1.1.0"
 
 MATERIALS, COLOUR_CONTEXT, CONSTRUCTION, SIZING = (
     "MATERIALS", "COLOUR_CONTEXT", "CONSTRUCTION", "SIZING")
@@ -243,12 +243,16 @@ def draw(f: dict) -> bytes:
         y = y0
         y += _text(d, (x0, y), "Materials for this pattern", TITLE_PX) + 20
         used = f["colours_used"]
-        chip_w = min(360, (x1 - x0 - 40 * (len(used) - 1)) / max(1, len(used)))
+        # Chips sized to compose the card: at 1.0.0 they were 360 x 216 px and the card read
+        # 95% background, which layout QA (FRAME_FLAT) rightly refuses for a gallery frame.
+        chip_w = min(720, (x1 - x0 - 40 * (len(used) - 1)) / max(1, len(used)))
+        chip_h = min(chip_w, 520)
         for i, col in enumerate(used):
             cx = x0 + i * (chip_w + 40)
-            _chip(d, cx, y, chip_w, chip_w * 0.6, rgb[col], cols=6, rows=4)
-            _text(d, (cx, y + chip_w * 0.6 + 14), col, BODY_PX)
-        y += int(chip_w * 0.6) + 14 + int(BODY_PX * 1.35) + 40
+            _chip(d, cx, y, chip_w, chip_h, rgb[col], cols=max(1, round(chip_w / 80)),
+                  rows=max(1, round(chip_h / 80)))
+            _text(d, (cx, y + chip_h + 14), col, BODY_PX)
+        y += int(chip_h) + 14 + int(BODY_PX * 1.35) + 40
         yarn = f["yarn"]
         lines = []
         if yarn["yarn_weight"] or yarn["fibre"]:
