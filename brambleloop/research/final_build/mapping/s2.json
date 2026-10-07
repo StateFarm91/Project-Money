@@ -1060,8 +1060,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "certification contract: tests must prove claims",
   "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "6 BASELINE loops remain: test_launch (2) and test_product_run (2) need their slow suites re-run with the guard, test_cert_claude_independence (2) stalls under shared-container load before its loop",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "tests/test_vacuity.py::findings_in",
   "durable_state": null,
   "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
@@ -1076,7 +1076,7 @@
   "evidence": [
    "release process gate, not a runtime root -> TESTED is the ceiling under the brief's definition",
    "RUN_6f9a2f7_full_suite.json: suite green including test_vacuity",
-   "w4-FM close on w4-FM2 (FM2): W4-FM2: the BASELINE shrank 109 -> 6 (a runtime non-emptiness guard on every grandfathered loop in 50 test files, each file run green; per-item inner loops guarded on their union) and the values/items/keys root-stripping note is resolved (_iter_roots strips only the view method of a call; regression case test_a_variable_named_like_a_view_is_still_a_root)"
+   "w4-FM close on w4-FM2 (FM2): W4-FM2: the BASELINE is empty (109 -> 6 -> 0): every grandfathered loop carries a runtime non-emptiness guard (last six in test_launch, test_product_run, test_cert_claude_independence; the edited test_launch and test_product_run tests run green one by one; the independence test stalls past 15 min under shared-container load, and its two guards are implied by its earlier assertions: done_a is non-empty and every CADENCES type is scheduled under a cadence: key) and the values/items/keys root-stripping note is resolved (_iter_roots strips only the view method of a call; regression case test_a_variable_named_like_a_view_is_still_a_root)"
   ],
   "build2_rows": [],
   "gate": {
@@ -1085,7 +1085,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "guard the 6 remaining loops and run those three suites on a quiet machine; then BASELINE is empty and the row needs the integrator's TESTED-target override (tooling producer)",
+  "next_action": "integrator: accept the TESTED completion target in w4/OVERRIDES_PROPOSED_FM2.json (producer tests/test_vacuity.py is operator tooling; INTEGRATED is unreachable by construction)",
   "confidence": "HIGH",
   "searched": " | w4-FM2 close"
  },

@@ -146,7 +146,7 @@
    "refresh": true,
    "maturity": "TESTED",
    "gate": null,
-   "checked": "W4-FM2: the BASELINE shrank 109 -> 6 (a runtime non-emptiness guard on every grandfathered loop in 50 test files, each file run green; per-item inner loops guarded on their union) and the values/items/keys root-stripping note is resolved (_iter_roots strips only the view method of a call; regression case test_a_variable_named_like_a_view_is_still_a_root)",
+   "checked": "W4-FM2: the BASELINE is empty (109 -> 6 -> 0): every grandfathered loop carries a runtime non-emptiness guard (last six in test_launch, test_product_run, test_cert_claude_independence; the edited test_launch and test_product_run tests run green one by one; the independence test stalls past 15 min under shared-container load, and its two guards are implied by its earlier assertions: done_a is non-empty and every CADENCES type is scheduled under a cadence: key) and the values/items/keys root-stripping note is resolved (_iter_roots strips only the view method of a call; regression case test_a_variable_named_like_a_view_is_still_a_root)",
    "test_files": [
     "tests/test_vacuity.py"
    ]

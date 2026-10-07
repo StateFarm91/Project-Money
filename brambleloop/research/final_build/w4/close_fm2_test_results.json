@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "head": "ee219e8",
+  "head": "77d63d6",
   "runner": "close_fm2.py --run-tests (sequential)"
  },
  "suites": {
@@ -39,6 +39,12 @@
    "fail": 0,
    "ok": 13,
    "seconds": 48.9
+  },
+  "tests/test_vacuity.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 12.2
   },
   "tests/test_w3_supply_chain.py": {
    "exit": 0,

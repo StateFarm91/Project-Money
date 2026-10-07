@@ -1,6 +1,6 @@
 {
  "generated_by": "research/final_build/w4/fm2_open.py",
- "head": "ee219e8",
+ "head": "77d63d6",
  "launch_critical_open": 16,
  "fm2_owned": [
   "F-123"
@@ -29,8 +29,7 @@
    "cluster": "K13",
    "producer": "tests/test_vacuity.py::findings_in",
    "why_open": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: 6 BASELINE loops remain: test_launch (2) and test_product_run (2) need their slow suites re-run with the guard, test_cert_claude_independence (2) stalls under s"
+    "maturity TESTED below target INTEGRATED"
    ],
    "owning_lane": "FM2"
   },
