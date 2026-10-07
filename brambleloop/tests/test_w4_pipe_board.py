@@ -213,7 +213,14 @@ def main():
     check("reviewed_reserve_needs_usable_imagery", any(
         x["gate"] == "listing_imagery" and x["clearer"] == "COMPANY"
         for x in inventory._blockers(st, bad_img, None)))
-    new_area = {**ch, "reserve_first_customer": ["FIRST_CUSTOMER_BLOCKING: pattern_text: FAIL -- x"]}
+    prod = {"version": st["version"], "photography": "no_asset"}
+    check("reserve_with_verified_imagery_needs_only_deploy", all(
+        x["clearer"] == "DEPLOY" for x in inventory._blockers(st, ch, prod)
+        if x["gate"] == "production_imagery"))
+    check("reserve_without_usable_imagery_production_imagery_company", any(
+        x["gate"] == "production_imagery" and x["clearer"] == "COMPANY"
+        for x in inventory._blockers(st, bad_img, prod)))
+    new_area = {**ch,"reserve_first_customer": ["FIRST_CUSTOMER_BLOCKING: pattern_text: FAIL -- x"]}
     check("reserve_unknown_area_is_company", any(
         x["clearer"] == "COMPANY" for x in inventory._blockers(st, new_area, None)))
 

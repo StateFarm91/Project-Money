@@ -207,7 +207,10 @@ def chain_evidence(db, slug: str, version: str | None = None, *, today=None) -> 
 
             from ..publish.release_gates import for_publish
 
-            verdict = for_publish(db, slug=slug, version=version, today=today or _date.today())
+            positioning = _positioning(db, slug, version)
+            out["positioning"] = positioning or "seasonal"
+            verdict = for_publish(db, slug=slug, version=version, today=today or _date.today(),
+                                  positioning=positioning)
             out["publish_verdict"] = {"blocks_release": verdict["blocks_release"],
                                       "reasons": [str(r)[:300] for r in verdict["reasons"]],
                                       "search": (verdict.get("search") or {}).get("verdict")}
@@ -216,6 +219,27 @@ def chain_evidence(db, slug: str, version: str | None = None, *, today=None) -> 
                                       "blocks_release": True, "reasons": []}
     out.update(_reserve_standard(db, slug, version, out))
     return out
+
+
+def _positioning(db, slug: str, version: str) -> str | None:
+    """The positioning the chain carried out for this release, as store.publish receives it.
+
+    #297: launch.plan pivots a missed-window product to evergreen by re-running listing.seo
+    with `positioning="evergreen"` (the copy is rewritten), and that input rides the chain to
+    store.publish. Reading the verdict without it would report a pivot the company already
+    made as an open seasonal-window blocker. Only a DONE listing.seo counts."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type == "listing.seo",
+                                             Job.status == JobStatus.DONE)):
+            i = j.inputs or {}
+            if (i.get("slug") == slug and i.get("version") == version
+                    and i.get("positioning") == "evergreen"):
+                return "evergreen"
+    return None
 
 
 def _reserve_standard(db, slug: str, version: str | None, ch: dict) -> dict:
@@ -335,10 +359,14 @@ def _blockers(st: dict, ch: dict | None, prod: dict | None) -> list[dict]:
                 f"{prod.get('chain_version')}); this code releases {st['version']}",
                 "deploy this build, then chain.rebuild re-certifies and redrafts")
         if prod.get("photography") in ("no_asset", "unusable"):
-            add("production_imagery", DEPLOY if st.get("launch_scope") else COMPANY,
+            # A route exists in this code for Launch-0 and, since W4-VISUAL, for any product
+            # with render authority whose chain imagery is usable: then only a deploy is left.
+            routed = st.get("launch_scope") or bool(
+                ch and ch.get("render_authority") and (ch.get("imagery") or {}).get("usable"))
+            add("production_imagery", DEPLOY if routed else COMPANY,
                 f"production asset-coverage: {prod['photography']}",
-                "deploy (Launch-0 disclosed renders exist in this code)"
-                if st.get("launch_scope") else "no imagery route outside Launch-0")
+                "deploy (verified disclosed renders exist in this code)"
+                if routed else "no usable imagery route for this product in this code yet")
     return out
 
 

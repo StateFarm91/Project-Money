@@ -5,12 +5,12 @@
 Builds every engineered product (`products.inventory.universe`, retired duplicates skipped; or
 just the named slugs) from its registered design (`runtime.pipeline._engineered_cir`) and runs
 the REAL release chain -- gate.certify -> listing.draft -> assets.build -> pricing.position ->
-listing.seo -> store.publish -- in a SHADOW worker on `<dir>/run.sqlite`, artifacts in
+listing.seo -> launch.plan (window decision, #297 pivot, mobile QA) -> store.publish -- in a SHADOW worker on `<dir>/run.sqlite`, artifacts in
 `<dir>/art`, every outbound socket refused. store.publish refuses in shadow; its verdict is
 what the inventory reads. No network, no Etsy write, no spend.
 
 Run it again on the same <dir> with further slugs to add them (bounded batches): the DB and
-the artifact store are reused, each product enqueued once.
+the artifact store are reused, each product enqueued once. `--drain` works only the queue.
 
 Then: product_inventory_run.py --chain-db <dir>/run.sqlite
 """
@@ -55,8 +55,9 @@ def main(argv: list[str]) -> dict:
     from brambleloop.runtime.worker import Worker
 
     t0 = time.time()
-    slugs = argv[1:] or [s for s in inventory.universe()
-                         if s not in launch0.LEGACY_DUPLICATES]
+    drain = argv[1:] == ["--drain"]          # only work what is already queued
+    slugs = [] if drain else (argv[1:] or [s for s in inventory.universe()
+                                           if s not in launch0.LEGACY_DUPLICATES])
     fresh = not (d / "run.sqlite").exists()
     db = Database(f"sqlite:///{d}/run.sqlite", scratch=True)
     db.create_all()
@@ -82,7 +83,7 @@ def main(argv: list[str]) -> dict:
         JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
                              idempotency_key=f"cert-{slug}", priority=0)
     chain = ["gate.certify", "listing.draft", "assets.build", "pricing.position",
-             "listing.seo", "store.publish"]
+             "listing.seo", "launch.plan", "store.publish"]
     worker = Worker(db, "w4-pipe-chain", phase=Phase.SHADOW, job_types=chain,
                     lease_seconds=1800)
     for _ in range(2000):
