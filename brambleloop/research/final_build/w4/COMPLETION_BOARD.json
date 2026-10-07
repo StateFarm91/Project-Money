@@ -1,6 +1,6 @@
 {
  "schema": "wave4.completion_board.v1",
- "updated_at": "2026-10-06T23:56Z",
+ "updated_at": "2026-10-07T00:38Z",
  "directive": "owner 2026-10-06: stop the certification loop; finish the existing build",
  "scoreboard_baseline_from_owner_dashboard": {
   "build2_complete": "227/320",
@@ -31,11 +31,11 @@
    "responsible": "Claude worker (W4-VALIDATE)",
    "task": "full suite on 94f99ad (bounded validation lane)",
    "detail": "run_tests.sh JOBS=3, REQUIRE_CLEAN=1",
-   "status": "running",
+   "status": "stopped",
    "started": "2026-10-06T23:56Z",
    "last_update": "2026-10-06T23:56Z",
    "useful_output": null,
-   "blocker": null,
+   "blocker": "container restart killed the run; owner directive: no automatic full-suite restart during the completion wave",
    "next_action": "see handoff_VALIDATE.md",
    "rows_closed": []
   },
@@ -45,13 +45,14 @@
    "responsible": "Claude worker (W4-B2)",
    "task": "Build 2 completion",
    "detail": "reconcile 320 rows vs repo, ledger, fix OPEN defects (dashboard: 45 executable remaining)",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_B2.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "a5cdc1b"
   },
   {
    "lane": "FM",
@@ -59,13 +60,14 @@
    "responsible": "Claude worker (W4-FM)",
    "task": "Final Master completion",
    "detail": "whole F-001..F-930 ledger; unwired/unreached code; fix OPEN clusters",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_FM.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "9e9cf0d"
   },
   {
    "lane": "AUTO",
@@ -73,13 +75,14 @@
    "responsible": "Claude worker (W4-AUTO)",
    "task": "Rule #1 autonomy",
    "detail": "output audit; QUEUE 0/0 diagnosis; work discovery fixes; per-agent status provider",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_AUTO.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "fbeb76a"
   },
   {
    "lane": "CC",
@@ -87,13 +90,14 @@
    "responsible": "Claude worker (W4-CC)",
    "task": "Owner Command Center online",
    "detail": "deploy-readiness package + every-agent/closure/completion views",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_CC.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "50840ef"
   },
   {
    "lane": "PIPE",
@@ -101,13 +105,14 @@
    "responsible": "Claude worker (W4-PIPE)",
    "task": "Product pipeline",
    "detail": "audit 16 drafted listings + certified products; shortest paths; continuous multi-product backlog",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_PIPE.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "71adc4d"
   },
   {
    "lane": "CREATIVE",
@@ -115,13 +120,14 @@
    "responsible": "Claude worker (W4-CREATIVE)",
    "task": "Creative standard",
    "detail": "why emotional_appeal kills 11/11; fix design process without weakening the gate",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_CREATIVE.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "635c142"
   },
   {
    "lane": "MJS",
@@ -129,13 +135,14 @@
    "responsible": "Claude worker (W4-MJS)",
    "task": "Mrs J / competitor intelligence",
    "detail": "make it continuously productive; findings feed Intelligence/Design/Product",
-   "status": "running",
+   "status": "complete; merged on claude/w4-INTEG, integration tests running",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_MJS.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "5092b01"
   },
   {
    "lane": "STORE",
@@ -143,13 +150,14 @@
    "responsible": "Claude worker (W4-STORE)",
    "task": "Real Etsy store",
    "detail": "live-state readback/drift (never overwrite owner fields), settings, taxonomy, attributes, analytics ingestion",
-   "status": "running",
+   "status": "complete; merged on claude/w4-INTEG, integration tests running",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_STORE.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "ba72ca8"
   },
   {
    "lane": "SEO",
@@ -157,13 +165,14 @@
    "responsible": "Claude worker (W4-SEO)",
    "task": "Search/SEO packages",
    "detail": "evidence-based search package + certificate per viable product; post-launch update loop",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_SEO.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "baf244a"
   },
   {
    "lane": "VISUAL",
@@ -171,13 +180,14 @@
    "responsible": "Claude worker (W4-VISUAL)",
    "task": "Visual pipeline",
    "detail": "advance stages B/C (PARTIAL), D (FAIL), E (NOT_STARTED) truthfully; costed paid plan",
-   "status": "running",
+   "status": "queued (next free slot)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_VISUAL.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "32332f5"
   },
   {
    "lane": "LEARN",
@@ -185,13 +195,14 @@
    "responsible": "Claude worker (W4-LEARN)",
    "task": "Improvement system",
    "detail": "12 cells/0 measured/0 lessons: diagnose; run pre-sale measured experiments; lessons that change behaviour",
-   "status": "running",
+   "status": "queued (next free slot)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_LEARN.md",
-   "rows_closed": []
+   "rows_closed": [],
+   "latest_pushed_sha": "995cb5b"
   },
   {
    "lane": "OWNER",
@@ -199,13 +210,50 @@
    "responsible": "Claude worker (W4-OWNER)",
    "task": "Owner actions + incidents",
    "detail": "consolidate owner actions into decision batches; fix 18 open incidents at root cause",
-   "status": "running",
+   "status": "running (resumed after container restart)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-06T23:56Z",
+   "last_update": "2026-10-07T00:38Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_OWNER.md",
+   "rows_closed": [],
+   "latest_pushed_sha": "1ade34d"
+  },
+  {
+   "lane": "SPEND",
+   "branch": "claude/w4-SPEND",
+   "responsible": "Claude worker (W4-SPEND)",
+   "task": "Final Master K5a+K5b spend rows",
+   "detail": "spend attribution + paid-call discipline",
+   "status": "queued (next free slot)",
+   "started": "2026-10-07T00:38Z",
+   "last_update": "2026-10-07T00:38Z",
+   "latest_pushed_sha": null,
+   "useful_output": null,
+   "blocker": null,
+   "next_action": "see handoff_SPEND.md",
    "rows_closed": []
+  },
+  {
+   "lane": "K9",
+   "branch": "claude/w4-K9",
+   "responsible": "Claude worker (W4-K9)",
+   "task": "Final Master K9 pattern truth (graded garments)",
+   "detail": "",
+   "status": "queued (next free slot)",
+   "started": "2026-10-07T00:38Z",
+   "last_update": "2026-10-07T00:38Z",
+   "latest_pushed_sha": null,
+   "useful_output": null,
+   "blocker": null,
+   "next_action": "see handoff_K9.md",
+   "rows_closed": []
+  }
+ ],
+ "events": [
+  {
+   "at": "2026-10-07T00:38Z",
+   "event": "container restart (likely memory exhaustion with 12 lanes on 4 cores/15 GB); all lanes checkpointed (uncommitted work of B2/FM/OWNER saved as WIP commits); 8 lanes resumed from pushed handoffs; resource rules added to brief"
   }
  ]
 }
