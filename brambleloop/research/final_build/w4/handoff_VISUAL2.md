@@ -22,6 +22,4 @@
   basket S/M/L, pet mat — certificate valid, upload serves ...+CONTENTS, first_customer PASS.
 
 ## Next (deterministic)
-- Runtime proof: `PYTHONPATH=src python research/final_build/w4/visual/proof_contents_gallery.py <slugs> <out.json>`
-  for harvest-table-runner + remaining certified-gallery releases; then VISUAL_STATUS + CC snapshot
-  (`python -m brambleloop.app.command_center.snapshots`), commit, push.
+- All owned items closed. Remaining (not this lane): pencil-roll legibility (PIPE CIR design), stocking/cosy Launch-0 promotion (PIPE), LIFESTYLE (owner VB-1 P2).
