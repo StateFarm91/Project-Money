@@ -536,7 +536,7 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
                              f"wall counting is defined for a stacked hexagon; this vessel has "
                              f"{sides!r} corners"))
         return {}
-    alpha = math.radians(K.OBLIQUE_DEG if view == "hero" else 0.0)
+    alpha = math.radians(K.camera_deg(view))
     ca, sa = math.cos(alpha), math.sin(alpha)
     radii = model["radii_cm"]
     R = radii[model["base_rounds"] - 1]
@@ -829,6 +829,10 @@ def _verify(png: bytes, *, cir, view: str) -> dict:
         return _verdict(checks, image_sha256=sha)
     u = scale["px_per_cm"]
     construction = model["construction"]
+    if view == "angle" and not (construction != "flat_rows" and model.get("wall_rounds")):
+        checks.append(_check("view", FAIL, "an angle view exists only for a vessel; on a flat "
+                                           "or plan-form product it would repeat the hero"))
+        return _verdict(checks, image_sha256=sha)
     if construction == "flat_rows":
         detail = _verify_flat(frame, model, view, u, checks)
     elif model.get("wall_rounds"):
