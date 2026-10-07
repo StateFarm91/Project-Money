@@ -137,6 +137,12 @@ def discover(db, *, reader=None, env: dict | None = None, limit: int = PER_RUN,
                 "reason": ("no sanctioned Etsy read credential, so no category leader can be "
                            "observed; candidates are listed, none is registered unseen")}
 
+    # D-W4-GATESB-1: the company's chosen second-market shops join first, each only after
+    # the reader verifies its name and stated location (intel.second_market).
+    from . import second_market
+
+    chosen = second_market.ensure_selected(db, reader, now=now)
+
     names, ids = _known(db)
     covered = set(benchmarks.markets_observed(db))
     inspected: list[dict] = []
@@ -197,7 +203,7 @@ def discover(db, *, reader=None, env: dict | None = None, limit: int = PER_RUN,
                         "new": len(result.new_listings), "audited": len(result.deep_audited)})
 
     return {"ran": True, "candidates": len(found), "inspected": len(inspected),
-            "joined": joined, "scanned": scanned,
+            "joined": joined, "scanned": scanned, "second_market": chosen,
             "markets_observed": benchmarks.markets_observed(db),
             "note": ("category leaders from the API index's top results, observed with the "
                      "same sanctioned reader as the anchor; rank is directional and selects "

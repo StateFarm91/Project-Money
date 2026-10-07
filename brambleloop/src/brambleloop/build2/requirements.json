@@ -86,12 +86,13 @@
     "section": "Core commercial upgrades",
     "status": "partial",
     "title": "Creator and Tester Distribution",
-    "version": "v1.3"
+    "version": "v1.3",
+    "proof": "tests/test_creators.py tests/test_w4_gatesb.py"
   },
   {
     "body": "Build owned SEO/Pinterest funnels around useful free motifs, mini patterns, tutorials and tools that demonstrate Brambleloop quality and lead naturally to premium singles/collections. Track visitor -> consented email -> first purchase -> repeat purchase -> collection purchase. Free content must have a commercial job.",
     "id": 10,
-    "note": "growth/free_to_paid.py holds the condition that makes free work pay rather than merely cost: every asset names the premium product it leads to and the reason somebody who just used it would want that next, and an asset without both is a giveaway with a marketing story attached -- pleasant to make, which is why a shop ends up with dozens and cannot say what any of them did. 'It leads to the collection' is refused as a hope rather than a job. The expensive refusal is the second: a free mini pattern for an object this company sells does not lead to it, it replaces it, and that failure is indistinguishable from success from the inside because the downloads and saves go up while conversion falls -- so the check is against the catalogue's own slugs rather than against a judgement about how much was given away. The ladder is the requirement's own -- visitor, consented email, first purchase, repeat purchase, collection purchase -- and a rung nobody reached has no conversion rather than a bad one, because 0% from an upstream of zero makes an untried funnel look like a failed one, which is how something nobody tried gets abandoned as something that did not work. A rung larger than the one above it is refused as a counting fault rather than reported as a remarkable funnel. An email is a rung only once it is consented: the count comes from the CASL consent records through growth/owned.py, since an address captured without a basis is not a step toward a purchase but a liability with a growth metric attached. /api/free-to-paid. Remaining and parked: no free work has been made and nothing is published, because publishing to an owned surface needs a site and a Pinterest account nobody has granted; the plan reports an empty funnel as empty rather than as failing.",
+    "note": "growth/free_to_paid.py holds the condition that makes free work pay rather than merely cost: every asset names the premium product it leads to and the reason somebody who just used it would want that next, and an asset without both is a giveaway with a marketing story attached -- pleasant to make, which is why a shop ends up with dozens and cannot say what any of them did. 'It leads to the collection' is refused as a hope rather than a job. The expensive refusal is the second: a free mini pattern for an object this company sells does not lead to it, it replaces it, and that failure is indistinguishable from success from the inside because the downloads and saves go up while conversion falls -- so the check is against the catalogue's own slugs rather than against a judgement about how much was given away. The ladder is the requirement's own -- visitor, consented email, first purchase, repeat purchase, collection purchase -- and a rung nobody reached has no conversion rather than a bad one, because 0% from an upstream of zero makes an untried funnel look like a failed one, which is how something nobody tried gets abandoned as something that did not work. A rung larger than the one above it is refused as a counting fault rather than reported as a remarkable funnel. An email is a rung only once it is consented: the count comes from the CASL consent records through growth/owned.py, since an address captured without a basis is not a step toward a purchase but a liability with a growth metric attached. /api/free-to-paid. Remaining and parked: no free work has been made and nothing is published, because publishing to an owned surface needs a site and a Pinterest account nobody has granted; the plan reports an empty funnel as empty rather than as failing.\n\nW4-GATESB 2026-10-07 split: company part (owning lane growth/PIPE) -- draft one free lead-magnet asset through the product chain and run growth.free_to_paid.check_asset on it; it needs no surface and stays unpublished in shadow. Owner part: an owned publishing surface (site/Pinterest/email; build2.gate_clearance.owned_surfaces_inventory). The Etsy shop exists and already satisfies the paid-destination portion.",
     "parked_on": "owned_surfaces",
     "section": "Core commercial upgrades",
     "status": "partial",
@@ -138,7 +139,8 @@
     "section": "Core commercial upgrades",
     "status": "partial",
     "title": "Conversion Benchmark Engine",
-    "version": "v1.3"
+    "version": "v1.3",
+    "proof": "tests/test_benchmarks.py"
   },
   {
     "body": "For target Etsy queries, periodically capture legitimately observable search-result sets and score thumbnail composition, price/sale presentation, social-proof signals, pattern+video positioning, category diversity and Brambleloop differentiation. Treat observed rank as directional/contextual rather than absolute.",
@@ -159,7 +161,8 @@
     "section": "Core commercial upgrades",
     "status": "partial",
     "title": "Listing Experiment Discipline",
-    "version": "v1.3"
+    "version": "v1.3",
+    "proof": "tests/test_listing_tests.py"
   },
   {
     "body": "Before scaling ads, complete the shop: premium icon/banner, About, policies, sections, coherent thumbnails, clear digital-download expectations, truthful product information and rapid support. Accumulate legitimate tester/customer proof. Never manufacture reviews.",
@@ -374,7 +377,8 @@
     "section": "Adversarial commercial + policy audit",
     "status": "owner_gated",
     "title": "Marketplace Insights Query Budgeter",
-    "version": "v1.3.2"
+    "version": "v1.3.2",
+    "proof": "tests/test_insights_budget.py"
   },
   {
     "body": "Every trend/search datum stores source, date range, geography/population and freshness. Etsy trend reports can be based on specific populations/time windows, so agents may not present U.S.-only or historical trend data as current Canadian/global demand. Opportunity scores discount stale or mismatched evidence.",
@@ -520,7 +524,8 @@
     "section": "Adversarial commercial + policy audit",
     "status": "owner_gated",
     "title": "Business Continuity Export",
-    "version": "v1.3.2"
+    "version": "v1.3.2",
+    "proof": "tests/test_continuity.py"
   },
   {
     "body": "CEO dashboard tracks releases/week only alongside defect rate, support burden, conversion and contribution. Never reward agents for shipping more SKUs if quality or economics deteriorate.",
@@ -544,7 +549,7 @@
   {
     "body": "Before asking owner to open/connect live Etsy operations, require: brand/name clearance checkpoint; storefront asset pack; at least several release-ready products with truthful proof status; policies/FAQ; digital-item disclosure language; customer-support knowledge; pricing/promotion plan; launch calendar; analytics baseline; exact owner setup checklist; and rollback plan.",
     "id": 54,
-    "note": "launch/readiness.py now carries the v1.4 additions: brand moat, rollback plan and a pre-launch analytics baseline, alongside brand clearance and the benchmark challenge\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was covered): missing items: digital disclosure language, support knowledge, pricing/promotion plan, launch calendar, FAQ. analytics_baseline=bool(listings) and rollback_plan ready=True are hardcoded\n\nRepair wave platform 2026-09-27 (integrated by the lead): launch.readiness (daily) → readiness._launch_package_items (readiness.py:697) computes digital_disclosure, support_knowledge, faq, pricing_promotion_plan, launch_calendar, analytics_baseline, rollback_plan per listing from DB rows; the hard-coded rollback ready=True and analytics_baseline=bool(listings) are gone. MISSING: analytics_baseline = listing.seo_score>0 plus any OperatingReading row of any kind (readiness.py:744), and rollback_plan = certificate retained plus a continuity.verified DB-restore proof ≤3 days — neither is a pre-launch traffic baseline nor a rehearsed withdrawal (Codex P12). And nothing downstream consumes readiness.ready except the launch.assessed audit, the owner queue (owner items only) and the /api readiness route, so a BUILD-blocked package item blocks no job.\n\nRepair wave platform2 2026-09-27 (integrated by the lead): C-80: rollback rehearsed (dry withdrawal round trip per listing), search baseline from listing.query_portfolio per release, live-Etsy owner asks withheld at the handler while any package item is BUILD-blocked. The pre-launch TRAFFIC baseline stays UNMEASURED until the owner exports Etsy Stats (insights_access) -- parked for that half only.",
+    "note": "launch/readiness.py now carries the v1.4 additions: brand moat, rollback plan and a pre-launch analytics baseline, alongside brand clearance and the benchmark challenge\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was covered): missing items: digital disclosure language, support knowledge, pricing/promotion plan, launch calendar, FAQ. analytics_baseline=bool(listings) and rollback_plan ready=True are hardcoded\n\nRepair wave platform 2026-09-27 (integrated by the lead): launch.readiness (daily) → readiness._launch_package_items (readiness.py:697) computes digital_disclosure, support_knowledge, faq, pricing_promotion_plan, launch_calendar, analytics_baseline, rollback_plan per listing from DB rows; the hard-coded rollback ready=True and analytics_baseline=bool(listings) are gone. MISSING: analytics_baseline = listing.seo_score>0 plus any OperatingReading row of any kind (readiness.py:744), and rollback_plan = certificate retained plus a continuity.verified DB-restore proof ≤3 days — neither is a pre-launch traffic baseline nor a rehearsed withdrawal (Codex P12). And nothing downstream consumes readiness.ready except the launch.assessed audit, the owner queue (owner items only) and the /api readiness route, so a BUILD-blocked package item blocks no job.\n\nRepair wave platform2 2026-09-27 (integrated by the lead): C-80: rollback rehearsed (dry withdrawal round trip per listing), search baseline from listing.query_portfolio per release, live-Etsy owner asks withheld at the handler while any package item is BUILD-blocked. The pre-launch TRAFFIC baseline stays UNMEASURED until the owner exports Etsy Stats (insights_access) -- parked for that half only.\n\nW4-GATESB 2026-10-07 split: company part PROVEN -- the pre-Etsy readiness gate is launch.readiness.assess (tests/test_launch.py, tests/test_cert_rebuild_chain.py). Owner part: one Marketplace Insights reading recorded from Shop Manager (decision insights_reading); the Insights input stays UNKNOWN until recorded, never zero.",
     "section": "Adversarial commercial + policy audit",
     "status": "partial",
     "title": "Pre-Etsy Launch Readiness Gate",
@@ -650,7 +655,7 @@
     "title": "Physical Proof Upgrade Path",
     "version": "v1.3.3",
     "parked_on": "physical_proof",
-    "proof": "tests/test_cert_intel_wave2.py"
+    "proof": "tests/test_cert_intel_wave2.py tests/test_w4_gatesb.py"
   },
   {
     "body": "Every frame has exactly one primary commercial job: DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PATTERN_PREVIEW, PROOF or CROSS_SELL. Frames without a buyer-relevant job are removed. Prevent five technically different images from communicating essentially the same thing.",
@@ -1650,7 +1655,7 @@
   {
     "body": "The library is not frozen at launch. Periodically acquire a small number of strategically selected benchmarks when a new category, unusually strong competitor, new product format or major market shift warrants it. Avoid indiscriminate spending and duplicate information.",
     "id": 165,
-    "note": "benchmark refresh cadence and purchase budget; owner buys\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict invalid; was owner_gated): Falsely parked. The owner only has to buy. Detecting a new category, a strong competitor, a new format or a market shift and raising a refresh recommendation is software, and it does not exist: there is no #165 code anywhere.\n\nRepair wave intel 2026-09-27 (integrated by the lead): intel.benchmark_refresh weekly detects new category/strong competitor/new format/market shift and raises bounded OwnerAction purchase asks; only buying is the owner's.",
+    "note": "benchmark refresh cadence and purchase budget; owner buys\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict invalid; was owner_gated): Falsely parked. The owner only has to buy. Detecting a new category, a strong competitor, a new format or a market shift and raising a refresh recommendation is software, and it does not exist: there is no #165 code anywhere.\n\nRepair wave intel 2026-09-27 (integrated by the lead): intel.benchmark_refresh weekly detects new category/strong competitor/new format/market shift and raises bounded OwnerAction purchase asks; only buying is the owner's.\n\nW4-GATESB 2026-10-07 split: company part PROVEN -- refresh detection (new category, strong competitor, format/market shift) runs weekly in intel.benchmark_refresh and raises bounded purchase recommendations (tests/test_cert_intel_wave.py). Owner part: buying the set (benchmark_purchases; exact 13-pick list, links and CA$ total in research/final_build/w4/GATE_CLEARANCE_BUSINESS.md, delivered through /ops/teardown). The row stays parked on benchmark_purchases for the purchase half only.",
     "section": "Competitive product teardown laboratory",
     "status": "partial",
     "title": "Benchmark Refresh Cadence",
@@ -2418,45 +2423,45 @@
   {
     "body": "Where practical, obtain enough organic/owned traffic to estimate listing appeal before meaningful paid scaling. Ads can be used as bounded discovery, but a weak listing should not be hidden behind paid traffic. Etsy recommends allowing adequate time for Ads performance data; paid scaling decisions must respect attribution lag.",
     "id": 242,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): commerce/paid_media.may_scale requires a measured organic period before any scaling (tests/test_paid_media_economics.py); ad authority is the owner's.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): parking on ad authority is plausible, but no ads.campaign/ads.adjust handler is registered, so opening the gate runs nothing\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust daily applies paid_media.organic_first_gate from organic ListingOutcome periods and blocks the product; ads.campaign is dead-lettered without the owner's SpendLimit, capped in code with it, spends nothing.",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): commerce/paid_media.may_scale requires a measured organic period before any scaling (tests/test_paid_media_economics.py); ad authority is the owner's.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): parking on ad authority is plausible, but no ads.campaign/ads.adjust handler is registered, so opening the gate runs nothing\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust daily applies paid_media.organic_first_gate from organic ListingOutcome periods and blocks the product; ads.campaign is dead-lettered without the owner's SpendLimit, capped in code with it, spends nothing.\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.",
     "section": "CA$5K/month scale architecture",
     "status": "partial",
     "title": "Organic-First Proof Before Heavy Ads",
     "version": "v1.4.1",
-    "parked_on": "ad_authority",
+    "parked_on": "customers",
     "proof": "tests/test_cert_growth_ops.py"
   },
   {
     "body": "Calculate allowable CAC from price, fees, expected refunds, discounts, repeat contribution and margin. Ads may scale only below a risk-adjusted CAC threshold with enough data. Maintain separate new-customer CAC, blended CAC and contribution after advertising.",
     "id": 243,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): scale/runrate.py computes new vs blended CAC and contribution after ads (tests/test_paid_media_economics.py); spend is owner-gated.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same: no ads handler; CAC split is never computed, not even in the weekly reading\n\nRepair wave growth 2026-09-27 (integrated by the lead): risk-adjusted allowable CAC from listed price, fees and measured refund rate (refused under 20 orders) gates ads.adjust; new-customer/blended CAC and contribution-after-ads computed from Customer/Order/Ledger in scale.evidence.cac, in the weekly reading and the ads plan.",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): scale/runrate.py computes new vs blended CAC and contribution after ads (tests/test_paid_media_economics.py); spend is owner-gated.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same: no ads handler; CAC split is never computed, not even in the weekly reading\n\nRepair wave growth 2026-09-27 (integrated by the lead): risk-adjusted allowable CAC from listed price, fees and measured refund rate (refused under 20 orders) gates ads.adjust; new-customer/blended CAC and contribution-after-ads computed from Customer/Order/Ledger in scale.evidence.cac, in the weekly reading and the ads plan.\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.",
     "section": "CA$5K/month scale architecture",
     "status": "partial",
     "title": "Paid Acquisition Allowable CAC",
     "version": "v1.4.1",
-    "parked_on": "ad_authority",
+    "parked_on": "customers",
     "proof": "tests/test_cert_growth_ops.py"
   },
   {
     "body": "Track orders attributed to Etsy Offsite Ads separately because fee structure can materially change contribution. Use current Etsy fee/attribution rules rather than hardcoded assumptions, and incorporate any mandatory participation threshold into forecasting.",
     "id": 244,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): the Offsite Ads split imports gates/policy_knowledge READINGS['advertising_rules'] (15%/12% above US$10,000, US$100 cap, 30-day attribution) rather than restating it (tests/test_paid_media_economics.py); orders need the transactions_r scope.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same as 242\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust computes offsite_ads_forecast from Order.offsite_ad_attributed and trailing-365 sales on the policy reading's terms; UNMEASURED with no orders.",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): the Offsite Ads split imports gates/policy_knowledge READINGS['advertising_rules'] (15%/12% above US$10,000, US$100 cap, 30-day attribution) rather than restating it (tests/test_paid_media_economics.py); orders need the transactions_r scope.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same as 242\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust computes offsite_ads_forecast from Order.offsite_ad_attributed and trailing-365 sales on the policy reading's terms; UNMEASURED with no orders.\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.",
     "section": "CA$5K/month scale architecture",
     "status": "partial",
     "title": "Offsite Ads Economics Guard",
     "version": "v1.4.1",
-    "parked_on": "ad_authority",
+    "parked_on": "customers",
     "proof": "tests/test_cert_growth_ops.py"
   },
   {
     "body": "Where Etsy's current Share & Save or successor program is available, compare economics of qualified traffic sent through eligible trackable links versus ordinary marketplace acquisition. Use only official program rules and measure net contribution after any fee benefit.",
     "id": 245,
-    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): Share-and-Save fee-benefit arithmetic exists (tests/test_paid_media_economics.py); a test proves no commerce, runrate or leading module can enqueue or authorise ad spend.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same as 242\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust asks paid_media.share_and_save daily; with no official fee-benefit rate recorded it reports UNMEASURED by name rather than a guess.",
+    "note": "paid acquisition economics; needs the shop and owner-approved ad spend Re-audited 2026-09-27 (Build 2 closeout): Share-and-Save fee-benefit arithmetic exists (tests/test_paid_media_economics.py); a test proves no commerce, runrate or leading module can enqueue or authorise ad spend.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same as 242\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust asks paid_media.share_and_save daily; with no official fee-benefit rate recorded it reports UNMEASURED by name rather than a guess.\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.",
     "section": "CA$5K/month scale architecture",
     "status": "partial",
     "title": "Share-and-Save / Direct-Link Economics",
     "version": "v1.4.1",
-    "parked_on": "ad_authority",
+    "parked_on": "customers",
     "proof": "tests/test_cert_growth_ops.py"
   },
   {
@@ -2511,7 +2516,7 @@
     "title": "Tester-to-Ambassador Path",
     "version": "v1.4.1",
     "parked_on": "tester_roster",
-    "proof": "tests/test_cert_growth_ops.py"
+    "proof": "tests/test_cert_growth_ops.py tests/test_creators.py tests/test_w4_gatesb.py"
   },
   {
     "body": "Where Brambleloop lawfully collects consented email subscribers, operate lifecycle flows: welcome/value, category interest, launch, post-purchase support, cross-sell and seasonal reactivation. Segment by demonstrated interest and frequency-cap communications. Track incremental contribution, not open rate vanity.",
@@ -2554,7 +2559,8 @@
     "section": "CA$5K/month scale architecture",
     "status": "partial",
     "title": "Personalization / Customization Layer",
-    "version": "v1.4.1"
+    "version": "v1.4.1",
+    "proof": "tests/test_personalisation.py"
   },
   {
     "body": "Build useful free utilities that attract high-intent makers: yarn/yardage helpers, colour planners, size calculators, project-time estimators, seasonal make-time planners or motif preview tools. Each tool must have a useful standalone purpose and a measured path to relevant Brambleloop products.",
@@ -2649,7 +2655,8 @@
     "section": "CA$5K/month scale architecture",
     "status": "partial",
     "title": "Leading Indicator Dashboard",
-    "version": "v1.4.1"
+    "version": "v1.4.1",
+    "proof": "tests/test_leading.py"
   },
   {
     "body": "Each week, identify ONE primary commercial constraint and a small number of secondary constraints. Reallocate experiments/agents toward the constraint with highest expected marginal contribution. Examples: insufficient qualified traffic, weak thumbnail CTR, weak conversion, low AOV, low repeat or product gap.",
@@ -2701,7 +2708,7 @@
     "status": "covered",
     "title": "Cross-Border Demand Lens",
     "version": "v1.4.1",
-    "proof": "tests/test_cert_intel_wave.py"
+    "proof": "tests/test_cert_intel_wave.py tests/test_w4_gatesb.py"
   },
   {
     "body": "Normalize product economics into a canonical reporting currency while preserving transaction currency, platform/payment fees, regulatory/currency conversion fees and ad fees. Pricing decisions use net contribution, not sticker price.",

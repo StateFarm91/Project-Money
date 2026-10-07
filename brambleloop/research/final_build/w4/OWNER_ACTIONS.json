@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07T01:12:48+00:00",
+ "generated_at": "2026-10-07T02:34:24+00:00",
  "lane": "W4-OWNER",
  "sources": {
   "runtime": "build2.executor.approval_inbox (Command Center approvals inbox)",
@@ -10,15 +10,15 @@
  "counts": {
   "before": {
    "production_owner_action_rows": 9,
-   "runtime_gate_cards": 20,
+   "runtime_gate_cards": 19,
    "store_lane_items": 13,
    "visual_lane_plans": 3,
-   "total_asks": 45
+   "total_asks": 44
   },
   "after": {
    "batches": 9,
    "decisions": 25,
-   "minutes_total": 196
+   "minutes_total": 306
   },
   "converted_to_company_work": 3,
   "deferred": 1
@@ -38,7 +38,7 @@
    "title": "Go live on Etsy (one sitting in Shop Manager)",
    "why_batched": "each of these is a step of the same move out of shadow mode; none is useful alone, and answering them together takes one Etsy session",
    "decisions": 5,
-   "minutes_total": 47,
+   "minutes_total": 67,
    "max_cost_cad_total": 651.0,
    "max_cost_display": "CA$651.00",
    "items": [
@@ -74,10 +74,24 @@
       263,
       266
      ],
-     "clearance": null,
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "live_listings",
+       "detail": {
+        "gate": "live_listings",
+        "status": "ASKED IN leave_shadow (company work first, per product)",
+        "company_work": "lane W4-PIPE moves the strongest products through the final publication gate (ops.publication_authority evidence); see PRODUCT_INVENTORY on claude/w4-PIPE",
+        "owner_action_after": "per product with complete publication evidence: approve its sealed 24h publication grant (D-FB-10) and leave shadow for that listing (decision leave_shadow)",
+        "owner_action": null,
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger",
+      "lane W4-GATESB",
       "lane STORE OA-LAUNCH"
      ],
      "store_detail": [
@@ -89,7 +103,7 @@
      "id": "etsy_kyc_payout",
      "decision": "Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not.",
      "why": "production reason payout",
-     "evidence": "OwnerAction #3 raised 2026-10-07T01:12:48.104420 for payout",
+     "evidence": "OwnerAction #3 raised 2026-10-07T02:34:24.028708 for payout",
      "max_cost_cad": 0.0,
      "max_cost_display": "CA$0.00",
      "max_cost_basis": "stated by the producer",
@@ -115,7 +129,7 @@
      "id": "listing_fees",
      "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
      "why": "production reason listing_fees",
-     "evidence": "OwnerAction #4 raised 2026-10-07T01:12:48.104707 for listing_fees",
+     "evidence": "OwnerAction #4 raised 2026-10-07T02:34:24.029037 for listing_fees",
      "max_cost_cad": 6.0,
      "max_cost_display": "CA$6.00",
      "max_cost_basis": "stated by the producer",
@@ -139,15 +153,15 @@
     },
     {
      "id": "tester_outreach",
-     "decision": "Authorise outreach to independent pattern testers and one paid sample make (the 20 cm storage basket). You are not asked to crochet.",
+     "decision": "Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet.",
      "why": "3 requirements are parked on it",
      "evidence": "gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
      "max_cost_cad": 185.0,
      "max_cost_display": "CA$185.00",
-     "max_cost_basis": "stated by the producer",
+     "max_cost_basis": "ESTIMATED ceiling, gates.risk_matrix: 2.8 tester h x CA$20 + 63 m yarn (W4-GATESB)",
      "consequence_of_yes": "a measured sample calibrates yardage and Class C products can become shippable",
-     "consequence_of_no": "yardage stays a +/-20% tolerance, Class C stays unshippable, the first buyer becomes the tester",
-     "minutes": 5,
+     "consequence_of_no": "no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale",
+     "minutes": 25,
      "gates": [
       "tester_roster",
       "physical_proof"
@@ -163,10 +177,282 @@
       64,
       250
      ],
-     "clearance": null,
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "physical_proof",
+       "detail": {
+        "gate": "physical_proof",
+        "requirements": [
+         64
+        ],
+        "status": "OWNER-ACTION",
+        "decision": "one owner decision with tester_roster (owner_queue DECISIONS `tester_outreach`): confirm the outreach and approve the first agreed tester's paid make in one answer",
+        "pattern": {
+         "slug": "market-basket-small",
+         "version": "1.2.0",
+         "title": "Crochet Hexagonal Bread Basket",
+         "risk_class": "B (dimensional_form)",
+         "required": "partial_physical (a full make satisfies it and gives the #64 photograph)",
+         "scope": "full_make",
+         "content_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+         "finished_size_cm": {
+          "across_points": 16.0,
+          "across_flats": 13.9,
+          "wall_height": 8.7
+         },
+         "yarn_metres_by_colour": {
+          "cream": 40.2,
+          "wine": 11.9
+         }
+        },
+        "why_this_pattern": "`market-basket-small` (Crochet Hexagonal Bread Basket) at its current\nrelease. Chosen by rule, not taste, from the Launch-0 products whose risk class requires\nphysical evidence before live sale (`gates.risk_matrix`):\n\n* hexagon-coaster-set is Class A -- clears on deterministic evidence; a make proves nothing\n  it needs;\n* cloudline-baby-blanket is Class B on high yardage: ~15 h make, ~600 m, ceiling ~CA$441;\n* the three market baskets are Class B on `dimensional_form`, share one gauge, stitch and\n  yarn weight (sc, 12.5 sts/10 cm, 5.0 mm, worsted cotton), and the small one is the\n  cheapest make (~2.2 h, ~52 m; ceiling CA$59.65 at the risk matrix's own rates).\n\nA full make of the small basket satisfies its partial-physical requirement (a full make\ncontains one, `risk_matrix.satisfies`), calibrates the sc/worsted-cotton yardage factor all\nthree baskets use, falsifies or confirms a closed 3-D form's stated size (the risk the class\nexists for), and yields the finished-object photograph #64's upgrade path is waiting for.",
+        "kit_files": {
+         "market-basket-small-1.2.0-TEST.pdf": "5d4578d24d3116efd9d3e2cd15a2f722b9cfb3cd1ca3dfe331b4c81c11abcc2d",
+         "market-basket-small-1.2.0-RECORD-SHEET.pdf": "335fd7aa9c65a0b1ab52119db02fd644e327206b76a4dc80a3769f29c7bfcf76"
+        },
+        "materials": [
+         {
+          "item": "worsted-weight 100% cotton yarn, colour A (cream)",
+          "quantity": "1 ball (twin: 40.2 m needed; any ball of >= 50 m)",
+          "est_cad": 5.0
+         },
+         {
+          "item": "worsted-weight 100% cotton yarn, colour B (wine)",
+          "quantity": "1 ball (twin: 11.9 m needed)",
+          "est_cad": 5.0
+         },
+         {
+          "item": "5.0 mm crochet hook",
+          "quantity": "1",
+          "est_cad": 6.0
+         },
+         {
+          "item": "tapestry needle, 4 stitch markers, scissors",
+          "quantity": "1 set",
+          "est_cad": 4.0
+         },
+         {
+          "item": "kitchen scale reading to 1 g",
+          "quantity": "tester's own",
+          "est_cad": 0.0
+         },
+         {
+          "item": "tape measure / ruler (cm)",
+          "quantity": "tester's own",
+          "est_cad": 0.0
+         }
+        ],
+        "materials_total_cad_estimated": 20.0,
+        "max_cost_cad": 59.65,
+        "cost_basis": "gates.risk_matrix.owner_action_spec: 2.8 tester hours (estimate x1.3) at CA$20/h + 63 m yarn at CA$0.06/m. ESTIMATED ceiling; no tester has been paid yet",
+        "person_needed": {
+         "who": "one independent adult crocheter (not the owner, F-071) who agreed through the tester programme (quality.tester_programme)",
+         "skill": "confident with single crochet worked in joined rounds, increasing at six points to make a flat hexagon, and turning a base into straight walls; can read a written pattern in US terms; owns or can borrow a 1 g kitchen scale",
+         "time": "about 2-3 hours of making plus 15 minutes of measuring and recording"
+        },
+        "protocol": [
+         "Before starting: weigh each full ball and record the ball band (grams and metres)",
+         "Work a 10 x 10 cm sc swatch first; record stitches and rounds per 10 cm and the hook",
+         "Make the basket exactly as written in the test PDF; note every place you had to guess, re-read or rip back, with the round number",
+         "Weigh what is left of each ball; grams used = start minus end, per colour",
+         "Measure the finished base across the points and across the flats, and the wall height, in cm, without stretching",
+         "Record total hours and whether you followed the instructions exactly",
+         "Photograph the finished basket on a plain surface (top and side) in daylight",
+         "Return the record sheet and photos; the operator enters them (POST /api/physical-test and /api/physical-photo)"
+        ],
+        "records": [
+         {
+          "field": "tester_ref",
+          "label": "your tester reference",
+          "api": "tester_ref"
+         },
+         {
+          "field": "grams_cream",
+          "label": "grams used, colour A (cream)",
+          "api": "grams_by_color.cream"
+         },
+         {
+          "field": "grams_wine",
+          "label": "grams used, colour B (wine)",
+          "api": "grams_by_color.wine"
+         },
+         {
+          "field": "ball_band_grams",
+          "label": "ball band: grams per ball",
+          "api": "ball_band_grams"
+         },
+         {
+          "field": "ball_band_metres",
+          "label": "ball band: metres per ball",
+          "api": "ball_band_metres"
+         },
+         {
+          "field": "hook_mm",
+          "label": "hook used (mm)",
+          "api": "hook_mm"
+         },
+         {
+          "field": "swatch",
+          "label": "swatch: sts and rounds per 10 cm",
+          "api": "notes"
+         },
+         {
+          "field": "width_cm",
+          "label": "base across the points (cm)",
+          "api": "measured_width_cm"
+         },
+         {
+          "field": "flats_cm",
+          "label": "base across the flats (cm)",
+          "api": "notes"
+         },
+         {
+          "field": "height_cm",
+          "label": "wall height (cm)",
+          "api": "measured_height_cm"
+         },
+         {
+          "field": "hours",
+          "label": "total hours",
+          "api": "hours"
+         },
+         {
+          "field": "followed",
+          "label": "followed exactly? yes/no",
+          "api": "instructions_followed"
+         },
+         {
+          "field": "problems",
+          "label": "anything unclear or wrong (round numbers)",
+          "api": "notes"
+         }
+        ],
+        "intake": {
+         "test": "POST /api/physical-test (queued job physical.record)",
+         "photo": "POST /api/physical-photo {slug, sha256, source, rights}",
+         "gate_opens_when": "the physical.record job writes a PhysicalTest row with completed_at"
+        },
+        "owner_action": {
+         "action": "approve commissioning the first agreed tester for this make (not the owner)",
+         "max_cost_cad": 59.65,
+         "minutes": 5
+        },
+        "classification": "OWNER-GATED"
+       }
+      },
+      {
+       "lane": "W4-GATESB",
+       "gate": "tester_roster",
+       "detail": {
+        "gate": "tester_roster",
+        "requirements": [
+         9,
+         43,
+         250
+        ],
+        "status": "OWNER-ACTION",
+        "channel": {
+         "primary": "Ravelry group 'The Testing Pool' -- a public tester-call post from the Brambleloop Ravelry account (makers browse it to find tests)",
+         "secondary": "a public post on the Brambleloop Etsy shop announcement or an owned channel once one exists; never direct messages to individuals",
+         "why_this_channel": "a public call is addressed to nobody, so it is not a commercial electronic message to an address; respondents contact us and give express consent on the intake form before we write to them",
+         "account_needed": "a Ravelry account in the owner's name (free; person-only signup)"
+        },
+        "offer": {
+         "deliverables": [
+          "tested_sample",
+          "finished_photograph"
+         ],
+         "gets": [
+          "the final pattern PDF free, and the next Brambleloop pattern of their choice free",
+          "a test fee for the make (approved per make by the owner; default ceiling from gates.risk_matrix: CA$20/hour of estimated make time, yarn reimbursed at cost up to the stated ceiling)",
+          "credit by name or handle in the pattern's acknowledgements, only if they want it"
+         ],
+         "never": [
+          "a review, rating, favourite or testimonial (not askable: growth.creators)",
+          "any condition on liking the pattern -- defects are the point of a test"
+         ]
+        },
+        "consent_text": "I agree that Brambleloop Studio may email me about this pattern test (instructions, questions about my results, and the test fee). This is express consent under Canada's Anti-Spam Legislation, recorded with today's date; I can withdraw it at any time by replying 'unsubscribe' or using the link in any message, and it is actioned within 10 business days. Separately, I choose whether Brambleloop may show my photos of the finished object (on its Etsy listings / its own site / its emails / ads), and I can withdraw that permission for future use at any time. I am 18 or older. I understand no review, rating or favourite is requested, and my fee does not depend on my opinion.",
+        "consent_version": "tester-consent-v1-2026-10-07",
+        "intake_fields": [
+         {
+          "field": "handle",
+          "label": "name or handle to call you by (stored as a reference, not a contact list)",
+          "required": true
+         },
+         {
+          "field": "email",
+          "label": "email for this test only (kept with the consent record, not on the roster)",
+          "required": true
+         },
+         {
+          "field": "country_region",
+          "label": "country and province/state (for terminology and shipping-free kits)",
+          "required": true
+         },
+         {
+          "field": "experience",
+          "label": "crochet experience: beginner / intermediate / advanced",
+          "required": true
+         },
+         {
+          "field": "specialties",
+          "label": "what you usually make (departments)",
+          "required": true
+         },
+         {
+          "field": "can_weigh_grams",
+          "label": "do you have a kitchen scale reading to 1 g? (yes/no)",
+          "required": true
+         },
+         {
+          "field": "terms_preference",
+          "label": "US or UK crochet terms",
+          "required": true
+         },
+         {
+          "field": "express_consent",
+          "label": "tick: I agree that Brambleloop Studio may email me about this pattern test (instructio...",
+          "required": true
+         },
+         {
+          "field": "photo_permission_scopes",
+          "label": "optional: brambleloop_listing / brambleloop_site / brambleloop_email / advertising",
+          "required": false
+         },
+         {
+          "field": "credit_preference",
+          "label": "optional: credit by name / by handle / no credit",
+          "required": false
+         }
+        ],
+        "outreach": {
+         "title": "[Tester call] Crochet Hexagonal Bread Basket -- worsted cotton, ~3 hrs, paid",
+         "body": "Hello! Brambleloop Studio (a small Canadian crochet pattern studio, Etsy shop BrambleloopStudio) is looking for 1-3 testers for a small hexagonal bread basket worked in single crochet: base about 16 cm across the points, walls about 9 cm tall, worsted-weight cotton in two colours (about 40 m + 12 m), 5.0 mm hook.\n\nWhat we ask: make the basket from the test PDF within 14 days, follow it exactly, and fill in the one-page record sheet -- grams used per colour, the ball band (grams and metres), your hook, finished measurements, hours, and anything that was unclear or wrong. Mistakes you find are the most useful thing you can send.\n\nWhat you get: the final pattern free, another Brambleloop pattern of your choice, a test fee for the make with yarn reimbursed (amount confirmed before you start), and credit if you want it. We never ask for reviews, ratings or favourites, and nothing depends on whether you like it.\n\nTo apply, reply in this thread or message the Brambleloop Ravelry account; we will send the intake form (it records your consent to be emailed about this test, which you can withdraw any time). Brambleloop Studio, Canada.",
+         "identification": "Brambleloop Studio, Canada; Etsy shop BrambleloopStudio",
+         "sends_to_individuals": false
+        },
+        "owner_steps": "1) sign in to (or create) the Brambleloop Ravelry account; 2) post OUTREACH.md's title and body as a new thread in the group 'The Testing Pool' (tester-call board); 3) forward replies to the operator, who sends the intake form and records each agreement (quality.tester_programme.record_agreement). Nothing is posted until you confirm",
+        "owner_minutes": 20,
+        "max_cost_cad": 0.0,
+        "sent": false,
+        "owner_action": {
+         "action": "CONFIRM the prepared public tester call (not sent)",
+         "channel": "Ravelry group 'The Testing Pool' -- a public tester-call post from the Brambleloop Ravelry account (makers browse it to find tests)",
+         "max_cost_cad": 0.0,
+         "minutes": 20,
+         "consequence_of_waiting": "no tester -> no physical proof (#64); Class B/C products stay blocked from live sale"
+        },
+        "intake": "quality.tester_programme.record_agreement (express consent required)",
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
      "sources": [
       "runtime approval_inbox",
-      "lane B2 ledger"
+      "lane B2 ledger",
+      "lane W4-GATESB"
      ],
      "store_detail": null,
      "fields_missing": []
@@ -175,7 +461,7 @@
      "id": "trademark_filing",
      "decision": "Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work.",
      "why": "production reason brand_clearance",
-     "evidence": "OwnerAction #5 raised 2026-10-07T01:12:48.104966 for brand_clearance",
+     "evidence": "OwnerAction #5 raised 2026-10-07T02:34:24.029315 for brand_clearance",
      "max_cost_cad": 460.0,
      "max_cost_display": "CA$460.00",
      "max_cost_basis": "stated by the producer",
@@ -596,7 +882,7 @@
      "id": "storage_durable",
      "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
      "why": "production reason artifact_storage",
-     "evidence": "OwnerAction #1 raised 2026-10-07T01:12:48.100181 for artifact_storage",
+     "evidence": "OwnerAction #1 raised 2026-10-07T02:34:24.027437 for artifact_storage",
      "max_cost_cad": 5.0,
      "max_cost_display": "CA$5.00",
      "max_cost_basis": "stated by the producer",
@@ -654,27 +940,27 @@
    "title": "Competitive benchmark purchases",
    "why_batched": "the purchase gate and the pre-launch benchmark challenge wait on the same purchased patterns",
    "decisions": 1,
-   "minutes_total": 30,
+   "minutes_total": 75,
    "max_cost_cad_total": 300.0,
    "max_cost_display": "CA$300.00",
    "items": [
     {
      "id": "benchmark_purchase",
-     "decision": "Buy the selected benchmark patterns (/api/benchmark-selection) and upload them at /ops/teardown.",
-     "why": "5 requirements are parked on it",
-     "evidence": "gate 'benchmark_purchases' opens when: at least one BenchmarkProduct row exists -- counted, not asked about",
+     "decision": "Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown.",
+     "why": "production reason benchmark_challenge",
+     "evidence": "OwnerAction #7 raised 2026-10-07T02:34:24.038215 for benchmark_challenge",
      "max_cost_cad": 300.0,
      "max_cost_display": "CA$300.00",
      "max_cost_basis": "stated by the producer",
      "consequence_of_yes": "the pre-launch challenge (#168) and teardowns can run",
-     "consequence_of_no": "the first honest comparison happens in a buyer's downloads",
-     "minutes": 30,
+     "consequence_of_no": "delay benchmark_challenge",
+     "minutes": 75,
      "gates": [
       "benchmark_purchases"
      ],
      "requirement_keys": [
-      "benchmark_purchases",
-      "benchmark_challenge"
+      "benchmark_challenge",
+      "benchmark_purchases"
      ],
      "owner_action_ids": [
       7
@@ -686,10 +972,166 @@
       315,
       317
      ],
-     "clearance": null,
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "benchmark_purchases",
+       "detail": {
+        "gate": "benchmark_purchases",
+        "requirements": [
+         163,
+         165,
+         168,
+         315,
+         317
+        ],
+        "status": "OWNER-ACTION",
+        "reconciliation": "the gate text said 'roughly ten'; the owner approved thirteen at a CA$300 ceiling on 2026-09-20 (B-501, B-512) and intake enforces SET_SIZE=13 / SET_BUDGET_CAD=300. The required set is the 13 below, chosen by purchase_selection's deterministic facet coverage (B-485, B-507/B-509): 428 of 441 observed listings become redundant; a 10-pick set would leave bags, home_decor and ornaments uncovered",
+        "source": "GET /api/benchmark-selection?target=13&budget_cad=300 (production fcb982d, read-only, 2026-10-07) -> evidence_GATESB/prod_benchmark_selection_13_300_fcb982d.json",
+        "picks": [
+         {
+          "n": 1,
+          "listing_ref": "4313051459",
+          "department": "garments",
+          "title": "CROCHET PATTERN & VIDEO/ Caribbean Sea Sweater, Crochet Lace Sweater Pattern, Lace Crochet Top, Gifting, Sizes Xs-5X, Womens, Pdf",
+          "price_cad": 22.0,
+          "url": "https://www.etsy.com/listing/4313051459/crochet-pattern-video-caribbean-sea"
+         },
+         {
+          "n": 2,
+          "listing_ref": "540992118",
+          "department": "blankets",
+          "title": "CROCHET PATTERN Large Mouth Bass Blanket - Crochet Pattern for Bass Fish - Large Mouth Bass Blanket Crochet Pattern MJ's Off The Hook Design",
+          "price_cad": 16.0,
+          "url": "https://www.etsy.com/listing/540992118/crochet-pattern-large-mouth-bass-blanket"
+         },
+         {
+          "n": 3,
+          "listing_ref": "1748603334",
+          "department": "collections",
+          "title": "CROCHET PATTERN EBOOK V-Stitch Summer Garment Collection includes V-Neck Top with Hood, Cardigan with 3/4 and long sleeve and Crewneck Top",
+          "price_cad": 60.5,
+          "url": "https://www.etsy.com/listing/1748603334/crochet-pattern-ebook-v-stitch-summer"
+         },
+         {
+          "n": 4,
+          "listing_ref": "1500579838",
+          "department": "education",
+          "title": "The Perfect Fit Guidebook: Unlocking Pattern Sizing and Body Measurements for Crochet Garments / PDF Digital Download Ebook",
+          "price_cad": 21.0,
+          "url": "https://www.etsy.com/listing/1500579838/the-perfect-fit-guidebook-unlocking"
+         },
+         {
+          "n": 5,
+          "listing_ref": "1465106601",
+          "department": "hats",
+          "title": "CROCHET HAT PATTERN/ Star Stitch Big Bow Baby Hat, Rose Flower Beanie",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/1465106601/crochet-hat-pattern-star-stitch-big-bow"
+         },
+         {
+          "n": 6,
+          "listing_ref": "648978969",
+          "department": "amigurumi",
+          "title": "CROCHET PATTERN Bulky & Quick Rustic Farmhouse Pumpkin Pattern",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/648978969/crochet-pattern-bulky-quick-rustic"
+         },
+         {
+          "n": 7,
+          "listing_ref": "1813509350",
+          "department": "stockings",
+          "title": "CROCHET PATTERN & VIDEO/ Snuggle Season Christmas Stocking, Crochet Christmas Decor, Holiday Gifting, Crochet Christmas Stocking, Pdf",
+          "price_cad": 19.0,
+          "url": "https://www.etsy.com/listing/1813509350/crochet-pattern-video-snuggle-season"
+         },
+         {
+          "n": 8,
+          "listing_ref": "1889917386",
+          "department": "kitchen_bath",
+          "title": "CROCHET PATTERN & VIDEO/ Cozy Cottage Dishcloth, Easy Crochet Dishcloth Pattern, Home Decor, Gifting, Pdf Pattern, Washcloth, Teacher Gift",
+          "price_cad": 16.0,
+          "url": "https://www.etsy.com/listing/1889917386/crochet-pattern-video-cozy-cottage"
+         },
+         {
+          "n": 9,
+          "listing_ref": "1330088510",
+          "department": "seasonal_gift",
+          "title": "CROCHET PATTERN & VIDEO/ Mj's Merry Advent Calendar Crochet Stockings and Mittens, Pdf Crochet Pattern, Easy Crochet Christmas Pattern",
+          "price_cad": 16.0,
+          "url": "https://www.etsy.com/listing/1330088510/crochet-pattern-video-mjs-merry-advent"
+         },
+         {
+          "n": 10,
+          "listing_ref": "628097461",
+          "department": "unclassified",
+          "title": "CROCHET PATTERN / Dusty Rose Baby Set",
+          "price_cad": 20.0,
+          "url": "https://www.etsy.com/listing/628097461/crochet-pattern-dusty-rose-baby-set"
+         },
+         {
+          "n": 11,
+          "listing_ref": "1321496043",
+          "department": "home_decor",
+          "title": "PUMPKIN PILLOW CROCHET Pattern / Hello Harvest Pumpkin Pillow pattern",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/1321496043/pumpkin-pillow-crochet-pattern-hello"
+         },
+         {
+          "n": 12,
+          "listing_ref": "4446092413",
+          "department": "bags",
+          "title": "CROCHET PATTERN & VIDEO/ Winterberry Soap Saver, Reusable Soap Pouch, Beginner Crochet, Eco Friendly Gift, Easy Make, Pdf, Gift Tags",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/4446092413/crochet-pattern-video-winterberry-soap"
+         },
+         {
+          "n": 13,
+          "listing_ref": "1613235888",
+          "department": "ornaments",
+          "title": "CROCHET PATTERN// Granny Square Ball, Granny square Christmas Ornament, Crochet Christmas Ornament, Christmas Crochet Pattern",
+          "price_cad": 18.0,
+          "url": "https://www.etsy.com/listing/1613235888/crochet-pattern-granny-square-ball"
+         }
+        ],
+        "total_cad": 280.5,
+        "budget_cad": 300.0,
+        "price_basis": "observed listing price in CAD; tax and any sale price on the day excluded",
+        "delivery": {
+         "page": "https://brambleloop-os-production.up.railway.app/ops/teardown",
+         "api": "https://brambleloop-os-production.up.railway.app/api/teardown/intake",
+         "steps": [
+          "Buy each listing on Etsy (signed in as the owner; any payment method).",
+          "Open Etsy > You > Purchases and reviews > Download files for that order.",
+          "Open https://brambleloop-os-production.up.railway.app/ops/teardown on the same phone or computer, paste the operator token (BRAMBLELOOP_OPS_TOKEN; kept in page memory only).",
+          "Tap the pick (rows are the approved set in the same order), choose the downloaded file(s) -- zips are accepted and expanded -- optionally type the price paid.",
+          "Repeat per purchase. The page shows received/outstanding; nothing needs renaming."
+         ],
+         "api_form": {
+          "listing_ref": "the Etsy listing id of the pick (required)",
+          "files": "one or more downloaded files (pdf/zip/images/video)",
+          "paid_cad": "optional: what was actually paid, in CAD",
+          "licence_terms": "optional JSON: the shop's stated licence terms"
+         },
+         "durability": "files are mirrored to the off-provider archive when offsite storage is configured; until then the reply says durable:false and the files should be re-uploaded after offsite storage exists",
+         "gate_opens_when": "the first BenchmarkProduct row exists (first intake)"
+        },
+        "owner_action": {
+         "action": "buy the 13 listings above and upload each download at /ops/teardown",
+         "max_cost_cad": 300.0,
+         "expected_cost_cad": 280.5,
+         "minutes": 75,
+         "consequence_of_waiting": "#168/#315 benchmark challenge cannot measure our deliverables; it stays a release blocker; #317 has nothing to analyse"
+        },
+        "never": "no competitor content is copied into products; files stay quarantined",
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
      "sources": [
       "runtime approval_inbox",
-      "lane B2 ledger"
+      "lane B2 ledger",
+      "lane W4-GATESB"
      ],
      "store_detail": null,
      "fields_missing": []
@@ -701,21 +1143,21 @@
    "title": "Owned publishing channels",
    "why_batched": "accounts that accept a platform's terms in the owner's name",
    "decisions": 1,
-   "minutes_total": 20,
-   "max_cost_cad_total": null,
-   "max_cost_display": "UNKNOWN (at least one item is not costed)",
+   "minutes_total": 65,
+   "max_cost_cad_total": 25.0,
+   "max_cost_display": "CA$25.00",
    "items": [
     {
      "id": "owned_surfaces",
-     "decision": "Open a Pinterest business account and/or a site this company can publish to.",
+     "decision": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
      "why": "7 requirements are parked on it",
      "evidence": "gate 'owned_surfaces' opens when: the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
-     "max_cost_cad": null,
-     "max_cost_display": "UNKNOWN",
-     "max_cost_basis": "UNKNOWN",
+     "max_cost_cad": 25.0,
+     "max_cost_display": "CA$25.00",
+     "max_cost_basis": "stated by the producer",
      "consequence_of_yes": "off-Etsy content requirements un-park",
-     "consequence_of_no": "they stay parked; Etsy-only discovery",
-     "minutes": 20,
+     "consequence_of_no": "free content, pins, video and the email list have nowhere to publish; acquisition is Etsy search only",
+     "minutes": 65,
      "gates": [
       "owned_surfaces"
      ],
@@ -732,10 +1174,114 @@
       251,
       255
      ],
-     "clearance": null,
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "owned_surfaces",
+       "detail": {
+        "gate": "owned_surfaces",
+        "requirements": [
+         4,
+         10,
+         246,
+         247,
+         248,
+         251,
+         255
+        ],
+        "status": "PARTLY CLEARED (Etsy shop recognised) + OWNER-ACTION",
+        "cleared_portion": {
+         "surface": "Etsy shop BrambleloopStudio",
+         "evidence": {
+          "key": "etsy_shop",
+          "what": "a live Etsy shop, which only the account holder can open",
+          "how_it_is_checked": "the shop's public identifier is set AND a recorded etsy.probe succeeded -- the identifier alone is a variable, which is not a shop",
+          "requirement_ids": [],
+          "open": true
+         },
+         "satisfies": {
+          "4": "nothing: concept tests must never use Etsy listings (fake-listing ban); they need a surface of our own",
+          "10": "the paid destination (premium singles/collections are sold on the Etsy shop); the free-content top of the funnel needs a site",
+          "246": "the pin landing destination (an Etsy listing URL once a listing is live); posting pins needs a Pinterest business account",
+          "247": "the paid product each cluster ends on; the cluster pages need a site (Etsy shop pages cannot host informational content)",
+          "248": "listing video slots (per listing, once live); a canonical tutorial and Shorts need a video channel",
+          "251": "nothing: Etsy forbids marketing email to buyers from order data; a consented list needs our own signup + sending provider",
+          "255": "the product each tool links to; the tools need a site to run on"
+         }
+        },
+        "missing": {
+         "site": {
+          "what": "a Brambleloop website on a domain the company controls",
+          "why": "hosts free motifs/tutorials/tools, SEO topic clusters and the consented email signup (#4 #10 #247 #251 #255); Etsy shop pages cannot",
+          "owner_step": "buy brambleloop domain (registrar of choice) and point it at a static host; the company builds and publishes the pages",
+          "max_cost_cad": 25.0,
+          "cost_basis": "ESTIMATED: one .com/.ca domain-year; static hosting on a free tier",
+          "minutes": 20
+         },
+         "pinterest": {
+          "what": "a Pinterest business account for Brambleloop",
+          "why": "pins with seasonal lead time and attribution (#246), concept interest tests (#4), free-to-paid funnel entry (#10)",
+          "owner_step": "create a free Pinterest business account (accepts Pinterest's terms; person-only), then authorise the app",
+          "max_cost_cad": 0.0,
+          "cost_basis": "free account",
+          "minutes": 15
+         },
+         "email": {
+          "what": "an email sending provider with a CASL-compliant signup form",
+          "why": "welcome/launch/seasonal lifecycle flows to consented subscribers (#251) and the funnel's consented-email step (#10)",
+          "owner_step": "open a free-tier sending account (accepts its terms, verifies the sender domain and a physical mailing address for CASL)",
+          "max_cost_cad": 0.0,
+          "cost_basis": "free tier up to its subscriber cap",
+          "minutes": 20
+         },
+         "video": {
+          "what": "a YouTube channel for Brambleloop",
+          "why": "canonical technique tutorials and Shorts reused from flagship video modules (#248)",
+          "owner_step": "create a YouTube brand channel (Google account terms; person-only)",
+          "max_cost_cad": 0.0,
+          "cost_basis": "free",
+          "minutes": 10
+         }
+        },
+        "per_requirement_needs": {
+         "4": [
+          "pinterest",
+          "site"
+         ],
+         "10": [
+          "site",
+          "pinterest",
+          "email"
+         ],
+         "246": [
+          "pinterest"
+         ],
+         "247": [
+          "site"
+         ],
+         "248": [
+          "video"
+         ],
+         "251": [
+          "email"
+         ],
+         "255": [
+          "site"
+         ]
+        },
+        "owner_action": {
+         "max_cost_cad": 25.0,
+         "minutes": 65,
+         "minimum_to_open_gate": "site or Pinterest whose publish path passes owned_surface.probe"
+        },
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
      "sources": [
       "runtime approval_inbox",
-      "lane B2 ledger"
+      "lane B2 ledger",
+      "lane W4-GATESB"
      ],
      "store_detail": null,
      "fields_missing": []
@@ -753,9 +1299,9 @@
    "items": [
     {
      "id": "ad_budget",
-     "decision": "Set a daily advertising cap (CA$/day) or decline paid media for now.",
-     "why": "6 requirements are parked on it",
-     "evidence": "gate 'ad_authority' opens when: a SpendLimit row for 'ads' exists with a positive, unpaused daily cap",
+     "decision": "Not askable yet: once a listing is ready to sell (gate_clearance.ad_readiness), set SpendLimit 'ads' to the recommended CA$3/day, CA$25 campaign, CA$60/month (paid_media.CONSERVATIVE_CAPS) or decline.",
+     "why": "advertising money leaves only on approval; ceilings are enforced in code",
+     "evidence": "ops/owner_queue.DECISIONS; executor gate(s) ad_authority",
      "max_cost_cad": null,
      "max_cost_display": "UNKNOWN",
      "max_cost_basis": "UNKNOWN",
@@ -765,18 +1311,53 @@
      "gates": [
       "ad_authority"
      ],
-     "requirement_keys": [
-      "ad_authority"
-     ],
+     "requirement_keys": [],
      "owner_action_ids": [],
      "b2_rows": [
       294,
       295
      ],
-     "clearance": null,
+     "clearance": [
+      {
+       "lane": "W4-GATESB",
+       "gate": "ad_authority",
+       "detail": {
+        "gate": "ad_authority",
+        "requirements": [
+         294,
+         295
+        ],
+        "status": "NOT-YET-ASKABLE",
+        "definition_of_ready": [
+         "the listing exists on Etsy (Listing.etsy_listing_id set) and its state is active",
+         "its release is certified (Listing.release_hash set) -- the same release the listing was published from",
+         "orders can be read (transactions_r gate open), so CAC and contribution are measured rather than guessed; without it ads would run blind and are not recommended"
+        ],
+        "recommendation_when_ready": {
+         "daily_cad": 3.0,
+         "campaign_cad": 25.0,
+         "monthly_cad": 60.0,
+         "max_test_loss_cad": 25.0,
+         "max_cac_cad": 6.0,
+         "logic": "build2.gate_clearance.ad_readiness"
+        },
+        "structure": "one Etsy Ads campaign over the ready listings (max 4), highest net first; Etsy exposes no seller targeting beyond listing choice and daily budget; measured by ads.adjust; organic-first proof (#242) gates scaling",
+        "guardrails_in_code": [
+         "paid_media.authorise_spend",
+         "paid_media.should_pause",
+         "growth_ops ads.campaign hard refusal while gate closed",
+         "SpendLimit('ads') positive unpaused cap"
+        ],
+        "spend_now": 0.0,
+        "owner_action": null,
+        "classification": "OWNER-GATED"
+       }
+      }
+     ],
      "sources": [
-      "runtime approval_inbox",
-      "lane B2 ledger"
+      "ops/owner_queue",
+      "lane B2 ledger",
+      "lane W4-GATESB"
      ],
      "store_detail": null,
      "fields_missing": []
@@ -983,12 +1564,53 @@
   }
  ],
  "gate_clearance": {
-  "folded": [],
-  "not_owner": [],
+  "folded": [
+   {
+    "lane": "business",
+    "gate": "benchmark_purchases",
+    "decision": "benchmark_purchase"
+   },
+   {
+    "lane": "business",
+    "gate": "physical_proof",
+    "decision": "tester_outreach"
+   },
+   {
+    "lane": "business",
+    "gate": "tester_roster",
+    "decision": "tester_outreach"
+   },
+   {
+    "lane": "business",
+    "gate": "owned_surfaces",
+    "decision": "owned_surfaces"
+   },
+   {
+    "lane": "business",
+    "gate": "ad_authority",
+    "decision": "ad_budget"
+   },
+   {
+    "lane": "business",
+    "gate": "live_listings",
+    "decision": "leave_shadow"
+   }
+  ],
+  "not_owner": [
+   {
+    "lane": "business",
+    "gate": "second_market_benchmark",
+    "why": "COMPANY-WORK"
+   },
+   {
+    "lane": "business",
+    "gate": "customers",
+    "why": "DATA-GATED"
+   }
+  ],
   "unmapped": [],
   "pending": [
-   "infra",
-   "business"
+   "infra"
   ]
  },
  "b2_genuine_gate_evidence_gaps": [
