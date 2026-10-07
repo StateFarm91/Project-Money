@@ -83,3 +83,8 @@ def ensure_tables(db) -> None:
         Base.metadata.create_all(engine, tables=[CompanyMemory.__table__,
                                                  TimelineEvent.__table__], checkfirst=True)
         setattr(engine, _FLAG, True)
+
+
+# F-659: durable job checkpoints live in the queue package; importing them here registers the
+# table with `core.db.Database.create_all`, which already imports this module.
+from ..queue import checkpoints as _job_checkpoints  # noqa: E402,F401

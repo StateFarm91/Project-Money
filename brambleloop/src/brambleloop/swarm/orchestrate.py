@@ -422,26 +422,66 @@ def _state_of(outputs) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
+# F-310: bookkeeping a job's *execution* writes about itself. These rows say the job ran,
+# was held, was billed or was fenced -- not that it learned or produced anything -- so they
+# are never counted as new evidence.
+EVIDENCE_EXCLUDED_PREFIXES: tuple[str, ...] = (
+    "job.", "swarm.", "provenance.", "ai.parked", "paid_call.", "model.attempt", "effect.",
+    "lease.", "queue.")
+
+
+def _evidence_by_job(session, job_ids: list[int]) -> dict[int, list[str]]:
+    """Per job, the content digests of the durable evidence rows (audit rows) it wrote."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    out: dict[int, list[str]] = {}
+    for i in range(0, len(job_ids), 500):
+        chunk = job_ids[i:i + 500]
+        for jid, action, artifact, detail in session.execute(
+                select(AuditLog.job_id, AuditLog.action, AuditLog.artifact, AuditLog.detail)
+                .where(AuditLog.job_id.in_(chunk)).order_by(AuditLog.id)):
+            if not action or str(action).startswith(EVIDENCE_EXCLUDED_PREFIXES):
+                continue
+            out.setdefault(int(jid), []).append(
+                _state_of({"action": action, "artifact": artifact, "detail": detail}))
+    return out
+
+
 def _progress(session, *, since: datetime) -> dict:
-    """Per job type over the window: iterations, dollars, distinct states and the ratios."""
+    """Per job type over the window: iterations, dollars, distinct states and the ratios.
+
+    F-310: progress is a changed result *or* new durable evidence. A job whose outputs read
+    the same as last time but which wrote an evidence row nobody had recorded before in the
+    window (a new observation, finding or reading -- compared by content, so restating the
+    same row each run is not new) made progress, and is not backed off as an unchanged poll.
+    """
     from sqlalchemy import select
 
     from ..core.models import Job, JobStatus
 
     by: dict[str, dict] = {}
     # Bounded in SQL (C-80 defect 17): this runs hourly and the DONE table grows by the day.
-    for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE,
-                                                 Job.finished_at >= since)
-                               .order_by(Job.id)):
-        finished = job.finished_at
-        if finished is None or _aware(finished) < since:
-            continue
+    jobs = [job for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE,
+                                                             Job.finished_at >= since)
+                                           .order_by(Job.id))
+            if job.finished_at is not None and _aware(job.finished_at) >= since]
+    evidence = _evidence_by_job(session, [j.id for j in jobs]) if jobs else {}
+    for job in jobs:
         row = by.setdefault(job.job_type, {"iterations": 0, "cost_cad": 0.0, "states": [],
                                            "cadence": bool((job.inputs or {}).get("cadence")),
-                                           "last_job_id": None})
+                                           "last_job_id": None, "seen_evidence": set(),
+                                           "new_evidence_rows": 0})
         row["iterations"] += 1
         row["cost_cad"] += float(job.cost_cad or 0.0)
-        row["states"].append(_state_of(job.outputs))
+        new = [d for d in evidence.get(job.id, []) if d not in row["seen_evidence"]]
+        row["seen_evidence"].update(new)
+        row["new_evidence_rows"] += len(new)
+        state = _state_of(job.outputs)
+        if new:
+            state = f"{state}+ev:{new[0]}"
+        row["states"].append(state)
         row["last_job_id"] = job.id
     out = {}
     for jt, row in by.items():
@@ -451,6 +491,7 @@ def _progress(session, *, since: datetime) -> dict:
         out[jt] = {
             "iterations": row["iterations"], "cost_cad": round(row["cost_cad"], 6),
             "state_changes": changes,
+            "new_evidence_rows": row["new_evidence_rows"],
             "progress_per_iteration": round(changes / row["iterations"], 4),
             "progress_per_dollar": (round(changes / row["cost_cad"], 4)
                                     if row["cost_cad"] > 0 else None),

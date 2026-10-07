@@ -94,6 +94,19 @@ class JobContext:
                 raise LeaseLost(f"job {self.job.id}: lease expired at {exp.isoformat()}; "
                                 f"external effect not performed")
 
+    def checkpoint(self, key: str, state: dict) -> dict:
+        """F-659: record that the step `key` finished with `state`. A reclaimed or retried
+        attempt of this job reads it back with `restore(key)` and skips the step instead of
+        repeating it. Fenced to this attempt's lease (a stale worker's write is refused with
+        `queue.checkpoints.CheckpointRefused`). Paid answers are still replayed only by
+        `gateway.paid_calls`; a checkpoint never stands in for a payment record."""
+        return self.queue.checkpoint(self.job.id, key, state,
+                                     lease_token=getattr(self.job, "lease_token", None))
+
+    def restore(self, key: str) -> dict | None:
+        """F-659: the state an earlier attempt of this job checkpointed under `key`, or None."""
+        return self.queue.restore(self.job.id, key)
+
     def effect(self, effect: str, idem: str):
         """`with ctx.effect("etsy.activate", key) as intent:` -- see queue.effects.guard."""
         from ..queue import effects
@@ -151,6 +164,114 @@ def _note_funding(db, text: str) -> None:
         pass
 
 
+# ---- F-098: park model-needing work while the model provider is down -----------------
+
+# Job types that can do nothing useful without an Anthropic answer: every one of them calls
+# the gateway (`failover.job_gateway` / the vision client) as its core step, and in
+# production each ended its latest cycle refusing on "credit balance is too low"
+# (RULE1_OUTPUT_AUDIT.md section 1). Deliberately narrow: a handler that does deterministic
+# work and only *optionally* consults a model keeps running, because parking it would lose
+# real output. `model.probe` is never parked -- it is how the outage is noticed to be over.
+MODEL_JOB_TYPES: frozenset[str] = frozenset({
+    "creative.blinded", "creative.expedition", "creative.grid_tournament",
+    "creative.tournament", "intel.gallery_analysis", "seasonal.cycle_proof",
+})
+PARKED_ACTION = "ai.parked"
+PARK_SECONDS = 30 * 60
+# A job parked longer than this runs anyway and reports its own refusal: an outage nobody
+# fixes for a day must surface as the handler's honest answer, not as an ever-growing queue.
+MAX_PARK_SECONDS = 24 * 60 * 60
+
+
+def model_provider_down(db, *, now: datetime | None = None) -> dict:
+    """Measured evidence that the Anthropic provider cannot answer now, or {"down": False}.
+
+    Evidence only -- a database where nobody has ever probed is *unknown*, not down, so a
+    fresh environment never parks anything. Three sources, freshest first:
+      * the shared failover breaker has an anthropic route DOWN (F-472; across workers);
+      * an open owner action for a spent Anthropic balance (`ops.funding`);
+      * the most recent `model.probe` failed.
+    """
+    try:
+        from ..gateway import failover
+
+        for key, h in sorted(failover.health(db, now=now).items()):
+            if key.startswith("anthropic:") and h.get("state") == failover.DOWN:
+                return {"down": True, "source": "failover", "route": key,
+                        "retry_after_s": max(60, int(h.get("retry_after_s") or 0)),
+                        "why": (f"{key} is DOWN across workers "
+                                f"({h.get('consecutive_failures')} consecutive failures)")}
+    except Exception:  # noqa: BLE001 - unreadable health is not evidence of an outage
+        pass
+    try:
+        from ..ops import funding
+
+        b = funding.blocked(db)
+        if b.get("blocked") and str(b.get("action") or "").startswith(
+                "Add credit to the Anthropic"):
+            return {"down": True, "source": "funding", "retry_after_s": PARK_SECONDS,
+                    "why": "the Anthropic account balance is spent (open owner action)"}
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from ..gateway import anthropic as gw
+
+        probe = gw.last_probe(db)
+        if probe is not None and not probe.get("ok"):
+            return {"down": True, "source": "probe", "retry_after_s": PARK_SECONDS,
+                    "why": ("the latest model probe failed: "
+                            + str(probe.get("error") or probe.get("why") or "")[:200])}
+    except Exception:  # noqa: BLE001
+        pass
+    return {"down": False}
+
+
+def park_if_model_down(db, job, *, worker: str, now: datetime | None = None) -> dict | None:
+    """Give a model-needing job back to the queue while the provider is down (F-098).
+
+    Like a lane hold: pending, unleased, the attempt not counted, claimable again after the
+    breaker's cooldown -- so an outage never walks the job toward a dead letter and never
+    burns retries or money. Audited `ai.parked`. Returns the park record, or None when the
+    job ran normally (not a model job, provider not known down, or parked too long).
+    """
+    from datetime import timedelta
+
+    from sqlalchemy import update
+
+    from ..core.models import AuditLog
+
+    if job.job_type not in MODEL_JOB_TYPES:
+        return None
+    now = now or utcnow()
+    created = job.created_at
+    if created is not None:
+        created = created if created.tzinfo else created.replace(tzinfo=now.tzinfo)
+        if (now - created).total_seconds() > MAX_PARK_SECONDS:
+            return None
+    down = model_provider_down(db, now=now)
+    if not down.get("down"):
+        return None
+    wait = int(down.get("retry_after_s") or PARK_SECONDS)
+    values = {"status": JobStatus.PENDING, "leased_by": None, "lease_token": None,
+              "lease_expires_at": None, "attempts": Job.attempts - 1,
+              "run_after": now + timedelta(seconds=wait)}
+    if int(job.attempts or 0) <= 1:
+        values["started_at"] = None
+    with db.session() as s:
+        res = s.execute(update(Job).where(
+            Job.id == job.id, Job.status == JobStatus.RUNNING, Job.leased_by == worker,
+            Job.attempts == job.attempts).values(**values)
+            .execution_options(synchronize_session=False))
+        if res.rowcount != 1:
+            return None
+        record = {"agent": job.agent, "worker": worker, "source": down.get("source"),
+                  "why": down.get("why"), "park_seconds": wait,
+                  "run_after": values["run_after"].isoformat()}
+        s.add(AuditLog(actor=job.agent, action=PARKED_ACTION, artifact=job.job_type,
+                       job_id=job.id, detail=record))
+    return record
+
+
 @dataclass
 class WorkerStats:
     claimed: int = 0
@@ -158,6 +279,7 @@ class WorkerStats:
     failed: int = 0
     skipped: int = 0
     denied: int = 0
+    parked: int = 0
 
 
 class Worker:
@@ -237,6 +359,16 @@ class Worker:
             self.queue.fail(job.id, f"no handler registered for {job.job_type!r}", retry=False,
                             worker=self.name, lease_token=job.lease_token)
             self.stats.skipped += 1
+            return True
+
+        # F-098: a model-needing job does not run (and fail, and retry, and burn) while the
+        # model provider is measurably down; it waits, un-counted, for the breaker.
+        try:
+            parked = park_if_model_down(self.db, job, worker=self.name)
+        except Exception:  # noqa: BLE001 - a failed park check runs the job as before
+            parked = None
+        if parked is not None:
+            self.stats.parked += 1
             return True
 
         ctx = JobContext(job=job, db=self.db, queue=self.queue,
