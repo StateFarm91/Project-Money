@@ -537,6 +537,29 @@ def care_note(cir: CIR) -> str | None:
             f"length.")
 
 
+SUPPORT_SCOPE_LEAD = "What support covers:"
+
+
+def support_scope(cir: CIR) -> str:
+    """F-770: which modifications are inside support and which are not, from the CIR.
+
+    Support checks a report against the compiler that validated this release, so it can only
+    vouch for what that release states: its size(s), its gauge and yarn weight, its stitch
+    pattern and construction. Anything else is the maker's own design change.
+    """
+    g = cir.gauge
+    sizes = (f"size {cir.grading.size} as written, or any of the {len(cir.grading.sizes)} "
+             f"sizes in the size chart from its own document" if cir.grading is not None
+             else "the size this pattern states")
+    weight = (f"{g.yarn_weight} weight yarn" if g is not None and g.yarn_weight
+              else "the yarn weight in Materials")
+    return (f"{SUPPORT_SCOPE_LEAD} {sizes}, worked in {weight} at the stated gauge, with the stitches, colour order and construction as written. "
+            f"Outside support: a different yarn weight or gauge, resizing to a size not "
+            f"listed, changing the stitch pattern, the construction or the number of pieces, "
+            f"and adding or removing shaping. We will explain how the pattern works, but we "
+            f"cannot check numbers this release did not validate.")
+
+
 def package_requirements(cir: CIR) -> tuple[str, ...]:
     """The sections a complete pattern package must carry for this CIR (F-761).
 
@@ -1486,6 +1509,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
              "bought it from and we will fix the pattern itself, not just answer your "
              "question. Every report is checked against the compiler that validated this "
              "release.", size=10)
+    doc.space(2 * mm)
+    doc.para(support_scope(cir), size=10)
     doc.space(3 * mm)
     # A licence with no owner and no date is a paragraph of good intentions, and a support
     # promise with no pattern id is one nobody can act on. Neither line was in the document.

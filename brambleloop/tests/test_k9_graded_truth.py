@@ -1,7 +1,7 @@
 """K9 (wave 4): Product Truth for graded garments -- size matrix, recomputation at certify, fit
 and ease, package completeness, children's sizing, claim evidence and graded provenance.
 
-Rows: F-762 size architecture, F-768 QA recomputes grading, F-763 ease and fit explicit,
+Rows: F-770 supportability, F-762 size architecture, F-768 QA recomputes grading, F-763 ease and fit explicit,
 F-761 package completeness, F-362 age-range clarity, F-777 evidence-backed claims, F-794
 design-difference ledger for graded designs, F-750 work direction and construction order.
 """
@@ -134,6 +134,10 @@ def test_a_graded_pdf_prints_its_size_chart_fit_care_and_is_complete():
     for e in cir.grading.sizes:
         assert f"finished chest {e['built_cm']['chest']:g} cm" in text, e["size"]
     assert P.package_missing(cir, doc.prose) == ()
+    # F-770: the document records what support covers and what it does not.
+    flat = " ".join(text.split())
+    assert P.SUPPORT_SCOPE_LEAD in flat and "Outside support: a different yarn weight" in flat
+    assert "any of the 9 sizes in the size chart" in P.support_scope(cir)
     # Without the size section the same release is an incomplete package.
     lines = [x for x in doc.prose.split("\n") if x not in (P.SIZES_HEADING, P.CARE_HEADING)]
     assert set(P.package_missing(cir, lines)) == {P.SIZES_HEADING, P.CARE_HEADING}
