@@ -154,79 +154,116 @@ def proposal_cir(p: Proposal, version: str = "0.1.0"):
     return builder.build(builder._derive_from_yarn(design), version=version)
 
 
-def pencil_roll_cir(version: str = "0.1.0"):
+# W4-CAND: the pencil roll's closure and pocket, as numbers the CIR is built to.
+PENCIL_CM = 17.5            # a standard full-length pencil
+POCKET_CM = 8.0             # the folded-up pocket's depth
+ABOVE_PENCIL_CM = 2.0       # panel standing above a pencil's tip when it sits in the pocket
+BAND_AROUND_CM = 22.0       # the closed band's length around (it lies flat at half that)
+
+
+def pencil_roll_cir(version: str = "0.2.0"):
     """W4-CREATIVE `teacher-chevron-pencil-roll`, engineered as pattern software.
 
     A pencil roll is three things, and the CIR carries all three or the name is false
     (`launch0.ASSEMBLED_FORMS` names "pencil roll"):
 
     * the body: a chevron-band relief panel from the catalogue tiler (one colour per row,
-      wine and gold), sized for a 17.5 cm pencil plus the pocket fold and a top flap;
-    * the pocket: the bottom 8 cm folded up and closed at both sides -- two placed self-seams,
-      each the height of the folded rows, so both edges of every join have a length;
-    * the tie: a single-crochet strip, its end sewn to one side edge across one row.
+      wine and gold), tall enough that a 17.5 cm pencil standing in the pocket stays inside
+      it, and wide enough for eight slots;
+    * the pocket: the bottom rows (closest to 8 cm, measured on the twin) folded up and
+      closed at both sides -- two placed self-seams, each the height of the folded rows,
+      so both edges of every join have a length;
+    * the closure: a single-crochet band worked side to side whose last row is sewn to its
+      foundation chain (a closed band, a self-seam the renderer lays flat), sewn by that
+      seam to the panel's right edge across the rows just above the pocket.
 
-    Slots are stitched through both layers of the pocket; the note says where.
+    0.2.0 (W4-CAND): the 0.1.0 closure was a 60 cm tie sewn to the right edge, so the
+    certified object lay flat 92 x 13 cm -- the tie three times the panel -- and its tie
+    sat at rows 12-14, behind the folded pocket, while the note said "above". The panel
+    was also 3 repeats (24 cm) with an 11 cm fold, leaving 13 cm above the fold for a
+    17.5 cm pencil. Now: a 22 cm closed band (11 cm flat) placed by its seam just above the
+    pocket, the fold measured on the twin, and the panel's height derived from the pencil.
+    The brief's "single tie cord wrapped twice" is answered with a band (ENGINEERING_NOTE).
     """
+    import math
     from dataclasses import replace as _replace
 
     from ..cir import stitches
+    from ..cir.assembly import EDGE_TOLERANCE, footprint
+    from ..cir.compiler import compile_cir
     from ..cir.model import Component, Op, Row, Seam
+    from ..cir.twin import build_twin
     from . import builder
     from .motifs import get
 
     motif = get("chevron-band")
-    across = max(1, round(30.0 * 16 / (10.0 * motif.width)))
-    repeats = max(1, round(30.0 / builder._repeat_height_cm(motif, 18, stitches)))
+    across = max(1, round(24.0 * 16 / (10.0 * motif.width)))
+    tall_cm = POCKET_CM + PENCIL_CM + ABOVE_PENCIL_CM
+    repeats = max(1, math.ceil(tall_cm / builder._repeat_height_cm(motif, 18, stitches)))
     design = builder.Design(
         slug="teacher-chevron-pencil-roll", title="Chevron Pencil Roll", motif="chevron-band",
         palette="autumn", width_stitches=across * motif.width, motif_repeats=repeats,
         yarn="worsted cotton", yarn_weight="worsted",
-        note="Fold the bottom 8 cm up to make the pocket, close its sides, then stitch slot "
-             "lines through both layers every 3 cm; roll from one side and tie.")
+        note="Fold the bottom rows up to make the pocket, close its sides, then stitch slot "
+             "lines through both layers; roll from the left edge and slip the band over "
+             "the roll.")
     cir = builder.build(builder._derive_from_yarn(design), version=version)
     body = cir.components[0]
     gauge = cir.gauge
-    row_cm = 10.0 / gauge.rows_per_10cm
-    fold_rows = max(2, round(8.0 / row_cm))
-    tie_sts = max(10, round(60.0 * gauge.stitches_per_10cm / 10.0))
     colour = body.rows[0].color
-    # The tie's end is sewn across whole panel rows, so its width is chosen to match them:
-    # n single-crochet rows against k panel rows, the closest pair (the assembly check holds
-    # both sides to EDGE_TOLERANCE; a relief row is taller than a plain one).
-    from ..cir.compiler import compile_cir
-    from ..cir.twin import build_twin
-
-    panel_row = build_twin(cir, compile_cir(cir)).height_cm / len(body.rows)
+    tops = build_twin(cir, compile_cir(cir)).row_top_cm
+    n_rows = len(body.rows)
+    # The pocket: the whole rows whose folded height is closest to the pocket depth.
+    fold_rows = min(range(2, n_rows // 2 + 1), key=lambda k: abs(tops[k] - POCKET_CM))
+    above_fold = tops[n_rows] - tops[fold_rows]
+    if above_fold < PENCIL_CM + ABOVE_PENCIL_CM - 1e-9:
+        raise ValueError(f"pencil roll: {above_fold:.1f} cm above the fold cannot hold a "
+                         f"{PENCIL_CM} cm pencil")
+    sts = body.foundation
+    slot_sts = sts // 8 if sts % 8 == 0 else None
+    if not slot_sts:
+        raise ValueError(f"pencil roll: {sts} stitches do not divide into 8 equal slots")
+    st_cm = 10.0 / gauge.stitches_per_10cm
     sc_row = 10.0 / gauge.rows_per_10cm
-    tie_rows, tie_span = min(((n, k) for n in range(2, 5) for k in range(1, 4)),
-                             key=lambda nk: abs(nk[0] * sc_row - nk[1] * panel_row)
-                             / (nk[1] * panel_row))
-
-    def tie_component(n: int) -> Component:
-        return Component(name="tie", construction="flat_rows", foundation=tie_sts,
-                         foundation_kind="chain",
-                         rows=[Row(index=i, ops=[Op("sc", tie_sts)], declared_count=tie_sts,
-                                   color=colour, turning_chain=1) for i in range(1, n + 1)],
-                         note=f"{n} rows of single crochet along a chain: the tie strip.")
-
-    tie = tie_component(tie_rows)
+    # The band's seam end is its foundation chain (n stitches) sewn across k panel rows; the
+    # assembly check measures k rows at the panel's mean row height, so the pair is chosen
+    # on that same measure, and it must be inside EDGE_TOLERANCE.
+    row_cm = footprint(body, build_twin(cir, compile_cir(cir)), gauge).row_cm
+    band_sts, band_span = min(((n, k) for n in range(3, 8) for k in range(2, 7)),
+                              key=lambda nk: abs(nk[0] * st_cm - nk[1] * row_cm)
+                              / max(nk[0] * st_cm, nk[1] * row_cm))
+    assert abs(band_sts * st_cm - band_span * row_cm) / max(band_sts * st_cm,
+                                                            band_span * row_cm) <= EDGE_TOLERANCE
+    band_rows = 2 * max(1, round(BAND_AROUND_CM / sc_row / 2))   # even: it lies flat
+    band = Component(
+        name="band", construction="flat_rows", foundation=band_sts, foundation_kind="chain",
+        grain="across",
+        rows=[Row(index=i, ops=[Op("sc", band_sts)], declared_count=band_sts, color=colour,
+                  turning_chain=1) for i in range(1, band_rows + 1)],
+        note=f"{band_sts} chain, then {band_rows} rows of single crochet worked side to side: "
+             f"the closure band, about {band_rows * sc_row:.0f} cm long.")
+    at = 2 * fold_rows + 1
     assembly = [
         Seam("whipstitch", "panel", "panel", edge_a="left", edge_b="left", at_round=1,
              spans_rounds=fold_rows,
              note=f"Fold the first {fold_rows} rows up onto the panel; close the left side."),
         Seam("whipstitch", "panel", "panel", edge_a="right", edge_b="right", at_round=1,
              spans_rounds=fold_rows,
-             note="Close the right side of the pocket, then stitch a slot line through both "
-                  "layers every 3 cm."),
-        Seam("whipstitch", "tie", "panel", edge_a="left", edge_b="right",
-             at_round=fold_rows + 1, spans_rounds=tie_span,
-             note="Sew one end of the tie to the right edge just above the pocket."),
+             note=f"Close the right side of the pocket, then stitch a slot line through both "
+                  f"layers after every {slot_sts} stitches: seven lines make eight slots."),
+        Seam("whipstitch", "band", "band", edge_a="left", edge_b="right",
+             note=f"Sew the band's row {band_rows} to its foundation chain, making a closed "
+                  f"band."),
+        Seam("whipstitch", "band", "panel", edge_a="left", edge_b="right", at_round=at,
+             spans_rounds=band_span,
+             note=f"Lay the band flat with its seam at one end and sew that end to the "
+                  f"panel's right edge across rows {at}-{at + band_span - 1}, just above the "
+                  f"pocket's top edge (row {2 * fold_rows})."),
     ]
-    return _replace(cir, components=[body, tie], assembly=assembly)
+    return _replace(cir, components=[body, band], assembly=assembly)
 
 
-def stocking_cir(version: str = "0.1.0"):
+def stocking_cir(version: str = "0.2.0"):
     """W4-CREATIVE `first-christmas-stocking`, engineered as pattern software from flat pieces.
 
     The brief asked for stranded colourwork in the round with a turned heel. The CIR cannot
@@ -241,9 +278,17 @@ def stocking_cir(version: str = "0.1.0"):
       the foot's top edge, the toe continues the foot forward and its top edge is the instep;
     * cuff: a single-crochet band worked side to side, each half sewn to one leg's top edge,
       its ends closed into a ring -- the plain cream band left for an initial;
-    * loop: a short single-crochet strip, folded and sewn to the cuff at the back seam.
+    * loop: a short single-crochet strip whose two ends are sewn together (a closed band,
+      a structured self-seam), laid flat with that seam at the bottom and sewn to the
+      cuff's top edge at the back seam.
 
     Every cross-piece join names its edges, so `cir.assembly` compares both lengths.
+
+    0.2.0 (W4-CAND): the loop's fold existed only in its seam note ("fold the loop in half"),
+    so its finished shape was not derivable and the renderer could not draw it. Its ends
+    are now joined by a self-seam (top edge to bottom edge: a band along its stitches), the
+    chain is an even count so the flattened band ends on a stitch boundary, and the join to
+    the cuff is made at that seam.
     """
     from dataclasses import replace as _replace
 
@@ -285,8 +330,9 @@ def stocking_cir(version: str = "0.1.0"):
     cuff_sts = max(6, round(6.0 * per_cm))                # 6 cm cuff band
     # The loop is worked side to side (grain across): a 12 cm chain and two rows, so its end
     # is two row-ends wide and sews across exactly two cuff rows -- the same stitch, the
-    # same row height, so both sides of that join are the same length by construction.
-    loop_sts = max(6, round(12.0 * per_cm))
+    # same row height, so both sides of that join are the same length by construction. The
+    # chain is even, so the closed loop lies flat with its far end between two stitches.
+    loop_sts = max(6, 2 * round(12.0 * per_cm / 2))
     loop_rows = loop_span = 2
     rows = len(panel.rows)
     comps = [
@@ -347,9 +393,14 @@ def stocking_cir(version: str = "0.1.0"):
           note=f"Sew cuff rows {heel_rows + 1}-{2 * heel_rows} to the back leg's top edge."),
         S("whipstitch", "cuff", "cuff", edge_a="left", edge_b="right",
           note="Close the cuff's two ends at the back seam."),
+        S("whipstitch", "loop", "loop", edge_a="top", edge_b="bottom",
+          note=f"Sew the loop's two ends together (its last stitches to its first), making "
+               f"a closed loop {loop_sts // 2 * 10.0 / gauge.stitches_per_10cm:.1f} cm long "
+               f"when laid flat."),
         S("whipstitch", "loop", "cuff", edge_a="bottom", edge_b="top",
           at_round=1, spans_rounds=loop_span,
-          note="Fold the loop in half and sew both ends inside the cuff at the back seam."),
+          note=f"Lay the loop flat with its seam at the bottom and sew the seam across cuff "
+               f"rows 1-{loop_span} on the cuff's top edge, at the back seam."),
     ]
     # Declared at the class the risk matrix sets for a multi-seam assembly (F-073), rather
     # than declared A and raised.

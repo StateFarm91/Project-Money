@@ -610,6 +610,14 @@ ENGINEERING_NOTES: dict[str, str] = {
         "and a matching back (a grid of squares cannot be length-checked by cir.assembly), "
         "with the tulip heads as gold dc relief rows rather than bobbles (bob is an "
         "uncalibrated primitive). New motif products.motifs:tulip-trellis. Stuffed: class C."),
+    # W4-CAND (pipeline_board.pencil_roll_cir 0.2.0, W4-PIPE's builder).
+    "teacher-chevron-pencil-roll": (
+        "Brief named a single tie cord wrapped twice around the roll. A tie that long sewn to "
+        "the edge is the object's flat footprint (92 x 13 cm in 0.1.0: the tie three times "
+        "the panel), so the closure is a closed single-crochet band, about 22 cm around, "
+        "sewn by its seam to the right edge just above the pocket and slipped over the "
+        "rolled case. The band's fit around a rolled case of eight pencils is a design "
+        "estimate, not a measurement; a sample make confirms it."),
 }
 
 

@@ -3368,7 +3368,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -3380,7 +3380,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "37997da15179",
+      "release_hash": "869150010a6d",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -3555,7 +3555,7 @@
         1
        ],
        [
-        "tie",
+        "band",
         1
        ]
       ]
@@ -3566,7 +3566,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -3578,7 +3578,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "25411a7789ab",
+      "release_hash": "31ba4dcaed54",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -3607,9 +3607,8 @@
       ],
       "launch_blocked": [
        "hero: structural truth UNKNOWN",
-       "hero: 340 px legibility ['the product fills 10% of the frame at 340 px']",
        "scale: structural truth UNKNOWN",
-       "scale: 340 px legibility ['the product fills 12% of the frame at 340 px']"
+       "detail: structural truth UNKNOWN"
       ],
       "launch_scope": false,
       "assembled": true
@@ -4064,7 +4063,7 @@
    "housewarming-key-basket",
    "spring-garden-kneeler"
   ],
-  "at": "2026-10-07T02:55:35+00:00",
+  "at": "2026-10-07T09:01:50+00:00",
   "detail": "PIPE2_CANDIDATES.json"
  },
  "render_rows": {
@@ -4076,7 +4075,7 @@
    "teacher-chevron-pencil-roll",
    "housewarming-key-basket"
   ],
-  "at": "2026-10-07T08:39:44+00:00",
+  "at": "2026-10-07T09:05:36+00:00",
   "detail": "RENDER_STATUS.json"
  }
 }

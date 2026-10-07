@@ -69,7 +69,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -81,7 +81,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "37997da15179",
+      "release_hash": "869150010a6d",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -345,7 +345,7 @@
         1
        ],
        [
-        "tie",
+        "band",
         1
        ]
       ]
@@ -356,7 +356,7 @@
     "PRODUCT": {
      "status": "PASS",
      "evidence": {
-      "version": "0.1.0",
+      "version": "0.2.0",
       "compiles": true,
       "errors": 0,
       "warnings": 0
@@ -368,7 +368,7 @@
      "status": "PASS",
      "evidence": {
       "certified": true,
-      "release_hash": "25411a7789ab",
+      "release_hash": "31ba4dcaed54",
       "certificate_errors": [],
       "name_truth": [],
       "compile_warnings": 0
@@ -397,9 +397,8 @@
       ],
       "launch_blocked": [
        "hero: structural truth UNKNOWN",
-       "hero: 340 px legibility ['the product fills 10% of the frame at 340 px']",
        "scale: structural truth UNKNOWN",
-       "scale: 340 px legibility ['the product fills 12% of the frame at 340 px']"
+       "detail: structural truth UNKNOWN"
       ],
       "launch_scope": false,
       "assembled": true
@@ -506,8 +505,8 @@
  "records": {
   "first-christmas-stocking": {
    "slug": "first-christmas-stocking",
-   "version": "0.1.0",
-   "fingerprint": "b373ef46108d",
+   "version": "0.2.0",
+   "fingerprint": "269623c122c6",
    "stage": "VISUAL",
    "stage_status": "UNKNOWN",
    "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
@@ -539,7 +538,7 @@
     {
      "view": "hero",
      "path": "render/first-christmas-stocking/hero.png",
-     "sha256": "f6a259cc90c06f186ad20867720fccc96d8307e8fdde2ef02beeefceb28d1641",
+     "sha256": "440f37ca251c42d24192121d02071d5cb17f08aad9f6717895361a2190741e81",
      "form": "assembled",
      "renderer_version": "disclosed-render-assembled/1.0.0",
      "assembly": {
@@ -549,18 +548,17 @@
        "leg_front",
        "foot_front",
        "cuff",
-       "toe_front"
+       "toe_front",
+       "loop"
       ],
       "hidden": {
        "foot_back": "behind foot_front: the back layer mirrors the front",
        "leg_back": "behind leg_front: the back layer mirrors the front",
        "toe_back": "behind toe_front: the back layer mirrors the front"
       },
-      "not_drawn": {
-       "loop": "its seam note folds it, and the fold is not a structured join, so its finished shape is not derivable"
-      }
+      "not_drawn": {}
      },
-     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: the assembled pieces seen from the front, in cream and forest. About 26.8 x 40.2 cm at the stated gauge, with a centimetre scale bar.",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: the assembled pieces seen from the front, in cream and forest. About 26.8 x 46.6 cm at the stated gauge, with a centimetre scale bar.",
      "structural_truth_in_pipeline": "UNKNOWN",
      "verifier_against_certified_cir": {
       "status": "UNKNOWN",
@@ -577,7 +575,7 @@
     {
      "view": "scale",
      "path": "render/first-christmas-stocking/scale.png",
-     "sha256": "5458f47d7b98c3fae50725a788dd13120291b2f913ef8e8467c72d36562b9d24",
+     "sha256": "b85155428b0bc92c8793f4de949371631c7f3b9b14fdc750c0ee17612b16f50f",
      "form": "assembled",
      "renderer_version": "disclosed-render-assembled/1.0.0",
      "assembly": {
@@ -587,18 +585,17 @@
        "leg_front",
        "foot_front",
        "cuff",
-       "toe_front"
+       "toe_front",
+       "loop"
       ],
       "hidden": {
        "foot_back": "behind foot_front: the back layer mirrors the front",
        "leg_back": "behind leg_front: the back layer mirrors the front",
        "toe_back": "behind toe_front: the back layer mirrors the front"
       },
-      "not_drawn": {
-       "loop": "its seam note folds it, and the fold is not a structured join, so its finished shape is not derivable"
-      }
+      "not_drawn": {}
      },
-     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: the assembled pieces with their assembled width and height marked, in cream and forest. About 26.8 x 40.2 cm at the stated gauge, with a centimetre scale bar.",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: the assembled pieces with their assembled width and height marked, in cream and forest. About 26.8 x 46.6 cm at the stated gauge, with a centimetre scale bar.",
      "structural_truth_in_pipeline": "UNKNOWN",
      "verifier_against_certified_cir": {
       "status": "UNKNOWN",
@@ -625,16 +622,15 @@
        "leg_front",
        "foot_front",
        "cuff",
-       "toe_front"
+       "toe_front",
+       "loop"
       ],
       "hidden": {
        "foot_back": "behind foot_front: the back layer mirrors the front",
        "leg_back": "behind leg_front: the back layer mirrors the front",
        "toe_back": "behind toe_front: the back layer mirrors the front"
       },
-      "not_drawn": {
-       "loop": "its seam note folds it, and the fold is not a structured join, so its finished shape is not derivable"
-      }
+      "not_drawn": {}
      },
      "alt_text": "Digital rendering of the pattern's finished design, not a photograph. First Christmas Fir and Star Relief Stocking: a close view of one corner, stitch for stitch, in cream and forest. About 19.2 x 22.6 cm at the stated gauge, with a centimetre scale bar.",
      "structural_truth_in_pipeline": "UNKNOWN",
@@ -660,14 +656,14 @@
     {
      "job": "COLOUR_CONTEXT",
      "path": "render/first-christmas-stocking/gallery-colour_context.png",
-     "sha256": "9da1f44cb11ff8702130cf731715b450584ad0d2b30d0c04a89e5c793eb6cacc",
+     "sha256": "31ea1a4a4c8fdbe0f9b513300e890c37fd8771ebfb3701072e4921e9fe2ec9d5",
      "verify": "PASS",
      "failed": []
     },
     {
      "job": "CONSTRUCTION",
      "path": "render/first-christmas-stocking/gallery-construction.png",
-     "sha256": "e8dfd21c47d2ca78cbdd88f51e5249750e7a33a71a079d274d4bbca85ff58e5b",
+     "sha256": "78d2c8b7d2a7551c2d662971b4c8207df68fd485bc0bf812aea701cde2296bfd",
      "verify": "PASS",
      "failed": []
     }
@@ -685,8 +681,8 @@
      "SCALE"
     ],
     "covered": {
-     "COLOUR_CONTEXT": "gallery colour_context 9da1f44cb11f",
-     "CONSTRUCTION": "gallery construction e8dfd21c47d2",
+     "COLOUR_CONTEXT": "gallery colour_context 31ea1a4a4c8f",
+     "CONSTRUCTION": "gallery construction 78d2c8b7d2a7",
      "DETAIL": "detail ed04bf95515f (verifier PASS)",
      "MATERIALS": "gallery materials a886082e3317"
     },
@@ -933,8 +929,8 @@
   },
   "teacher-chevron-pencil-roll": {
    "slug": "teacher-chevron-pencil-roll",
-   "version": "0.1.0",
-   "fingerprint": "7843a34a9781",
+   "version": "0.2.0",
+   "fingerprint": "6c66b846da29",
    "stage": "VISUAL",
    "stage_status": "UNKNOWN",
    "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes); its assembled hero/scale also need the verifier to measure assembled frames (render_verification; the body-piece detail already verifies)",
@@ -942,11 +938,8 @@
    "usable_as_listing_asset": false,
    "launch_blocked": [
     "hero: structural truth UNKNOWN",
-    "hero: 340 px legibility ['the product fills 10% of the frame at 340 px']",
     "scale: structural truth UNKNOWN",
-    "scale: 340 px legibility ['the product fills 12% of the frame at 340 px']",
-    "detail: structural truth UNKNOWN",
-    "layout_qa: ['FRAME_FLAT: 94.8% of frame 1 is one colour. Whatever was composed on it is not visible, and every check upstream of the pixels reported success', 'FRAME_FLAT: 94.9% of frame 2 is one colour. Whatever was composed on it is not visible, and every check upstream of the pixels reported success']"
+    "detail: structural truth UNKNOWN"
    ],
    "registered": {
     "action": "assets.disclosed_render",
@@ -954,14 +947,14 @@
     "frames": 3
    },
    "qa": {
-    "layout_qa": false,
+    "layout_qa": true,
     "asset_truth": true,
     "frame_set": true,
     "mobile": true,
     "hero_thumbnail": true,
     "legibility_340": {
-     "hero": false,
-     "scale": false,
+     "hero": true,
+     "scale": true,
      "detail": true
     }
    },
@@ -969,7 +962,7 @@
     {
      "view": "hero",
      "path": "render/teacher-chevron-pencil-roll/hero.png",
-     "sha256": "5094e11fccd26d6a956cab68dece22dee58d574c1ba992b7e21713464c109ad1",
+     "sha256": "1374d353437f26592ba1d7030449a37008c58c6b577dd4ddc75199393599b8a1",
      "form": "assembled",
      "renderer_version": "disclosed-render-assembled/1.0.0",
      "assembly": {
@@ -977,12 +970,12 @@
       "body": "panel",
       "drawn": [
        "panel",
-       "tie"
+       "band"
       ],
       "hidden": {},
       "not_drawn": {}
      },
-     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: the assembled pieces seen from the front, in gold and wine. About 92 x 13.406 cm at the stated gauge, with a centimetre scale bar.",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: the assembled pieces seen from the front, in gold and wine. About 36.47 x 24.456 cm at the stated gauge, with a centimetre scale bar.",
      "structural_truth_in_pipeline": "UNKNOWN",
      "verifier_against_certified_cir": {
       "status": "UNKNOWN",
@@ -999,7 +992,7 @@
     {
      "view": "scale",
      "path": "render/teacher-chevron-pencil-roll/scale.png",
-     "sha256": "e433586362f95de7fd31e486fc8f9c6c226fac93c797f8fc11473b6a3cb5f49d",
+     "sha256": "c092bcde0f094e941f9c1da2c6d1f325c8bbbcefbae3090e23733ec6ef58aab0",
      "form": "assembled",
      "renderer_version": "disclosed-render-assembled/1.0.0",
      "assembly": {
@@ -1007,12 +1000,12 @@
       "body": "panel",
       "drawn": [
        "panel",
-       "tie"
+       "band"
       ],
       "hidden": {},
       "not_drawn": {}
      },
-     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: the assembled pieces with their assembled width and height marked, in gold and wine. About 92 x 13.406 cm at the stated gauge, with a centimetre scale bar.",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: the assembled pieces with their assembled width and height marked, in gold and wine. About 36.47 x 24.456 cm at the stated gauge, with a centimetre scale bar.",
      "structural_truth_in_pipeline": "UNKNOWN",
      "verifier_against_certified_cir": {
       "status": "UNKNOWN",
@@ -1029,7 +1022,7 @@
     {
      "view": "detail",
      "path": "render/teacher-chevron-pencil-roll/detail.png",
-     "sha256": "f9fe90481193e8f725151c8fbe718ac3d39a3594284eef25e5c7ffd76819fdab",
+     "sha256": "a5d19849fa523b74b7272c745774b4fa6c62b61bc9e23199a7cb92d2366e4d62",
      "form": "flat",
      "renderer_version": "disclosed-render/2.0.0",
      "assembly": {
@@ -1037,12 +1030,12 @@
       "body": "panel",
       "drawn": [
        "panel",
-       "tie"
+       "band"
       ],
       "hidden": {},
       "not_drawn": {}
      },
-     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: a close view of one corner, stitch for stitch, in gold and wine. About 32 x 24.4 cm at the stated gauge, with a centimetre scale bar.",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Chevron Pencil Roll: a close view of one corner, stitch for stitch, in gold and wine. About 25.6 x 32.5 cm at the stated gauge, with a centimetre scale bar.",
      "structural_truth_in_pipeline": "UNKNOWN",
      "verifier_against_certified_cir": {
       "status": "PASS",
@@ -1066,14 +1059,14 @@
     {
      "job": "COLOUR_CONTEXT",
      "path": "render/teacher-chevron-pencil-roll/gallery-colour_context.png",
-     "sha256": "d34179217f52795fe0dc69b33f3906107fb5a25a4bdbe1dedd4f22f7c36823c9",
+     "sha256": "242c6d20c84eaf51fdc5b20650726cbc44acb0b237a8c76cbd462a3770caa612",
      "verify": "PASS",
      "failed": []
     },
     {
      "job": "CONSTRUCTION",
      "path": "render/teacher-chevron-pencil-roll/gallery-construction.png",
-     "sha256": "1f554cc491a95a85983167aaac46f7acc90818c82ceb5228a8fcb6ec2d75d225",
+     "sha256": "aa3128e49f83c5ff76152b0880aa1fd71ddd55c8fddb638645d55b6f21a3b39b",
      "verify": "PASS",
      "failed": []
     }
@@ -1089,8 +1082,8 @@
      "SCALE"
     ],
     "covered": {
-     "COLOUR_CONTEXT": "gallery colour_context d34179217f52",
-     "DETAIL": "detail f9fe90481193 (verifier PASS)",
+     "COLOUR_CONTEXT": "gallery colour_context 242c6d20c84e",
+     "DETAIL": "detail a5d19849fa52 (verifier PASS)",
      "MATERIALS": "gallery materials cc7580dd6566"
     },
     "missing": {
@@ -1246,6 +1239,6 @@
    }
   }
  },
- "generated_at": "2026-10-07T08:39:44+00:00",
- "head": "33f0666"
+ "generated_at": "2026-10-07T09:05:36+00:00",
+ "head": "5a586c0"
 }

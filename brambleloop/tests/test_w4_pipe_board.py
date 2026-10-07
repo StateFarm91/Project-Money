@@ -84,8 +84,8 @@ def main():
     roll = by["teacher-chevron-pencil-roll"]
     check("pencil_roll_clears_product_truth", roll["highest_passed"] == "PRODUCT_TRUTH", roll)
     cir = pb.pencil_roll_cir()
-    check("pencil_roll_is_assembled", len(cir.assembly) == 3
-          and [c.name for c in cir.components] == ["panel", "tie"])
+    check("pencil_roll_is_assembled", len(cir.assembly) == 4
+          and [c.name for c in cir.components] == ["panel", "band"])
     flat = replace(cir, components=cir.components[:1], assembly=[])
     check("flat_pencil_roll_fails_name_truth",
           any(n.startswith("assembly") for n in name_truth(flat)), name_truth(flat))
@@ -100,7 +100,7 @@ def main():
     sc = pb.stocking_cir()
     _r = _cc(sc)
     geo = _asm.assemble(sc, {k.name: _bt(sc, _r, component=k.name) for k in sc.components})
-    check("stocking_assembles", geo.verdict == "assembles" and len(geo.joins) == 15
+    check("stocking_assembles", geo.verdict == "assembles" and len(geo.joins) == 16
           and all(j.verdict == "sound" for j in geo.joins) and not _r.warnings,
           (geo.verdict, geo.why))
     check("stocking_names_relief_not_colourwork",

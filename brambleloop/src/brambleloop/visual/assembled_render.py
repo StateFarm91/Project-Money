@@ -18,6 +18,12 @@ prose, a product photograph or a model's idea of what such things look like:
     the back) shows only the rows the front-layer joins place.
   * **folds** -- a flat piece whose two side edges are each self-seamed across rows 1..k is
     folded there: those rows lie over rows k+1..2k, upside down. Nothing else is a fold.
+  * **rings** (W4-CAND) -- a flat piece whose first row's outer edge is sewn to its last
+    row's (a self-seam of its two row-end edges: bottom/top worked up, left/right worked
+    across) is a closed band. Where a planar join places it by one of those edges, it is
+    drawn lying flat with the join at that edge: rows 1..m/2 in front, rows m/2+1..m behind
+    them (hidden, the same yarn), so its finished length is half the band. An odd row count
+    puts the flattened end inside a row and is not drawn.
   * **resumed panels** -- a flat piece that `resumes` a `Hold` of a round piece continues
     that round's held stitches, so it hangs from them as part of the same wall.
 
@@ -63,6 +69,8 @@ class Placed:
     grain: str
     rows: tuple[int, int] | None = None      # rows shown (a ring shows its front rows)
     fold: int = 0                            # rows 1..fold folded up over the piece
+    band: str = ""                           # a closed band lying flat: "rows"/"stitches"
+    cols: tuple[int, int] | None = None      # stitch positions shown (a flat band's front)
 
 
 @dataclass
@@ -118,6 +126,52 @@ def _fold_of(cir, comp) -> int:
             spans["left"] == spans["right"] and 2 * spans["left"] <= len(comp.rows):
         return spans["left"]
     return 0
+
+
+# The two edges a closed band's self-seam joins, by grain: its rows' ends (a band along its
+# rows) or its stitch columns' ends (a band along its stitches).
+BAND_EDGES = {("up", "rows"): {"bottom", "top"}, ("up", "stitches"): {"left", "right"},
+              ("across", "rows"): {"left", "right"}, ("across", "stitches"): {"bottom", "top"}}
+
+
+def _band_of(cir, comp) -> str | None:
+    """"rows" or "stitches" when this flat piece's two ends along that axis are sewn to each
+    other (a `Seam` self-seam of those two opposite edges): a closed band. Else None."""
+    if comp.construction != "flat_rows":
+        return None
+    for s in cir.assembly:
+        if s.piece_a == s.piece_b == comp.name:
+            for (grain, axis), edges in BAND_EDGES.items():
+                if grain == comp.grain and {s.edge_a, s.edge_b} == edges:
+                    return axis
+    return None
+
+
+def _lay_band_flat(p: Placed, axis: str, cir) -> str | None:
+    """A closed band lying flat with its seam at the placing join: the first half along its
+    axis in front, the second half behind it. None when drawable, else why not."""
+    if axis == "rows":
+        m = len(p.comp.rows)
+        if m % 2:
+            return (f"a band of {m} rows lies flat with its far end inside a row, so its "
+                    f"flattened shape is not derivable")
+        p.rows = (1, m // 2)
+        length = p.twin.row_top_cm[m // 2]
+    else:
+        counts = {len(v) for v in _cells_by_row(p.twin).values()}
+        if len(counts) != 1 or next(iter(counts)) % 2:
+            return (f"a band whose rows are {sorted(counts)} stitches lies flat with its far "
+                    f"end inside a stitch or a shaped row, so its flattened shape is not "
+                    f"derivable")
+        p.cols = (0, next(iter(counts)) // 2 - 1)
+        length = (next(iter(counts)) // 2) * 10.0 / cir.gauge.stitches_per_10cm
+    p.band = axis
+    vertical = (p.grain == "up") == (axis == "rows")
+    if vertical:
+        p.up = length
+    else:
+        p.across = length
+    return None
 
 
 def _place(p: Placed, edge_p: str, n: Placed, edge_n: str, *, n_is_b: bool, seam) -> None:
@@ -227,6 +281,12 @@ def _planar(cir, result, twins) -> Plan:
             p_new = new_placed(other)
             cur_edge = s.edge_a if s.piece_a == cur else s.edge_b
             new_edge = s.edge_b if s.piece_a == cur else s.edge_a
+            axis = _band_of(cir, comps[other])
+            if axis and new_edge in BAND_EDGES[(comps[other].grain, axis)]:
+                why = _lay_band_flat(p_new, axis, cir)
+                if why:
+                    plan.not_drawn[other] = why
+                    continue
             _place(placed[cur], cur_edge, p_new, new_edge, n_is_b=(other == s.piece_b), seam=s)
             placed[other] = p_new
             order.append(other)
@@ -280,13 +340,15 @@ def _planar(cir, result, twins) -> Plan:
         plan.hidden[b] = f"behind {f}: the back layer mirrors the front"
 
     for name in order:
+        if name in plan.not_drawn:
+            continue
         if name != body and _folds_in_notes(cir, name):
             plan.not_drawn[name] = ("its seam note folds it, and the fold is not a structured "
                                     "join, so its finished shape is not derivable")
             continue
         plan.placed.append(placed[name])
     for name in comps:
-        if name not in placed and name not in back:
+        if name not in placed and name not in back and name not in plan.not_drawn:
             plan.not_drawn[name] = "no join places it against the drawn pieces"
     if len(plan.placed) < 2:
         raise D.RenderRefused(f"{cir.slug}: only {len(plan.placed)} piece can be placed from "
@@ -361,7 +423,7 @@ def _draw_up(d, cir, p: Placed, palette, *, px, ox, oy) -> dict:
     left = ox + p.x0 * px
     bottom = oy - p.y0 * px
     out = D._draw_flat(d, cir, p.twin, palette, px=px, left=left, bottom=bottom,
-                       rows_window=(lo, hi))
+                       rows_window=(lo, hi), cols_window=p.cols)
     if p.fold:
         out["fold"] = _draw_flap(d, cir, p, palette, rows, tops, px=px, left=left, bottom=bottom)
     return out
@@ -411,12 +473,16 @@ def _draw_across(d, cir, p: Placed, palette, *, px, ox, oy) -> dict:
     for r in range(lo, hi + 1):
         xa = x_origin + tops.get(r - 1, 0.0) * px
         xb = x_origin + tops[r] * px
+        k = 0
         for c in rows[r]:
+            if p.cols and not p.cols[0] <= c.fabric_position <= p.cols[1]:
+                continue                     # behind: the far half of a flat band
             y_lo = bottom - c.fabric_position * w_cm * px
             y_hi = y_lo - w_cm * px
             # The stitch top faces the next row (to the right).
             D._tile(d, [(xb, y_hi), (xb, y_lo), (xa, y_lo), (xa, y_hi)], palette[c.color])
-        drawn.append({"row": r, "count": len(rows[r]), "colour": rows[r][0].color})
+            k += 1
+        drawn.append({"row": r, "count": k, "colour": rows[r][0].color})
     return {"rows": drawn, "width_cm": round(p.across, 3), "height_cm": round(p.up, 3)}
 
 
@@ -450,7 +516,8 @@ def _planar_view(cir, pl: Plan, palette, view: str):
         pieces.append({"piece": p.name, "grain": p.grain, "x0_cm": round(p.x0 - x0, 3),
                        "y0_cm": round(p.y0 - y0, 3), "across_cm": round(p.across, 3),
                        "up_cm": round(p.up, 3), "rows_shown": list(p.rows) if p.rows else None,
-                       "fold_rows": p.fold, "drawn": drawn})
+                       "fold_rows": p.fold, "band_flat": p.band or None,
+                       "stitches_shown": list(p.cols) if p.cols else None, "drawn": drawn})
     extra = []
     if view == "scale":
         top = bottom - H * px
@@ -672,4 +739,7 @@ def _notes(pl: Plan, view: str) -> list[str]:
         out.append("panels resumed from held stitches continue the body's wall")
     if any(p.fold for p in pl.placed):
         out.append("folded rows are drawn over the rows they lie on, upside down")
+    if any(p.band for p in pl.placed):
+        out.append("a closed band (first row sewn to last) lies flat: its front half is "
+                   "drawn, its back half is behind it")
     return out

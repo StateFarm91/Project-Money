@@ -1,13 +1,13 @@
 # W4-RENDER — VISUAL-blocked candidates rendered (shadow)
 
-Generated 2026-10-07T08:39:44+00:00 at `33f0666` by `research/final_build/w4/render_run.py`. Publication is never advanced.
+Generated 2026-10-07T09:05:36+00:00 at `5a586c0` by `research/final_build/w4/render_run.py`. Publication is never advanced.
 
 | candidate | made | frames (form) | verifier vs certified CIR | gallery | listing QA | board stage | next gate |
 |---|---|---|---|---|---|---|---|
 | first-christmas-stocking | True | hero (assembled), scale (assembled), detail (flat) | hero UNKNOWN, scale UNKNOWN, detail PASS | MATERIALS PASS, COLOUR_CONTEXT PASS, CONSTRUCTION PASS | all pass | VISUAL UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes) |
 | mothers-day-heart-tea-cosy | True | hero (assembled), scale (assembled), detail (rounds) | hero UNKNOWN, scale UNKNOWN, detail PASS | MATERIALS PASS, COLOUR_CONTEXT PASS, CONSTRUCTION PASS | all pass | VISUAL UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes) |
 | snowfall-advent-garland | False | — | — | MATERIALS PASS, COLOUR_CONTEXT PASS, CONSTRUCTION PASS | — | VISUAL FAIL | renderer refused: snowfall-advent-garland: 2 round pieces; only one round body with resumed panels is drawable assembled |
-| teacher-chevron-pencil-roll | True | hero (assembled), scale (assembled), detail (flat) | hero UNKNOWN, scale UNKNOWN, detail PASS | MATERIALS PASS, COLOUR_CONTEXT PASS, CONSTRUCTION PASS | {'layout_qa': False, 'asset_truth': True, 'frame_set': True, 'mobile': True, 'hero_thumbnail': True, 'legibility_340': {'hero': False, 'scale': False, 'detail': True}} | VISUAL UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes) |
+| teacher-chevron-pencil-roll | True | hero (assembled), scale (assembled), detail (flat) | hero UNKNOWN, scale UNKNOWN, detail PASS | MATERIALS PASS, COLOUR_CONTEXT PASS, CONSTRUCTION PASS | all pass | VISUAL UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes) |
 | housewarming-key-basket | True | hero (rounds), scale (rounds), detail (rounds) | hero PASS, scale PASS, detail PASS | MATERIALS PASS, COLOUR_CONTEXT PASS, CONSTRUCTION PASS | all pass | VISUAL UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes) |
 
 Required gallery jobs (`publish.eligibility.gallery_jobs_for` by search category; covered only by a frame verified on its bytes against the certified CIR):
@@ -19,6 +19,6 @@ Required gallery jobs (`publish.eligibility.gallery_jobs_for` by search category
 - **housewarming-key-basket** (basket): covered ['ANGLE', 'COLOUR_CONTEXT', 'CONSTRUCTION', 'DESIRE', 'DETAIL', 'MATERIALS', 'SCALE']; missing CONTENTS: drawn by visual.contents_frame from the release's certified PDF; this product has no release yet (release gates, not imagery); LIFESTYLE: a room scene is a claim about a physical object in a place; it needs a photograph of a made sample or a protected-product composite whose ba
 
 Assembled frames: pieces placed only by the CIR's named-edge joins, hidden mirror back layers, structured folds and resumed holds (`visual.assembled_render`); what cannot be placed is listed per frame as not drawn.
-- **first-christmas-stocking**: drawn ['leg_front', 'foot_front', 'cuff', 'toe_front']; hidden ['foot_back', 'leg_back', 'toe_back']; not drawn {'loop': 'its seam note folds it, and the fold is not a structured join, so its finished shape is not derivable'}
+- **first-christmas-stocking**: drawn ['leg_front', 'foot_front', 'cuff', 'toe_front', 'loop']; hidden ['foot_back', 'leg_back', 'toe_back']; not drawn {}
 - **mothers-day-heart-tea-cosy**: drawn ['cosy', 'front', 'back']; hidden []; not drawn {}
-- **teacher-chevron-pencil-roll**: drawn ['panel', 'tie']; hidden []; not drawn {}
+- **teacher-chevron-pencil-roll**: drawn ['panel', 'band']; hidden []; not drawn {}
