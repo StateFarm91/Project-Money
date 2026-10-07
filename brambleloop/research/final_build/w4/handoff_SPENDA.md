@@ -25,7 +25,12 @@ transport; every test writes ledger rows directly or through `spend_report.recor
 test_reliability 17, test_money_truth 18, test_cert_cost 19, test_cost_governance_wave2 39,
 test_spend_governance 36, test_spend_policy 24, test_w3_spend_attribution 4, test_w3_spend_hygiene 6,
 test_w3_spend_paid_calls 8, test_model_spend_paths 12, test_rc1_spend 20, test_dashboard_spend 7,
-test_cert_thrash 4, test_intake 20 (remaining: see below).
+test_cert_thrash 4, test_intake 20, test_w4_spend_paid_discipline 13, test_image_bench 59,
+test_photoreal_calibration 19, test_pods_routing 32, test_gateway 30, test_model_access 13,
+test_provenance_backfill 12, test_w3_spend_paid_calls 8, test_w3_spend_gateway_w8 5,
+test_w4_spend_attribution, test_platform 22 (the cadence-smoke test takes ~830 s under the
+shared-container load, all of it PDF rendering in launch readiness; run per-test), test_vacuity 7,
+test_secret_scan 7, test_reachability 11, test_w3_tmp_hygiene 16. Lane file now 17 tests.
 
 ## Wiring requests
 - integrator: import `brambleloop.finance.cost_attribution` and `brambleloop.finance.credits` in
