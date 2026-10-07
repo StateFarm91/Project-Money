@@ -98,20 +98,83 @@ def department_metrics(db, *, now: datetime | None = None) -> dict:
     }
 
 
-def calendar(db, *, now: datetime | None = None, metrics: dict | None = None) -> dict:
-    """Queued gaps placed into weekly review slots, most-evidenced and oldest first."""
+def topic_words(topic: str) -> frozenset[str]:
+    """The content words of a gap topic's value (`finishing:blocking_flat` -> blocking, flat).
+
+    Values with no word of three letters or more (`stitch:sc`, `hook_mm:5.0`) have none, and so
+    no lesson can be said to be about them: a two-letter abbreviation inside a lesson's prose is
+    not evidence the lesson concerns that stitch.
+    """
+    from ..improve.consume import words
+
+    value = (topic or "").split(":", 1)[-1].replace("_", " ")
+    return frozenset(words(value))
+
+
+def lesson_matches(db, topics) -> dict[str, list[dict]]:
+    """For each gap topic, the routed lessons (`improve.bus` inbox of the `learn` cell) about it.
+
+    A lesson is about a topic only when *every* content word of the topic appears in the
+    lesson's statement -- "colour change" needs both words, so a lesson that mentions colour
+    once is not a lesson about colour changes. Read-only.
+    """
+    from ..improve import bus
+    from ..improve.consume import words
+
+    inbox = bus.inbox(db, "learn", unacted_only=False, include_own=False)
+    stated = [(lesson, frozenset(words(lesson["statement"]))) for lesson in inbox]
+    out: dict[str, list[dict]] = {}
+    for topic in topics:
+        need = topic_words(topic)
+        if not need:
+            continue
+        hits = [{**lesson, "shared": sorted(need)} for lesson, have in stated if need <= have]
+        if hits:
+            out[topic] = hits
+    return out
+
+
+def _order(queued: list[dict], matched: dict[str, list[dict]]) -> list[dict]:
+    return sorted(queued, key=lambda q: (-len(matched.get(q["topic"], [])), -q["sources"],
+                                         q["first_seen"] or "~", q["topic"]))
+
+
+def calendar(db, *, now: datetime | None = None, metrics: dict | None = None,
+             matched: dict | None = None) -> dict:
+    """Queued gaps placed into weekly review slots.
+
+    Order: gaps a routed lesson is about first (W4-LEARN: a defect the company found before
+    any sale is the help a learner will need first), then most-evidenced, then oldest.
+    `lesson_moves` lists each gap a lesson moved earlier than the evidence-only order would
+    have placed it -- the decision a lesson changed, which `learn.runtime.handle_scan`
+    records through `improve.bus.acted_on`. Nothing is generated or published by the plan.
+    """
     now = _aware(now) or datetime.now(timezone.utc)
     m = metrics or department_metrics(db, now=now)
-    order = sorted(m["queued"], key=lambda q: (-q["sources"], q["first_seen"] or "~",
-                                               q["topic"]))
+    if matched is None:
+        matched = lesson_matches(db, [q["topic"] for q in m["queued"]])
+    baseline = _order(m["queued"], {})
+    order = _order(m["queued"], matched)
+    base_rank = {q["topic"]: i for i, q in enumerate(baseline)}
+    moves = []
+    for i, gap in enumerate(order):
+        lessons = matched.get(gap["topic"]) or []
+        if lessons and i < base_rank[gap["topic"]]:
+            moves.append({"topic": gap["topic"], "from_rank": base_rank[gap["topic"]] + 1,
+                          "to_rank": i + 1, "lessons": [int(l["id"]) for l in lessons],
+                          "lesson_objs": lessons})
     monday = (now + timedelta(days=(7 - now.weekday()) % 7 or 7)).date()
     slots = []
     for i, gap in enumerate(order[:WEEKLY_LESSON_CAPACITY * CALENDAR_WEEKS]):
         week = monday + timedelta(weeks=i // WEEKLY_LESSON_CAPACITY)
         slots.append({"week_of": week.isoformat(), "topic": gap["topic"],
-                      "sources": gap["sources"], "work": "draft lesson for review"})
+                      "sources": gap["sources"], "work": "draft lesson for review",
+                      "lessons": [int(l["id"]) for l in matched.get(gap["topic"], [])]})
     return {"basis": "planned", "capacity_per_week": WEEKLY_LESSON_CAPACITY,
             "slots": slots, "unscheduled": max(0, len(order) - len(slots)),
+            "lesson_moves": [{k: v for k, v in mv.items() if k != "lesson_objs"}
+                             for mv in moves],
+            "_moves": moves,
             "note": "a plan for the editor; nothing is generated or published by it"}
 
 
@@ -138,7 +201,8 @@ def summary(db, *, now: datetime | None = None) -> dict:
         now = _aware(now) or datetime.now(timezone.utc)
         m = department_metrics(db, now=now)
         out = {"metrics": {k: v for k, v in m.items() if k != "queued"},
-               "calendar": calendar(db, now=now, metrics=m),
+               "calendar": {k: v for k, v in calendar(db, now=now, metrics=m).items()
+                            if k != "_moves"},
                "experiments": experiments(db), "sources": SOURCES,
                "as_of": now.isoformat(), "items": m["queued"][:50]}
         if not m["gaps_total"]:
