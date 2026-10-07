@@ -1738,3 +1738,12 @@ owner, so the company makes it (this is not an owner action and is not asked).
    mismatch is refused and recorded. The gate still opens only on observed listings from two
    markets (`executor._second_market_observed`).
 4. Observation only: demand and merchandising intelligence; nothing is copied.
+
+## D-FB-21 — Temporary Fable Medium fallback for this completion run only (2026-10-07)
+At 99% of the All Models weekly allowance the owner authorised Fable (medium effort) for bounded, low-risk completion
+work (ledger/tracking, evidence reconciliation, SEO/listing work, documentation, deterministic changes with strong
+tests) during THIS completion run only. Never on Fable: architecture, release-integration judgement, security,
+finance/accounting correctness, Laura identity, authority/permissions, credentials, difficult debugging, final
+certification judgement — those checkpoint and wait for the reset. The authorisation EXPIRES automatically at the next
+All Models weekly reset: no new Fable work after it, all later work returns to the strongest appropriate model, and it
+is never resurrected in a future week. D-FB-20 (strongest model only) is otherwise unchanged and governs after expiry.

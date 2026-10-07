@@ -180,11 +180,19 @@ def assembly_promise(cir: CIR) -> dict:
     # W4-PIPE (2026-10-07): only seams back an assembled form. "pieces > 1" used to back it
     # too, so five loose pennants with no cord and no join passed as a "garland" -- several
     # pieces are a kit, and the join is what makes them the object the name promises.
-    backed = (not named) or seams > 0
-    return {"forms_named": tuple(named), "seams": seams, "pieces": pieces, "backed": backed,
+    # A piece worked on from stitches another piece holds (`Component.resumes` naming a
+    # `Hold`) is joined by construction -- continuous fabric, no seam to sew -- e.g. a tea
+    # cosy whose skirts are worked down from the held halves of its body. Loose pieces with
+    # neither a seam nor a held-stitch continuation are still a kit, not the object.
+    holds = {h.name for c in cir.components for h in (getattr(c, "holds", None) or [])}
+    worked_on = sum(1 for c in cir.components
+                    if getattr(c, "resumes", None) and c.resumes in holds)
+    backed = (not named) or seams > 0 or worked_on > 0
+    return {"forms_named": tuple(named), "seams": seams, "worked_on_joins": worked_on,
+            "pieces": pieces, "backed": backed,
             "why": ("the title names no assembled form" if not named else
-                    f"the title names {named[0]!r}; the CIR carries {seams} seams and "
-                    f"{pieces} pieces")}
+                    f"the title names {named[0]!r}; the CIR carries {seams} seams, "
+                    f"{worked_on} worked-on joins and {pieces} pieces")}
 
 
 _SIZE_FIGURE = re.compile(

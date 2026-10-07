@@ -41,3 +41,7 @@ Running lanes, all pushed: AUTO b7fd8f5, PIPE 8e5f825, FM2 77d63d6, VISUAL2 1059
 Resume after reset (D-FB-20): for each running lane, relaunch "resume from handoff_<LANE>.md on branch claude/w4-<LANE>; merge
 origin/claude/visual-investigation first"; merge finished lanes; then the one validation run of the full suite on a frozen
 candidate for the owner's Command Center deploy (research/final_build/w4/CC_DEPLOY_PACKAGE.md). Do not redo merged work.
+
+## TEMPORARY: D-FB-21 Fable Medium fallback (expires at the next All Models weekly reset)
+Bounded low-risk lanes may run on Fable medium until the reset; high-risk work never does (see DECISION_LOG D-FB-21).
+At the reset: delete this section, assign nothing new to Fable, return to the strongest model (D-FB-20).
