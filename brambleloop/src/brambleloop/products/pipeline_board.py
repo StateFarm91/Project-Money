@@ -592,8 +592,10 @@ def _search(c: Candidate, proposal: Proposal | None, scored: dict) -> None:
     copy = seo.ListingCopy(title=title, tags=tags, description="", materials=[cir.materials[0].name],
                            price_cad=0.0)
     problems = (title_problems(title) + tag_problems(tags) + [
-        p for p in seo.check_listing_limits(copy) if not p.startswith(("LISTING_NO_DESC",
-                                                                       "LISTING_PRICE"))])
+        # The board drafts no description or price (listing.draft and pricing.position do,
+        # and merge_chain re-judges the drafted copy), so their absence is not a finding here.
+        p for p in seo.check_listing_limits(copy) if not p.startswith((
+            "LISTING_NO_DESC", "LISTING_DESCRIPTION_THIN", "LISTING_PRICE"))])
     from ..gates.first_customer import colourwork_findings
 
     problems += colourwork_findings(cir, twin, title=title, tags=tags)
@@ -791,6 +793,27 @@ def merge_chain(result: dict, db, *, today: date | None = None) -> dict:
                 "clearer": "COMPANY"}
             continue
         reasons = verdict.get("reasons") or []
+        lst = ev.get("listing")
+        if lst and row["stage"] == "SEARCH":
+            # The chain drafted the real listing (listing.draft + listing.seo): its search
+            # certificate, not the board's synthetic title, is the SEARCH verdict.
+            s_reasons = [r for r in reasons if "search certificate" in r]
+            s_company = [r for r in s_reasons
+                         if inventory.classify_reason(r)[1] == "COMPANY"]
+            row["stages"]["SEARCH"] = {
+                "status": FAIL if s_company else (UNKNOWN if s_reasons else PASS),
+                "evidence": {"source": "release chain listing.seo", "listing_id": lst["id"],
+                             "title": lst["title"], "tags": lst["tags"],
+                             "price_cad": lst["price_cad"],
+                             "search_certificate": verdict.get("search"),
+                             "reasons": s_reasons},
+                "next_step": ("company: " + "; ".join(s_company[:2])) if s_company else (
+                    "listing.taxonomy_refresh with the deployed app's Etsy read access "
+                    "(EXTERNAL), then listing.seo" if s_reasons else ""),
+                "clearer": "COMPANY" if s_company else ("EXTERNAL" if s_reasons else "")}
+            row.update({k: row["stages"]["SEARCH"][k2] for k, k2 in (
+                ("stage_status", "status"), ("next_step", "next_step"),
+                ("clearer", "clearer"))})
         clearers = sorted({inventory.classify_reason(r)[1] for r in reasons})
         company = [r for r in reasons if inventory.classify_reason(r)[1] == "COMPANY"]
         row["stages"]["LISTING_READINESS"] = {

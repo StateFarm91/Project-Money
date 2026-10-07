@@ -126,3 +126,20 @@ Run focused tests (test_w4_pipe_launch_promotion, test_w4_pipe_board, test_w3_se
 test_r2_product_catalogue_depth + guards), commit+push; then scratch chain run
 (`run_after.py <dir>` enqueues cir.draft for all Launch-0 incl. the 2 promoted), then
 `product_inventory_run.py --chain-db <dir>/run.sqlite --name PRODUCT_INVENTORY` and `pipeline_run.py`.
+
+## RESUME 3 (2026-10-07 08:20Z, after second session limit)
+- Merged origin/claude/visual-investigation (4839486: VISUAL galleries for the 5 Launch-0 primaries,
+  K9, PIPE2, SEO packages). WIP 1de40ba reviewed: only regenerated inventory files (kept, superseded).
+- Scope this resume: 5 Launch-0 primaries (cloudline, hexagon coasters, market baskets S/M/L,
+  nordic-star-ornaments, winter-village-graphghan) + the 7 SEO-viable (adds harvest-table-runner,
+  pet-snuggle-mat). PIPE3 owns the 14 non-viable + retitles; RENDER owns renderer fixes.
+- `research/final_build/w4/pipe_chain_run.py <dir> [slugs]` -- committed reproducible scratch chain
+  run (gate.certify -> ... -> store.publish, shadow, sockets closed), batchable on one dir.
+- Inventory: reserves (outside Launch-0) are no longer blanket COMPANY "outside_launch_scope" once the
+  chain shows render authority (W4-VISUAL `listing_asset.has_render_authority`) -- they are held to the
+  Launch-0 standard instead: usable imagery + the nine-area first-customer gate run on the stored
+  release (`inventory._reserve_standard`), each reason classified. Only adds checks; store.publish
+  verdict untouched.
+- Board: merge_chain re-judges SEARCH from the chain's drafted listing (search certificate reasons);
+  the board's synthetic copy no longer fails on the description it never drafts
+  (LISTING_DESCRIPTION_THIN) -- was mislabelling Launch-0 as COMPANY "fix the listing copy".
