@@ -291,6 +291,119 @@ def test_a_schematic_disagreement_is_a_conflict_never_a_choice():
     assert b1["state"] == SF.UNKNOWN
 
 
+# ---- F-751 -------------------------------------------------------------------------------
+
+def _star_panel() -> CIR:
+    import dataclasses
+
+    import fixtures
+    from brambleloop.cir.model import Component, Op, Row
+
+    base = fixtures.good_mosaic_panel()
+    rows = [Row(index=1, ops=[Op("sc", 42)], declared_count=42, turning_chain=1),
+            Row(index=2, ops=[Op("beg_star_st"), Op("star_st", 19), Op("end_star_st")],
+                declared_count=22, turning_chain=3),
+            Row(index=3, ops=[Op("hdc"), Op("hdc_inc", 20), Op("hdc")], declared_count=42,
+                turning_chain=1)]
+    return dataclasses.replace(base, slug="k9-star", title="Star Panel", colors={},
+                               components=[Component(name="panel", construction="flat_rows",
+                                                     rows=rows, foundation=42)])
+
+
+def test_a_star_stitch_compiles_to_its_eyes_legs_and_bases():
+    from brambleloop.cir import stitches as S
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.writer import write_pattern
+    from brambleloop.gates.certificate import stitch_semantics_findings
+    from brambleloop.publish import abbreviations as A
+
+    assert S.structure_problems() == () and A.structure_method_problems() == ()
+    assert A.method_names_no_stitch_literally() == ()
+    star = S.anatomy("star_st")
+    assert star.anchors[:3] == ("prev_eye", "prev_leg", "prev_base") and star.new_stitches == 2
+    assert S.anatomy("sc") is None and S.anatomy("cable2x2").order == (3, 4, 1, 2)
+    textured = [c for c in S.known_codes() if c not in S.CONVENTION_PRIMITIVES]
+    assert textured and all(S.anatomy(c) is not None for c in textured), textured
+    cir = _star_panel()
+    result = compile_cir(cir)
+    assert result.ok, [str(e) for e in result.errors][:3]
+    assert stitch_semantics_findings(cir) == []
+    text = write_pattern(cir, result)
+    key = {e.token: e.method for e in A.stitch_key(text)}
+    assert "eye" in key.get("star_st", "") and "leg" in key["star_st"], key
+    for lang in ("US", "UK"):
+        assert "base" in A.method("end_star_st", lang)
+    # A structure that disagrees with the counts, or a method that stops teaching it, refuses.
+    saved = dict(S.ANATOMY)
+    try:
+        S.ANATOMY["star_st"] = S.Anatomy("star", ("st", "st", "st"), loops_closed=6,
+                                         makes=("eye",))
+        codes = {f.code for f in stitch_semantics_findings(cir)}
+        assert codes == {"STITCH_SEMANTICS_MISSING"}, codes
+    finally:
+        S.ANATOMY.clear()
+        S.ANATOMY.update(saved)
+    saved_m = dict(A.METHOD)
+    try:
+        A.METHOD["star_st"] = "Work a star."
+        assert any("star_st" in f.message for f in stitch_semantics_findings(cir))
+    finally:
+        A.METHOD.clear()
+        A.METHOD.update(saved_m)
+    assert stitch_semantics_findings(cir) == []
+
+
+# ---- F-753 -------------------------------------------------------------------------------
+
+def _fabric(st_px: float) -> bytes:
+    import io
+
+    from brambleloop.visual.stitch_identity import draw_hdc_fabric
+
+    out = io.BytesIO()
+    draw_hdc_fabric(480, 240, st_px, st_px * 0.8).save(out, "PNG")
+    return out.getvalue()
+
+
+def test_a_generated_image_with_the_wrong_stitch_scale_is_not_certified():
+    import fixtures
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.gates import asset_truth as AT
+    from brambleloop.gates import stitch_scale as SS
+
+    cir = fixtures.good_mosaic_panel()               # 16 sts / 10 cm: 0.625 cm per stitch
+    twin = build_twin(cir, compile_cir(cir))
+    px_per_cm = 20.0
+    assert SS.expected_pitch_px(cir, px_per_cm) == 12.5
+    # A star fabric's visible repeat is a star: two stitches of the row below.
+    assert SS.expected_pitch_px(_star_panel(), px_per_cm) == 2 * 12.5
+    right = SS.read(_fabric(12.5), px_per_cm=px_per_cm, expected_px=12.5)
+    wrong = SS.read(_fabric(20.0), px_per_cm=px_per_cm, expected_px=12.5)
+    assert SS.verdict(cir, right)["verdict"] == SS.PASS, (right, SS.verdict(cir, right))
+    assert SS.verdict(cir, wrong)["verdict"] == SS.FAIL, (wrong, SS.verdict(cir, wrong))
+    assert SS.verdict(cir, None)["verdict"] == SS.UNKNOWN
+
+    def codes(reading):
+        asset = AT.Asset(asset_id="g1", asset_class=list(AT.AssetClass)[0],
+                         provenance=AT.Provenance(source="generator", created_by="visual",
+                                                  tool="image-model", prompt_hash="h"),
+                         depicts_stitches=["sc"], stitch_scale=reading)
+        return {f.code for f in AT.check_asset(asset, cir, twin) if "STITCH_SCALE" in f.code}
+
+    assert codes(right) == set()
+    assert codes(wrong) == {"ASSET_STITCH_SCALE_WRONG"}
+    assert codes(None) == {"ASSET_STITCH_SCALE_UNMEASURED"}
+    # A component worked at its own gauge (F-754) is held to that gauge, not the main one.
+    import copy
+
+    from brambleloop.cir.model import Gauge
+    banded = copy.deepcopy(cir)
+    banded.components[0].gauge = Gauge(stitches_per_10cm=20, rows_per_10cm=14,
+                                       stitch_type="sc", hook_mm=4.5, yarn_weight="dk")
+    assert SS.expected_pitch_px(banded, px_per_cm, component="panel") == 10.0
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_")]

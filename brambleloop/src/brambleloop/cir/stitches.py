@@ -249,3 +249,88 @@ def calibration_status(code: str) -> str:
 def calibration_table() -> dict[str, str]:
     """Every registered primitive and its status from the table alone (no evidence applied)."""
     return {code: calibration_status(code) for code in known_codes()}
+
+
+# ---- structural semantics (F-751) ----------------------------------------------------------
+#
+# A texture label is not a stitch. For every stitch whose appearance depends on where its
+# loops come from -- the star family's eyes, legs and bases, a post stitch's post, a cable's
+# crossing order, a cluster's loops in one stitch -- the registry states that structure, and
+# the arithmetic the compiler checks is derived from it rather than asserted beside it:
+# the anchors that are NEW stitches of the row below must equal `consumes`, and what the
+# stitch makes must equal `produces`. The basic stitches (CONVENTION_PRIMITIVES) are worked
+# into the top of the stitch below, through the loop `Op.loop` names, and need nothing more.
+
+ANCHOR_KINDS: tuple[str, ...] = (
+    "st",           # a new stitch of the row below (consumed)
+    "turning_ch",   # a chain of this row's own turning chain (not consumed)
+    "prev_eye",     # the eye (closing chain) of the star just made (not consumed)
+    "prev_leg",     # the leg of the last loop of the star just made (not consumed)
+    "prev_base",    # the stitch the star just made had its last loop in (not consumed)
+)
+PLACEMENTS: tuple[str, ...] = ("top", "post_front", "post_back", "crossed", "cluster",
+                               "star")
+
+
+@dataclass(frozen=True)
+class Anatomy:
+    """Where a stitch's loops are pulled up from, how it closes and what it leaves."""
+
+    placement: str
+    anchors: tuple[str, ...]
+    loops_closed: int = 0          # loops on the hook drawn through at the close (0 = n/a)
+    makes: tuple[str, ...] = ("top",)
+    order: tuple[int, ...] = ()    # crossed stitches: the order the consumed sts are worked
+
+    @property
+    def new_stitches(self) -> int:
+        return sum(1 for a in self.anchors if a == "st")
+
+
+ANATOMY: dict[str, Anatomy] = {
+    "beg_star_st": Anatomy("star", ("turning_ch", "turning_ch", "st", "st", "st"),
+                           loops_closed=6, makes=("eye",)),
+    "star_st": Anatomy("star", ("prev_eye", "prev_leg", "prev_base", "st", "st"),
+                       loops_closed=6, makes=("eye",)),
+    "end_star_st": Anatomy("star", ("prev_eye", "prev_leg", "prev_base", "st"),
+                           loops_closed=5, makes=("eye", "top")),
+    "hdc_inc": Anatomy("top", ("st",), makes=("top", "top")),
+    "hdc3": Anatomy("top", ("st",), makes=("top", "top", "top")),
+    "bob": Anatomy("cluster", ("st",), loops_closed=6, makes=("top",)),
+    "fpdc": Anatomy("post_front", ("st",)),
+    "bpdc": Anatomy("post_back", ("st",)),
+    "cable2x2": Anatomy("crossed", ("st", "st", "st", "st"), makes=("top",) * 4,
+                        order=(3, 4, 1, 2)),
+    "cable1x1": Anatomy("crossed", ("st", "st"), makes=("top",) * 2, order=(2, 1)),
+}
+
+
+def anatomy(code: str) -> Anatomy | None:
+    """The stated structure of `code`; None for a basic stitch worked into the top."""
+    get(code)
+    return ANATOMY.get(code)
+
+
+def structure_problems() -> tuple[str, ...]:
+    """Every registered stitch whose structure is unstated or disagrees with its counts."""
+    out: list[str] = []
+    for code in known_codes():
+        st = get(code)
+        a = ANATOMY.get(code)
+        if a is None:
+            if code not in CONVENTION_PRIMITIVES:
+                out.append(f"{code}: no structural semantics (anchors, placement) stated")
+            continue
+        if a.placement not in PLACEMENTS:
+            out.append(f"{code}: placement {a.placement!r} not in {PLACEMENTS}")
+        bad = [k for k in a.anchors if k not in ANCHOR_KINDS]
+        if bad:
+            out.append(f"{code}: anchors {bad} not in {ANCHOR_KINDS}")
+        if a.new_stitches != st.consumes:
+            out.append(f"{code}: {a.new_stitches} new-stitch anchors but consumes "
+                       f"{st.consumes}")
+        if len(a.makes) != st.produces:
+            out.append(f"{code}: makes {a.makes} but produces {st.produces}")
+        if a.placement == "crossed" and sorted(a.order) != list(range(1, st.consumes + 1)):
+            out.append(f"{code}: crossing order {a.order} is not a permutation of its sts")
+    return tuple(out)
