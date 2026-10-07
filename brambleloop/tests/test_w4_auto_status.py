@@ -152,6 +152,28 @@ def test_cir_draft_handler_reports_drafted_on_the_engineered_path():
     assert '"drafted": True' in src, "engineered success path must declare drafted"
 
 
+def test_gate_blockers_name_who_they_wait_on_from_the_closure_classifier():
+    """W4-GATESB: a data/external/unclassified gate is never shown as waiting on the owner."""
+    from brambleloop.build2 import closure
+
+    samples = {"owner": sorted(closure.OWNER_GATES), "data": sorted(closure.DATA_GATES),
+               "external": sorted(closure.EXTERNAL_GATES)}
+    assert all(samples.values()), samples
+    for waiting_on, keys in samples.items():
+        for g in keys:
+            b = status.gate_blocker(g)
+            assert b["waiting_on"] == waiting_on and b["kind"] == f"{waiting_on}_gate", b
+            assert b["closure_kind"] == closure.kind_of(g), b
+    b = status.gate_blocker("nobody.classified.this")
+    assert b["waiting_on"] == "company" and b["closure_kind"] == "UNCLASSIFIED", b
+    db = boot()
+    items = status.agents(db)["items"] or []
+    for row in items:
+        for blk in row.get("blockers") or []:
+            if blk.get("gate"):
+                assert blk["kind"] == f"{blk['waiting_on']}_gate", blk
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in list(globals().items()) if n.startswith("test_")]

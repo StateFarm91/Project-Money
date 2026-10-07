@@ -19,6 +19,28 @@ STATUSES = ("OK", "DEGRADED", "BLOCKED", "UNKNOWN")
 ORCHESTRATOR_STALE_MINUTES = 45
 
 
+
+# W4-GATESB: who a closed gate actually waits on. Read from the one classifier the closure
+# ledger uses (`build2.closure.kind_of`), so the per-agent status cannot call a data- or
+# company-gated blocker "waiting on owner". A gate nobody classified is company work: the
+# company still owes the classification, and filing it under the owner would flatter the
+# count the same way closure refuses to.
+_GATE_WAITING_ON = {"OWNER-GATED": "owner", "DATA-GATED": "data",
+                    "EXTERNAL-BLOCKED": "external"}
+
+
+def gate_blocker(gate_key: str) -> dict:
+    """A closed gate as a blocker: `kind` <waiting_on>_gate, `waiting_on`, `closure_kind`."""
+    try:
+        from ..build2 import closure
+
+        kind = closure.kind_of(gate_key)
+    except Exception:  # noqa: BLE001 - ClosureRefused (unclassified) or unreadable
+        kind = None
+    waiting_on = _GATE_WAITING_ON.get(kind or "", "company")
+    return {"kind": f"{waiting_on}_gate", "gate": gate_key, "waiting_on": waiting_on,
+            "closure_kind": kind or "UNCLASSIFIED"}
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -128,8 +150,7 @@ def _summary(db, *, now: datetime) -> dict:
                              "owner_action": block["body"].get("owner_action")})
         closed = [g for g in ch.gates if g in gates and not gates[g].get("open")]
         for g in closed:
-            blockers.append({"kind": "owner_gate", "gate": g,
-                             "what": gates[g].get("what"),
+            blockers.append({**gate_blocker(g), "what": gates[g].get("what"),
                              "effect": "gated capability parked; READY work continues"})
         if ch.key in errors:
             blockers.append({"kind": "generation_error", "error": errors[ch.key]})
@@ -360,7 +381,7 @@ def _agents(db, *, now: datetime) -> dict:
         ch = charters.BY_KEY.get(dept) if dept else None
         for g in (ch.gates if ch else ()):
             if g in gates and not gates[g].get("open"):
-                blockers.append({"kind": "owner_gate", "gate": g,
+                blockers.append({**gate_blocker(g),
                                  "what": str(gates[g].get("what") or "")[:160]})
         if dead_w and not useful_w:
             blockers.append({"kind": "dead_letters",
