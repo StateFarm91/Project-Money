@@ -3,8 +3,9 @@
 `visual.assembled_render` composes pieces from named-edge joins (planar), wrong-sides-together
 stacks (hidden back layer, proven to mirror the front), rings (front rows only), structured
 folds and resumed holds. Anything else is not drawn and the manifest says so; a product whose
-pieces cannot be placed is refused. Assembled frames stay structurally UNKNOWN (the verifier
-does not yet measure them); the detail frame is the body piece and verifies PASS.
+pieces cannot be placed is refused. Assembled hero/scale frames are measured by
+`render_verification._verify_assembled` (W4-VISUAL2) and PASS; the detail frame is the body
+piece and verifies PASS.
 """
 from __future__ import annotations
 
@@ -53,13 +54,13 @@ def test_stocking():
     check("stocking_cuff_ring_shows_front_rows_only", cuff["rows_shown"] == [1, 26],
           cuff["rows_shown"])
     m = frames["hero"].manifest
-    check("assembled_frame_is_disclosed_and_unqualified",
+    check("assembled_frame_is_disclosed_and_versioned",
           m["disclosure"] == D.K.DISCLOSURE and m["renderer_version"].startswith(
               "disclosed-render-assembled/") and m["form"] == "assembled")
     for v in ("hero", "scale"):
         r = V.verify(frames[v].png, cir=cir, view=v)
-        check(f"stocking_{v}_assembled_is_unknown_not_pass", r["status"] == "UNKNOWN",
-              r["status"])
+        check(f"stocking_{v}_assembled_is_measured_and_passes", r["status"] == "PASS",
+              (r["status"], r["failed"], r["unknown"]))
     r = V.verify(frames["detail"].png, cir=cir, view="detail")
     check("stocking_body_detail_verifies", r["status"] == "PASS", (r["failed"], r["unknown"]))
     from brambleloop.publish.disclosed_listing import caption_in_image

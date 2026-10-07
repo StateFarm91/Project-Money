@@ -13,7 +13,9 @@ import hashlib
 # Renderers whose frames may be verified for structural truth. A version not listed here is
 # UNKNOWN however good its manifest looks: qualification is of a producer/verifier pair.
 # 1.0.0 is withdrawn: its frames carried unverified annotation text (PT-05).
-QUALIFIED_RENDERERS = frozenset({"disclosed-render/2.0.0"})
+# disclosed-render-assembled/1.0.0 (W4-RENDER) is qualified with its verifier
+# `render_verification._verify_assembled` (W4-VISUAL2), which measures its hero/scale.
+QUALIFIED_RENDERERS = frozenset({"disclosed-render/2.0.0", "disclosed-render-assembled/1.0.0"})
 
 
 def redraw_refusal(slug):

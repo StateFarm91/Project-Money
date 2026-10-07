@@ -852,9 +852,12 @@ def _annotations(frame: _Frame, cir, model, view: str, scale: dict, detail: dict
     """Every pixel outside the product zone, and every lettered pixel inside it (PT-05)."""
     from scipy import ndimage
 
-    form = "flat" if model["construction"] == "flat_rows" else "rounds"
+    form = ("assembled" if model["construction"] == "assembled"
+            else "flat" if model["construction"] == "flat_rows" else "rounds")
     lines: list[str] = []
-    if view == "scale":
+    if form == "assembled":
+        lines = list(model.get("annotation_lines") or [])
+    elif view == "scale":
         figures, problems = _expected_figures(cir, model)
         checks.append(_check("dimension_figures", FAIL if problems else PASS,
                              "the finished size the frame letters is the CIR's, and agrees "
@@ -953,7 +956,9 @@ def _annotations(frame: _Frame, cir, model, view: str, scale: dict, detail: dict
         ux, uy = _unrotate(xs + sl[1].start + 0.0, ys + sl[0].start + 0.0, deg)
         found.append((float(ux.max() - ux.min() + 1), float(uy.max() - uy.min() + 1)))
     want = []
-    if view == "scale":
+    if form == "assembled":
+        want = list(model.get("dimension_lines") or [])
+    elif view == "scale":
         if form == "flat":
             m = (detail or {}).get("measured_cm") or [0, 0]
             want = [("h", m[0]), ("v", m[1])]
@@ -977,6 +982,169 @@ def _annotations(frame: _Frame, cir, model, view: str, scale: dict, detail: dict
         "nothing in the product zone but the product and the contract dimension lines",
         stray_px=stray, dimension_lines_found=len(found), dimension_lines_expected=len(want)))
 
+# --------------------------------------------------------------------------- assembled
+
+def _assembled_expectation(cir, view: str) -> dict:
+    """What an assembled hero/scale of this CIR must show, re-derived here from the
+    authoritative CIR (never from the frame or its manifest): the pieces placed by the CIR's
+    own joins (`visual.assembled_render.plan`), drawn afresh, and the object's size in cm.
+
+    The fresh drawing is the reference the frame's bytes must equal; the size is what the
+    pixels are measured against through the frame's own scale bar."""
+    from ..cir.compiler import compile_cir
+    from . import assembled_render as A
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise ValueError("the CIR does not compile")
+    pl = A.plan(cir, result)
+    fresh = A.render(cir, view)
+    lay = fresh.manifest["layout"]
+    W, H = float(lay["width_cm"]), float(lay["height_cm"])
+    alpha = math.radians(float(lay.get("alpha_deg") or 0.0))
+    # The drawn bounding box: a vessel seen obliquely shows its crown above the wall.
+    box_h = H * math.cos(alpha) + W * math.sin(alpha) if pl.form == "vessel_skirts" else H
+    used = sorted({r.color for r in result.rows})
+    body = next(p for p in pl.placed if p.name == pl.body)
+    return {"form": pl.form, "body": pl.body, "drawn": [p.name for p in pl.placed],
+            "width_cm": W, "height_cm": H, "box_cm": [W, box_h], "alpha": alpha,
+            "colours": used, "body_colours": sorted({c.color for c in body.twin.cells}),
+            "w_cm": 10.0 / cir.gauge.stitches_per_10cm,
+            "planar_up": all(p.grain == "up" for p in pl.placed),
+            "png": fresh.png}
+
+
+def _verify_assembled(png: bytes, *, cir, view: str) -> dict:
+    """An assembled multi-piece hero/scale, measured (W4-VISUAL2, wiring request W4-RENDER).
+
+    Checks: contract palette, disclosure caption, scale bar; the object's extent in cm
+    against the CIR's assembled size; every yarn colour the drawn pieces use and no other;
+    the body piece's colours present; along-row stitch pitch against the gauge (planar,
+    grain-up pieces); one object that fills >= 25 % of the frame at 340 px (the listing's
+    unchanged legibility gate); every lettered pixel and dimension line; and the frame's
+    bytes equal to a fresh drawing of the authoritative CIR, so no stitch, colour or
+    placement can differ from what the CIR's joins place."""
+    checks: list[dict] = []
+    if view not in ("hero", "scale"):
+        return _verdict([_check("view", FAIL, f"an assembled {view!r} frame is not drawn")])
+    if cir.gauge is None:
+        return _verdict([_check("expected_model", UNKNOWN, "no gauge")])
+    try:
+        exp = _assembled_expectation(cir, view)
+    except Exception as exc:  # noqa: BLE001 - a CIR that cannot be placed is UNKNOWN
+        return _verdict([_check("assembled_plan", UNKNOWN,
+                                f"the CIR's pieces cannot be placed: {type(exc).__name__}: "
+                                f"{str(exc)[:200]}")])
+    palette = {k: K.hex_rgb(v) for k, v in (cir.colors or {}).items() if k in exp["colours"]}
+    if set(palette) != set(exp["colours"]):
+        return _verdict([_check("palette", UNKNOWN, "a row colour has no RGB in the CIR")])
+    try:
+        frame = _Frame(png, palette)
+    except Exception as exc:  # noqa: BLE001
+        return _verdict([_check("decode", FAIL, f"not a decodable image: {exc}")])
+    sha = hashlib.sha256(png).hexdigest()
+    if (frame.w, frame.h) != (K.CANVAS_PX, K.CANVAS_PX):
+        return _verdict([_check("canvas", FAIL, f"{frame.w}x{frame.h} is not the contract canvas")],
+                        image_sha256=sha)
+    off = float(frame.off_palette.mean())
+    checks.append(_check("contract_palette", PASS if off <= K.MAX_OFF_PALETTE_SHARE else FAIL,
+                         "every pixel is a contract colour; a redraw or resample is not",
+                         off_palette_share=round(off, 6)))
+    if off > K.MAX_OFF_PALETTE_SHARE:
+        return _verdict(checks, image_sha256=sha)
+    cap = _caption(frame)
+    checks.append(_check("disclosure_in_image", cap["status"],
+                         "the disclosure caption, in the contract words and place",
+                         iou=cap["iou"]))
+    scale = _scale(frame)
+    checks.append(_check("scale_bar", scale["status"], scale.get("why", "1 cm segments read"),
+                         px_per_cm=round(scale.get("px_per_cm", 0.0), 4),
+                         segments_cm=scale.get("segments_cm")))
+    if scale["status"] != PASS:
+        return _verdict(checks, image_sha256=sha)
+    u = scale["px_per_cm"]
+
+    # Extent, through the frame's own scale bar, against the CIR's assembled size.
+    zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE, frame.w)
+    yarn = frame.yarn[zy0:zy1, zx0:zx1] >= 0
+    if not yarn.any():
+        checks.append(_check("stitches_found", UNKNOWN, "no yarn in the product zone"))
+        return _verdict(checks, image_sha256=sha)
+    ys, xs = np.nonzero(yarn)
+    m_w = (xs.max() - xs.min() + 1 + K.GAP_PX) / u
+    m_h = (ys.max() - ys.min() + 1 + K.GAP_PX) / u
+    ew, eh = exp["box_cm"]
+    checks.append(_check(
+        "extent_cm", PASS if (_within(m_w, ew, EXTENT_REL, EXTENT_PX, u)
+                              and _within(m_h, eh, EXTENT_REL, EXTENT_PX, u)) else FAIL,
+        "the assembled object's size from the scale bar against the CIR's placed pieces",
+        measured=[round(m_w, 2), round(m_h, 2)], expected=[round(ew, 2), round(eh, 2)]))
+
+    # Colours: every colour the pattern's rows use that a drawn piece carries, no other.
+    counts = np.bincount(frame.yarn[zy0:zy1, zx0:zx1][yarn].ravel(), minlength=frame.n)
+    seen = {frame.yarn_names[i] for i in range(frame.n) if counts[i] > 0}
+    body_missing = sorted(set(exp["body_colours"]) - seen)
+    checks.append(_check("colour_set", PASS if not body_missing and seen <= set(palette)
+                         else FAIL, "the body piece's yarn colours are all shown and nothing "
+                                    "off the pattern's colours is", seen=sorted(seen),
+                         body_missing=body_missing))
+
+    # Along-row stitch pitch (planar, every piece worked grain-up: rows run across).
+    comps, _ = _components(frame)
+    w_px = exp["w_cm"] * u
+    comps = [c for c in comps if c["area"] >= 0.15 * w_px * w_px]
+    if exp["form"] == "planar" and exp["planar_up"] and comps:
+        rows: dict[int, list[float]] = {}
+        for c in comps:
+            rows.setdefault(int(round(c["cy"] / max(1.0, 0.5 * w_px))), []).append(c["cx"])
+        diffs = [d for xs_ in rows.values() for d in np.diff(sorted(xs_))
+                 if 0.5 * w_px <= d <= 1.5 * w_px]
+        if diffs:
+            p = float(np.median(diffs)) / u
+            checks.append(_check("stitch_pitch_cm",
+                                 PASS if _within(p, exp["w_cm"], PITCH_REL) else FAIL,
+                                 "median stitch spacing along rows against the gauge",
+                                 measured=round(p, 4), expected=round(exp["w_cm"], 4)))
+        else:
+            checks.append(_check("stitch_pitch_cm", FAIL, "no stitch spacing near the gauge's"))
+
+    # The listing's unchanged legibility gate at 340 px: one object, >= 25 % of the frame.
+    from ..publish.disclosed_listing import _thumb_legibility
+
+    leg = _thumb_legibility(png, {"palette": palette,
+                                  "rows": [{"colour": c} for c in palette]}, 1)
+    checks.append(_check("legibility_340", PASS if leg["ok"] else FAIL,
+                         "one object, inside the title-safe area, filling >= 25 % of the "
+                         "frame, every shown colour visible at 340 px",
+                         coverage=leg.get("coverage"), problems=leg.get("problems")))
+
+    # Every lettered pixel and dimension line (the contract's, with the CIR's figures).
+    model = {"construction": "assembled",
+             "annotation_lines": (K.annotation_lines("scale", "assembled",
+                                                     {"width": exp["width_cm"],
+                                                      "height": exp["height_cm"]})
+                                  if view == "scale" else []),
+             "dimension_lines": ([("h", exp["width_cm"]), ("v", exp["height_cm"])]
+                                 if view == "scale" else [])}
+    _annotations(frame, cir, model, view, scale, {}, checks)
+
+    # Placement, stitch for stitch: the bytes equal a fresh drawing of the authoritative CIR.
+    same = hashlib.sha256(exp["png"]).hexdigest() == sha
+    diff_px = 0
+    if not same:
+        ref = np.asarray(Image.open(io.BytesIO(exp["png"])).convert("RGB"), dtype=np.int32)
+        diff_px = int((np.abs(ref - frame.rgb).sum(axis=2) > 0).sum()) \
+            if ref.shape == frame.rgb.shape else -1
+    checks.append(_check("placement_redraw", PASS if same else FAIL,
+                         "every pixel equals a fresh drawing of the authoritative CIR's pieces, "
+                         "placed only by its joins", differing_px=diff_px))
+    return _verdict(checks, image_sha256=sha, view=view, slug=cir.slug,
+                    cir_fingerprint=cir.fingerprint, px_per_cm=round(u, 4),
+                    measured={"form": "assembled", "assembly": exp["form"],
+                              "body": exp["body"], "drawn": exp["drawn"],
+                              "measured_cm": [round(m_w, 2), round(m_h, 2)]})
+
+
 # --------------------------------------------------------------------------- entry point
 
 def verify(png: bytes, *, cir, view: str) -> dict:
@@ -997,11 +1165,9 @@ def _verify(png: bytes, *, cir, view: str) -> dict:
     component = None
     if len(cir.components) > 1:
         if view != "detail":
-            # W4-RENDER: an assembled multi-piece frame places pieces by the CIR's joins;
-            # this verifier does not yet re-derive that placement, so it cannot pass.
-            return _verdict([_check("assembled_object", UNKNOWN,
-                                    "assembled multi-piece frames are not measured by this "
-                                    "verifier yet; only a single piece's detail is")])
+            # W4-VISUAL2: an assembled multi-piece hero/scale is measured by
+            # `_verify_assembled` (placement re-derived from the authoritative CIR).
+            return _verify_assembled(png, cir=cir, view=view)
         try:
             component = body_component(cir)
         except Exception as exc:  # noqa: BLE001

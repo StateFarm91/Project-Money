@@ -227,5 +227,6 @@
   "tests": "tests/test_w4_visual_certified_gallery.py, tests/test_w4_visual2.py",
   "contents": "PROVEN (W4-VISUAL2): visual/contents_frame previews the release's assets.built US PDF (PATTERN_PREVIEW, 'Preview of the pattern document'), verified on exact bytes, certified via the supplement path"
  },
- "stitch_scale_wiring": "F-753 (K9): product_authority.structural_floor attaches a gates.stitch_scale reading to every generated/photo/composite frame; wrong scale FAIL, right scale stays UNKNOWN (tests/test_w4_visual2.py)"
+ "stitch_scale_wiring": "F-753 (K9): product_authority.structural_floor attaches a gates.stitch_scale reading to every generated/photo/composite frame; wrong scale FAIL, right scale stays UNKNOWN (tests/test_w4_visual2.py)",
+ "assembled_verification": "PROVEN (W4-VISUAL2, wiring req W4-RENDER): render_verification._verify_assembled measures multi-piece hero/scale; stocking + tea cosy PASS; pencil roll FAIL legibility_340 (gate 25% unchanged; RENDER OPEN-DEFECT stands)"
 }

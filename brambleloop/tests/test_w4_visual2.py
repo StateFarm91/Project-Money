@@ -307,6 +307,66 @@ def test_a_generated_frame_carries_a_stitch_scale_reading_and_a_wrong_scale_fail
     assert alien["status"] == "UNKNOWN" and alien["stitch_scale"]["verdict"] == SS.UNKNOWN
 
 
+
+# ---- assembled multi-piece frames are measured (wiring request W4-RENDER) --------------------
+
+def test_assembled_frames_are_measured_good_passes_and_bad_fails():
+    import io
+
+    from PIL import Image, ImageDraw
+
+    from brambleloop.products import moment_candidates as mc
+    from brambleloop.products import pipeline_board as pb
+    from brambleloop.publish import disclosed_listing as DL
+    from brambleloop.visual import disclosed_render as DR
+    from brambleloop.visual import render_contract as K
+    from brambleloop.visual import render_verification as RV
+
+    good = {"stocking": pb.stocking_cir(), "cosy": mc.mothers_day_heart_tea_cosy()}
+    assert good
+    for name, cir in good.items():
+        assert len(cir.components) > 1, name
+        for view in ("hero", "scale"):
+            fr = DR.render(cir, view)
+            v = RV.verify(fr.png, cir=cir, view=view)
+            assert v["status"] == "PASS", (name, view, v["failed"], v["unknown"])
+            got = {c["check"] for c in v["checks"]}
+            assert {"extent_cm", "colour_set", "legibility_340", "placement_redraw",
+                    "annotation_text", "marks_in_product_zone"} <= got, (name, got)
+            assert v["reads_manifest"] is False
+    # known-bad 1: a real assembled frame that fails the unchanged 25 % fill gate at 340 px
+    roll = pb.pencil_roll_cir()
+    v = RV.verify(DR.render(roll, "hero").png, cir=roll, view="hero")
+    assert v["status"] == "FAIL" and "legibility_340" in v["failed"], v["failed"]
+    import inspect
+    assert "coverage < 0.25" in inspect.getsource(DL._thumb_legibility)
+    # known-bad 2: one stitch recoloured in a good frame
+    cir = good["stocking"]
+    fr = DR.render(cir, "hero")
+    img = Image.open(io.BytesIO(fr.png)).convert("RGB")
+    pal = [K.hex_rgb(c) for c in cir.colors.values()]
+    zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE)
+    seed = next(((x, y) for y in range((zy0 + zy1) // 2, zy1) for x in range(zx0, zx1)
+                 if img.getpixel((x, y)) == pal[0]), None)
+    assert seed is not None
+    ImageDraw.floodfill(img, seed, pal[1], thresh=0)
+    buf = io.BytesIO(); img.save(buf, format="PNG")
+    v = RV.verify(buf.getvalue(), cir=cir, view="hero")
+    assert v["status"] == "FAIL" and "placement_redraw" in v["failed"], v["failed"]
+    # known-bad 3: the scale view re-lettered with a false size
+    sc = DR.render(cir, "scale")
+    img = Image.open(io.BytesIO(sc.png)).convert("RGB")
+    d = ImageDraw.Draw(img)
+    d.fontmode = "1"
+    d.text((40, 40), "Assembled: 60.0 cm tall", fill=K.CAPTION, font=K.font(K.LABEL_PX))
+    buf = io.BytesIO(); img.save(buf, format="PNG")
+    v = RV.verify(buf.getvalue(), cir=cir, view="scale")
+    assert v["status"] == "FAIL" and "annotation_text" in v["failed"], v["failed"]
+    # known-bad 4: a good frame claimed for a different design is not that design
+    v = RV.verify(DR.render(good["cosy"], "hero").png, cir=cir, view="hero")
+    assert v["status"] != "PASS", v["status"]
+
+
 def draw_hdc_png(st_px):
     import io
 
