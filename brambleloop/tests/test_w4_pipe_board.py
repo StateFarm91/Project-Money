@@ -167,10 +167,18 @@ def main():
           == "EXTERNAL")
     st = inventory.static_truth("cloudline-baby-blanket")
     check("cloudline_product_truth", st["product_truth_ok"] and st["launch_scope"], st)
-    st = inventory.static_truth("spooky-garland")
-    b = inventory._blockers(st, None, None)
-    check("garland_assembly_is_company",
-          any(x["gate"] == "name_assembly_truth" and x["clearer"] == "COMPANY" for x in b), b)
+    # The garlands (1.3.0) are pennants on a cord: assembled, certified, name-true.
+    from brambleloop.products import builder as _bld, launch0 as _l0
+    for g in ("spooky-garland", "valentine-heart-garland"):
+        st = inventory.static_truth(g)
+        b = inventory._blockers(st, None, None)
+        check(f"garland_assembled:{g}", st["certified"] and st["assembly_promise"]["backed"]
+              and not any(x["gate"].startswith("name_") for x in b), (st, b))
+    gcir = _bld.for_slug("valentine-heart-garland")
+    bare = replace(gcir, components=gcir.components[:1], assembly=[])
+    check("garland_without_cord_is_not_a_garland",
+          not _l0.assembly_promise(bare)["backed"]
+          and any(n.startswith("assembly") for n in name_truth(bare)))
     check("ornaments_now_true", inventory.static_truth("nordic-star-ornaments")["title_promise"]["backed"])
     if FAILED:
         raise SystemExit(f"{len(FAILED)} failed: {FAILED}")

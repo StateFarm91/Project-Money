@@ -162,8 +162,10 @@ def test_assembly_gate_catches_an_assembled_form_with_no_assembly():
                                        piece_b="panel")])
     assert l0.assembly_promise(with_seam)["backed"] is True
 
+    # W4-PIPE 2026-10-07 (tightened): eight loose pennants with no join are a kit, not a
+    # garland. Only a seam backs an assembled form.
     many_pieces = _panel_cir("Bunting Garland", make=8)
-    assert l0.assembly_promise(many_pieces)["backed"] is True
+    assert l0.assembly_promise(many_pieces)["backed"] is False
 
 
 def test_assembly_gate_is_silent_about_a_single_piece_object():

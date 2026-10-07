@@ -52,6 +52,10 @@ class Design:
     # Finishing joins (cir.assembly). Empty for a flat piece; a form the title names as
     # assembled (launch0.ASSEMBLED_FORMS) is backed only by real seams (W4-PIPE).
     assembly: tuple = ()
+    # A garland's hanging cord (W4-PIPE): a narrow single-crochet strip worked side to side,
+    # each pennant's top edge sewn across a placed run of its rows. Without it a "garland" is
+    # one flat panel and the title is false (launch0.ASSEMBLED_FORMS, NAME_OUTRUNS_PATTERN).
+    cord: bool = False
 
 
 class DesignDoesNotFit(ValueError):
@@ -235,7 +239,7 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
     else:
         colour_note = ""
 
-    return CIR(
+    cir = CIR(
         slug=design.slug,
         title=design.title,
         version=version,
@@ -269,11 +273,63 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
              # with its default must not change the content of designs already released.
              "design": {k: (repr(v) if k == "assembly" else v)
                         for k, v in vars(design).items()
-                        if not (k == "pieces" and v == 1) and not (k == "assembly" and not v)},
+                        if not (k == "pieces" and v == 1) and not (k == "assembly" and not v)
+                        and not (k == "cord" and not v)},
                           "motif_grid": list(motif.grid)},
             ("products.builder", f"products.motifs:{motif.slug}",
              f"products.builder.PALETTES:{design.palette}")),
     )
+    return _with_cord(cir) if design.cord else cir
+
+
+CORD_STITCHES = 3          # the cord is three single crochet wide
+CORD_TIE_CM = 25.0         # a tie at each end
+CORD_GAP_CM = 2.0          # between pennants
+
+
+def _with_cord(cir: CIR) -> CIR:
+    """Add the hanging cord and the placed seams that hang the pennants on it.
+
+    The cord is worked side to side (grain across): a three-stitch chain, then rows until it
+    is long enough for both ties, every pennant and the gaps between them. Its rows therefore
+    run along its length, so a pennant's top edge is sewn across a counted run of cord rows
+    and `cir.assembly` measures both sides of that join.
+    """
+    from dataclasses import replace as _replace
+
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    panel = cir.components[0]
+    pennant_w = build_twin(cir, compile_cir(cir)).width_cm
+    colour = panel.rows[0].color
+
+    def cord_of(rows: int) -> Component:
+        return Component(name="cord", construction="flat_rows", foundation=CORD_STITCHES,
+                         foundation_kind="chain", grain="across",
+                         rows=[Row(index=i, ops=[Op("sc", CORD_STITCHES)],
+                                   declared_count=CORD_STITCHES, color=colour,
+                                   turning_chain=1) for i in range(1, rows + 1)],
+                         note="The hanging cord: worked side to side, three stitches wide.")
+
+    probe = _replace(cir, components=[cord_of(10)], assembly=[])
+    row_cm = build_twin(probe, compile_cir(probe), component="cord").height_cm / 10
+    n = panel.make
+    span = max(1, round(pennant_w / row_cm))
+    gap = max(1, round(CORD_GAP_CM / row_cm))
+    tie = max(1, round(CORD_TIE_CM / row_cm))
+    total = 2 * tie + n * span + (n - 1) * gap
+    starts = [tie + 1 + i * (span + gap) for i in range(n)]
+    where = ", ".join(f"{a}-{a + span - 1}" for a in starts)
+    seam = Seam("whipstitch", "panel", "cord", edge_a="top", edge_b="bottom",
+                at_round=starts[0], spans_rounds=span,
+                note=(f"Sew the top edge of each of the {n} pennants along the cord, one "
+                      f"pennant to each run of {span} cord rows: rows {where}. Rows 1-{tie} "
+                      f"and {total - tie + 1}-{total} are the ties."))
+    return _replace(cir, components=[panel, cord_of(total)],
+                    assembly=list(cir.assembly) + [seam],
+                    designer_notes=cir.designer_notes
+                    + f" Work {n} pennants, then the cord; sew them on as the finishing says.")
 
 
 # ---- the catalogue ---------------------------------------------------------
@@ -329,12 +385,18 @@ CATALOGUE: dict[str, Design] = {
         motif="snowfall", palette="nordic", width_stitches=12, motif_repeats=1, pieces=6,
         note="One ornament per repeat; the twelve-row snowfall keeps each one ornament-sized "
              "rather than the twenty-four rows the fir band would impose. Make six."),
+    # W4-PIPE 1.3.0: a garland is pennants on a cord. Each was one 40-stitch panel with no
+    # cord and no seam (NAME_OUTRUNS_PATTERN); now five pennants and a cord they are sewn to.
     "spooky-garland": Design(
         slug="spooky-garland", title="Spooky Bunting Garland",
-        motif="pumpkin-row", palette="autumn", width_stitches=40, motif_repeats=2),
+        motif="pumpkin-row", palette="autumn", width_stitches=30, motif_repeats=2,
+        pieces=5, cord=True,
+        note="Five pennants, each sewn to the cord along its top edge."),
     "valentine-heart-garland": Design(
         slug="valentine-heart-garland", title="Heart Motif Garland",
-        motif="heart-row", palette="cottage", width_stitches=40, motif_repeats=2),
+        motif="heart-row", palette="cottage", width_stitches=30, motif_repeats=2,
+        pieces=5, cord=True,
+        note="Five pennants, each sewn to the cord along its top edge."),
     "pet-snuggle-mat": Design(
         slug="pet-snuggle-mat", title="Pet Snuggle Mat",
         motif="basketweave", palette="hearth", width_stitches=56, motif_repeats=7),
@@ -392,6 +454,9 @@ RELEASE_VERSIONS["nordic-star-ornaments"] = "1.4.0"
 # fabric makes; the library makes twelve; the wall hanging carries its rod-pocket seam.
 for _slug in ("winter-village-graphghan", "autumn-oak-mosaic-throw", "pressed-flower-motifs",
               "cottage-wall-hanging"):
+    RELEASE_VERSIONS[_slug] = "1.3.0"
+# W4-PIPE (2026-10-07): the garlands are pennants on a cord (five pennants, a cord, a seam).
+for _slug in ("spooky-garland", "valentine-heart-garland"):
     RELEASE_VERSIONS[_slug] = "1.3.0"
 
 

@@ -95,7 +95,7 @@ PROPOSALS: tuple[Proposal, ...] = (
     Proposal("pumpkin-relief-table-runner", "Pumpkin Relief Table Runner", "pumpkin-row",
              "cottage", 32.0, 120.0, "runner", ("pumpkin",), "autumn",
              "SOURCED (pool): spooky-garland 0.682 and harvest-table-runner 0.551 carry the "
-             "autumn demand; the garland fails assembly truth",
+             "autumn demand; the garland (assembled since 1.3.0) is past its Halloween window",
              "autumn demand in a form that needs no assembly"),
     # Answers to the competitor findings (intel.findings, W4-MJS): demand and merchandising
     # intelligence only -- counts and shares about a category, never a competitor's design.
