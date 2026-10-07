@@ -436,3 +436,40 @@ def launch_scope_drafts() -> list[str]:
 
     return sorted(s for s in launch0.launch_scope_slugs()
                   if s in ENGINEERED or s in builder.CATALOGUE)
+
+
+def built_releases(db) -> set[str]:
+    """Slugs with at least one PatternVersion on file in `db`."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        ids = {pv.product_id for pv in s.scalars(select(PatternVersion))}
+        return {p.slug for p in s.scalars(select(Product)) if p.id in ids}
+
+
+def handle_product_pipeline(ctx) -> dict:
+    """Job handler body for `product.pipeline` (registered by W4-AUTO, see WIRING REQUEST).
+
+    One pass of the board, recorded as a `pipeline.board` audit row, plus the only advance this
+    board is authorised to make on its own: a Launch-0 product the chain has never built is
+    queued at `cir.draft` (the radar's portfolio does not select every Launch-0 slug). Nothing
+    is queued past certification by this handler and publication is never touched.
+    """
+    inputs = dict(ctx.job.inputs or {})
+    today = date.fromisoformat(inputs["as_of"]) if inputs.get("as_of") else date.today()
+    result = board(today=today, visual=bool(inputs.get("visual")))
+    if inputs.get("merge_chain"):
+        merge_chain(result, ctx.db, today=today)
+    record(ctx.db, result)
+    built = built_releases(ctx.db)
+    queued = []
+    for slug in launch_scope_drafts():
+        if slug not in built:
+            ctx.enqueue("crochet_engineer", "cir.draft", {"slug": slug},
+                        idempotency_key=f"pipeline-draft:{slug}")
+            queued.append(slug)
+    return {"at_stage": result["at_stage"], "passed_stage": result["passed_stage"],
+            "candidates": len(result["candidates"]), "queued_cir_draft": queued,
+            "advances_publication": ADVANCES_PUBLICATION}

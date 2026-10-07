@@ -66,6 +66,25 @@ def main():
     check("launch_scope_drafts_include_coasters",
           "hexagon-coaster-set" in pb.launch_scope_drafts())
 
+    # The handler body: records the board and queues only cir.draft for unbuilt Launch-0 slugs.
+    import tempfile
+    from types import SimpleNamespace
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import AuditLog
+    from sqlalchemy import select
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/b.sqlite"); db.create_all()
+    queued = []
+    ctx = SimpleNamespace(db=db, job=SimpleNamespace(inputs={"as_of": "2026-10-07"}),
+                          enqueue=lambda agent, jt, inp, **kw: queued.append((jt, inp["slug"])))
+    out = pb.handle_product_pipeline(ctx)
+    check("handler_queues_only_cir_draft", queued and all(jt == "cir.draft" for jt, _ in queued),
+          queued)
+    check("handler_queues_coasters", ("cir.draft", "hexagon-coaster-set") in queued, queued)
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == pb.AUDIT_ACTION)))
+    check("handler_records_board", len(rows) == 1 and rows[0].detail["candidates"], len(rows))
+    check("handler_never_publishes", out["advances_publication"] is False)
+
     # Inventory: company work is never reported as somebody else's job.
     check("unknown_reason_is_company", inventory.classify_reason("anything new")[1] == "COMPANY")
     check("taxonomy_is_external",
