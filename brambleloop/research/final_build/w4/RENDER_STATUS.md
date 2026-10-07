@@ -1,6 +1,6 @@
 # W4-RENDER — VISUAL-blocked candidates rendered (shadow)
 
-Generated 2026-10-07T04:11:16+00:00 at `82e011d` by `research/final_build/w4/render_run.py`. Publication is never advanced.
+Generated 2026-10-07T08:24:23+00:00 at `80c688d` by `research/final_build/w4/render_run.py`. Publication is never advanced.
 
 | candidate | made | frames (form) | verifier vs certified CIR | gallery | listing QA | board stage | next gate |
 |---|---|---|---|---|---|---|---|
