@@ -2076,6 +2076,8 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
 
     pieces = content_mod.build_ecosystem(facts, launch_on=launch_on)
     problems = content_mod.check_ecosystem(pieces, facts)
+    # #147: Content reads its cultural-timing inbox where the plan is drafted.
+    cultural_timing = content_mod.apply_cultural_timing(ctx.db, facts, pieces)
 
     with ctx.db.session() as s:
         from sqlalchemy import select
@@ -2121,7 +2123,8 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
     ctx.audit("marketing.scheduled" if not problems else "marketing.blocked",
               artifact=f"{slug}@{version}",
               detail={"pieces": len(pieces), "channels": sorted({p.channel for p in pieces}),
-                      "problems": problems[:5], "published": False})
+                      "problems": problems[:5], "published": False,
+                      "cultural_timing": [n["lesson"] for n in cultural_timing]})
     return {"slug": slug, "version": version, "pieces": len(pieces),
             "problems": problems, "published": False}
 
@@ -3001,6 +3004,13 @@ def handle_seasonal_sentinel(ctx: JobContext) -> dict:
         slug, event = (parts[1:3] + ["", ""])[:2]
         year = parts[3] if len(parts) > 3 else None
         current = plan_for.get((slug, event))
+        if current is None and occasion_for(slug) == event:
+            # W4-OWNER: the occasion matches, so "not merchandised for it" would be false;
+            # what is true is that no certified plan schedules this product any more.
+            return (f"{slug} has no seasonal plan this run (it is not a certified product "
+                    f"in the catalogue the calendar schedules), so it has no {event} launch "
+                    f"window to be at risk in. It is raised again if it is certified and "
+                    f"still at risk.")
         if current is None:
             return (f"{slug} is not merchandised for {event} (its occasion is "
                     f"{occasion_for(slug)}), so it has no {event} window to be at risk in. "
@@ -6476,6 +6486,16 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
     topics = feeds.env_override() or feeds.default_articles(ctx.db)
     watched = topics + [t for t in placed if t not in topics]
     result = feeds.sweep(ctx.db, watched[:feeds.MAX_ARTICLES_PER_SWEEP])
+    # #280: the colour forecast's fashion-and-home half reads colour names through the same
+    # sanctioned feed. A separate sweep, so it never displaces a watched or discovered topic,
+    # and its readings are not fed to the culture engine as creative candidates.
+    from ..seasonal import colour as _colour
+
+    # Skipped when the main sweep read nothing: the feed is unreachable or refusing this run,
+    # and ten more courtesy-spaced calls into a refusal would only add to it.
+    colour_sweep = (_colour.sweep_colour_signals(ctx.db) if result["recorded"] else
+                    {"recorded": 0, "failures": [{"why": "skipped: the main culture sweep "
+                                                          "recorded nothing this run"}]})
 
     # The marketplace half of #140's two series. Without it `lead_lag` has one series, and
     # one series cannot lead anything.
@@ -6504,6 +6524,8 @@ def handle_culture_sweep(ctx: JobContext) -> dict:
         "routed": routed["recorded"], "routed_skipped": routed["skipped"][:5],
         "source": result["source"], "recorded": result["recorded"],
         "attempted": result["attempted"], "failures": result["failures"][:5],
+        "colour_recorded": colour_sweep["recorded"],
+        "colour_failures": colour_sweep["failures"][:3],
         "discovered": len(discovered), "placed": len(placed),
         "sensitive_dropped": len(filed.get("sensitive") or []),
         "discovery_error": discovery_error,
