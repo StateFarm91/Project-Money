@@ -217,6 +217,31 @@ PATTERN_TASKS_REFUSED: tuple[str, ...] = (
     "finished_dimensions", "yardage", "gauge", "chart_symbols", "pattern_correction",
 )
 
+# F-312 (Deterministic Before Generative): every question deterministic code already answers,
+# with the code that answers it (`module:function`). `route()` refuses each of them by naming
+# that alternative, so the refusal is a pointer to the free answer rather than a dead end, and
+# `tests/test_w4_spend_routing.py` imports every target -- an alternative that does not exist
+# is not one. The pattern questions are the compiler's (§27); the gallery-structure questions
+# are answered by `visual.parity` from the frames themselves (GALLERY / BRAND dimensions) and
+# sizing by `cir.grading`. A declared model task may never shadow one of these keys.
+DETERMINISTIC_ALTERNATIVES: dict[str, str] = {
+    "pattern_instructions": "brambleloop.cir.writer:write_pattern",
+    "stitch_counts": "brambleloop.cir.compiler:compile_cir",
+    "row_instructions": "brambleloop.cir.writer:write_row",
+    "cir_generation": "brambleloop.cir.specification:refuse_an_underspecified_design",
+    "finished_dimensions": "brambleloop.cir.twin:build_twin",
+    "yardage": "brambleloop.cir.twin:build_twin",
+    "gauge": "brambleloop.cir.grading:grade",
+    "chart_symbols": "brambleloop.cir.stitches:term",
+    "pattern_correction": "brambleloop.cir.compiler:compile_cir",
+    "size_grading": "brambleloop.cir.grading:grade",
+    "gallery_sequence_completeness": "brambleloop.visual.parity:assess",
+    "gallery_brand_consistency": "brambleloop.visual.parity:assess",
+}
+
+# F-316 (Output Token Discipline): the same cap `prompts.register` enforces, read from there.
+from .prompts import OUTPUT_TOKEN_CAP  # noqa: E402
+
 # Read from the policy rather than restated. It was written twice -- here and in the provider
 # gateway -- which is the defect this build keeps naming about prices: a number written twice
 # is a number that will drift, and the one that bills is the one that is true. A test refuses
@@ -241,11 +266,12 @@ class TaskRefused(PermissionError):
 
 def route(task_key: str) -> tuple[Task, Tier]:
     """Pick the tier for a declared task, refusing anything the compiler owns."""
-    if task_key in PATTERN_TASKS_REFUSED:
+    if task_key in PATTERN_TASKS_REFUSED or task_key in DETERMINISTIC_ALTERNATIVES:
         raise TaskRefused(
-            f"{task_key!r} is decided by deterministic code, not by a model. Patterns are "
-            f"software releases: the compiler and the twin answer this, and a model that "
-            f"disagrees is noise (§27)")
+            f"{task_key!r} is decided by deterministic code, not by a model "
+            f"({DETERMINISTIC_ALTERNATIVES.get(task_key, 'the compiler')} answers it, free). "
+            f"Patterns are software releases: the compiler and the twin answer this, and a "
+            f"model that disagrees is noise (§27)")
     task = TASKS.get(task_key)
     if task is None:
         raise TaskRefused(
@@ -450,3 +476,183 @@ def plan(db, now: datetime | None = None) -> dict:
         "note": ("Canonical pattern content is never a model task. The compiler and the twin "
                  "decide what a pattern says, and a model that disagrees is noise (§27)."),
     }
+
+
+# ---------------------------------------------------------------------------
+# Quality-proven routing (F-313) and deep-tier escalation (F-314)
+#
+# The table above is the declared route. It may move a task to a *cheaper* tier only on
+# recorded evidence that the cheaper model clears the same quality floors on the same eval set
+# -- never on an argument about money (`spend_policy.may_downgrade_for_cost` refuses that by
+# name), and never for longer than the evidence holds: a later recorded regression of the
+# cheaper model on that task ends the override with no further action. A route *up* is a
+# quality decision and needs no equivalence proof, so `effective_route` only ever reads
+# downgrades from here. Everything is an audit row, so a routing change is evidence-backed,
+# reversible and inspectable rather than an edit nobody can explain.
+
+ROUTE_EVIDENCE_ACTION = "routing.evidence"
+ROUTE_OVERRIDE_ACTION = "routing.override"
+# The smallest eval set that can authorise a downgrade. Below it a pass rate is an anecdote.
+MIN_EVIDENCE_ITEMS = 20
+TIER_ORDER = (CHEAP, STANDARD, DEEP)
+
+
+class RouteRefused(PermissionError):
+    """A routing override without the evidence that would make it a quality decision."""
+
+
+def _tier_rank(tier_key: str) -> int:
+    return TIER_ORDER.index(tier_key)
+
+
+def record_route_evidence(db, task_key: str, model: str, *, floors: dict[str, bool],
+                          items: int, eval_ref: str, agent: str = "orchestrator") -> dict:
+    """One eval result for (task, model): which quality floors it cleared, over how many items.
+
+    Written by whatever ran the eval (`gateway.evals`, an improve/ experiment, a gateway eval
+    row). A regression is simply a later row with a floor that failed.
+    """
+    from ..agents.registry import Registry
+
+    route(task_key)                                   # refuses undeclared/compiler tasks
+    if not floors:
+        raise RouteRefused("route evidence names no quality floors; it proves nothing")
+    if not eval_ref:
+        raise RouteRefused("route evidence must cite the eval it came from")
+    detail = {"task": task_key, "model": model, "floors": {k: bool(v) for k, v in
+                                                           floors.items()},
+              "items": int(items), "eval_ref": eval_ref}
+    Registry(db).audit(agent, ROUTE_EVIDENCE_ACTION, artifact=f"{task_key}:{model}"[:200],
+                       detail=detail)
+    return detail
+
+
+def _latest_evidence(db, task_key: str, model: str) -> dict | None:
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalars(select(AuditLog).where(
+            AuditLog.action == ROUTE_EVIDENCE_ACTION,
+            AuditLog.artifact == f"{task_key}:{model}"[:200])
+            .order_by(desc(AuditLog.id)).limit(1)).first()
+        return dict(row.detail or {}, audit_id=row.id) if row else None
+
+
+def equivalence(db, task_key: str, to_tier: str) -> dict:
+    """Whether recorded evidence shows `to_tier`'s model clears every floor the declared model
+    clears on this task, on the same eval set, with enough items. Writes nothing."""
+    task, declared = route(task_key)
+    cheaper = TIERS[to_tier]
+    base = _latest_evidence(db, task_key, declared.model)
+    cand = _latest_evidence(db, task_key, cheaper.model)
+    reasons = []
+    if base is None:
+        reasons.append(f"no recorded evidence for the declared model {declared.model}")
+    if cand is None:
+        reasons.append(f"no recorded evidence for {cheaper.model} on {task_key}")
+    if base and cand:
+        if base.get("eval_ref") != cand.get("eval_ref"):
+            reasons.append("the two models were not measured on the same eval set")
+        if min(int(base.get("items") or 0), int(cand.get("items") or 0)) < MIN_EVIDENCE_ITEMS:
+            reasons.append(f"fewer than {MIN_EVIDENCE_ITEMS} eval items")
+        floors = base.get("floors") or {}
+        missing = [f for f in floors if f not in (cand.get("floors") or {})]
+        failed = [f for f, ok in (cand.get("floors") or {}).items() if not ok]
+        if missing:
+            reasons.append(f"floors not measured on {cheaper.model}: {sorted(missing)}")
+        if failed:
+            reasons.append(f"{cheaper.model} failed floors {sorted(failed)}")
+    return {"task": task_key, "from": declared.model, "to": cheaper.model,
+            "equivalent": not reasons, "reasons": reasons,
+            "evidence": {"declared": base, "candidate": cand}}
+
+
+def override_route(db, task_key: str, to_tier: str, *, reason: str,
+                   agent: str = "orchestrator") -> dict:
+    """Move a task to a cheaper tier -- only on recorded equivalence, never on cost."""
+    from ..agents.registry import Registry
+    from ..finance import spend_policy
+
+    task, declared = route(task_key)
+    if to_tier not in TIERS:
+        raise RouteRefused(f"unknown tier {to_tier!r}")
+    if _tier_rank(to_tier) >= _tier_rank(task.tier):
+        raise RouteRefused(
+            f"{task_key} is already on {task.tier}; an override only records a downgrade, "
+            f"and moving a task up is a TASKS edit, not an evidence question")
+    eq = equivalence(db, task_key, to_tier)
+    if not eq["equivalent"]:
+        # The argument offered is money if no evidence carries it -- refused by name.
+        try:
+            spend_policy.may_downgrade_for_cost(priority_key="high_value_judgement",
+                                                reason=reason)
+        except spend_policy.PolicyRefused as exc:
+            raise RouteRefused(f"{exc}. Missing evidence: {'; '.join(eq['reasons'])}") from exc
+    detail = {"task": task_key, "from_tier": task.tier, "to_tier": to_tier,
+              "reason": reason, "evidence": {
+                  "declared": (eq["evidence"]["declared"] or {}).get("audit_id"),
+                  "candidate": (eq["evidence"]["candidate"] or {}).get("audit_id")}}
+    Registry(db).audit(agent, ROUTE_OVERRIDE_ACTION, artifact=task_key[:200], detail=detail)
+    return detail
+
+
+def effective_route(db, task_key: str) -> tuple[Task, Tier, dict]:
+    """The route in force: the declared one, or an evidenced override that still holds.
+
+    Re-checked on every read, so a regression recorded after the override reverses it.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    task, declared = route(task_key)
+    with db.session() as s:
+        row = s.scalars(select(AuditLog).where(
+            AuditLog.action == ROUTE_OVERRIDE_ACTION, AuditLog.artifact == task_key[:200])
+            .order_by(desc(AuditLog.id)).limit(1)).first()
+        override = dict(row.detail or {}) if row else None
+    if not override:
+        return task, declared, {"basis": "declared"}
+    to_tier = override.get("to_tier")
+    if to_tier not in TIERS or _tier_rank(to_tier) >= _tier_rank(task.tier):
+        return task, declared, {"basis": "declared", "ignored_override": override}
+    eq = equivalence(db, task_key, to_tier)
+    if not eq["equivalent"]:
+        return task, declared, {"basis": "declared", "override_reversed": eq["reasons"]}
+    return task, TIERS[to_tier], {"basis": "evidenced_override", "override": override}
+
+
+# F-314: escalation. A cheap or standard answer that says it is unsure, or that cannot be
+# verified, is asked once more on the next stronger tier rather than shipped. Deep has nowhere
+# to go, so a deep answer that is unsure is returned as unsure for the caller to treat as
+# unjudged. An answer that reports nothing about its own confidence is not escalated: absence
+# of a confidence field is not low confidence.
+ESCALATE_BELOW_CONFIDENCE = 0.6
+UNSURE_MARKERS = ("unsure", "uncertain", "cannot_tell", "unverifiable", "insufficient")
+
+
+def needs_escalation(answer: dict | None) -> str:
+    """Why this answer should go one tier up, or '' when it should not."""
+    if not isinstance(answer, dict):
+        return ""
+    conf = answer.get("confidence")
+    if isinstance(conf, (int, float)) and not isinstance(conf, bool) \
+            and float(conf) < ESCALATE_BELOW_CONFIDENCE:
+        return f"confidence {float(conf):.2f} < {ESCALATE_BELOW_CONFIDENCE}"
+    if answer.get("verifiable") is False:
+        return "the answer says it cannot be verified"
+    verdict = str(answer.get("verdict") or answer.get("status") or "").lower()
+    if verdict in UNSURE_MARKERS:
+        return f"verdict {verdict!r}"
+    return ""
+
+
+def escalation_tier(task_key: str) -> Tier | None:
+    """The next stronger tier for a declared task, or None on the deep tier."""
+    task, tier = route(task_key)
+    if not task.stronger_fallback:
+        return None          # an optional nicety (laura phrasing) never pays a stronger tier
+    rank = _tier_rank(task.tier)
+    return TIERS[TIER_ORDER[rank + 1]] if rank + 1 < len(TIER_ORDER) else None

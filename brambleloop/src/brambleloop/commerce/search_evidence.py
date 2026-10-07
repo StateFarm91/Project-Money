@@ -149,7 +149,19 @@ def listing_evidence(db, prof: dict, *, shared: dict, funnel: dict, visibility: 
                 else UNMEASURED)
 
     gal = gallery(db, slug, version)
+    try:
+        from ..seo import packages as _packages
+
+        pkg = _packages.current(db, slug, version)
+    except Exception:  # noqa: BLE001 - an unreadable package is no package
+        pkg = None
     return {
+        "search_package": (None if pkg is None else {
+            "id": pkg.get("id"), "readiness": pkg.get("readiness"),
+            "primary_intent": pkg.get("primary_intent"),
+            "tag_basis": (pkg.get("tags") or {}).get("basis_counts"),
+            "learning_status": (pkg.get("learning") or {}).get("status"),
+            "fingerprint": pkg.get("fingerprint")}),
         "slug": slug, "version": version,
         "match": stage1,
         "query_field_matrix": prof["matrix"],
@@ -188,6 +200,13 @@ def _rungs(ev: dict) -> dict:
                 or ev["rank_readiness"]["certificate_problems"] else UNMEASURED)
     if ev["rank_readiness"]["certificate"] == "PENDING":
         coverage = UNMEASURED
+    # W4-SEO: coverage is truthful only for a listing whose search package is on file and
+    # bound to the listing as it stands (`seo.packages.current`). Tightens only.
+    package_note = ""
+    if ev.get("search_package") is None:
+        package_note = "; no current search package bound to this listing"
+        if coverage == PASS:
+            coverage = UNMEASURED
     thumb, thumb_why = dim("click_readiness")
     conv, conv_why = dim("conversion_readiness")
     gal = ev["gallery"]["status"]
@@ -196,7 +215,8 @@ def _rungs(ev: dict) -> dict:
     return {
         "truthful_query_coverage": {"verdict": coverage, "why": (
             f"certificate {ev['rank_readiness']['certificate']}; match rate {rate}; "
-            + "; ".join(ev["rank_readiness"]["certificate_problems"][:2]))[:300]},
+            + "; ".join(ev["rank_readiness"]["certificate_problems"][:2])
+            + package_note)[:300]},
         "competitive_thumbnail": {"verdict": thumb, "why": thumb_why[:300]},
         "conversion_readiness": {"verdict": conversion, "why": (
             f"{conv_why}; gallery: {ev['gallery'].get('missing') or ev['gallery'].get('why')}"
@@ -264,4 +284,4 @@ def summary(db) -> dict:
             "reason": None if items else "no drafted listing has a search profile yet",
             "sources": ["listing_search_profiles", "listing_set_certificates",
                         "listing_outcomes", "experiments", "search_visibility_items",
-                        "policy_snapshots"]}
+                        "policy_snapshots", "seo_search_packages"]}
