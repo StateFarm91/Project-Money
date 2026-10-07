@@ -467,11 +467,22 @@ def spend_to_progress(db, *, days: int = 30, now: datetime | None = None) -> dic
                  "product owns")}
 
 
+def _per_operation(db, *, days: int, now: datetime | None) -> dict:
+    """F-304: spend by listing and image, read from the attribution sidecar."""
+    from . import cost_attribution
+
+    try:
+        return cost_attribution.report(db, days=days, now=now)
+    except Exception as exc:  # noqa: BLE001 - one unreadable part must not hide the rest
+        return {"unavailable": f"{type(exc).__name__}: {exc}"[:200]}
+
+
 def report(db, *, days: int = 30, now: datetime | None = None) -> dict:
     """Everything the governor can honestly say today."""
     return {
         "attribution": attribution(db, days=days, now=now),
         "spend_to_progress": spend_to_progress(db, days=days, now=now),
+        "per_operation": _per_operation(db, days=days, now=now),
         "anomaly": anomaly(db, now=now),
         "marginal_value": marginal_value(db, days=days, now=now),
         "parallelism": parallelism([]),
@@ -825,10 +836,20 @@ def enforce(db, *, days: int = 30, now: datetime | None = None) -> dict:
     except Exception as exc:  # noqa: BLE001 - a detector fault must not stop the governor
         hygiene = {"error": f"{type(exc).__name__}: {exc}"[:300]}
 
+    # F-106/F-103: settle the ledger against each provider's own bill where the owner has
+    # granted a read; a provider without an admin key is reported OWNER_GATED (no network).
+    try:
+        from ..ops import provider_accounts
+
+        settlement = provider_accounts.settle_all(db, now=now)
+    except Exception as exc:  # noqa: BLE001 - a billing read fault must not stop the governor
+        settlement = {"error": f"{type(exc).__name__}: {exc}"[:300]}
+
     detail = {
         "at": now.isoformat(),
         "unit_cost": throughput,
         "hygiene": hygiene,
+        "provider_settlement": settlement,
         "company_anomaly": company,
         "agent_anomalies": {"spiking": agents["spiking"],
                             "unmeasurable": agents["unmeasurable"],
