@@ -441,7 +441,36 @@ def corners(rows: list[ResolvedRow]) -> int | None:
         return len(increase_rounds[-1][1])
     if stacked_rounds == 0:
         return 0
-    return None
+    return _staggered_after_opening(increase_rounds, parentage)
+
+
+def _staggered_after_opening(increase_rounds, parentage) -> int | None:
+    """0 when every round that *could* show a stagger does, else None (W4-RENDER).
+
+    A magic-ring disc's opening rounds cannot be judged: after an all-increase round every
+    stitch is an increase's product, so the next round's increases land on one whatever the
+    designer intended, and while more than half of the previous round is increase-produced an
+    evenly spaced increase is more likely to land on one than not. Such a round is opening
+    evidence for neither shape, so it is set aside -- never counted as a stagger.
+
+    The remaining rounds are judged as before, and only one verdict is added: every one of
+    them is wholly unstacked (and there are at least two), so no corner column survives to
+    the outline -- a circle. Any stack, or any partial stack, in a judged round is still None.
+    A polygon claim is unchanged: it needs every round stacked.
+    """
+    judged = 0
+    for position, (index, consumed) in enumerate(increase_rounds):
+        if position == 0:
+            continue
+        previous = parentage.get(index - 1)
+        if not previous:
+            return None
+        if 2 * sum(previous) > len(previous):
+            continue  # opening round: stacking here is forced or likely, so not evidence
+        if any(c < len(previous) and previous[c] for c in consumed):
+            return None
+        judged += 1
+    return 0 if judged >= 2 else None
 
 
 def measure_all(cir: CIR, result: CompileResult) -> dict[str, Revolution]:
