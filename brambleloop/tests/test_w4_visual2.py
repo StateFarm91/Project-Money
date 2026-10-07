@@ -262,6 +262,61 @@ def test_a_recoloured_stitch_on_the_diagonal_fails_and_square_pieces_stay_uprigh
     assert "rotation_deg" not in DR.render(blanket, "hero").manifest["layout"]
 
 
+
+# ---- K9 wiring (F-753): generated frames carry a stitch-scale reading ------------------------
+
+def test_a_generated_frame_carries_a_stitch_scale_reading_and_a_wrong_scale_fails():
+    import io
+
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.gates import stitch_scale as SS
+    from brambleloop.visual import product_authority as PA
+    from brambleloop.visual.stitch_identity import draw_hdc_fabric
+
+    cir = launch0.cir_for(launch0.candidate("cloudline-baby-blanket").variants[0].build)
+    px_per_cm = 20.0
+    want = SS.expected_pitch_px(cir, px_per_cm)
+    assert want and want > 3, want
+    store = ArtifactStore(os.environ["BRAMBLELOOP_ARTIFACT_DIR"])
+
+    def frame(st_px, **extra):
+        out = io.BytesIO()
+        draw_hdc_fabric(480, 240, st_px, st_px * 0.8).save(out, "PNG")
+        sha = store.put("g.png", out.getvalue(), "image/png").sha256
+        return {"slug": cir.slug, "version": cir.version, "generated": True,
+                "provider": "image-model", "image": {"sha256": sha}, **extra}
+
+    right = PA.structural_floor(frame(want, px_per_cm=px_per_cm))
+    wrong = PA.structural_floor(frame(want * 1.6, px_per_cm=px_per_cm))
+    unstated = PA.structural_floor(frame(want))
+    # every generated frame's answer carries its reading
+    for r in (right, wrong, unstated):
+        assert "stitch_scale" in r, r
+    assert right["stitch_scale"]["verdict"] == SS.PASS, right["stitch_scale"]
+    assert right["stitch_scale"]["source"] == "measured on the bound bytes"
+    # a right scale is not a whole-product proof: still UNKNOWN, never PASS
+    assert right["status"] == "UNKNOWN", right
+    assert wrong["status"] == "FAIL" and "ASSET_STITCH_SCALE_WRONG" in wrong["why"], wrong
+    assert unstated["status"] == "UNKNOWN" and unstated["stitch_scale"]["verdict"] == SS.UNKNOWN
+    # a producer-attached reading is used as given, and a wrong one fails the same way
+    bad = SS.read(draw_hdc_png(want * 1.6), px_per_cm=px_per_cm, expected_px=want)
+    attached = PA.structural_floor(frame(want, stitch_scale=bad))
+    assert attached["status"] == "FAIL" and attached["stitch_scale"]["source"] == "producer"
+    # an unknown design has nothing to hold the scale to: UNKNOWN, never PASS
+    alien = PA.structural_floor(dict(frame(want, px_per_cm=px_per_cm), slug="no-such-design"))
+    assert alien["status"] == "UNKNOWN" and alien["stitch_scale"]["verdict"] == SS.UNKNOWN
+
+
+def draw_hdc_png(st_px):
+    import io
+
+    from brambleloop.visual.stitch_identity import draw_hdc_fabric
+
+    out = io.BytesIO()
+    draw_hdc_fabric(480, 240, st_px, st_px * 0.8).save(out, "PNG")
+    return out.getvalue()
+
+
 if __name__ == "__main__":
     import time
 
