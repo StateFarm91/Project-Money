@@ -539,12 +539,86 @@ def record(db, pkg: dict, *, now: datetime | None = None) -> dict:
         return {"written": True, "id": row.id, "state": "CURRENT"}
 
 
+KEYWORD_INTENT_PREFIX = "package:"   # Keyword.intent for rows this module owns
+_BASIS_RANK = {"modelled": 0, "observed": 1, "measured": 2}
+
+
+def keyword_phrases(pkg: dict) -> dict[str, str]:
+    """{phrase: basis} for the phrases a package's listing answers (tags + matched intents)."""
+    out: dict[str, str] = {}
+
+    def _add(phrase, basis):
+        phrase = " ".join(str(phrase or "").lower().split())[:120]
+        if not phrase:
+            return
+        basis = basis if basis in _BASIS_RANK else "modelled"
+        if _BASIS_RANK[basis] >= _BASIS_RANK.get(out.get(phrase, "modelled"), 0):
+            out[phrase] = basis
+
+    for t in ((pkg.get("tags") or {}).get("evidence") or []):
+        _add(t.get("tag"), t.get("basis"))
+    for i in [pkg.get("primary_intent")] + list(pkg.get("secondary_intents") or []):
+        if i and i.get("phrase") and i.get("answered_by"):
+            _add(i["phrase"], i.get("basis"))
+    return out
+
+
+def sync_keywords(db, pkg: dict, *, now: datetime | None = None) -> dict:
+    """Persist the package's answered phrases as `Keyword` rows (W4L-1, for Learn's cell).
+
+    Rows this module owns carry `intent = "package:<basis>"` and `covered_by` lists the
+    releases (`slug@version`) whose CURRENT package answers the phrase, so coverage is a
+    deterministic fact about our own listings. No volume is written: `est_demand` /
+    `est_competition` keep the column default, and every reader skips package rows for
+    those columns (seo.evidence) or for observed-language / query-budget purposes
+    (commerce.intent, intel.insights_budget). A row someone else owns only gains coverage.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Keyword
+    from ._db import session
+
+    now = now or datetime.now(timezone.utc)
+    slug, version = pkg["slug"], pkg["version"]
+    ref = f"{slug}@{version}"
+    wanted = keyword_phrases(pkg)
+    added, removed = 0, 0
+    with session(db) as s:
+        rows = {r.phrase: r for r in s.scalars(select(Keyword))}
+        for phrase, row in rows.items():   # drop this release's stale coverage
+            cov = list(row.covered_by or [])
+            if ref in cov and phrase not in wanted:
+                cov.remove(ref)
+                row.covered_by, row.updated_at = cov, now
+                if not cov and str(row.intent or "").startswith(KEYWORD_INTENT_PREFIX):
+                    s.delete(row)
+                    removed += 1
+        for phrase, basis in wanted.items():
+            row = rows.get(phrase)
+            if row is None:
+                s.add(Keyword(phrase=phrase, intent=f"{KEYWORD_INTENT_PREFIX}{basis}",
+                              covered_by=[ref], coverage=1.0, updated_at=now))
+                added += 1
+                continue
+            cov = list(row.covered_by or [])
+            if ref not in cov:
+                row.covered_by = cov + [ref]
+                row.updated_at = now
+            row.coverage = max(float(row.coverage or 0.0), 1.0)
+            owned = str(row.intent or "")
+            if owned.startswith(KEYWORD_INTENT_PREFIX) and _BASIS_RANK.get(basis, 0) > \
+                    _BASIS_RANK.get(owned[len(KEYWORD_INTENT_PREFIX):], 0):
+                row.intent = f"{KEYWORD_INTENT_PREFIX}{basis}"
+    return {"phrases": len(wanted), "added": added, "removed": removed}
+
+
 def record_from_release(db, slug: str, version: str) -> dict:
     """Assemble and persist one release's package (the listing.seo / seo.cycle producer)."""
     pkg = assemble(db, slug, version)
     if pkg is None:
         return {"written": False, "why": "no search profile"}
     out = record(db, pkg)
+    out["keywords"] = sync_keywords(db, pkg)
     return {**out, "readiness": pkg["readiness"]["state"],
             "verdict": pkg["certificate"]["verdict"]}
 
@@ -571,6 +645,7 @@ def refresh(db, *, now: datetime | None = None) -> dict:
         if pkg is None:
             continue
         out = record(db, pkg, now=now)
+        sync_keywords(db, pkg, now=now)
         (written if out["written"] else unchanged).append(f"{slug}@{version}")
         st = pkg["readiness"]["state"]
         readiness_counts[st] = readiness_counts.get(st, 0) + 1

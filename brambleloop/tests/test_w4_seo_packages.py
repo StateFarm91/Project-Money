@@ -161,6 +161,46 @@ def test_mjs_findings_flow_into_the_package():
     print("OK mjs_findings_flow_into_the_package")
 
 
+def test_packages_make_the_seo_search_cell_measurable():
+    """W4L-1: package phrases become Keyword rows, so Learn measures seo_search pre-sale."""
+    from brambleloop.commerce import intent as intent_mod
+    from brambleloop.core.models import Keyword
+    from brambleloop.improve import measure as M
+    from brambleloop.intel import insights_budget
+    from brambleloop.seo import evidence as ev_mod
+
+    empty = Database(f"sqlite:///{tempfile.mkdtemp(dir=_TMP)}/empty.sqlite")
+    empty.create_all()
+    assert isinstance(M.measure_cell(empty, "seo_search"), M.NotMeasured)
+
+    db = _chain("real", fixture_taxonomy=False)
+    version = _version(db)
+    pkg = P.current(db, SLUG, version)
+    wanted = P.keyword_phrases(pkg)
+    assert len(wanted) >= 13, wanted
+    with db.session() as s:
+        rows = {k.phrase: (k.intent, list(k.covered_by or []), k.coverage)
+                for k in s.scalars(select(Keyword))}
+    assert rows, "listing.seo persisted no Keyword rows"
+    for phrase, basis in wanted.items():
+        intent, cov, coverage = rows[phrase]
+        assert intent == f"{P.KEYWORD_INTENT_PREFIX}{basis}", (phrase, intent)
+        assert f"{SLUG}@{version}" in cov and coverage == 1.0
+    m = M.measure_cell(db, "seo_search")
+    assert isinstance(m, M.Measurement), m
+    assert m.value >= 1 and m.detail["keywords"] == len(rows), m
+    # No invented volume reaches any reader.
+    assert not [r for r in ev_mod.collect(db) if r["metric"] == "keyword_est_demand"
+                and r["phrase"] in wanted]
+    assert all(v == 0 for v in insights_budget.prior_queries(db).values())
+    modelled = {p for p, b in wanted.items() if b == "modelled"}
+    assert modelled and not (modelled & intent_mod.observed_phrases(db))
+    # Idempotent: a second sync adds and removes nothing.
+    again = P.sync_keywords(db, pkg)
+    assert again["added"] == 0 and again["removed"] == 0, again
+    print("OK packages_make_the_seo_search_cell_measurable")
+
+
 def test_search_evidence_consumes_the_package():
     from brambleloop.commerce import search_evidence as se
 
