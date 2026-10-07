@@ -83,6 +83,25 @@ def main():
     flat = replace(cir, components=cir.components[:1], assembly=[])
     check("flat_pencil_roll_fails_name_truth",
           any(n.startswith("assembly") for n in name_truth(flat)), name_truth(flat))
+    # The Christmas stocking (CREATIVE engineering queue, first): flat pieces, every
+    # cross-piece join measured on both sides, and the title says relief, not colourwork.
+    stocking = by["first-christmas-stocking"]
+    check("stocking_clears_product_truth", stocking["highest_passed"] == "PRODUCT_TRUTH",
+          stocking)
+    from brambleloop.cir import assembly as _asm
+    from brambleloop.cir.compiler import compile_cir as _cc
+    from brambleloop.cir.twin import build_twin as _bt
+    sc = pb.stocking_cir()
+    _r = _cc(sc)
+    geo = _asm.assemble(sc, {k.name: _bt(sc, _r, component=k.name) for k in sc.components})
+    check("stocking_assembles", geo.verdict == "assembles" and len(geo.joins) == 15
+          and all(j.verdict == "sound" for j in geo.joins) and not _r.warnings,
+          (geo.verdict, geo.why))
+    check("stocking_names_relief_not_colourwork",
+          "relief" in sc.title.lower() and "colourwork" not in sc.title.lower(), sc.title)
+    check("legless_stocking_fails_name_truth",
+          any(n.startswith("assembly") for n in name_truth(
+              replace(sc, components=sc.components[:1], assembly=[]))))
     # Competitor findings become intelligence candidates; answered arenas are not repeated.
     intel = [r for r in rows if r["source"] == "intelligence"]
     assert intel, "no intelligence candidates"

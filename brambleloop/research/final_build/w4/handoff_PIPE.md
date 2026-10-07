@@ -75,5 +75,30 @@ test_release_versions 4, test_eligibility 34, test_first_customer_gate 12, test_
 test_search_truth 32, test_w3_k1_search 20, test_w4_creative_brief 13, test_creative 11, test_cert_growth_seasonal 24,
 test_blind_review 11. Guards (vacuity, secret_scan, reachability, tmp_hygiene): see final commit.
 
+## RESUME 2 (2026-10-07, after session limit) -- owner directive: strongest products to the final publication gate
+- Merged origin/claude/visual-investigation (878bd50). WIP checkpoint d648bc4 reviewed: inventory/backlog
+  were generated from scratch run4 (fresh chain, head e72f086) -- valid; the board run that died is superseded.
+- Measured why no non-Launch-0 product can reach the gate: disclosed imagery authority is Launch-0 scope
+  (`listing_asset._in_launch_scope`, `render_verification.authoritative_cir`). Scratch render probe of every
+  truthful certified non-Launch-0 product: ornaments, snowfall throw, placemat pair, heart library = 3/3 frames
+  structural PASS + usable; pet mat + harvest runner = renderer palette refusal; wall hanging = 340 px legibility 22%.
+- PROMOTED into Launch-0 (cap <=5 candidates kept; harvest reserve kept out): `nordic-star-ornaments`
+  (Nordic Snowflake Ornament Set (6), CA$4.50, pod ornaments) and `winter-village-graphghan` (Winter Snowfall
+  Relief Throw, CA$7.50, pod blankets) -- `products/launch0.py` BUILDERS + CANDIDATES + LAUNCH0_SLUGS.
+  SEO package authored (`seo/strategy.py` FAMILIES/TAGS/TITLES/description; plan ok=True for all 5).
+  Tests updated for the composition (strict counts 3->5): test_r2_product_catalogue_depth, test_w3_seo_strategy.
+  Proof: tests/test_w4_pipe_launch_promotion.py (cert, name truth, authoritative_cir, frames PASS, usable).
+- CREATIVE engineering queue #1 `first-christmas-stocking` ENGINEERED: `pipeline_board.stocking_cir`
+  ("First Christmas Fir and Star Relief Stocking", 6 pieces, 12 seams, `cir.assembly` verdict assembles,
+  certify granted, class B declared). Colourwork-in-the-round brief not expressible -> relief, titled so.
+  Restructured to 8 pieces (leg/foot/toe front+back, cuff, loop), 15 seams, every join placed, 0 compile warnings,
+  release_hash 37997da15179. **For W4-PIPE2**: the stocking CIR is DONE here (pipeline_board.stocking_cir,
+  CREATIVE_ENGINEERED/CREATIVE_SEARCH, test_w4_pipe_board stocking_*). Pencil roll was done earlier
+  (pencil_roll_cir). No other new-candidate CIR work started; PIPE2 owns the remaining 6 of the queue.
+- Composition pins updated (strict 3->5): test_w3_store_ux_structure, test_v11_store_foundation, test_w3_seo_learning.
+
 ## Next deterministic action (superseded below if a later commit says otherwise)
-Finish scratch run2 (`/home/user/bl-tmp-PIPE/run_after.py`), run `product_inventory_run.py --chain-db run2 --name PRODUCT_INVENTORY` and `pipeline_run.py --chain-db run2`, commit.
+Run focused tests (test_w4_pipe_launch_promotion, test_w4_pipe_board, test_w3_seo_strategy,
+test_r2_product_catalogue_depth + guards), commit+push; then scratch chain run
+(`run_after.py <dir>` enqueues cir.draft for all Launch-0 incl. the 2 promoted), then
+`product_inventory_run.py --chain-db <dir>/run.sqlite --name PRODUCT_INVENTORY` and `pipeline_run.py`.
