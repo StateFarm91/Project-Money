@@ -224,6 +224,16 @@ _DOTTED_MODULE = re.compile(r"brambleloop(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
 
 
 @_graph_boundary
+def _dynamic_importer(mod: str) -> bool:
+    """Does this module import by name (importlib.import_module / __import__)?"""
+    tree = _parse(mod)
+    if tree is None:
+        return False
+    return any(isinstance(n, ast.Call) and _call_name(n) in ("import_module", "__import__")
+               for n in ast.walk(tree))
+
+
+@_graph_boundary
 def _imports(mod: str):
     return _imports_cached(_GRAPH_SCOPE.get()["key"], mod)
 
@@ -634,6 +644,7 @@ class _Analysis:
             for n in nodes:
                 if isinstance(n, ast.Attribute) and id(n) not in audit_only:
                     self.candidates.add(n.attr)
+            self._provider_pairs(mod, nodes, why, here)
         for n in refs:
             if not isinstance(n, (ast.Name, ast.Attribute)):
                 continue
@@ -646,6 +657,28 @@ class _Analysis:
                 continue
             self._mark(ref, f"{why} -> {here}")
         self._rescan_methods()
+
+    def _provider_pairs(self, mod: str, nodes, why: str, here: str) -> None:
+        """F-833 / wave-4 FM: a live provider table names its target as a literal pair
+        ("brambleloop.x.y", "fn") and the module holding it imports the module by name and
+        calls getattr(module, "fn") -- the Command Center PROVIDERS table. That pair is the
+        call, so the named function is live. Bounded on purpose, like the dynamic-import edge
+        in `_imports_cached`: only in a module that performs a dynamic import, only a 2-tuple
+        of string literals, and only when the literal resolves to a module this analysis
+        parsed and the name to a function or class defined in it."""
+        if not _dynamic_importer(mod):
+            return
+        for n in nodes:
+            if not (isinstance(n, ast.Tuple) and len(n.elts) == 2
+                    and all(isinstance(e, ast.Constant) and isinstance(e.value, str)
+                            for e in n.elts)):
+                continue
+            target, name = n.elts[0].value, n.elts[1].value
+            if not _DOTTED_MODULE.fullmatch(target) or target not in self.mods:
+                continue
+            t = self.mods[target]
+            if name in t.funcs or name in t.classes:
+                self._mark((target, name), f"{why} -> {here} (provider table)")
 
     def _schedule(self, jt: str, why: str) -> None:
         if jt in self.scheduled:
