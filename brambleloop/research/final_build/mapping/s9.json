@@ -45,21 +45,23 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Product Truth must encode construction; wrong construction = wrong product",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "no explicit work direction (top-down vs bottom-up), no first-class construction step order, no typed hood/pocket/band/button-band features; the s76 test 'swap built-in sleeves for separately attached sleeves and detect it' does not exist",
-  "producer": "src/brambleloop/cir/model.py (Construction flat_rows/joined_rounds/spiral_rounds, Component.grain, Hold/resumes, Seam method/at_round) -> cir/assembly.py::assemble",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (cir/topology: work direction, construction steps)",
   "durable_state": "CIR JSON in pattern_versions (fingerprinted)",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify (assembly/specification stages)",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
   "protected_effect": "a release whose joins do not close or whose construction facts are unstated is not certified",
   "tests": [
-   "tests/test_assembly.py::test_grain_decides_which_way_a_panel_lies_on_the_object",
    "tests/test_assembly.py::test_a_join_compares_the_length_of_both_edges",
+   "tests/test_assembly.py::test_grain_decides_which_way_a_panel_lies_on_the_object",
+   "tests/test_k9_graded_truth.py::test_work_direction_is_written_read_back_and_held_to_the_rows",
    "tests/test_reverse.py::test_a_hold_and_its_resume_are_read_back",
    "tests/test_specification.py::test_a_brambleloop_design_must_state_panel_orientation"
   ],
   "evidence": [
    "products/garments.py raglan_top_down / drop_shoulder_flat encode direction only implicitly in row order",
-   "cir/assembly.py reached; grain/holds post-date fcb982d (Build 2 work)"
+   "cir/assembly.py reached; grain/holds post-date fcb982d (Build 2 work)",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [
    "#103 COMPLETE+PROVEN",
@@ -67,48 +69,50 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add Component.work_direction and an ordered construction-step list to cir/model.py, surface them in the writer/reverse compiler, and add a test that replacing held-and-resumed (built-in) sleeves with seamed sleeves changes the certified construction fingerprint and is detected by assembly comparison",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-751",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "stitch structure is Product Truth when appearance depends on it",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "eye/leg/base anchor relationships of star stitch are modelled only as consumes/produces counts; clusters and mosaic loop placement lack explicit structural semantics; no suite test compiles the star family (only research/bench2/test_bench2.py)",
-  "producer": "src/brambleloop/cir/stitches.py (consumes/produces, LoopTarget front/back, FPDC/BPDC posts, cable crossing side, beg_star_st/star_st/end_star_st) -> cir/compiler.py::compile_cir",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::stitch_semantics_findings (cir/stitches.ANATOMY)",
   "durable_state": "CIR in pattern_versions",
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
   "protected_effect": "a pattern whose stitch arithmetic or loop placement disagrees is not certified; reverse compiler flags a flipped loop",
   "tests": [
-   "tests/test_texture.py::test_a_crossing_consumes_four_stitches_and_produces_four",
-   "tests/test_texture.py::test_post_stitches_cost_the_compiler_nothing_and_buy_ribbing",
-   "tests/test_texture.py::test_a_name_claiming_a_technique_the_fabric_does_not_work_is_refused",
+   "tests/test_k9_rows.py::test_a_star_stitch_compiles_to_its_eyes_legs_and_bases",
+   "tests/test_render.py::test_loop_targeting_changes_the_drawing",
    "tests/test_reverse.py::test_a_flipped_loop_is_a_mismatch_not_a_nuance",
-   "tests/test_render.py::test_loop_targeting_changes_the_drawing"
+   "tests/test_texture.py::test_a_crossing_consumes_four_stitches_and_produces_four",
+   "tests/test_texture.py::test_a_name_claiming_a_technique_the_fabric_does_not_work_is_refused",
+   "tests/test_texture.py::test_post_stitches_cost_the_compiler_nothing_and_buy_ribbing"
   ],
   "evidence": [
    "products/texture.py (names claiming cable/bobble/rib refused unless the fabric works them)",
-   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)"
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [
    "#103 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a suite test (tests/test_stitches_star.py) that compiles, writes and reverse-compiles a star-stitch swatch and asserts the 2:1 stitch/star relationship; extend Stitch with an explicit anchor model (eye/leg/base) for star and cluster families",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-752",
@@ -150,21 +154,23 @@
   "uid": "F-753",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "gauge determines finished size and visible scale",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "no separate ribbing/border gauge on the CIR (one Gauge per CIR); apparent stitch scale in generated imagery is not measured deterministically (only a vision 'stitch_scale_plausible' yes/no in visual/gallery.py; bench2 gauge test is research-only)",
-  "producer": "src/brambleloop/cir/model.py::Gauge (stitches/rows per 10cm, stitch_type, hook_mm, yarn_weight, chains_per_10cm)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/asset_truth.py::check_asset (gates/stitch_scale reading; Component.gauge)",
   "durable_state": "CIR in pattern_versions",
-  "consumer": "src/brambleloop/cir/twin.py::build_twin; publish/pdf.py gauge block",
+  "consumer": "src/brambleloop/runtime/release.py listing assets",
   "protected_effect": "finished dimensions and PDF gauge statement derive from stored gauge",
   "tests": [
+   "tests/test_assembly.py::test_a_chain_that_adds_width_says_so_when_the_chain_gauge_is_unknown",
+   "tests/test_k9_rows.py::test_a_generated_image_with_the_wrong_stitch_scale_is_not_certified",
    "tests/test_render.py::test_the_stitch_aspect_comes_from_the_gauge",
-   "tests/test_twin.py",
-   "tests/test_assembly.py::test_a_chain_that_adds_width_says_so_when_the_chain_gauge_is_unknown"
+   "tests/test_twin.py"
   ],
   "evidence": [
    "fcb982d cir/model.py Gauge has hook_mm/yarn_weight (stored part deployed)",
-   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/): gauge perturbation test PASS/FAIL in research"
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/): gauge perturbation test PASS/FAIL in research",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [
    "#79 COMPLETE+PROVEN",
@@ -172,13 +178,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add per-region gauge (see F-754) and a deterministic apparent-gauge measure (star/row pitch vs expected, from bench2 star_identity gauge test) as an image gate in visual/parity PRODUCT TRUTH; test that a scale-perturbed render fails",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-754",
@@ -214,52 +220,57 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "graded-size errors are pattern defects sold to customers",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Brambleloop graded designs are built and checked at every size, but no src path parses a purchased/graded benchmark's full size family (teardown/reader.py reads size labels only; the ten-size parse lives in research/bench2/product_truth.py)",
-  "producer": "src/brambleloop/cir/graded.py::GradedDesign.build (every sourced size)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/teardown/reader.py::read (size_family all_size_parse / freeze_render_size)",
   "durable_state": "CIR per size",
-  "consumer": "src/brambleloop/creative/garment_design.py (via seasonal cycle) and gate.certify",
+  "consumer": "src/brambleloop/teardown intake",
   "protected_effect": "a size that cannot be built/ monotonic is refused before render/release",
   "tests": [
-   "tests/test_graded.py::test_every_graded_size_compiles_reverse_compiles_and_rises_monotonically",
+   "tests/test_cert_design.py::test_fresh_raglan_survives_whole_release_chain_at_every_size",
    "tests/test_cert_grading.py",
-   "tests/test_cert_design.py::test_fresh_raglan_survives_whole_release_chain_at_every_size"
+   "tests/test_graded.py::test_every_graded_size_compiles_reverse_compiles_and_rises_monotonically",
+   "tests/test_k9_rows.py::test_the_teardown_reader_reports_the_size_family",
+   "tests/test_k9_rows.py::test_the_whole_size_family_is_parsed_before_one_size_is_frozen"
   ],
   "evidence": [
    "module_reachability: cir/graded.py reached (api_seasonal_cycle), not in fcb982d",
-   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)"
+   "research/VISUAL_BENCH2.md + research/bench2/ (Mini Star Stitch Cardigan audit: all-size Product Truth, star_identity instrument; research-only, not in src/)",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [
    "#308 OWNER-GATED"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Promote the all-size parser pattern from research/bench2/product_truth.py into teardown/reader.py (size-index mapping + cross-checks on numbers only, no text retained) so benchmark render sizes are frozen only after all sizes reconcile; test with a Brambleloop graded PDF fixture",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-756",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "schematic/measurement conflicts are sizing claims to customers",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Brambleloop schematics are drawn from the assembly model so cannot disagree; dimensions contradictions are detected; but there is no explicit UNKNOWN/CONFLICT reconciliation of an externally supplied schematic/measurement table vs counts x gauge (done only in research/bench2 and cir/benchmarks.reconcile for benchmark 1)",
-  "producer": "src/brambleloop/publish/schematic.py::schematic_for; publish/dimensions.py (contradiction check); cir/benchmarks.py::reconcile",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (grading_problems) + teardown/size_family.schematic_cross_check",
   "durable_state": "release artefacts",
-  "consumer": "src/brambleloop/runtime/release.py::handle_launch_plan -> publish/release_gates (dimensions)",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
   "protected_effect": "a listing size card contradicting geometry blocks export",
   "tests": [
-   "tests/test_schematic.py",
+   "tests/test_cert_publish_gates.py::test_a_listing_copy_size_that_contradicts_the_geometry_is_caught",
    "tests/test_dimensions.py::test_two_numbers_disagreeing_about_the_same_thing_is_the_headline_defect",
-   "tests/test_cert_publish_gates.py::test_a_listing_copy_size_that_contradicts_the_geometry_is_caught"
+   "tests/test_k9_rows.py::test_a_schematic_disagreement_is_a_conflict_never_a_choice",
+   "tests/test_schematic.py"
   ],
   "evidence": [
-   "publish/schematic.py reached but not in fcb982d"
+   "publish/schematic.py reached but not in fcb982d",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [
    "#60 COMPLETE+PROVEN",
@@ -267,13 +278,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a reconcile step (cir/specification or teardown/reader) that compares any stated measurement table against counts x gauge and emits CONFLICT/UNKNOWN findings consumed by gate.certify; test with a seeded disagreement",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-757",
@@ -404,20 +415,22 @@
   "uid": "F-761",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "the PDF is the product the customer buys",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "PDF lacks a size chart/finished-measurement-and-ease table for graded products, a construction overview section, and care/use notes where appropriate; schematic section is on 019ebf0 but not in production",
-  "producer": "src/brambleloop/publish/pdf.py (At a glance, Schematic, Materials, How much yarn, Gauge, Checking your progress, Substituting the yarn, Abbreviations, Special stitches, Instructions, Chart, Colour key, Terms and support)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/pdf.py::package_requirements / build_pattern_pdf",
   "durable_state": "release PDF artefacts (ArtefactProvenance)",
   "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
   "protected_effect": "customer receives a generated, validated PDF",
   "tests": [
+   "tests/test_cert_publish_gates.py::test_shadow_publish_runs_every_gate_library_on_the_real_listing_set",
    "tests/test_deliverable_qa.py",
-   "tests/test_layout_qa.py",
-   "tests/test_cert_publish_gates.py::test_shadow_publish_runs_every_gate_library_on_the_real_listing_set"
+   "tests/test_k9_graded_truth.py::test_a_graded_pdf_prints_its_size_chart_fit_care_and_is_complete",
+   "tests/test_layout_qa.py"
   ],
   "evidence": [
-   "fcb982d publish/pdf.py has Special stitches, Substituting the yarn, Checking your progress, Terms and support; no Schematic heading"
+   "fcb982d publish/pdf.py has Special stitches, Substituting the yarn, Checking your progress, Terms and support; no Schematic heading",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [
    "#7 COMPLETE+PROVEN",
@@ -425,72 +438,76 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a package-completeness checklist in publish/pdf.py (size chart with body vs finished measurements and ease for graded CIRs, construction overview, care notes from fibre) enforced by publish/eligibility DATA_TRUTH; test a garment PDF missing any section is refused",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-762",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "graded pattern correctness across sizes",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "size matrix covers measurements, stitch counts and monotonicity; per-size yardage and schematic dimensions are not held in one machine-readable size matrix and not printed per size",
-  "producer": "src/brambleloop/cir/graded.py::GradedDesign.build; cir/grading.py (monotonic, refuse unproducible size)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/graded.py::GradedDesign.build (CIR.grading size matrix)",
   "durable_state": "CIR per size",
-  "consumer": "creative/garment_design.py -> gate.certify",
+  "consumer": "src/brambleloop/creative/garment_design.py -> gates/certificate.certify",
   "protected_effect": "a non-monotonic or unproducible size is refused",
   "tests": [
-   "tests/test_graded.py::test_every_graded_size_compiles_reverse_compiles_and_rises_monotonically",
+   "tests/test_cert_grading.py",
    "tests/test_graded.py::test_a_transposed_body_table_is_refused",
-   "tests/test_cert_grading.py"
+   "tests/test_graded.py::test_every_graded_size_compiles_reverse_compiles_and_rises_monotonically",
+   "tests/test_k9_graded_truth.py::test_every_graded_size_carries_the_whole_size_matrix"
   ],
   "evidence": [
-   "cir/graded.py reached, not in fcb982d; cir/grading.py in production"
+   "cir/graded.py reached, not in fcb982d; cir/grading.py in production",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Emit a SizeMatrix (measurements, counts, rows, yardage from twin, schematic dims) per graded release, store it with the certificate and render it in the PDF; test yardage monotonicity across sizes",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-763",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "fit/ease misstatement is a refund-class claim",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "FitIntent separates body from finished (finished = body + ease) in graded designs, but the PDF/listing do not print intended fit/ease and no check stops copy or imagery implying a different fit",
-  "producer": "src/brambleloop/cir/graded.py::FitIntent",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/graded.py::FitIntent + gates/policy.py FIT_CLAIMS",
   "durable_state": "CIR/graded design",
-  "consumer": "creative/garment_design.py",
+  "consumer": "src/brambleloop/gates/policy.py::check_listing; publish/pdf fit/ease table",
   "protected_effect": "negative ease/unknown measurements refused",
   "tests": [
+   "tests/test_cert_design.py::test_fitted_premise_is_class_c_and_blocked_without_physical_test",
    "tests/test_graded.py::test_negative_ease_and_unknown_measurements_are_refused",
-   "tests/test_cert_design.py::test_fitted_premise_is_class_c_and_blocked_without_physical_test"
+   "tests/test_k9_graded_truth.py::test_a_fit_word_must_match_the_stated_ease"
   ],
   "evidence": [
-   "Launch-0 has no garments"
+   "Launch-0 has no garments",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Print fit intent and ease table in publish/pdf.py for graded CIRs and add a gates/policy check that listing copy fit words (oversized, fitted, relaxed) match FitIntent; test a mismatch is refused",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-764",
@@ -615,33 +632,35 @@
   "uid": "F-768",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "release QA must independently recompute the pattern (correct patterns)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "reverse compiler independently recomputes counts/repeats from customer text and the twin recomputes dimensions; grading relationships are recomputed only in tests (test_cert_grading), not at release for every size",
-  "producer": "src/brambleloop/cir/reverse.py (reverse compile + diff); cir/twin.py",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (grading_findings)",
   "durable_state": "certificate stages",
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
   "protected_effect": "release refused when written text disagrees with CIR",
   "tests": [
-   "tests/test_reverse.py::test_repeat_count_mutation_is_caught",
+   "tests/test_cir_roundtrip.py",
+   "tests/test_k9_graded_truth.py::test_certify_recomputes_the_size_and_rechecks_the_family",
    "tests/test_reverse.py::test_dropped_row_is_caught",
-   "tests/test_cir_roundtrip.py"
+   "tests/test_reverse.py::test_repeat_count_mutation_is_caught"
   ],
   "evidence": [
-   "fcb982d gates/certificate.py stages include write, reverse"
+   "fcb982d gates/certificate.py stages include write, reverse",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [
    "#8 DATA-GATED"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Run the graded monotonicity/relationship checks from tests/test_cert_grading.py as a certify stage for graded releases",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-769",
@@ -677,17 +696,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "customer support/remedy path is launch-critical",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "support path and version-aware answers exist; the product does not record which modifications are outside support",
-  "producer": "src/brambleloop/support/department.py; support/concierge.py::version_answer; publish/pdf.py 'Terms and support'",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/pdf.py support_scope (Terms and support)",
   "durable_state": "support_knowledge artefacts; support cases",
-  "consumer": "src/brambleloop/runtime/release.py::handle_support_triage",
+  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
   "protected_effect": "customer questions routed with purchased version",
   "tests": [
    "tests/test_cert_unique_value.py",
+   "tests/test_k9_graded_truth.py::test_a_graded_pdf_prints_its_size_chart_fit_care_and_is_complete",
    "tests/test_trust.py"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
   "build2_rows": [
    "#18 DATA-GATED",
    "#42 COMPLETE+PROVEN",
@@ -695,13 +717,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a supported/unsupported-modifications field to commerce/shop_package support text and the PDF Terms section; route recurring support themes to improve/mine as pattern revision proposals",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-771",
@@ -885,30 +907,33 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "unsupported listing claims are marketplace/customer harm",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "size, shape, material, difficulty and proof-level claims are checked; 'anti-pilling', 'machine washable', 'quick', 'reversible', 'oversized' are not each traced to a named evidence source",
-  "producer": "src/brambleloop/gates/policy.py::check_listing (unsupported claims, check_proof_claims); quality/proof.py::check_claim; gates/asset_truth.check_shape_claims",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/policy.py::check_listing (claim_findings)",
   "durable_state": "certificate findings",
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
   "protected_effect": "listing claims beyond evidence refused",
   "tests": [
    "tests/test_gates.py::test_unsupported_material_claim_is_blocked",
+   "tests/test_k9_graded_truth.py::test_each_untraceable_claim_word_is_refused",
    "tests/test_proof.py::test_language_is_checked_against_the_level_not_against_intention"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
   "build2_rows": [
    "#103 COMPLETE+PROVEN",
    "#8 DATA-GATED"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a claim-to-evidence table in gates/policy.py for care/fit/speed/reversibility words (fibre care from Material, fit from FitIntent, make time from seasonal/leadtime) and refuse any unmapped claim; tests per word",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-778",
@@ -943,29 +968,32 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "optimisation must not distort product truth in listings",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "brief-subset rule covers creative; SEO title/listing-test variants are not re-checked against the brief for every variant",
-  "producer": "src/brambleloop/publish/brief.py (creative may select from truth, never extend)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/listing_tests.py::activate_variant / variant_findings",
   "durable_state": "brief records",
-  "consumer": "runtime/release.py listing chain",
+  "consumer": "src/brambleloop/commerce/listing_tests.py (listing-test treatments)",
   "protected_effect": "invention in creative refused",
   "tests": [
+   "tests/test_brief.py::test_invention_is_caught_in_each_category_not_only_motifs",
    "tests/test_brief.py::test_showing_more_than_the_truth_is_invention",
-   "tests/test_brief.py::test_invention_is_caught_in_each_category_not_only_motifs"
+   "tests/test_k9_rows.py::test_a_listing_variant_may_not_distort_product_truth"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
   "build2_rows": [
    "#63 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Run publish/brief subset + gates/policy on every listing-test/SEO variant before commerce/listing_tests activates it",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-780",
@@ -1105,28 +1133,31 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "similarity review before release (superseded in detail by F-795)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "numeric/construction comparison only vs benchmark 1; no wording or presentation comparison; not an independent agent",
-  "producer": "src/brambleloop/gates/certificate.py::specification_findings; creative/blinded.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/originality.py::similarity_review + presentation_review",
   "durable_state": "certificate",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "consumer": "src/brambleloop/publish/release_gates.py::originality_gate (store.publish)",
   "protected_effect": "matches refused",
   "tests": [
+   "tests/test_k9_rows.py::test_presentation_is_a_similarity_dimension_read_from_the_library",
    "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
   "build2_rows": [
    "#87 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "See F-795",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-785",
@@ -1367,29 +1398,32 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "instructions must come from own CIR",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "instructions are always generated from the CIR by cir/writer.py and the library refuses writing roles; no explicit 'frozen independent spec' step for competitor-informed products",
-  "producer": "src/brambleloop/cir/writer.py; teardown/library.py::retrieve",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/certificate.py::certify (gates/spec_freeze)",
   "durable_state": "PDF",
-  "consumer": "runtime/release.py::handle_assets_build",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
   "protected_effect": "no path from benchmark text to written instructions",
   "tests": [
-   "tests/test_teardown.py::test_pattern_generation_cannot_read_the_benchmark_library",
-   "tests/test_cir_roundtrip.py"
+   "tests/test_cir_roundtrip.py",
+   "tests/test_k9_rows.py::test_a_competitor_informed_spec_is_frozen_before_the_writer_runs",
+   "tests/test_teardown.py::test_pattern_generation_cannot_read_the_benchmark_library"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
+  ],
   "build2_rows": [
    "#149 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Record a spec-freeze event (CIR fingerprint + timestamp) before instruction generation for competitor-informed products and assert no benchmark read occurred after it (audit_log)",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-793",
@@ -1423,59 +1457,63 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Provenance for competitor-informed products.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Ledger table (benchmark_ref, learned, changed, why_better, independent_aspects, verdict) is persisted by preengineering.record and read at certify/release via ledger_from_db (certify given db at runtime/pipeline.py handle_certify and seasonal/cycle.py). The ledger is required only when Provenance.benchmarks_consulted is non-empty; creative/prototype.py stamps brief benchmarks, but cir/graded.py hard-codes benchmarks_consulted=() for graded garments, so a competitor-informed graded garment would not be required to carry a ledger (LOW confidence that any such garment exists).",
-  "producer": "src/brambleloop/creative/preengineering.py::record -> gates/originality.py::record_ledger",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/cir/graded.py GradedDesign provenance -> gates/originality ledger",
   "durable_state": "design_difference_ledgers",
-  "consumer": "src/brambleloop/gates/originality.py::release_findings -> ledger_from_db / provenance_findings",
+  "consumer": "src/brambleloop/gates/originality.py::release_findings",
   "protected_effect": "certify refuses DESIGN_LEDGER_MISSING / REDESIGN_NOT_MEANINGFUL for competitor-informed CIRs",
   "tests": [
-   "tests/test_originality.py::test_the_ledger_is_made_durable_when_the_gate_records_its_verdict",
+   "tests/test_k9_graded_truth.py::test_a_benchmark_informed_graded_garment_needs_its_ledger",
    "tests/test_originality.py::test_certify_requires_the_ledger_when_provenance_lists_benchmarks",
+   "tests/test_originality.py::test_the_ledger_is_made_durable_when_the_gate_records_its_verdict",
    "tests/test_originality_runtime.py::test_licence_revocation_is_read_at_execution"
   ],
   "evidence": [
    "waves/fb1_G.json F-794; 0f3f5d1 'certify() given the DB at both callers'",
-   "cir/graded.py line ~315 Provenance(..., benchmarks_consulted=())"
+   "cir/graded.py line ~315 Provenance(..., benchmarks_consulted=())",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
    "key": "none",
-   "detail": "no external/owner/data gate on the remaining software step"
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Let GradedDesign carry the brief's benchmarks_consulted into Provenance (cir/graded.py) and add a test that a graded garment declared benchmark-informed is refused at certify without a ledger.",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-795",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "similarity review before sale",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "numeric piece-table comparison vs benchmark 1 at certify; wording, distinctive feature combination, construction-sequence and presentation comparison absent; no independent agent; benchmark 2 not in comparison set",
-  "producer": "src/brambleloop/gates/certificate.py::specification_findings",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/originality.py::similarity_review + presentation_review",
   "durable_state": "certificate",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "consumer": "src/brambleloop/publish/release_gates.py::originality_gate; gates/certificate.certify",
   "protected_effect": "material numeric overlap refused (not escalated for redesign)",
   "tests": [
+   "tests/test_k9_rows.py::test_presentation_is_a_similarity_dimension_read_from_the_library",
    "tests/test_specification.py::test_any_one_identifying_benchmark_piece_is_refused_on_its_own"
   ],
   "evidence": [
-   "specification stage not in fcb982d"
+   "specification stage not in fcb982d",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Build gates/similarity.py (numeric sequences from benchmark fingerprints, feature-combination and construction-sequence comparison, listing-presentation comparison) run by a separate job before store.publish, with material overlap -> redesign card; include benchmark 2",
+  "next_action": "none",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-796",

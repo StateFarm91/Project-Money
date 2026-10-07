@@ -349,33 +349,35 @@
   "uid": "F-362",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful age/size representation in listing and PDF for Launch-0 baby blanket",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "no statement that finished measurements, not age, govern fit for multi-size children's garments; children's assignment exists only for Launch-0 slugs",
-  "producer": "src/brambleloop/intel/childrens.py::render_statements",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/pdf.py::graded_childrens_assignment; intel/childrens measurements_govern_fit",
   "durable_state": "rendered PDF bytes/listing copy",
-  "consumer": "src/brambleloop/commerce/seo.py::build_description",
+  "consumer": "src/brambleloop/commerce/seo.py::build_description; publish/pdf",
   "protected_effect": "age band and finished size rendered in the PDF ('Who this is for') and listing statement block; a document missing a required statement is refused",
   "tests": [
-   "tests/test_deliverable_qa.py::test_a_childrens_pattern_carries_every_statement_its_audience_requires",
    "tests/test_childrens.py::test_a_fact_nobody_recorded_makes_the_statement_unrenderable_rather_than_invented",
-   "tests/test_launch0.py::test_the_statement_gap_is_measured_on_the_document_and_is_closed",
-   "tests/test_commerce.py::test_a_listing_for_a_product_that_is_not_for_a_child_carries_no_safety_block"
+   "tests/test_commerce.py::test_a_listing_for_a_product_that_is_not_for_a_child_carries_no_safety_block",
+   "tests/test_deliverable_qa.py::test_a_childrens_pattern_carries_every_statement_its_audience_requires",
+   "tests/test_k9_graded_truth.py::test_a_childs_graded_garment_says_measurements_not_age_govern_fit",
+   "tests/test_launch0.py::test_the_statement_gap_is_measured_on_the_document_and_is_closed"
   ],
   "evidence": [
    "runtime/release.py handle_listing_seo passes childrens statements (line ~664)",
-   "render_statements, childrens_statements_in, seo.childrens_listing_* present in fcb982d"
+   "render_statements, childrens_statements_in, seo.childrens_listing_* present in fcb982d",
+   "w4-FM close on w4-FM2 (FM2): K9: handoff_K9.md row PROVEN; producer wired in the host module named"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": null,
-   "detail": "no external gate on the remaining step"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "add an 'age is a guide; measurements govern fit' statement to intel/childrens.STATEMENT_SET for childrens_garment and render the per-size finished-measurement table for graded children's garments",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-363",
@@ -383,18 +385,20 @@
   "launch_class_reason": "Product Truth for children's wearables (blocking only if a wearable enters the launch set; Launch-0 has none)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "neck/yoke fit, drawstring/tie refusal and applied-part refusal exist; no explicit checks of closures/button spacing, armhole/leg openings, seams and trim for baby wearables",
-  "producer": "src/brambleloop/cir/specification.py::refuse_an_underspecified_design",
+  "missing_part": "practical wearability on a worked sample",
+  "producer": "src/brambleloop/intel/childrens.py::physical_plausibility(cir) (seams, closures, openings, proportion, trim; parts/ties read off the CIR)",
   "durable_state": null,
-  "consumer": "src/brambleloop/intel/childrens.py::assess",
+  "consumer": "src/brambleloop/publish/pdf.py::_refuse_what_the_childrens_assessment_refuses",
   "protected_effect": "a neck that cannot sit on the size's body is refused; hood/neck drawstrings and over-long waist ties refused; detachable parts under 3 refused",
   "tests": [
-   "tests/test_garments.py::test_raglan_neck_fits_the_body_at_every_size",
    "tests/test_childrens.py::test_a_hood_or_neck_tie_on_a_childs_garment_is_refused",
-   "tests/test_childrens.py::test_safety_eyes_under_three_are_refused_not_warned_about"
+   "tests/test_childrens.py::test_safety_eyes_under_three_are_refused_not_warned_about",
+   "tests/test_garments.py::test_raglan_neck_fits_the_body_at_every_size",
+   "tests/test_k9_rows.py::test_a_childs_wearable_is_held_to_physical_plausibility"
   ],
   "evidence": [
-   "intel/childrens.assess is reached (dashboard/readiness) but Concept inputs are hand-built; no runtime path derives applied parts/ties from a CIR"
+   "intel/childrens.assess is reached (dashboard/readiness) but Concept inputs are hand-built; no runtime path derives applied parts/ties from a CIR",
+   "w4-FM close on w4-FM2 (FM2): K9: children's wearables are held to CIR-derived physical plausibility; a closed-front child garment is OPENING_UNVERIFIED (UNKNOWN, never a pass)"
   ],
   "build2_rows": [],
   "gate": {
@@ -402,10 +406,10 @@
    "key": "physical_proof",
    "detail": "practical wearability needs a worked sample"
   },
-  "defect": "intel/childrens.assess is not fed from the CIR: applied parts and ties are declared in a Concept, not extracted from the pattern",
-  "next_action": "add cir-derived extraction of applied parts/ties/closures into childrens.Concept and opening/closure plausibility checks (head opening vs CYC head circumference, button band spacing) in cir/specification for children's garments",
+  "defect": null,
+  "next_action": "owner: physical sample via the tester roster",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-364",
@@ -2004,36 +2008,39 @@
   "uid": "F-416",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Runtime durability / supply-chain integrity of the production image.",
-  "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "the Dockerfile base image is tag-pinned (python:3.11-slim), not digest-pinned, and apt fonts-dejavu-core is unpinned; no provenance review record exists for external services and models",
-  "producer": "brambleloop/requirements.lock + Dockerfile (pip install --require-hashes --no-deps -r requirements.lock)",
+  "maturity": "TESTED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "scripts/supply_chain.py::verify --strict (over requirements.lock + Dockerfile: digest-pinned base, versioned apt font, pip --require-hashes)",
   "durable_state": "brambleloop/requirements.lock",
-  "consumer": "Docker image build (railway.json builder DOCKERFILE)",
+  "consumer": "Docker image build (railway.json builder DOCKERFILE); ops/dependencies.DEPENDENCIES (external services with recovery)",
   "protected_effect": "a rebuild cannot pull an untested/unhashed package",
   "tests": [
    "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
    "tests/test_dependency_lock.py::test_every_requirements_txt_entry_is_pinned_in_the_lock_at_a_satisfying_version",
    "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
    "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
+   "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
+   "tests/test_w3_supply_chain.py::test_the_cli_verify_exits_zero_on_the_repo_and_strict_fails_on_open_pins",
    "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named"
   ],
   "evidence": [
    "research/final_build/waves/fb1_F.json F-416 PARTIAL",
    "git show fcb982d:brambleloop/Dockerfile installs requirements.txt (unpinned); requirements.lock absent in fcb982d -> not DEPLOYED",
    "No record that a Docker build from the lock has been executed (not EXERCISED).",
-   "w4-FM close on 8b67414 (FOLD): scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)"
+   "w4-FM close on 8b67414 (FOLD): scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)",
+   "w4-FM close on w4-FM2 (FM2): integrator: base image pinned by digest, apt font versioned, strict verification passes with no findings; external services are recorded with failure impact and recovery in ops/dependencies"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
    "key": "none",
-   "detail": "no external/owner/data gate on the remaining software step"
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "WIRING REQUEST (integrator, Dockerfile): FROM python:3.11-slim@sha256:<digest resolved at release> and pin the apt version, then run supply_chain.py verify --strict; add a reviewed register of external services/models (provider, purpose, review date)",
+  "next_action": "none",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (FOLD)"
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close"
  },
  {
   "uid": "F-417",

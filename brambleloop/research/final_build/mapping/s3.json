@@ -1817,20 +1817,25 @@
   "uid": "F-304",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "provider, model, job, agent, product, purpose, tokens, estimate and timestamp are columns; missing: listing id, image count as a column, provider-observed actual cost (amount_cad is an assumed-price figure), and a link to the evidence produced",
-  "producer": "src/brambleloop/finance/spend_report.py::record",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_report.py::record (CostEntry columns + cost_attribution sidecar)",
   "durable_state": "cost_entries",
-  "consumer": "src/brambleloop/finance/governor.py::spend_by",
+  "consumer": "src/brambleloop/finance/spend_report.py::governance; finance/governor.py::report",
   "protected_effect": null,
   "tests": [
-   "tests/test_spend_policy.py::test_every_dimension_the_owner_asked_for_is_a_column_rather_than_a_json_key",
    "tests/test_cert_cost.py::test_gateway_records_estimate_beside_actual_and_the_ledger_reconciles",
-   "tests/test_gateway.py::test_a_model_cost_is_attributable_to_the_job_that_spent_it"
+   "tests/test_gateway.py::test_a_model_cost_is_attributable_to_the_job_that_spent_it",
+   "tests/test_spend_policy.py::test_every_dimension_the_owner_asked_for_is_a_column_rather_than_a_json_key",
+   "tests/test_w4_spenda_k5a.py::test_a_database_made_before_the_columns_upgrades_additively",
+   "tests/test_w4_spenda_k5a.py::test_an_observed_cost_must_name_its_source_and_the_governor_reads_the_sidecar",
+   "tests/test_w4_spenda_k5a.py::test_every_billed_row_carries_listing_images_observed_and_evidence_beside_it",
+   "tests/test_w4_spenda_k5a.py::test_the_f304_dimensions_are_columns_on_the_ledger_row_too"
   ],
   "evidence": [
-   "core/models.py:138 CostEntry (same in fcb982d)"
+   "core/models.py:138 CostEntry (same in fcb982d)",
+   "w4-FM close on w4-FM2 (FM2): SPENDA: listing id, image count, observed cost and evidence ref on every billed row; UNKNOWN is NULL"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN",
@@ -1838,13 +1843,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add listing_id, units (images), observed_cad and evidence_ref columns to CostEntry and populate from images.generate / vision / photoreal writers",
+  "next_action": "none",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-305",
@@ -1977,30 +1982,33 @@
   "uid": "F-309",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "systematic-failure block (method_blocked_on, cleared only by a new METHOD_VERSION) exists for model_photography and owned_photography only; not for other paid paths (tournaments, vision, image_bench, reference_pack)",
-  "producer": "src/brambleloop/publish/model_photography.py::_systematically_blocked",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/anthropic.py::check_budget_cad (finance/systematic breaker)",
   "durable_state": "audit_log assets.model_photography",
-  "consumer": "src/brambleloop/publish/model_photography.py::what_to_do_next",
+  "consumer": "every paid path through check_budget_cad",
   "protected_effect": "paid renders stop after a floor fails every time",
   "tests": [
    "tests/test_model_photography.py::test_a_method_whose_floor_never_once_passed_stops_spending_on_the_next_product_too",
-   "tests/test_owned_photography.py::test_a_check_that_never_once_passed_stops_the_catalogue_spending_on_it"
+   "tests/test_owned_photography.py::test_a_check_that_never_once_passed_stops_the_catalogue_spending_on_it",
+   "tests/test_w4_spend_paid_discipline.py::test_a_floor_that_never_passes_stops_every_paid_call_for_that_method_until_it_changes",
+   "tests/test_w4_spend_paid_discipline.py::test_gallery_vision_feeds_the_breaker_and_reports_pending_before"
   ],
   "evidence": [
-   "present in fcb982d model_photography.py:714"
+   "present in fcb982d model_photography.py:714",
+   "w4-FM close on w4-FM2 (FM2): SPEND: the systematic-failure breaker is shared by every paid path"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Generalise visual.reliability's systematic classification into a shared breaker used by every paid handler (key: handler+method_version+floor)",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-310",
@@ -2034,77 +2042,86 @@
   "uid": "F-311",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "fingerprint/version-keyed reuse exists for image_bench trials, reference realism verdicts (content hash), photoreal calibration, motif/frame reuse and pattern certificates; generic analysis cache is unwired and policy snapshots/benchmark observations have no unified provenance-based invalidation",
-  "producer": "src/brambleloop/gateway/image_bench.py::stored_trial",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/routing.py::cached_analysis (gateway/evidence_key helper)",
   "durable_state": "audit_log (fingerprinted details)",
-  "consumer": "src/brambleloop/gateway/image_bench.py",
+  "consumer": "src/brambleloop/gateway/failover.py::decide",
   "protected_effect": null,
   "tests": [
    "tests/test_image_bench.py::test_changing_the_method_invalidates_every_stored_score",
-   "tests/test_model_photography.py::test_a_frame_that_cleared_its_floors_is_kept_rather_than_rolled_again"
+   "tests/test_model_access.py::test_unchanged_evidence_is_never_paid_for_twice",
+   "tests/test_model_photography.py::test_a_frame_that_cleared_its_floors_is_kept_rather_than_rolled_again",
+   "tests/test_w4_spenda_k5a.py::test_every_evidence_reuse_path_keys_through_one_helper_with_unchanged_keys"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): SPENDA: every evidence-reuse path keys through one helper; the routing cache has a runtime caller"
+  ],
   "build2_rows": [
    "#225 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
-  "defect": "gateway/routing.cached_analysis has no runtime caller (see F-306)",
-  "next_action": "Wire the routing cache (F-306) and key all evidence reuse on upstream fingerprints in one helper",
+  "defect": null,
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-312",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "the gateway refuses models deciding what the compiler decides and structural questions (parity GALLERY/BRAND) are answered deterministically, but there is no general rule/check that a deterministic path is preferred before a paid call",
-  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway (deterministic-question registry)",
   "durable_state": null,
-  "consumer": "src/brambleloop/visual/parity.py::assess",
+  "consumer": "src/brambleloop/visual/parity.py::assess; every paid call site",
   "protected_effect": null,
   "tests": [
    "tests/test_gateway.py::test_a_model_may_not_decide_what_the_compiler_decides",
-   "tests/test_gateway.py::test_no_prompt_asks_a_model_for_pattern_instructions"
+   "tests/test_gateway.py::test_no_prompt_asks_a_model_for_pattern_instructions",
+   "tests/test_w4_spend_paid_discipline.py::test_every_deterministic_question_names_code_that_exists_and_never_reaches_a_provider"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): SPEND: every deterministic question names the code that answers it and never reaches a provider"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a per-task 'deterministic_alternative' field in gateway/routing.TASKS and a test that tasks with one never call a provider",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-313",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "P0 addendum: provider cost truth — quality-first routing",
-  "maturity": "TESTED",
-  "coverage": "PARTIAL",
-  "missing_part": "routing is a static task->tier table; no per-task quality-floor evidence per model drives or authorises a cheaper route; spend_policy.may_downgrade_for_cost has no runtime caller",
-  "producer": "src/brambleloop/finance/spend_policy.py::may_downgrade_for_cost; gateway/routing.py::TASKS",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/routing.py::effective_route",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/gateway/failover.py::decide (ModelGateway routing)",
   "protected_effect": "a downgrade argued from cost is refused; decisive judgements are pinned to the deep tier",
   "tests": [
+   "tests/test_spend_policy.py::test_a_cheap_tier_task_survives_being_asked_why",
    "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name",
    "tests/test_spend_policy.py::test_the_judgements_that_decide_what_ships_are_on_the_deep_tier",
-   "tests/test_spend_policy.py::test_a_cheap_tier_task_survives_being_asked_why"
+   "tests/test_w4_spend_paid_discipline.py::test_a_cheaper_route_needs_recorded_equivalence_and_a_regression_reverses_it"
   ],
   "evidence": [
    "grep: may_downgrade_for_cost defined only (spend_policy.py:398), no caller",
-   "gateway/routing and spend_policy unchanged since 019ebf0 apart from gateway/images.py"
+   "gateway/routing and spend_policy unchanged since 019ebf0 apart from gateway/images.py",
+   "w4-FM close on w4-FM2 (FM2): SPEND: a cheaper route needs recorded quality equivalence; a regression reverses it"
   ],
   "build2_rows": [
    "#96 COMPLETE+PROVEN"
@@ -2112,42 +2129,45 @@
   "gate": {
    "kind": "none",
    "key": "none",
-   "detail": "no external/owner/data gate on the remaining software step"
+   "detail": "no external/owner/data gate on the remaining step"
   },
-  "defect": "may_downgrade_for_cost is a library only tests call; routing changes are not guarded by evidence",
-  "next_action": "Add gateway/routing.route_evidence: per (task, model) quality-floor results recorded from evals (improve/ or gateway eval rows), and a routing override path that only moves a task to a cheaper tier when recorded equivalence on that task's floors exists, reversible by a recorded regression; test that a cost-only override is refused and an evidenced one is accepted.",
+  "defect": null,
+  "next_action": "none",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-314",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "tiers are assigned per task with a stated why and ship-deciding judgements on the deep tier, but there is no escalation (cheap first, deep on ambiguity) and no codified 'deterministic eliminates model' rule",
-  "producer": "src/brambleloop/gateway/routing.py::route",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/routing.py::escalation_tier",
   "durable_state": null,
-  "consumer": "src/brambleloop/gateway/anthropic.py::provider_for",
+  "consumer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
   "protected_effect": null,
   "tests": [
+   "tests/test_gateway.py::test_every_tier_routes_to_a_model_the_billing_table_prices",
    "tests/test_spend_policy.py::test_a_cheap_tier_task_survives_being_asked_why",
    "tests/test_spend_policy.py::test_the_gallery_task_is_not_on_the_cheap_tier",
-   "tests/test_gateway.py::test_every_tier_routes_to_a_model_the_billing_table_prices"
+   "tests/test_w4_spend_paid_discipline.py::test_an_escalation_the_ceiling_refuses_returns_the_answer_marked_unsure",
+   "tests/test_w4_spend_paid_discipline.py::test_an_unsure_cheap_answer_is_asked_once_more_one_tier_up_and_a_sure_one_is_not"
   ],
   "evidence": [
-   "routing.py unchanged since fcb982d"
+   "routing.py unchanged since fcb982d",
+   "w4-FM close on w4-FM2 (FM2): SPEND: an unsure cheap answer escalates once, one tier up, under the ceiling"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add an escalation policy in routing (standard tier -> deep only on unverifiable/low-confidence answers) with tests",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-315",
@@ -2181,107 +2201,119 @@
   "uid": "F-316",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "judges use closed JSON vocabularies with per-task MAX_TOKENS and malformed/truncated output is rejected, but there is no systematic minimum-schema review or truncation-risk check per task",
-  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/routing.py (closed schemas + sized output budgets)",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
   "protected_effect": null,
   "tests": [
+   "tests/test_gateway.py::test_json_missing_a_required_field_is_rejected",
    "tests/test_gateway.py::test_prose_where_json_was_expected_is_rejected",
-   "tests/test_gateway.py::test_json_missing_a_required_field_is_rejected"
+   "tests/test_w4_spend_paid_discipline.py::test_every_prompt_and_task_has_a_closed_schema_and_a_sized_output_budget",
+   "tests/test_w4_spend_paid_discipline.py::test_truncated_output_is_rejected_and_billed_not_passed_on"
   ],
   "evidence": [
-   "gateway/prompts.py truncated-JSON note"
+   "gateway/prompts.py truncated-JSON note",
+   "w4-FM close on w4-FM2 (FM2): SPEND: closed schemas and output budgets; truncated output rejected and billed"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add a test over routing.TASKS asserting each has a schema and a max_tokens sized to it",
+  "next_action": "none",
   "confidence": "LOW",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-317",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "gallery vision is one image per call with per-image markers and batches check each call against batch spend; no general batching policy for other tasks",
-  "producer": "src/brambleloop/intel/vision.py::analyse",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway (batch isolation)",
   "durable_state": "benchmark_listings.detail",
-  "consumer": "src/brambleloop/intel/vision.py::pending",
+  "consumer": "src/brambleloop/gateway/model_gateway.py callers",
   "protected_effect": null,
   "tests": [
+   "tests/test_intel.py::test_a_judged_image_is_never_offered_again",
    "tests/test_spend_governance.py::test_a_batch_checks_each_call_against_what_the_batch_has_already_spent",
-   "tests/test_intel.py::test_a_judged_image_is_never_offered_again"
+   "tests/test_w4_spend_paid_discipline.py::test_a_batch_isolates_each_item_and_stops_whole_at_the_ceiling"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): SPEND: batches isolate items and stop whole at the ceiling"
+  ],
   "build2_rows": [
    "#209 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Document/enforce per-item isolation for any future multi-item model call in ModelGateway",
+  "next_action": "none",
   "confidence": "LOW",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-318",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "the gallery processor reports judged, remaining after, failures and cost, but not unique pending before; no generic check across all paid backlog processors",
-  "producer": "src/brambleloop/intel/vision.py::analyse",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_hygiene.py::flat_backlogs",
   "durable_state": "benchmark_listings.detail",
-  "consumer": "src/brambleloop/runtime/release.py (gallery cadence)",
+  "consumer": "src/brambleloop/finance/spend_hygiene.py sweep (P1 incident)",
   "protected_effect": "a backlog that does not drain is visible",
   "tests": [
+   "tests/test_intel.py::test_the_backlog_is_counted_rather_than_capped_by_the_query_limit",
    "tests/test_intel.py::test_the_remaining_count_is_counted_rather_than_computed_to_fall",
-   "tests/test_intel.py::test_the_backlog_is_counted_rather_than_capped_by_the_query_limit"
+   "tests/test_w4_spend_paid_discipline.py::test_a_paid_backlog_that_does_not_fall_is_a_financial_integrity_incident"
   ],
   "evidence": [
-   "BUILD_STATE 'B-647 and B-649 confirmed working in production': remaining 1278 -> 1254 after judged=24"
+   "BUILD_STATE 'B-647 and B-649 confirmed working in production': remaining 1278 -> 1254 after judged=24",
+   "w4-FM close on w4-FM2 (FM2): SPEND: a paid backlog that does not fall opens a P1 incident"
   ],
   "build2_rows": [
    "#209 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add pending_before to vision.analyse output and a thrash_sweep rule flagging flat backlog with spend as a financial-integrity incident",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-319",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "progress_per_dollar per job type (thrash sweep) and validated products per operating dollar with an incident (governor) exist; no cost per requirement/listing advanced",
-  "producer": "src/brambleloop/finance/governor.py::_act_on_unit_cost",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/governor.py::spend_to_progress",
   "durable_state": "incidents throughput-no-validated-output",
-  "consumer": "src/brambleloop/runtime/release.py::handle_finance_governor",
+  "consumer": "src/brambleloop/finance/governor.py::report (/api/governor)",
   "protected_effect": null,
   "tests": [
-   "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes"
+   "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes",
+   "tests/test_w4_spend_attribution.py::test_no_progress_is_no_ratio_rather_than_zero",
+   "tests/test_w4_spend_attribution.py::test_spend_to_progress_divides_product_spend_by_new_milestones_and_names_waste",
+   "tests/test_w4_spenda_k5a.py::test_spend_to_progress_names_cost_per_milestone_and_spend_that_advanced_nothing"
   ],
   "evidence": [
-   "governor.enforce is post-fcb982d"
+   "governor.enforce is post-fcb982d",
+   "w4-FM close on w4-FM2 (FM2): SPEND/SPENDA: cost per milestone advanced; no progress is no ratio"
   ],
   "build2_rows": [
    "#31 DATA-GATED",
@@ -2289,13 +2321,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add cost per requirement/listing advanced (cost_entries joined to closure/listing audit rows) to governor.report; deploy",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-320",
@@ -2363,30 +2395,33 @@
   "uid": "F-322",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
-  "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "attempts, failures, usable galleries and cost per usable gallery are computed, but spent_cad is render cost only (the four judgements per attempt are not included) and generation vs judging cost are not separated",
-  "producer": "src/brambleloop/visual/reliability.py::assess",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/visual/reliability.py::assess (render + judging)",
   "durable_state": "audit_log assets.model_photography spent_cad",
   "consumer": "src/brambleloop/publish/model_photography.py::what_to_do_next",
   "protected_effect": null,
   "tests": [
+   "tests/test_reliability.py::test_a_pipeline_that_works_and_cannot_be_afforded_is_uneconomic",
    "tests/test_reliability.py::test_cost_per_usable_gallery_divides_spend_by_usable_galleries_not_by_attempts",
-   "tests/test_reliability.py::test_a_pipeline_that_works_and_cannot_be_afforded_is_uneconomic"
+   "tests/test_w4_spend_attribution.py::test_cost_per_usable_gallery_includes_judging_and_unknown_judging_is_a_floor",
+   "tests/test_w4_spend_attribution.py::test_judging_cost_is_read_from_the_ledger_and_unknown_without_a_sequence"
   ],
   "evidence": [
-   "BUILD_STATE 2026-09-23 /api/render-reliability: 1 gallery attempted, 0 usable, CA$0.0822"
+   "BUILD_STATE 2026-09-23 /api/render-reliability: 1 gallery attempted, 0 usable, CA$0.0822",
+   "w4-FM close on w4-FM2 (FM2): SPEND/SPENDA: cost per usable gallery includes judging; unknown judging is a floor"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
-  "defect": "cost per usable gallery excludes judging spend (make() records only render cad)",
-  "next_action": "Sum judging cost (photoreal/motif/inspect/identity cost rows for the job) into each attempt's spent_cad as judging_cad; report both in reliability.assess",
+  "defect": null,
+  "next_action": "none",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-323",
@@ -2455,30 +2490,32 @@
   "launch_class_reason": "P0 addendum: pricing/economics integrity (steady-state forecast)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "observation cadence is not a named forecast input (folded into platform spend); scenario assumptions are constants; in production the forecast can never compute because creation cost needs product-tagged spend no writer produces",
+  "missing_part": "the forecast on real data (live listings)",
   "producer": "src/brambleloop/finance/sustainability.py::forecast",
   "durable_state": "cost_entries, listings, orders (read)",
   "consumer": "finance/sustainability.py::verdict -> launch/readiness.py::assess",
   "protected_effect": "low/base/high named-assumption forecast, refusing with INSUFFICIENT_DATA and showing only the measured platform floor",
   "tests": [
+   "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost",
    "tests/test_money_truth.py::test_the_forecast_refuses_on_thin_data_and_shows_only_a_floor",
-   "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost"
+   "tests/test_w4_spend_attribution.py::test_observation_cadence_is_its_own_forecast_term_and_not_counted_twice"
   ],
   "evidence": [
    "research/final_build/waves/fb1_D.json F-325 DONE",
    "sustainability.py:218-311",
-   "not in fcb982d"
+   "not in fcb982d",
+   "w4-FM close on w4-FM2 (FM2): SPEND/SPENDA: observation cadence is its own forecast term; the forecast computes from product-tagged spend (F-304)"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "none",
-   "key": "none",
-   "detail": "no external/owner/data gate on the remaining software step"
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "the steady-state forecast leaves INSUFFICIENT_DATA only on real listing history"
   },
   "defect": null,
-  "next_action": "Add an observation_cadence term (calls/day x measured cost per observation purpose) to SCENARIOS, and fix product_slug tagging (F-321) so the forecast can leave INSUFFICIENT_DATA on real data; test.",
+  "next_action": "data gate live_listings: re-read once listings have history",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-326",
@@ -2550,28 +2587,32 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "paid cadences are bounded by work_that_fits and may_spend, stalled loops are suspended and several paths skip when evidence exists, but nothing requires each paid call to declare the unresolved question/evidence it produces",
-  "producer": "src/brambleloop/finance/spend_policy.py::work_that_fits",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/anthropic.py::check_budget_cad (question required)",
   "durable_state": null,
-  "consumer": "src/brambleloop/swarm/orchestrate.py::thrash_sweep",
+  "consumer": "every production reserving call site",
   "protected_effect": null,
   "tests": [
+   "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes",
    "tests/test_cost_governance_wave2.py::test_a_run_that_fits_nothing_names_the_ceiling_that_stopped_it",
    "tests/test_spend_policy.py::test_waste_is_refused_at_any_budget_and_is_not_a_saving",
-   "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes"
+   "tests/test_w4_spend_paid_discipline.py::test_a_paid_call_naming_no_question_is_refused_and_recorded",
+   "tests/test_w4_spend_paid_discipline.py::test_every_production_reserving_call_site_names_its_question"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on w4-FM2 (FM2): SPEND: a paid call naming no question is refused and recorded"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Require a `question`/`evidence_ref` argument on check_budget for paid calls and refuse calls with neither; test",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-329",

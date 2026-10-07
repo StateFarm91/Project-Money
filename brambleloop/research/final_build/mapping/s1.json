@@ -2104,32 +2104,35 @@
   "uid": "F-070",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority/spend controls (spend ceiling enforced in code)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Cost ceiling (CA$300) and per-pick unknown enforced; post-purchase information value per benchmark not tracked",
-  "producer": "src/brambleloop/intel/purchase_selection.py::select (budget_cad)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/purchase_selection.py::information_value",
   "durable_state": "benchmark_products.paid_cad",
-  "consumer": "app/main.py::api_benchmark_selection",
+  "consumer": "src/brambleloop/intel/purchase_selection.py::select -> /api/benchmark-selection",
   "protected_effect": "selection stops at budget",
   "tests": [
+   "tests/test_intake.py::test_the_approved_set_size_and_budget_are_in_code",
    "tests/test_purchase_selection.py::test_an_approved_budget_is_a_ceiling_in_code_and_the_swap_is_recorded",
-   "tests/test_intake.py::test_the_approved_set_size_and_budget_are_in_code"
+   "tests/test_w4_spenda_k5a.py::test_each_purchased_benchmark_reports_what_it_taught_and_unknown_price_is_not_zero",
+   "tests/test_w4_spenda_k5a.py::test_the_selection_the_owner_reads_carries_the_post_purchase_value"
   ],
   "evidence": [
-   "DECISION_LOG B-501/B-507/B-512/B-528"
+   "DECISION_LOG B-501/B-507/B-512/B-528",
+   "w4-FM close on w4-FM2 (FM2): SPENDA: post-purchase information value per benchmark, unknown price never 0"
   ],
   "build2_rows": [
    "#166 COMPLETE+PROVEN"
   ],
   "gate": {
    "kind": "none",
-   "key": null,
-   "detail": "software work remains; nothing external blocks it"
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add information value per purchased benchmark (findings/improvements attributed) to the manifest",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-071",

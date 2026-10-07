@@ -671,22 +671,24 @@
   "uid": "F-472",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "central provider spend/retry control prevents surprise billing — spend control",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "spend is centralised (gateway + reservations + per-provider/purpose caps) and retries are queue-governed, but circuit-breaker and rate-limit state are per-process in memory; no shared token bucket per provider",
-  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/model_gateway.py::ModelGateway._durably_down",
   "durable_state": "spend_reservations, cost ledger, jobs.attempts",
-  "consumer": "src/brambleloop/swarm/orchestrate.py::retry_allowed",
+  "consumer": "src/brambleloop/gateway/failover.py::health (shared across workers)",
   "protected_effect": "no model/vision spend path bypasses the ceiling check; thrashing job types are suspended; retries back off then dead-letter",
   "tests": [
-   "tests/test_model_spend_paths.py::test_the_scan_catches_a_spend_path_added_without_a_ceiling_check",
+   "tests/test_cert_cost.py::test_a_provider_ceiling_binds_on_spend_made_through_the_model_gateway",
    "tests/test_cert_orchestration.py::test_retries_back_off_exponentially_then_dead_letter",
+   "tests/test_model_spend_paths.py::test_the_scan_catches_a_spend_path_added_without_a_ceiling_check",
    "tests/test_swarm.py::test_three_identical_observations_stop_the_loop",
-   "tests/test_cert_cost.py::test_a_provider_ceiling_binds_on_spend_made_through_the_model_gateway"
+   "tests/test_w4_spend_paid_discipline.py::test_a_second_worker_does_not_pay_to_rediscover_an_outage_the_first_recorded"
   ],
   "evidence": [
    "core/resilience.py::retry_after_seconds honours Retry-After",
-   "BUILD_STATE.md spend policy: gallery analysis capped at 40% of month (B-522)"
+   "BUILD_STATE.md spend policy: gallery analysis capped at 40% of month (B-522)",
+   "w4-FM close on w4-FM2 (FM2): SPEND: a recorded outage is read by every worker before paying"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN",
@@ -694,13 +696,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Persist provider circuit/rate state in the DB (e.g. a provider_limits table read by ModelGateway and integrations/http.py) so concurrent workers share one breaker per provider",
+  "next_action": "none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM2 close"
  },
  {
   "uid": "F-473",

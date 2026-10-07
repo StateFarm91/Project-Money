@@ -999,8 +999,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Master v1.1 §94 (additive to v1.0, §96); its §95 acceptance tests are launch acceptance, so the row is launch-critical (fail safe)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "period controls do not work: the Money tab sends ?period= but GET /api/cc/money ignores it and providers.call('accounting', db) always asks for the default 30-day window (dashboard.summary accepts window=)",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/finance/accounting/dashboard.py::summary",
   "durable_state": null,
   "consumer": "GET /api/cc/money and /api/cc/money/drill (Command Center Money tab, providers.PROVIDERS)",
@@ -1008,7 +1008,8 @@
   "tests": [
    "tests/test_v11_accounting_money.py::test_summary_items_label_actual_vs_estimated",
    "tests/test_v11_cc_views.py::test_the_real_accountant_passes_through_and_never_shows_unknown_as_zero",
-   "tests/test_w4_fm_provider_table.py::test_functions_named_in_the_live_provider_table_are_live"
+   "tests/test_w4_fm_provider_table.py::test_functions_named_in_the_live_provider_table_are_live",
+   "tests/test_w4_cc_company.py::test_money_period_reaches_accounting_window"
   ],
   "evidence": [
    "w4-FM v1.1 mapping on 8b67414: producer reached per module_reachability.json; v1_1/handoff_*.md claims re-read against the code"
@@ -1020,8 +1021,8 @@
    "detail": "no owner/data/external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "WIRING REQUEST (lane CC, app/command_center/api.py + tabs.money): accept period/window on /api/cc/money and pass it to the accounting provider as summary(db, window=...); test that a 7d request returns the 7d envelope",
-  "confidence": "medium",
+  "next_action": "none",
+  "confidence": "high",
   "searched": "w4-FM v11_map.py on 8b67414"
  },
  {

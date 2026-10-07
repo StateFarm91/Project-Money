@@ -1,0 +1,14 @@
+{
+ "_meta": {
+  "status": "PROPOSED -- not applied. Wave 4 lane FM2, for integrator acceptance (F-867).",
+  "rows": "F-416",
+  "how_to_accept": "Copy the entry into research/final_build/overrides.json with accepted_by set; re-run aggregate.py; run tests/test_final_closure_matrix.py, test_w3_final_master_gate.py, test_w3_overrides_proposed.py.",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FM2.json --dry-run"
+ },
+ "overrides": {
+  "F-416": {
+   "completion_target": "TESTED",
+   "reason": "Its producer is build tooling (requirements.lock + Dockerfile + scripts/supply_chain.py verify --strict); nothing under a runtime root can import it, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer). The Dockerfile base is digest-pinned, the apt font versioned and strict verification passes with no findings (tests/test_w3_supply_chain.py), so the named tests are the strongest proof it can have."
+  }
+ }
+}

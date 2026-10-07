@@ -239,7 +239,28 @@ ROWS = {
                              "closure_matrix.json --reachability module_reachability.json and "
                              "commit the report with the independent review"),
         tests=["tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof"]),
+    "F-123": dict(
+        refresh=True,
+        checked="W4-FM2: the BASELINE shrank 109 -> 6 (a runtime non-emptiness guard on every "
+                "grandfathered loop in 50 test files, each file run green; per-item inner loops "
+                "guarded on their union) and the values/items/keys root-stripping note is "
+                "resolved (_iter_roots strips only the view method of a call; regression case "
+                "test_a_variable_named_like_a_view_is_still_a_root)",
+        set=dict(coverage="PARTIAL", defect=None,
+                 missing_part="6 BASELINE loops remain: test_launch (2) and test_product_run (2) "
+                              "need their slow suites re-run with the guard, test_cert_claude_"
+                              "independence (2) stalls under shared-container load before its loop",
+                 next_action="guard the 6 remaining loops and run those three suites on a quiet "
+                             "machine; then BASELINE is empty and the row needs the integrator's "
+                             "TESTED-target override (tooling producer)"),
+        tests=["tests/test_vacuity.py::test_a_variable_named_like_a_view_is_still_a_root",
+               "tests/test_vacuity.py::test_the_baseline_only_shrinks"]),
 }
+
+
+from fold_lanes_fm2 import LANE_ROWS  # noqa: E402  (merged lane claims, integrator directive)
+
+ROWS.update({u: e for u, e in LANE_ROWS.items() if u not in ROWS})
 
 
 def _overlay(uid, base, entry):

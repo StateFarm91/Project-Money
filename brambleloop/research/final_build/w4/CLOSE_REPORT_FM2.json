@@ -139,16 +139,529 @@
    "test_files": [
     "tests/test_final_proof.py"
    ]
+  },
+  {
+   "uid": "F-123",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "W4-FM2: the BASELINE shrank 109 -> 6 (a runtime non-emptiness guard on every grandfathered loop in 50 test files, each file run green; per-item inner loops guarded on their union) and the values/items/keys root-stripping note is resolved (_iter_roots strips only the view method of a call; regression case test_a_variable_named_like_a_view_is_still_a_root)",
+   "test_files": [
+    "tests/test_vacuity.py"
+   ]
+  },
+  {
+   "uid": "F-312",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: every deterministic question names the code that answers it and never reaches a provider",
+   "test_files": [
+    "tests/test_gateway.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-313",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: a cheaper route needs recorded quality equivalence; a regression reverses it",
+   "test_files": [
+    "tests/test_spend_policy.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-314",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: an unsure cheap answer escalates once, one tier up, under the ceiling",
+   "test_files": [
+    "tests/test_gateway.py",
+    "tests/test_spend_policy.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-316",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: closed schemas and output budgets; truncated output rejected and billed",
+   "test_files": [
+    "tests/test_gateway.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-317",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: batches isolate items and stop whole at the ceiling",
+   "test_files": [
+    "tests/test_intel.py",
+    "tests/test_spend_governance.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-472",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: a recorded outage is read by every worker before paying",
+   "test_files": [
+    "tests/test_cert_cost.py",
+    "tests/test_cert_orchestration.py",
+    "tests/test_model_spend_paths.py",
+    "tests/test_swarm.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-328",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: a paid call naming no question is refused and recorded",
+   "test_files": [
+    "tests/test_cert_thrash.py",
+    "tests/test_cost_governance_wave2.py",
+    "tests/test_spend_policy.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-309",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: the systematic-failure breaker is shared by every paid path",
+   "test_files": [
+    "tests/test_model_photography.py",
+    "tests/test_owned_photography.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-318",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND: a paid backlog that does not fall opens a P1 incident",
+   "test_files": [
+    "tests/test_intel.py",
+    "tests/test_w4_spend_paid_discipline.py"
+   ]
+  },
+  {
+   "uid": "F-070",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPENDA: post-purchase information value per benchmark, unknown price never 0",
+   "test_files": [
+    "tests/test_intake.py",
+    "tests/test_purchase_selection.py",
+    "tests/test_w4_spenda_k5a.py"
+   ]
+  },
+  {
+   "uid": "F-304",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPENDA: listing id, image count, observed cost and evidence ref on every billed row; UNKNOWN is NULL",
+   "test_files": [
+    "tests/test_cert_cost.py",
+    "tests/test_gateway.py",
+    "tests/test_spend_policy.py",
+    "tests/test_w4_spenda_k5a.py"
+   ]
+  },
+  {
+   "uid": "F-319",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND/SPENDA: cost per milestone advanced; no progress is no ratio",
+   "test_files": [
+    "tests/test_cert_thrash.py",
+    "tests/test_w4_spend_attribution.py",
+    "tests/test_w4_spenda_k5a.py"
+   ]
+  },
+  {
+   "uid": "F-322",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPEND/SPENDA: cost per usable gallery includes judging; unknown judging is a floor",
+   "test_files": [
+    "tests/test_reliability.py",
+    "tests/test_w4_spend_attribution.py"
+   ]
+  },
+  {
+   "uid": "F-629",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPENDA: credits kept apart from cash and never raise a ceiling; department shares are an owner decision (empty = no cap)",
+   "test_files": [
+    "tests/test_cert_cost.py",
+    "tests/test_cert_improve_autonomy.py",
+    "tests/test_spend_governance.py",
+    "tests/test_w4_spenda_k5a.py"
+   ]
+  },
+  {
+   "uid": "F-311",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "SPENDA: every evidence-reuse path keys through one helper; the routing cache has a runtime caller",
+   "test_files": [
+    "tests/test_image_bench.py",
+    "tests/test_model_access.py",
+    "tests/test_model_photography.py",
+    "tests/test_w4_spenda_k5a.py"
+   ]
+  },
+  {
+   "uid": "F-325",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "the steady-state forecast leaves INSUFFICIENT_DATA only on real listing history"
+   },
+   "checked": "SPEND/SPENDA: observation cadence is its own forecast term; the forecast computes from product-tagged spend (F-304)",
+   "test_files": [
+    "tests/test_money_truth.py",
+    "tests/test_w4_spend_attribution.py"
+   ]
+  },
+  {
+   "uid": "F-106",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "provider_usage_api",
+    "detail": "read-only provider usage/cost admin keys (ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY) in Railway; without them settlement is OWNER_GATED and nothing is fetched"
+   },
+   "checked": "SPENDA: provider billing is fetched read-only and settled day x model; a material gap opens a P2 incident (the owner-typed-figures defect is gone)",
+   "test_files": [
+    "tests/test_provider_accounts.py",
+    "tests/test_w4_spenda_k5a.py"
+   ]
+  },
+  {
+   "uid": "F-103",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "provider_usage_api",
+    "detail": "read-only provider usage/cost admin keys (ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY) in Railway; without them settlement is OWNER_GATED and nothing is fetched"
+   },
+   "checked": "SPENDA: post-call settlement against provider billing (single-call buckets observed, multi-call never apportioned); drift on /api/verify",
+   "test_files": [
+    "tests/test_cert_cost.py",
+    "tests/test_cost_governance_wave2.py",
+    "tests/test_spend_policy.py",
+    "tests/test_w4_cc_company.py",
+    "tests/test_w4_spenda_k5a.py"
+   ]
+  },
+  {
+   "uid": "F-416",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "integrator: base image pinned by digest, apt font versioned, strict verification passes with no findings; external services are recorded with failure impact and recovery in ops/dependencies",
+   "test_files": [
+    "tests/test_dependency_lock.py",
+    "tests/test_w3_supply_chain.py"
+   ]
+  },
+  {
+   "uid": "F-362",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_childrens.py",
+    "tests/test_commerce.py",
+    "tests/test_deliverable_qa.py",
+    "tests/test_k9_graded_truth.py",
+    "tests/test_launch0.py"
+   ]
+  },
+  {
+   "uid": "F-750",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_assembly.py",
+    "tests/test_k9_graded_truth.py",
+    "tests/test_reverse.py",
+    "tests/test_specification.py"
+   ]
+  },
+  {
+   "uid": "F-761",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_deliverable_qa.py",
+    "tests/test_k9_graded_truth.py",
+    "tests/test_layout_qa.py"
+   ]
+  },
+  {
+   "uid": "F-762",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cert_grading.py",
+    "tests/test_graded.py",
+    "tests/test_k9_graded_truth.py"
+   ]
+  },
+  {
+   "uid": "F-763",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cert_design.py",
+    "tests/test_graded.py",
+    "tests/test_k9_graded_truth.py"
+   ]
+  },
+  {
+   "uid": "F-768",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cir_roundtrip.py",
+    "tests/test_k9_graded_truth.py",
+    "tests/test_reverse.py"
+   ]
+  },
+  {
+   "uid": "F-770",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cert_unique_value.py",
+    "tests/test_k9_graded_truth.py",
+    "tests/test_trust.py"
+   ]
+  },
+  {
+   "uid": "F-777",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_gates.py",
+    "tests/test_k9_graded_truth.py",
+    "tests/test_proof.py"
+   ]
+  },
+  {
+   "uid": "F-794",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_k9_graded_truth.py",
+    "tests/test_originality.py",
+    "tests/test_originality_runtime.py"
+   ]
+  },
+  {
+   "uid": "F-751",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_k9_rows.py",
+    "tests/test_render.py",
+    "tests/test_reverse.py",
+    "tests/test_texture.py"
+   ]
+  },
+  {
+   "uid": "F-753",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_assembly.py",
+    "tests/test_k9_rows.py",
+    "tests/test_render.py",
+    "tests/test_twin.py"
+   ]
+  },
+  {
+   "uid": "F-755",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cert_design.py",
+    "tests/test_cert_grading.py",
+    "tests/test_graded.py",
+    "tests/test_k9_rows.py"
+   ]
+  },
+  {
+   "uid": "F-756",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_dimensions.py",
+    "tests/test_k9_rows.py",
+    "tests/test_schematic.py"
+   ]
+  },
+  {
+   "uid": "F-779",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_brief.py",
+    "tests/test_k9_rows.py"
+   ]
+  },
+  {
+   "uid": "F-784",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_k9_rows.py",
+    "tests/test_specification.py"
+   ]
+  },
+  {
+   "uid": "F-795",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_k9_rows.py",
+    "tests/test_specification.py"
+   ]
+  },
+  {
+   "uid": "F-792",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "K9: handoff_K9.md row PROVEN; producer wired in the host module named",
+   "test_files": [
+    "tests/test_cir_roundtrip.py",
+    "tests/test_k9_rows.py",
+    "tests/test_teardown.py"
+   ]
+  },
+  {
+   "uid": "F-363",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "physical_proof",
+    "detail": "practical wearability needs a worked sample"
+   },
+   "checked": "K9: children's wearables are held to CIR-derived physical plausibility; a closed-front child garment is OPENING_UNVERIFIED (UNKNOWN, never a pass)",
+   "test_files": [
+    "tests/test_childrens.py",
+    "tests/test_garments.py",
+    "tests/test_k9_rows.py"
+   ]
   }
  ],
  "kept_open": [],
  "counts": {
-  "written": 10,
+  "written": 48,
   "kept": 0,
   "by_verdict": {
-   "COMPLETE": 6,
-   "OPEN": 2,
-   "GATED": 2
+   "COMPLETE": 38,
+   "OPEN": 4,
+   "GATED": 6
   }
  }
 }

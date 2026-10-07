@@ -314,14 +314,10 @@ ROWS = {
         consumer=MONEY, durable_state=None,
         tests=[T_MON + "test_summary_items_label_actual_vs_estimated",
                T_VIEWS + "test_the_real_accountant_passes_through_and_never_shows_unknown_as_zero",
-               "tests/test_w4_fm_provider_table.py::test_functions_named_in_the_live_provider_table_are_live"],
-        coverage="PARTIAL",
-        missing="period controls do not work: the Money tab sends ?period= but GET /api/cc/money "
-                "ignores it and providers.call('accounting', db) always asks for the default "
-                "30-day window (dashboard.summary accepts window=)",
-        next="WIRING REQUEST (lane CC, app/command_center/api.py + tabs.money): accept "
-             "period/window on /api/cc/money and pass it to the accounting provider as "
-             "summary(db, window=...); test that a 7d request returns the 7d envelope"),
+               "tests/test_w4_fm_provider_table.py::test_functions_named_in_the_live_provider_table_are_live",
+               # W4-CC (merged): ?period= reaches dashboard.summary(window=) (30d/mtd/ytd/all/
+               # YYYY-MM; anything else 400 BAD_PERIOD). Folded by W4-FM2.
+               "tests/test_w4_cc_company.py::test_money_period_reaches_accounting_window"]),
     "F-915": dict(
         producer=S + "finance/accounting/dashboard.py::drill",
         consumer="GET /api/cc/money/drill (providers PROVIDERS 'accounting_drill')",

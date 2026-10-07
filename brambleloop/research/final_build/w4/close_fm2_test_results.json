@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "head": "5bd58d7",
+  "head": "f85ff05",
   "runner": "close_fm2.py --run-tests (sequential)"
  },
  "suites": {
@@ -22,11 +22,35 @@
    "ok": 17,
    "seconds": 43.7
   },
+  "tests/test_k9_graded_truth.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 13.0
+  },
+  "tests/test_k9_rows.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 9,
+   "seconds": 12.5
+  },
   "tests/test_trust.py": {
    "exit": 0,
    "fail": 0,
    "ok": 13,
    "seconds": 48.9
+  },
+  "tests/test_w3_supply_chain.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 6,
+   "seconds": 0.8
+  },
+  "tests/test_w4_cc_company.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 23,
+   "seconds": 136.2
   },
   "tests/test_w4_fm2_log_secret_guard.py": {
    "exit": 0,
@@ -45,6 +69,24 @@
    "fail": 0,
    "ok": 8,
    "seconds": 10.1
+  },
+  "tests/test_w4_spend_attribution.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 5,
+   "seconds": 13.5
+  },
+  "tests/test_w4_spend_paid_discipline.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 13,
+   "seconds": 42.7
+  },
+  "tests/test_w4_spenda_k5a.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 17,
+   "seconds": 39.0
   }
  }
 }
