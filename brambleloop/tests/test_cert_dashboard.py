@@ -282,7 +282,9 @@ def test_dashboard_cards_equal_sql():
         "the seed must hold ledger revenue for this to prove anything"
     assert int(_card(html, "Listings drafted")) == one("select count(*) from listings")
     counts = Counter(r["status"] for r in REQS)
-    assert int(_card(html, "executable left")) == counts["partial"] + counts.get("missing", 0)
+    # W4-B2: the registry's count is shown labelled as its claim; the headline is the ledger.
+    assert int(_card(html, "registry claim: executable left")) == (
+        counts["partial"] + counts.get("missing", 0))
     cl = c.get("/api/closure").json()["counts"]
     for k, v in cl.items():
         assert int(_card(html, f"closure: {k}")) == v, k

@@ -35,6 +35,9 @@ of public, unauthenticated endpoints, or repository history.
   (repo proposals ADOPT_LIVE_INTO_REPO only; software never writes to Etsy), STORE_READINESS
   counts + every non-PROVEN item with its gate, competitor findings, and a form to record what
   the live shop shows (`POST /api/store/live_observation`).
+- Build 2 headline (dashboard `/`, `/api/build2` `headline`, CC Build 2 card) is the closure
+  ledger (`closure.dashboard`): executable remaining = OPEN only; the registry's own counts are
+  labelled "registry claim".
 - The existing server-rendered dashboard `/` and all `/api/*` reads keep working (head adds
   routes; see §5 for one performance caveat).
 - Everything else in the 665-commit integrated head ships with it (Build 2 runtime, v1.1 lanes

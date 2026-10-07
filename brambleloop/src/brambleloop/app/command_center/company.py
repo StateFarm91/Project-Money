@@ -23,6 +23,7 @@ snapshot and is computed inline.
 from __future__ import annotations
 
 import json
+import re
 import os
 import threading
 from datetime import datetime, timedelta, timezone
@@ -282,6 +283,8 @@ def _compute_build2(db) -> dict:
     m = closure.matrix(db)
     mat = maturity.report(db)
     return {
+        # W4-B2: the owner's headline (ledger states; executable remaining = OPEN only).
+        "headline": closure.dashboard(db, m=m),
         "closure": {"total": m["total"], "counts": m["counts"],
                     "closed_out": m["closed_out"],
                     "closeout_indeterminate": m["closeout_indeterminate"],
@@ -366,13 +369,16 @@ def build2_snapshot(db, *, wait: float = 0.0) -> dict:
     items = [{"state": k, "count": v} for k, v in c["counts"].items()]
     return envelope(status, items, srcs, provider="build2.closure+maturity",
                     as_of=at.isoformat(), basis="measured",
-                    closure=c, maturity=value["maturity"], refreshing=refreshing,
+                    closure=c, maturity=value["maturity"], headline=value.get("headline"),
+                    refreshing=refreshing,
                     last_error=err,
                     reason=(None if c["closed_out"] else
                             f"{c['counts'].get('OPEN', 0)} requirement(s) OPEN"
                             if not c["closeout_indeterminate"] else
                             "gates were not read live, so closeout is indeterminate"),
-                    note=("closure states come from evidence, not the registry status; "
+                    ledger="research/final_build/w4/BUILD2_LEDGER.json",
+                    note=("closure states come from evidence, not the registry status "
+                          "(requirements.coverage() is a registry claim); "
                           "maturity rungs say how far covered rows got (deployed / exercised / "
                           "production-observed are separate from 'covered')"))
 
@@ -745,15 +751,30 @@ _INTEG_KEYS = {"responsible": "worker", "started": "started_at", "last_update": 
 _INTEG_STATUS = {"pending": "QUEUED", "queued": "QUEUED", "running": "RUNNING",
                  "in_progress": "RUNNING", "blocked": "BLOCKED", "review": "REVIEW",
                  "merged": "MERGED", "done": "DONE", "complete": "DONE",
-                 "abandoned": "ABANDONED", "unknown": "UNKNOWN"}
+                 "abandoned": "ABANDONED", "unknown": "UNKNOWN", "completed": "DONE",
+                 "stopped": "BLOCKED", "failed": "BLOCKED", "waiting": "QUEUED"}
+
+
+def _integ_status(text) -> str:
+    """The integrator writes free text ("running (resumed ...)", "complete; merged on ...").
+    The leading word decides; "merged" anywhere upgrades DONE to MERGED. Anything unreadable
+    is UNKNOWN (the verbatim text stays in `status_text`), never guessed into progress."""
+    if text is None:
+        return "UNKNOWN"
+    low = str(text).strip().lower()
+    m = re.match(r"[a-z_]+", low)
+    st = _INTEG_STATUS.get(m.group(0), "UNKNOWN") if m else "UNKNOWN"
+    if st == "DONE" and "merged" in low:
+        return "MERGED"
+    return st
 
 
 def normalize_board(board):
     """Map the integrator's v1 board onto the CC schema; any other object passes through.
 
     An empty `rows_closed` list on a lane that is not DONE/MERGED means "nothing reported
-    yet", so its count is UNKNOWN (None), never 0. Unrecognised statuses are kept verbatim so
-    validate_board reports them instead of guessing.
+    yet", so its count is UNKNOWN (None), never 0. An unreadable status is UNKNOWN with the
+    integrator's text kept in `status_text`.
     """
     if not (isinstance(board, dict) and board.get("schema") == INTEG_SCHEMA):
         return board
@@ -766,9 +787,8 @@ def normalize_board(board):
         for src, dst in _INTEG_KEYS.items():
             if dst not in out:
                 out[dst] = ln.get(src)
-        st = ln.get("status")
-        out["status"] = _INTEG_STATUS.get(str(st).strip().lower(), st) if st is not None \
-            else "UNKNOWN"
+        out["status_text"] = ln.get("status")
+        out["status"] = _integ_status(ln.get("status"))
         rc = ln.get("rows_closed")
         if isinstance(rc, list):
             ids = [str(x) for x in rc]
@@ -860,7 +880,7 @@ def completion(db=None, *, now: datetime | None = None) -> dict:
         rc = ln.get("rows_closed")
         items.append({**{k: ln.get(k) for k in BOARD_REQUIRED},
                       "branch": ln.get("branch"), "head_sha": ln.get("head_sha"),
-                      "detail": ln.get("detail"),
+                      "detail": ln.get("detail"), "status_text": ln.get("status_text"),
                       "rows_closed_count": (rc.get("count") if isinstance(rc, dict) else None),
                       "stale": stale,
                       "title": f"{ln.get('lane')}: {ln.get('task')}",

@@ -35,6 +35,16 @@ Worktree `/home/user/Project-Money/.claude/worktrees/W4-CC`. TMPDIR `/home/user/
   (`BRAMBLELOOP_VISUAL_STATUS` overrides); stage display "STATUS (basis)", D = PARTIAL
   (measured) with the stale dashboard value as `superseded_display`; absent file = UNKNOWN.
 
+- Wiring W4-B2 (integrator 2026-10-07): merged origin/claude/visual-investigation (e87534b).
+  `/api/build2` adds `headline` = `closure.dashboard(db, m=closure_matrix_shared())`, ledger
+  path, and labels `coverage` as "registry claim". Dashboard `/` Build 2 card headline =
+  PROVEN / OWNER-GATED / DATA-GATED / EXTERNAL-GATED / NOT-APPLICABLE / OPEN-DEFECT /
+  executable remaining (OPEN only); registry counts shown as "registry claim: ..." (test_cert_dashboard
+  label updated accordingly, same equality). CC Build 2 card uses the same headline
+  (company._compute_build2 -> `headline`).
+- Integrator board free-text statuses ("running (resumed...)", "complete; merged ...",
+  "stopped") normalised by leading word; unreadable -> UNKNOWN with `status_text` verbatim.
+
 ## Tests run
 test_w4_cc_company 12/12; test_v11_pwa_browser 108/108; test_route_auth_default_deny 7/7;
 test_rc1_auth 11/11; others: see final report.

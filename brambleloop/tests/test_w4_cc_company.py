@@ -68,7 +68,10 @@ SECTIONS = ("company_status", "departments", "agents", "owner_actions", "approva
 
 
 def _fake_build2(_db):
-    return {"closure": {"total": 3, "counts": {"COMPLETE+PROVEN": 1, "OWNER-GATED": 1,
+    return {"headline": {"basis": "fake", "total": 3, "proven": 1, "not_applicable": 0,
+                         "owner_gated": 1, "data_gated": 0, "external_gated": 0,
+                         "open_defects": 1, "executable_remaining": 1, "as_of": "x"},
+            "closure": {"total": 3, "counts": {"COMPLETE+PROVEN": 1, "OWNER-GATED": 1,
                                                "DATA-GATED": 0, "EXTERNAL-BLOCKED": 0,
                                                "OPEN": 1},
                         "closed_out": False, "closeout_indeterminate": False,
@@ -230,6 +233,30 @@ def test_build2_closure_is_computed_off_the_request_path():
         company._BUILD2.reset()
 
 
+def test_build2_headline_is_the_ledger_with_open_only_executable():
+    from brambleloop.build2 import closure
+
+    states = ([closure.COMPLETE_PROVEN] * 5 + [closure.OWNER_GATED] * 2
+              + [closure.DATA_GATED, closure.EXTERNAL_BLOCKED, closure.OPEN])
+    rows = [{"id": i, "state": st, "proof": {"directive": i == 0}} for i, st in enumerate(states)]
+    assert rows
+    counts = {st: states.count(st) for st in set(states)}
+    m = {"counts": counts, "rows": rows, "total": len(rows), "gates_checked_live": True,
+         "closed_out": False, "as_of": "2026-10-07T00:00:00+00:00"}
+    hd = closure.dashboard(None, m=m)
+    assert hd["executable_remaining"] == 1 and hd["open_defects"] == 1, hd
+    assert hd["owner_gated"] == 2 and hd["not_applicable"] == 1 and hd["proven"] == 4, hd
+    snap = company.build2_snapshot(DB, wait=30)
+    assert snap.get("headline") and snap["headline"]["executable_remaining"] == 1, snap
+    src = (STATIC / "js" / "views" / "company.js").read_text()
+    for label in ("PROVEN", "OWNER-GATED", "DATA-GATED", "EXTERNAL-GATED", "NOT-APPLICABLE",
+                  "OPEN-DEFECT", "OPEN only"):
+        assert label in src, label
+    main_src = (ROOT / "src" / "brambleloop" / "app" / "main.py").read_text()
+    assert '"headline": closure.dashboard(db, m=closure_matrix_shared())' in main_src
+    assert "registry claim" in main_src
+
+
 def test_build2_failure_is_unknown_with_reason():
     company._BUILD2.reset()
 
@@ -288,10 +315,12 @@ def test_integrator_board_schema_normalised():
     # empty list on a running lane = nothing reported yet = UNKNOWN, never 0
     assert by["CC"]["status"] == "RUNNING" and by["CC"]["rows_closed"]["count"] is None
     assert by["B2"]["rows_closed"]["count"] == 2 and by["B2"]["worker"] == "w"
-    errs = company.validate_board(raw)
-    assert errs and all("lanes[2]" in e for e in errs), errs
-    raw["lanes"].pop()
+    assert by["Z"]["status"] == "UNKNOWN" and by["Z"]["status_text"] == "shipped-ish"
     assert company.validate_board(raw) == []
+    for text, want in (("running (resumed after container restart)", "RUNNING"),
+                       ("complete; merged on claude/w4-INTEG", "MERGED"),
+                       ("queued (next free slot)", "QUEUED"), ("stopped", "BLOCKED")):
+        assert company._integ_status(text) == want, (text, want)
 
 
 def _write_board(obj) -> str:

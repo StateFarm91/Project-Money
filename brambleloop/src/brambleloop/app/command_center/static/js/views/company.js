@@ -71,12 +71,24 @@ function unitsCard(title, env, result, id) {
 function closureCard(env, result) {
   const c = (env && env.closure) || null;
   const m = (env && env.maturity) || null;
+  const hd = (env && env.headline) || null;
   const counts = (c && c.counts) || {};
   return card({ title: "Build 2 closure", actions: statusPill(env && env.status) },
     h("p", { class: "card-meta" }, freshness(env && env.as_of, result), env && env.refreshing ? " · refreshing" : ""),
     env && env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
-    c ? h("div", { class: "tiles" }, Object.entries(counts).map(([k, v]) => statTile(k, num(v))),
-      statTile("Total requirements", num(c.total)), statTile("Gates read live", c.gates_checked_live ? "Yes" : "No")) : null,
+    hd ? h("div", { class: "tiles" },
+      statTile("PROVEN", num(hd.proven), { status: "OK" }),
+      statTile("OWNER-GATED", num(hd.owner_gated), { status: "GATED" }),
+      statTile("DATA-GATED", num(hd.data_gated), { status: "GATED" }),
+      statTile("EXTERNAL-GATED", num(hd.external_gated), { status: "GATED" }),
+      statTile("NOT-APPLICABLE", num(hd.not_applicable)),
+      statTile("OPEN-DEFECT", num(hd.open_defects), { status: num(hd.open_defects) ? "DEGRADED" : "OK" }),
+      statTile("Executable remaining (OPEN only)", num(hd.executable_remaining)),
+      statTile("Total requirements", num(hd.total))) : null,
+    hd && hd.basis ? h("p", { class: "muted small" }, hd.basis) : null,
+    c ? h("details", { class: "sources" }, h("summary", null, "Closure matrix counts"),
+      h("div", { class: "tiles" }, Object.entries(counts).map(([k, v]) => statTile(k, num(v))),
+        statTile("Total requirements", num(c.total)), statTile("Gates read live", c.gates_checked_live ? "Yes" : "No"))) : null,
     m && m.highest_rung_reached ? h("details", { class: "sources" }, h("summary", null, "Maturity: highest rung reached"),
       h("dl", { class: "facts" }, Object.entries(m.highest_rung_reached).map(([k, v]) => fact(humanize(k), String(v))),
         fact("Production observed", m.is_production ? "Yes" : "No"))) : null,

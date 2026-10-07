@@ -4331,11 +4331,18 @@ def api_incidents() -> dict:
 @app.get("/api/build2")
 def api_build2() -> dict:
     """Build-2 requirement coverage against v1.4.3, as data rather than a claim."""
+    from ..build2 import closure
     from ..build2 import requirements as reqs
 
     return {
         "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
+        # W4-B2: the headline is the closure ledger (evidence), not the registry's own status.
+        # executable_remaining there is OPEN only; gated rows count under their gate's kind.
+        "headline": closure.dashboard(db, m=closure_matrix_shared()),
+        "ledger": "research/final_build/w4/BUILD2_LEDGER.json",
         "coverage": reqs.coverage(),
+        "coverage_basis": "registry claim: requirements.json's own status per row, not "
+                          "evidence; the headline above is the measured ledger",
         "sections": reqs.sections(),
         # Listed in full rather than sliced. A hardcoded `[:40]` silently dropped five
         # requirements from a list whose own summary said forty-five, so anyone reading the
@@ -5279,20 +5286,41 @@ def dashboard() -> str:
         #
         # `executable_remaining` is the computed field and the one the API already serves;
         # using it means the tile and the endpoint cannot disagree.
-        executable = cov["executable_remaining"]
-        ready = cov["executable_unparked"]
-        closure_counts = closure_matrix_shared()["counts"]
-        cards = "".join(
-            f'<div class="card"><span>{esc(k.replace("_", " "))}</span><b>{esc(v)}</b></div>'
-            for k, v in sorted(cov.items()))
+        #
+        # W4-B2: the headline is now the closure ledger (`closure.dashboard`): PROVEN /
+        # OWNER-GATED / DATA-GATED / EXTERNAL-GATED / NOT-APPLICABLE / OPEN-DEFECT, with
+        # "executable remaining" = OPEN only. The registry's counts stay visible, labelled as
+        # what they are: the registry's claim about itself.
+        from ..build2 import closure
+
+        m = closure_matrix_shared()
+        hd = closure.dashboard(db, m=m)
         closing = "".join(
             f'<div class="card"><span>closure: {esc(k)}</span><b>{esc(v)}</b></div>'
-            for k, v in closure_counts.items())
-        return (f'<div class="grid">{cards}'
-                f'<div class="card"><span>executable left</span><b>{esc(executable)}</b></div>'
-                f'<div class="card"><span>ready to start (not parked)</span><b>{esc(ready)}</b>'
-                f'</div>'
-                f"{closing}</div>")
+            for k, v in m["counts"].items())
+        headline = "".join(
+            f'<div class="card"><span>{esc(label)}</span><b>{esc(hd[key])}</b></div>'
+            for label, key in (("PROVEN", "proven"), ("OWNER-GATED", "owner_gated"),
+                               ("DATA-GATED", "data_gated"),
+                               ("EXTERNAL-GATED", "external_gated"),
+                               ("NOT-APPLICABLE", "not_applicable"),
+                               ("OPEN-DEFECT", "open_defects"),
+                               ("executable remaining (OPEN only)", "executable_remaining"),
+                               ("total", "total")))
+        executable = cov["executable_remaining"]
+        ready = cov["executable_unparked"]
+        cards = "".join(
+            f'<div class="card"><span>registry claim: {esc(k.replace("_", " "))}</span>'
+            f'<b>{esc(v)}</b></div>' for k, v in sorted(cov.items()))
+        return (f'<div class="grid">{headline}</div>'
+                f'<div class="empty">{esc(hd["basis"])} -- as of {esc(hd["as_of"])}</div>'
+                f'<div class="grid">{closing}</div>'
+                f'<details><summary>registry claim (requirements.json status, not evidence)'
+                f'</summary><div class="grid">{cards}'
+                f'<div class="card"><span>registry claim: executable left</span>'
+                f'<b>{esc(executable)}</b></div>'
+                f'<div class="card"><span>registry claim: ready to start (not parked)</span>'
+                f'<b>{esc(ready)}</b></div></div></details>')
 
     def _visual_pipeline() -> str:
         """The milestone ladder, so the route to a listable product is visible on the page.
