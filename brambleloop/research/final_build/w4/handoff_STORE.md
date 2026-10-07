@@ -24,4 +24,6 @@ Live state in this environment: **UNKNOWN** for every field — no ETSY_* creden
 - Owner: OA-A1 (re-authorise) and OA-OBS (record About/Laura live text) unblock read-back.
 
 ## Tests run
-See final commit message / report (focused set only).
+Focused only (2026-10-07): test_w4_store_live_state 12/12, test_shop_package 18, test_w3_store_copy_routing 7,
+test_w3_store_copy_surfaces 13, test_v11_store_foundation 20, test_v11_store_preview 13, test_etsy_readback_observe 37,
+test_k8_shop_cx 17, test_vacuity 7 (after fix), test_secret_scan 7, test_reachability 11, test_w3_tmp_hygiene 16 — all pass.

@@ -224,19 +224,20 @@ def test_live_drift_job_stores_report_and_handles_blank_owner_field_incident():
 
 def test_store_readiness_register_is_complete_and_honest():
     rep = R.build(_db(), env={})
-    items = rep["items"]
-    assert items and rep["owner_actions"]
-    for it in items:
+    register = rep["items"]
+    assert register
+    assert rep["owner_actions"]
+    for it in register:
         assert it["status"] in R.STATUSES, it
         if it["status"] not in (R.PROVEN, R.NOT_APPLICABLE):
             assert it["remaining_gate"], f"{it['id']} has no exact gate"
-    ids = {it["id"] for it in items}
+    ids = {it["id"] for it in register}
     for need in ("SET-A1", "SET-C3", "TAX-1", "TAX-2", "POL-1", "IMG-1", "IMG-2", "LST-1",
                  "UPL-1", "ANA-1", "PUB-1", "LIVE-1", "LIVE-2", "LIVE-4"):
         assert need in ids, need
-    c3 = next(it for it in items if it["id"] == "SET-C3")
+    c3 = next(it for it in register if it["id"] == "SET-C3")
     assert c3["status"] == R.EXTERNAL_GATED and c3["live"] == "UNKNOWN", c3
-    assert next(it for it in items if it["id"] == "PUB-1")["status"] == R.OWNER_GATED
+    assert next(it for it in register if it["id"] == "PUB-1")["status"] == R.OWNER_GATED
     assert rep["drift"]["writes_performed"] == 0
     md = R.render_md(rep)
     assert "UNKNOWN" in md and "OA-A1" in md
