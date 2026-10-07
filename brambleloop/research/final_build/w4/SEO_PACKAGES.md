@@ -1,6 +1,6 @@
 # SEO packages: every catalogue product's Etsy search package (W4-SEO)
 
-Generated 2026-10-07T01:04:02+00:00 by `research/final_build/w4/seo_packages_build.py (real release chain, shadow worker, scratch SQLite, network closed, no Etsy taxonomy snapshot)`. The machine record is `SEO_PACKAGES.json`; packages are also persisted by `listing.seo` in `seo_search_packages` (`seo.packages`) and refreshed by every `seo.cycle`.
+Generated 2026-10-07T01:33:48+00:00 by `research/final_build/w4/seo_packages_build.py (real release chain, shadow worker, scratch SQLite, network closed, no Etsy taxonomy snapshot)`. The machine record is `SEO_PACKAGES.json`; packages are also persisted by `listing.seo` in `seo_search_packages` (`seo.packages`) and refreshed by every `seo.cycle`.
 
 ## Counts
 
