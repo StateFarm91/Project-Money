@@ -185,7 +185,51 @@ METHOD: dict[str, str] = {
     "cable1x1": ("Two stitches cross. Slip the next stitch onto a cable needle, work a "
                  "{dc} in the following stitch, then work a {dc} in the "
                  "stitch waiting on the cable needle."),
+    # The star family (F-751): the structure is the stitch. Each paragraph names every anchor
+    # a loop is pulled from -- the turning chain, the previous star's eye, the leg of its
+    # last loop, its base -- and the eye the star closes into, which `cir.stitches.ANATOMY`
+    # states and `structure_method_problems()` holds these paragraphs to.
+    "beg_star_st": ("Pull up a loop in the 2nd {ch} from the hook, in the next {ch} of the "
+                    "turning chain, and in each of the next 3 stitches: 6 loops on the hook. "
+                    "Yarn over and draw through all 6 loops, then make 1 {ch} to close the "
+                    "star; that {ch} is the star's eye."),
+    "star_st": ("Pull up a loop in the eye of the star just made, in the leg of that star's "
+                "last loop, in its base (the stitch its last loop was pulled from), and in "
+                "each of the next 2 stitches: 6 loops on the hook. Yarn over and draw through "
+                "all 6 loops, then make 1 {ch} to close: the eye."),
+    "end_star_st": ("Pull up a loop in the eye of the star just made, in the leg of that "
+                    "star's last loop, in its base, and in the last stitch: 5 loops on the "
+                    "hook. Yarn over and draw through all 5 loops, then make 1 {ch} to "
+                    "close: the eye. On the return row the eye and the top of this star are "
+                    "each worked into."),
+    "hdc_inc": ("Two {hdc}s worked into the same stitch or eye."),
+    "hdc3": ("Three {hdc}s worked into the same stitch or eye."),
 }
+
+# The words a method paragraph must use for each anchor and product a stitch's anatomy names.
+_ANATOMY_WORDS: dict[str, str] = {
+    "turning_ch": "turning chain", "prev_eye": "eye", "prev_leg": "leg",
+    "prev_base": "base", "post_front": "from the front", "post_back": "from the back",
+    "crossed": "cable needle", "cluster": "same stitch", "eye": "eye",
+}
+
+
+def structure_method_problems() -> tuple[str, ...]:
+    """Structured stitches whose printed method does not teach the structure (F-751)."""
+    out: list[str] = []
+    for code, a in sorted(stitches.ANATOMY.items()):
+        text = METHOD.get(code, "").lower()
+        if not text:
+            out.append(f"{code}: structured stitch with no method paragraph")
+            continue
+        for part in set(a.anchors) | {a.placement} | set(a.makes):
+            word = _ANATOMY_WORDS.get(part)
+            if word and word not in text:
+                out.append(f"{code}: method never names the {part} ({word!r})")
+        if a.loops_closed and f"{a.loops_closed} loops" not in text and \
+                a.placement == "star":
+            out.append(f"{code}: method does not state the {a.loops_closed} loops it closes")
+    return tuple(out)
 
 # Every stitch name that one terminology spells differently from the other, in both
 # spellings. Derived from the registry rather than typed, so a stitch whose names diverge

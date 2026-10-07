@@ -51,15 +51,26 @@ def _offer(cir):
 
 def test_every_launch0_primary_is_offered_its_verified_applicable_jobs():
     cirs = primaries()
-    assert len(cirs) == 3, cirs
+    # One explicit entry per Launch-0 listing, derived from launch0.LAUNCH0_SLUGS: a listing
+    # promoted into Launch-0 without an entry here FAILS (it is never silently skipped).
+    # Offered without a database, so CONTENTS (which needs the release's assets.built PDF)
+    # is refused here with its reason; it is certified on the release path
+    # (tests/test_w4_visual2.py, test_disclosed_certified_upload).
     want = {"nursery-nesting-baskets": ["ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT", "SIZING",
                                         "MATERIALS"],
             "cloudline-baby-blanket": ["COLOUR_CONTEXT", "MATERIALS"],
-            "hexagon-coaster-set": ["COLOUR_CONTEXT", "MATERIALS"]}
+            "hexagon-coaster-set": ["COLOUR_CONTEXT", "MATERIALS"],
+            # promoted by lane PIPE (18baa94); both are flat colourwork pieces
+            "nordic-star-ornaments": ["COLOUR_CONTEXT", "MATERIALS"],
+            "winter-village-graphghan": ["COLOUR_CONTEXT", "MATERIALS"]}
+    assert cirs and list(cirs) == list(launch0.LAUNCH0_SLUGS), cirs.keys()
+    missing = sorted(set(cirs) - set(want))
+    assert not missing, f"Launch-0 listings with no expected gallery jobs: {missing}"
     for listing, cir in cirs.items():
         offer = _offer(cir)
         jobs = [f["job"] for f in offer["frames"]]
         assert jobs == want[listing], (listing, jobs, offer["refused"])
+        assert "CONTENTS" in offer["refused"], (listing, offer["refused"])
         assert [f["position"] for f in offer["frames"]] == list(range(4, 4 + len(jobs)))
         for f in offer["frames"]:
             assert hashlib.sha256(f["png"]).hexdigest() == f["sha256"]

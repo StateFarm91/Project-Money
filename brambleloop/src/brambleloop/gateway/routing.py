@@ -29,8 +29,6 @@ that disagrees is noise (§27).
 """
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -419,8 +417,9 @@ def record(db, task_key: str, *, agent: str, tokens_in: int, tokens_out: int,
 
 def fingerprint(payload: dict) -> str:
     """Content identity. A changed listing has a different key and simply misses."""
-    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+    from .evidence_key import content
+
+    return content(payload)
 
 
 def cache_key(task_key: str, payload: dict) -> str:

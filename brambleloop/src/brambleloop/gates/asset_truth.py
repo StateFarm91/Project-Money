@@ -72,6 +72,8 @@ class Asset:
     claims: Claims = field(default_factory=Claims)
     is_hero: bool = False
     disclosed_as_illustration: bool = False
+    # F-753: a `gates.stitch_scale.read` reading of this image (measured pitch, stated px/cm).
+    stitch_scale: dict | None = None
 
 
 # Rough bed-size expectations in cm, used only to sanity-check a size *label* against the
@@ -195,6 +197,24 @@ def check_asset(
                 ERROR, "ASSET_COMPONENT_ABSENT",
                 f"asset depicts component {comp!r} which the pattern does not contain",
                 where))
+
+    # --- F-753: a generated image's stitches are the size the gauge makes them ---
+    if source == "generator" and asset.depicts_stitches:
+        from .stitch_scale import FAIL, UNKNOWN, verdict as _scale_verdict
+
+        scale = _scale_verdict(cir, asset.stitch_scale)
+        if scale["verdict"] == UNKNOWN:
+            out.append(Finding(
+                ERROR, "ASSET_STITCH_SCALE_UNMEASURED",
+                f"a generated image depicting stitches has no measured stitch scale "
+                f"({scale['why']}); apparent stitch scale is Product Truth and an unmeasured "
+                f"scale is not a passed one (F-753)", where))
+        elif scale["verdict"] == FAIL:
+            out.append(Finding(
+                ERROR, "ASSET_STITCH_SCALE_WRONG",
+                f"the image shows a stitch pitch of {scale['measured_px']} px where the gauge "
+                f"makes {scale['expected_px']} px at its stated scale (x{scale['ratio']}, "
+                f"tolerance {scale['tolerance']:.0%}): a different fabric (F-753)", where))
 
     # --- claims must be supported by the twin ---
     cl = asset.claims
