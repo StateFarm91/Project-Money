@@ -1300,6 +1300,109 @@
   "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
+  "uid": "F-260",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no live listing has produced exposure, so no experiment has been concluded (or refused) on real data",
+  "producer": "src/brambleloop/growth/experiments.py",
+  "durable_state": "Experiment rows; listing_test memory table",
+  "consumer": "`experiments.conclude_all` → `listing_discipline` → `commerce.listing_tests.exposure_refusal` (one shared rule)",
+  "protected_effect": "experiments are pre-registered and cannot conclude causally without control",
+  "tests": [
+   "tests/test_cert_growth_seasonal.py::test_launch_pack_records_hero_variants_title_tags_and_confounders",
+   "tests/test_cert_publish_gates.py::test_a_launch_registers_its_experiment_pack_at_launch",
+   "tests/test_k3_listing_outcomes.py::test_a_listing_experiment_with_too_little_exposure_concludes_nothing",
+   "tests/test_listing_tests.py::test_a_listing_nobody_saw_did_not_fail",
+   "tests/test_listing_tests.py::test_an_unreadable_test_cannot_write_a_disproof"
+  ],
+  "evidence": [
+   "module_reachability: commerce/listing_tests.py reached only via API get api_listing_tests",
+   "w3 handoff_K3.md claim: | F-260 Listing Experiment Discipline | COMPLETE | `test_a_listing_experiment_with_too_little_exposure_concludes_nothing` (199 impressions: `not_tested`, no verdict written; 1,200 impressions: concludes, discipline recorded) | `growth.conclude` → `experiments.conclude_all` → `listing_discipline` → `",
+   "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
+  ],
+  "build2_rows": [
+   "#16 OWNER-GATED",
+   "#241 OWNER-GATED",
+   "#266 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "a listing test needs a live listing and its exposure"
+  },
+  "defect": null,
+  "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)"
+ },
+ {
+  "uid": "F-261",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no live listing has produced impressions/clicks/sales, so no real underperformer has been diagnosed",
+  "producer": "src/brambleloop/commerce/listing_outcomes.py",
+  "durable_state": "portfolio.review audit/OperatingReading",
+  "consumer": "`portfolio.review`",
+  "protected_effect": "remediation is routed by failing stage (relevance, hero/title/value, product/value/trust/price, product quality)",
+  "tests": [
+   "tests/test_cert_orders.py::test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
+   "tests/test_k3_listing_outcomes.py::test_a_listing_experiment_with_too_little_exposure_concludes_nothing"
+  ],
+  "evidence": [
+   "B2 #47 repair wave orders: SkuMetrics from ListingOutcome/Order/Listing",
+   "w3 handoff_K3.md claim: | F-261 Underperformer Remediation | COMPLETE | same review test: SEO_PROBLEM (shown, not clicked), APPEAL_PROBLEM (clicked, not saved; #13's offer guard withholds the discard), CONVERSION_PROBLEM (saved, not bought) | `portfolio.review` |",
+   "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
+  ],
+  "build2_rows": [
+   "#47 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "stages need exposure data"
+  },
+  "defect": null,
+  "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)"
+ },
+ {
+  "uid": "F-282",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "no live listing has produced exposure, so the zero-sales diagnosis has never run on real data",
+  "producer": "src/brambleloop/commerce/listing_outcomes.py",
+  "durable_state": "portfolio.review readings",
+  "consumer": "`portfolio.review`",
+  "protected_effect": "short zero-sale windows are diagnosed on exposure; adequate exposure with no conversion becomes a diagnosed problem, not 'new shop'",
+  "tests": [
+   "tests/test_cert_orders.py::test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
+   "tests/test_k3_listing_outcomes.py::test_a_listing_experiment_with_too_little_exposure_concludes_nothing"
+  ],
+  "evidence": [
+   "w3 handoff_K3.md claim: | F-282 No Zero-Sales Panic | COMPLETE | same review test: 120 impressions with zero sales gives NO_EVIDENCE; 4,000 impressions with no conversion gives a diagnosed stage | `portfolio.review` |",
+   "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
+  ],
+  "build2_rows": [
+   "#47 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "exposure data"
+  },
+  "defect": null,
+  "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)"
+ },
+ {
   "uid": "F-135",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "recovery/idempotence: a dead worker must not duplicate consequential effects",

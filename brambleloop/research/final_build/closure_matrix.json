@@ -9,11 +9,11 @@
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
-     "rows": 180
+     "rows": 177
     },
     "8b67414": {
      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
-     "rows": 44
+     "rows": 47
     }
    },
    "rows_on_base": 523,
@@ -79,8 +79,8 @@
    "data": 16
   },
   "coverage": {
-   "FULL": 371,
-   "PARTIAL": 546
+   "FULL": 368,
+   "PARTIAL": 549
   },
   "downgraded": 145,
   "defects": 36,
@@ -90,15 +90,15 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 294,
-   "GATED": 114,
+   "COMPLETE": 291,
+   "GATED": 117,
    "POST-LAUNCH": 420,
    "OPEN": 82,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 294,
-   "GATED": 114,
+   "COMPLETE": 291,
+   "GATED": 117,
    "OPEN": 82
   },
   "launch_critical_open": 82,
@@ -115,8 +115,8 @@
   "capped_by_unwritten_state": 1,
   "capped_by_proxy_evidence": 0,
   "mapped_on": {
-   "fee1cfe": 180,
-   "8b67414": 44,
+   "fee1cfe": 177,
+   "8b67414": 47,
    "6f9a2f7": 170,
    "019ebf0": 523
   },
@@ -12173,8 +12173,8 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "maturity": "INTEGRATED",
-   "coverage": "FULL",
-   "missing_part": null,
+   "coverage": "PARTIAL",
+   "missing_part": "no live listing has produced exposure, so no experiment has been concluded (or refused) on real data",
    "producer": "src/brambleloop/growth/experiments.py",
    "durable_state": "Experiment rows; listing_test memory table",
    "consumer": "`experiments.conclude_all` → `listing_discipline` → `commerce.listing_tests.exposure_refusal` (one shared rule)",
@@ -12188,7 +12188,8 @@
    ],
    "evidence": [
     "module_reachability: commerce/listing_tests.py reached only via API get api_listing_tests",
-    "w3 handoff_K3.md claim: | F-260 Listing Experiment Discipline | COMPLETE | `test_a_listing_experiment_with_too_little_exposure_concludes_nothing` (199 impressions: `not_tested`, no verdict written; 1,200 impressions: concludes, discipline recorded) | `growth.conclude` → `experiments.conclude_all` → `listing_discipline` → `"
+    "w3 handoff_K3.md claim: | F-260 Listing Experiment Discipline | COMPLETE | `test_a_listing_experiment_with_too_little_exposure_concludes_nothing` (199 impressions: `not_tested`, no verdict written; 1,200 impressions: concludes, discipline recorded) | `growth.conclude` → `experiments.conclude_all` → `listing_discipline` → `",
+    "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
    ],
    "build2_rows": [
     "#16 OWNER-GATED",
@@ -12201,9 +12202,9 @@
     "detail": "a listing test needs a live listing and its exposure"
    },
    "defect": null,
-   "next_action": "Route growth.conclude listing experiments through commerce/listing_tests.read/record so the exposure floor and disproof memory govern runtime conclusions; test that an unexposed runtime experiment writes nothing.",
+   "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3']",
+   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -12211,19 +12212,22 @@
    "title": "Listing Experiment Discipline",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "COMPLETE",
-   "completion_reasons": []
+   "completion": "GATED",
+   "completion_reasons": [
+    "data gate 'live_listings'",
+    "coverage PARTIAL: no live listing has produced exposure, so no experiment has been concluded (or refused) on real data"
+   ]
   },
   {
    "uid": "F-261",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "maturity": "INTEGRATED",
-   "coverage": "FULL",
-   "missing_part": null,
+   "coverage": "PARTIAL",
+   "missing_part": "no live listing has produced impressions/clicks/sales, so no real underperformer has been diagnosed",
    "producer": "src/brambleloop/commerce/listing_outcomes.py",
    "durable_state": "portfolio.review audit/OperatingReading",
    "consumer": "`portfolio.review`",
@@ -12234,7 +12238,8 @@
    ],
    "evidence": [
     "B2 #47 repair wave orders: SkuMetrics from ListingOutcome/Order/Listing",
-    "w3 handoff_K3.md claim: | F-261 Underperformer Remediation | COMPLETE | same review test: SEO_PROBLEM (shown, not clicked), APPEAL_PROBLEM (clicked, not saved; #13's offer guard withholds the discard), CONVERSION_PROBLEM (saved, not bought) | `portfolio.review` |"
+    "w3 handoff_K3.md claim: | F-261 Underperformer Remediation | COMPLETE | same review test: SEO_PROBLEM (shown, not clicked), APPEAL_PROBLEM (clicked, not saved; #13's offer guard withholds the discard), CONVERSION_PROBLEM (saved, not bought) | `portfolio.review` |",
+    "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
    ],
    "build2_rows": [
     "#47 COMPLETE+PROVEN"
@@ -12245,9 +12250,9 @@
     "detail": "stages need exposure data"
    },
    "defect": null,
-   "next_action": "none — at target maturity for launch (after F-258 intake exists).",
+   "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3']",
+   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -12255,11 +12260,14 @@
    "title": "Underperformer Remediation",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "COMPLETE",
-   "completion_reasons": []
+   "completion": "GATED",
+   "completion_reasons": [
+    "data gate 'live_listings'",
+    "coverage PARTIAL: no live listing has produced impressions/clicks/sales, so no real underperformer has been diagnosed"
+   ]
   },
   {
    "uid": "F-262",
@@ -13144,8 +13152,8 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "maturity": "INTEGRATED",
-   "coverage": "FULL",
-   "missing_part": null,
+   "coverage": "PARTIAL",
+   "missing_part": "no live listing has produced exposure, so the zero-sales diagnosis has never run on real data",
    "producer": "src/brambleloop/commerce/listing_outcomes.py",
    "durable_state": "portfolio.review readings",
    "consumer": "`portfolio.review`",
@@ -13155,7 +13163,8 @@
     "tests/test_k3_listing_outcomes.py::test_a_listing_experiment_with_too_little_exposure_concludes_nothing"
    ],
    "evidence": [
-    "w3 handoff_K3.md claim: | F-282 No Zero-Sales Panic | COMPLETE | same review test: 120 impressions with zero sales gives NO_EVIDENCE; 4,000 impressions with no conversion gives a diagnosed stage | `portfolio.review` |"
+    "w3 handoff_K3.md claim: | F-282 No Zero-Sales Panic | COMPLETE | same review test: 120 impressions with zero sales gives NO_EVIDENCE; 4,000 impressions with no conversion gives a diagnosed stage | `portfolio.review` |",
+    "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
    ],
    "build2_rows": [
     "#47 COMPLETE+PROVEN"
@@ -13166,9 +13175,9 @@
     "detail": "exposure data"
    },
    "defect": null,
-   "next_action": "none — at target maturity for launch (after F-258).",
+   "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3']",
+   "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -13176,11 +13185,14 @@
    "title": "No Zero-Sales Panic",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "COMPLETE",
-   "completion_reasons": []
+   "completion": "GATED",
+   "completion_reasons": [
+    "data gate 'live_listings'",
+    "coverage PARTIAL: no live listing has produced exposure, so the zero-sales diagnosis has never run on real data"
+   ]
   },
   {
    "uid": "F-283",

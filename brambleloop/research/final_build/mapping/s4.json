@@ -912,8 +912,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
   "maturity": "INTEGRATED",
-  "coverage": "FULL",
-  "missing_part": null,
+  "coverage": "PARTIAL",
+  "missing_part": "no live listing has produced exposure, so no experiment has been concluded (or refused) on real data",
   "producer": "src/brambleloop/growth/experiments.py",
   "durable_state": "Experiment rows; listing_test memory table",
   "consumer": "`experiments.conclude_all` → `listing_discipline` → `commerce.listing_tests.exposure_refusal` (one shared rule)",
@@ -927,7 +927,8 @@
   ],
   "evidence": [
    "module_reachability: commerce/listing_tests.py reached only via API get api_listing_tests",
-   "w3 handoff_K3.md claim: | F-260 Listing Experiment Discipline | COMPLETE | `test_a_listing_experiment_with_too_little_exposure_concludes_nothing` (199 impressions: `not_tested`, no verdict written; 1,200 impressions: concludes, discipline recorded) | `growth.conclude` → `experiments.conclude_all` → `listing_discipline` → `"
+   "w3 handoff_K3.md claim: | F-260 Listing Experiment Discipline | COMPLETE | `test_a_listing_experiment_with_too_little_exposure_concludes_nothing` (199 impressions: `not_tested`, no verdict written; 1,200 impressions: concludes, discipline recorded) | `growth.conclude` → `experiments.conclude_all` → `listing_discipline` → `",
+   "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
   ],
   "build2_rows": [
    "#16 OWNER-GATED",
@@ -940,17 +941,17 @@
    "detail": "a listing test needs a live listing and its exposure"
   },
   "defect": null,
-  "next_action": "Route growth.conclude listing experiments through commerce/listing_tests.read/record so the exposure floor and disproof memory govern runtime conclusions; test that an unexposed runtime experiment writes nothing.",
+  "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3']"
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-261",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
   "maturity": "INTEGRATED",
-  "coverage": "FULL",
-  "missing_part": null,
+  "coverage": "PARTIAL",
+  "missing_part": "no live listing has produced impressions/clicks/sales, so no real underperformer has been diagnosed",
   "producer": "src/brambleloop/commerce/listing_outcomes.py",
   "durable_state": "portfolio.review audit/OperatingReading",
   "consumer": "`portfolio.review`",
@@ -961,7 +962,8 @@
   ],
   "evidence": [
    "B2 #47 repair wave orders: SkuMetrics from ListingOutcome/Order/Listing",
-   "w3 handoff_K3.md claim: | F-261 Underperformer Remediation | COMPLETE | same review test: SEO_PROBLEM (shown, not clicked), APPEAL_PROBLEM (clicked, not saved; #13's offer guard withholds the discard), CONVERSION_PROBLEM (saved, not bought) | `portfolio.review` |"
+   "w3 handoff_K3.md claim: | F-261 Underperformer Remediation | COMPLETE | same review test: SEO_PROBLEM (shown, not clicked), APPEAL_PROBLEM (clicked, not saved; #13's offer guard withholds the discard), CONVERSION_PROBLEM (saved, not bought) | `portfolio.review` |",
+   "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
   ],
   "build2_rows": [
    "#47 COMPLETE+PROVEN"
@@ -972,9 +974,9 @@
    "detail": "stages need exposure data"
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch (after F-258 intake exists).",
+  "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3']"
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-262",
@@ -1598,8 +1600,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
   "maturity": "INTEGRATED",
-  "coverage": "FULL",
-  "missing_part": null,
+  "coverage": "PARTIAL",
+  "missing_part": "no live listing has produced exposure, so the zero-sales diagnosis has never run on real data",
   "producer": "src/brambleloop/commerce/listing_outcomes.py",
   "durable_state": "portfolio.review readings",
   "consumer": "`portfolio.review`",
@@ -1609,7 +1611,8 @@
    "tests/test_k3_listing_outcomes.py::test_a_listing_experiment_with_too_little_exposure_concludes_nothing"
   ],
   "evidence": [
-   "w3 handoff_K3.md claim: | F-282 No Zero-Sales Panic | COMPLETE | same review test: 120 impressions with zero sales gives NO_EVIDENCE; 4,000 impressions with no conversion gives a diagnosed stage | `portfolio.review` |"
+   "w3 handoff_K3.md claim: | F-282 No Zero-Sales Panic | COMPLETE | same review test: 120 impressions with zero sales gives NO_EVIDENCE; 4,000 impressions with no conversion gives a diagnosed stage | `portfolio.review` |",
+   "w4-FM close on 8b67414 (FOLD): the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)"
   ],
   "build2_rows": [
    "#47 COMPLETE+PROVEN"
@@ -1620,9 +1623,9 @@
    "detail": "exposure data"
   },
   "defect": null,
-  "next_action": "none — at target maturity for launch (after F-258).",
+  "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
   "confidence": "MEDIUM",
-  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3']"
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K3'] | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-283",

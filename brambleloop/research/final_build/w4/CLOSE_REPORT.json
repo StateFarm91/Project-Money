@@ -611,6 +611,59 @@
    ]
   },
   {
+   "uid": "F-260",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "a listing test needs a live listing and its exposure"
+   },
+   "checked": "the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)",
+   "test_files": [
+    "tests/test_cert_growth_seasonal.py",
+    "tests/test_cert_publish_gates.py",
+    "tests/test_k3_listing_outcomes.py",
+    "tests/test_listing_tests.py"
+   ]
+  },
+  {
+   "uid": "F-261",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "stages need exposure data"
+   },
+   "checked": "the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py"
+   ]
+  },
+  {
+   "uid": "F-282",
+   "source": "FOLD",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "exposure data"
+   },
+   "checked": "the exposure rule is implemented and tested on fixture exposure (wave-3 K3); the row keeps its data gate live_listings, so it is GATED, not COMPLETE (F-174 false-completion guard)",
+   "test_files": [
+    "tests/test_cert_orders.py",
+    "tests/test_k3_listing_outcomes.py"
+   ]
+  },
+  {
    "uid": "F-135",
    "source": "FOLD",
    "verdict": "GATED",
@@ -724,10 +777,10 @@
  ],
  "kept_open": [],
  "counts": {
-  "written": 44,
+  "written": 47,
   "kept": 0,
   "by_verdict": {
-   "GATED": 30,
+   "GATED": 33,
    "COMPLETE": 10,
    "OPEN": 4
   }

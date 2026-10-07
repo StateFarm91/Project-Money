@@ -368,6 +368,25 @@ FOLD_ROWS = {
                              "beside the deploy_guard record"),
         tests=["tests/test_secret_scan.py::test_a_credential_inside_a_compressed_pdf_stream_is_found",
                "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks"]),
+    # Correction of the fee1cfe fold: these rows wait on live-listing exposure (data gate) but
+    # the fold wrote coverage FULL, so they read COMPLETE before any customer or listing exists
+    # -- exactly what the runtime false-completion guard (ops/owner_queue.data_gates, F-174)
+    # refuses (tests/test_w3_k7_owner_queue.py). The logic is built and tested on fixture
+    # exposure; deciding on real exposure is the data-gated half.
+    **{u: dict(
+        checked="the exposure rule is implemented and tested on fixture exposure (wave-3 K3); "
+                "the row keeps its data gate live_listings, so it is GATED, not COMPLETE "
+                "(F-174 false-completion guard)",
+        set=dict(coverage="PARTIAL", defect=None, missing_part=mp,
+                 next_action="data gate live_listings: once a listing is live, the same rule "
+                             "decides on its real exposure; nothing to build")) for u, mp in {
+        "F-260": "no live listing has produced exposure, so no experiment has been concluded "
+                 "(or refused) on real data",
+        "F-261": "no live listing has produced impressions/clicks/sales, so no real "
+                 "underperformer has been diagnosed",
+        "F-282": "no live listing has produced exposure, so the zero-sales diagnosis has never "
+                 "run on real data",
+    }.items()},
     # K14 (lane FM): the drill the PARTIAL names is a production drill after the deploy.
     "F-135": dict(
         checked="lease expiry and fencing are proven by real-process kills (test_persistence "

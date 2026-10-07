@@ -10,8 +10,8 @@ Reachability: HEAD 8b67414 reachability; production fcb982d
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 78 | 34 | 7 | 331 | 150 | 317 |
-| launch-critical | 13 | 25 | 0 | 82 | 76 | 294 |
+| all rows | 81 | 34 | 7 | 331 | 150 | 314 |
+| launch-critical | 16 | 25 | 0 | 82 | 76 | 291 |
 | post-launch (not blocking) | 65 | 9 | 0 | 249 | 74 | 23 |
 
 Launch-critical OPEN-DEFECT: **82**
@@ -92,10 +92,13 @@ Launch-critical OPEN-DEFECT: **82**
 | F-253 Natural Photo + Product Truth | OWNER-GATED | DEPLOYED | owner:image_vision |
 | F-254 Gallery Information Architecture | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; th |
 | F-258 Conversion Evidence Loop | DATA-GATED | INTEGRATED | data:live_listings |
+| F-260 Listing Experiment Discipline | DATA-GATED | INTEGRATED | data:live_listings |
+| F-261 Underperformer Remediation | DATA-GATED | INTEGRATED | data:live_listings |
 | F-263 Ads Launch Readiness Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: ads eligibility requires owner authority, the #17 trust gate, a published listing (which requires the listing-set certific |
 | F-273 Offsite Ads Accounting | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-278 Hero Thumbnail Tournament | OWNER-GATED | INTEGRATED | owner:image_vision |
 | F-280 Launch Search Visibility Watch | DATA-GATED | MISSING | data:live_listings |
+| F-282 No Zero-Sales Panic | DATA-GATED | INTEGRATED | data:live_listings |
 | F-283 First-Sale Attribution | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-284 Review / Service Flywheel | DATA-GATED | INTEGRATED | data:customers |
 | F-285 Seasonal Keyword Refresh | DATA-GATED | INTEGRATED | data:insights_access |

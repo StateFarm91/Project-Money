@@ -8,19 +8,19 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 317,
+   "PROVEN": 314,
    "OWNER-GATED": 150,
    "OPEN-DEFECT": 331,
-   "DATA-GATED": 78,
+   "DATA-GATED": 81,
    "EXTERNAL-GATED": 34,
    "NOT-APPLICABLE": 7
   },
   "status_launch_critical": {
-   "PROVEN": 294,
+   "PROVEN": 291,
    "OWNER-GATED": 76,
    "OPEN-DEFECT": 82,
    "EXTERNAL-GATED": 25,
-   "DATA-GATED": 13
+   "DATA-GATED": 16
   },
   "status_post_launch": {
    "OPEN-DEFECT": 249,
@@ -7246,10 +7246,10 @@
    "title": "Listing Experiment Discipline",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "PROVEN",
+   "status": "DATA-GATED",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "FULL",
+   "coverage": "PARTIAL",
    "producer": "src/brambleloop/growth/experiments.py",
    "consumer": "`experiments.conclude_all` → `listing_discipline` → `commerce.listing_tests.exposure_refusal` (one shared rule)",
    "tests": [
@@ -7259,10 +7259,16 @@
     "tests/test_listing_tests.py::test_a_listing_nobody_saw_did_not_fail",
     "tests/test_listing_tests.py::test_an_unreadable_test_cannot_write_a_disproof"
    ],
-   "gate": null,
-   "reasons": [],
-   "next_action": "Route growth.conclude listing experiments through commerce/listing_tests.read/record so the exposure floor and disproof memory govern runtime conclusions; test that an unexposed runtime experiment writes nothing.",
-   "mapped_on": "fee1cfe",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "reasons": [
+    "data gate 'live_listings'",
+    "coverage PARTIAL: no live listing has produced exposure, so no experiment has been concluded (or refused) on real data"
+   ],
+   "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
+   "mapped_on": "8b67414",
    "w3_triage": "O",
    "w3_cluster": "K3",
    "claims": [
@@ -7278,20 +7284,26 @@
    "title": "Underperformer Remediation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "PROVEN",
+   "status": "DATA-GATED",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "FULL",
+   "coverage": "PARTIAL",
    "producer": "src/brambleloop/commerce/listing_outcomes.py",
    "consumer": "`portfolio.review`",
    "tests": [
     "tests/test_cert_orders.py::test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
     "tests/test_k3_listing_outcomes.py::test_a_listing_experiment_with_too_little_exposure_concludes_nothing"
    ],
-   "gate": null,
-   "reasons": [],
-   "next_action": "none — at target maturity for launch (after F-258 intake exists).",
-   "mapped_on": "fee1cfe",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "reasons": [
+    "data gate 'live_listings'",
+    "coverage PARTIAL: no live listing has produced impressions/clicks/sales, so no real underperformer has been diagnosed"
+   ],
+   "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
+   "mapped_on": "8b67414",
    "w3_triage": "O",
    "w3_cluster": "K3",
    "claims": [
@@ -7884,20 +7896,26 @@
    "title": "No Zero-Sales Panic",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "PROVEN",
+   "status": "DATA-GATED",
    "maturity": "INTEGRATED",
    "maturity_claimed": "INTEGRATED",
-   "coverage": "FULL",
+   "coverage": "PARTIAL",
    "producer": "src/brambleloop/commerce/listing_outcomes.py",
    "consumer": "`portfolio.review`",
    "tests": [
     "tests/test_cert_orders.py::test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
     "tests/test_k3_listing_outcomes.py::test_a_listing_experiment_with_too_little_exposure_concludes_nothing"
    ],
-   "gate": null,
-   "reasons": [],
-   "next_action": "none — at target maturity for launch (after F-258).",
-   "mapped_on": "fee1cfe",
+   "gate": {
+    "kind": "data",
+    "key": "live_listings"
+   },
+   "reasons": [
+    "data gate 'live_listings'",
+    "coverage PARTIAL: no live listing has produced exposure, so the zero-sales diagnosis has never run on real data"
+   ],
+   "next_action": "data gate live_listings: once a listing is live, the same rule decides on its real exposure; nothing to build",
+   "mapped_on": "8b67414",
    "w3_triage": "O",
    "w3_cluster": "K3",
    "claims": [

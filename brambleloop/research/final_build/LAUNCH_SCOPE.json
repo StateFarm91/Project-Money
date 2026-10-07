@@ -11,11 +11,11 @@
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
-     "rows": 180
+     "rows": 177
     },
     "8b67414": {
      "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
-     "rows": 44
+     "rows": 47
     }
    },
    "rows_on_base": 523,
@@ -2650,7 +2650,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "COMPLETE"
+   "completion": "GATED"
   },
   {
    "uid": "F-261",
@@ -2660,7 +2660,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "COMPLETE"
+   "completion": "GATED"
   },
   {
    "uid": "F-262",
@@ -2888,7 +2888,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "COMPLETE"
+   "completion": "GATED"
   },
   {
    "uid": "F-283",

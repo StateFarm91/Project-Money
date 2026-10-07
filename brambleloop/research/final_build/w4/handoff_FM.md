@@ -7,8 +7,8 @@ V11-MAP; then K13, K14, K15. K5a/K5b -> lane SPEND, K9 -> lane K9 (skipped).
 ## Whole Final Master (917 rows = v1.0 866 + v1.1 51), launch-critical
 | | at resume (ce36d9e) | now |
 |---|---|---|
-| PROVEN | 243 | 294 |
-| OWNER/DATA/EXTERNAL-GATED | 76 (v1.0 only) | 114 |
+| PROVEN | 243 | 291 |
+| OWNER/DATA/EXTERNAL-GATED | 76 (v1.0 only) | 117 |
 | OPEN-DEFECT | 171 (120 v1.0 + 51 v1.1 unmapped) | 82 |
 | ... after integrator accepts w4/OVERRIDES_PROPOSED_FM.json (19 structural rows, dry-run all COMPLETE) | | 63 |
 
@@ -26,6 +26,9 @@ V11-MAP; then K13, K14, K15. K5a/K5b -> lane SPEND, K9 -> lane K9 (skipped).
   closure_matrix.json, LAUNCH_SCOPE.json and the runtime snapshot build2/final_master_closure.json.
   v1.1: 41 COMPLETE, 8 GATED (deploy / bank feed / CASL), 2 OPEN (F-914 period controls ->
   CC wiring request; F-926 preview v2 -> lane STORE K16).
+- Fold correction: F-260/F-261/F-282 were COMPLETE with a data gate (fee1cfe fold wrote coverage
+  FULL); the runtime F-174 false-completion guard (tests/test_w3_k7_owner_queue.py) refused it.
+  Now GATED data live_listings with the real-data half named. No COMPLETE row carries a data gate.
 - K15: F-913/F-915/F-927 PROVEN via the provider-table edge; F-914 OPEN (wiring request below).
 - tests/test_final_closure_matrix.py: registry-equality now covers v1.0 + v1.1 (stricter, not looser).
 - w4/fm_ledger.py reads v1.1 from the canonical matrix.
@@ -55,7 +58,8 @@ Accept by copying entries into research/final_build/overrides.json with accepted
 test_w4_fm_provider_table 4, test_reachability, test_w3_reachability_dynamic, test_final_closure_matrix 12,
 test_w3_final_master_gate 13, test_w3_overrides_proposed 6, test_maturity_request_snapshot 5,
 test_final_proof, test_closure 27, test_master_registry_v11 5, test_final_master_registry 5,
-test_vacuity, test_secret_scan, test_w3_tmp_hygiene.
+test_vacuity, test_secret_scan, test_w3_tmp_hygiene, test_w3_k7_owner_queue 10/10, test_launch 28,
+test_w3_hq_independence 4.
 
 ## Resume
 `git -C .claude/worktrees/W4-FM log -1`; regenerate: `python3 research/final_build/w4/close_fm.py --apply
