@@ -22,6 +22,15 @@ Branch `claude/w4-AUTO` (from claude/visual-investigation fee1cfe; merged origin
 - autonomy_map.json regenerated (cadences 112, handlers 130).
 - Tests: tests/test_w4_auto_status.py (8 OK).
 
+## Wiring from W4-SPEND / W4-GATESB (2026-10-07) -- done, tests/test_w4_auto_spend_wiring.py (9 OK)
+| Row | Status | Evidence |
+|---|---|---|
+| F-098 outage degradation | PROVEN (code) | `runtime.worker.park_if_model_down` / `model_provider_down` (evidence only: failover DOWN, open Anthropic funding action, failed probe; unprobed = unknown, parks nothing); `MODEL_JOB_TYPES` narrow; pending, attempt not counted, audited `ai.parked`; >24h runs and reports its own refusal. Tests `test_model_job_parks_while_the_provider_is_down`, `test_unprobed_provider_is_unknown_not_down_and_parks_nothing`, `test_non_model_job_is_never_parked`, `test_long_parked_job_runs_and_reports_its_own_refusal` |
+| F-310 new evidence requirement | PROVEN (code) | `swarm.orchestrate._progress` counts new content-distinct audit rows per job (`new_evidence_rows`; bookkeeping prefixes excluded); restated rows are not progress. `test_progress_counts_new_evidence_rows_and_ignores_restatements` |
+| F-659 durable checkpoints | PROVEN (primitive) | `queue/checkpoints.py` (`job_checkpoints`, registered via autonomy.models), `JobQueue.checkpoint/restore`, `JobContext.checkpoint/restore`, fenced to lease token, cleared on complete; paid-call replay untouched (test_w3_spend_paid_calls 8 OK). `test_checkpoint_resumes_after_reclaim_without_repeating_steps`, `test_stale_worker_cannot_overwrite_a_checkpoint`. Adoption inside release.py handlers (model photography / seasonal cycle) = WIRING REQUEST to release.py owner |
+| GATESB blockers | PROVEN | `autonomy.status.gate_blocker` via `build2.closure.kind_of` (owner/data/external; unclassified -> company); used in summary, agents, map. `test_gate_blockers_name_who_they_wait_on_from_the_closure_classifier` |
+| store.live_drift band | fixed | `truth_defect` band (test_swarm_runtime band test) |
+
 ## In progress / next deterministic actions
 1. After-proof: `python -m brambleloop.autonomy.proof --seconds 600 --out $TMPDIR/after.json --keep-db $TMPDIR/after.sqlite`
    -> copy to evidence/AUTO_after_proof.json.
