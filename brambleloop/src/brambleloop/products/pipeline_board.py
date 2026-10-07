@@ -538,7 +538,7 @@ def _visual(c: Candidate, store) -> None:
     try:
         rec = disclosed_listing.build(cir, store=store)
     except Exception as exc:  # noqa: BLE001
-        c.set("VISUAL", FAIL, f"{type(exc).__name__}: {exc}"[:300], "W4-CREATIVE: renderer")
+        c.set("VISUAL", FAIL, f"{type(exc).__name__}: {exc}"[:300], "W4-RENDER: renderer")
         return
     frames = [(f["view"], f["structural_truth"]["status"]) for f in rec.get("frames") or []]
     in_scope = c.slug in launch0.launch_scope_slugs()
@@ -557,7 +557,7 @@ def _visual(c: Candidate, store) -> None:
               "the disclosed renderer cannot name this round piece's outline (staggered "
               "increases: cir.geometry.corners returns None); renderer/geometry work"
               if "neither all stack nor all stagger" in why else
-              "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not "
+              "renderer refused this design (W4-RENDER owns the renderer; the gate is not "
               "relaxed): change the palette/design to one it can draw and verify")
     else:
         status = UNKNOWN if all(s == UNKNOWN for _, s in frames) else FAIL
@@ -566,7 +566,8 @@ def _visual(c: Candidate, store) -> None:
                "truth is UNKNOWN until the product is registered as a Launch-0 candidate "
                "(cap 5 products; promotion is a catalogue decision, see backlog notes)")
               if status == UNKNOWN and not in_scope else
-              "repair the frames the verifier/QA refused (W4-CREATIVE)")
+              "repair the frames the verifier/QA refused (renderer fixes: W4-RENDER; the gate "
+              "is not relaxed)")
 
 
 def _search(c: Candidate, proposal: Proposal | None, scored: dict) -> None:

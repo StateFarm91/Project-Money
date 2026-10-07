@@ -577,9 +577,9 @@
    "source": "launch0",
    "stage": "SEARCH",
    "highest_passed": "VISUAL",
-   "stage_status": "FAIL",
-   "next_step": "fix the listing copy the gates refuse",
-   "clearer": "COMPANY",
+   "stage_status": "UNKNOWN",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -663,29 +663,21 @@
      "clearer": "COMPANY"
     },
     "SEARCH": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
+      "source": "release chain listing.seo",
+      "listing_id": 1,
       "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
-      "tags": [
-       "cloudline crochet",
-       "baby crochet",
-       "cloudline pattern",
-       "baby pattern",
-       "crochet pattern pdf",
-       "crochet chart",
-       "written and chart",
-       "us and uk terms",
-       "digital download",
-       "crochet gift idea",
-       "instant download"
-      ],
-      "copy_problems": [
-       "LISTING_DESCRIPTION_THIN: 0 characters"
-      ],
-      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+      "tags": 13,
+      "price_cad": 7.5,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
      },
-     "next_step": "fix the listing copy the gates refuse",
-     "clearer": "COMPANY"
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
     },
     "LISTING_READINESS": {
      "status": "BLOCKED",
@@ -1142,7 +1134,7 @@
    "stage": "VISUAL",
    "highest_passed": "PRODUCT_TRUTH",
    "stage_status": "FAIL",
-   "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+   "next_step": "repair the frames the verifier/QA refused (renderer fixes: W4-RENDER; the gate is not relaxed)",
    "clearer": "COMPANY",
    "stages": {
     "INTELLIGENCE": {
@@ -1204,15 +1196,29 @@
     "VISUAL": {
      "status": "FAIL",
      "evidence": {
-      "made": false,
+      "made": true,
       "usable": false,
-      "frames": [],
+      "frames": [
+       [
+        "hero",
+        "PASS"
+       ],
+       [
+        "scale",
+        "PASS"
+       ],
+       [
+        "detail",
+        "PASS"
+       ]
+      ],
       "launch_blocked": [
-       "renderer refused: harvest-table-runner: palette too close to a contract colour to measure"
+       "hero: 340 px legibility ['the product fills 13% of the frame at 340 px']",
+       "scale: 340 px legibility ['the product fills 14% of the frame at 340 px']"
       ],
       "launch_scope": false
      },
-     "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+     "next_step": "repair the frames the verifier/QA refused (renderer fixes: W4-RENDER; the gate is not relaxed)",
      "clearer": "COMPANY"
     }
    }
@@ -1382,9 +1388,9 @@
    "source": "launch0",
    "stage": "SEARCH",
    "highest_passed": "VISUAL",
-   "stage_status": "FAIL",
-   "next_step": "fix the listing copy the gates refuse",
-   "clearer": "COMPANY",
+   "stage_status": "UNKNOWN",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -1458,30 +1464,21 @@
      "clearer": "COMPANY"
     },
     "SEARCH": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
+      "source": "release chain listing.seo",
+      "listing_id": 2,
       "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
-      "tags": [
-       "hexagon crochet",
-       "coaster crochet",
-       "hexagon pattern",
-       "coaster pattern",
-       "crochet pattern",
-       "crochet pattern pdf",
-       "crochet chart",
-       "written and chart",
-       "us and uk terms",
-       "digital download",
-       "crochet gift idea",
-       "instant download"
-      ],
-      "copy_problems": [
-       "LISTING_DESCRIPTION_THIN: 0 characters"
-      ],
-      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+      "tags": 13,
+      "price_cad": 4.0,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
      },
-     "next_step": "fix the listing copy the gates refuse",
-     "clearer": "COMPANY"
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
     },
     "LISTING_READINESS": {
      "status": "BLOCKED",
@@ -1590,9 +1587,9 @@
    "source": "launch0",
    "stage": "SEARCH",
    "highest_passed": "VISUAL",
-   "stage_status": "FAIL",
-   "next_step": "fix the listing copy the gates refuse",
-   "clearer": "COMPANY",
+   "stage_status": "UNKNOWN",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -1666,30 +1663,21 @@
      "clearer": "COMPANY"
     },
     "SEARCH": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "title": "Hexagonal Market Basket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
-      "tags": [
-       "market crochet",
-       "basket crochet",
-       "market pattern",
-       "basket pattern",
-       "crochet pattern",
-       "crochet pattern pdf",
-       "crochet chart",
-       "written and chart",
-       "us and uk terms",
-       "digital download",
-       "crochet gift idea",
-       "instant download"
-      ],
-      "copy_problems": [
-       "LISTING_DESCRIPTION_THIN: 0 characters"
-      ],
-      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+      "source": "release chain listing.seo",
+      "listing_id": 8,
+      "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+      "tags": 13,
+      "price_cad": 6.5,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
      },
-     "next_step": "fix the listing copy the gates refuse",
-     "clearer": "COMPANY"
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
     },
     "LISTING_READINESS": {
      "status": "BLOCKED",
@@ -1717,9 +1705,9 @@
    "source": "launch0",
    "stage": "SEARCH",
    "highest_passed": "VISUAL",
-   "stage_status": "FAIL",
-   "next_step": "fix the listing copy the gates refuse",
-   "clearer": "COMPANY",
+   "stage_status": "UNKNOWN",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -1793,30 +1781,21 @@
      "clearer": "COMPANY"
     },
     "SEARCH": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Market | Written Instructions and Chart | US and UK Terms",
-      "tags": [
-       "market crochet",
-       "basket crochet",
-       "market pattern",
-       "basket pattern",
-       "crochet pattern",
-       "crochet pattern pdf",
-       "crochet chart",
-       "written and chart",
-       "us and uk terms",
-       "digital download",
-       "crochet gift idea",
-       "instant download"
-      ],
-      "copy_problems": [
-       "LISTING_DESCRIPTION_THIN: 0 characters"
-      ],
-      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+      "source": "release chain listing.seo",
+      "listing_id": 7,
+      "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+      "tags": 13,
+      "price_cad": 6.5,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
      },
-     "next_step": "fix the listing copy the gates refuse",
-     "clearer": "COMPANY"
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
     },
     "LISTING_READINESS": {
      "status": "BLOCKED",
@@ -1844,9 +1823,9 @@
    "source": "launch0",
    "stage": "SEARCH",
    "highest_passed": "VISUAL",
-   "stage_status": "FAIL",
-   "next_step": "fix the listing copy the gates refuse",
-   "clearer": "COMPANY",
+   "stage_status": "UNKNOWN",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -1920,30 +1899,21 @@
      "clearer": "COMPANY"
     },
     "SEARCH": {
-     "status": "FAIL",
+     "status": "UNKNOWN",
      "evidence": {
-      "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Market | Written Instructions and Chart | US and UK Terms",
-      "tags": [
-       "market crochet",
-       "basket crochet",
-       "market pattern",
-       "basket pattern",
-       "crochet pattern",
-       "crochet pattern pdf",
-       "crochet chart",
-       "written and chart",
-       "us and uk terms",
-       "digital download",
-       "crochet gift idea",
-       "instant download"
-      ],
-      "copy_problems": [
-       "LISTING_DESCRIPTION_THIN: 0 characters"
-      ],
-      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+      "source": "release chain listing.seo",
+      "listing_id": 6,
+      "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+      "tags": 13,
+      "price_cad": 6.5,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
      },
-     "next_step": "fix the listing copy the gates refuse",
-     "clearer": "COMPANY"
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
     },
     "LISTING_READINESS": {
      "status": "BLOCKED",
@@ -2362,12 +2332,12 @@
   {
    "slug": "nordic-star-ornaments",
    "title": "Nordic Snowflake Ornament Set (6)",
-   "source": "catalogue",
-   "stage": "VISUAL",
-   "highest_passed": "PRODUCT_TRUTH",
+   "source": "launch0",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
    "stage_status": "UNKNOWN",
-   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
-   "clearer": "COMPANY",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -2390,7 +2360,7 @@
     "DESIGN": {
      "status": "PASS",
      "evidence": {
-      "builder": "catalogue",
+      "builder": "launch0",
       "construction": "flat_rows",
       "components": [
        [
@@ -2426,33 +2396,64 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "UNKNOWN",
+     "status": "PASS",
      "evidence": {
       "made": true,
-      "usable": false,
+      "usable": true,
       "frames": [
        [
         "hero",
-        "UNKNOWN"
+        "PASS"
        ],
        [
         "scale",
-        "UNKNOWN"
+        "PASS"
        ],
        [
         "detail",
-        "UNKNOWN"
+        "PASS"
        ]
       ],
-      "launch_blocked": [
-       "hero: structural truth UNKNOWN",
-       "scale: structural truth UNKNOWN",
-       "detail: structural truth UNKNOWN"
-      ],
-      "launch_scope": false
+      "launch_blocked": [],
+      "launch_scope": true
      },
-     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "next_step": "",
      "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "source": "release chain listing.seo",
+      "listing_id": 3,
+      "title": "Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US and UK Terms",
+      "tags": 13,
+      "price_cad": 4.5,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ],
+      "clearers": [
+       "EXTERNAL",
+       "OWNER"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL, OWNER",
+     "clearer": "EXTERNAL,OWNER"
     }
    }
   },
@@ -2496,11 +2497,11 @@
    "slug": "pet-snuggle-mat",
    "title": "Pet Snuggle Mat",
    "source": "catalogue",
-   "stage": "VISUAL",
-   "highest_passed": "PRODUCT_TRUTH",
-   "stage_status": "FAIL",
-   "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
-   "clearer": "COMPANY",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
+   "stage_status": "UNKNOWN",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -2559,18 +2560,60 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "FAIL",
+     "status": "PASS",
      "evidence": {
-      "made": false,
-      "usable": false,
-      "frames": [],
-      "launch_blocked": [
-       "renderer refused: pet-snuggle-mat: palette too close to a contract colour to measure"
+      "made": true,
+      "usable": true,
+      "frames": [
+       [
+        "hero",
+        "PASS"
+       ],
+       [
+        "scale",
+        "PASS"
+       ],
+       [
+        "detail",
+        "PASS"
+       ]
       ],
+      "launch_blocked": [],
       "launch_scope": false
      },
-     "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+     "next_step": "",
      "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "source": "release chain listing.seo",
+      "listing_id": 5,
+      "title": "Pet Snuggle Mat | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+      "tags": 13,
+      "price_cad": 5.11,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ],
+      "clearers": [
+       "EXTERNAL"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL",
+     "clearer": "EXTERNAL"
     }
    }
   },
@@ -3011,12 +3054,12 @@
   {
    "slug": "winter-village-graphghan",
    "title": "Winter Snowfall Relief Throw",
-   "source": "catalogue",
-   "stage": "VISUAL",
-   "highest_passed": "PRODUCT_TRUTH",
+   "source": "launch0",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
    "stage_status": "UNKNOWN",
-   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
-   "clearer": "COMPANY",
+   "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+   "clearer": "EXTERNAL",
    "stages": {
     "INTELLIGENCE": {
      "status": "PASS",
@@ -3039,7 +3082,7 @@
     "DESIGN": {
      "status": "PASS",
      "evidence": {
-      "builder": "catalogue",
+      "builder": "launch0",
       "construction": "flat_rows",
       "components": [
        [
@@ -3075,33 +3118,64 @@
      "clearer": "COMPANY"
     },
     "VISUAL": {
-     "status": "UNKNOWN",
+     "status": "PASS",
      "evidence": {
       "made": true,
-      "usable": false,
+      "usable": true,
       "frames": [
        [
         "hero",
-        "UNKNOWN"
+        "PASS"
        ],
        [
         "scale",
-        "UNKNOWN"
+        "PASS"
        ],
        [
         "detail",
-        "UNKNOWN"
+        "PASS"
        ]
       ],
-      "launch_blocked": [
-       "hero: structural truth UNKNOWN",
-       "scale: structural truth UNKNOWN",
-       "detail: structural truth UNKNOWN"
-      ],
-      "launch_scope": false
+      "launch_blocked": [],
+      "launch_scope": true
      },
-     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "next_step": "",
      "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "source": "release chain listing.seo",
+      "listing_id": 4,
+      "title": "Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket | US and UK Terms",
+      "tags": 13,
+      "price_cad": 7.5,
+      "search_certificate": "REFUSED",
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      ]
+     },
+     "next_step": "listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo",
+     "clearer": "EXTERNAL"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ],
+      "clearers": [
+       "EXTERNAL",
+       "OWNER"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL, OWNER",
+     "clearer": "EXTERNAL,OWNER"
     }
    }
   },
@@ -3935,8 +4009,8 @@
   "DESIGN": 23,
   "PRODUCT": 0,
   "PRODUCT_TRUTH": 10,
-  "VISUAL": 19,
-  "SEARCH": 5,
+  "VISUAL": 16,
+  "SEARCH": 8,
   "LISTING_READINESS": 0,
   "PUBLICATION": 0
  },
@@ -3945,7 +4019,7 @@
   "DESIGN": 34,
   "PRODUCT": 34,
   "PRODUCT_TRUTH": 24,
-  "VISUAL": 5,
+  "VISUAL": 8,
   "SEARCH": 0,
   "LISTING_READINESS": 0,
   "PUBLICATION": 0
@@ -3985,8 +4059,8 @@
  "findings_as_of": "2026-10-07",
  "advances_publication": false,
  "publication_gate": "owner: shop/KYC, payout, fees, phase, sealed publication grant per release (D-FB-10); never advanced by this board",
- "generated_at": "2026-10-07T01:44:01+00:00",
- "head": "e72f086",
+ "generated_at": "2026-10-07T09:15:28+00:00",
+ "head": "8e5f825",
  "pipe2_rows": {
   "by": "W4-PIPE2 research/final_build/w4/pipe2_run.py",
   "slugs": [
@@ -4001,5 +4075,12 @@
   ],
   "at": "2026-10-07T02:55:35+00:00",
   "detail": "PIPE2_CANDIDATES.json"
+ },
+ "pipe_rows_refreshed": {
+  "slugs": [
+   "harvest-table-runner"
+  ],
+  "chain_db": true,
+  "at": "2026-10-07T09:15:28+00:00"
  }
 }

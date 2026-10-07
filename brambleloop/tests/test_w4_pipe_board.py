@@ -185,7 +185,16 @@ def main():
     check("garland_without_cord_is_not_a_garland",
           not _l0.assembly_promise(bare)["backed"]
           and any(n.startswith("assembly") for n in name_truth(bare)))
-    check("ornaments_now_true", inventory.static_truth("nordic-star-ornaments")["title_promise"]["backed"])
+    # A piece worked on from held stitches is joined by construction (no seam to sew); loose
+    # pieces with neither a seam nor a held-stitch continuation are still not the object.
+    from brambleloop.products.moment_candidates import mothers_day_heart_tea_cosy
+    cosy = mothers_day_heart_tea_cosy()
+    ap = _l0.assembly_promise(cosy)
+    check("worked_on_join_backs_assembled_form", ap["backed"] and ap["seams"] == 0
+          and ap["worked_on_joins"] == 2, ap)
+    loose = replace(cosy, components=[replace(c, resumes=None) for c in cosy.components])
+    check("loose_pieces_without_join_still_refused", not _l0.assembly_promise(loose)["backed"])
+    check("ornaments_now_true",inventory.static_truth("nordic-star-ornaments")["title_promise"]["backed"])
 
     # A reserve (outside Launch-0) is held to the Launch-0 standard before it is a candidate:
     # render authority, usable imagery and the first-customer gate on its stored release.
