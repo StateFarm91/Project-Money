@@ -1237,3 +1237,51 @@ def handle_listing_census(ctx: JobContext) -> dict:
             "field_drift": sorted(drift), "delivery": delivery,
             "refused_renewals": [r["listing_id"] for r in renewals["refused_renewals"]],
             "expired": sorted({p["listing_id"] for p in renewals["proposals"]})}
+
+
+# ---- W4-STORE: the live storefront is authoritative -- read-back drift job --------------
+
+LIVE_DRIFT_READING = "store.live_drift"
+LIVE_OWNER_FIELD_BLANK = "store.live:owner_field_blank:"
+
+
+@handlers.register("store.live_drift")
+def handle_store_live_drift(ctx: JobContext) -> dict:
+    """Repo draft vs live shop, from stored readings only (getShop snapshot + owner
+    observations). Stores the drift report; never writes to Etsy and never edits a draft.
+
+    Owner-configured fields (logo, banner, title, About, Laura's member profile/role) are
+    authoritative live: a difference proposes ADOPT_LIVE_INTO_REPO, never a write. An owner
+    field the live read shows blank opens a P3 incident (the owner reported setting it), which
+    resolves on a later reading that shows it set. UNKNOWN fields open and resolve nothing.
+    """
+    from ..ops import incident_lifecycle as lifecycle
+    from ..store_foundation import live_state
+
+    report = live_state.drift(ctx.db)
+    store_reading(ctx.db, LIVE_DRIFT_READING, report)
+    opened, resolved = [], []
+    with ctx.db.session() as s:
+        for row in report["fields"]:
+            if not row["owner_configured"] or row["status"] == live_state.UNKNOWN:
+                continue
+            signature = f"{LIVE_OWNER_FIELD_BLANK}{row['field']}"
+            if row["status"] == live_state.LIVE_BLANK_OWNER_FIELD:
+                _, new = lifecycle.open_or_restate(
+                    s, signature=signature, severity="P3", halts_publication=False,
+                    summary=f"{row['label']}: the owner configured it but the live read "
+                            f"({row['live_source']}, {row['observed_at']}) shows it blank",
+                    detail={"field": row["field"], "proposal": row["proposal"]})
+                if new:
+                    opened.append(signature)
+            else:
+                resolved += lifecycle.resolve_signatures(
+                    s, [signature], resolution=f"live read at {row['observed_at']} shows "
+                                               f"{row['field']} set")
+    ctx.audit("store.live_drift", detail={
+        "counts": report["counts"], "unknown": report["unknown"],
+        "proposals": len(report["proposals"]), "findings": report["findings"][:10],
+        "incidents_opened": opened, "incidents_resolved": resolved, "writes_performed": 0})
+    return {"counts": report["counts"], "unknown": len(report["unknown"]),
+            "proposals": len(report["proposals"]), "findings": len(report["findings"]),
+            "incidents_opened": opened, "writes_performed": 0}
