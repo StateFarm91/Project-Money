@@ -25,8 +25,16 @@ of public, unauthenticated endpoints, or repository history.
   active / sleeping / blocked / unhealthy / UNKNOWN, current job, last useful result, next wake;
   owner actions, approvals, store, pipeline, finance, autonomy/learn, Build 2 closure, Final
   Master closure, visual, blockers), **Completion effort** (lanes from
-  `research/final_build/w4/COMPLETION_BOARD.json`), Operations, Autonomy & Learn, Insights,
+  `research/final_build/w4/COMPLETION_BOARD.json`, both the CC schema and the integrator's
+  `wave4.completion_board.v1`), Operations, Autonomy & Learn, Insights,
   Notifications, Timeline, Ask, Account, Emergency.
+- Wave-4 wiring (2026-10-07): **Company** also shows visual pipeline stages from
+  `VISUAL_STATUS.json` (each stage "STATUS (basis)", e.g. D = PARTIAL (measured), the stale
+  dashboard value shown as superseded), competitor findings (`intel.findings.latest`, each with
+  provenance + confidence grade), and live-shop-vs-repo drift. **Store** shows live drift
+  (repo proposals ADOPT_LIVE_INTO_REPO only; software never writes to Etsy), STORE_READINESS
+  counts + every non-PROVEN item with its gate, competitor findings, and a form to record what
+  the live shop shows (`POST /api/store/live_observation`).
 - The existing server-rendered dashboard `/` and all `/api/*` reads keep working (head adds
   routes; see §5 for one performance caveat).
 - Everything else in the 665-commit integrated head ships with it (Build 2 runtime, v1.1 lanes
@@ -67,6 +75,7 @@ No secret is stored in the repository; the hash and TOTP secret are entered in R
 | Class | Count | Control | Verdict |
 |---|---|---|---|
 | `/api/cc/*` owner-session | 61 (+2 public: `GET /api/cc/auth/status`, `POST /api/cc/auth/login`) | `security.operator_gate` → `auth.gate`: default-deny for the whole prefix; `__Host-bl_cc` cookie `HttpOnly; Secure; SameSite=Strict`, only SHA-256 stored, 12 h absolute / 2 h idle, revocable; every mutation needs `X-CSRF-Token` (HMAC of session) + fresh `X-CC-Nonce` + `X-CC-Timestamp` (±120 s, single use) + same-origin `Origin`/`Sec-Fetch-Site`; consequential actions need step-up within 5 min (5 failed step-ups revoke); login and mutation rate limits; every refusal audited in `cc_security_events`. The operator bearer token is **not** accepted as an owner session (tested). | PASS — `test_route_auth_default_deny` 7/7, `test_rc1_auth` 11/11, `test_v11_cc_auth`, `test_w4_cc_company::test_routes_default_deny_without_owner_session` |
+| W4 wiring routes | 2 | `POST /api/store/live_observation`: in `security.OWNER_SESSION_PAGES`, so `auth.gate` requires owner session + same-origin + CSRF + fresh nonce; body validated by `live_state.record_observation` (unknown fields/future dates refused, 400 audited in `cc_security_events`); success appends one `store.live_observation` audit row with actor `owner:cc:<session>`; performs no Etsy write. `GET /api/mjs/findings`: in `OPERATOR_GET_ROUTES` (operator bearer; the owner reads the same data through `/api/cc/company` and `/api/cc/store`). | PASS — `test_w4_cc_company` (17/17) incl. no-session 401, bearer-only 401, no-CSRF 403; `test_route_auth_default_deny` |
 | `/cc/` static PWA shell + `/cc/store-preview` | static; store-preview owner-session gated | `_StrictStatic`: CSP `default-src 'none'; script-src 'self'; style-src 'self'; … frame-ancestors 'none'; object-src 'none'` (no inline script or style), `Cache-Control: no-cache`; the shell holds no data; service worker never caches `/api/` | PASS — `test_v11_pwa_static`, `test_v11_pwa_browser` (108 checks at 390×844, 0 console/CSP errors) |
 | operator-bearer routes | 61 (all non-GET outside `/api/cc/` + `OPERATOR_GET_ROUTES`) | `core.opsauth` bearer; 503 when unconfigured, 401/403 when wrong | PASS (default-deny test walks every route incl. routers) |
 | public mutating, justified | 1 (`POST /api/learn/lessons/{slug}/review`, own reviewer credential) | separate credential | unchanged |

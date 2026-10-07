@@ -69,6 +69,8 @@ export const ENDPOINTS = {
   autonomy: () => `${API_BASE}/autonomy`,
   company: () => `${API_BASE}/company`,
   completion: () => `${API_BASE}/completion`,
+  // W4-STORE: owner-session gated (CSRF + nonce) although it is outside API_BASE.
+  liveObservation: () => "/api/store/live_observation",
   insights: () => `${API_BASE}/insights`,
   timeline: (limit = 50) => `${API_BASE}/timeline${q({ limit })}`,
   notifications: () => `${API_BASE}/notifications`,
@@ -270,6 +272,7 @@ export const api = {
   autonomy: () => get(ENDPOINTS.autonomy()),
   company: () => get(ENDPOINTS.company()),
   completion: () => get(ENDPOINTS.completion()),
+  liveObservation: (observedAt, fields, statement) => post(ENDPOINTS.liveObservation(), { observed_at: observedAt, fields, statement }),
   insights: () => get(ENDPOINTS.insights()),
   timeline: (limit) => get(ENDPOINTS.timeline(limit)),
   notifications: () => get(ENDPOINTS.notifications()),

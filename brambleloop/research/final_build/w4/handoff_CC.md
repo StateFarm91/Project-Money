@@ -19,7 +19,21 @@ Worktree `/home/user/Project-Money/.claude/worktrees/W4-CC`. TMPDIR `/home/user/
   (schema in the file's `schema` key; validated by `company.validate_board`).
 - PWA: `company` and `completion` views (More menu + Home quick links), sw shell v5,
   phone-size Playwright check extended (tests/fixtures/cc_mock): 108/108.
-- Deploy-readiness package: research/final_build/w4/CC_DEPLOY_PACKAGE.md.
+- Deploy-readiness package: research/final_build/w4/CC_DEPLOY_PACKAGE.md (updated for wiring).
+- Merged origin/claude/w4-INTEG (MJS + STORE). COMPLETION_BOARD.json conflict resolved to the
+  integrator's version; `company.normalize_board` reads its `wave4.completion_board.v1` schema
+  (lowercase status, responsible/started/last_update, rows_closed id list; an empty list on a
+  non-DONE lane = UNKNOWN, never 0) plus the owner-dashboard baseline as a dated snapshot.
+- Wiring (a) W4-MJS: operator-only `GET /api/mjs/findings` (main.py, OPERATOR_GET_ROUTES);
+  `company.competitor_intel` section (provenance + confidence grade) on Company and Store.
+- Wiring (b) W4-STORE: `POST /api/store/live_observation` (security.OWNER_SESSION_PAGES ->
+  owner session + CSRF + nonce; audited row `store.live_observation`, actor owner:cc:<sid>;
+  no Etsy write); Store tab `live_drift` (repo_proposals = ADOPT_LIVE_INTO_REPO only, owner
+  instructions separate, writes_performed 0) + `store_readiness` (counts + non-PROVEN items,
+  10-min memo) + record-observation form in the PWA (sw shell v6).
+- Wiring (c) W4-VISUAL: `company.visual_stages` reads VISUAL_STATUS.json
+  (`BRAMBLELOOP_VISUAL_STATUS` overrides); stage display "STATUS (basis)", D = PARTIAL
+  (measured) with the stale dashboard value as `superseded_display`; absent file = UNKNOWN.
 
 ## Tests run
 test_w4_cc_company 12/12; test_v11_pwa_browser 108/108; test_route_auth_default_deny 7/7;
@@ -30,6 +44,8 @@ test_rc1_auth 11/11; others: see final report.
    after `COPY release ./release`. Without it the production Completion tab is UNKNOWN
    ("board not found"), honestly, but useless. (Alternative: set
    `BRAMBLELOOP_COMPLETION_BOARD` to a path that is in the image.)
+3. **Dockerfile (integrator):** also `COPY research/final_build/w4/VISUAL_STATUS.json` (after
+   W4-VISUAL merges) so the Company "Visual pipeline stages" card is not UNKNOWN in production.
 2. **Integrator:** keep COMPLETION_BOARD.json current (bump `updated_at`; a RUNNING lane with
    `last_update_at` older than 3 h is shown STALE).
 

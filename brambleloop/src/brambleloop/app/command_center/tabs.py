@@ -430,7 +430,15 @@ def _seo_w3(seo: dict) -> dict:
 
 def store(db) -> dict:
     seo = providers.call("seo", db)
+    from . import company as company_mod
+
     return _tab("STORE", {"store_foundation": providers.call("store_foundation", db),
+                          "live_drift": guard("live_drift",
+                                              lambda: company_mod.store_live_drift(db)),
+                          "store_readiness": guard("store_readiness",
+                                                   lambda: company_mod.store_readiness(db)),
+                          "competitor_intel": guard("competitor_intel",
+                                                    lambda: company_mod.competitor_intel(db)),
                           "seo": seo, "seo_w3": _seo_w3(seo),
                           "products": readers.products(db),
                           "launch_verdict": guard("launch_verdict", lambda: launch_verdict(db),

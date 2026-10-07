@@ -543,6 +543,9 @@ def company(db) -> dict:
         "build2_closure": b2,
         "final_master_closure": fm,
         "visual": visual,
+        "visual_stages": guard("visual_stages", visual_stages),
+        "competitor_intel": guard("competitor_intel", lambda: competitor_intel(db)),
+        "store_live_drift": guard("store_live_drift", lambda: store_live_drift(db)),
         "laura": {**laura, "talk_href": "#/laura"},
         "blockers": _blockers(db, depts, fm, owner),
         "completion_effort": {k: comp.get(k) for k in
@@ -552,6 +555,158 @@ def company(db) -> dict:
     }
     return {"tab": "COMPANY", "generated_at": now_iso(), "status": overall, "reason": why,
             "sections": sections}
+
+
+# ---- W4 wiring: competitor findings (MJS), live store drift + readiness (STORE), visual -----
+
+_REPO = Path(__file__).resolve().parents[4]
+VISUAL_ENV = "BRAMBLELOOP_VISUAL_STATUS"
+VISUAL_REL = Path("research") / "final_build" / "w4" / "VISUAL_STATUS.json"
+
+
+def competitor_intel(db) -> dict:
+    """The latest `mjs.findings` reading: each finding with provenance and confidence."""
+    from ...intel import findings as intel_findings
+
+    src = ["intel.findings.latest (operating_readings kind mjs.findings)", "/api/mjs/findings"]
+    latest = intel_findings.latest(db)
+    if latest is None:
+        return unknown("no competitor findings reading stored yet: intel.findings.refresh has "
+                       "not run against this database (it needs stored mjs.scan observations)",
+                       "intel.findings", src)
+    items = []
+    for f in latest.get("findings") or []:
+        prov = f.get("provenance") or {}
+        conf = f.get("confidence") or {}
+        items.append({"title": f.get("statement"), "key": f.get("key"),
+                      "category": f.get("category"),
+                      "confidence": conf.get("grade"), "confidence_basis": conf.get("basis"),
+                      "provenance_source": prov.get("source"),
+                      "benchmark": prov.get("benchmark_key"), "sample": prov.get("sample"),
+                      "observed_from": prov.get("observed_from"),
+                      "observed_to": prov.get("observed_to"), "method": prov.get("method"),
+                      "opportunity": f.get("opportunity") or None})
+    blocked = latest.get("blocked_sources") or []
+    unmeasured = latest.get("unmeasured") or []
+    as_of = latest.get("generated_at") or latest.get("as_of")
+    return envelope("OK" if items else "UNKNOWN", items, src, provider="intel.findings",
+                    as_of=str(as_of) if as_of else None, basis="measured" if items else "unknown",
+                    reason=(None if items else "the latest reading holds no findings"),
+                    unmeasured=unmeasured, blocked_sources=blocked,
+                    changed_since_previous=latest.get("changed_since_previous"),
+                    note="demand/merchandising intelligence only; no competitor instructions, "
+                         "charts or photography are stored or reproduced. A 'proxy' grade is a "
+                         "labelled proxy, not a measurement.")
+
+
+def store_live_drift(db) -> dict:
+    """Live storefront vs repo drafts, field by field (stored readings only, no network)."""
+    from ...runtime import etsy_ops
+    from ...store_foundation import live_state
+
+    src = ["store_foundation.live_state.drift", "audit_log store.live_observation",
+           "operating_readings etsy.shop_snapshot / store.live_drift",
+           "POST /api/store/live_observation"]
+    d = live_state.drift(db)
+    job = etsy_ops.latest_reading(db, live_state.DRIFT_READING)
+    rows = d.get("fields") or []
+    items = []
+    for r in rows:
+        prop = r.get("proposal") or {}
+        items.append({"title": r.get("label"), "field": r.get("field"),
+                      "status": r.get("status"), "live_state": r.get("live_state"),
+                      "live_source": r.get("live_source"), "observed_at": r.get("observed_at"),
+                      "owner_configured": r.get("owner_configured"),
+                      "proposal": prop.get("kind"), "proposal_why": prop.get("why"),
+                      "write_allowed": False})
+    counts = d.get("counts") or {}
+    known = [r for r in rows if r.get("status") != live_state.UNKNOWN]
+    drifted = sum(counts.get(k, 0) for k in (live_state.DRIFT, live_state.LIVE_MISSING,
+                                             live_state.LIVE_UNEXPECTED, live_state.STALE,
+                                             live_state.LIVE_AUTHORITATIVE_DIFFERS))
+    status = ("UNKNOWN" if not known else "DEGRADED" if drifted else "OK")
+    adopt = [p for p in d.get("proposals") or [] if p.get("kind") == live_state.ADOPT_LIVE_INTO_REPO]
+    owner = [p for p in d.get("proposals") or [] if p.get("kind") != live_state.ADOPT_LIVE_INTO_REPO]
+    return envelope(status, items, src, provider="store_foundation.live_state",
+                    as_of=d.get("generated_at"), basis="measured" if known else "unknown",
+                    reason=(f"no live reading of any of {len(rows)} storefront fields yet: record "
+                            "what the live shop shows (POST /api/store/live_observation) or run "
+                            "etsy.shop_snapshot after re-authorisation" if not known else
+                            f"{drifted} field(s) differ from the repo drafts" if drifted else None),
+                    counts=counts, repo_proposals=adopt, owner_instructions=owner,
+                    writes_performed=d.get("writes_performed", 0),
+                    last_drift_job_at=(job or {}).get("generated_at") if job else None,
+                    rule="software never writes to the live Etsy shop: repo proposals are "
+                         "ADOPT_LIVE_INTO_REPO only; every other proposal is an instruction "
+                         "for the owner")
+
+
+_READINESS_MEMO: dict = {}
+READINESS_TTL = timedelta(minutes=10)
+
+
+def store_readiness(db, *, now: datetime | None = None) -> dict:
+    """STORE_READINESS counts (store_foundation.store_readiness.build), memoised 10 minutes."""
+    from ...store_foundation import store_readiness as sr
+
+    now = now or datetime.now(timezone.utc)
+    hit = _READINESS_MEMO.get("report")
+    if not hit or now - hit[0] > READINESS_TTL:
+        hit = (now, sr.build(db, now=now))
+        _READINESS_MEMO["report"] = hit
+    rep = hit[1]
+    counts = rep.get("counts") or {}
+    items = [{"title": it.get("item"), "id": it.get("id"), "area": it.get("area"),
+              "status": it.get("status"), "gate": it.get("gate") or None,
+              "owner_action": it.get("owner_action")}
+             for it in rep.get("items") or [] if it.get("status") != "PROVEN"]
+    defects = counts.get("OPEN-DEFECT", 0)
+    return envelope("DEGRADED" if defects else "OK", items,
+                    ["store_foundation.store_readiness.build",
+                     "research/final_build/w4/STORE_READINESS.json"],
+                    provider="store_foundation.store_readiness", as_of=rep.get("generated_at"),
+                    reason=(f"{defects} open defect(s)" if defects else None),
+                    counts=counts, total=sum(counts.values()) if counts else None,
+                    phase=rep.get("phase"),
+                    note="items listed are the ones not yet PROVEN, each with its exact gate")
+
+
+def visual_status_path() -> Path:
+    env = (os.environ.get(VISUAL_ENV) or "").strip()
+    return Path(env) if env else _REPO / VISUAL_REL
+
+
+def visual_stages() -> dict:
+    """VISUAL_STATUS.json (lane VISUAL): stage A-E status with its basis, e.g. D PARTIAL (measured)."""
+    path = visual_status_path()
+    src = [str(VISUAL_REL) if path == _REPO / VISUAL_REL else str(path)]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return unknown(f"visual status not found at {src[0]}", "visual.status", src)
+    except (OSError, ValueError) as exc:
+        return unknown(f"visual status unreadable: {type(exc).__name__}", "visual.status", src)
+    items = []
+    for st in data.get("stages") or []:
+        if not isinstance(st, dict):
+            continue
+        status = str(st.get("status") or "UNKNOWN").upper()
+        measured = bool(st.get("evidence")) and status in ("PASS", "PARTIAL", "FAIL")
+        basis = "measured" if measured else "unknown"
+        items.append({"title": f"Stage {st.get('stage')}: {status} ({basis})",
+                      "stage": st.get("stage"), "status": status, "basis": basis,
+                      "class": st.get("class"), "evidence": st.get("evidence"),
+                      "superseded_display": st.get("dashboard_said"),
+                      "unknown_local": st.get("unknown_local"),
+                      "unknown_paid": st.get("unknown_paid"), "next": st.get("next")})
+    gen = data.get("generated_at")
+    worst = {i["status"] for i in items}
+    return envelope("UNKNOWN" if not items else "OK" if worst <= {"PASS"} else "DEGRADED",
+                    items, src, provider="visual.status", basis="measured" if items else "unknown",
+                    as_of=str(gen) if gen else None,
+                    reason=None if items else "no stages in the visual status file",
+                    stage_display={i["stage"]: f"{i['status']} ({i['basis']})" for i in items},
+                    launch_imagery=data.get("launch_imagery"))
 
 
 # ---- completion board -------------------------------------------------------------------
@@ -583,9 +738,51 @@ def _parse_ts(v):
         return "bad"
 
 
+#: The integrator's board format (wave4.completion_board.v1): lowercase status, `responsible`,
+#: `started`/`last_update`, `rows_closed` as a plain id list. Normalised to the CC schema above.
+INTEG_SCHEMA = "wave4.completion_board.v1"
+_INTEG_KEYS = {"responsible": "worker", "started": "started_at", "last_update": "last_update_at"}
+_INTEG_STATUS = {"pending": "QUEUED", "queued": "QUEUED", "running": "RUNNING",
+                 "in_progress": "RUNNING", "blocked": "BLOCKED", "review": "REVIEW",
+                 "merged": "MERGED", "done": "DONE", "complete": "DONE",
+                 "abandoned": "ABANDONED", "unknown": "UNKNOWN"}
+
+
+def normalize_board(board):
+    """Map the integrator's v1 board onto the CC schema; any other object passes through.
+
+    An empty `rows_closed` list on a lane that is not DONE/MERGED means "nothing reported
+    yet", so its count is UNKNOWN (None), never 0. Unrecognised statuses are kept verbatim so
+    validate_board reports them instead of guessing.
+    """
+    if not (isinstance(board, dict) and board.get("schema") == INTEG_SCHEMA):
+        return board
+    lanes = []
+    for ln in board.get("lanes") or []:
+        if not isinstance(ln, dict):
+            lanes.append(ln)
+            continue
+        out = dict(ln)
+        for src, dst in _INTEG_KEYS.items():
+            if dst not in out:
+                out[dst] = ln.get(src)
+        st = ln.get("status")
+        out["status"] = _INTEG_STATUS.get(str(st).strip().lower(), st) if st is not None \
+            else "UNKNOWN"
+        rc = ln.get("rows_closed")
+        if isinstance(rc, list):
+            ids = [str(x) for x in rc]
+            out["rows_closed"] = {"count": len(ids) if ids or out["status"] in
+                                  ("DONE", "MERGED") else None, "ids": ids}
+        lanes.append(out)
+    return {**board, "kind": BOARD_KIND, "schema_version": 1, "source_schema": INTEG_SCHEMA,
+            "updated_by": board.get("updated_by") or "integrator", "lanes": lanes}
+
+
 def validate_board(board) -> list[str]:
     """Schema problems in a completion board (empty list = valid). See COMPLETION_BOARD.json."""
     errs: list[str] = []
+    board = normalize_board(board)
     if not isinstance(board, dict):
         return ["board is not a JSON object"]
     if board.get("kind") != BOARD_KIND:
@@ -624,6 +821,16 @@ def validate_board(board) -> list[str]:
     return errs
 
 
+def _baseline(board: dict):
+    """The owner-dashboard scoreboard the board was seeded from: a dated snapshot, not live."""
+    b = board.get("scoreboard_baseline_from_owner_dashboard")
+    if not isinstance(b, dict) or not b:
+        return None
+    return {"values": b, "basis": "snapshot", "as_of": board.get("updated_at"),
+            "note": "owner-dashboard figures copied into the board when the wave started; "
+                    "the live figures are on the Company view"}
+
+
 def completion(db=None, *, now: datetime | None = None) -> dict:
     """The completion board as an envelope; UNKNOWN when absent, DEGRADED when malformed."""
     now = now or datetime.now(timezone.utc)
@@ -639,6 +846,7 @@ def completion(db=None, *, now: datetime | None = None) -> dict:
     except (OSError, ValueError) as exc:
         return unknown(f"completion board unreadable: {type(exc).__name__}",
                        "company.completion", src)
+    board = normalize_board(board)
     errs = validate_board(board)
     lanes = board.get("lanes") if isinstance(board, dict) and isinstance(board.get("lanes"),
                                                                            list) else []
@@ -652,6 +860,7 @@ def completion(db=None, *, now: datetime | None = None) -> dict:
         rc = ln.get("rows_closed")
         items.append({**{k: ln.get(k) for k in BOARD_REQUIRED},
                       "branch": ln.get("branch"), "head_sha": ln.get("head_sha"),
+                      "detail": ln.get("detail"),
                       "rows_closed_count": (rc.get("count") if isinstance(rc, dict) else None),
                       "stale": stale,
                       "title": f"{ln.get('lane')}: {ln.get('task')}",
@@ -674,6 +883,9 @@ def completion(db=None, *, now: datetime | None = None) -> dict:
                     rows_closed_lanes_unknown=sum(1 for i in items
                                                   if i["rows_closed_count"] is None),
                     stale=[i["lane"] for i in items if i["stale"]],
+                    source_schema=(board.get("source_schema") or board.get("kind")
+                                   if isinstance(board, dict) else None),
+                    baseline=(_baseline(board) if isinstance(board, dict) else None),
                     schema_errors=errs,
                     reason=("board schema errors: " + "; ".join(errs[:5]) if errs else
                             f"{counts['BLOCKED']} lane(s) blocked" if counts["BLOCKED"] else

@@ -43,6 +43,7 @@ socket.socket.connect = _no_network  # type: ignore[assignment]
 socket.create_connection = _no_network  # type: ignore[assignment]
 
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.app import main  # noqa: E402
@@ -262,10 +263,35 @@ def test_committed_board_validates():
     assert out["status"] in providers.STATUSES and not out["schema_errors"], out
     assert out["as_of"] == out["board_updated_at"]
     lanes = {i["lane"] for i in out["items"]}
-    assert "W4-CC" in lanes, lanes
+    assert lanes & {"W4-CC", "CC"}, lanes
     # rows_closed null on every seeded lane: the total is UNKNOWN (None), never 0.
     if all(i["rows_closed_count"] is None for i in out["items"]):
         assert out["rows_closed_total"] is None
+
+
+def test_integrator_board_schema_normalised():
+    raw = {"schema": company.INTEG_SCHEMA, "updated_at": "2026-10-06T23:56Z",
+           "scoreboard_baseline_from_owner_dashboard": {"build2_complete": "227/320"},
+           "lanes": [{"lane": "CC", "responsible": "w", "task": "t", "status": "running",
+                      "started": "2026-10-06T23:56Z", "last_update": "2026-10-06T23:56Z",
+                      "useful_output": None, "blocker": None, "next_action": None,
+                      "rows_closed": []},
+                     {"lane": "B2", "responsible": "w", "task": "t", "status": "done",
+                      "started": None, "last_update": None, "useful_output": "x",
+                      "blocker": None, "next_action": None, "rows_closed": ["B2-001", "B2-002"]},
+                     {"lane": "Z", "responsible": "w", "task": "t", "status": "shipped-ish",
+                      "started": None, "last_update": None, "useful_output": None,
+                      "blocker": None, "next_action": None, "rows_closed": []}]}
+    norm = company.normalize_board(raw)
+    assert norm["lanes"], norm
+    by = {ln["lane"]: ln for ln in norm["lanes"]}
+    # empty list on a running lane = nothing reported yet = UNKNOWN, never 0
+    assert by["CC"]["status"] == "RUNNING" and by["CC"]["rows_closed"]["count"] is None
+    assert by["B2"]["rows_closed"]["count"] == 2 and by["B2"]["worker"] == "w"
+    errs = company.validate_board(raw)
+    assert errs and all("lanes[2]" in e for e in errs), errs
+    raw["lanes"].pop()
+    assert company.validate_board(raw) == []
 
 
 def _write_board(obj) -> str:
@@ -370,6 +396,128 @@ def test_public_closure_reads_are_single_flight_and_reused():
     finally:
         closure.matrix, executor.gate_states = real_matrix, real_states
         main._CLOSURE_MEMO.clear()
+
+
+# ---- W4 wiring: MJS findings, live store observation/drift, readiness, visual stages ------
+
+def _csrf_session():
+    c = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
+    r = c.post("/api/cc/auth/login", json={"passphrase": PASS})
+    assert r.status_code == 200, r.text
+    return c, r.json()["csrf_token"]
+
+
+def _fresh(csrf):
+    import uuid
+
+    return {"X-CSRF-Token": csrf, "X-CC-Nonce": uuid.uuid4().hex,
+            "X-CC-Timestamp": str(int(time.time()))}
+
+
+def test_mjs_findings_route_is_operator_only_and_unknown_until_a_reading():
+    from brambleloop.app import security
+    from brambleloop.core.models import OperatingReading
+    from brambleloop.intel import findings as intel_findings
+
+    assert "/api/mjs/findings" in security.OPERATOR_GET_ROUTES
+    c = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
+    assert c.get("/api/mjs/findings").status_code == 401
+    r = c.get("/api/mjs/findings", headers={"Authorization": f"Bearer {OPS}"})
+    assert r.status_code == 200 and r.json()["status"] == "UNKNOWN", r.text
+    assert company.competitor_intel(DB)["status"] == "UNKNOWN"
+    payload = {"findings": [{"key": "assortment", "category": "category_opportunity",
+                             "statement": "benchmark allocates 32% to garments",
+                             "confidence": {"grade": "proxy", "basis": "shelf allocation"},
+                             "provenance": {"source": "public_api_snapshot", "sample": 441,
+                                            "benchmark_key": "b", "method": "m",
+                                            "observed_from": "2026-10-07T00:00:00+00:00",
+                                            "observed_to": "2026-10-07T00:00:00+00:00"}}],
+               "unmeasured": [{"key": "search_index", "reason": "no SERP"}],
+               "generated_at": "2026-10-07T01:00:00+00:00"}
+    with DB.session() as s:
+        s.add(OperatingReading(kind=intel_findings.KIND, period_key="2026-10-07",
+                               payload=payload))
+    try:
+        r = c.get("/api/mjs/findings", headers={"Authorization": f"Bearer {OPS}"})
+        assert r.json()["status"] == "OK" and r.json()["reading"]["findings"], r.text
+        env = company.competitor_intel(DB)
+        assert env["items"], env
+        it = env["items"][0]
+        assert it["confidence"] == "proxy" and it["provenance_source"] == "public_api_snapshot"
+        assert it["sample"] == 441 and env["as_of"] == "2026-10-07T01:00:00+00:00"
+        assert env["unmeasured"] and env["unmeasured"][0]["key"] == "search_index"
+    finally:
+        from sqlalchemy import delete
+
+        with DB.session() as s:
+            s.execute(delete(OperatingReading).where(OperatingReading.kind == intel_findings.KIND))
+
+
+def test_live_observation_owner_session_csrf_audited_never_writes_etsy():
+    from sqlalchemy import func as sfunc
+
+    from brambleloop.core.models import AuditLog
+    from brambleloop.store_foundation import live_state
+
+    anon = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
+    body = {"observed_at": (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat(),
+            "fields": {"announcement": "Welcome to Brambleloop"},
+            "statement": "read from the live shop page"}
+    assert anon.post("/api/store/live_observation", json=body).status_code == 401
+    assert anon.post("/api/store/live_observation", json=body,
+                     headers={"Authorization": f"Bearer {OPS}"}).status_code == 401
+    c, csrf = _csrf_session()
+    assert c.post("/api/store/live_observation", json=body).status_code == 403  # no CSRF
+    with DB.session() as s:
+        before = s.scalar(select(sfunc.count()).select_from(AuditLog).where(
+            AuditLog.action == live_state.OBSERVATION_ACTION))
+    bad = c.post("/api/store/live_observation", json={**body, "fields": {"nope": "x"}},
+                 headers=_fresh(csrf))
+    assert bad.status_code == 400 and "unknown fields" in bad.json()["error"], bad.text
+    r = c.post("/api/store/live_observation", json=body, headers=_fresh(csrf))
+    assert r.status_code == 201, r.text
+    assert r.json()["writes_performed"] == 0
+    with DB.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == live_state.OBSERVATION_ACTION)))
+    assert len(rows) == before + 1 and rows[-1].actor.startswith("owner:cc:"), rows
+    env = company.store_live_drift(DB)
+    assert env["items"], env
+    ann = next(i for i in env["items"] if i["field"] == "announcement")
+    assert ann["live_state"] != live_state.UNKNOWN and ann["write_allowed"] is False, ann
+    assert env["basis"] == "measured" and env["writes_performed"] == 0
+    assert all(p["kind"] == live_state.ADOPT_LIVE_INTO_REPO for p in env["repo_proposals"])
+    tab = c.get("/api/cc/store").json()["sections"]
+    for k in ("live_drift", "store_readiness", "competitor_intel"):
+        assert k in tab, sorted(tab)
+    rd = tab["store_readiness"]
+    assert rd["status"] in providers.STATUSES and isinstance(rd.get("counts"), dict), rd
+    assert rd["counts"] and rd["total"] == sum(rd["counts"].values())
+
+
+def test_visual_stages_show_partial_measured_or_unknown():
+    prev = os.environ.get(company.VISUAL_ENV)
+    try:
+        os.environ[company.VISUAL_ENV] = os.path.join(_TMP, "absent_visual.json")
+        assert company.visual_stages()["status"] == "UNKNOWN"
+        os.environ[company.VISUAL_ENV] = _write_board({
+            "generated_at": "2026-10-07",
+            "stages": [{"stage": "A", "status": "PASS", "evidence": "4 components"},
+                       {"stage": "D", "status": "PARTIAL", "dashboard_said": "FAIL (stale)",
+                        "evidence": "10 PASS / 0 FAIL / 9 UNKNOWN"},
+                       {"stage": "E", "status": "NOT_STARTED"}]})
+        env = company.visual_stages()
+        assert env["items"], env
+        assert env["stage_display"]["D"] == "PARTIAL (measured)", env["stage_display"]
+        assert env["stage_display"]["E"] == "NOT_STARTED (unknown)"
+        d = next(i for i in env["items"] if i["stage"] == "D")
+        assert d["superseded_display"] == "FAIL (stale)"
+        assert env["status"] == "DEGRADED" and env["as_of"] == "2026-10-07"
+    finally:
+        if prev is None:
+            os.environ.pop(company.VISUAL_ENV, None)
+        else:
+            os.environ[company.VISUAL_ENV] = prev
 
 
 if __name__ == "__main__":

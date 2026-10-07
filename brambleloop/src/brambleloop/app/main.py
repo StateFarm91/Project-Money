@@ -1413,6 +1413,25 @@ def api_creative_blinded() -> dict:
     }
 
 
+@app.get("/api/mjs/findings")
+def api_mjs_findings() -> dict:
+    """W4-MJS: the latest competitor-intelligence findings reading (operator credential).
+
+    Each finding carries its provenance (source, method, sample, observed window) and a
+    confidence grade with its basis. Demand/merchandising intelligence only: no competitor
+    content is stored or reproduced. No reading yet is UNKNOWN with the reason, never empty-OK.
+    """
+    from ..intel import findings as intel_findings
+
+    latest = intel_findings.latest(db)
+    if latest is None:
+        return {"status": "UNKNOWN", "reading": None,
+                "reason": "no mjs.findings reading stored yet: intel.findings.refresh has not "
+                          "run against this database (needs stored mjs.scan observations)"}
+    return {"status": "OK", "reading": latest, "as_of": latest.get("generated_at")
+            or latest.get("as_of")}
+
+
 @app.get("/api/mjs/coverage")
 def api_mjs_coverage() -> dict:
     """What the living market map cannot see, named rather than counted (#207, #303).
