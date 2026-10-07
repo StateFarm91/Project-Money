@@ -1684,3 +1684,23 @@ Answers to the B2 owner-banner assessment (research/final_build/w3/OWNER_BANNER_
    the storefront into an advertisement for its technology where disclosure is not required. Unchanged: Laura never
    claims to be human (spec/07, D-FB-11..13).
 10. Continue all running work without interruption.
+
+## D-FB-19 — Owner authorisation: begin clearing the parked gates (2026-10-07)
+The owner, reviewing the production /console "WAITING ON THE OWNER" table, authorised clearing the gates rather than
+leaving them parked:
+1. Zero-cost actions and setup work are authorised for rendered_pages, image_vision, model_provider, tester_roster
+   (preparation), offsite_storage, image_generation. Where a gate needs a paid service or a credential not already
+   authorised, the company brings the exact provider, cost and approval/credential action immediately.
+2. owned_surfaces: the owner-configured Brambleloop Etsy shop counts; only genuinely missing surfaces remain.
+3. live_listings: move the strongest products to the final publication gate; never publish an unready product to
+   clear a gate. Publication itself stays owner-authorised.
+4. second_market_benchmark: the company selects the strongest evidence-based non-US benchmark itself if existing
+   authority permits; otherwise it presents candidates.
+5. customers: external/data-gated (buyers create orders), not an owner authorisation.
+6. benchmark_purchases: the owner will buy the required benchmark patterns; the company supplies the exact list,
+   links/files and total cost.
+7. physical_proof: the company prepares everything and states exactly what physical test and person are needed.
+8. ad_authority: prepare everything, spend nothing; the initial budget recommendation comes once listings are ready.
+9. Contacting a real person (tester outreach) still requires a separate explicit owner confirmation of the exact message.
+Unchanged: phase stays shadow; production deployment remains owner-controlled; no Etsy publication without
+authorisation; CAPTCHA/anti-bot measures are never bypassed.
