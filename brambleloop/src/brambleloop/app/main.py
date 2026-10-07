@@ -5303,26 +5303,34 @@ def dashboard() -> str:
         from ..build2 import closure
 
         m = closure_matrix_shared()
-        hd = closure.dashboard(db, m=m)
         closing = "".join(
             f'<div class="card"><span>closure: {esc(k)}</span><b>{esc(v)}</b></div>'
             for k, v in m["counts"].items())
-        headline = "".join(
-            f'<div class="card"><span>{esc(label)}</span><b>{esc(hd[key])}</b></div>'
-            for label, key in (("PROVEN", "proven"), ("OWNER-GATED", "owner_gated"),
-                               ("DATA-GATED", "data_gated"),
-                               ("EXTERNAL-GATED", "external_gated"),
-                               ("NOT-APPLICABLE", "not_applicable"),
-                               ("OPEN-DEFECT", "open_defects"),
-                               ("executable remaining (OPEN only)", "executable_remaining"),
-                               ("total", "total")))
+        # The ledger headline needs the full matrix; if it cannot be derived it is stated as
+        # unavailable (never 0) and the matrix's own counts -- e.g. an explicit UNKNOWN --
+        # still render instead of the whole block going blank.
+        try:
+            hd = closure.dashboard(db, m=m)
+            headline = "".join(
+                f'<div class="card"><span>{esc(label)}</span><b>{esc(hd[key])}</b></div>'
+                for label, key in (("PROVEN", "proven"), ("OWNER-GATED", "owner_gated"),
+                                   ("DATA-GATED", "data_gated"),
+                                   ("EXTERNAL-GATED", "external_gated"),
+                                   ("NOT-APPLICABLE", "not_applicable"),
+                                   ("OPEN-DEFECT", "open_defects"),
+                                   ("executable remaining (OPEN only)", "executable_remaining"),
+                                   ("total", "total")))
+            basis = f'{hd["basis"]} -- as of {hd["as_of"]}'
+        except Exception as e:  # noqa: BLE001 - headline UNKNOWN, not zero, not a blank block
+            headline = ('<div class="card"><span>closure headline</span><b>UNKNOWN</b></div>')
+            basis = f"closure headline unavailable: {type(e).__name__}: {e}"
         executable = cov["executable_remaining"]
         ready = cov["executable_unparked"]
         cards = "".join(
             f'<div class="card"><span>registry claim: {esc(k.replace("_", " "))}</span>'
             f'<b>{esc(v)}</b></div>' for k, v in sorted(cov.items()))
         return (f'<div class="grid">{headline}</div>'
-                f'<div class="empty">{esc(hd["basis"])} -- as of {esc(hd["as_of"])}</div>'
+                f'<div class="empty">{esc(basis)}</div>'
                 f'<div class="grid">{closing}</div>'
                 f'<details><summary>registry claim (requirements.json status, not evidence)'
                 f'</summary><div class="grid">{cards}'
