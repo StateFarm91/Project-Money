@@ -522,24 +522,26 @@ NEW_CANDIDATES: list[dict] = [
         construction="motif_join", motif="snowfall", palette_story="forest and cream",
         make_lane="MEDIUM", brief=EmotionalBrief(
             key="snowfall-advent-garland", recipient="child", occasion="christmas",
-            feeling="festive", title="Snowfall Advent Garland",
+            feeling="festive", title="Snowfall Mitten Advent Garland",
             moment=("Every December morning the children race to the stairs to find the "
-                    "next numbered snowfall pocket and the note waiting inside."),
+                    "next numbered mitten pocket and the note waiting inside."),
             function=("holds a note or small treat for each morning of December so the "
                       "children count down together"),
             gifting=("Made for the children of the house and hung on the last day of "
                      "November, refilled every year."),
-            sensory=("twenty-four snowfall pockets strung along the banister",
+            sensory=("twenty-four mitten-shaped pockets strung along the banister",
                      "forest and cream colours against the dark wood of the stairs"),
             handmade_life=("A family tradition built from twenty-four small pieces, made "
                            "over the autumn evenings."),
             laura_scene=("The garland along a staircase banister, one pocket open with a "
                          "folded note; Laura seated on the stairs, secondary."),
-            premise=("Twenty-four numbered snowfall pockets in forest and cream hang along "
-                     "the stairs for the December countdown."))),
+            # W4-CREATIVE r2: the pockets are mittens. Snow alone is the saturated Christmas
+            # motif (#110 refused it); the mitten outline is the recombination.
+            premise=("Twenty-four numbered mitten pockets banded in snowfall, forest and "
+                     "cream, hang along the stairs for the December countdown."))),
     _candidate(
         "spring-garden-kneeler", pod="home_decor", form="pillow",
-        construction="modular_panels", motif="diamond-lattice", palette_story="pine and gold",
+        construction="modular_panels", motif="tulip-trellis", palette_story="pine and gold",
         make_lane="SHORT", brief=EmotionalBrief(
             key="spring-garden-kneeler", recipient="self", occasion="spring_refresh",
             feeling="rugged", title="Spring Garden Kneeler",
@@ -548,14 +550,17 @@ NEW_CANDIDATES: list[dict] = [
             function=("cushions the knees through a full morning of planting out the spring "
                       "garden beds"),
             gifting="",
-            sensory=("dense diamond lattice panels with a thick firm hand",
+            sensory=("dense trellis lattice panels with a thick firm hand",
+                     "gold tulip heads raised at the trellis crossings",
                      "pine and gold colours that stay cheerful against wet soil"),
             handmade_life=("A practical make for the season the maker spends outdoors, used "
                            "every weekend from April to June."),
             laura_scene=("Laura kneeling on the pad at a raised bed with a trowel, morning "
                          "light; product and use both visible."),
-            premise=("A dense diamond lattice kneeling pad in pine and gold saves the knees "
-                     "on the first spring weekend outdoors."))),
+            # W4-CREATIVE r2: a plain diamond lattice declared nothing from the spring
+            # grammar (#110 refused it); the lattice is now a trellis with tulips on it.
+            premise=("A dense trellis kneeling pad in pine and gold, tulip heads at the "
+                     "crossings, saves the knees on the first spring weekend outdoors."))),
 ]
 
 
@@ -608,3 +613,220 @@ def audit_candidates(catalogue: list[Concept]) -> dict:
             "deaths_by_critic": deaths,
             "verdicts": [v.to_dict() for v in verdicts],
             "briefs": {c["key"]: c["brief"].to_dict() for c in NEW_CANDIDATES}}
+
+
+# ---------------------------------------------------------------------------
+# W4-CREATIVE r2: the pre-engineering brief, so a candidate meets the *whole* gate
+#
+# The jury reading above is one check of eleven. Run through `preengineering.gate_concept`
+# -- the gate `radar.score` and `cir.draft` actually call -- all eight first-round candidates
+# were REFUSED on deterministic grounds the jury never sees: no thumbnail storyboard (#88),
+# generic tube/pouch forms with no silhouette qualifier (#108), and Christmas/spring concepts
+# declaring no motif from their season's grammar (#110). Those are design-process omissions,
+# so the design process supplies them here. Nothing below is a judgement about desirability
+# and nothing sets `thumbnail_reads_small` or `craft_impression`: those stay None until a
+# vision judge has looked at a board.
+
+@dataclass(frozen=True)
+class GateBrief:
+    """What the pre-engineering gate reads beside the Concept. Design intent, not evidence."""
+
+    storyboard: str                       # what the 170-px search-grid square shows (#88)
+    techniques: tuple[str, ...]           # named, so the complexity count can be audited
+    motifs: tuple[str, ...] = ()          # season grammar motifs (#110), when seasonal
+    silhouette_qualifiers: tuple[str, ...] = ()   # only for a generic form (#108)
+    demand: tuple[str, ...] = ()          # MJS finding keys this candidate answers
+
+    def to_brief(self) -> dict:
+        out: dict = {"thumbnail_storyboard": self.storyboard,
+                     "techniques": len(self.techniques)}
+        if self.motifs:
+            out["motifs"] = list(self.motifs)
+        if self.silhouette_qualifiers:
+            out["silhouette_qualifiers"] = list(self.silhouette_qualifiers)
+        return out
+
+
+GATE_BRIEFS: dict[str, GateBrief] = {
+    "housewarming-key-basket": GateBrief(
+        storyboard=("round pine and cream basketweave basket on a hall table, keys and "
+                    "letters showing over the rim"),
+        techniques=("basketweave post stitches in the round", "two-colour block changes"),
+        demand=()),
+    "reading-nook-cable-wrap": GateBrief(
+        storyboard=("long forest cable wrap draped over a window seat, cable ridges running "
+                    "its full length, open book beside it"),
+        techniques=("front and back post cables", "side-to-side row construction",
+                    "cream border edging"),
+        demand=("demand_by_pod", "coverage_gaps")),
+    "first-christmas-stocking": GateBrief(
+        storyboard=("one small forest stocking on a mantel hook, fir and star bands around "
+                    "the leg, blank cream cuff"),
+        techniques=("stranded colourwork in the round", "turned heel", "cuff and hanging loop"),
+        motifs=("tree", "star", "stocking"),
+        demand=("demand_by_pod", "seasonality", "coverage_gaps")),
+    "mothers-day-heart-tea-cosy": GateBrief(
+        storyboard=("round teapot wearing a cream sleeve with one wine heart band, spout and "
+                    "handle through their openings"),
+        techniques=("seamless colourwork tube", "spout and handle openings"),
+        # A tube that dresses a teapot and keeps it hot is not what the tube category does.
+        silhouette_qualifiers=("unusual_function",),
+        demand=("coverage_gaps",)),
+    "teacher-chevron-pencil-roll": GateBrief(
+        storyboard=("chevron roll unrolled flat on a classroom desk, coloured pencils fanned "
+                    "in their slots, tie cord loose"),
+        techniques=("chevron colour-change rows", "folded and seamed pencil slots"),
+        # It rolls into a bundle and unrolls into a desk organiser: it becomes something else.
+        silhouette_qualifiers=("transformation",),
+        demand=()),
+    "heart-row-ring-pillow": GateBrief(
+        storyboard=("round cream pillow held in two hands, wine heart border, two rings tied "
+                    "at the centre loop"),
+        techniques=("colourwork in the round", "centre ring loop"),
+        demand=()),
+    "snowfall-advent-garland": GateBrief(
+        storyboard=("row of numbered mitten pockets strung along a dark banister, snowfall "
+                    "bands, one pocket holding a folded note"),
+        techniques=("mitten pocket shaping in the round", "snowfall colourwork band",
+                    "joining onto a chain cord"),
+        motifs=("mitten", "snow"),
+        demand=("seasonality",)),
+    "spring-garden-kneeler": GateBrief(
+        storyboard=("thick pine kneeling pad beside a raised garden bed, gold tulip heads on "
+                    "the trellis lattice, trowel resting on it"),
+        techniques=("trellis post-stitch lattice", "tulip bobbles", "joining modular panels"),
+        motifs=("tulip", "garden_life"),
+        demand=()),
+}
+
+# Demand evidence (#224: intelligence only; no competitor content). Read from W4-MJS's
+# `research/final_build/w4/MJS_FINDINGS.json` (branch claude/w4-INTEG, as of 2026-10-07),
+# produced by `intel.findings` from production's public read-only endpoints. Each entry keeps
+# the finding's digest and grade: a proxy is a stand-in (favourites for sales), never a
+# measurement of this candidate's demand, and it does not move any gate.
+MJS_SOURCE = ("W4-MJS research/final_build/w4/MJS_FINDINGS.json @ origin/claude/w4-INTEG "
+              "(intel.findings; benchmark mjs_off_the_hook_designs; as of 2026-10-07)")
+MJS_FINDINGS: dict[str, dict] = {
+    "demand_by_pod": {
+        "digest": "5728fb2aed", "grade": "proxy", "sample": 437,
+        "says": ("median favourites per benchmark listing: garments 1701, stockings 1472.5, "
+                 "home_decor 911, kitchen_bath 738.5, seasonal_gift 491; stockings are "
+                 "underserved (above-median favourites on below-median shelf depth)")},
+    "seasonality": {
+        "digest": "45dac5b8f5", "grade": "proxy", "sample": 441,
+        "says": ("Christmas 2026-12-25 is inside the buying window (79 days on 2026-10-07); "
+                 "the benchmark carries 10 stocking and 13 ornament listings")},
+    "coverage_gaps": {
+        "digest": "cc58125e5d", "grade": "observed", "sample": 7,
+        "says": ("uncovered arenas with no Brambleloop answer include Christmas stockings, "
+                 "garments and clothing, hats and wearables, and kitchen and bath textiles")},
+}
+# Where a finding speaks to a candidate, and why. A candidate with no entry has no demand
+# evidence in this snapshot: UNMEASURED, not zero.
+DEMAND_FIT: dict[tuple[str, str], str] = {
+    ("first-christmas-stocking", "demand_by_pod"): "stockings: the underserved pod",
+    ("first-christmas-stocking", "seasonality"): "a Christmas stocking inside the window",
+    ("first-christmas-stocking", "coverage_gaps"): "Christmas stockings arena is uncovered",
+    ("reading-nook-cable-wrap", "demand_by_pod"): "garments: the highest favourites median",
+    ("reading-nook-cable-wrap", "coverage_gaps"): "garments and clothing arena is uncovered",
+    ("mothers-day-heart-tea-cosy", "coverage_gaps"): "kitchen and bath arena is uncovered",
+    ("snowfall-advent-garland", "seasonality"): "a Christmas make inside the window",
+}
+
+# Exactly what turns `needs_taste` into a verdict. Read from the code that decides it, so this
+# is a description of the gate rather than a second gate. None of it is an owner taste review:
+# no code path accepts one (B-137: "needs eyes" means a vision judge bound to the board's bytes).
+NEEDS_TASTE_CLEARS: tuple[dict, ...] = (
+    {"condition": "a concept board exists for the slug, with a content digest",
+     "code": "creative.intake.board_for / board_digest_for (listing_asset frames); "
+             "creative.board.make_board renders one from a prototype's digital twin",
+     "state_today": "no board for any candidate (no CIR, so no prototype twin)",
+     "class": "DATA-GATED on CIR engineering (W4-PIPE), else EXTERNAL-GATED on image generation"},
+    {"condition": "a working vision model: the latest model.probe vision row is ok",
+     "code": "gateway.anthropic.vision_usable",
+     "state_today": "production: 175+ intel.gallery_analysis_blocked rows, 'no vision probe has "
+                    "succeeded' (W4-MJS)",
+     "class": "EXTERNAL-GATED (model_provider / image_vision credential and spend authority)"},
+    {"condition": "a concept.judged audit row naming its judge, bound to the current board's "
+                  "sha256, with thumbnail_reads_small true and craft_impression >= 3.5",
+     "code": "creative.intake.judge_held -> judgement_for; jury.judge (3.5 bar unchanged)",
+     "state_today": "none recorded",
+     "class": "follows automatically from the two above (creative.intake.regate_held cadence)"},
+    {"condition": "LONG/FLAGSHIP only: the blind search-grid tournament verdict is clear",
+     "code": "preengineering._grid / grid_verdict_for (creative.grid_tournament, weekly)",
+     "state_today": "never run (vision-gated)",
+     "class": "EXTERNAL-GATED with the vision model"},
+    {"condition": "anti-clone novelty: observed competitor listings on file to compare with",
+     "code": "preengineering._novelty -> prospecting.benchmark_comparables (BenchmarkListing)",
+     "state_today": "production holds 441 MJS listings; this shadow worktree has none",
+     "class": "DATA-GATED (runs against the production database, not a code gap)"},
+)
+
+
+def gate_candidates(db=None, *, benchmark: list | None = None, today=None) -> dict:
+    """Run every candidate through the full pre-engineering gate (not only the jury).
+
+    Same `gate_concept` that `radar.score`/`cir.draft` call; same thresholds. The catalogue
+    the candidates are compared with is the briefed one plus their siblings.
+    """
+    from datetime import date as _date
+
+    from .audit import briefed_catalogue_concepts
+    from .preengineering import gate_concept
+
+    today = today or _date.today()
+    catalogue, _ = briefed_catalogue_concepts()
+    concepts, refused = candidate_concepts()
+    rows: dict[str, dict] = {}
+    for concept in concepts:
+        gb = GATE_BRIEFS.get(concept.key)
+        problems = gate_brief_problems(concept)
+        if gb is None or problems:
+            refused[concept.key] = problems or ["no pre-engineering brief"]
+            continue
+        others = list(catalogue) + [c for c in concepts if c.key != concept.key]
+        v = gate_concept(db, concept, brief=gb.to_brief(), catalogue=others,
+                         benchmark=benchmark, today=today)
+        rows[concept.key] = {
+            "decision": v["decision"], "engineer": v["engineer"], "failed": v["failed"],
+            "unmeasured": v["unmeasured"], "waiting_on": v["waiting_on"],
+            "reasons": v["reasons"], "make_lane": concept.make_lane,
+            "demand": [{"finding": k, **MJS_FINDINGS[k], "fit": DEMAND_FIT[(concept.key, k)]}
+                       for k in gb.demand],
+        }
+    by_decision: dict[str, int] = {}
+    for r in rows.values():
+        by_decision[r["decision"]] = by_decision.get(r["decision"], 0) + 1
+    # Queue order for engineering (W4-PIPE): demand evidence first, observed over proxy,
+    # then the cheaper make. Only a ranking of waiting work; it opens no gate.
+    lanes = ("QUICK", "SHORT", "MEDIUM", "LONG", "FLAGSHIP")
+    queue = sorted(rows, key=lambda k: (
+        -sum(2 if f["grade"] == "observed" else 1 for f in rows[k]["demand"]),
+        lanes.index(rows[k]["make_lane"]), k))
+    return {"gate": "creative.preengineering.gate_concept", "today": today.isoformat(),
+            "judged": len(rows), "refused_at_brief": refused, "by_decision": by_decision,
+            "candidates": rows, "engineering_queue": queue, "demand_source": MJS_SOURCE,
+            "needs_taste_clears": list(NEEDS_TASTE_CLEARS)}
+
+
+def gate_brief_problems(concept: Concept) -> list[str]:
+    """Honesty checks on the pre-engineering brief itself (Product Truth, as for premises)."""
+    gb = GATE_BRIEFS.get(concept.key)
+    if gb is None:
+        return ["no pre-engineering brief"]
+    problems = []
+    carried = carried_imagery(concept.motif)
+    foreign = sorted({w for w in _words(gb.storyboard) if w in IMAGERY and w not in carried})
+    if foreign:
+        problems.append(f"storyboard shows {foreign}, which the {concept.motif!r} motif does "
+                        f"not depict (Product Truth)")
+    for phrase in SOCIAL_PROOF + COPY_LANGUAGE:
+        if phrase in gb.storyboard.lower():
+            problems.append(f"storyboard carries {phrase!r}; it describes a picture")
+    if not gb.techniques:
+        problems.append("techniques must be named so the complexity count can be audited")
+    unknown = [k for k in gb.demand if (concept.key, k) not in DEMAND_FIT
+               or k not in MJS_FINDINGS]
+    if unknown:
+        problems.append(f"demand {unknown} is not a finding this candidate answers")
+    return problems

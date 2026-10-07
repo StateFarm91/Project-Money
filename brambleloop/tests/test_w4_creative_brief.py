@@ -138,6 +138,103 @@ def test_dashboard_reads_the_same_reading():
     assert s["audited"] == 11
 
 
+# ---------------------------------------------------------------------------
+# r2: the whole pre-engineering gate, not only the jury
+
+
+def _fixture_cards():
+    """A labelled TEST FIXTURE standing in for observed listings (never written anywhere)."""
+    from brambleloop.creative import blinded
+
+    card = blinded.from_listing({"listing_ref": "fixture-1", "pod": "blankets",
+                                 "title": "Cozy Granny Square Baby Blanket Pattern",
+                                 "product_type": "pattern", "price_cad": 18.0})
+    return [card]
+
+
+def test_candidates_fail_no_deterministic_check():
+    from datetime import date
+
+    r = EB.gate_candidates(today=date(2026, 10, 7))
+    assert r["refused_at_brief"] == {}, r["refused_at_brief"]
+    assert r["judged"] == len(EB.NEW_CANDIDATES) >= 8
+    rows = r["candidates"]
+    assert rows
+    for key, row in rows.items():
+        assert row["failed"] == [], (key, row["reasons"])
+        assert row["decision"] == "waiting" and row["engineer"] is False, key
+        assert set(row["waiting_on"]) <= {"image_vision", "benchmark_observation"}, key
+        assert "jury" in row["unmeasured"] and "premise_thumbnail" in row["unmeasured"]
+
+
+def test_without_the_design_brief_the_same_gate_refuses():
+    from datetime import date
+
+    from brambleloop.creative.preengineering import gate_concept
+
+    catalogue, _ = audit.briefed_catalogue_concepts()
+    concepts, _ = EB.candidate_concepts()
+    assert concepts
+    for c in concepts:
+        v = gate_concept(None, c, brief={}, catalogue=catalogue, today=date(2026, 10, 7))
+        assert v["decision"] == "refused" and "premise_thumbnail" in v["failed"], c.key
+
+
+def test_needs_taste_clears_only_on_a_recorded_judgement():
+    """What clears needs_taste: a judged board (fixture values, never stored)."""
+    from datetime import date
+
+    from brambleloop.creative.preengineering import gate_concept
+
+    catalogue, _ = audit.briefed_catalogue_concepts()
+    concepts = {c.key: c for c in EB.candidate_concepts()[0]}
+    base = concepts["heart-row-ring-pillow"]
+    brief = EB.GATE_BRIEFS[base.key].to_brief()
+    cards = _fixture_cards()
+    assert cards
+
+    def run(**taste):
+        return gate_concept(None, replace(base, **taste), brief=brief, catalogue=catalogue,
+                            benchmark=cards, today=date(2026, 10, 7))
+
+    assert run()["decision"] == "waiting"
+    assert run(thumbnail_reads_small=True, craft_impression=4.0)["decision"] == "passed"
+    assert run(thumbnail_reads_small=True, craft_impression=3.0)["decision"] == "refused"
+    assert run(thumbnail_reads_small=False, craft_impression=4.5)["decision"] == "refused"
+    # Nothing in the design process writes the taste fields.
+    assert concepts
+    for c in concepts.values():
+        assert c.thumbnail_reads_small is None and c.craft_impression is None
+
+
+def test_gate_brief_honesty():
+    concepts = {c.key: c for c in EB.candidate_concepts()[0]}
+    pillow = concepts["heart-row-ring-pillow"]
+    assert EB.gate_brief_problems(pillow) == []
+    lying = replace(EB.GATE_BRIEFS[pillow.key],
+                    storyboard="round pillow covered in oak leaves and stars, rings tied on")
+    saved = EB.GATE_BRIEFS[pillow.key]
+    EB.GATE_BRIEFS[pillow.key] = lying
+    try:
+        assert any("Product Truth" in p for p in EB.gate_brief_problems(pillow))
+    finally:
+        EB.GATE_BRIEFS[pillow.key] = saved
+
+
+def test_demand_is_cited_never_invented():
+    from datetime import date
+
+    r = EB.gate_candidates(today=date(2026, 10, 7))
+    rows = r["candidates"]
+    assert rows
+    for key, row in rows.items():
+        for f in row["demand"]:  # vacuity-ok: a candidate with no finding has none
+            assert f["grade"] in ("observed", "proxy") and len(f["digest"]) == 10, key
+    # A candidate with no matching finding carries none: unmeasured, not zero.
+    assert rows["teacher-chevron-pencil-roll"]["demand"] == []
+    assert r["engineering_queue"][0] == "first-christmas-stocking"
+
+
 if __name__ == "__main__":
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_")]
     assert tests

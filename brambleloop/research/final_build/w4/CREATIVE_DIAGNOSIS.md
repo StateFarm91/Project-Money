@@ -56,3 +56,46 @@ cottage-wall-hanging (botanical / chevron-band).
 Survivors are `needs_taste`: structurally clean, **not approved** — thumbnail legibility and craft
 impression still require a vision judgement that does not exist in shadow. New candidates are concept
 stage only (no CIR, pattern, listing or photo).
+
+## r2 (2026-10-07): the whole gate, and exactly what clears `needs_taste`
+
+**Second defect in the design process.** The jury is one of eleven checks in
+`preengineering.gate_concept`, the gate `radar.score` and `cir.draft` actually call. Run through
+it, the 8 "surviving" candidates were all **REFUSED** on deterministic grounds the jury reading
+never showed: no thumbnail storyboard (#88, 8/8), a generic tube/pouch form with no silhouette
+qualifier (#108, 2), Christmas/spring concepts declaring no season-grammar motif (#110, 3).
+Fix (design process, gate unchanged): `emotional_brief.GATE_BRIEFS` writes storyboard, named
+techniques, grammar motifs and qualifiers, with an honesty check (`gate_brief_problems`: a
+storyboard may not show imagery the motif does not depict). Two candidates were redesigned
+rather than dressed up: the advent garland's pockets became mittens (snow alone is the saturated
+motif), the kneeler's lattice became a tulip trellis. Result: **8/8 WAITING, 0 failed checks**;
+each waits only on `image_vision` (+ `benchmark_observation`; + grid for the LONG wrap).
+Proof: `test_candidates_fail_no_deterministic_check`, `test_without_the_design_brief_the_same_gate_refuses`.
+The candidate gate now compares against the briefed catalogue (stricter sameness, not looser).
+
+**What clears `needs_taste`: a measurable gate, not an owner taste review.** No code path
+accepts an owner verdict (B-137). It clears when, for the candidate's slug: (1) a concept board
+with a content digest is on file (`intake.board_for`/`board_digest_for`; `board.make_board`
+renders one from a prototype twin, so it needs a CIR first); (2) `gateway.anthropic.vision_usable`
+is true (production: "no vision probe has succeeded"); (3) `intake.judge_held` records a
+`concept.judged` row naming its judge, bound to that board's sha256, with
+`thumbnail_reads_small=true` and `craft_impression >= 3.5` (bar unchanged); (4) LONG/FLAGSHIP
+only: `creative.grid_tournament` verdict clear; (5) novelty needs observed competitor listings
+(production holds 441; shadow has none). `regate_held` then re-presents the winner automatically.
+`test_needs_taste_clears_only_on_a_recorded_judgement` proves the mechanism with fixture values
+(passed at 4.0, refused at 3.0 or thumbnail false); nothing in the design process writes them.
+
+**Demand evidence (W4-MJS `MJS_FINDINGS.json`, cited by digest, proxy ≠ measurement).** Queue for
+engineering: first-christmas-stocking (stockings underserved, median favourites 1472.5 proxy;
+Christmas window open; Christmas-stocking arena uncovered, observed) → reading-nook-cable-wrap
+(garments 1701 proxy; arena uncovered) → tea cosy (kitchen/bath uncovered) → advent garland
+(seasonality) → four with no matching finding (UNMEASURED, not zero).
+
+| Reading | Before | After |
+|---|---|---|
+| Catalogue (Creative Standard, jury) | 0/11 survive (emotional_appeal 11) | 6/11 needs_taste; 5 held for Product Truth retitle |
+| New candidates, full pre-engineering gate | 8/8 refused (deterministic) | 8/8 waiting (vision only), 0 refused |
+| Approved / engineered | 0 | 0 — honestly: no eyes exist in shadow |
+
+Artefact: `creative_gate_r2.json` (temp-DB runtime proof: cadence `persist_catalogue_audit` deaths
+`{emotional_appeal: 5}`, `dashboard_truth.creative_survivors` count 6/11).
