@@ -15,6 +15,8 @@ a JPEG round-trip or a generated "improvement" fail closed instead of drifting i
 """
 from __future__ import annotations
 
+import math
+
 CONTRACT_VERSION = "disclosed-render-contract/2"
 
 # Square, because the gallery must share one aspect (layout_qa FRAME_RATIOS_DISAGREE) and a
@@ -57,6 +59,52 @@ OBLIQUE_DEG = 25.0
 # camera raised to this elevation, so the inside of the back wall and the base's upper face
 # read over the rim. Measured by `render_verification` with the same un-projection.
 ANGLE_DEG = 50.0
+
+
+# Elongated flat pieces (W4-VISUAL2). A table runner is 3.8:1; drawn upright in a square
+# frame it reads as a thin strip that fills ~13 % of the frame at 340 px, so the whole-piece
+# views (hero, scale) of a flat piece at least this elongated are drawn on the diagonal: the
+# same certified fabric, every stitch, rotated as one rigid body so its long axis rises at
+# the angle that draws it largest inside the product zone. Nothing is cropped, padded or
+# re-proportioned. `render_verification` recomputes the rotation from the CIR (never from
+# the manifest) and un-rotates the measured stitch glyphs before checking them.
+ELONGATED_ASPECT = 2.5
+# The scale view keeps this clear band inside the zone for its two dimension lines.
+DIAGONAL_SCALE_MARGIN_PX = 70
+
+
+def diagonal_deg(width_cm: float, height_cm: float, view: str,
+                 canvas: int = CANVAS_PX) -> float | None:
+    """The rigid rotation (degrees, counter-clockwise as seen) for a flat piece's `view`, or
+    None when the piece is drawn upright (not elongated, or not a whole-piece view).
+
+    The long axis is set rising to the right at the whole degree in [10, 80] that maximises
+    the drawing scale inside the view's box; ties go to the shallower angle."""
+    if view not in ("hero", "scale") or min(width_cm, height_cm) <= 0:
+        return None
+    long_, short = max(width_cm, height_cm), min(width_cm, height_cm)
+    if long_ / short < ELONGATED_ASPECT:
+        return None
+    zx0, zy0, zx1, zy1 = zone_px(PRODUCT_ZONE, canvas)
+    m = 2 * DIAGONAL_SCALE_MARGIN_PX if view == "scale" else 0
+    bw, bh = (zx1 - zx0) - m, (zy1 - zy0) - m
+    best, best_s = None, -1.0
+    for a in range(10, 81):
+        r = math.radians(a)
+        s = min(bw / (long_ * math.cos(r) + short * math.sin(r)),
+                bh / (long_ * math.sin(r) + short * math.cos(r)))
+        if s > best_s + 1e-9:
+            best, best_s = a, s
+    # An upright long axis turns clockwise by (90 - best); a level one turns up by best.
+    return float(best - 90) if height_cm >= width_cm else float(best)
+
+
+def rotate_xy(x: float, y: float, deg: float, cx: float = 0.0, cy: float = 0.0):
+    """(x, y) rotated `deg` counter-clockwise as seen (image y runs down) about (cx, cy)."""
+    r = math.radians(deg)
+    c, s = math.cos(r), math.sin(r)
+    dx, dy = x - cx, y - cy
+    return cx + dx * c + dy * s, cy - dx * s + dy * c
 
 
 def camera_deg(view: str) -> float:

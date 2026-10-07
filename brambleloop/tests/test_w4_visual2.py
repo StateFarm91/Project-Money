@@ -7,6 +7,9 @@
   verified on its exact bytes against that PDF and the certified CIR, carries the preview
   label (never the render disclosure), and enters the listing-set certificate through the
   same supplement path as every other gallery frame.
+* harvest-table-runner (3.8:1) -- elongated flat pieces draw hero/scale on the contract
+  diagonal (`render_contract.diagonal_deg`); `render_verification` recomputes the rotation
+  from the CIR and un-rotates every glyph. The 25 % fill gate is unchanged and now passes.
 Local, deterministic, no network, no spend.
 """
 from __future__ import annotations
@@ -191,6 +194,72 @@ def ls_disclosure():
     from brambleloop.publish.disclosed_listing import DISCLOSURE
 
     return DISCLOSURE
+
+
+# ---- elongated flat pieces: the diagonal hero/scale ------------------------------------------
+
+def test_the_runner_is_drawn_on_the_diagonal_verified_and_legible_without_moving_the_gate():
+    from brambleloop.publish import disclosed_listing as DL
+    from brambleloop.runtime import pipeline
+    from brambleloop.visual import disclosed_render as DR
+    from brambleloop.visual import render_contract as K
+    from brambleloop.visual import render_verification as RV
+
+    cir = pipeline._engineered_cir("harvest-table-runner")
+    model = RV.expected_model(cir)
+    deg = RV.flat_rotation(model, "hero")
+    assert deg is not None and -80 <= deg <= -10, deg
+    assert RV.flat_rotation(model, "detail") is None
+    for view in ("hero", "scale"):
+        fr = DR.render(cir, view)
+        assert fr.manifest["layout"]["rotation_deg"] == RV.flat_rotation(model, view)
+        v = RV.verify(fr.png, cir=cir, view=view)
+        assert v["status"] == "PASS", (view, v["failed"], v["unknown"])
+        assert v["measured"]["rows"] == len(model["rows"])
+        leg = DL._thumb_legibility(fr.png, model, 1)
+        assert leg["ok"], (view, leg["problems"])
+    # the gate itself is untouched
+    import inspect
+    assert "coverage < 0.25" in inspect.getsource(DL._thumb_legibility)
+    # the upright drawing of the same runner still fails that unchanged gate
+    real = K.diagonal_deg
+    try:
+        K.diagonal_deg = lambda *a, **k: None
+        upright = DR.render(cir, "hero")
+    finally:
+        K.diagonal_deg = real
+    leg = DL._thumb_legibility(upright.png, model, 1)
+    assert not leg["ok"] and any("fills" in p for p in leg["problems"]), leg
+    # ... and is not what the contract says this piece's hero is
+    assert RV.verify(upright.png, cir=cir, view="hero")["status"] != "PASS"
+
+
+def test_a_recoloured_stitch_on_the_diagonal_fails_and_square_pieces_stay_upright():
+    import io
+
+    from PIL import Image, ImageDraw
+
+    from brambleloop.runtime import pipeline
+    from brambleloop.visual import disclosed_render as DR
+    from brambleloop.visual import render_contract as K
+    from brambleloop.visual import render_verification as RV
+
+    cir = pipeline._engineered_cir("harvest-table-runner")
+    fr = DR.render(cir, "hero")
+    img = Image.open(io.BytesIO(fr.png)).convert("RGB")
+    pal = [K.hex_rgb(v) for v in cir.colors.values()]
+    assert len(pal) >= 2
+    cx, cy = K.CANVAS_PX // 2, int(K.zone_px(K.PRODUCT_ZONE)[1] + K.zone_px(K.PRODUCT_ZONE)[3]) // 2
+    seed = next((x, y) for y in range(cy - 40, cy + 40) for x in range(cx - 40, cx + 40)
+                if img.getpixel((x, y)) == pal[0])
+    ImageDraw.floodfill(img, seed, pal[1], thresh=0)
+    buf = io.BytesIO(); img.save(buf, format="PNG")
+    v = RV.verify(buf.getvalue(), cir=cir, view="hero")
+    assert v["status"] == "FAIL" and "colour_placement" in v["failed"], v["failed"]
+    # every product below the elongation threshold keeps its upright, byte-identical frames
+    assert K.diagonal_deg(79.2, 96.4, "hero") is None and K.diagonal_deg(32, 122, "detail") is None
+    blanket = launch0.cir_for(launch0.candidate("cloudline-baby-blanket").variants[0].build)
+    assert "rotation_deg" not in DR.render(blanket, "hero").manifest["layout"]
 
 
 if __name__ == "__main__":

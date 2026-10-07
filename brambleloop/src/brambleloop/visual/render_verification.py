@@ -271,7 +271,15 @@ def _caption(frame: _Frame) -> dict:
             "text": K.DISCLOSURE}
 
 
-def _components(frame: _Frame, region=None):
+def _unrotate(xs, ys, deg: float):
+    """Pixel coordinates taken back through `render_contract.rotate_xy` by -deg about the
+    origin: the rigid rotation is undone, and translation does not matter to any check."""
+    r = math.radians(deg)
+    c, s_ = math.cos(r), math.sin(r)
+    return xs * c - ys * s_, xs * s_ + ys * c
+
+
+def _components(frame: _Frame, region=None, unrotate: float | None = None):
     from scipy import ndimage
 
     x0, y0, x1, y1 = region or K.zone_px(K.PRODUCT_ZONE, frame.w)
@@ -290,11 +298,21 @@ def _components(frame: _Frame, region=None):
         ys, xs = np.nonzero(sub)
         colours = yarn[sl][sub]
         values, counts = np.unique(colours, return_counts=True)
+        if unrotate is not None:
+            # An elongated flat piece drawn on the diagonal: every glyph's pixels are taken
+            # back through the contract rotation, then measured exactly as an upright glyph.
+            ux, uy = _unrotate(xs + sl[1].start + x0 + 0.0, ys + sl[0].start + y0 + 0.0,
+                               unrotate)
+            geom = {"cx": float(ux.mean()), "cy": float(uy.mean()),
+                    "x0": float(ux.min()), "x1": float(ux.max()),
+                    "y0": float(uy.min()), "y1": float(uy.max())}
+        else:
+            geom = {"cx": float(xs.mean() + sl[1].start + x0),
+                    "cy": float(ys.mean() + sl[0].start + y0),
+                    "x0": sl[1].start + x0, "x1": sl[1].stop - 1 + x0,
+                    "y0": sl[0].start + y0, "y1": sl[0].stop - 1 + y0}
         comps.append({
-            "area": float(areas[k - 1]),
-            "cx": float(xs.mean() + sl[1].start + x0), "cy": float(ys.mean() + sl[0].start + y0),
-            "x0": sl[1].start + x0, "x1": sl[1].stop - 1 + x0,
-            "y0": sl[0].start + y0, "y1": sl[0].stop - 1 + y0,
+            "area": float(areas[k - 1]), **geom,
             "colour": frame.yarn_names[int(values[np.argmax(counts)])],
             "mixed_colour": len(values) > 1,
             "raised_fraction": float(raised[k - 1] / areas[k - 1]),
@@ -308,8 +326,19 @@ def _within(measured, expected, rel, px=0.0, scale=1.0) -> bool:
 
 # --------------------------------------------------------------------------- flat
 
+def flat_rotation(model, view: str) -> float | None:
+    """The contract rotation for this flat piece's view, recomputed from the compiled rows
+    (`render_contract.diagonal_deg`); never read from the producer's manifest."""
+    if model["construction"] != "flat_rows":
+        return None
+    width = max(len(r["seq"]) for r in model["rows"]) * model["w_cm"]
+    height = sum(r["height_cm"] for r in model["rows"])
+    return K.diagonal_deg(width, height, view)
+
+
 def _verify_flat(frame, model, view, u, checks) -> dict:
-    comps, _ = _components(frame)
+    deg = flat_rotation(model, view)
+    comps, _ = _components(frame, unrotate=deg)
     w_px = model["w_cm"] * u
     min_area = 0.25 * w_px * model["unit_cm"] * u
     comps = [c for c in comps if c["area"] >= min_area]
@@ -407,7 +436,7 @@ def _verify_flat(frame, model, view, u, checks) -> dict:
                              "median stitch spacing against 10 cm / stitches per 10 cm",
                              measured=round(p, 4), expected=round(model["w_cm"], 4)))
     return {"rows": len(bands), "cols": cols, "window": {"rows": n_rows, "cols": cols},
-            "measured_cm": [round(m_w, 2), round(m_h, 2)]}
+            "measured_cm": [round(m_w, 2), round(m_h, 2)], "rotation_deg": deg}
 
 
 # --------------------------------------------------------------------------- rounds
@@ -767,8 +796,16 @@ def _annotations(frame: _Frame, cir, model, view: str, scale: dict, detail: dict
     line_mask = seen_line & ~frame.off_palette
     l_labels, l_count = ndimage.label(line_mask)
     found = []
-    for sl in ndimage.find_objects(l_labels):
-        found.append((sl[1].stop - sl[1].start, sl[0].stop - sl[0].start))
+    deg = (detail or {}).get("rotation_deg")
+    for k, sl in enumerate(ndimage.find_objects(l_labels), start=1):
+        if deg is None:
+            found.append((sl[1].stop - sl[1].start, sl[0].stop - sl[0].start))
+            continue
+        # A diagonal flat piece's dimension lines run along its rotated edges: measured in
+        # the piece's own (un-rotated) axes, exactly like an upright frame's.
+        ys, xs = np.nonzero(l_labels[sl] == k)
+        ux, uy = _unrotate(xs + sl[1].start + 0.0, ys + sl[0].start + 0.0, deg)
+        found.append((float(ux.max() - ux.min() + 1), float(uy.max() - uy.min() + 1)))
     want = []
     if view == "scale":
         if form == "flat":
