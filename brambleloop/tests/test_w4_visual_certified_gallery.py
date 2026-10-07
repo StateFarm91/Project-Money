@@ -196,6 +196,36 @@ def test_supplement_readings_add_to_the_gates_and_never_replace_them():
     assert got[el.LAYOUT_QA] == el.FAILED, got
 
 
+def test_relief_tone_clears_separation_without_moving_launch0_palettes():
+    from brambleloop.visual import render_contract as K
+
+    gold = K.hex_rgb("#C49545")
+    assert K._dist(gold, K.relief(gold)) >= K.MIN_SEPARATION, K.relief(gold)
+    assert K.MIN_SEPARATION == 40.0   # the minimum itself is unchanged
+    # Launch-0 yarns keep the exact pre-W4 tone (15 % darker light, 30 % lighter dark).
+    for hexv in ("#FAF6EB", "#6E1F2A", "#1A2B3C"):
+        r, g, b = K.hex_rgb(hexv)
+        light = 0.2126 * r + 0.7152 * g + 0.0722 * b > 128
+        old = ((int(r * 0.85), int(g * 0.85), int(b * 0.85)) if light else
+               (int(r + (255 - r) * 0.3), int(g + (255 - g) * 0.3), int(b + (255 - b) * 0.3)))
+        assert K.relief((r, g, b)) == old, hexv
+
+
+def test_catalogue_products_get_a_render_authority_and_verified_gallery_frames():
+    from brambleloop.visual import disclosed_render as DR
+    from brambleloop.visual import render_verification as RV
+
+    for slug in ("pet-snuggle-mat", "harvest-table-runner"):
+        cir = RV.authoritative_cir(slug)
+        assert cir is not None and cir.slug == slug, slug
+        assert RV.authoritative_cir(slug, "0.0.1") is None
+        fr = DR.render(cir, "hero")   # refused before: gold sat 39.4 from its relief tone
+        assert RV.verify(fr.png, cir=cir, view="hero")["status"] == "PASS", slug
+        offer = _offer(cir)
+        assert [f["job"] for f in offer["frames"]] == ["COLOUR_CONTEXT", "MATERIALS"], offer
+    assert RV.authoritative_cir("unregistered-design-no-authority") is None
+
+
 if __name__ == "__main__":
     import time
 
