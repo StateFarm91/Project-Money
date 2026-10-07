@@ -1,0 +1,50 @@
+{
+ "generated_at": "2026-10-07T04:10:56+00:00",
+ "generated_by": "research/final_build/w4/pipe3_run.py (real release chain, shadow worker, scratch SQLite, network closed, no taxonomy snapshot)",
+ "products": {
+  "pressed-flower-motifs": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "applique crochet",
+     "written and chart",
+     "diy gift crochet",
+     "heart crochet",
+     "heart applique",
+     "motifs applique",
+     "digital download",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms",
+     "printable pdf chart",
+     "fiber art project",
+     "motifs crochet"
+    ],
+    "title": "Heart Applique Motif Library (12) | Crochet Pattern PDF | Motifs | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Heart Applique Motif Library (12)",
+   "title_promise": true,
+   "version": "1.3.0"
+  }
+ },
+ "seconds": 52.9
+}

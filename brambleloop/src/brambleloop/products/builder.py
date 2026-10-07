@@ -124,7 +124,7 @@ def _derive_from_yarn(design: Design) -> Design:
                    rows_per_10cm=gauge.rows_per_10cm, hook_mm=gauge.hook_mm)
 
 
-def build(design: Design, version: str = "1.0.0") -> CIR:
+def build(design: Design, version: str = "1.0.0", *, derive: bool = True) -> CIR:
     """Generate the CIR. Refuses a width the motif cannot tile.
 
     Refusing rather than fudging matters: a motif silently truncated at the edge produces a
@@ -163,7 +163,7 @@ def build(design: Design, version: str = "1.0.0") -> CIR:
         design = replace(design, width_stitches=across * motif.width, motif_repeats=repeats,
                          stitches_per_10cm=gauge.stitches_per_10cm,
                          rows_per_10cm=gauge.rows_per_10cm, hook_mm=gauge.hook_mm)
-    elif design.slug in YARN_DERIVED and catalogued:
+    elif design.slug in YARN_DERIVED and catalogued and derive:
         design = _derive_from_yarn(design)
     if version == "1.0.0" and catalogued:
         version = RELEASE_VERSIONS.get(design.slug, version)
@@ -364,7 +364,9 @@ CATALOGUE: dict[str, Design] = {
              "ground, one colour per row."),
     "autumn-oak-mosaic-throw": Design(
         # W4-PIPE 1.3.0 (creative HELD + fabric truth): the motif is fir-and-star, not oak,
-        # and one colour per row is a relief, not a mosaic. Still LEGACY_HELD for its gauge.
+        # and one colour per row is a relief, not a mosaic. W4-PIPE3 1.4.0: re-engineered
+        # from its declared yarn (YARN_DERIVED) -- the typed 16 sc/10cm below is the drawn
+        # intent, which worsted cannot hold; `as_drawn` keeps that record refusable.
         slug="autumn-oak-mosaic-throw", title="Fir and Star Relief Throw",
         motif="fir-and-star", palette="autumn", width_stitches=144, motif_repeats=5),
     "harvest-table-runner": Design(
@@ -426,12 +428,14 @@ CATALOGUE: dict[str, Design] = {
 # 16 sc/10cm it was drawn at -- that is the record of the intent the counts are derived from.
 #
 # Held back, with the reason recorded rather than faked:
+#
+# W4-PIPE3 (2026-10-07): autumn-oak-mosaic-throw was held here as the legacy record of a typed
+# out-of-band gauge (16 sc/10cm against worsted, band 11-14). It is now re-engineered the same
+# way as the rest of the catalogue (gauge from the yarn, counts in whole motifs at the drawn
+# size) under 1.4.0. The refusal of the typed record is still pinned, by building the design
+# exactly as drawn (`as_drawn`) in tests/test_launch0_gauge.py: it gained its pass by
+# re-engineering, not by the gate moving.
 LEGACY_HELD: dict[str, str] = {
-    "autumn-oak-mosaic-throw": (
-        "kept as the legacy record of a typed out-of-band gauge (16 sc/10cm against worsted): "
-        "the gauge gate refuses it and tests/test_launch0_gauge.py pins that refusal, the "
-        "proof that no catalogue design gains a pass except by re-engineering. It is not "
-        "routed to a certificate until it is re-engineered here"),
     "cloudline-baby-blanket": "re-engineered separately: the D-FB-6 border redesign in build()",
 }
 YARN_DERIVED: frozenset[str] = frozenset(CATALOGUE) - frozenset(LEGACY_HELD)
@@ -445,19 +449,38 @@ YARN_DERIVED: frozenset[str] = frozenset(CATALOGUE) - frozenset(LEGACY_HELD)
 # double-counted), row height by the stitch-weighted rule (a sc row with a few dc in it is no
 # longer measured as a dc row), and colour-change notes that the rows can actually obey.
 RELEASE_VERSIONS: dict[str, str] = {slug: "1.2.0" for slug in CATALOGUE}
-RELEASE_VERSIONS["autumn-oak-mosaic-throw"] = "1.1.0"   # LEGACY_HELD, never re-derived
 # W4-PIPE (2026-10-07): piece count made true (pieces=2 / pieces=6) and the placemat named for
 # the relief fabric it works rather than a mosaic it cannot.
 RELEASE_VERSIONS["mosaic-placemat-pair"] = "1.3.0"
 RELEASE_VERSIONS["nordic-star-ornaments"] = "1.4.0"
 # W4-PIPE (2026-10-07, W4-CREATIVE HELD titles): retitled to what the motif depicts and the
 # fabric makes; the library makes twelve; the wall hanging carries its rod-pocket seam.
-for _slug in ("winter-village-graphghan", "autumn-oak-mosaic-throw", "pressed-flower-motifs",
-              "cottage-wall-hanging"):
+for _slug in ("winter-village-graphghan", "pressed-flower-motifs", "cottage-wall-hanging"):
     RELEASE_VERSIONS[_slug] = "1.3.0"
 # W4-PIPE (2026-10-07): the garlands are pennants on a cord (five pennants, a cord, a seam).
 for _slug in ("spooky-garland", "valentine-heart-garland"):
     RELEASE_VERSIONS[_slug] = "1.3.0"
+
+
+# W4-PIPE3 (2026-10-07): autumn-oak 1.3.0 was the legacy typed gauge (refused); 1.4.0 is the
+# design re-derived from its declared yarn, the first release of it that can certify.
+RELEASE_VERSIONS["autumn-oak-mosaic-throw"] = "1.4.0"
+
+
+# The last release of each re-engineered design that was built at its typed gauge.
+AS_DRAWN_RELEASE: dict[str, str] = {"autumn-oak-mosaic-throw": "1.3.0"}
+
+
+def as_drawn(slug: str) -> CIR | None:
+    """The superseded release of a re-engineered design: built at the typed gauge and counts
+    it was DRAWN at, with no derivation from its yarn, under the version it was released as.
+    It exists so the gauge gate's refusal of that typed out-of-band record stays pinned by a
+    test (tests/test_launch0_gauge.py) after the design itself was re-engineered."""
+    design = CATALOGUE.get(slug)
+    version = AS_DRAWN_RELEASE.get(slug)
+    if design is None or version is None:
+        return None
+    return build(design, version, derive=False)
 
 
 def for_slug(slug: str, version: str = "1.0.0") -> CIR | None:

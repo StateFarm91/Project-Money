@@ -1,0 +1,462 @@
+{
+ "generated_at": "2026-10-07T04:09:30+00:00",
+ "generated_by": "research/final_build/w4/pipe3_run.py (real release chain, shadow worker, scratch SQLite, network closed, no taxonomy snapshot)",
+ "products": {
+  "autumn-oak-mosaic-throw": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "thanksgiving blanket",
+     "blanket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "autumn blanket",
+     "thanksgiving diy",
+     "digital download",
+     "thanksgiving craft",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms"
+    ],
+    "title": "Fir and Star Relief Throw | Crochet Pattern PDF | Thanksgiving | Autumn Blanket | US and UK Terms",
+    "version": "1.4.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Fir and Star Relief Throw",
+   "title_promise": true,
+   "version": "1.4.0"
+  },
+  "bobble-floor-pillow": {
+   "assembly_promise": true,
+   "certificate_errors": [
+    "UNCALIBRATED_PRIMITIVE: ['bob'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+   ],
+   "certified": false,
+   "chain_jobs": [
+    "gate.certify:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": null,
+   "listing_truth_ok": null,
+   "name_truth_cir": [],
+   "name_truth_listing": null,
+   "product_truth_ok": false,
+   "risk_class": "B",
+   "seo_blocked": [],
+   "title": "Bobble Floor Pillow Cover",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "chunky-ribbed-scarf": {
+   "assembly_promise": true,
+   "certificate_errors": [
+    "UNCALIBRATED_PRIMITIVE: ['bpdc', 'fpdc'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it pass"
+   ],
+   "certified": false,
+   "chain_jobs": [
+    "gate.certify:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": null,
+   "listing_truth_ok": null,
+   "name_truth_cir": [],
+   "name_truth_listing": null,
+   "product_truth_ok": false,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Chunky Ribbed Scarf",
+   "title_promise": true,
+   "version": "1.0.0"
+  },
+  "cottage-wall-hanging": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "wall decor crochet",
+     "cottage crochet",
+     "cottage wall decor",
+     "hanging wall decor",
+     "printable pdf chart",
+     "fiber art project",
+     "hanging crochet",
+     "diy wall decor",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "digital download",
+     "instant download pdf"
+    ],
+    "title": "Cottage Chevron Wall Hanging | Crochet Pattern PDF | Decor | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Cottage Chevron Wall Hanging",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "heirloom-cable-blanket": {
+   "assembly_promise": true,
+   "certificate_errors": [
+    "UNCALIBRATED_PRIMITIVE: ['bpdc', 'cable2x2', 'fpdc'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical tes"
+   ],
+   "certified": false,
+   "chain_jobs": [
+    "gate.certify:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": null,
+   "listing_truth_ok": null,
+   "name_truth_cir": [],
+   "name_truth_listing": null,
+   "product_truth_ok": false,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Heirloom Cable Throw",
+   "title_promise": true,
+   "version": "1.2.0"
+  },
+  "mosaic-placemat-pair": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "placemat crochet",
+     "pdf crochet pattern",
+     "diy placemat",
+     "textured crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "digital download",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms",
+     "printable pdf chart"
+    ],
+    "title": "Diamond Lattice Placemat Pair | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Diamond Lattice Placemat Pair",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "nordic-forest-mosaic-throw-baby": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "christmas blanket",
+     "baby crochet pattern",
+     "baby blanket pattern",
+     "christmas diy",
+     "christmas craft",
+     "forest crochet",
+     "forest blanket",
+     "blanket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "digital download",
+     "home decor diy"
+    ],
+    "title": "Nordic Forest Relief Baby Blanket | Crochet Pattern PDF | Christmas | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Nordic Forest Relief Baby Blanket",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "nordic-forest-mosaic-throw-large": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "diy christmas decor",
+     "large crochet",
+     "large blanket",
+     "christmas blanket",
+     "blanket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "forest blanket",
+     "christmas diy",
+     "digital download",
+     "christmas craft",
+     "home decor diy"
+    ],
+    "title": "Nordic Forest Relief Large Blanket | Crochet Pattern PDF | Christmas | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Nordic Forest Relief Large Blanket",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "nordic-forest-mosaic-throw-throw": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "nordic crochet",
+     "nordic blanket",
+     "christmas blanket",
+     "blanket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "forest blanket",
+     "christmas diy",
+     "digital download",
+     "christmas craft",
+     "home decor diy",
+     "instant download pdf"
+    ],
+    "title": "Nordic Forest Relief Throw | Crochet Pattern PDF | Christmas | Blanket | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Nordic Forest Relief Throw",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "pressed-flower-motifs": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "flower crochet",
+     "flower applique",
+     "heart crochet",
+     "heart flower pattern",
+     "motifs crochet",
+     "motifs flower",
+     "written and chart",
+     "diy gift crochet",
+     "digital download",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms",
+     "printable pdf chart"
+    ],
+    "title": "Heart Applique Motif Library (12) | Crochet Pattern PDF | Pressed Flower | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": false,
+   "name_truth_cir": [],
+   "name_truth_listing": [
+    "imagery: the listing promises ['flower']; the heart-row motif does not depict it"
+   ],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Heart Applique Motif Library (12)",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "spooky-garland": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "halloween seasonal",
+     "seasonal decor",
+     "holiday crochet",
+     "garland crochet",
+     "garland seasonal",
+     "halloween diy",
+     "halloween craft",
+     "holiday decor diy",
+     "spooky crochet",
+     "spooky seasonal",
+     "written and chart",
+     "diy gift crochet",
+     "digital download"
+    ],
+    "title": "Spooky Bunting Garland | Crochet Pattern PDF | Halloween | Seasonal Decor | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Spooky Bunting Garland",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "valentine-heart-garland": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "valentine's seasonal",
+     "valentine's diy",
+     "valentine's craft",
+     "valentine crochet",
+     "seasonal decor",
+     "written and chart",
+     "diy gift crochet",
+     "holiday crochet",
+     "garland crochet",
+     "garland seasonal",
+     "digital download",
+     "holiday decor diy",
+     "instant download pdf"
+    ],
+    "title": "Heart Motif Garland | Crochet Pattern PDF | Valentine's | Seasonal Decor | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Heart Motif Garland",
+   "title_promise": true,
+   "version": "1.3.0"
+  }
+ },
+ "seconds": 274.2
+}

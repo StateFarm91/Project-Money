@@ -102,7 +102,11 @@ def _nearest(target: float, unit: float) -> int:
 # measures a row by the stitch-weighted height of the stitches in it, which moved this
 # design's stated yardage and/or size; a customer-visible figure cannot change under a
 # released version (tests/data/release_fingerprints.tsv pins content AND claims).
-RELEASE_VERSION = "1.2.0"
+# 1.3.0 (W4-PIPE3, 2026-10-07): named for the fabric it makes. "Overlay Mosaic" claimed a
+# two-colour technique; every row is worked in ONE colour (dc standing above a sc ground), so
+# the motif is a relief inside alternating stripes (`launch0.fabric_truth`, NAME_OUTRUNS_PATTERN).
+# Title, designer note and provenance changed, so every size is a new release.
+RELEASE_VERSION = "1.3.0"
 
 SIZES: dict[str, tuple[int, int]] = {
     # name: (stitches wide, motif repeats tall), derived from TARGET_CM at GAUGE
@@ -166,8 +170,11 @@ def _row_ops(pattern: str, width: int) -> list[Repeat]:
 def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
     """Build the CIR for one finished size.
 
-    Colour alternates every row, which is how overlay mosaic is actually worked: you carry
-    one colour at a time and the previous colour shows through where you did not cover it.
+    Colour alternates every row and each row is worked in one colour: the fir and the star
+    are double crochet standing above a single-crochet ground, a relief inside the stripes.
+    (This docstring once called that overlay mosaic. Mosaic needs two colours in a row --
+    stitches of one colour reaching down past the other -- which this CIR cannot express and
+    this fabric does not make; `launch0.fabric_truth` refuses the name.)
     """
     _validate_motif()
     if size not in SIZES:
@@ -196,8 +203,11 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
         # The throw is the headline product, so it carries the plain name; the other sizes
         # qualify it. A title reading "... Throw (Throw)" is the kind of small wrongness that
         # makes a premium shop look automated.
-        title=("Nordic Forest Overlay Mosaic Throw" if size == "throw"
-               else f"Nordic Forest Overlay Mosaic Blanket ({size.title()})"),
+        # W4-PIPE3: "Nordic Forest Relief Baby Blanket" rather than "... Blanket (Baby)": the
+        # bracketed size pushed the listing's season differentiator past the 60-character
+        # front scan (commerce.seo.front_scan), and the size reads as the noun it qualifies.
+        title=("Nordic Forest Relief Throw" if size == "throw"
+               else f"Nordic Forest Relief {size.title()} Blanket"),
         version=version,
         construction="flat_rows",
         risk_class="A",
@@ -208,15 +218,16 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
         components=[Component(name="blanket", construction="flat_rows", rows=rows,
                               foundation=width, foundation_kind="chain")],
         designer_notes=(
-            f"Overlay mosaic on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
-            f"({repeats} motif repeats). Fir and star bands alternate. "
+            f"Fir and star relief on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
+            f"({repeats} motif repeats): double crochet standing above a single-crochet "
+            f"ground, one colour per row. Fir and star bands alternate. "
             + _colour_note(rows, width)),
         # F-783: the fir-and-star motif and the size table are this module's own.
         provenance=catalogue_provenance(
             "nordic-forest-mosaic-throw",
             {"builder": "products.nordic_forest.build", "size": size, "width": width,
              "repeats": repeats, "motif": list(MOTIF), "palette": dict(PALETTE)},
-            ("products.nordic_forest", "products.nordic_forest.MOTIF", "overlay_mosaic")),
+            ("products.nordic_forest", "products.nordic_forest.MOTIF", "fir_and_star_relief")),
     )
 
 

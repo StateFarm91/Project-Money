@@ -67,6 +67,8 @@ CATEGORY_NODE_TERMS: dict[str, dict[str, tuple[str, ...]]] = {
     "stocking": {"object": ("stocking",), "family": ("holiday", "seasonal", "christmas")},
     "seasonal_decor": {"object": ("holiday", "seasonal"), "family": ("decor", "home")},
     "flower": {"object": ("flower", "applique"), "family": ()},
+    # W4-PIPE3: an applique motif library that depicts no flower (runtime.release.SEED_CORRECTIONS).
+    "applique": {"object": ("applique", "motif"), "family": ()},
     "pet": {"object": ("pet", "dog", "cat"), "family": ()},
     "wedding": {"object": ("wedding",), "family": ()},
 }
