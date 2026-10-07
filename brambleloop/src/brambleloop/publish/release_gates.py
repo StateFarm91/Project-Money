@@ -1043,7 +1043,21 @@ def staleness(db, *, slug: str) -> dict:
             "outstanding_only_marketing": only_marketing}
 
 
-def originality_gate(db, *, slug: str, version: str) -> dict:
+def _frame_bytes(db, slug: str, version: str, store_root=None) -> dict[str, bytes]:
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+
+    store = ArtifactStore(store_root)
+    out: dict[str, bytes] = {}
+    for f in _frames(db, slug, version):
+        if f.sha256:
+            try:
+                out[f"frame-{f.position}"] = store.get(f.sha256, db=db)
+            except (ArtifactMissing, OSError):
+                continue
+    return out
+
+
+def originality_gate(db, *, slug: str, version: str, store_root=None) -> dict:
     """Current corpus/rights at protected execution, including evidence added after QA."""
     from ..cir.compiler import compile_cir
     from ..cir.writer import write_pattern
@@ -1058,9 +1072,15 @@ def originality_gate(db, *, slug: str, version: str) -> dict:
             return {"blocks": True, "reasons": ["originality: source CIR no longer compiles"],
                     "state": "UNKNOWN"}
         findings = originality.release_findings(cir, pattern_text=write_pattern(cir, result), db=db)
+        # F-784 / F-795: presentation -- this release's listing frames against every
+        # benchmark image, by perceptual hash.
+        findings.extend(originality.presentation_review(
+            db, frames=_frame_bytes(db, slug, version, store_root)))
         reasons = [f"{f.code}: {f.message}" for f in findings if f.is_error]
         return {"blocks": bool(reasons), "reasons": reasons,
                 "state": "REFUSED" if reasons else "CHECKED", "release_hash": release_hash,
+                "presentation_warnings": [f.message for f in findings
+                                          if f.code == "SIMILARITY_UNMEASURED"],
                 "limitation": "deterministic comparison is not independent legal/creative adjudication"}
     except Exception as exc:
         return {"blocks": True, "reasons": ["originality evidence unavailable: " + type(exc).__name__],
@@ -1076,7 +1096,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     set_verdict = listing_set(db, slug=slug, version=version, store_root=store_root,
                               issue=not stale["blocks"] and window["may_launch_seasonally"])
     reasons = list(stale["reasons"])
-    originality = originality_gate(db, slug=slug, version=version)
+    originality = originality_gate(db, slug=slug, version=version, store_root=store_root)
     reasons.extend(originality["reasons"])
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
