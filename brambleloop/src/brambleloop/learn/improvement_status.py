@@ -156,7 +156,33 @@ def _summary(db) -> dict:
         "sources": SOURCES,
         # F-799: the Learn department's own reading (queue, metrics, calendar, experiments).
         "department": _department(db),
+        # W4-LEARN: the capability cells and the lesson bus as the dashboard counts them, and
+        # the internal pre-sale outcomes (never customer outcomes) beside them.
+        "cells": _cells(db),
+        "presale": _presale(db),
     }
+
+
+def _cells(db) -> dict:
+    try:
+        from ..improve.bus import compounding
+        from ..improve.cells import CELLS, retrospective
+        from ..improve.measure import DATA_GATED_CELLS
+
+        report = retrospective(db)
+        comp = compounding(db)
+        unmeasured = report["unmeasured_cells"]
+        return {"cells": len(CELLS), "measured": len(CELLS) - len(unmeasured),
+                "unmeasured": unmeasured,
+                "post_launch_only": [c for c in unmeasured if c in DATA_GATED_CELLS],
+                "lessons_routed": comp["routed"], "lessons_acted_on": comp["acted_on"]}
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+
+def _presale(db) -> dict:
+    from ..improve import presale
+    return presale.summary(db)
 
 
 def _department(db) -> dict:
