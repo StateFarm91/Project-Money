@@ -99,3 +99,20 @@ Christmas window open; Christmas-stocking arena uncovered, observed) → reading
 
 Artefact: `creative_gate_r2.json` (temp-DB runtime proof: cadence `persist_catalogue_audit` deaths
 `{emotional_appeal: 5}`, `dashboard_truth.creative_survivors` count 6/11).
+
+## r3 (W4-CREATIVE2, 2026-10-07): the five holds released, holds made self-checking
+W4-PIPE/PIPE3 retitled the five held products to what their motif depicts (relief fabric:
+double crochet above a single-crochet ground, one colour per row). `title_conflicts` on each
+released title is empty: Winter Snowfall Relief Throw / snowfall, Fir and Star Relief Throw /
+fir-and-star, Nordic Snowflake Ornament Set (6) / snowfall, Heart Applique Motif Library (12) /
+heart-row, Cottage Chevron Wall Hanging / chevron-band. Each now carries a moment-first brief in
+`CATALOGUE_BRIEFS` that `validate` accepts (the validator caught and refused one draft premise,
+"for a first tree", because the snowfall motif depicts no tree). `HELD` is empty; a hold is
+self-checking (`stale_holds`, `test_every_hold_is_live`) so a stale hold fails CI.
+
+| Reading (scratch DB, cadence + dashboard) | Before | After |
+|---|---|---|
+| Catalogue survivors | 6/11 (emotional_appeal 5) | 11/11 needs_taste, 0 deaths |
+| Approved | 0 | 0 — needs_taste still waits on a recorded vision judgement |
+
+Artefact: `creative_gate_r3.json` (proof: `creative_gate_r3_proof.py`).
