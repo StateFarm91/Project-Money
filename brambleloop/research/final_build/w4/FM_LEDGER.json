@@ -8,17 +8,17 @@
    "v1.1": 51
   },
   "status_all": {
-   "PROVEN": 314,
+   "PROVEN": 333,
    "OWNER-GATED": 150,
-   "OPEN-DEFECT": 331,
+   "OPEN-DEFECT": 312,
    "DATA-GATED": 81,
    "EXTERNAL-GATED": 34,
    "NOT-APPLICABLE": 7
   },
   "status_launch_critical": {
-   "PROVEN": 291,
+   "PROVEN": 310,
    "OWNER-GATED": 76,
-   "OPEN-DEFECT": 82,
+   "OPEN-DEFECT": 63,
    "EXTERNAL-GATED": 25,
    "DATA-GATED": 16
   },
@@ -29,7 +29,7 @@
    "EXTERNAL-GATED": 9,
    "PROVEN": 23
   },
-  "launch_critical_open": 82,
+  "launch_critical_open": 63,
   "reachability_basis": "HEAD 8b67414 reachability; production fcb982d",
   "unreached_modules": [
    "autonomy/map.py",
@@ -4737,7 +4737,7 @@
    "title": "Suite Result Binding",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
    "coverage": "FULL",
@@ -4749,9 +4749,7 @@
     "tests/test_deploy_guard.py::test_a_record_whose_log_contradicts_it_or_is_gone_is_refused"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -4947,11 +4945,11 @@
    "title": "Final Master Reconciliation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "research/final_build/parse_master.py; research/final_build/aggregate.py",
+   "coverage": "FULL",
+   "producer": "research/final_build/parse_master.py; research/final_build/parse_master_v11.py; research/final_build/aggregate.py::main",
    "consumer": null,
    "tests": [
     "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse",
@@ -4960,11 +4958,8 @@
     "tests/test_final_closure_matrix.py::test_a_worker_claim_above_its_evidence_is_lowered_with_a_reason"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Registry, matrix and aggregation exist and are pinned; rows touched by FB-1/FB-2/FB-3 are being re-mapped against 6f9a2f7 now (this remap), so the matrix does n"
-   ],
-   "next_action": "Merge the remap outputs, extend aggregate.py to read remap files (it globs mapping/s[0-9].json only), re-aggregate and commit",
+   "reasons": [],
+   "next_action": "none: at target maturity (operator tooling)",
    "mapped_on": "6f9a2f7",
    "w3_triage": "P",
    "w3_cluster": "PROCESS",
@@ -4976,23 +4971,20 @@
    "title": "Final Master Completion Standard",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "research/final_build/aggregate.py::cap",
+   "coverage": "FULL",
+   "producer": "research/final_build/aggregate.py::completion",
    "consumer": null,
    "tests": [
-    "tests/test_final_closure_matrix.py::test_exercised_rows_cite_a_committed_production_artefact",
-    "tests/test_final_closure_matrix.py::test_integrated_rows_have_a_producer_reached_from_a_live_root",
-    "tests/test_final_closure_matrix.py::test_no_row_claims_commercial_evidence_that_does_not_exist"
+    "tests/test_final_closure_matrix.py::test_completion_is_computed_per_row_and_the_open_count_is_summarised",
+    "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator",
+    "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: aggregate.py caps claims by evidence (EXERCISED needs a committed production artefact, INTEGRATED needs a reached producer) but no completion verdict is compute"
-   ],
-   "next_action": "Add aggregate.completion(row): LAUNCH-CRITICAL complete iff maturity>=INTEGRATED (DEPLOYED/EXERCISED where production-verified is claimed, with a stored readback artefact) or gate.kind!=none with a verified gate key; summarise OPEN count and pin OPEN==0 for release in tests/test_final_closure_matrix.py",
+   "reasons": [],
+   "next_action": "re-map to build2/final_master.py after reachability regeneration",
    "mapped_on": "6f9a2f7",
    "w3_triage": "R",
    "w3_cluster": "STRUCTURAL",
@@ -5680,7 +5672,7 @@
    "title": "Dashboard Contradiction Test",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
@@ -5694,9 +5686,7 @@
     "tests/test_cert_dashboard.py::test_a_legacy_row_for_a_closed_gate_merges_into_its_card_rather_than_duplicating"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch (requirement is an acceptance test; it runs in the release-eligible suite against the live GET / route).",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9405,7 +9395,7 @@
    "title": "No Self-Matching Liveness Probe",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
    "coverage": "FULL",
@@ -9418,9 +9408,7 @@
     "tests/test_waiter.py::test_the_waiter_never_spawns_a_process"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch (operator tooling; EXERCISED would need a recorded real heartbeat wait).",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9463,7 +9451,7 @@
    "title": "Waiter Deduplication",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
    "coverage": "FULL",
@@ -9474,9 +9462,7 @@
     "tests/test_waiter.py::test_a_duplicate_lease_left_by_a_dead_waiter_is_detected_and_taken_over"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch (operator tooling; use it in the next heartbeat to reach EXERCISED).",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9637,7 +9623,7 @@
    "title": "Waiter Resource Bound",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
    "coverage": "FULL",
@@ -9649,9 +9635,7 @@
     "tests/test_waiter.py::test_the_waiter_never_spawns_a_process"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch (operator tooling).",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9696,22 +9680,19 @@
    "title": "Observer/Work Separation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "ops/board.py (repo root)::alive; ops/registry.py::Registry.enrol (marker); ops/waiter.py leases",
+   "coverage": "FULL",
+   "producer": "ops/registry.py (repo root)::Registry.enrol (work|observer role); ops/board.py (repo root)::alive; ops/waiter.py leases",
    "consumer": "ops/board.py::read",
    "tests": [
-    "tests/test_board.py (check 'a genuinely running job is still counted alongside the observer')",
-    "tests/test_board.py (check 'a job with no sentinel whose only match is the observer reads STALLED, not RUNNING')"
+    "tests/test_w3_suite_job_identity.py::test_the_registry_separates_work_from_observers",
+    "tests/test_w3_suite_job_identity.py::test_an_attached_observer_starts_nothing_and_takes_the_running_runs_result"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: registry records carry the job's own marker and waiter leases live in a separate directory, but there is no explicit role (work|observer) field and registry.enr"
-   ],
-   "next_action": "Add role ('work'|'observer') to registry records, have ops/waiter leases record role='observer', and make Registry.enrol refuse a marker matching observer signatures (waiter.py, pgrep, 'until ... sleep'); test.",
+   "reasons": [],
+   "next_action": "none: at target maturity (operator tooling)",
    "mapped_on": "6f9a2f7",
    "w3_triage": "O",
    "w3_cluster": "K14",
@@ -9758,22 +9739,22 @@
    "title": "Operational Time Waste Accounting",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "ops/waiter.py (repo root)::Waiter.ack / Waiter.account_idle",
+   "coverage": "FULL",
+   "producer": "ops/waiter.py (repo root)::Waiter.ack / Waiter.account_idle; ops/registry.py (repo root)::ack_and_account; ops/lock.py (repo root)::_show_unread_lanes",
    "consumer": "ops/waiter.py (repo root)::Waiter.waste_report (CLI `waste`)",
    "tests": [
     "tests/test_waiter.py::test_acknowledging_a_lane_accounts_its_idle_wall_clock_and_flags_a_reliability_incident",
-    "tests/test_waiter.py::test_a_quick_acknowledgement_is_recorded_but_is_not_an_incident"
+    "tests/test_waiter.py::test_a_quick_acknowledgement_is_recorded_but_is_not_an_incident",
+    "tests/test_reliability_ledger.py::test_registry_ack_accounts_idle_time_through_the_waiter",
+    "tests/test_reliability_ledger.py::test_the_registry_cli_ack_goes_through_the_waiter",
+    "tests/test_reliability_ledger.py::test_the_board_prints_open_reliability_incidents_and_waste"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Only one class of waste is accounted: (ack time - job's stamped finish) when a lane is acknowledged through `ops/waiter.py ack`. `ops/registry.py ack` -- the co"
-   ],
-   "next_action": "Make `ops/registry.py ack` call Waiter.account_idle (or route the heartbeat's ack through `waiter.py ack`), print `waiter.py waste` reliability incidents in the lease/board output (ops/lock.py::_show_unread_lanes), and add a test that a registry ack of a 20-minute-stale lane is accounted and shown.",
+   "reasons": [],
+   "next_action": "none: at target maturity (operator tooling)",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
    "w3_cluster": "STRUCTURAL",
@@ -9785,7 +9766,7 @@
    "title": "Test-Suite Run Record",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
@@ -9798,9 +9779,7 @@
     "tests/test_deploy_guard.py::test_latest_suite_is_a_file_query_and_the_cli_exit_code_is_the_verdict"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch (harness requirement; cannot be DEPLOYED in the production sense until the Build is deployed with this run_tests.sh).",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9813,7 +9792,7 @@
    "title": "Suite Concurrency Guard",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
@@ -9824,9 +9803,7 @@
     "tests/test_run_tests_script.py::test_a_stale_lock_from_a_dead_process_is_taken_over_and_said"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9839,7 +9816,7 @@
    "title": "Targeted Validation Before Full Rerun",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "INTEGRATED",
    "coverage": "FULL",
@@ -9851,9 +9828,7 @@
     "tests/test_run_tests_script.py::test_then_full_chains_into_the_unfiltered_run_when_the_targeted_suites_pass"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9866,7 +9841,7 @@
    "title": "Monitor Regression Tests",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
    "coverage": "FULL",
@@ -9881,9 +9856,7 @@
     "tests/test_health.py::test_the_sweep_refuses_to_call_a_spinning_loop_healthy"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch (requirement is automated tests; they assert the behaviour and run in every release-eligible suite)",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9896,7 +9869,7 @@
    "title": "Business-Progress Preservation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
    "coverage": "FULL",
@@ -9909,9 +9882,7 @@
     "tests/test_run_tests_script.py::test_a_second_identical_run_reports_the_running_one_and_exits_without_running"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "reasons": [],
    "next_action": "none — at target maturity for launch",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
@@ -9924,23 +9895,21 @@
    "title": "Reliability Incident Escalation",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "ops/waiter.py (repo root)::Waiter.waste_report",
+   "coverage": "FULL",
+   "producer": "ops/incidents.py (repo root)::open/close; ops/waiter.py (repo root)::Waiter.waste_report",
    "consumer": null,
    "tests": [
-    "tests/test_waiter.py::test_acknowledging_a_lane_accounts_its_idle_wall_clock_and_flags_a_reliability_incident",
-    "tests/test_board.py",
-    "tests/test_board_restart.py"
+    "tests/test_reliability_ledger.py::test_open_is_idempotent_by_signature_and_kinds_are_closed",
+    "tests/test_reliability_ledger.py::test_close_refuses_without_all_three_and_accepts_with_them",
+    "tests/test_reliability_ledger.py::test_material_delay_found_by_the_waiter_opens_a_ledger_entry",
+    "tests/test_reliability_ledger.py::test_the_ledger_cli_refuses_a_bare_close"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Only 'material delay' is detected and flagged (waiter idle accounting -> RELIABILITY INCIDENT flag in time_waste.jsonl). There is no incident record type for ob"
-   ],
-   "next_action": "Add an ops reliability-incident ledger (e.g. ops/incidents.jsonl via ops/registry.py `incident open/close`) with required fields signature, kind (false_progress|hidden_completion|duplicate_work|launch_delay), root_cause, prevention_test (must name an existing tests/ function), fix_commit (must exist in git); refuse close without them; have waiter.py waste open one automatically; tests for refusal and auto-open.",
+   "reasons": [],
+   "next_action": "none: at target maturity (operator tooling)",
    "mapped_on": "6f9a2f7",
    "w3_triage": "S",
    "w3_cluster": "STRUCTURAL",
@@ -22961,22 +22930,20 @@
    "title": "No Fixture-Only Proof",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/build2/final_proof.py::validate",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/build2/final_proof.py::validate; research/final_build/aggregate.py::cap",
    "consumer": null,
    "tests": [
-    "tests/test_final_proof.py::test_mutations_refused"
+    "tests/test_final_proof.py::test_fixture_provenance_is_derived_not_asserted",
+    "tests/test_final_proof.py::test_mutations_refused",
+    "tests/test_final_closure_matrix.py::test_a_fact_only_tests_write_cannot_hold_integrated"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: final_proof refuses evidence_class fixture/static and requires a production_producer receipt, but evidence_class is self-declared in the packet; no automated de",
-    "defect recorded: honour-system: packet's evidence_class is asserted by its author, not derived"
-   ],
-   "next_action": "Add to the closure validator a static check that each row's durable_state table has a writer outside tests/ in a module module_reachability marks reached; seed a test-only fact and assert it is refused",
+   "reasons": [],
+   "next_action": "none",
    "mapped_on": "6f9a2f7",
    "w3_triage": "R",
    "w3_cluster": "STRUCTURAL",
@@ -22988,23 +22955,20 @@
    "title": "Proxy Honesty",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
-   "producer": "src/brambleloop/build2/final_proof.py::validate",
+   "coverage": "FULL",
+   "producer": "src/brambleloop/build2/final_proof.py::validate; research/final_build/aggregate.py::cap",
    "consumer": null,
    "tests": [
-    "tests/test_final_proof.py::test_mutations_refused",
+    "tests/test_final_proof.py::test_directness_needs_the_independent_reviewers_confirmation",
+    "tests/test_final_closure_matrix.py::test_all_proxy_evidence_refuses_integrated_but_one_direct_item_does_not",
     "tests/test_final_visual_authority.py::test_preserved_authoritative_pixels_never_certify_unknown_construction"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: final_proof requires direct=True ('proxy cannot satisfy direct proof') but 'direct' is self-declared; aggregate.py has no proxy field; proxies are labelled case",
-    "defect recorded: honour-system: 'direct' is asserted by the packet author"
-   ],
-   "next_action": "Add a proxy flag to matrix rows/evidence and make aggregate.py refuse INTEGRATED+ when every cited evidence item is proxy-flagged; add the test",
+   "reasons": [],
+   "next_action": "none",
    "mapped_on": "6f9a2f7",
    "w3_triage": "R",
    "w3_cluster": "STRUCTURAL",
@@ -23145,23 +23109,20 @@
    "title": "Final Master Closure Matrix",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
+   "status": "PROVEN",
    "maturity": "TESTED",
    "maturity_claimed": "TESTED",
-   "coverage": "PARTIAL",
+   "coverage": "FULL",
    "producer": "research/final_build/aggregate.py::main",
    "consumer": null,
    "tests": [
     "tests/test_final_closure_matrix.py::test_every_registry_record_is_mapped_exactly_once_without_problems",
-    "tests/test_final_master_registry.py::test_the_committed_registry_is_exactly_a_fresh_parse"
+    "tests/test_final_closure_matrix.py::test_completion_is_computed_per_row_and_the_open_count_is_summarised",
+    "tests/test_w3_final_master_gate.py::test_the_runtime_recomputes_every_verdict_and_agrees_with_the_adjudicator"
    ],
    "gate": null,
-   "reasons": [
-    "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: closure_matrix.json maps all 866 registry records (aggregated, test-pinned) with maturity, evidence, gate and next_action; rows are being re-verified against 6f",
-    "defect recorded: matrix basis field says 019ebf0 though reachability/suite are 6f9a2f7"
-   ],
-   "next_action": "Fold the remap_r* outputs into mapping slices, set basis to the measured head in aggregate.py, re-aggregate and re-run tests/test_final_closure_matrix.py",
+   "reasons": [],
+   "next_action": "none: at target maturity (operator tooling)",
    "mapped_on": "6f9a2f7",
    "w3_triage": "P",
    "w3_cluster": "PROCESS",
@@ -23251,19 +23212,20 @@
    "title": "No Final-Build Drift",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_blocking": true,
-   "status": "OPEN-DEFECT",
-   "maturity": "IMPLEMENTED",
-   "maturity_claimed": "IMPLEMENTED",
-   "coverage": "PARTIAL",
-   "producer": null,
-   "consumer": null,
-   "tests": [],
-   "gate": null,
-   "reasons": [
-    "maturity IMPLEMENTED below target INTEGRATED",
-    "coverage PARTIAL: D-FB-5 rule plus launch_class per matrix row; new questions are recorded as owner decisions rather than scope (D-FB-9 catalogue_depth); no enforced record or ch"
+   "status": "PROVEN",
+   "maturity": "TESTED",
+   "maturity_claimed": "TESTED",
+   "coverage": "FULL",
+   "producer": "research/final_build/aggregate.py::launch_scope",
+   "consumer": "LAUNCH_SCOPE.json (integrator release decision; D-FB-5)",
+   "tests": [
+    "tests/test_final_closure_matrix.py::test_launch_scope_classifies_every_row_and_every_reclassification_has_a_reason",
+    "tests/test_final_closure_matrix.py::test_every_registry_record_is_mapped_exactly_once_without_problems",
+    "tests/test_w3_overrides_proposed.py::test_a_wave_item_outside_the_registry_is_unclassified_scope"
    ],
-   "next_action": "Add a launch_scope ledger (launch-critical / post-launch scheduled / rejected) to FINAL_BUILD_STATE with a test that every non-registry wave item is classified",
+   "gate": null,
+   "reasons": [],
+   "next_action": "none",
    "mapped_on": "6f9a2f7",
    "w3_triage": "R",
    "w3_cluster": "STRUCTURAL",
