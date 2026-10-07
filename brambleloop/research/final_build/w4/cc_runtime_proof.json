@@ -2,56 +2,56 @@
  "kind": "w4_cc_runtime_proof",
  "consumer": "app.command_center.company.company (GET /api/cc/company)",
  "db": "fresh sqlite, registry seeded, no jobs (shadow)",
- "first_request_seconds": 13.14,
+ "first_request_seconds": 18.83,
  "first_build2_status": "UNKNOWN",
- "first_build2_reason": "computing (started 2026-10-07T00:04:22.988921+00:00); the matrix walks the module graph and takes up to a minute on a cold process -- refresh shortly",
- "warm_request_seconds": 1.88,
+ "first_build2_reason": "computing (started 2026-10-07T00:08:46.828276+00:00); the matrix walks the module graph and takes up to a minute on a cold process -- refresh shortly",
+ "warm_request_seconds": 2.29,
  "overall": "DEGRADED",
  "reason": "departments UNKNOWN; money UNKNOWN; final master DEGRADED",
  "sections": {
   "company_status": {
    "status": "DEGRADED",
-   "as_of": "2026-10-07T00:06:29+00:00",
+   "as_of": "2026-10-07T00:12:04+00:00",
    "reason": "departments UNKNOWN; money UNKNOWN; final master DEGRADED"
   },
   "departments": {
    "status": "UNKNOWN",
-   "as_of": "2026-10-07T00:06:29+00:00",
+   "as_of": "2026-10-07T00:12:04+00:00",
    "reason": "no jobs have ever been recorded; the runtime has not run here"
   },
   "agents": {
-   "status": "OK",
-   "as_of": "2026-10-07T00:06:29+00:00",
-   "reason": null
+   "status": "UNKNOWN",
+   "as_of": "2026-10-07T00:12:04+00:00",
+   "reason": "29 agent(s) have no recorded job"
   },
   "owner_actions": {
    "status": "BLOCKED",
-   "as_of": "2026-10-07T00:06:29+00:00",
+   "as_of": "2026-10-07T00:12:04+00:00",
    "reason": "14 owner decisions open"
   },
   "approvals": {
    "status": "OK",
-   "as_of": "2026-10-07T00:06:29+00:00",
+   "as_of": "2026-10-07T00:12:04+00:00",
    "reason": null
   },
   "store": {
    "status": "DEGRADED",
-   "as_of": "2026-10-07T00:06:29.355692+00:00",
+   "as_of": "2026-10-07T00:12:04.428919+00:00",
    "reason": "provider gave no reason"
   },
   "store_visibility": {
    "status": "UNKNOWN",
-   "as_of": "2026-10-07T00:06:30+00:00",
+   "as_of": "2026-10-07T00:12:06+00:00",
    "reason": "launch.readiness has never run"
   },
   "product_pipeline": {
    "status": "UNKNOWN",
-   "as_of": "2026-10-07T00:06:31+00:00",
+   "as_of": "2026-10-07T00:12:06+00:00",
    "reason": "no product recorded"
   },
   "finance": {
    "status": "UNKNOWN",
-   "as_of": "2026-10-07T00:06:29+00:00",
+   "as_of": "2026-10-07T00:12:04+00:00",
    "reason": "revenue is UNKNOWN: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; orders: DISCONNECTED -- the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; etsy_ledger: DISCONNECTED -- Etsy payment-account ledger needs the same transactions_r grant as the order source; bank: DISCONNECTED -- no business bank statement has been imported; cash is UNKNOWN, not CA$0.00"
   },
   "autonomy": {
@@ -66,13 +66,13 @@
   },
   "build2_closure": {
    "status": "OK",
-   "as_of": "2026-10-07T00:06:29.151373+00:00",
+   "as_of": "2026-10-07T00:12:04.154951+00:00",
    "reason": null
   },
   "final_master_closure": {
    "status": "DEGRADED",
    "as_of": null,
-   "reason": "provider gave no reason"
+   "reason": "300 of 439 launch-critical rows OPEN"
   },
   "visual": {
    "status": "UNKNOWN",
@@ -81,12 +81,12 @@
   },
   "laura": {
    "status": "DEGRADED",
-   "as_of": "2026-10-07T00:06:31+00:00",
+   "as_of": "2026-10-07T00:12:06+00:00",
    "reason": "4 required Laura item(s) GATED on provider + owner: LAURA-VOICE-P2, LAURA-LIVE-P3, LAURA-PRIVATE-REGISTER, LAURA-VOICE-IMPROVE"
   },
   "blockers": {
    "status": "BLOCKED",
-   "as_of": "2026-10-07T00:06:31+00:00",
+   "as_of": "2026-10-07T00:12:06+00:00",
    "reason": null
   },
   "completion_effort": {
@@ -126,10 +126,10 @@
  },
  "agents_counts": {
   "active": 0,
-  "sleeping": 29,
+  "sleeping": 0,
   "blocked": 0,
   "unhealthy": 0,
-  "UNKNOWN": 0
+  "UNKNOWN": 29
  },
  "completion": {
   "status": "OK",
