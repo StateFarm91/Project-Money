@@ -90,8 +90,8 @@ try {
   check(tabs.length > 0 && tabs.every((t) => t.h >= 44 && t.w >= 44), "tabbar: tap targets >= 44px", JSON.stringify(tabs));
 
   // ---- every tab -------------------------------------------------------------------------
-  const TABS = ["home", "approvals", "money", "store", "operations", "learn", "insights", "notifications", "timeline", "ask", "account", "emergency", "more"];
-  const SHOT = new Set(["home", "approvals", "money", "store", "operations", "learn", "notifications", "ask", "account", "emergency"]);
+  const TABS = ["home", "approvals", "money", "store", "operations", "learn", "insights", "notifications", "timeline", "ask", "account", "emergency", "more", "company", "completion"];
+  const SHOT = new Set(["home", "approvals", "money", "store", "operations", "learn", "notifications", "ask", "account", "emergency", "company", "completion"]);
   for (const t of TABS) {
     consoleErrors.length = 0;
     await page.goto(`${BASE}/cc/#/${t}`);
@@ -107,6 +107,24 @@ try {
     check(small.length === 0, `${t}: buttons meet tap-size floor`, JSON.stringify(small));
     if (SHOT.has(t)) await shot(t);
   }
+
+  // ---- W4-CC company: department states, UNKNOWN never 0 ----------------------------------
+  await page.goto(`${BASE}/cc/#/company`);
+  await settle();
+  const deptRows = await page.$$eval("section[aria-labelledby='company-departments'] li.row", (els) => els.map((e) => e.textContent));
+  check(deptRows.length === 4, "company: every department listed", String(deptRows.length));
+  check(deptRows.some((t) => /blocked/.test(t)) && deptRows.some((t) => /sleeping/.test(t)) && deptRows.some((t) => /active/.test(t)),
+    "company: active/sleeping/blocked states shown", JSON.stringify(deptRows.map((t) => t.slice(0, 40))));
+  const unk = deptRows.find((t) => /^Visual/.test(t)) || "";
+  check(/UNKNOWN/.test(unk) && /Next wake\s*Unknown/.test(unk), "company: UNKNOWN department shows Unknown, not a time or 0", unk.slice(0, 160));
+  const incTile = await page.$$eval(".tile", (els) => els.map((e) => [e.querySelector(".tile-label")?.textContent, e.querySelector(".tile-value")?.textContent]));
+  const inc = incTile.find(([l]) => l === "Open incidents");
+  check(!!inc && inc[1] === "Unknown", "company: null incidents count renders Unknown, never 0", JSON.stringify(inc));
+  check(await page.isVisible("#main a[href='#/laura']"), "company: Talk to Laura link present");
+  await page.goto(`${BASE}/cc/#/completion`);
+  await settle();
+  const laneRows = await page.$$eval("li.row", (els) => els.map((e) => e.textContent));
+  check(laneRows.length === 2 && laneRows.some((t) => /Rows closed\s*Unknown/.test(t)), "completion: lanes listed, unknown rows-closed shown as Unknown", JSON.stringify(laneRows.map((t) => t.slice(0, 80))));
 
   // ---- money: UNKNOWN is "Unknown", never CA$0.00; basis labelled ------------------------
   await page.goto(`${BASE}/cc/#/money`);

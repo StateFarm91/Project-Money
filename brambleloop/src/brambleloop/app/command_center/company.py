@@ -109,7 +109,8 @@ def _job_facts(db) -> dict:
         dead_24h = list(s.execute(select(Job.agent, Job.job_type).where(
             Job.status == JobStatus.DEAD,
             Job.finished_at >= datetime.now(timezone.utc) - timedelta(hours=24))).all())
-    return {"running": running, "done": done, "dead_24h": dead_24h}
+        ever = set(s.scalars(select(Job.agent).distinct()))
+    return {"running": running, "done": done, "dead_24h": dead_24h, "agents_ever": ever}
 
 
 def _current(row) -> dict:
@@ -240,6 +241,9 @@ def agents(db) -> dict:
                 state, why = "blocked", "agent disabled (paused) in the registry"
             elif run:
                 state, why = "active", None
+            elif name not in facts["agents_ever"]:
+                state, why = "UNKNOWN", ("no job has ever been recorded for this agent here, "
+                                         "so it is not known to be sleeping")
             elif dead and last_useful is None:
                 state, why = "unhealthy", f"{dead} dead job(s) in 24 h, no useful result found"
             else:
@@ -254,8 +258,12 @@ def agents(db) -> dict:
                                               "by queued work"),
                           "dead_24h": dead, "source": f"agents:{aid}"})
         counts = {s: sum(1 for i in items if i["state"] == s) for s in STATES}
-        status = "DEGRADED" if counts["unhealthy"] or counts["blocked"] else "OK"
+        status = ("UNKNOWN" if counts["UNKNOWN"] == len(items) else
+                  "DEGRADED" if counts["unhealthy"] or counts["blocked"] or counts["UNKNOWN"]
+                  else "OK")
         return envelope(status, items, ["agents", "jobs", "worker.CADENCES"],
+                        reason=(f"{counts['UNKNOWN']} agent(s) have no recorded job"
+                                if counts["UNKNOWN"] else None),
                         provider="company.agents", counts=counts,
                         note=(f"last useful result searched in the last {_LAST_USEFUL_SCAN} "
                               "finished jobs; none found there is shown as Unknown"))
@@ -376,6 +384,9 @@ def final_master(db) -> dict:
         out = fm.summary(db)
         # The snapshot is a release artefact (as_of null by design); show when this process
         # read it, and say so, so the card is never undated.
+        if out.get("status") == "DEGRADED" and not out.get("reason"):
+            out["reason"] = (f"{out.get('launch_critical_open')} of "
+                             f"{out.get('launch_critical_total')} launch-critical rows OPEN")
         out = providers.validate(out, "build2.final_master.summary")
         out["read_at"] = now_iso()
         out["as_of_basis"] = ("snapshot bound to the tree digest; read_at is when this "

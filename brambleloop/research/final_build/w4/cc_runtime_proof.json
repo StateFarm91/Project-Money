@@ -1,0 +1,148 @@
+{
+ "kind": "w4_cc_runtime_proof",
+ "consumer": "app.command_center.company.company (GET /api/cc/company)",
+ "db": "fresh sqlite, registry seeded, no jobs (shadow)",
+ "first_request_seconds": 13.14,
+ "first_build2_status": "UNKNOWN",
+ "first_build2_reason": "computing (started 2026-10-07T00:04:22.988921+00:00); the matrix walks the module graph and takes up to a minute on a cold process -- refresh shortly",
+ "warm_request_seconds": 1.88,
+ "overall": "DEGRADED",
+ "reason": "departments UNKNOWN; money UNKNOWN; final master DEGRADED",
+ "sections": {
+  "company_status": {
+   "status": "DEGRADED",
+   "as_of": "2026-10-07T00:06:29+00:00",
+   "reason": "departments UNKNOWN; money UNKNOWN; final master DEGRADED"
+  },
+  "departments": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-07T00:06:29+00:00",
+   "reason": "no jobs have ever been recorded; the runtime has not run here"
+  },
+  "agents": {
+   "status": "OK",
+   "as_of": "2026-10-07T00:06:29+00:00",
+   "reason": null
+  },
+  "owner_actions": {
+   "status": "BLOCKED",
+   "as_of": "2026-10-07T00:06:29+00:00",
+   "reason": "14 owner decisions open"
+  },
+  "approvals": {
+   "status": "OK",
+   "as_of": "2026-10-07T00:06:29+00:00",
+   "reason": null
+  },
+  "store": {
+   "status": "DEGRADED",
+   "as_of": "2026-10-07T00:06:29.355692+00:00",
+   "reason": "provider gave no reason"
+  },
+  "store_visibility": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-07T00:06:30+00:00",
+   "reason": "launch.readiness has never run"
+  },
+  "product_pipeline": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-07T00:06:31+00:00",
+   "reason": "no product recorded"
+  },
+  "finance": {
+   "status": "UNKNOWN",
+   "as_of": "2026-10-07T00:06:29+00:00",
+   "reason": "revenue is UNKNOWN: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; orders: DISCONNECTED -- the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales; etsy_ledger: DISCONNECTED -- Etsy payment-account ledger needs the same transactions_r grant as the order source; bank: DISCONNECTED -- no business bank statement has been imported; cash is UNKNOWN, not CA$0.00"
+  },
+  "autonomy": {
+   "status": "UNKNOWN",
+   "as_of": null,
+   "reason": "no jobs have ever been recorded; the runtime has not run here"
+  },
+  "learn": {
+   "status": "UNKNOWN",
+   "as_of": null,
+   "reason": "no policy-loop decision, outcome or proposal has been recorded yet; the loops are built and waiting for data"
+  },
+  "build2_closure": {
+   "status": "OK",
+   "as_of": "2026-10-07T00:06:29.151373+00:00",
+   "reason": null
+  },
+  "final_master_closure": {
+   "status": "DEGRADED",
+   "as_of": null,
+   "reason": "provider gave no reason"
+  },
+  "visual": {
+   "status": "UNKNOWN",
+   "as_of": null,
+   "reason": "no image has been judged and no experiment run yet"
+  },
+  "laura": {
+   "status": "DEGRADED",
+   "as_of": "2026-10-07T00:06:31+00:00",
+   "reason": "4 required Laura item(s) GATED on provider + owner: LAURA-VOICE-P2, LAURA-LIVE-P3, LAURA-PRIVATE-REGISTER, LAURA-VOICE-IMPROVE"
+  },
+  "blockers": {
+   "status": "BLOCKED",
+   "as_of": "2026-10-07T00:06:31+00:00",
+   "reason": null
+  },
+  "completion_effort": {
+   "status": "OK",
+   "as_of": "2026-10-07T00:05:00+00:00",
+   "reason": null
+  }
+ },
+ "build2_counts": {
+  "COMPLETE+PROVEN": 218,
+  "OWNER-GATED": 58,
+  "DATA-GATED": 37,
+  "EXTERNAL-BLOCKED": 7,
+  "OPEN": 0
+ },
+ "build2_closed_out": true,
+ "final_master": {
+  "launch_critical": {
+   "COMPLETE": 73,
+   "GATED": 66,
+   "OPEN": 300
+  },
+  "launch_critical_total": 439,
+  "gated_by_kind": {
+   "owner": 40,
+   "data": 8,
+   "external": 18
+  },
+  "launch_ready": false
+ },
+ "departments_counts": {
+  "active": 0,
+  "sleeping": 0,
+  "blocked": 0,
+  "unhealthy": 0,
+  "UNKNOWN": 11
+ },
+ "agents_counts": {
+  "active": 0,
+  "sleeping": 29,
+  "blocked": 0,
+  "unhealthy": 0,
+  "UNKNOWN": 0
+ },
+ "completion": {
+  "status": "OK",
+  "counts": {
+   "QUEUED": 0,
+   "RUNNING": 1,
+   "BLOCKED": 0,
+   "REVIEW": 0,
+   "MERGED": 0,
+   "DONE": 0,
+   "ABANDONED": 0,
+   "UNKNOWN": 3
+  },
+  "board_updated_at": "2026-10-07T00:05:00+00:00"
+ }
+}
