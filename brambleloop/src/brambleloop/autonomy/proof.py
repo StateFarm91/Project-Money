@@ -96,7 +96,7 @@ def collect(db, started, finished, samples) -> dict:
 
     from ..core.models import CostEntry, Job, OwnerAction
     from ..queue.durable import classify_dead_letter
-    from . import charters, memory, status
+    from . import charters, memory, rule1, status
     from .kpis import did_no_work, job_department
 
     with db.session() as s:
@@ -169,7 +169,17 @@ def collect(db, started, finished, samples) -> dict:
                   "basis": "measured" if cost_n else "no cost_entries rows"},
         "status_summary": status.summary(db, now=finished),
         "timeline_head": status.timeline(db, limit=40, now=finished)["items"],
+        # W4-AUTO: the Rule #1 measurement and the per-agent visibility provider.
+        "rule1": _safe(lambda: rule1.measure(db, now=finished)),
+        "agents": _safe(lambda: status.agents(db, now=finished)),
     }
+
+
+def _safe(fn):
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001 - evidence collection never loses the run
+        return {"error": f"{type(exc).__name__}: {exc}"[:300]}
 
 
 def main(argv: list[str]) -> int:
@@ -179,8 +189,10 @@ def main(argv: list[str]) -> int:
     out = Path(argv[argv.index("--out") + 1]).resolve() if "--out" in argv else \
         Path("A_runtime_proof.json").resolve()
     src = str(Path(__file__).resolve().parents[2])
+    keep = Path(argv[argv.index("--keep-db") + 1]).resolve() if "--keep-db" in argv else None
     with tempfile.TemporaryDirectory(prefix="bl-proof-") as tmp:
-        env = _child_env(src, seconds, f"{tmp}/proof.sqlite", str(out))
+        db_path = str(keep) if keep else f"{tmp}/proof.sqlite"
+        env = _child_env(src, seconds, db_path, str(out))
         env["BRAMBLELOOP_PROOF_COMMIT"] = _commit()
         proc = subprocess.run([sys.executable, "-m", "brambleloop.autonomy.proof", "--child"],
                               env=env, cwd=tmp, timeout=seconds + 900)

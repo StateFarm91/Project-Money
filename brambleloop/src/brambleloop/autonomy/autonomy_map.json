@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-06T20:46:40.038291+00:00",
+ "generated_at": "2026-10-07T00:46:14.750865+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 111,
-  "handlers": 129,
+  "cadences": 112,
+  "handlers": 130,
   "agents": 29,
   "follow_on_edges": 53
  },
@@ -1162,6 +1162,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "store_live_drift",
+      "agent": "orchestrator",
+      "job_type": "store.live_drift",
+      "period_seconds": 86400
+     },
+     {
       "name": "etsy_listing_census",
       "agent": "orchestrator",
       "job_type": "etsy.listing_census",
@@ -1248,6 +1254,7 @@
      "seasonal.remerchandising",
      "seo.cycle",
      "store.activate",
+     "store.live_drift",
      "store.publish"
     ],
     "permitted_without_handler": [

@@ -481,7 +481,30 @@ class JobQueue:
             job.cost_cad = (job.cost_cad or 0.0) + cost_cad
             return True
 
-        return self._txn(_do)
+        done = self._txn(_do)
+        if done:
+            # F-659: a completed job has nothing to resume. Best effort and after the commit,
+            # so a checkpoint cleanup can never turn a completed job back into a failure.
+            try:
+                from . import checkpoints
+
+                checkpoints.clear(self.db, job_id)
+            except Exception:  # noqa: BLE001
+                pass
+        return done
+
+    def checkpoint(self, job_id: int, key: str, state: dict, *,
+                   lease_token: str | None = None) -> dict:
+        """F-659: record a running job's progress under `key` (fenced to the lease holder)."""
+        from . import checkpoints
+
+        return checkpoints.save(self.db, job_id, key, state, lease_token=lease_token)
+
+    def restore(self, job_id: int, key: str) -> dict | None:
+        """F-659: the last checkpoint under `key`, or None when the step never finished."""
+        from . import checkpoints
+
+        return checkpoints.load(self.db, job_id, key)
 
     def fail(self, job_id: int, error: str, *, retry: bool = True,
              worker: str | None = None, administrative: bool = False,

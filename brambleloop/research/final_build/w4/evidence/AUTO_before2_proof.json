@@ -1,0 +1,3681 @@
+{
+ "kind": "lane A runtime proof: embedded runner in-process, shadow, temp SQLite",
+ "not_a_soak": "bounded wall-clock window; it proves the hosted loop generates and executes work by itself, not 24 h of uptime (\u00a795 lights-out remains an open certification gate)",
+ "started": "2026-10-07T00:31:14.430797+00:00",
+ "finished": "2026-10-07T00:41:45.138359+00:00",
+ "duration_seconds": 630.7,
+ "commit": "fc7ed8e305f5f416f92c7fc90ce0677a0ddd9066",
+ "environment": {
+  "phase": "shadow",
+  "network": "all HTTP(S) proxies -> http://127.0.0.1:9 (closed)",
+  "credentials": "none: child env is PATH/HOME/PYTHONPATH + BRAMBLELOOP_* only",
+  "human_or_session_enqueues_after_boot": 0
+ },
+ "samples": [
+  {
+   "at": "2026-10-07T00:31:45.524260+00:00",
+   "jobs": {
+    "done": 9,
+    "pending": 102,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:31:37.655108+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:32:15.543717+00:00",
+   "jobs": {
+    "done": 9,
+    "pending": 102,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:31:58.328967+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:32:45.739137+00:00",
+   "jobs": {
+    "done": 16,
+    "pending": 95,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:32:38.812701+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:33:17.118328+00:00",
+   "jobs": {
+    "done": 18,
+    "pending": 93,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:33:00.677558+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:33:47.914031+00:00",
+   "jobs": {
+    "done": 67,
+    "pending": 72,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:33:41.256669+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:34:17.932649+00:00",
+   "jobs": {
+    "done": 122,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:34:01.427107+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:34:48.075454+00:00",
+   "jobs": {
+    "done": 124,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:34:43.773895+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:35:18.104172+00:00",
+   "jobs": {
+    "done": 124,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:35:04.448923+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": [
+    "laura_executive"
+   ]
+  },
+  {
+   "at": "2026-10-07T00:35:48.116655+00:00",
+   "jobs": {
+    "done": 126,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:35:45.089151+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:36:18.235758+00:00",
+   "jobs": {
+    "done": 127,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:36:06.840595+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:36:48.636553+00:00",
+   "jobs": {
+    "done": 127,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:36:47.482304+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:37:18.755059+00:00",
+   "jobs": {
+    "done": 128,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:37:07.708510+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:37:48.776817+00:00",
+   "jobs": {
+    "done": 128,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:37:48.278703+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:38:18.859135+00:00",
+   "jobs": {
+    "done": 130,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:38:08.637274+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:38:48.925067+00:00",
+   "jobs": {
+    "done": 150,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:38:28.808477+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:39:18.948699+00:00",
+   "jobs": {
+    "done": 153,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:39:10.355939+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:39:49.010726+00:00",
+   "jobs": {
+    "done": 157,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:39:30.646054+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:40:19.056767+00:00",
+   "jobs": {
+    "done": 160,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:40:11.196986+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": [
+    "laura_executive"
+   ]
+  },
+  {
+   "at": "2026-10-07T00:40:49.108397+00:00",
+   "jobs": {
+    "dead": 2,
+    "done": 173,
+    "pending": 68,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:40:31.526788+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  },
+  {
+   "at": "2026-10-07T00:41:17.075375+00:00",
+   "jobs": {
+    "dead": 2,
+    "done": 175,
+    "pending": 68,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-07T00:41:11.903390+00:00",
+   "worker_restarts": 0,
+   "last_enqueued": []
+  }
+ ],
+ "jobs_total": 246,
+ "jobs_by_department": {
+  "learn": {
+   "total": 18,
+   "done": 0,
+   "useful": 0,
+   "dead": 0
+  },
+  "platform": {
+   "total": 13,
+   "done": 8,
+   "useful": 2,
+   "dead": 0
+  },
+  "intelligence": {
+   "total": 26,
+   "done": 24,
+   "useful": 13,
+   "dead": 0
+  },
+  "executive": {
+   "total": 26,
+   "done": 16,
+   "useful": 5,
+   "dead": 0
+  },
+  "finance": {
+   "total": 9,
+   "done": 4,
+   "useful": 1,
+   "dead": 0
+  },
+  "product_design": {
+   "total": 29,
+   "done": 22,
+   "useful": 0,
+   "dead": 0
+  },
+  "product_truth": {
+   "total": 38,
+   "done": 36,
+   "useful": 22,
+   "dead": 0
+  },
+  "support": {
+   "total": 1,
+   "done": 1,
+   "useful": 0,
+   "dead": 0
+  },
+  "store_commerce": {
+   "total": 50,
+   "done": 36,
+   "useful": 32,
+   "dead": 3
+  },
+  "growth": {
+   "total": 18,
+   "done": 15,
+   "useful": 10,
+   "dead": 0
+  },
+  "visual": {
+   "total": 18,
+   "done": 13,
+   "useful": 10,
+   "dead": 0
+  }
+ },
+ "jobs_by_type": {
+  "learn.scan": {
+   "pending": 1
+  },
+  "ops.heartbeat": {
+   "done": 1
+  },
+  "ops.queue_check": {
+   "done": 1
+  },
+  "radar.scan": {
+   "done": 2
+  },
+  "plan.cycle": {
+   "done": 1
+  },
+  "portfolio.review": {
+   "pending": 1
+  },
+  "finance.reconcile": {
+   "done": 1
+  },
+  "plan.strategy": {
+   "pending": 1
+  },
+  "improve.nightly": {
+   "pending": 1
+  },
+  "improve.weekly": {
+   "pending": 1
+  },
+  "improve.measure": {
+   "pending": 1
+  },
+  "improve.mine": {
+   "pending": 1
+  },
+  "improve.monitor": {
+   "pending": 1
+  },
+  "creative.style_learning": {
+   "pending": 1
+  },
+  "creative.outcome_learning": {
+   "pending": 1
+  },
+  "seasonal.harvest": {
+   "pending": 1
+  },
+  "gate.lanes": {
+   "done": 11
+  },
+  "creative.white_space": {
+   "pending": 1
+  },
+  "creative.four_season": {
+   "pending": 1
+  },
+  "improve.sandbox": {
+   "pending": 1
+  },
+  "improve.league": {
+   "pending": 1
+  },
+  "finance.governor": {
+   "done": 1
+  },
+  "support.triage": {
+   "done": 1
+  },
+  "commerce.readings": {
+   "pending": 1
+  },
+  "commerce.orders_ingest": {
+   "pending": 1
+  },
+  "listing.taxonomy_refresh": {
+   "pending": 1
+  },
+  "listing.search_visibility_watch": {
+   "pending": 1
+  },
+  "commerce.order_readings": {
+   "pending": 1
+  },
+  "scale.trajectory": {
+   "pending": 1
+  },
+  "creative.north_star": {
+   "pending": 1
+  },
+  "ads.adjust": {
+   "done": 1
+  },
+  "growth.distribution": {
+   "done": 1
+  },
+  "growth.journey": {
+   "done": 1
+  },
+  "growth.steer": {
+   "pending": 1
+  },
+  "growth.conclude": {
+   "done": 1
+  },
+  "ops.thrash": {
+   "done": 1
+  },
+  "seasonal.engine": {
+   "done": 1
+  },
+  "swarm.review": {
+   "pending": 1
+  },
+  "swarm.allocate": {
+   "pending": 1
+  },
+  "swarm.orphans": {
+   "pending": 1
+  },
+  "swarm.backlog": {
+   "pending": 1
+  },
+  "growth.preproduction": {
+   "pending": 1
+  },
+  "growth.experiments": {
+   "done": 1
+  },
+  "creative.blind_review": {
+   "done": 1
+  },
+  "creative.grid_tournament": {
+   "done": 1
+  },
+  "intel.acceptance": {
+   "done": 1
+  },
+  "ops.provenance_backfill": {
+   "pending": 1
+  },
+  "finance.escalation_check": {
+   "done": 1
+  },
+  "chain.rebuild": {
+   "done": 1
+  },
+  "launch.readiness": {
+   "done": 1
+  },
+  "ops.maturity_disagreements": {
+   "done": 1
+  },
+  "model.probe": {
+   "done": 1
+  },
+  "ops.continuity": {
+   "pending": 1
+  },
+  "ops.offsite_archive": {
+   "pending": 1
+  },
+  "creative.image_benchmark": {
+   "pending": 1
+  },
+  "creative.model_tournament": {
+   "pending": 1
+  },
+  "creative.model_reference_pack": {
+   "pending": 1
+  },
+  "assets.owned_photography": {
+   "done": 1
+  },
+  "assets.model_photography": {
+   "done": 1
+  },
+  "seasonal.sentinel": {
+   "done": 1
+  },
+  "etsy.probe": {
+   "done": 1
+  },
+  "mjs.scan": {
+   "done": 1
+  },
+  "intel.serp_capture": {
+   "pending": 1
+  },
+  "intel.benchmark_health": {
+   "done": 1
+  },
+  "intel.pod_learning": {
+   "pending": 1
+  },
+  "mjs.seasonal_sentinel": {
+   "done": 1
+  },
+  "intel.panel_discovery": {
+   "done": 1
+  },
+  "intel.benchmark_refresh": {
+   "done": 1
+  },
+  "physical.upgrade_impact": {
+   "pending": 1
+  },
+  "visual.identity_drift": {
+   "done": 1
+  },
+  "creative.benchmark_memory": {
+   "done": 1
+  },
+  "creative.reference_reading": {
+   "done": 1
+  },
+  "mjs.reviews": {
+   "done": 1
+  },
+  "improve.retrospective": {
+   "pending": 1
+  },
+  "ops.policy_watch": {
+   "done": 1
+  },
+  "build.tick": {
+   "pending": 1
+  },
+  "creative.blinded": {
+   "pending": 1
+  },
+  "creative.expedition": {
+   "done": 1
+  },
+  "creative.tournament": {
+   "done": 1
+  },
+  "seasonal.remerchandising": {
+   "done": 1
+  },
+  "seasonal.cycle_proof": {
+   "pending": 1
+  },
+  "ops.capacity": {
+   "pending": 1
+  },
+  "ops.sentinel": {
+   "done": 1
+  },
+  "ops.health": {
+   "pending": 1
+  },
+  "ops.capability_probes": {
+   "done": 1
+  },
+  "culture.sweep": {
+   "done": 1
+  },
+  "intel.gallery_analysis": {
+   "done": 1
+  },
+  "ops.retention": {
+   "pending": 1
+  },
+  "ops.dependencies": {
+   "pending": 1
+  },
+  "improve.replay": {
+   "pending": 1
+  },
+  "teardown.enforce": {
+   "done": 1
+  },
+  "etsy.credential_health": {
+   "done": 1
+  },
+  "etsy.shop_snapshot": {
+   "done": 1
+  },
+  "etsy.listing_census": {
+   "done": 1
+  },
+  "autonomy.orchestrate": {
+   "pending": 1
+  },
+  "laura.executive_tick": {
+   "done": 3
+  },
+  "listing.outcomes": {
+   "pending": 1
+  },
+  "visual.rnd.cycle": {
+   "pending": 1
+  },
+  "finance.accounting.period_pack": {
+   "pending": 1
+  },
+  "ops.slo": {
+   "done": 1
+  },
+  "seo.cycle": {
+   "pending": 1
+  },
+  "finance.accounting.cycle": {
+   "pending": 1
+  },
+  "marketing.ads_readiness": {
+   "pending": 1
+  },
+  "improve.role_work": {
+   "pending": 8
+  },
+  "collection.assemble": {
+   "done": 3
+  },
+  "finance.challenge": {
+   "done": 1
+  },
+  "radar.score": {
+   "done": 11
+  },
+  "cir.draft": {
+   "done": 11
+  },
+  "cir.compile": {
+   "done": 12
+  },
+  "gate.certify": {
+   "done": 12
+  },
+  "listing.draft": {
+   "done": 10
+  },
+  "assets.build": {
+   "done": 10
+  },
+  "pricing.position": {
+   "done": 10
+  },
+  "listing.seo": {
+   "done": 11
+  },
+  "launch.plan": {
+   "done": 11
+  },
+  "marketing.schedule": {
+   "done": 10
+  },
+  "store.publish": {
+   "dead": 3,
+   "pending": 7
+  }
+ },
+ "orchestrator_runs": [
+  {
+   "id": 95,
+   "status": "pending",
+   "wake": "executive_orchestrator",
+   "enqueued": null,
+   "states": null
+  }
+ ],
+ "generated_by_orchestrator": {},
+ "missions": [],
+ "kpi_snapshots": [],
+ "morning_briefs": [],
+ "dead_letters": [
+  {
+   "id": 216,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 219,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 224,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  }
+ ],
+ "protected_job_types_seen": {
+  "store.publish": {
+   "dead": 3,
+   "pending": 7
+  },
+  "ads.adjust": {
+   "done": 1
+  }
+ },
+ "protected_generated_by_orchestrator": [],
+ "owner_actions": 20,
+ "spend": {
+  "rows": 0,
+  "amount_cad": 0.0,
+  "basis": "no cost_entries rows"
+ },
+ "status_summary": {
+  "status": "DEGRADED",
+  "as_of": "2026-10-07T00:41:45.138359+00:00",
+  "basis": "measured",
+  "items": [
+   {
+    "department": "executive",
+    "name": "Executive / COO",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 9,
+    "completed_24h": 16,
+    "useful_24h": 5,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:40:50.651860+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "intelligence",
+    "name": "Intelligence",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 2,
+    "completed_24h": 24,
+    "useful_24h": 13,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:33:44.220155+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "benchmark_observation",
+      "what": "read-only Etsy API credentials that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_design",
+    "name": "Product & Design",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 7,
+    "completed_24h": 22,
+    "useful_24h": 0,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:33:56.933422+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "model_provider",
+      "what": "a model provider that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_truth",
+    "name": "Product Truth / QA",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 2,
+    "completed_24h": 36,
+    "useful_24h": 22,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:33:56.036179+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "visual",
+    "name": "Visual",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 5,
+    "completed_24h": 13,
+    "useful_24h": 10,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:38:35.530115+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "image_generation",
+      "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "canonical_model",
+      "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "image_vision",
+      "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "store_commerce",
+    "name": "Store / Commerce",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 11,
+    "completed_24h": 36,
+    "useful_24h": 32,
+    "dead_24h": 3,
+    "last_run": "2026-10-07T00:41:45.126618+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "live_listings",
+      "what": "a listing that exists on the marketplace, which shadow mode forbids by design",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "support",
+    "name": "Customer Support",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 0,
+    "completed_24h": 1,
+    "useful_24h": 0,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:31:17.324859+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "customers",
+      "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "finance",
+    "name": "Finance / Accounting",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 5,
+    "completed_24h": 4,
+    "useful_24h": 1,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:33:29.288902+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "transactions_r",
+      "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "growth",
+    "name": "Growth / Marketing",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 3,
+    "completed_24h": 15,
+    "useful_24h": 10,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:40:51.041339+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "ad_authority",
+      "what": "an approved advertising budget",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "owned_surfaces",
+      "what": "a site or a Pinterest account this company can publish to, which only the owner can create",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "learn",
+    "name": "Learn / Improvement",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 18,
+    "completed_24h": 0,
+    "useful_24h": 0,
+    "dead_24h": 0,
+    "last_run": null,
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "platform",
+    "name": "Platform / Reliability",
+    "status": "OK",
+    "orchestrator_state": null,
+    "open_jobs": 5,
+    "completed_24h": 8,
+    "useful_24h": 2,
+    "dead_24h": 0,
+    "last_run": "2026-10-07T00:33:06.104294+00:00",
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "offsite_storage",
+      "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   }
+  ],
+  "orchestrator": {
+   "last_tick": null,
+   "stale": true,
+   "stale_after_minutes": 45,
+   "last_created": null
+  },
+  "overnight": {
+   "missions_12h": 0,
+   "by_outcome": {
+    "queued": 0,
+    "useful": 0,
+    "noop": 0,
+    "failed": 0
+   },
+   "latest_brief": null
+  },
+  "timeline": [
+   {
+    "at": "2026-10-07T00:41:45.126618+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:224"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:40:46.598314+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:219"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:40:43.702363+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:216"
+    ],
+    "source": "jobs"
+   },
+   {
+    "id": 8,
+    "key": "laura.priority.set:priority.set:laura:provider:ads:21f81a6da387415e",
+    "at": "2026-10-07T00:40:23.889573+00:00",
+    "kind": "laura.priority.set",
+    "department": "growth",
+    "actor": "laura",
+    "severity": "info",
+    "summary": "Laura priority.set: ads reads BLOCKED -- score 60: no listing passes every ads readiness gate",
+    "refs": [
+     "laura_memory:operational:decision/898d00b9221cc63ba3e2"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 7,
+    "key": "laura.priority.set:priority.set:laura:owner_decisions:open:8ede938774defc45",
+    "at": "2026-10-07T00:35:34.493699+00:00",
+    "kind": "laura.priority.set",
+    "department": "executive",
+    "actor": "laura",
+    "severity": "info",
+    "summary": "Laura priority.set: 20 owner decision(s) open -- score 50: only the owner can act on these; Laura keeps them visible and current",
+    "refs": [
+     "laura_memory:operational:decision/03bbbc45814526dad621"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 6,
+    "key": "laura.priority.set:priority.set:laura:provider:learn:2c5ccb8bf64a5afb",
+    "at": "2026-10-07T00:35:34.493699+00:00",
+    "kind": "laura.priority.set",
+    "department": "learn",
+    "actor": "laura",
+    "severity": "info",
+    "summary": "Laura priority.set: learn reads DEGRADED -- score 60: 5 of 5 loops are UNMEASURED (not enough observed outcomes)",
+    "refs": [
+     "laura_memory:operational:decision/b23a1931a239083197d3"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "at": "2026-10-07T00:33:55.601127+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:180"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:54.653161+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:175"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:53.652848+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:171"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:53.302413+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:169"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:52.393584+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:165"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:51.872054+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:162"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:51.327497+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:159"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:50.733915+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:153"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:50.146905+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:149"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:49.772320+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:147"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:49.089699+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:143"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:48.235930+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:138"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:29.261973+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "finance.reconcile done",
+    "refs": [
+     "jobs:7"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-07T00:33:29.087947+00:00",
+    "kind": "incident",
+    "department": "",
+    "severity": "P3",
+    "summary": "creative_assets for Christmas 2026 (MEDIUM) should have started 5 days ago and nothing shows it has (assets.built/assets.listing_images_built). photography and thumbnails take longer than anybody plans for A product ready on its launch date is late: indexing is not instant, and a listing nobody can ",
+    "refs": [
+     "incidents:42"
+    ],
+    "source": "incidents"
+   }
+  ],
+  "sources": [
+   "jobs",
+   "company_memory",
+   "company_timeline",
+   "worker.CADENCES",
+   "build2.executor.gate_states"
+  ]
+ },
+ "timeline_head": [
+  {
+   "at": "2026-10-07T00:41:45.126618+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:224"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:40:46.598314+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:219"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:40:43.702363+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:216"
+   ],
+   "source": "jobs"
+  },
+  {
+   "id": 8,
+   "key": "laura.priority.set:priority.set:laura:provider:ads:21f81a6da387415e",
+   "at": "2026-10-07T00:40:23.889573+00:00",
+   "kind": "laura.priority.set",
+   "department": "growth",
+   "actor": "laura",
+   "severity": "info",
+   "summary": "Laura priority.set: ads reads BLOCKED -- score 60: no listing passes every ads readiness gate",
+   "refs": [
+    "laura_memory:operational:decision/898d00b9221cc63ba3e2"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 7,
+   "key": "laura.priority.set:priority.set:laura:owner_decisions:open:8ede938774defc45",
+   "at": "2026-10-07T00:35:34.493699+00:00",
+   "kind": "laura.priority.set",
+   "department": "executive",
+   "actor": "laura",
+   "severity": "info",
+   "summary": "Laura priority.set: 20 owner decision(s) open -- score 50: only the owner can act on these; Laura keeps them visible and current",
+   "refs": [
+    "laura_memory:operational:decision/03bbbc45814526dad621"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 6,
+   "key": "laura.priority.set:priority.set:laura:provider:learn:2c5ccb8bf64a5afb",
+   "at": "2026-10-07T00:35:34.493699+00:00",
+   "kind": "laura.priority.set",
+   "department": "learn",
+   "actor": "laura",
+   "severity": "info",
+   "summary": "Laura priority.set: learn reads DEGRADED -- score 60: 5 of 5 loops are UNMEASURED (not enough observed outcomes)",
+   "refs": [
+    "laura_memory:operational:decision/b23a1931a239083197d3"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "at": "2026-10-07T00:33:55.601127+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:180"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:54.653161+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:175"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:53.652848+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:171"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:53.302413+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:169"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:52.393584+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:165"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:51.872054+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:162"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:51.327497+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:159"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:50.733915+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:153"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:50.146905+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:149"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:49.772320+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:147"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:49.089699+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:143"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:48.235930+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:138"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:29.261973+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "finance.reconcile done",
+   "refs": [
+    "jobs:7"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-07T00:33:29.087947+00:00",
+   "kind": "incident",
+   "department": "",
+   "severity": "P3",
+   "summary": "creative_assets for Christmas 2026 (MEDIUM) should have started 5 days ago and nothing shows it has (assets.built/assets.listing_images_built). photography and thumbnails take longer than anybody plans for A product ready on its launch date is late: indexing is not instant, and a listing nobody can ",
+   "refs": [
+    "incidents:42"
+   ],
+   "source": "incidents"
+  },
+  {
+   "at": "2026-10-07T00:33:29.087233+00:00",
+   "kind": "incident",
+   "department": "",
+   "severity": "P3",
+   "summary": "search_language for Christmas 2026 (MEDIUM) should have started 12 days ago and nothing shows it has (mjs.scanned/culture.sweep/learning.ingested). map buyer language before the copy is written, or the copy is written in ours A product ready on its launch date is late: indexing is not instant, and a",
+   "refs": [
+    "incidents:41"
+   ],
+   "source": "incidents"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025331+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "In the Developer Portal's Webhook portal, add an endpoint for order.paid pointing at this service's callback, and give this system the signing secret through the environment -- never through this repository.",
+   "refs": [
+    "owner_actions:20"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025330+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Confirm Etsy message notifications reach an inbox you read daily (Shop Manager > Settings > Emails), and agree a reply window. Nothing in this system will ever see a buyer message.",
+   "refs": [
+    "owner_actions:19"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025328+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Download the first monthly statement once one exists and give the finance department its fee lines and totals.",
+   "refs": [
+    "owner_actions:18"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025326+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Re-authorise the Brambleloop app in a browser with transactions_r added to the scope set (listings_r listings_w listings_d shops_r shops_w transactions_r). Start the flow at /api/etsy/oauth/start as before.",
+   "refs": [
+    "owner_actions:17"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025325+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "After the first listings go live, open Shop Manager > Policy Violations and confirm it is empty; check it again whenever the listing census alarm fires.",
+   "refs": [
+    "owner_actions:16"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025323+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "On the first order, read the fee lines in Shop Manager > Finances > Payment account and report every one by name and amount -- in particular whether an Offsite Ads fee and a Regulatory Operating Fee appear, and at what rates.",
+   "refs": [
+    "owner_actions:15"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025321+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Read this application's x-limit-per-second and x-limit-per-day from the Developer Portal and report both figures.",
+   "refs": [
+    "owner_actions:14"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025319+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Leave Etsy Ads off, and confirm once that it is off. If you ever turn it on, tell this system the daily budget and the date, because nothing here can see either.",
+   "refs": [
+    "owner_actions:13"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025318+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Confirm no paid Etsy subscription is active, and do not start one without recording the monthly amount here.",
+   "refs": [
+    "owner_actions:12"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025316+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Confirm the Shared Access list is empty (or contains only people you intend), and re-check it after any account recovery.",
+   "refs": [
+    "owner_actions:11"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025314+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Confirm once that no third-party app is installed on the shop, and install none without telling this system.",
+   "refs": [
+    "owner_actions:10"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025313+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Paste the six prepared policies from `commerce.shop_package.policies()` into Shop Manager > Settings > Policies. They are written; this is copying, not drafting.",
+   "refs": [
+    "owner_actions:9"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.025305+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Upload the shop banner and icon and paste the About story from `brand/storefront.ABOUT` into Shop Manager > Settings > Info & appearance.",
+   "refs": [
+    "owner_actions:8"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.017998+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Rotate ANTHROPIC_API_KEY (anthropic): create a new key in the Anthropic console, set it as ANTHROPIC_API_KEY on the Railway service, confirm one real model call succeeds, then revoke the old key in the console.",
+   "refs": [
+    "owner_actions:7"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.017997+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Set ONE Railway variable on the brambleloop-os service: ANTHROPIC_API_KEY = an Anthropic API key. The monthly ceiling is already enforced in code \u2014 gateway/routing.py refuses a call before making it once the month's ledgered spend would cross it, and there is no override.",
+   "refs": [
+    "owner_actions:6"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.017996+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Register a free Etsy developer app, then set TWO Railway variables on the brambleloop-os service: ETSY_API_KEY = the app's keystring, and ETSY_SHARED_SECRET = the app's shared secret. Etsy v3 sends them joined as 'keystring:shared_secret' in one header, which the code does \u2014 paste each value whole, ",
+   "refs": [
+    "owner_actions:5"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.017995+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Buy the selected MJs benchmark patterns -- the current set and its cost are at /api/benchmark-selection, chosen for coverage of the facets a customer-experience teardown can differ along rather than by popularity -- then open /ops/teardown on a phone, tap each pick and choose the downloaded files. Z",
+   "refs": [
+    "owner_actions:4"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.017994+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Decide whether to run a trademark clearance search on \"Brambleloop Studio\" before launch, and whether to file. A knock-out search on the Canadian register is free; a filing is CA$458.05 for the first class.",
+   "refs": [
+    "owner_actions:3"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-07T00:33:29.017992+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Add credit to the Anthropic account the API key belongs to. The console's smallest top-up is enough to start; the build's own ceiling is CA$100 a month and is enforced in code, so a larger balance cannot be spent faster than that.",
+   "refs": [
+    "owner_actions:2"
+   ],
+   "source": "owner_actions"
+  }
+ ],
+ "rule1": {
+  "departments": {
+   "executive": {
+    "jobs": 25,
+    "work_jobs": 25,
+    "self_measurement_jobs": 0,
+    "done": 16,
+    "useful": 5,
+    "useful_distinct": 5,
+    "noop": 11,
+    "dead": 0,
+    "open": 9,
+    "useful_rate": 0.3125,
+    "useful_distinct_rate": 0.3125,
+    "useful_types": {
+     "plan.cycle": 1,
+     "launch.readiness": 1,
+     "laura.executive_tick": 3
+    },
+    "top_noop": [
+     {
+      "job_type": "launch.plan",
+      "reason": "no work keys",
+      "n": 11
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "executive",
+      "job_type": "autonomy.morning_handoff",
+      "value": 80,
+      "source": "handoff",
+      "reason": "no morning brief yet for 2026-10-06; summarise the unattended hours",
+      "fingerprint": "brief:2026-10-06",
+      "evidence": [
+       "company_memory:brief:2026-10-06 absent"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "intelligence": {
+    "jobs": 26,
+    "work_jobs": 26,
+    "self_measurement_jobs": 0,
+    "done": 24,
+    "useful": 13,
+    "useful_distinct": 12,
+    "noop": 11,
+    "dead": 0,
+    "open": 2,
+    "useful_rate": 0.5417,
+    "useful_distinct_rate": 0.5,
+    "useful_types": {
+     "radar.scan": 2,
+     "radar.score": 11
+    },
+    "top_noop": [
+     {
+      "job_type": "intel.acceptance",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "etsy.probe",
+      "reason": "ETSY_API_KEY is not set",
+      "n": 1
+     },
+     {
+      "job_type": "mjs.scan",
+      "reason": "ETSY_API_KEY is not set. The benchmark mission reads public marketplace data only and cannot run without it; it is set i",
+      "n": 1
+     },
+     {
+      "job_type": "intel.benchmark_health",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "mjs.seasonal_sentinel",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "intel.panel_discovery",
+      "reason": "no sanctioned Etsy read credential, so no category leader can be observed; candidates are listed, none is registered uns",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "product_design": {
+    "jobs": 29,
+    "work_jobs": 29,
+    "self_measurement_jobs": 0,
+    "done": 22,
+    "useful": 0,
+    "useful_distinct": 0,
+    "noop": 22,
+    "dead": 0,
+    "open": 7,
+    "useful_rate": 0.0,
+    "useful_distinct_rate": 0.0,
+    "useful_types": {},
+    "top_noop": [
+     {
+      "job_type": "cir.draft",
+      "reason": "no work keys",
+      "n": 11
+     },
+     {
+      "job_type": "collection.assemble",
+      "reason": "no work keys",
+      "n": 2
+     },
+     {
+      "job_type": "seasonal.engine",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "creative.blind_review",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "creative.grid_tournament",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "seasonal.sentinel",
+      "reason": "no work keys",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "product_design",
+      "job_type": "seasonal.sentinel",
+      "value": 80,
+      "source": "handoff",
+      "reason": "10 PatternVersion row(s): new pattern versions need launch dates recomputed",
+      "fingerprint": "handoff:seasonal.sentinel:PatternVersion:10",
+      "evidence": [
+       "pattern_versions:<= 10 (n=10)",
+       "jobs:last seasonal.sentinel done 2026-10-07T00:33:29.093421+00:00"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "product_truth": {
+    "jobs": 38,
+    "work_jobs": 38,
+    "self_measurement_jobs": 0,
+    "done": 36,
+    "useful": 22,
+    "useful_distinct": 22,
+    "noop": 14,
+    "dead": 0,
+    "open": 2,
+    "useful_rate": 0.6111,
+    "useful_distinct_rate": 0.6111,
+    "useful_types": {
+     "cir.compile": 12,
+     "gate.certify": 10
+    },
+    "top_noop": [
+     {
+      "job_type": "gate.lanes",
+      "reason": "no work keys",
+      "n": 11
+     },
+     {
+      "job_type": "gate.certify",
+      "reason": "no work keys",
+      "n": 2
+     },
+     {
+      "job_type": "ops.sentinel",
+      "reason": "no work keys",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "product_truth",
+      "job_type": "ops.sentinel",
+      "value": 80,
+      "source": "handoff",
+      "reason": "10 PatternVersion row(s): new releases must be swept for stale or unproven artefacts",
+      "fingerprint": "handoff:ops.sentinel:PatternVersion:10",
+      "evidence": [
+       "pattern_versions:<= 10 (n=10)",
+       "jobs:last ops.sentinel done 2026-10-07T00:32:23.869005+00:00"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "visual": {
+    "jobs": 18,
+    "work_jobs": 18,
+    "self_measurement_jobs": 0,
+    "done": 13,
+    "useful": 10,
+    "useful_distinct": 10,
+    "noop": 3,
+    "dead": 0,
+    "open": 5,
+    "useful_rate": 0.7692,
+    "useful_distinct_rate": 0.7692,
+    "useful_types": {
+     "assets.build": 10
+    },
+    "top_noop": [
+     {
+      "job_type": "assets.owned_photography",
+      "reason": "image generation has not been demonstrated in this environment, so there is nothing to render with. `ops.capability_prob",
+      "n": 1
+     },
+     {
+      "job_type": "assets.model_photography",
+      "reason": "image generation has not been demonstrated in this environment, so there is nothing to render with",
+      "n": 1
+     },
+     {
+      "job_type": "visual.identity_drift",
+      "reason": "no work keys",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "visual",
+      "job_type": "visual.identity_drift",
+      "value": 90,
+      "source": "handoff",
+      "reason": "63 ListingAsset row(s): new listing assets must be read into the identity series",
+      "fingerprint": "handoff:visual.identity_drift:ListingAsset:63",
+      "evidence": [
+       "listing_assets:<= 63 (n=63)",
+       "jobs:last visual.identity_drift done 2026-10-07T00:32:23.817368+00:00"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "store_commerce": {
+    "jobs": 50,
+    "work_jobs": 50,
+    "self_measurement_jobs": 0,
+    "done": 36,
+    "useful": 32,
+    "useful_distinct": 32,
+    "noop": 4,
+    "dead": 3,
+    "open": 11,
+    "useful_rate": 0.8889,
+    "useful_distinct_rate": 0.8889,
+    "useful_types": {
+     "chain.rebuild": 1,
+     "listing.draft": 10,
+     "pricing.position": 10,
+     "listing.seo": 11
+    },
+    "top_noop": [
+     {
+      "job_type": "seasonal.remerchandising",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "etsy.credential_health",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "etsy.shop_snapshot",
+      "reason": "no credentials",
+      "n": 1
+     },
+     {
+      "job_type": "etsy.listing_census",
+      "reason": "no credentials",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "store_commerce",
+      "job_type": "seasonal.remerchandising",
+      "value": 80,
+      "source": "handoff",
+      "reason": "10 Listing row(s): new listing drafts are reviewed for seasonal merchandising",
+      "fingerprint": "handoff:seasonal.remerchandising:Listing:10",
+      "evidence": [
+       "listings:<= 10 (n=10)",
+       "jobs:last seasonal.remerchandising done 2026-10-07T00:33:29.218661+00:00"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "support": {
+    "jobs": 1,
+    "work_jobs": 1,
+    "self_measurement_jobs": 0,
+    "done": 1,
+    "useful": 0,
+    "useful_distinct": 0,
+    "noop": 1,
+    "dead": 0,
+    "open": 0,
+    "useful_rate": 0.0,
+    "useful_distinct_rate": 0.0,
+    "useful_types": {},
+    "top_noop": [
+     {
+      "job_type": "support.triage",
+      "reason": "no work keys",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [],
+    "idle_at_end": true,
+    "rule1_defect": false
+   },
+   "finance": {
+    "jobs": 9,
+    "work_jobs": 9,
+    "self_measurement_jobs": 0,
+    "done": 4,
+    "useful": 1,
+    "useful_distinct": 1,
+    "noop": 3,
+    "dead": 0,
+    "open": 5,
+    "useful_rate": 0.25,
+    "useful_distinct_rate": 0.25,
+    "useful_types": {
+     "finance.challenge": 1
+    },
+    "top_noop": [
+     {
+      "job_type": "finance.reconcile",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "finance.governor",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "finance.escalation_check",
+      "reason": "no work keys",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "growth": {
+    "jobs": 18,
+    "work_jobs": 18,
+    "self_measurement_jobs": 0,
+    "done": 15,
+    "useful": 10,
+    "useful_distinct": 10,
+    "noop": 5,
+    "dead": 0,
+    "open": 3,
+    "useful_rate": 0.6667,
+    "useful_distinct_rate": 0.6667,
+    "useful_types": {
+     "marketing.schedule": 10
+    },
+    "top_noop": [
+     {
+      "job_type": "ads.adjust",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "growth.distribution",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "growth.journey",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "growth.conclude",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "growth.experiments",
+      "reason": "no work keys",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "growth",
+      "job_type": "growth.journey",
+      "value": 80,
+      "source": "handoff",
+      "reason": "10 Listing row(s): new listing drafts change the buyer journey",
+      "fingerprint": "handoff:growth.journey:Listing:10",
+      "evidence": [
+       "listings:<= 10 (n=10)",
+       "jobs:last growth.journey done 2026-10-07T00:31:17.420033+00:00"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "learn": {
+    "jobs": 18,
+    "work_jobs": 18,
+    "self_measurement_jobs": 0,
+    "done": 0,
+    "useful": 0,
+    "useful_distinct": 0,
+    "noop": 0,
+    "dead": 0,
+    "open": 18,
+    "useful_rate": null,
+    "useful_distinct_rate": null,
+    "useful_types": {},
+    "top_noop": [],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "learn",
+      "job_type": "improve.mine",
+      "value": 90,
+      "source": "handoff",
+      "reason": "42 Incident row(s): incidents raised since the last mining run",
+      "fingerprint": "handoff:improve.mine:Incident:42",
+      "evidence": [
+       "incidents:<= 42 (n=42)",
+       "jobs:last improve.mine done never"
+      ],
+      "protected": false
+     },
+     {
+      "department": "learn",
+      "job_type": "improve.mine",
+      "value": 73,
+      "source": "handoff",
+      "reason": "3 Job row(s): dead letters since the last mining run",
+      "fingerprint": "handoff:improve.mine:Job:224",
+      "evidence": [
+       "jobs:<= 224 (n=3)",
+       "jobs:last improve.mine done never"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   },
+   "platform": {
+    "jobs": 13,
+    "work_jobs": 13,
+    "self_measurement_jobs": 0,
+    "done": 8,
+    "useful": 2,
+    "useful_distinct": 2,
+    "noop": 6,
+    "dead": 0,
+    "open": 5,
+    "useful_rate": 0.25,
+    "useful_distinct_rate": 0.25,
+    "useful_types": {
+     "ops.maturity_disagreements": 1,
+     "ops.policy_watch": 1
+    },
+    "top_noop": [
+     {
+      "job_type": "ops.heartbeat",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "ops.queue_check",
+      "reason": "the deployed commit is unknown, so 'once per deploy' has no meaning and a retry here would be an unbounded loop",
+      "n": 1
+     },
+     {
+      "job_type": "ops.thrash",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "model.probe",
+      "reason": "no ANTHROPIC_API_KEY in this environment",
+      "n": 1
+     },
+     {
+      "job_type": "ops.capability_probes",
+      "reason": "no work keys",
+      "n": 1
+     },
+     {
+      "job_type": "ops.slo",
+      "reason": "no work keys",
+      "n": 1
+     }
+    ],
+    "generated_missions": 0,
+    "eligible_untaken_at_end": [
+     {
+      "department": "platform",
+      "job_type": "ops.queue_check",
+      "value": 73,
+      "source": "handoff",
+      "reason": "3 Job row(s): dead letters since the last queue check",
+      "fingerprint": "handoff:ops.queue_check:Job:224",
+      "evidence": [
+       "jobs:<= 224 (n=3)",
+       "jobs:last ops.queue_check done 2026-10-07T00:31:17.035937+00:00"
+      ],
+      "protected": false
+     }
+    ],
+    "idle_at_end": false,
+    "rule1_defect": false
+   }
+  },
+  "totals": {
+   "done": 175,
+   "useful": 95,
+   "useful_distinct": 94,
+   "useful_rate": 0.5429,
+   "useful_distinct_rate": 0.5371
+  },
+  "judge": "runtime.pipeline.did_no_work; distinct = kpis.fingerprint dedupe",
+  "excludes": [
+   "autonomy.orchestrate",
+   "autonomy.department_review",
+   "autonomy.morning_handoff"
+  ]
+ },
+ "agents": {
+  "status": "DEGRADED",
+  "as_of": "2026-10-07T00:41:45.138359+00:00",
+  "basis": "measured",
+  "items": [
+   {
+    "agent": "coo",
+    "department": "executive",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 95,
+      "job_type": "autonomy.orchestrate",
+      "run_after": "2026-10-07T00:41:23.083704+00:00",
+      "why": "executive_orchestrator"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:41:23.083704+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "laura",
+    "department": "executive",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 232,
+     "job_type": "laura.executive_tick",
+     "at": "2026-10-07T00:40:25.519640+00:00",
+     "produced": {
+      "work_done": 1
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 232,
+     "job_type": "laura.executive_tick",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:40:25.519640+00:00"
+    },
+    "blockers": [],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:45:00+00:00",
+    "trigger": "cadence laura_executive",
+    "window_hours": 24,
+    "completed": 3,
+    "useful": 3,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": 1.0,
+    "noop_rate": 0.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "orchestrator",
+    "department": "executive",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 5,
+     "job_type": "plan.cycle",
+     "at": "2026-10-07T00:33:41.807811+00:00",
+     "produced": {
+      "planned": true
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 5,
+     "job_type": "plan.cycle",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:33:41.807811+00:00"
+    },
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 6,
+      "job_type": "portfolio.review",
+      "run_after": "2026-10-07T00:31:16.309163+00:00",
+      "why": "portfolio_review"
+     },
+     {
+      "job_id": 8,
+      "job_type": "plan.strategy",
+      "run_after": "2026-10-07T00:31:16.322131+00:00",
+      "why": "strategy_review"
+     },
+     {
+      "job_id": 9,
+      "job_type": "improve.nightly",
+      "run_after": "2026-10-07T00:31:16.327569+00:00",
+      "why": "nightly_improvement"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:16.309163+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 17,
+    "useful": 4,
+    "noop": 13,
+    "dead": 0,
+    "useful_rate": 0.2353,
+    "noop_rate": 0.7647,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "swarm_steward",
+    "department": "executive",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 34,
+      "job_type": "growth.steer",
+      "run_after": "2026-10-07T00:31:16.853426+00:00",
+      "why": "growth_steer"
+     },
+     {
+      "job_id": 38,
+      "job_type": "swarm.review",
+      "run_after": "2026-10-07T00:31:16.896212+00:00",
+      "why": "swarm_review"
+     },
+     {
+      "job_id": 39,
+      "job_type": "swarm.allocate",
+      "run_after": "2026-10-07T00:31:16.897422+00:00",
+      "why": "swarm_allocate"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:16.853426+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "cfo",
+    "department": "finance",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 113,
+     "job_type": "finance.challenge",
+     "at": "2026-10-07T00:33:29.288902+00:00",
+     "produced": {
+      "challenges": "[{'severity': 'note', 'subject': 'revenue', 'finding': \"Revenue is UNMEASURED, not CA$0.00: the order source is not connected: etsy_api: no recorded successful ",
+      "blocking": 0
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 113,
+     "job_type": "finance.challenge",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:33:29.288902+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "transactions_r",
+      "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)"
+     }
+    ],
+    "next_work": [
+     {
+      "job_id": 24,
+      "job_type": "commerce.readings",
+      "run_after": "2026-10-07T00:31:16.754175+00:00",
+      "why": "commerce_readings"
+     },
+     {
+      "job_id": 25,
+      "job_type": "commerce.orders_ingest",
+      "run_after": "2026-10-07T00:31:16.759326+00:00",
+      "why": "orders_ingest"
+     },
+     {
+      "job_id": 28,
+      "job_type": "commerce.order_readings",
+      "run_after": "2026-10-07T00:31:16.824198+00:00",
+      "why": "order_readings"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:16.754175+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 4,
+    "useful": 1,
+    "noop": 3,
+    "dead": 0,
+    "useful_rate": 0.25,
+    "noop_rate": 0.75,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "ads",
+    "department": "growth",
+    "authority": "yellow",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": {
+     "job_id": 31,
+     "job_type": "ads.adjust",
+     "status": "done",
+     "useful": false,
+     "at": "2026-10-07T00:33:42.004465+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "ad_authority",
+      "what": "an approved advertising budget"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "owned_surfaces",
+      "what": "a site or a Pinterest account this company can publish to, which only the owner can create"
+     }
+    ],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-08T00:00:00+00:00",
+    "trigger": "cadence ads_review",
+    "window_hours": 24,
+    "completed": 1,
+    "useful": 0,
+    "noop": 1,
+    "dead": 0,
+    "useful_rate": 0.0,
+    "noop_rate": 1.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "experiment_steward",
+    "department": "growth",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": {
+     "job_id": 43,
+     "job_type": "growth.experiments",
+     "status": "done",
+     "useful": false,
+     "at": "2026-10-07T00:33:42.140511+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "ad_authority",
+      "what": "an approved advertising budget"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "owned_surfaces",
+      "what": "a site or a Pinterest account this company can publish to, which only the owner can create"
+     }
+    ],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-08T00:00:00+00:00",
+    "trigger": "cadence growth_conclude",
+    "window_hours": 24,
+    "completed": 2,
+    "useful": 0,
+    "noop": 2,
+    "dead": 0,
+    "useful_rate": 0.0,
+    "noop_rate": 1.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "growth",
+    "department": "growth",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 245,
+     "job_type": "marketing.schedule",
+     "at": "2026-10-07T00:40:51.041339+00:00",
+     "produced": {
+      "pieces": 8
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 245,
+     "job_type": "marketing.schedule",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:40:51.041339+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "ad_authority",
+      "what": "an approved advertising budget"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "owned_surfaces",
+      "what": "a site or a Pinterest account this company can publish to, which only the owner can create"
+     }
+    ],
+    "next_work": [
+     {
+      "job_id": 42,
+      "job_type": "growth.preproduction",
+      "run_after": "2026-10-07T00:31:16.921072+00:00",
+      "why": "preproduction_validation"
+     },
+     {
+      "job_id": 103,
+      "job_type": "marketing.ads_readiness",
+      "run_after": "2026-10-07T00:31:17.091806+00:00",
+      "why": "ads_readiness"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:16.921072+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 23,
+    "useful": 10,
+    "noop": 13,
+    "dead": 0,
+    "useful_rate": 0.4348,
+    "noop_rate": 0.5652,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "market_radar",
+    "department": "intelligence",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 124,
+     "job_type": "radar.score",
+     "at": "2026-10-07T00:33:44.220155+00:00",
+     "produced": {
+      "score": 0.6263
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 124,
+     "job_type": "radar.score",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:33:44.220155+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "benchmark_observation",
+      "what": "read-only Etsy API credentials that can actually serve a request"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+     }
+    ],
+    "next_work": [
+     {
+      "job_id": 63,
+      "job_type": "intel.serp_capture",
+      "run_after": "2026-10-07T00:31:16.990784+00:00",
+      "why": "serp_capture"
+     },
+     {
+      "job_id": 65,
+      "job_type": "intel.pod_learning",
+      "run_after": "2026-10-07T00:31:16.995962+00:00",
+      "why": "mjs_pod_learning"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:16.990784+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 23,
+    "useful": 13,
+    "noop": 10,
+    "dead": 0,
+    "useful_rate": 0.5652,
+    "noop_rate": 0.4348,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "cost_optimiser",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 108,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.099737+00:00",
+      "why": "role_cost_optimiser"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.099737+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "creative_critic",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 110,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.105945+00:00",
+      "why": "role_creative_critic"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.105945+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "evaluator",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 104,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.092830+00:00",
+      "why": "role_evaluator"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.092830+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "experiment_designer",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 106,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.096611+00:00",
+      "why": "role_experiment_designer"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.096611+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "failure_miner",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 105,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.094918+00:00",
+      "why": "role_failure_miner"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.094918+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "learn",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 1,
+      "job_type": "learn.scan",
+      "run_after": "2026-10-07T00:31:15.684429+00:00",
+      "why": "learn_gap_scan"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:15.684429+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "lesson_router",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 111,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.108033+00:00",
+      "why": "role_lesson_router"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.108033+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "prompt_tool_challenger",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 107,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.098075+00:00",
+      "why": "role_prompt_tool_challenger"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.098075+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "reliability_engineer",
+    "department": "learn",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 109,
+      "job_type": "improve.role_work",
+      "run_after": "2026-10-07T00:31:17.103525+00:00",
+      "why": "role_reliability_engineer"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.103525+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "creative_director",
+    "department": "product_design",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": {
+     "job_id": 79,
+     "job_type": "creative.tournament",
+     "status": "done",
+     "useful": false,
+     "at": "2026-10-07T00:33:42.490335+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "model_provider",
+      "what": "a model provider that can actually serve a request"
+     }
+    ],
+    "next_work": [
+     {
+      "job_id": 14,
+      "job_type": "creative.style_learning",
+      "run_after": "2026-10-07T00:31:16.463682+00:00",
+      "why": "style_learning"
+     },
+     {
+      "job_id": 15,
+      "job_type": "creative.outcome_learning",
+      "run_after": "2026-10-07T00:31:16.466323+00:00",
+      "why": "outcome_learning"
+     },
+     {
+      "job_id": 18,
+      "job_type": "creative.white_space",
+      "run_after": "2026-10-07T00:31:16.546911+00:00",
+      "why": "white_space_discovery"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:16.463682+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 6,
+    "useful": 0,
+    "noop": 6,
+    "dead": 0,
+    "useful_rate": 0.0,
+    "noop_rate": 1.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "crochet_engineer",
+    "department": "product_design",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": {
+     "job_id": 136,
+     "job_type": "cir.draft",
+     "status": "done",
+     "useful": false,
+     "at": "2026-10-07T00:33:55.188803+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "model_provider",
+      "what": "a model provider that can actually serve a request"
+     }
+    ],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": null,
+    "trigger": "orchestrator mission / follow-on only",
+    "window_hours": 24,
+    "completed": 11,
+    "useful": 0,
+    "noop": 11,
+    "dead": 0,
+    "useful_rate": 0.0,
+    "noop_rate": 1.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "asset_truth",
+    "department": "product_truth",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": null,
+    "trigger": "orchestrator mission / follow-on only",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "policy",
+    "department": "product_truth",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": null,
+    "blockers": [],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": null,
+    "trigger": "orchestrator mission / follow-on only",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "quality_director",
+    "department": "product_truth",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 180,
+     "job_type": "gate.certify",
+     "at": "2026-10-07T00:33:55.601127+00:00",
+     "produced": {
+      "granted": true
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 181,
+     "job_type": "gate.lanes",
+     "status": "done",
+     "useful": false,
+     "at": "2026-10-07T00:33:56.036179+00:00"
+    },
+    "blockers": [],
+    "next_work": [
+     {
+      "job_id": 69,
+      "job_type": "physical.upgrade_impact",
+      "run_after": "2026-10-07T00:31:17.014921+00:00",
+      "why": "physical_upgrade_impact"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.014921+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 24,
+    "useful": 10,
+    "noop": 14,
+    "dead": 0,
+    "useful_rate": 0.4167,
+    "noop_rate": 0.5833,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "validator",
+    "department": "product_truth",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 179,
+     "job_type": "cir.compile",
+     "at": "2026-10-07T00:33:55.282921+00:00",
+     "produced": {
+      "compiled": true
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 179,
+     "job_type": "cir.compile",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:33:55.282921+00:00"
+    },
+    "blockers": [],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": null,
+    "trigger": "orchestrator mission / follow-on only",
+    "window_hours": 24,
+    "completed": 12,
+    "useful": 12,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": 1.0,
+    "noop_rate": 0.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "listing",
+    "department": "store_commerce",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 221,
+     "job_type": "listing.seo",
+     "at": "2026-10-07T00:40:48.217321+00:00",
+     "produced": {
+      "listing": "{'title': 'Spooky Bunting Garland | Crochet Pattern PDF | Seasonal Decor | US and UK Terms', 'tags': ['seasonal decor', 'garland crochet', 'spooky crochet', 'ga"
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 221,
+     "job_type": "listing.seo",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:40:48.217321+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "live_listings",
+      "what": "a listing that exists on the marketplace, which shadow mode forbids by design"
+     }
+    ],
+    "next_work": [
+     {
+      "job_id": 26,
+      "job_type": "listing.taxonomy_refresh",
+      "run_after": "2026-10-07T00:31:16.765945+00:00",
+      "why": "etsy_taxonomy"
+     },
+     {
+      "job_id": 27,
+      "job_type": "listing.search_visibility_watch",
+      "run_after": "2026-10-07T00:31:16.815355+00:00",
+      "why": "search_visibility_watch"
+     },
+     {
+      "job_id": 101,
+      "job_type": "seo.cycle",
+      "run_after": "2026-10-07T00:31:17.088340+00:00",
+      "why": "seo_cycle"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:16.765945+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 26,
+    "useful": 22,
+    "noop": 4,
+    "dead": 0,
+    "useful_rate": 0.8462,
+    "noop_rate": 0.1538,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "pricing",
+    "department": "store_commerce",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 203,
+     "job_type": "pricing.position",
+     "at": "2026-10-07T00:38:36.324910+00:00",
+     "produced": {
+      "price_cad": 5.11
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 203,
+     "job_type": "pricing.position",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:38:36.324910+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "live_listings",
+      "what": "a listing that exists on the marketplace, which shadow mode forbids by design"
+     }
+    ],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": null,
+    "trigger": "orchestrator mission / follow-on only",
+    "window_hours": 24,
+    "completed": 10,
+    "useful": 10,
+    "noop": 0,
+    "dead": 0,
+    "useful_rate": 1.0,
+    "noop_rate": 0.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "store_operator",
+    "department": "store_commerce",
+    "authority": "yellow",
+    "state": "unhealthy",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": {
+     "job_id": 224,
+     "job_type": "store.publish",
+     "status": "dead",
+     "useful": false,
+     "at": "2026-10-07T00:41:45.126618+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "live_listings",
+      "what": "a listing that exists on the marketplace, which shadow mode forbids by design"
+     },
+     {
+      "kind": "dead_letters",
+      "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+     }
+    ],
+    "next_work": [
+     {
+      "job_id": 227,
+      "job_type": "store.publish",
+      "run_after": "2026-10-07T00:39:33.218486+00:00",
+      "why": ""
+     },
+     {
+      "job_id": 230,
+      "job_type": "store.publish",
+      "run_after": "2026-10-07T00:39:57.324074+00:00",
+      "why": ""
+     },
+     {
+      "job_id": 234,
+      "job_type": "store.publish",
+      "run_after": "2026-10-07T00:40:23.755011+00:00",
+      "why": ""
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:39:33.218486+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 0,
+    "useful": 0,
+    "noop": 0,
+    "dead": 3,
+    "useful_rate": null,
+    "noop_rate": null,
+    "rates_basis": "unknown",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "support",
+    "department": "support",
+    "authority": "yellow",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": null,
+    "last_run": {
+     "job_id": 23,
+     "job_type": "support.triage",
+     "status": "done",
+     "useful": false,
+     "at": "2026-10-07T00:31:17.324859+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "customers",
+      "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are"
+     }
+    ],
+    "next_work": [],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T01:00:00+00:00",
+    "trigger": "cadence support_triage",
+    "window_hours": 24,
+    "completed": 1,
+    "useful": 0,
+    "noop": 1,
+    "dead": 0,
+    "useful_rate": 0.0,
+    "noop_rate": 1.0,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   },
+   {
+    "agent": "publishing",
+    "department": "visual",
+    "authority": "green",
+    "state": "sleeping",
+    "doing_now": null,
+    "started_at": null,
+    "current_job": null,
+    "last_useful_result": {
+     "job_id": 192,
+     "job_type": "assets.build",
+     "at": "2026-10-07T00:38:35.530115+00:00",
+     "produced": {
+      "pdf_sha256": "41ba31044eda9e901d035c38f5c960cd250fa0ef940203af646379071df206ab"
+     },
+     "rejected": {}
+    },
+    "last_run": {
+     "job_id": 192,
+     "job_type": "assets.build",
+     "status": "done",
+     "useful": true,
+     "at": "2026-10-07T00:38:35.530115+00:00"
+    },
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "image_generation",
+      "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "canonical_model",
+      "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "image_vision",
+      "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns"
+     }
+    ],
+    "next_work": [
+     {
+      "job_id": 81,
+      "job_type": "seasonal.cycle_proof",
+      "run_after": "2026-10-07T00:31:17.058999+00:00",
+      "why": "seasonal_cycle_proof"
+     },
+     {
+      "job_id": 98,
+      "job_type": "visual.rnd.cycle",
+      "run_after": "2026-10-07T00:31:17.083113+00:00",
+      "why": "visual_rnd"
+     }
+    ],
+    "orchestrator_state": null,
+    "next_wake": "2026-10-07T00:31:17.058999+00:00",
+    "trigger": "pending job",
+    "window_hours": 24,
+    "completed": 12,
+    "useful": 10,
+    "noop": 2,
+    "dead": 0,
+    "useful_rate": 0.8333,
+    "noop_rate": 0.1667,
+    "rates_basis": "measured",
+    "cost_cad_24h": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "display": "UNKNOWN"
+    },
+    "as_of": "2026-10-07T00:41:45.138359+00:00"
+   }
+  ],
+  "counts": {
+   "active": 0,
+   "sleeping": 28,
+   "blocked": 0,
+   "unhealthy": 1
+  },
+  "judge": "runtime.pipeline.did_no_work (per-job-type WORK_KEYS)",
+  "provider": "brambleloop.autonomy.status.agents",
+  "sources": [
+   "jobs",
+   "cost_entries",
+   "company_memory",
+   "worker.CADENCES",
+   "agents.registry.DEFAULT_AGENTS",
+   "build2.executor.gate_states"
+  ]
+ }
+}
