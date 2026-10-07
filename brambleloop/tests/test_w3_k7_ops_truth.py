@@ -241,7 +241,10 @@ def test_incident_actionability_and_owner_path():
     rows = {r["signature"]: r for k in snap["by_kind"].values() for r in k["open"]}
     assert rows
     pol = rows["policy_stale:fees"]
-    assert pol["remediation_owner"] == "owner" and "/api/policy/snapshot" in pol[
+    # W4-OWNER: refreshing a stale reading is company work (gates.policy_knowledge); the
+    # owner's page reading stays available and supersedes it.
+    assert pol["remediation_owner"] == "company" and "policy_knowledge" in pol[
+        "remediation_path"] and "/api/policy/snapshot" in pol[
         "remediation_path"] and pol["applicability"] == "current"
     mys = rows["mystery:thing"]
     assert mys["needs_owner_path"] and mys["applicability"] == "UNCONFIRMED"
