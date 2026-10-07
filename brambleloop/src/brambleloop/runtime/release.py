@@ -3303,7 +3303,8 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
         # through it now. Nothing here reads Etsy.
         mission = _run_mjs_mission(ctx)
         return {"ran": False, "reason": outcome["reason"][:200],
-                "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")}}
+                "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")},
+                "findings": mission.get("findings")}
 
     # Every scan re-routes the whole stored catalogue through the current pod vocabulary.
     # The scan itself only routes what it read, and it deliberately skips anything whose
@@ -3335,7 +3336,8 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
             "reclassified": routing["moved"],
             "learning_domains": len(learned.get("recorded") or []),
             "inspected": report["catalogue_coverage"]["listings_inspected"],
-            "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")}}
+            "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")},
+            "findings": mission.get("findings")}
 
 
 def _mjs_today(ctx: JobContext):
@@ -3366,6 +3368,18 @@ def _run_mjs_mission(ctx: JobContext) -> dict:
             "same_arena_started": concepting["started"],
             "photography_requested": standing["photography_requested"],
             "counts": standing["counts"]})
+    # W4-MJS: the whole stored catalogue, reviews and gallery judgements become findings with
+    # provenance, stored as the day's `mjs.findings` reading and published to the lesson bus
+    # where radar.score, the creative briefs and the pricing/QA/CX inboxes read them. Reads
+    # stored rows only; a failure is audited and never fails the scan that already ran.
+    from ..intel import findings as mjs_findings
+
+    try:
+        result["findings"] = mjs_findings.refresh(ctx.db, today=_mjs_today(ctx))
+        ctx.audit(mjs_findings.KIND, detail=result["findings"])
+    except Exception as e:  # noqa: BLE001 - reported, not fatal to the scan
+        result["findings"] = {"error": f"{type(e).__name__}: {e}"[:300]}
+        ctx.audit("mjs.findings_failed", detail=result["findings"])
     if result["pending"] or result["processed"]:
         ctx.audit("mjs.mission_events", detail={
             "pending": result["pending"], "processed": result["processed"],
