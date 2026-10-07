@@ -214,6 +214,83 @@ def test_a_competitor_informed_spec_is_frozen_before_the_writer_runs():
             db.engine.dispose()
 
 
+# ---- F-755 / F-756 -----------------------------------------------------------------------
+
+_TEN = "Row 1: ch 42(46,50,54,58,62,66,70,74,78), turn -- 41(45,49,53,57,61,65,69,73,77) sts."
+_NINE = "Rows 4-9(9,9,11,11,11,11,14,16): rep rows 2 and 3."           # one size dropped
+
+
+def test_the_whole_size_family_is_parsed_before_one_size_is_frozen():
+    from brambleloop.teardown import size_family as SF
+
+    good = SF.all_size_parse([_TEN, "Neck: 18(18,22,22,22,26,26,26,30,30) sts."])
+    assert good["state"] == SF.AGREE and good["sizes"] == 10 and good["vectors"] == 3, good
+    assert SF.freeze_render_size(good, 4)["of"] == 10
+    bad = SF.all_size_parse([_TEN, _NINE, "Hood: 46(46,50,48,54,58,60,62,64,66 sts."])
+    kinds = sorted({p["kind"] for p in bad["problems"]})
+    assert bad["state"] == SF.CONFLICT and kinds == ["indexing", "parenthetical"], bad
+    try:
+        SF.freeze_render_size(bad, 4)
+    except SF.SizeFamilyRefused:
+        pass
+    else:
+        raise AssertionError("froze a size over an indexing error")
+    resolved = {b: "size 8 value dropped; derived from the sleeve rows" for b in bad["blocking"]}
+    assert SF.freeze_render_size(bad, 4, resolutions=resolved)["resolved"] == sorted(resolved)
+    rev = SF.all_size_parse([_TEN, "Hood: 46(46,50,48,54,58,60,62,64,66) sts."])
+    assert rev["state"] == SF.AGREE and rev["problems"][0]["kind"] == "grading_reversal"
+    assert SF.freeze_render_size(rev, 0)["reviewed_reversals"]
+    try:
+        SF.freeze_render_size(SF.all_size_parse(["no vectors here"]), 0)
+    except SF.SizeFamilyRefused:
+        pass
+    else:
+        raise AssertionError("froze a size of a family never parsed")
+
+
+def test_the_teardown_reader_reports_the_size_family():
+    import io
+    import tempfile
+    from pathlib import Path
+
+    from reportlab.pdfgen.canvas import Canvas
+
+    from brambleloop.teardown import library, reader
+
+    buf = io.BytesIO()
+    c = Canvas(buf)
+    for y, line in ((800, _TEN), (780, _NINE)):
+        c.drawString(30, y, line)
+    c.save()
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {library.LIBRARY_ENV: str(Path(tmp) / "quarantine")}
+        target = Path(env[library.LIBRARY_ENV]) / "ref1" / "pattern.pdf"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(buf.getvalue())
+        out = reader.read("ref1/pattern.pdf", env=env)
+    fam = out["size_family"]
+    assert fam["parsed"] and fam["consistent"] is False and fam["sizes"] == 10, fam
+    assert fam["indexing_error_pages"] == [1] and not fam["parenthetical_error_pages"], fam
+
+
+def test_a_schematic_disagreement_is_a_conflict_never_a_choice():
+    from brambleloop.teardown import size_family as SF
+
+    out = SF.schematic_cross_check({"width": [40, 44, 48], "length": [30, None, 34]},
+                                   {"width": [40.5, 44.2, 55.0], "length": [30.4, 32.0, 34.1]})
+    assert out["state"] == SF.CONFLICT and out["conflicts"] == [("width", 2)], out
+    assert out["unknown"] == [("length", 1)], out
+    assert out["per_measure"]["width"][2]["stated"] == 48 and \
+        out["per_measure"]["width"][2]["derived"] == 55.0
+    b1 = SF.benchmark1_cross_check()
+    assert len(b1["sizes"]) == 9 and b1["per_measure"]["length_cm"], b1
+    assert all(r["verdict"] == SF.AGREE for r in b1["per_measure"]["length_cm"])
+    assert all(r["verdict"] == SF.AGREE for r in b1["per_measure"]["back_width_cm"])
+    # The armhole needs a chain gauge the pattern never states: UNKNOWN, not a guess.
+    assert all(r["verdict"] == SF.UNKNOWN for r in b1["per_measure"]["armhole_cm"])
+    assert b1["state"] == SF.UNKNOWN
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_")]
