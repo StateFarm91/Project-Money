@@ -102,7 +102,6 @@ def _nearest(target: float, unit: float) -> int:
 # measures a row by the stitch-weighted height of the stitches in it, which moved this
 # design's stated yardage and/or size; a customer-visible figure cannot change under a
 # released version (tests/data/release_fingerprints.tsv pins content AND claims).
-RELEASE_VERSION = "1.2.0"
 # 1.3.0 (W4-PIPE 2026-10-07): renamed to what the fabric makes. Each row is worked in one
 # colour (launch0.fabric_truth: at most one colour in any row), so the fir and star are a
 # double-crochet relief over a single-crochet ground, not overlay mosaic, which needs a
@@ -202,8 +201,12 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
         # The throw is the headline product, so it carries the plain name; the other sizes
         # qualify it. A title reading "... Throw (Throw)" is the kind of small wrongness that
         # makes a premium shop look automated.
-        title=("Nordic Forest Fir and Star Relief Throw" if size == "throw"
-               else f"Nordic Forest Fir and Star Relief Blanket ({size.title()})"),
+        # W4-PIPE3: "Nordic Forest Relief Baby Blanket", not "... Fir and Star Relief Blanket
+        # (Baby)": the longer name pushed "crochet pattern" and the season differentiator past
+        # the listing's 60-character front scan (commerce.seo.front_scan), so listing.seo
+        # refused every size. Still the relief it is; the size reads as the noun it qualifies.
+        title=("Nordic Forest Relief Throw" if size == "throw"
+               else f"Nordic Forest Relief {size.title()} Blanket"),
         version=version,
         construction="flat_rows",
         risk_class="A",

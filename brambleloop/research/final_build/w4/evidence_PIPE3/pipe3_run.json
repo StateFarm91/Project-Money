@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07T04:09:30+00:00",
+ "generated_at": "2026-10-07T08:26:57+00:00",
  "generated_by": "research/final_build/w4/pipe3_run.py (real release chain, shadow worker, scratch SQLite, network closed, no taxonomy snapshot)",
  "products": {
   "autumn-oak-mosaic-throw": {
@@ -214,18 +214,18 @@
    "listing": {
     "tags": [
      "christmas blanket",
-     "baby crochet pattern",
-     "baby blanket pattern",
-     "christmas diy",
-     "christmas craft",
-     "forest crochet",
-     "forest blanket",
      "blanket crochet",
      "written and chart",
      "diy gift crochet",
      "crochet home decor",
+     "baby blanket pattern",
+     "christmas diy",
      "digital download",
-     "home decor diy"
+     "christmas craft",
+     "home decor diy",
+     "instant download pdf",
+     "yarn craft project",
+     "us and uk terms"
     ],
     "title": "Nordic Forest Relief Baby Blanket | Crochet Pattern PDF | Christmas | US and UK Terms",
     "version": "1.3.0"
@@ -256,7 +256,11 @@
    "fabric_truth": true,
    "listing": {
     "tags": [
+     "forest crochet",
+     "forest blanket",
      "diy christmas decor",
+     "printable pdf chart",
+     "fiber art project",
      "large crochet",
      "large blanket",
      "christmas blanket",
@@ -264,11 +268,7 @@
      "written and chart",
      "diy gift crochet",
      "crochet home decor",
-     "forest blanket",
-     "christmas diy",
-     "digital download",
-     "christmas craft",
-     "home decor diy"
+     "christmas diy"
     ],
     "title": "Nordic Forest Relief Large Blanket | Crochet Pattern PDF | Christmas | US and UK Terms",
     "version": "1.3.0"
@@ -342,12 +342,12 @@
    "fabric_truth": true,
    "listing": {
     "tags": [
-     "flower crochet",
-     "flower applique",
+     "applique crochet",
      "heart crochet",
-     "heart flower pattern",
+     "heart applique",
+     "motifs applique",
      "motifs crochet",
-     "motifs flower",
+     "diy applique",
      "written and chart",
      "diy gift crochet",
      "digital download",
@@ -356,14 +356,12 @@
      "us and uk terms",
      "printable pdf chart"
     ],
-    "title": "Heart Applique Motif Library (12) | Crochet Pattern PDF | Pressed Flower | US and UK Terms",
+    "title": "Heart Applique Motif Library (12) | Crochet Pattern PDF | Motifs | US and UK Terms",
     "version": "1.3.0"
    },
-   "listing_truth_ok": false,
+   "listing_truth_ok": true,
    "name_truth_cir": [],
-   "name_truth_listing": [
-    "imagery: the listing promises ['flower']; the heart-row motif does not depict it"
-   ],
+   "name_truth_listing": [],
    "product_truth_ok": true,
    "risk_class": "A",
    "seo_blocked": [],
@@ -458,5 +456,16 @@
    "version": "1.3.0"
   }
  },
- "seconds": 274.2
+ "reruns": [
+  {
+   "at": "2026-10-07T08:30:14+00:00",
+   "products": [
+    "nordic-forest-mosaic-throw-baby",
+    "nordic-forest-mosaic-throw-large",
+    "nordic-forest-mosaic-throw-throw"
+   ],
+   "why": "nordic-forest retitled to fit the 60-char front scan after merging W4-PIPE"
+  }
+ ],
+ "seconds": 399.9
 }

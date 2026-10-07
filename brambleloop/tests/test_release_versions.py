@@ -154,22 +154,27 @@ def test_the_pt_redesigns_carry_a_new_version():
     moved every design whose content or stated figures changed one minor further. The ribbed
     scarf's figures did not change (no increases, no mixed-height rows) and keeps 1.0.0."""
     built = catalogue()
-    # W4-PIPE 2026-10-07: renamed to the relief it works (not overlay mosaic) -> 1.3.0.
     for size in nordic_forest.SIZES:
+        # W4-PIPE 2026-10-07: renamed to the relief it works (not overlay mosaic) -> 1.3.0.
         assert built[f"nordic-forest-mosaic-throw-{size}"].version == "1.3.0"
     assert built["heirloom-cable-blanket"].version == "1.2.0"
     # W4-PIPE 2026-10-07: back panel + closing seam became pattern content (name truth).
     assert built["bobble-floor-pillow"].version == "1.3.0"
     assert built["chunky-ribbed-scarf"].version == "1.0.0"
-    # LEGACY_HELD (gauge); W4-PIPE 1.3.0 retitle to what the motif and fabric are.
-    assert built["autumn-oak-mosaic-throw"].version == "1.3.0"
+    # W4-PIPE 1.3.0 retitle to what the motif and fabric are; W4-PIPE3 1.4.0 re-engineered
+    # from the declared yarn (the 1.3.0 typed-gauge record is builder.as_drawn, still refused).
+    assert built["autumn-oak-mosaic-throw"].version == "1.4.0"
     assert built["cloudline-baby-blanket"].version == "1.2.0"
     assert built["hexagon-coaster-set"].version == "1.2.0"
     for slug, cir in built.items():
-        if slug.startswith(("harbour-drop-shoulder-pullover-", "market-basket-")):
+        if slug.startswith("market-basket-"):
             assert cir.version == "1.2.0", slug
+        # W4-K9 (F-762/F-763): the size matrix and stated fit are new customer-visible
+        # content in every graded size, so each graded design moved one minor further.
+        if slug.startswith("harbour-drop-shoulder-pullover-"):
+            assert cir.version == "1.3.0", slug
         if slug.startswith("pebble-raglan-cardigan-"):
-            assert cir.version == "1.1.0", slug
+            assert cir.version == "1.2.0", slug
 
 
 if __name__ == "__main__":

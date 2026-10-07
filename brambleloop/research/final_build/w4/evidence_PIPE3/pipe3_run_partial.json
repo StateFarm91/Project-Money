@@ -1,8 +1,8 @@
 {
- "generated_at": "2026-10-07T04:10:56+00:00",
+ "generated_at": "2026-10-07T08:30:14+00:00",
  "generated_by": "research/final_build/w4/pipe3_run.py (real release chain, shadow worker, scratch SQLite, network closed, no taxonomy snapshot)",
  "products": {
-  "pressed-flower-motifs": {
+  "nordic-forest-mosaic-throw-baby": {
    "assembly_promise": true,
    "certificate_errors": [],
    "certified": true,
@@ -18,21 +18,21 @@
    "fabric_truth": true,
    "listing": {
     "tags": [
-     "applique crochet",
+     "christmas blanket",
+     "blanket crochet",
      "written and chart",
      "diy gift crochet",
-     "heart crochet",
-     "heart applique",
-     "motifs applique",
+     "crochet home decor",
+     "baby blanket pattern",
+     "christmas diy",
      "digital download",
+     "christmas craft",
+     "home decor diy",
      "instant download pdf",
      "yarn craft project",
-     "us and uk terms",
-     "printable pdf chart",
-     "fiber art project",
-     "motifs crochet"
+     "us and uk terms"
     ],
-    "title": "Heart Applique Motif Library (12) | Crochet Pattern PDF | Motifs | US and UK Terms",
+    "title": "Nordic Forest Relief Baby Blanket | Crochet Pattern PDF | Christmas | US and UK Terms",
     "version": "1.3.0"
    },
    "listing_truth_ok": true,
@@ -41,10 +41,96 @@
    "product_truth_ok": true,
    "risk_class": "A",
    "seo_blocked": [],
-   "title": "Heart Applique Motif Library (12)",
+   "title": "Nordic Forest Relief Baby Blanket",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "nordic-forest-mosaic-throw-large": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "forest crochet",
+     "forest blanket",
+     "diy christmas decor",
+     "printable pdf chart",
+     "fiber art project",
+     "large crochet",
+     "large blanket",
+     "christmas blanket",
+     "blanket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "christmas diy"
+    ],
+    "title": "Nordic Forest Relief Large Blanket | Crochet Pattern PDF | Christmas | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Nordic Forest Relief Large Blanket",
+   "title_promise": true,
+   "version": "1.3.0"
+  },
+  "nordic-forest-mosaic-throw-throw": {
+   "assembly_promise": true,
+   "certificate_errors": [],
+   "certified": true,
+   "chain_jobs": [
+    "assets.build:done",
+    "gate.certify:done",
+    "launch.plan:pending",
+    "listing.draft:done",
+    "listing.seo:done",
+    "pricing.position:done"
+   ],
+   "compiles": true,
+   "fabric_truth": true,
+   "listing": {
+    "tags": [
+     "nordic crochet",
+     "nordic blanket",
+     "christmas blanket",
+     "blanket crochet",
+     "written and chart",
+     "diy gift crochet",
+     "crochet home decor",
+     "forest blanket",
+     "christmas diy",
+     "digital download",
+     "christmas craft",
+     "home decor diy",
+     "instant download pdf"
+    ],
+    "title": "Nordic Forest Relief Throw | Crochet Pattern PDF | Christmas | Blanket | US and UK Terms",
+    "version": "1.3.0"
+   },
+   "listing_truth_ok": true,
+   "name_truth_cir": [],
+   "name_truth_listing": [],
+   "product_truth_ok": true,
+   "risk_class": "A",
+   "seo_blocked": [],
+   "title": "Nordic Forest Relief Throw",
    "title_promise": true,
    "version": "1.3.0"
   }
  },
- "seconds": 52.9
+ "seconds": 78.8
 }
