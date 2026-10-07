@@ -18,7 +18,7 @@ from brambleloop.seo import learning  # noqa: E402
 def test_empty_db_everything_unknown_never_zero():
     f = learning.funnel(fresh_db())
     per = f["per_product"]
-    assert len(per) == 3
+    assert len(per) == 5      # W4-PIPE: five Launch-0 products
     for slug, row in per.items():
         for sig in ("impressions", "clicks", "favourites", "orders", "carts"):
             assert row[sig]["status"] == "UNKNOWN" and row[sig]["value"] is None, (slug, sig)

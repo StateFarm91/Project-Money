@@ -139,6 +139,38 @@ FAMILIES: dict[str, list[dict]] = {
         {"family": "deliverable", "intent": "deliverable", "priority": 3,
          "phrases": ["pdf crochet pattern"]},
     ],
+    # W4-PIPE 2026-10-07: the two products promoted into Launch-0. Every phrase is checked
+    # by seo.truth.check_term against the product's own facts (tree/winter/scandinavian/flat
+    # were refused for the ornaments; snowflake/sofa/nordic/cozy for the throw, and dropped).
+    "nordic-star-ornaments": [
+        {"family": "object_core", "intent": "object+format", "priority": 1,
+         "phrases": ["ornament pattern", "crochet ornament", "christmas ornament"]},
+        {"family": "motif", "intent": "attribute", "priority": 1,
+         "phrases": ["snowflake ornament", "crochet snowflake", "snowflake pattern",
+                     "nordic snowflake"]},
+        {"family": "set_count", "intent": "attribute", "priority": 1,
+         "phrases": ["set of 6 ornaments"]},
+        {"family": "occasion_use", "intent": "use/room", "priority": 2,
+         "phrases": ["christmas crochet", "holiday decor", "christmas decor"]},
+        {"family": "skill_construction", "intent": "construction", "priority": 3,
+         "phrases": ["textured crochet"]},
+        {"family": "deliverable", "intent": "deliverable", "priority": 3,
+         "phrases": ["pdf crochet pattern"]},
+    ],
+    "winter-village-graphghan": [
+        {"family": "object_core", "intent": "object+format", "priority": 1,
+         "phrases": ["throw pattern", "crochet throw", "crochet blanket", "blanket pattern"]},
+        {"family": "motif_season", "intent": "attribute", "priority": 1,
+         "phrases": ["snowfall blanket", "winter blanket", "winter crochet"]},
+        {"family": "texture", "intent": "construction", "priority": 1,
+         "phrases": ["textured throw", "textured blanket"]},
+        {"family": "synonym_object", "intent": "object", "priority": 2,
+         "phrases": ["crochet afghan", "afghan pattern"]},
+        {"family": "room_use", "intent": "use/room", "priority": 2,
+         "phrases": ["home decor"]},
+        {"family": "deliverable", "intent": "deliverable", "priority": 3,
+         "phrases": ["pdf crochet pattern"]},
+    ],
 }
 
 # The 13 tags chosen from the families (order = slot order). Chosen by hand from the families;
@@ -159,6 +191,16 @@ TAGS: dict[str, list[str]] = {
         "striped baby blanket", "crochet afghan", "baby afghan", "diamond lattice",
         "textured crochet", "diamond crochet", "two color crochet", "beginner crochet",
         "pdf crochet pattern"],
+    "nordic-star-ornaments": [
+        "ornament pattern", "crochet ornament", "snowflake ornament", "crochet snowflake",
+        "snowflake pattern", "set of 6 ornaments", "christmas ornament", "christmas crochet",
+        "holiday decor", "nordic snowflake", "christmas decor", "textured crochet",
+        "pdf crochet pattern"],
+    "winter-village-graphghan": [
+        "throw pattern", "crochet throw", "crochet blanket", "blanket pattern",
+        "snowfall blanket", "winter blanket", "textured throw", "textured blanket",
+        "crochet afghan", "afghan pattern", "winter crochet", "home decor",
+        "pdf crochet pattern"],
 }
 
 # Buyer-first titles: object + "crochet pattern" first (matching and CTR), then the
@@ -171,6 +213,11 @@ TITLES: dict[str, str] = {
                             "Confident Beginner | PDF with Chart, US and UK Terms"),
     "cloudline-baby-blanket": ("Textured Baby Blanket Crochet Pattern | Cloudline Diamond "
                                "Lattice in Two Colors | PDF with Chart, US and UK Terms"),
+    "nordic-star-ornaments": ("Snowflake Ornament Crochet Pattern, Set of 6 | Nordic "
+                              "Christmas Decor | Worsted Yarn | PDF with Chart, US and UK "
+                              "Terms"),
+    "winter-village-graphghan": ("Winter Throw Blanket Crochet Pattern | Snowfall Texture in "
+                                 "Two Colors | Worsted Yarn | PDF with Chart, US and UK Terms"),
 }
 
 # Category candidates. `intent` is the repo's own (products.launch0 ListingIdentity); the buyer
@@ -226,7 +273,9 @@ def _description(facts, cand) -> dict:
     yarn = sorted(set(facts.materials))
     obj = {"nursery-nesting-baskets": "a set of three hexagon nesting baskets",
            "hexagon-coaster-set": "a set of four hexagon coasters",
-           "cloudline-baby-blanket": "the Cloudline baby blanket"}.get(cand.slug,
+           "cloudline-baby-blanket": "the Cloudline baby blanket",
+           "nordic-star-ornaments": "a set of six snowflake ornaments",
+           "winter-village-graphghan": "the Winter Snowfall throw"}.get(cand.slug,
                                                                       cand.title.lower())
     lead = {
         "nursery-nesting-baskets": (
@@ -241,6 +290,13 @@ def _description(facts, cand) -> dict:
             "Make the Cloudline baby blanket: a raised diamond lattice of double crochet "
             "over a single crochet ground, in two colors that change every two rows, with "
             "plain cream rows at each end."),
+        "nordic-star-ornaments": (
+            "Make a set of six snowflake ornaments: small flat pieces worked in rows, the "
+            "snowflake a raised double crochet relief over a single crochet ground, in two "
+            "colors, one color per row."),
+        "winter-village-graphghan": (
+            "Make the Winter Snowfall throw: a sparse snowfall of raised double crochet over "
+            "a single crochet ground, worked flat in two colors, one color per row."),
     }.get(cand.slug, f"Make {obj}.")
     labels = [lab.split(": ", 1)[1] if len(facts.variant_labels) == 1 else lab
               for lab in facts.variant_labels]

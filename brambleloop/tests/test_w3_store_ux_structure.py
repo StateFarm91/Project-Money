@@ -129,13 +129,13 @@ def test_owner_concept_image_is_not_embedded():
 def test_listing_images_are_only_verified_disclosed_renders():
     html = page("mobile")
     frames = list(preview._FRAMES.values())
-    assert len(frames) == 3
+    assert len(frames) == 5      # W4-PIPE: one hero frame per Launch-0 product (5)
     for f in frames:
         if f["status"] == "VERIFIED":
             b64 = __import__("base64").b64encode(f["png"]).decode()[:200]
             assert html.count(b64) == 1, f["build"]
     cards = re.findall(r'<article class="card">.*?</article>', shop(html), re.S)
-    assert len(cards) == 3
+    assert len(cards) == 5
     for c in cards:
         assert "Digital rendering, not a photograph" in c
 
