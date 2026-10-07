@@ -62,8 +62,10 @@ def _benchmark() -> dict:
 def _physical() -> dict:
     manifest = json.loads((HERE / "tester_kit" / "KIT_MANIFEST.json").read_text())
     return {
-        "gate": "physical_proof", "requirements": [64], "status": "NOT-YET-ASKABLE",
-        "precondition": "a tester who agreed (tester_roster) -- answer item 3 first",
+        "gate": "physical_proof", "requirements": [64], "status": "OWNER-ACTION",
+        "decision": ("one owner decision with tester_roster (owner_queue DECISIONS "
+                     "`tester_outreach`): confirm the outreach and approve the first agreed "
+                     "tester's paid make in one answer"),
         "pattern": {k: manifest[k] for k in ("slug", "version", "title", "risk_class",
                                              "required", "scope", "content_hash",
                                              "finished_size_cm", "yarn_metres_by_colour")},
@@ -172,6 +174,11 @@ def _listings() -> dict:
 def build() -> dict:
     gates = [_benchmark(), _physical(), _tester(), _second_market(), _owned(), _customers(),
              _ads(), _listings()]
+    # Ledger classification read by owner/build_owner_docs.py (DATA*/EXTERNAL*/COMPANY* are
+    # never folded onto an owner decision).
+    cls = {"second_market_benchmark": "COMPANY-WORK", "customers": "DATA-GATED"}
+    for g in gates:
+        g["classification"] = cls.get(g["gate"], "OWNER-GATED")
     asks = [g for g in gates if g.get("owner_action") and str(g["status"]).startswith(
         ("OWNER", "PARTLY"))]
     return {"lane": "W4-GATESB", "generated_for": "owner authorisation 2026-10-07",
@@ -209,7 +216,7 @@ def render(d: dict) -> str:
               "paid_cad, licence_terms). Gate opens on the first intake. Never copied into "
               "products.", ""]
     p = d["gates"][1]
-    L += ["## 2. physical_proof -- kit ready (NOT YET ASKABLE: needs a tester first)", "",
+    L += ["## 2. physical_proof -- kit ready (asked together with item 3: one tester_outreach decision)", "",
           f"Pattern: **{p['pattern']['title']}** `{p['pattern']['slug']}@"
           f"{p['pattern']['version']}` (content {p['pattern']['content_hash'][:16]}), "
           f"{p['pattern']['risk_class']}; scope {p['pattern']['scope']}.", "",

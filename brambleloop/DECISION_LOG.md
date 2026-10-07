@@ -1705,6 +1705,17 @@ leaving them parked:
 Unchanged: phase stays shadow; production deployment remains owner-controlled; no Etsy publication without
 authorisation; CAPTCHA/anti-bot measures are never bypassed.
 
+## D-FB-20 — Owner revokes the temporary Fable fallback; strongest appropriate model only (2026-10-07)
+The owner briefly authorised a one-time Fable fallback for this completion run (recorded only in
+research/final_build/w4/W4_RESUME.md, commit afcc83c) and then explicitly revoked it. Standing rule from now on:
+1. The strongest appropriate model is the only model policy. No current or future Brambleloop work is switched to
+   Fable because of usage limits. Any older commit, handoff or manifest suggesting otherwise is void.
+2. If the All Models weekly allowance is exhausted: checkpoint the current atomic work where practical; commit and push
+   every worker branch; update every handoff, completion ledger and the resume manifest; stop work that cannot continue
+   on the strongest appropriate model; resume from those exact checkpoints after the reset without restarting,
+   re-auditing or redoing completed work.
+3. The revocation does not interrupt running completion lanes while the stronger-model allowance remains.
+
 ## D-W4-GATESB-1 (2026-10-07) — The company selects the second-market benchmark shops (#268)
 
 Under the owner's 2026-10-07 authorisation to clear the business gates. DECISION_LOG B-482/B-508

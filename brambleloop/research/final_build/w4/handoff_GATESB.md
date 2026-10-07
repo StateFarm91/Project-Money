@@ -8,7 +8,7 @@ Report: `research/final_build/w4/GATE_CLEARANCE_BUSINESS.{md,json}` (regenerate:
 | gate | status | evidence |
 |---|---|---|
 | benchmark_purchases (#163 #165 #168 #315 #317) | OWNER-ACTION: buy 13 listed (CA$280.50 observed, ceiling 300), upload at /ops/teardown | gate_clearance.benchmark_purchase_list; evidence_GATESB/prod_benchmark_selection_13_300_fcb982d.json |
-| physical_proof (#64) | NOT-YET-ASKABLE until a tester agrees; kit ready (market-basket-small@1.2.0, ceiling CA$59.65) | quality/tester_kit.py; tester_kit/ PDFs + KIT_MANIFEST.json |
+| physical_proof (#64) | OWNER-ACTION, asked in the same `tester_outreach` decision as tester_roster (owner_queue DECISIONS); kit ready (market-basket-small@1.2.0, ceiling CA$59.65) | quality/tester_kit.py; tester_kit/ PDFs + KIT_MANIFEST.json |
 | tester_roster (#9 #43 #250) | OWNER-ACTION: confirm prepared public Ravelry call (not sent) | quality/tester_programme.py; tester_kit/OUTREACH.md |
 | second_market_benchmark (#268) | COMPANY-SELECTED (D-W4-GATESB-1): LakesideLoops (CA), HanJanCrochet (UK), verified by getShop inside intel.panel_discovery | intel/second_market.py |
 | owned_surfaces (#4 #10 #246 #247 #248 #251 #255) | Etsy shop recognised (paid destination); missing site/pinterest/email/video, CA$25, 65 min | gate_clearance.owned_surfaces_inventory |
@@ -29,6 +29,13 @@ tests/test_w4_gatesb.py 10/10; regression batch: see final report.
   `customers` reads as a data wait.
 - CC: render `approval_inbox()["not_yet_askable"]` (precondition text) beside the owner cards.
 - Deploy: production fcb982d still shows customers / second_market as owner cards; fixed on deploy.
+
+## Resume 2026-10-07 (after session limit)
+- Merged origin/claude/visual-investigation (DECISION_LOG conflict: kept D-FB-20 + D-W4-GATESB-1; index regenerated).
+- Kept integrator WIP 78431bf: physical_proof no longer preconditioned (one decision with tester_roster);
+  test_w4_gatesb + report updated to match; test_w3_k7_owner_queue spend-card check still exercised.
+- Report gates carry `classification`; owner/build_owner_docs.py treats COMPANY* like DATA*/EXTERNAL*
+  (second_market_benchmark = company work, not unmapped). Vendored owner/gate_clearance_business.json, regenerated OWNER_ACTIONS.
 
 ## Next
 Nothing in progress. After deploy: watch `intel.panel_discovered` audit for `second_market` joins.

@@ -5,7 +5,7 @@ Owner authorisation 2026-10-07. Per gate: cleared / owner action (exact cost, li
 | gate | status | owner minutes | max CA$ |
 |---|---|---|---|
 | benchmark_purchases | OWNER-ACTION | 75 | 300.0 |
-| physical_proof | NOT-YET-ASKABLE | 5 | 59.65 |
+| physical_proof | OWNER-ACTION | 5 | 59.65 |
 | tester_roster | OWNER-ACTION | 20 | 0.0 |
 | second_market_benchmark | COMPANY-SELECTED (observation pending) | - | - |
 | owned_surfaces | PARTLY CLEARED (Etsy shop recognised) + OWNER-ACTION | 65 | 25.0 |
@@ -13,7 +13,7 @@ Owner authorisation 2026-10-07. Per gate: cleared / owner action (exact cost, li
 | ad_authority | NOT-YET-ASKABLE | - | - |
 | live_listings | NOT-YET-ASKABLE (company work first) | - | - |
 
-Asked now: ~160 min, up to CA$325.00.
+Asked now: ~165 min, up to CA$384.65.
 
 ## 1. benchmark_purchases -- buy these 13 (OWNER ACTION)
 
@@ -46,7 +46,7 @@ Delivery (existing intake, nothing new):
 
 API: POST https://brambleloop-os-production.up.railway.app/api/teardown/intake (multipart: listing_ref, files, optional paid_cad, licence_terms). Gate opens on the first intake. Never copied into products.
 
-## 2. physical_proof -- kit ready (NOT YET ASKABLE: needs a tester first)
+## 2. physical_proof -- kit ready (asked together with item 3: one tester_outreach decision)
 
 Pattern: **Crochet Hexagonal Bread Basket** `market-basket-small@1.2.0` (content 1ddde587f537388b), B (dimensional_form); scope full_make.
 
