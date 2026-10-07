@@ -25,9 +25,12 @@ All lanes stopped. Uncommitted tracked work of B2/FM/OWNER was committed as WIP 
 Resumed (8, resource-limited): B2, FM, AUTO, CC, PIPE, CREATIVE, SEO, OWNER. Queued: LEARN, VISUAL, SPEND (K5a+K5b), K9.
 Complete: MJS (5092b01), STORE (ba72ca8) — merged on claude/w4-INTEG, focused tests passing so far; ff into visual-investigation next.
 
-## Model policy (owner, 2026-10-07)
-- Default: strongest appropriate model. High-risk architecture, integration, security, finance, identity, authority
-  and difficult debugging always stay on it.
-- If the primary/all-model weekly allowance approaches exhaustion: launch bounded worker missions where its capability
-  suffices on Fable (Agent model "fable") instead of stopping useful work. Never downgrade merely to consume Fable.
-- At 99% weekly usage: switch to Fable (medium effort). Same checkpoint/push/handoff rules apply.
+## TEMPORARY owner directive — Fable fallback (2026-10-07; EXPIRES at the next All Models weekly reset, Friday)
+- Default and permanent policy: the strongest appropriate model. Fable is NOT a permanent fallback.
+- One-time exception, this completion run only: if the All Models weekly allowance reaches 99%, bounded completion
+  work may continue on Fable (medium effort) only as necessary to keep useful work moving until the weekly reset.
+- Never on Fable, even during the exception: architecture, integration, security, finance, identity, authority and
+  difficult debugging. If the stronger-model allowance is exhausted, checkpoint those (commit, push, handoff) and
+  resume them after the reset.
+- On the reset: return automatically to the strongest appropriate model and delete this section.
+- Same checkpoint/push/handoff rules throughout.
