@@ -59,20 +59,22 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Listing estate truth for safe publication.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Census stores id, state (active/draft/inactive/sold_out/expired), taxonomy, price, quantity, ending_timestamp, should_auto_renew, ours/slug per listing in an operating_readings row. Not collected: fees (listing/renewal), properties, attached digital files and assets per listing; Listing rows carry no remote_state/last_seen/expires_at columns (kept only in the reading).",
-  "producer": "src/brambleloop/runtime/etsy_ops.py::handle_listing_census",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/integrations/etsy.py",
   "durable_state": "operating_readings (listing census)",
-  "consumer": "incidents (policy_violation_suspected / listing_drift); intel/etsy_surfaces.py::listing_census_drift",
+  "consumer": "`etsy.listing_census`, which now stores `listing_estate.estate_row`. Each row records state vs intended state, family, taxonomy, properties, images, files, expiry, days left, renewal mode and fee. The fee basis is labelled *modelled*.",
   "protected_effect": "inventory of the whole estate each day, with vanished/unknown listings raised",
   "tests": [
-   "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
    "tests/test_etsy_readback_observe.py::test_a_listing_nobody_here_created_is_reported",
-   "tests/test_etsy_surfaces.py::test_holding_no_record_of_our_own_listings_is_not_a_clean_census"
+   "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
+   "tests/test_etsy_surfaces.py::test_holding_no_record_of_our_own_listings_is_not_a_clean_census",
+   "tests/test_k8_listing_estate.py::test_census_estate_rows_carry_files_images_properties_expiry_and_fee"
   ],
   "evidence": [
    "waves/fb1_B.json F-553 PARTIAL",
-   "cadence etsy_listing_census in runtime/worker.py"
+   "cadence etsy_listing_census in runtime/worker.py",
+   "w3 handoff_K8.md claim: | **F-553** Listing estate manager | COMPLETE | `test_census_estate_rows_carry_files_images_properties_expiry_and_fee` → `etsy.listing_census`, which now stores `listing_estate.estate_row`. Each row records state vs intended state, family, taxonomy, properties, images, files, expiry, days left, rene"
   ],
   "build2_rows": [],
   "gate": {
@@ -83,7 +85,7 @@
   "defect": null,
   "next_action": "Extend the census per listing with getListingProperties, getAllListingFiles and image list; add fee lookup from the payment-account ledger once transactions_r is granted; optionally add Listing.remote_state/last_seen/expires_at via core/migrate.py and a test that an expiring listing is flagged before ending_timestamp.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K8']"
  },
  {
   "uid": "F-554",
@@ -246,23 +248,25 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Customer receives the exact certified file; P0 digital delivery truth.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "After publish and at activation the listing's files are read back (getAllListingFiles) and compared by name + exact size; sent bytes must hash to the certified release (Etsy exposes no hash, stated). Not built: periodic re-read of files on live listings (census does not), language-variant check, post-purchase download availability check.",
-  "producer": "src/brambleloop/integrations/etsy_verify.py::verify_files (via runtime/etsy_ops.py::read_back)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/listing_estate.py",
   "durable_state": "audit/readback detail on publish; incidents on mismatch",
-  "consumer": "runtime/pipeline.py::_publish_and_read_back, handle_store_activate",
+  "consumer": "runtime consumer per reachability: asset_audit is live: handler etsy.listing_census (cadence in runtime/worker.py:module constant) -> runtime/etsy_ops.py:handle_listing_census",
   "protected_effect": "stale/extra/duplicate/mis-sized files fail read-back and halt the product",
   "tests": [
-   "tests/test_etsy_readback_observe.py::test_file_read_back_matches_name_and_exact_size_and_says_etsy_exposes_no_hash",
-   "tests/test_etsy_readback_observe.py::test_a_stale_file_beside_the_certified_one_fails_file_read_back",
    "tests/test_etsy_readback_observe.py::test_a_same_named_file_of_another_size_or_uncertified_bytes_fails",
+   "tests/test_etsy_readback_observe.py::test_a_stale_file_beside_the_certified_one_fails_file_read_back",
    "tests/test_etsy_readback_observe.py::test_an_unread_file_list_is_unverified_rather_than_clean",
-   "tests/test_etsy_readback_observe.py::test_uploaded_bytes_that_are_not_the_certified_release_fail_file_read_back"
+   "tests/test_etsy_readback_observe.py::test_file_read_back_matches_name_and_exact_size_and_says_etsy_exposes_no_hash",
+   "tests/test_etsy_readback_observe.py::test_uploaded_bytes_that_are_not_the_certified_release_fail_file_read_back",
+   "tests/test_k8_listing_estate.py::test_an_unreadable_file_list_is_unverified_never_verified"
   ],
   "evidence": [
    "waves/fb1_B.json F-559 PARTIAL",
    "gates/first_customer.py now reached via store.publish -> _release_gates (module_reachability)",
-   "etsy_verify.py exists in fcb982d but verify_files is new -> not DEPLOYED"
+   "etsy_verify.py exists in fcb982d but verify_files is new -> not DEPLOYED",
+   "w3 handoff_K8.md claim: | **F-559** Daily digital delivery verification | COMPLETE | Same tests, plus `test_an_unreadable_file_list_is_unverified_never_verified`. Each day the census re-reads `getAllListingFiles` and checks every US/UK variant by name and exact size against the verified publish's `files_sent`. A failed rea"
   ],
   "build2_rows": [
    "#42 COMPLETE+PROVEN",
@@ -276,7 +280,7 @@
   "defect": null,
   "next_action": "Call etsy_ops.read_back's file verification from handle_listing_census for every live listing; add a language field to the release artefact manifest and compare filenames per language; for post-purchase availability, record the owner's controlled test purchase (owner action) as evidence.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K8']"
  },
  {
   "uid": "F-560",
@@ -1077,7 +1081,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1231,7 +1235,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1271,21 +1275,23 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Owner-reserved Etsy actions must be exact and visible for a safe first sale.",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "The 15 Etsy owner actions in etsy_surfaces.owner_queue (apps, shared access, subscription, ads-off, policy violations, messages inbox, webhooks, quota) are not written to OwnerAction; only readiness/access/funding/ads owner requests are.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
   "durable_state": "owner_actions",
   "consumer": "src/brambleloop/app/main.py::api_owner_actions",
   "protected_effect": "owner actions carry action, reason, max cost, minutes, consequence; satisfied actions close themselves",
   "tests": [
-   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format",
+   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+   "tests/test_etsy_surfaces.py::test_every_owner_action_is_actionable_and_closes_on_evidence",
    "tests/test_launch.py::test_an_owner_action_whose_requirement_is_satisfied_closes_itself",
-   "tests/test_etsy_surfaces.py::test_every_owner_action_is_actionable_and_closes_on_evidence"
+   "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format"
   ],
   "evidence": [
    "launch_readiness cadence and /api/owner-actions present in fcb982d",
    "src/brambleloop/build2/executor.py::approval_inbox",
-   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True (owner_queue)"
+   "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True (owner_queue)",
+   "w3 lane K triage R: seed_owner_queue writes the Etsy owner actions into OwnerAction"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN",
@@ -1296,10 +1302,10 @@
    "key": "",
    "detail": ""
   },
-  "defect": "etsy_surfaces.owner_queue() (15 actions incl. reauthorise_transactions_r) has no runtime writer into OwnerAction.",
+  "defect": null,
   "next_action": "In handle_launch_readiness, adopt etsy_surfaces.owner_queue() entries into OwnerAction by key (reuse the existing requirement_key adoption logic) with their closing evidence.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): seed_owner_queue writes the Etsy owner actions into OwnerAction"
  },
  {
   "uid": "F-594",
@@ -1609,7 +1615,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1643,7 +1649,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2196,19 +2202,22 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "One prioritised owner-action queue with exact steps is required before the first sale; drilldown supports truthful owner visibility.",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Drilldown from each KPI to source/timestamp/transformation/reconciliation state is not uniform; owner actions are split between OwnerAction rows and executor approval cards and are not ranked in one list; Etsy owner queue not synced.",
-  "producer": "src/brambleloop/build2/executor.py::approval_inbox",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/approvals.py",
   "durable_state": "owner_actions",
-  "consumer": "src/brambleloop/app/main.py::dashboard ('Waiting on the owner')",
+  "consumer": "every card carries `rank`, `urgency`, `steps`, minutes, cost and consequence. `GET /api/cc/drill?provider=&index=` drills any provider item to source, timestamp, transformation, confidence, reconciliation and safe external ids",
   "protected_effect": "cards carry action, minutes, cost, consequence of waiting; free-and-quick first",
   "tests": [
+   "tests/test_launch.py::test_every_owner_request_has_a_stable_identity_distinct_from_its_wording",
    "tests/test_launch.py::test_the_report_states_the_owner_actions_in_the_required_format",
-   "tests/test_launch.py::test_every_owner_request_has_a_stable_identity_distinct_from_its_wording"
+   "tests/test_w3_k7_ops_truth.py::test_cc_provider_drill_and_routes",
+   "tests/test_w3_k7_owner_queue.py::test_satisfied_leaves_active_queue_parked_listed_apart"
   ],
   "evidence": [
    "approval_inbox and /api/owner-actions present in fcb982d",
-   "/api/provenance, /api/audit"
+   "/api/provenance, /api/audit",
+   "w3 handoff_K7.md claim: | F-623 Owner actions & evidence drilldown | COMPLETE | `test_satisfied_leaves...`, `test_cc_provider_drill_and_routes` → every card carries `rank`, `urgency`, `steps`, minutes, cost and consequence. `GET /api/cc/drill?provider=&index=` drills any provider item to source, timestamp, transformation, "
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN"
@@ -2221,7 +2230,7 @@
   "defect": null,
   "next_action": "Merge OwnerAction rows and approval_inbox cards into one ranked /api/owner-queue (urgency, cost, minutes) and add source/as_of/basis fields to each /api/finance and /api/console figure.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-624",

@@ -67,7 +67,9 @@ SRC = ROOT / "src" / "brambleloop"
 # The SHAs the mapping rows were made against (MAPPING_BRIEF.md: 019ebf0; the re-map wave under
 # mapping/remap_<sha7>/ against that SHA). Full SHAs so the basis names a commit, not a prefix.
 MAPPING_BASE = "019ebf0eeb36789aa62ddf7be9bfb6ba3995853a"
-REMAP_SHAS = {"6f9a2f7": "6f9a2f7a1405f5c9638a78552934445bc590c63f"}
+REMAP_SHAS = {"6f9a2f7": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+              # wave-4 lane FM re-map on fee1cfe (w4/fold.py; w4/FOLD_REPORT.json)
+              "fee1cfe": "fee1cfe773e09011d5a8a47a357c4d3443948263"}
 PRODUCTION = "fcb982d57e291c88d9f78eaa091e90904b6c2cc9"
 # Completion target per launch class (F-178). Only launch-critical rows have a launch target.
 TARGET = {"LAUNCH-CRITICAL": "INTEGRATED", "MATURE": None, "NA": None}

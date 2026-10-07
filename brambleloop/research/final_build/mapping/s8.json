@@ -242,23 +242,26 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "runtime durability: coordination state must survive deploys/restarts",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "The persisted DAG is the Build-2 requirement graph (BuildTask/BuildEvent) plus artefact rebuild edges; company work has no persisted cross-department DAG with ownership/authority per task -- job dependencies are implicit follow-on enqueues.",
-  "producer": "src/brambleloop/build2/executor.py::sync",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/authority/dag.py",
   "durable_state": "build_tasks, build_events, artefact_provenance, jobs (Postgres)",
-  "consumer": "src/brambleloop/build2/executor.py::watchdog",
+  "consumer": "runtime consumer per reachability: approve is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
   "protected_effect": "gate opening un-parks work automatically; restart does not lose the build",
   "tests": [
-   "tests/test_executor.py::test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering",
    "tests/test_executor.py::test_a_dead_session_loses_a_worker_rather_than_the_build",
+   "tests/test_executor.py::test_a_gate_opening_un_parks_its_requirements_with_nobody_remembering",
    "tests/test_executor.py::test_the_build_loop_runs_in_the_deployed_worker_not_in_a_conversation",
    "tests/test_persistence.py::test_pipeline_resumes_across_a_worker_restart_mid_flight",
-   "tests/test_rebuild_graph.py::test_a_change_reaches_two_hops_downstream"
+   "tests/test_rebuild_graph.py::test_a_change_reaches_two_hops_downstream",
+   "tests/test_w3_k11_authority.py::test_f658_the_dag_persists_across_restart_and_recomputes_ready",
+   "tests/test_w3_k11_authority.py::test_f658_the_orchestrator_tick_runs_the_dag_and_records_missions_and_approvals"
   ],
   "evidence": [
    "build.tick cadence present in fcb982d worker CADENCES",
    "BUILD_STATE.md 'OWNER ACTIONS': production /api/build un-parked #268 automatically when benchmark_observation opened",
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w3 handoff_K11.md claim: | F-658 Durable Coordinator | COMPLETE | `company_work_items` persists dependencies, priority, ownership (department, agent, submitter), authority state and completion evidence. `dag.tick` runs inside every `autonomy.orchestrate` job (15 min plus the idle wake). Tests: `test_f658_*` (2) cover the re"
   ],
   "build2_rows": [
    "#172 COMPLETE+PROVEN",
@@ -273,7 +276,7 @@
   "defect": null,
   "next_action": "Generalise the executor graph to company work: persist task dependencies/owner/authority on Job (or a WorkItem table) and recompute READY on terminal events; test cross-department dependency release after restart.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-659",
@@ -407,28 +410,30 @@
   "defect": null,
   "next_action": "Build src/brambleloop/app/timeline.py summarising AuditLog/Job/Incident rows into causal events (grouped by product/job chain, with department and plain-language outcome) and a /api/timeline + Studio view; test that a pipeline run renders as one causal entry.",
   "confidence": "HIGH",
-  "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch \u2014 unrelated)"
+  "searched": "grep timeline|activity stream in src/brambleloop (hits only growth/content, brand/takeover, commerce/launch — unrelated)"
  },
  {
   "uid": "F-663",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority controls and truthful owner visibility: owner decisions must be visible and actionable",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Two lists rather than one prioritized queue (OwnerAction rows and executor gate cards rendered separately); duplicates occurred in production (owner actions 19/20); evidence links and exact steps are not uniformly present on gate cards.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/launch/readiness.py::assess",
   "durable_state": "owner_actions table; executor GATES",
   "consumer": "src/brambleloop/build2/executor.py::approval_inbox",
   "protected_effect": "owner sees only genuine decisions with cost, minutes and consequence of delay",
   "tests": [
-   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for",
-   "tests/test_launch.py::test_nothing_blocked_on_build_is_ever_sent_to_the_owner",
    "tests/test_access.py::test_access_requests_join_the_one_owner_queue_and_do_not_duplicate_on_re_run",
-   "tests/test_health.py::test_the_console_answers_both_of_an_absent_owners_questions"
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing",
+   "tests/test_health.py::test_the_console_answers_both_of_an_absent_owners_questions",
+   "tests/test_launch.py::test_nothing_blocked_on_build_is_ever_sent_to_the_owner",
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for"
   ],
   "evidence": [
    "research/BUILD2_CLOSEOUT_REPORT.md S: production owner actions 9; N: 'Owner actions 19/20 are duplicates, to be merged on deploy'",
-   "src/brambleloop/app/main.py dashboard 'Owner action required' and 'Waiting on the owner' blocks"
+   "src/brambleloop/app/main.py dashboard 'Owner action required' and 'Waiting on the owner' blocks",
+   "w3 lane K triage R: one ranked owner queue (executor:1462)"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN",
@@ -439,10 +444,10 @@
    "key": "none",
    "detail": "no gate on the remaining software work"
   },
-  "defect": "duplicate owner actions 19/20 in production (fix exists on 019ebf0, not deployed)",
+  "defect": null,
   "next_action": "Merge OwnerAction rows and gate cards into one ranked inbox (build2/executor.approval_inbox + OwnerAction) with evidence URL and exact steps per item; deploy to clear the 19/20 duplicate; test single-queue ordering.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): one ranked owner queue (executor:1462)"
  },
  {
   "uid": "F-664",
@@ -474,19 +479,22 @@
   "launch_class_reason": "truthful owner visibility and provenance of statuses",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "No universal evidence envelope (source, timestamp, transformation, confidence, reconciliation/calibration state, external ids) on every KPI/status/gate; provenance is per artefact, and 275 production artefacts are unproven (backfill and fail-closed write path not deployed).",
-  "producer": "src/brambleloop/ops/artefacts.py",
+  "missing_part": "lane claim qualifier: in code; production defect GATED",
+  "producer": "src/brambleloop/app/dashboard_truth.py",
   "durable_state": "artefact_provenance (created_by, job_id, code_commit, provider, sha256, parents, validation_status, source, evidence)",
-  "consumer": "src/brambleloop/app/main.py::api_provenance",
+  "consumer": "runtime consumer per reachability: headline is live: API get dashboard -> app/main.py:dashboard",
   "protected_effect": "an artefact with no provenance is unproven, never fresh",
   "tests": [
-   "tests/test_provenance_write_path.py::test_every_row_names_its_job_its_agent_and_its_authority",
+   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql",
    "tests/test_provenance.py::test_a_number_that_cannot_say_who_it_measured_is_refused_rather_than_discounted",
-   "tests/test_cert_dashboard.py::test_console_numbers_equal_sql"
+   "tests/test_provenance_write_path.py::test_every_row_names_its_job_its_agent_and_its_authority",
+   "tests/test_w3_k7_ops_truth.py::test_cc_provider_drill_and_routes",
+   "tests/test_w3_k7_owner_queue.py::test_satisfied_leaves_active_queue_parked_listed_apart"
   ],
   "evidence": [
    "research/BUILD2_CLOSEOUT_REPORT.md L: 275 artefacts unproven in production",
-   "src/brambleloop/radar/provenance.py (trend provenance)"
+   "src/brambleloop/radar/provenance.py (trend provenance)",
+   "w3 handoff_K7.md claim: | F-665 Evidence WHY | COMPLETE in code; production defect GATED | same drill test. The envelope reuses `dashboard_truth.evidence`. The recorded defect (\"production shows 275 unproven artefacts; the fix is undeployed\") is closed only by a deploy, which is the owner gate `production_window` |"
   ],
   "build2_rows": [
    "#171 COMPLETE+PROVEN",
@@ -494,14 +502,14 @@
    "#38 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "none",
-   "key": "none",
-   "detail": "no gate on the remaining software work"
+   "kind": "owner",
+   "key": "dashboard_truth.evidence",
+   "detail": "w3 claim: in code; production defect GATED"
   },
-  "defect": "production shows 275 unproven artefacts; the fix is undeployed",
+  "defect": null,
   "next_action": "Define an Evidence dict (source, as_of, transform, confidence, reconciliation) and attach it to /api/console, /api/finance, /api/launch and dashboard KPIs; test that every KPI carries it; deploy and run ops.provenance_backfill.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-666",
@@ -605,22 +613,27 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority controls: no silent authority expansion",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Actions are not classified into the eleven classes (OBSERVE..CREDENTIALS); authority is a 3-level GREEN/YELLOW/RED agent grade plus per-agent job-type permissions, Etsy READ/WRITE/ACTIVATE and governance refusal of self-widening.",
-  "producer": "src/brambleloop/agents/registry.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/authority/policy.py",
   "durable_state": "agents (authority, permissions)",
-  "consumer": "src/brambleloop/runtime/worker.py::Worker (permission check before handler)",
+  "consumer": "runtime consumer per reachability: grant is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
   "protected_effect": "an agent cannot run a job type outside its permissions; improvement proposals cannot widen authority",
   "tests": [
-   "tests/test_shadow.py::test_worker_denies_a_job_an_agent_may_not_run",
-   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
+   "tests/test_chaos.py::test_a_permission_denial_is_re_driven_because_it_is_usually_a_misconfiguration",
    "tests/test_etsy_transport.py::test_the_three_authorities_are_separate_gates",
-   "tests/test_chaos.py::test_a_permission_denial_is_re_driven_because_it_is_usually_a_misconfiguration"
+   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
+   "tests/test_shadow.py::test_worker_denies_a_job_an_agent_may_not_run",
+   "tests/test_w3_k11_authority.py::test_f669_a_runtime_widened_gated_grant_is_refused_at_dispatch",
+   "tests/test_w3_k11_authority.py::test_f669_the_eleven_classes_and_every_runtime_job_type_is_classified",
+   "tests/test_w3_k11_authority.py::test_f669_the_worker_dead_letters_a_silent_expansion_as_a_refusal",
+   "tests/test_w3_k11_authority.py::test_f669_unlisted_consequential_names_are_gated_fail_closed"
   ],
   "evidence": [
    "src/brambleloop/core/models.py Authority enum",
    "src/brambleloop/integrations/etsy.py Authority.ACTIVATE",
-   "queue/durable.py comment: heartbeat against an unpermitted agent dead-lettered every 15 minutes in production (enforcement observed)"
+   "queue/durable.py comment: heartbeat against an unpermitted agent dead-lettered every 15 minutes in production (enforcement observed)",
+   "w3 handoff_K11.md claim: | F-669 Progressive Authority | COMPLETE | `classes.JOB_CLASS` and `policy.check_dispatch` in `Registry.authorize` (live on every worker dispatch). Tests: `test_f669_*` (4). The worker dead-letters a DB-widened `store.publish` without running the handler. |"
   ],
   "build2_rows": [
    "#102 COMPLETE+PROVEN",
@@ -634,7 +647,7 @@
   "defect": null,
   "next_action": "Add an ActionClass enum with the eleven classes, map every job type to one in swarm/orchestrate (next to bands), enforce class-level grants in the worker, and test that an unmapped or ungranted class is refused.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-670",
@@ -1466,22 +1479,24 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "security/privacy of credentials and customer data",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Writes and exports require the operator credential and credentials are sealed, but read-only endpoints are unauthenticated and some carry customer-bearing data (/api/support question/answer text); privileged vs read-only separation is by route, not by role.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/core/opsauth.py::check",
   "durable_state": "oauth_credentials (sealed)",
   "consumer": "src/brambleloop/app/main.py (write routes)",
   "protected_effect": "export/requeue/decision routes refuse without the operator credential",
   "tests": [
-   "tests/test_continuity.py::test_the_export_endpoint_is_closed_when_no_credential_is_configured",
    "tests/test_continuity.py::test_a_wrong_or_short_credential_is_refused",
-   "tests/test_continuity.py::test_token_health_never_reveals_the_token",
    "tests/test_continuity.py::test_no_connection_string_ever_reaches_the_export_or_its_manifest",
+   "tests/test_continuity.py::test_the_export_endpoint_is_closed_when_no_credential_is_configured",
+   "tests/test_continuity.py::test_token_health_never_reveals_the_token",
+   "tests/test_customer_data_auth.py",
    "tests/test_oauth_security_audit.py (check-based)"
   ],
   "evidence": [
    "research/OAUTH_SECURITY_AUDIT.md",
-   "BUILD_STATE.md: operator credential configured Railway-side; export closed-by-default"
+   "BUILD_STATE.md: operator credential configured Railway-side; export closed-by-default",
+   "w3 lane K triage R: CUSTOMER_DATA_ROUTES behind operator read refusal (main.py:739); r2-SEC fixes"
   ],
   "build2_rows": [],
   "gate": {
@@ -1489,10 +1504,10 @@
    "key": "none",
    "detail": "no gate on the remaining software work"
   },
-  "defect": "unauthenticated read of customer support text at /api/support",
+  "defect": null,
   "next_action": "Classify read endpoints by data sensitivity; require opsauth for customer/order/support reads and the console; add a test enumerating routes that return customer fields.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): CUSTOMER_DATA_ROUTES behind operator read refusal (main.py:739); r2-SEC fixes"
  },
  {
   "uid": "F-697",
@@ -1594,19 +1609,23 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "enforceable constitution clauses: truthful selling, no fabricated evidence, no silent authority expansion, dollar provenance",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Clauses are enforced piecemeal (governance.check refuses fabrication/authority widening/gate weakening; three-valued verdicts keep UNKNOWN; cost entries carry provenance; incidents halt publication) -- there is no single constitution check and 'never unknowingly repeat known failures' is not enforced at proposal time.",
-  "producer": "src/brambleloop/improve/governance.py::check",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/authority/constitution.py",
   "durable_state": "improvements, audit_log, cost_entries",
-  "consumer": "src/brambleloop/improve/cells.py::propose",
+  "consumer": "runtime consumer per reachability: evaluate is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/executive/loop.py:tick -> laura/executive/lo",
   "protected_effect": "a proposal violating a protected boundary is refused",
   "tests": [
-   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
    "tests/test_improve.py::test_a_paraphrase_does_not_get_a_weakening_past_the_boundary",
-   "tests/test_shadow.py::test_open_incident_halts_certification"
+   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
+   "tests/test_shadow.py::test_open_incident_halts_certification",
+   "tests/test_w3_k11_authority.py::test_f700_evaluate_blocks_each_per_action_clause_and_fails_closed",
+   "tests/test_w3_k11_authority.py::test_f700_every_clause_names_an_importable_enforcer",
+   "tests/test_w3_k11_authority.py::test_f700_laura_and_the_dag_are_held_to_the_constitution"
   ],
   "evidence": [
-   "src/brambleloop/improve/governance.py (in fcb982d)"
+   "src/brambleloop/improve/governance.py (in fcb982d)",
+   "w3 handoff_K11.md claim: | F-700 Constitution | COMPLETE | `authority.constitution`. Every enforcer is imported by a test. The per-action clauses block, and the check fails closed. It is consumed by `dag.dispatch` and Laura's `review`. Tests: `test_f700_*` (3). |"
   ],
   "build2_rows": [
    "#102 COMPLETE+PROVEN",
@@ -1620,7 +1639,7 @@
   "defect": null,
   "next_action": "Encode the constitution clauses as named checks in improve/governance.py (and a repeat-failure lookup, see F-706); test one refusal per clause.",
   "confidence": "LOW",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-701",
@@ -1661,19 +1680,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority controls must gate only consequential actions, never initiative",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "There is no 'publication awaiting approval' task state: publication is refused by phase/authority and dead-lettered as a deliberate refusal, which does not block other work; owner-gated build requirements park individually. The v0.20 '8-hour pending approval' scenario has no explicit object to test against.",
-  "producer": "src/brambleloop/build2/executor.py::sync",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/authority/classes.py",
   "durable_state": "build_tasks (parked on gate), jobs (DEAD refusal classified)",
-  "consumer": "src/brambleloop/queue/durable.py::classify_dead_letter",
+  "consumer": "runtime consumer per reachability: class_value is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/executive/loop.py:tick -> laura/executive",
   "protected_effect": "refused publication never stops unrelated work",
   "tests": [
-   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues",
    "tests/test_chaos.py::test_a_deliberate_refusal_is_never_re_driven",
-   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish"
+   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues",
+   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish",
+   "tests/test_w3_k11_authority.py::test_f702_f721_awaiting_approval_blocks_only_dependants"
   ],
   "evidence": [
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12; store.publish refusals recorded while other job types complete"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12; store.publish refusals recorded while other job types complete",
+   "w3 handoff_K11.md claim: | F-702 Authority gated, initiative not | COMPLETE | `awaiting_approval` node with one deduplicated OwnerAction. Independent items are dispatched on the same tick. Approved gated work does not run in SHADOW. Test: `test_f702_f721_awaiting_approval_blocks_only_dependants`. |"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN"
@@ -1686,26 +1707,30 @@
   "defect": null,
   "next_action": "Add an AwaitingApproval job state (publication packet pending) that holds only that job and its dependants; test the v0.20 eight-hour scenario.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-703",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority controls: conservative external authority, no self-granting",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Conservative authority is enforced (phase SHADOW, BRAMBLELOOP_PUBLISH_AUTHORISED flag, per-call Launch-0 authorisation for activation, governance refusal of self-widening), but there is no explicit owner authority-policy object and no measured safe-history record from which an expansion could be earned.",
-  "producer": "src/brambleloop/integrations/etsy.py::EtsyClient.activate",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/authority/policy.py",
   "durable_state": "env phase/grant; improvements (refused)",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "consumer": "runtime consumer per reachability: grant is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
   "protected_effect": "publication impossible without phase + owner grant + per-call authorisation",
   "tests": [
+   "tests/test_etsy_exercise.py::test_the_run_refuses_to_start_if_its_client_ever_reports_an_activation_authority",
    "tests/test_etsy_transport.py::test_the_three_authorities_are_separate_gates",
    "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
-   "tests/test_etsy_exercise.py::test_the_run_refuses_to_start_if_its_client_ever_reports_an_activation_authority"
+   "tests/test_w3_k11_authority.py::test_f703_agents_never_self_grant_and_the_owner_grant_needs_step_up_and_decision",
+   "tests/test_w3_k11_authority.py::test_f703_irreversible_classes_never_climb",
+   "tests/test_w3_k11_authority.py::test_f703_the_ladder_needs_measured_safe_history_and_is_shadow_first_and_demotes"
   ],
   "evidence": [
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w3 handoff_K11.md claim: | F-703 Earned Autonomy Ladder | COMPLETE | `policy.grant` covers these rules:<br>• owner only, with step-up and a decision id;<br>• agents and Laura are refused;<br>• one rung at a time;<br>• `MIN_SAFE` measured history;<br>• DEPLOY, LEGAL-TAX and CREDENTIALS are capped.<br>`effective_level` is sha"
   ],
   "build2_rows": [
    "#102 COMPLETE+PROVEN",
@@ -1719,26 +1744,28 @@
   "defect": null,
   "next_action": "Add an AuthorityPolicy table (action class, scope, limits, granted_by, granted_at) replacing env flags, and a SafeHistory reading per action class; test that only an owner-recorded row expands authority.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-704",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "safe publication: the first Etsy publications need a complete owner approval packet",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Gate/capability cards (what, why, capability, max spend, risk, rollback, consequence) and improvement owner cards exist; there is no per-listing publication packet with Product Truth/QA evidence, policy state, expected economics and Approve/Modify/Decline -- publication authority is an env flag plus a per-call Launch-0 string.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/build2/executor.py::approval_inbox",
   "durable_state": "owner_actions; executor GATES",
   "consumer": "src/brambleloop/app/main.py::api_console",
   "protected_effect": "owner answers from a card; the queue does not wait",
   "tests": [
+   "tests/test_cert_improve_autonomy.py::test_higher_tier_goes_to_one_owner_card_and_promotes_only_on_the_owners_record",
+   "tests/test_fb4_launch.py::test_preview_carries_every_evidence_section_and_unknown_never_displays_as_passing",
    "tests/test_health.py::test_the_console_answers_both_of_an_absent_owners_questions",
-   "tests/test_upgrades.py::test_the_card_carries_exact_impact_cost_and_rollback",
-   "tests/test_cert_improve_autonomy.py::test_higher_tier_goes_to_one_owner_card_and_promotes_only_on_the_owners_record"
+   "tests/test_upgrades.py::test_the_card_carries_exact_impact_cost_and_rollback"
   ],
   "evidence": [
-   "src/brambleloop/integrations/etsy.py::activate (launch_authorisation string)"
+   "src/brambleloop/integrations/etsy.py::activate (launch_authorisation string)",
+   "w3 lane K triage R: evidence-bound publication preview; UNKNOWN never displays as passing (fb4-LAUNCH); CC approvals approve/decline"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN",
@@ -1752,7 +1779,7 @@
   "defect": null,
   "next_action": "Build publish/approval_packet.py assembling certificate, parity verdict, listing_set certificate, policy snapshot, pricing/fee economics and rollback for a listing; POST /api/owner/decision kind=publication with approve/modify/decline recording an authorisation consumed by store.publish; test decline blocks and approve authorises exactly one listing.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): evidence-bound publication preview; UNKNOWN never displays as passing (fb4-LAUNCH); CC approvals approve/decline"
  },
  {
   "uid": "F-705",
@@ -1857,20 +1884,22 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority/Product Truth protection against self-modification",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Gate/threshold weakening, Product Truth changes and authority widening are refused at propose and promotion; explicit protected-surface coverage of credentials, legal/tax positions and customer-remedy authority is not evidenced by a test.",
-  "producer": "src/brambleloop/improve/governance.py::check",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/governance.py",
   "durable_state": "improvements (refused)",
-  "consumer": "src/brambleloop/improve/cells.py::promote",
+  "consumer": "runtime consumer per reachability: check is live: API post api_teardown_qa -> app/main.py:api_teardown_qa -> teardown/lab.py:product_qa_all -> teardown/lab.py:product_qa -> teardown/lab.py:_act_on_delight -> improve/cells.py:propose",
   "protected_effect": "protected thresholds and Product Truth digests unchanged after nightly/weekly runs",
   "tests": [
-   "tests/test_improve_director.py::test_a_self_review_that_weakens_product_truth_is_refused_end_to_end",
    "tests/test_cert_learning.py::test_product_truth_change_cannot_promote_without_owner_approval",
    "tests/test_improve.py::test_c20_protected_constants_are_discovered_from_the_source",
-   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority"
+   "tests/test_improve.py::test_the_system_cannot_widen_its_own_authority",
+   "tests/test_improve_director.py::test_a_self_review_that_weakens_product_truth_is_refused_end_to_end",
+   "tests/test_w3_k11_authority.py::test_f708_protected_authorities_cannot_be_changed_by_improvement"
   ],
   "evidence": [
-   "research/BUILD2_CLOSEOUT_REPORT.md J: 110 constants and the cable-throw Product Truth digest unchanged after nightly and weekly runs"
+   "research/BUILD2_CLOSEOUT_REPORT.md J: 110 constants and the cable-throw Product Truth digest unchanged after nightly and weekly runs",
+   "w3 handoff_K11.md claim: | F-708 Protected Truth and Authority | COMPLETE | Governance refuses the credentials, legal/tax, customer-remedy, publication and spend authority surfaces, whether declared or implied. Tiers grade them `gate`. Test: `test_f708_*`. The live consumer is `governance.check` in improve cells/runner/leag"
   ],
   "build2_rows": [
    "#102 COMPLETE+PROVEN",
@@ -1884,7 +1913,7 @@
   "defect": null,
   "next_action": "Add credentials, legal/tax and customer-remedy surfaces to governance protected touches with a refusal test each.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-709",
@@ -2151,7 +2180,7 @@
    "detail": "no gate on the remaining software work"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2180,14 +2209,14 @@
    "#198 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "none",
-   "key": "none",
-   "detail": "no gate on the remaining software work"
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1)"
   },
   "defect": null,
   "next_action": "Export the production canonical-model approval record and pack fingerprint into the repository manifest after deploy; test the manifest matches the DB row.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (REGATE): approved pack fingerprint only in a production audit row (CANON f0c2d12 adds MANIFEST v2; frozen v15 body missing_canonical OA-CANON-1)"
  },
  {
   "uid": "F-719",
@@ -2261,19 +2290,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "an owner-gated action must not stall unrelated safe work",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Satisfied for Build-2 requirements (only gated rows park) and for runtime refusals (a refused publish blocks nothing else); company work has no explicit dependency graph, so 'blocks only dependent work' is not represented for multi-step company tasks.",
-  "producer": "src/brambleloop/build2/executor.py::sync",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/authority/classes.py",
   "durable_state": "build_tasks.parked_on; jobs",
-  "consumer": "src/brambleloop/build2/executor.py::queue",
+  "consumer": "runtime consumer per reachability: class_value is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/executive/loop.py:tick -> laura/executive",
   "protected_effect": "unrelated branches continue",
   "tests": [
-   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues",
+   "tests/test_chaos.py::test_a_deliberate_refusal_is_never_re_driven",
    "tests/test_executor.py::test_a_parked_requirement_cannot_be_claimed",
-   "tests/test_chaos.py::test_a_deliberate_refusal_is_never_re_driven"
+   "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues",
+   "tests/test_w3_k11_authority.py::test_f721_a_failed_dependency_blocks_its_branch_only"
   ],
   "evidence": [
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w3 handoff_K11.md claim: | F-721 Owner block does not cascade | COMPLETE | Same test, plus `test_f721_a_failed_dependency_blocks_its_branch_only`. The department-level non-cascade is already D's orchestrator, covered by existing tests. |"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN"
@@ -2286,7 +2317,7 @@
   "defect": null,
   "next_action": "Covered by F-702/F-658 next actions (approval-pending job state with dependants).",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-722",
@@ -2378,7 +2409,7 @@
    "detail": "needs live listings and orders"
   },
   "defect": null,
-  "next_action": "none \u2014 waits on data; verify readers on first real orders.",
+  "next_action": "none — waits on data; verify readers on first real orders.",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2418,18 +2449,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "defines the launch operating mode: internal autonomy with conservative external authority",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Mode holds in production (autonomous cadences; publication/spend refused without owner grant); the owner's first-publication approval mechanism is an env flag, not a per-publication approval (see F-704).",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/core/models.py::Phase",
   "durable_state": "env BRAMBLELOOP_PHASE",
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
   "protected_effect": "no external action without owner authority",
   "tests": [
-   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish",
-   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready"
+   "tests/test_fb4_launch.py::test_a_change_in_any_bound_evidence_element_voids_the_grant",
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
+   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish"
   ],
   "evidence": [
-   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12"
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "w3 lane K triage R: D-FB-10 durable sealed per-release owner grant (ops/publication_authority) replaces the env flag"
   ],
   "build2_rows": [],
   "gate": {
@@ -2440,7 +2473,7 @@
   "defect": null,
   "next_action": "See F-704 (publication approval packet).",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): D-FB-10 durable sealed per-release owner grant (ops/publication_authority) replaces the env flag"
  },
  {
   "uid": "F-727",
@@ -2494,7 +2527,7 @@
    "detail": "compounding needs real outcomes"
   },
   "defect": null,
-  "next_action": "none \u2014 waits on data.",
+  "next_action": "none — waits on data.",
   "confidence": "LOW",
   "searched": null
  },
@@ -2727,7 +2760,7 @@
    "detail": "no provider has rendered a model-bearing frame that clears all six floors (0/16, 0/7 certified); gate opens on a recorded passing assets.model_photography frame"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (gate); on-model approval waits on a passing frame.",
+  "next_action": "none — at target maturity for launch (gate); on-model approval waits on a passing frame.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -2956,19 +2989,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "identity/authority protection against self-improvement",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "select/freeze refuse a second canonical and a redesign needs an owner approval record; the improvement governance does not list canonical identity as an explicitly protected surface with its own refusal test.",
-  "producer": "src/brambleloop/visual/identity.py::select",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/improve/cells.py",
   "durable_state": "model_identities",
-  "consumer": "src/brambleloop/visual/model_registry.py::select_canonical",
+  "consumer": "runtime consumer per reachability: retrospective is live: API get dashboard -> app/main.py:dashboard",
   "protected_effect": "identity cannot change without an owner-approved canonical-model decision",
   "tests": [
+   "tests/test_model_freeze.py::test_nothing_freezes_without_the_owner_and_nothing_freezes_twice",
    "tests/test_model_identity.py::test_a_second_canonical_is_refused_without_a_replacement_record",
    "tests/test_model_identity.py::test_the_canonical_identity_cannot_be_rewritten_as_a_candidate",
-   "tests/test_model_freeze.py::test_nothing_freezes_without_the_owner_and_nothing_freezes_twice"
+   "tests/test_w3_k11_authority.py::test_f743_canonical_identity_cannot_drift_through_learning"
   ],
   "evidence": [
-   "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack"
+   "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack",
+   "w3 handoff_K11.md claim: | F-743 No Model Drift Through Learning | COMPLETE | `canonical_identity` is a protected surface with no operator. Prompts, routing and adapter tuning still pass. `cells.propose` refuses an identity change. Test: `test_f743_*`. |"
   ],
   "build2_rows": [
    "#200 COMPLETE+PROVEN",
@@ -2983,7 +3018,7 @@
   "defect": null,
   "next_action": "Add 'canonical_identity' to governance protected touches with a refusal test.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K11']"
  },
  {
   "uid": "F-744",

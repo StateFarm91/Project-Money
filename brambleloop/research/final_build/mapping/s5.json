@@ -341,7 +341,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -554,7 +554,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -717,7 +717,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -783,7 +783,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -817,7 +817,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (deploy Build 2 to reach DEPLOYED)",
+  "next_action": "none — at target maturity for launch (deploy Build 2 to reach DEPLOYED)",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -850,7 +850,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -917,7 +917,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -927,31 +927,32 @@
   "launch_class_reason": "safe deployment/recovery of production code changes",
   "maturity": "DEPLOYED",
   "coverage": "PARTIAL",
-  "missing_part": "the runtime makes no autonomous code changes (only DB-versioned scoring/config); code changes come from Claude sessions via git + Railway deploy with manual /api/verify observation; no automated deploy gate requiring tests and recording deploy evidence",
-  "producer": "src/brambleloop/core/build.py::identity",
+  "missing_part": "lane claim qualifier: (code). Rehearsal GATED (`production_window`)",
+  "producer": "src/brambleloop/runtime/release.py",
   "durable_state": "deployed SHA in audit/startup",
-  "consumer": "src/brambleloop/improve/tiers.py",
+  "consumer": "runtime consumer per reachability: runtime root",
   "protected_effect": "code-tier changes require regression test + rollback evidence; deployed image identifies its SHA; deploys re-drive only what they fixed",
   "tests": [
-   "tests/test_tiers.py::test_each_tier_requires_the_evidence_its_failure_mode_needs",
-   "tests/test_persistence.py::test_a_deploy_re_drives_what_it_fixed_exactly_once"
+   "tests/test_persistence.py::test_a_deploy_re_drives_what_it_fixed_exactly_once",
+   "tests/test_tiers.py::test_each_tier_requires_the_evidence_its_failure_mode_needs"
   ],
   "evidence": [
    "BUILD_STATE heartbeat entries: production /api/verify after deploys",
-   "core/build.py in fcb982d"
+   "core/build.py in fcb982d",
+   "w3 handoff_TOOLS.md claim: | F-380, F-381 | COMPLETE (code). Rehearsal GATED (`production_window`) | `test_w3_deploy_evidence` (3 tests): a `release.boot_verdict` audit row, and the known-good predecessor taken from DEPLOYED_HISTORY |"
   ],
   "build2_rows": [
    "#190 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "none",
-   "key": null,
-   "detail": "no external gate on the remaining step"
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "w3 claim: (code). Rehearsal GATED (`production_window`)"
   },
   "defect": null,
   "next_action": "add scripts/deploy_gate.sh (or CI workflow) that refuses a Railway deploy unless run_tests.sh passed on the SHA, then records deploy SHA + /api/verify result as an audit row",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
  },
  {
   "uid": "F-381",
@@ -959,52 +960,55 @@
   "launch_class_reason": "recovery/rollback for autonomous changes and publications",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "code-deploy rollback relies on Railway's previous deployment (not rehearsed in code); improvement/config and listing-withdrawal rollbacks exist",
-  "producer": "src/brambleloop/improve/runner.py::monitor_trials",
+  "missing_part": "lane claim qualifier: (code). Rehearsal GATED (`production_window`)",
+  "producer": "src/brambleloop/runtime/release.py",
   "durable_state": "improvements (rollback_pending), league rollbacks, launch.rollback_rehearsed audit rows",
-  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "consumer": "runtime consumer per reachability: runtime root",
   "protected_effect": "a promoted change reading worse is reverted automatically; a rollback killed mid-way is resumed; the listing withdrawal round trip is rehearsed and aged",
   "tests": [
    "tests/test_cert_improve_wave.py::test_a_rollback_killed_between_deciding_and_executing_is_resumed_not_lost",
    "tests/test_improve_director.py::test_a_regression_below_baseline_is_reverted_with_a_rollback_proposal",
-   "tests/test_league_holdout.py::test_rollback_restores_the_named_version_and_retires_the_current_one",
-   "tests/test_launch.py (rollback.rehearse)"
+   "tests/test_launch.py (rollback.rehearse)",
+   "tests/test_league_holdout.py::test_rollback_restores_the_named_version_and_retires_the_current_one"
   ],
   "evidence": [
-   "launch/rollback.py reached via dashboard/readiness, not in fcb982d"
+   "launch/rollback.py reached via dashboard/readiness, not in fcb982d",
+   "w3 handoff_TOOLS.md claim: | F-380, F-381 | COMPLETE (code). Rehearsal GATED (`production_window`) | `test_w3_deploy_evidence` (3 tests): a `release.boot_verdict` audit row, and the known-good predecessor taken from DEPLOYED_HISTORY |"
   ],
   "build2_rows": [
    "#93 COMPLETE+PROVEN",
    "#54 OWNER-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": null,
-   "detail": "no external gate on the remaining step"
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "w3 claim: (code). Rehearsal GATED (`production_window`)"
   },
   "defect": null,
   "next_action": "add a code-deploy rollback runbook check: record previous Railway deployment id at each deploy and a rehearsal that redeploys it to a staging environment",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
  },
  {
   "uid": "F-382",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility: maturity must not be overstated",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "ladder is computed per Build 2 requirement, not per adopted improvement; improvements carry states (proposed/testing/promoted/reverted) not ladder rungs",
-  "producer": "src/brambleloop/build2/maturity.py::ladder",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::api_build2_maturity",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
   "protected_effect": "implemented/tested/deployed/exercised/evidenced/production_observed computed from evidence; registry status never counts",
   "tests": [
+   "tests/test_maturity.py::test_a_rung_above_a_failure_is_a_failure_rather_than_a_fresh_start",
    "tests/test_maturity.py::test_the_registrys_own_status_is_never_evidence_for_a_rung",
    "tests/test_maturity.py::test_the_suite_cannot_satisfy_the_production_rung",
-   "tests/test_maturity.py::test_a_rung_above_a_failure_is_a_failure_rather_than_a_fresh_start"
+   "tests/test_w3_final_master_gate.py::test_the_ladder_keeps_every_rung_distinct_and_unknown_rungs_are_open"
   ],
   "evidence": [
-   "build2/maturity.py in fcb982d (469 lines)"
+   "build2/maturity.py in fcb982d (469 lines)",
+   "w3 handoff_TOOLS.md claim: | F-382, F-844 | COMPLETE | `::test_the_ladder_keeps_every_rung_distinct...` |"
   ],
   "build2_rows": [],
   "gate": {
@@ -1015,7 +1019,7 @@
   "defect": null,
   "next_action": "extend build2/maturity to Final Master requirements (this closure matrix) and add a ladder column to improve director history for promoted improvements",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
  },
  {
   "uid": "F-383",
@@ -1048,7 +1052,7 @@
    "detail": "needs live listings, orders and the owner's Etsy Stats export"
   },
   "defect": null,
-  "next_action": "none in software \u2014 wait for live listings/orders; owner exports Etsy Stats CSV to POST /api/attribution/stats",
+  "next_action": "none in software — wait for live listings/orders; owner exports Etsy Stats CSV to POST /api/attribution/stats",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1305,19 +1309,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "reliability/recovery: incidents must not silently recur",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "incident rows record signature/restatement/resolution, but root cause and durable prevention are human process (BUILD_STATE defect ledger); regression capture is automatic only for CIR defects and visual defect classes",
-  "producer": "src/brambleloop/ops/incident_lifecycle.py::snapshot",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/health.py",
   "durable_state": "incidents table",
-  "consumer": "src/brambleloop/app/main.py::api_incidents",
+  "consumer": "`record_learning` requires root_cause, prevention_ref and regression_ref. `learning()` lists meaningful resolved incidents that lack learning, and open incidents in a family whose prevention was already recorded. The ops.health sweep opens `incident-recurrence:<family>`, and `/api/incidents` shows it",
   "protected_effect": "a condition that still holds is restated on one row; resolution requires a reason; corrected pattern bugs become regression fixtures",
   "tests": [
-   "tests/test_incident_lifecycle.py::test_a_resolution_without_words_is_refused",
+   "tests/test_acceptance_gates.py::test_gate_b_a_corrected_bug_creates_a_regression_test",
    "tests/test_incident_lifecycle.py::test_a_condition_that_still_holds_is_restated_on_one_row",
-   "tests/test_acceptance_gates.py::test_gate_b_a_corrected_bug_creates_a_regression_test"
+   "tests/test_incident_lifecycle.py::test_a_resolution_without_words_is_refused",
+   "tests/test_w3_k7_ops_truth.py::test_incident_learning_and_recurrence"
   ],
   "evidence": [
-   "research/BUILD2_CERTIFICATION.md defect ledger C-60..C-87 (process)"
+   "research/BUILD2_CERTIFICATION.md defect ledger C-60..C-87 (process)",
+   "w3 handoff_K7.md claim: | F-392 Incident learning | COMPLETE | `test_incident_learning_and_recurrence` → `record_learning` requires root_cause, prevention_ref and regression_ref. `learning()` lists meaningful resolved incidents that lack learning, and open incidents in a family whose prevention was already recorded. The op"
   ],
   "build2_rows": [
    "#185 COMPLETE+PROVEN"
@@ -1330,7 +1336,7 @@
   "defect": null,
   "next_action": "add root_cause and prevention_ref (test id/commit) fields to Incident resolution and refuse resolve() of severity>=high incidents without them",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-393",
@@ -1359,7 +1365,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1423,7 +1429,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1465,8 +1471,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "production must not depend on HQ-only artifacts",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "no promotion gate detects production reading an artifact that exists only on HQ; relies on Dockerfile copying src and a GET-route walk test",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/core/artifacts.py::ArtifactStore",
   "durable_state": "artifact store on cloud volume",
   "consumer": "src/brambleloop/app/main.py",
@@ -1476,7 +1482,8 @@
   ],
   "evidence": [
    "BUILD_STATE: /api/build2 returned 500 in production because registry JSON sat outside src; fixed by moving into package + route-walk test",
-   "Visual V2 R&D (035ff0c) and HQ renders are not on the main line"
+   "Visual V2 R&D (035ff0c) and HQ renders are not on the main line",
+   "w3 handoff_TOOLS.md claim: | F-397 | COMPLETE | `test_w3_hq_independence` (4 tests) |"
   ],
   "build2_rows": [
    "#182 COMPLETE+PROVEN"
@@ -1489,7 +1496,7 @@
   "defect": null,
   "next_action": "add a test that every file path read by src/brambleloop at import/runtime resolves inside the package or ArtifactStore (scan for Path(__file__).parents[>=3] reads)",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
  },
  {
   "uid": "F-398",
@@ -1558,18 +1565,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility: launch blockers separated from optimisation",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Final Master launch classification not yet encoded in code (this matrix is research); readiness separates build/owner blockers for Build 2 scope",
-  "producer": "src/brambleloop/launch/readiness.py::assess",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/build2/final_master.py",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "consumer": "launch/readiness.assess requirement final_master_closure (GET / dashboard, launch.readiness cadence) and build2/executor.report",
   "protected_effect": "launch readiness lists only blocking items and who owns them",
   "tests": [
+   "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people",
    "tests/test_launch.py::test_an_empty_company_is_blocked_on_itself_not_on_the_owner",
-   "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people"
+   "tests/test_w3_final_master_gate.py::test_post_launch_rows_never_block_and_launch_is_ready_only_with_zero_open",
+   "tests/test_w3_final_master_gate.py::test_the_launch_readiness_gate_consumes_the_closure"
   ],
   "evidence": [
-   "launch/readiness in fcb982d"
+   "launch/readiness in fcb982d",
+   "w3 handoff_TOOLS.md claim: | F-400, F-879 | COMPLETE | `::test_post_launch_rows_never_block...` and `::test_the_launch_readiness_gate_consumes_the_closure` |"
   ],
   "build2_rows": [
    "#54 OWNER-GATED"
@@ -1582,7 +1592,7 @@
   "defect": null,
   "next_action": "load the Final Build closure matrix launch_class into build2/closure (or a final_build module) so readiness blocks only on LAUNCH-CRITICAL gaps",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['TOOLS']"
  },
  {
   "uid": "F-401",
@@ -1959,7 +1969,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 permission statement; no enforcement needed",
+  "next_action": "none — permission statement; no enforcement needed",
   "confidence": "HIGH",
   "searched": null
  },
@@ -2054,18 +2064,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "spend control: research cannot raise its own budget",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "no research-specific budget because no research agent exists; global ceilings apply to every model/provider call",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/finance/spend_policy.py::headroom",
   "durable_state": null,
   "consumer": "src/brambleloop/gateway/routing.py::budget",
   "protected_effect": "no call can spend past the owner ceiling",
   "tests": [
-   "tests/test_spend_policy.py::test_the_environment_may_lower_the_ceiling_and_never_raise_it",
-   "tests/test_spend_policy.py::test_no_module_hardcodes_a_ceiling_literal"
+   "tests/test_spend_policy.py::test_no_module_hardcodes_a_ceiling_literal",
+   "tests/test_spend_policy.py::test_the_environment_may_lower_the_ceiling_and_never_raise_it"
   ],
   "evidence": [
-   "finance/spend_policy (single ceiling, env may lower never raise), gateway/routing.budget, finance/reservations; in fcb982d"
+   "finance/spend_policy (single ceiling, env may lower never raise), gateway/routing.budget, finance/reservations; in fcb982d",
+   "w3 lane K triage R: VACUOUS: no research agent exists; global ceilings bind every model/provider call"
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN"
@@ -2078,7 +2089,7 @@
   "defect": null,
   "next_action": "when F-401 lands, give research.run its own spend scope under finance/spend_policy and refuse runs without a declared bound",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-FM re-map on fee1cfe (FOLD-R): VACUOUS: no research agent exists; global ceilings bind every model/provider call"
  },
  {
   "uid": "F-419",
@@ -2243,18 +2254,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "provenance of claims that reach customers (children's safety statements, policy)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "provenance exists for children's safety constraints/statements, policy knowledge and trend evidence; general research conclusions (research/*.md) are not machine-linked to the code/decisions they support",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/intel/childrens.py::render_statements",
   "durable_state": null,
   "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf",
   "protected_effect": "every children's safety statement in a shipped PDF traces to a dated source",
   "tests": [
-   "tests/test_childrens.py::test_every_statement_cites_a_source_that_exists_or_admits_it_has_none",
-   "tests/test_childrens.py::test_every_constraint_names_a_source_that_exists"
+   "tests/test_childrens.py::test_every_constraint_names_a_source_that_exists",
+   "tests/test_childrens.py::test_every_statement_cites_a_source_that_exists_or_admits_it_has_none"
   ],
   "evidence": [
-   "intel/childrens statements cite SOURCES; gates/policy_knowledge carries etsy.com URLs; radar/provenance stamps source/population/window (#38)"
+   "intel/childrens statements cite SOURCES; gates/policy_knowledge carries etsy.com URLs; radar/provenance stamps source/population/window (#38)",
+   "w3 lane K triage R: customer-facing claims carry provenance (children's statements)"
   ],
   "build2_rows": [
    "#38 COMPLETE+PROVEN"
@@ -2265,9 +2277,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch for customer-facing claims; F-401 research tasks should store source ids the same way",
+  "next_action": "none — at target maturity for launch for customer-facing claims; F-401 research tasks should store source ids the same way",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-FM re-map on fee1cfe (FOLD-R): customer-facing claims carry provenance (children's statements)"
  },
  {
   "uid": "F-426",
@@ -2380,8 +2392,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "hard floors/authority cannot be weakened by any justification",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "research outputs have no route into governance because no research agent exists; any proposal path is checked regardless of cited evidence",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/improve/governance.py::check",
   "durable_state": null,
   "consumer": "src/brambleloop/improve/cells.py::promote",
@@ -2391,7 +2403,8 @@
    "tests/test_learning.py::test_an_observation_cannot_be_promoted_into_evidence"
   ],
   "evidence": [
-   "improve/governance.check refuses weakening protected gates whatever the rationale; intel/learning.as_evidence refuses signals as evidence"
+   "improve/governance.check refuses weakening protected gates whatever the rationale; intel/learning.as_evidence refuses signals as evidence",
+   "w3 lane K triage R: VACUOUS: no research agent; every proposal passes improve/governance.check"
   ],
   "build2_rows": [
    "#102 COMPLETE+PROVEN"
@@ -2404,7 +2417,7 @@
   "defect": null,
   "next_action": "when F-401 lands, route research recommendations through cells.propose so governance.check applies",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-FM re-map on fee1cfe (FOLD-R): VACUOUS: no research agent; every proposal passes improve/governance.check"
  },
  {
   "uid": "F-431",
@@ -2699,7 +2712,7 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2828,8 +2841,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "no fabricated sources/capabilities in customer-facing or decision evidence",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "enforced for children's statements (source must exist, unfetched listed), learning signals (source/citation required) and capability claims (no silent downgrade); no general check that a cited URL was actually retrieved",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/intel/childrens.py::statements_citing_a_missing_source",
   "durable_state": null,
   "consumer": "src/brambleloop/publish/pdf.py::build_pattern_pdf",
@@ -2839,7 +2852,8 @@
    "tests/test_learning.py::test_an_observation_with_no_source_is_refused"
   ],
   "evidence": [
-   "intel/childrens statements_citing_a_missing_source; intel/access.accept_evidence (#224); learning.record refusals"
+   "intel/childrens statements_citing_a_missing_source; intel/access.accept_evidence (#224); learning.record refusals",
+   "w3 lane K triage R: children's statements need existing sources; learning signals need citations"
   ],
   "build2_rows": [
    "#224 COMPLETE+PROVEN"
@@ -2850,9 +2864,9 @@
    "detail": "no external gate on the remaining step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch for customer-facing claims",
+  "next_action": "none — at target maturity for launch for customer-facing claims",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-FM re-map on fee1cfe (FOLD-R): children's statements need existing sources; learning signals need citations"
  },
  {
   "uid": "F-446",
@@ -2889,8 +2903,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "authority control: research grants no deploy/publish/spend authority",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "no research agent exists to bind; authority model enforced for all proposals",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/improve/governance.py::check_owner_authority",
   "durable_state": null,
   "consumer": "src/brambleloop/improve/cells.py::promote",
@@ -2900,7 +2914,8 @@
    "tests/test_tiers.py::test_the_gate_tier_never_promotes_without_a_person"
   ],
   "evidence": [
-   "improve/governance.check_owner_authority; tiers gate tier; shadow-mode publication refusals in production"
+   "improve/governance.check_owner_authority; tiers gate tier; shadow-mode publication refusals in production",
+   "w3 lane K triage R: VACUOUS: no research agent; check_owner_authority binds all proposals"
   ],
   "build2_rows": [
    "#102 COMPLETE+PROVEN"
@@ -2913,7 +2928,7 @@
   "defect": null,
   "next_action": "when F-401 lands, make research outputs recommendations only (no write path to gates, publish or spend)",
   "confidence": "MEDIUM",
-  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime)"
+  "searched": "grep -ri 'research_agent|ResearchAgent|research question|def research' src/brambleloop: no research-agent module, handler, cadence or job type; only intel/purchase_selection (research question per benchmark pick) and commerce/club.research_plan. Research is done by Claude Code sessions writing research/*.md and DECISION_LOG.md (process, not runtime) | w4-FM re-map on fee1cfe (FOLD-R): VACUOUS: no research agent; check_owner_authority binds all proposals"
  },
  {
   "uid": "F-448",

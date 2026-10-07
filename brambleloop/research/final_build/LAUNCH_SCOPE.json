@@ -7,7 +7,11 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 394
+     "rows": 214
+    },
+    "fee1cfe": {
+     "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
+     "rows": 180
     }
    },
    "rows_on_base": 472,
@@ -52,7 +56,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-002",
@@ -62,7 +66,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-003",
@@ -72,7 +76,7 @@
    "reason": "master_priority P0-before-launch; listing/marketplace readiness truth",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-004",
@@ -82,7 +86,7 @@
    "reason": "P0-before-launch; truthful listing representation and safe publication",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-005",
@@ -152,7 +156,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-012",
@@ -172,7 +176,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-014",
@@ -192,7 +196,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-016",
@@ -242,7 +246,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-021",
@@ -252,7 +256,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-022",
@@ -262,7 +266,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-023",
@@ -322,7 +326,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-029",
@@ -472,7 +476,7 @@
    "reason": "P0-before-launch; customer support/remedy and marketplace standard",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-044",
@@ -522,7 +526,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-049",
@@ -532,7 +536,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-050",
@@ -562,7 +566,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-053",
@@ -622,7 +626,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-059",
@@ -642,7 +646,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-061",
@@ -752,7 +756,7 @@
    "reason": "launch-gate definition: no launch requirement may need owner labour",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-072",
@@ -762,7 +766,7 @@
    "reason": "truthful proof claims",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-073",
@@ -772,7 +776,7 @@
    "reason": "correct patterns: minimum evidence by risk",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-074",
@@ -782,7 +786,7 @@
    "reason": "Product Truth: size/yardage claims depend on calibrated primitives",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-075",
@@ -822,7 +826,7 @@
    "reason": "Product Truth / provenance: evidence bound to exact pattern content",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-079",
@@ -842,7 +846,7 @@
    "reason": "defines launch evidence standard",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-081",
@@ -902,7 +906,7 @@
    "reason": "launch gate truth",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-087",
@@ -1092,7 +1096,7 @@
    "reason": "truthful owner visibility of money",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-106",
@@ -1132,7 +1136,7 @@
    "reason": "a denied over-budget call must leave durable evidence for owner visibility",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-110",
@@ -1142,7 +1146,7 @@
    "reason": "prevents silently degrading creative/vision quality to fit budget",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-111",
@@ -1192,7 +1196,7 @@
    "reason": "stale PDFs/listings/support for a re-engineered product misrepresent it",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-116",
@@ -1202,7 +1206,7 @@
    "reason": "correct patterns: gauge must come from yarn evidence",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-117",
@@ -1212,7 +1216,7 @@
    "reason": "finished-size claims must be true",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-118",
@@ -1252,7 +1256,7 @@
    "reason": "truthful owner visibility: status claims must cite direct evidence",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-122",
@@ -1262,7 +1266,7 @@
    "reason": "zero-denominator 'pass/0%' readings mislead the owner and gates",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-123",
@@ -1282,7 +1286,7 @@
    "reason": "recovery/idempotence: operational changes must be verified by their result",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-125",
@@ -1292,7 +1296,7 @@
    "reason": "certification contract: production/test disagreement is a defect",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-126",
@@ -1312,7 +1316,7 @@
    "reason": "truthful owner visibility: unknown must not read as zero/false/pass",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-128",
@@ -1322,7 +1326,7 @@
    "reason": "self-labelled capability evidence would open gates falsely",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-129",
@@ -1332,7 +1336,7 @@
    "reason": "certification contract: requirement states must match code/tests/production",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-130",
@@ -1342,7 +1346,7 @@
    "reason": "truthful owner visibility of what work can actually proceed",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-131",
@@ -1352,7 +1356,7 @@
    "reason": "a proxy gate would un-park or publish on a capability that does not work",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-132",
@@ -1372,7 +1376,7 @@
    "reason": "certification contract: every partial must say what closes it",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-134",
@@ -1402,7 +1406,7 @@
    "reason": "certification contract: completion must be machine-derived",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-137",
@@ -1582,7 +1586,7 @@
    "reason": "security/owner visibility: controls must not be reported working when they are not",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-155",
@@ -1652,7 +1656,7 @@
    "reason": "provenance: absence of lineage must not read as fresh",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-162",
@@ -1662,7 +1666,7 @@
    "reason": "provenance enforcement before release",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-163",
@@ -1712,7 +1716,7 @@
    "reason": "launch-relevant artefacts need provenance before release",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-168",
@@ -1722,7 +1726,7 @@
    "reason": "safe publication: halt the affected scope, not the company",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-169",
@@ -1772,7 +1776,7 @@
    "reason": "authority: one authoritative owner-action list",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-174",
@@ -1782,7 +1786,7 @@
    "reason": "prevents pre-launch false completion of data-dependent requirements",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-175",
@@ -1832,7 +1836,7 @@
    "reason": "truthful owner visibility (launch-critical list)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-180",
@@ -1842,7 +1846,7 @@
    "reason": "truthful owner visibility (launch-critical list)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-181",
@@ -1852,7 +1856,7 @@
    "reason": "truthful owner visibility (launch-critical list)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-182",
@@ -1872,7 +1876,7 @@
    "reason": "spend-control truth on owner dashboard",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-184",
@@ -1882,7 +1886,7 @@
    "reason": "spend-control truth on owner dashboard",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-185",
@@ -1892,7 +1896,7 @@
    "reason": "truthful owner visibility (launch-critical list)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-186",
@@ -1902,7 +1906,7 @@
    "reason": "truthful owner visibility (dashboard/owner-state hardening)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-187",
@@ -1922,7 +1926,7 @@
    "reason": "truthful owner visibility (dashboard/owner-state hardening)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-189",
@@ -1932,7 +1936,7 @@
    "reason": "truthful owner visibility (dashboard/owner-state hardening)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-190",
@@ -1992,7 +1996,7 @@
    "reason": "truthful owner visibility (launch-critical list)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-196",
@@ -2012,7 +2016,7 @@
    "reason": "physical proof / owner authority honesty",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-198",
@@ -2032,7 +2036,7 @@
    "reason": "launch readiness truth",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-200",
@@ -2062,7 +2066,7 @@
    "reason": "truthful owner visibility (dashboard/owner-state hardening)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-203",
@@ -2082,7 +2086,7 @@
    "reason": "truthful owner visibility (launch-critical list)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-205",
@@ -2162,7 +2166,7 @@
    "reason": "truthful Visual representation of any model-bearing listing",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-213",
@@ -2192,7 +2196,7 @@
    "reason": "truthful Visual representation of any model-bearing listing",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-216",
@@ -2382,7 +2386,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); buyer expectations before purchase are customer-protective",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-235",
@@ -2392,7 +2396,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); truthful About/no invented credentials is a truthful-representation requirement",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-236",
@@ -2402,7 +2406,7 @@
    "reason": "P0 addendum: storefront quality / marketplace compliance (shop surface copy)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-237",
@@ -2412,7 +2416,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-238",
@@ -2422,7 +2426,7 @@
    "reason": "P0 addendum: opening-grid merchandising is the storefront a first buyer sees",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-239",
@@ -2462,7 +2466,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-243",
@@ -2472,7 +2476,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-244",
@@ -2482,7 +2486,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-245",
@@ -2492,7 +2496,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-246",
@@ -2512,7 +2516,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); irrelevant metadata is a marketplace-compliance risk",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-248",
@@ -2542,7 +2546,7 @@
    "reason": "P0 addendum: search-visibility non-gaming",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-251",
@@ -2552,7 +2556,7 @@
    "reason": "P0 addendum: search language integrity in listing copy",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-252",
@@ -2592,7 +2596,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); decision-critical facts before purchase",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-256",
@@ -2612,7 +2616,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); deceptive pricing is prohibited (pricing integrity)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-258",
@@ -2622,7 +2626,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS) (measurement plumbing must exist before launch)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-259",
@@ -2632,7 +2636,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-260",
@@ -2642,7 +2646,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-261",
@@ -2652,7 +2656,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-262",
@@ -2810,7 +2814,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-276",
@@ -2820,7 +2824,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-277",
@@ -2850,7 +2854,7 @@
    "reason": "P0 addendum: launch/seasonal storefront-to-listing continuity",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-280",
@@ -2870,7 +2874,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-282",
@@ -2880,7 +2884,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-283",
@@ -2920,7 +2924,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-287",
@@ -2940,7 +2944,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); truthful owner visibility",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-289",
@@ -2950,7 +2954,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); truthful owner visibility",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-290",
@@ -2972,7 +2976,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-292",
@@ -3002,7 +3006,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); certification bound to exact content",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-295",
@@ -3034,7 +3038,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-298",
@@ -3044,7 +3048,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); truth/IP/policy cannot be bypassed for visibility",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-299",
@@ -3064,7 +3068,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-301",
@@ -3094,7 +3098,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-304",
@@ -3114,7 +3118,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-306",
@@ -3124,7 +3128,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-307",
@@ -3134,7 +3138,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-308",
@@ -3144,7 +3148,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-309",
@@ -3214,7 +3218,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-316",
@@ -3264,7 +3268,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-321",
@@ -3304,7 +3308,7 @@
    "reason": "P0 addendum: pricing/economics integrity (break-even)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-325",
@@ -3324,7 +3328,7 @@
    "reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-327",
@@ -3354,7 +3358,7 @@
    "reason": "P0 addendum: sustainability launch gate",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-330",
@@ -3436,7 +3440,7 @@
    "reason": "P0 addendum (source-stated): expected-duration watchdog",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-338",
@@ -3446,7 +3450,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-339",
@@ -3456,7 +3460,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-340",
@@ -3496,7 +3500,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-344",
@@ -3866,7 +3870,7 @@
    "reason": "safe deployment/recovery of production code changes",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-381",
@@ -3876,7 +3880,7 @@
    "reason": "recovery/rollback for autonomous changes and publications",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-382",
@@ -3886,7 +3890,7 @@
    "reason": "truthful owner visibility: maturity must not be overstated",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-383",
@@ -3986,7 +3990,7 @@
    "reason": "reliability/recovery: incidents must not silently recur",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-393",
@@ -4036,7 +4040,7 @@
    "reason": "production must not depend on HQ-only artifacts",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-398",
@@ -4066,7 +4070,7 @@
    "reason": "truthful owner visibility: launch blockers separated from optimisation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-401",
@@ -4246,7 +4250,7 @@
    "reason": "spend control: research cannot raise its own budget",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-419",
@@ -4316,7 +4320,7 @@
    "reason": "provenance of claims that reach customers (children's safety statements, policy)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-426",
@@ -4366,7 +4370,7 @@
    "reason": "hard floors/authority cannot be weakened by any justification",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-431",
@@ -4516,7 +4520,7 @@
    "reason": "no fabricated sources/capabilities in customer-facing or decision evidence",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-446",
@@ -4536,7 +4540,7 @@
    "reason": "authority control: research grants no deploy/publish/spend authority",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-448",
@@ -4806,7 +4810,7 @@
    "reason": "recovery/idempotence: resumption must not repeat paid work or lose evidence",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-475",
@@ -4836,7 +4840,7 @@
    "reason": "independent certification of patterns/artefacts protects Product Truth at first sale",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-478",
@@ -5036,7 +5040,7 @@
    "reason": "separating development from live operation protects the live business from build changes",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-498",
@@ -5506,7 +5510,7 @@
    "reason": "contradictory promises between listing, PDF, policies and support mislead customers",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-538",
@@ -5546,7 +5550,7 @@
    "reason": "Fail-closed authority/integration recovery; order truth depends on it.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-542",
@@ -5576,7 +5580,7 @@
    "reason": "Safe publication / truthful listing state.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-545",
@@ -5586,7 +5590,7 @@
    "reason": "listing actions and test-listing cleanup must be provable — provenance and safe publication",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-546",
@@ -5606,7 +5610,7 @@
    "reason": "truthful owner visibility of browser-only work Etsy requires (policies, payment, legal/tax)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-548",
@@ -5666,7 +5670,7 @@
    "reason": "Listing estate truth for safe publication.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-554",
@@ -5726,7 +5730,7 @@
    "reason": "Customer receives the exact certified file; P0 digital delivery truth.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-560",
@@ -6066,7 +6070,7 @@
    "reason": "Owner-reserved Etsy actions must be exact and visible for a safe first sale.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-594",
@@ -6366,7 +6370,7 @@
    "reason": "One prioritised owner-action queue with exact steps is required before the first sale; drilldown supports truthful owner visibility.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-624",
@@ -6516,7 +6520,7 @@
    "reason": "runtime durability: coordination state must survive deploys/restarts",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-659",
@@ -6566,7 +6570,7 @@
    "reason": "authority controls and truthful owner visibility: owner decisions must be visible and actionable",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-664",
@@ -6586,7 +6590,7 @@
    "reason": "truthful owner visibility and provenance of statuses",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-666",
@@ -6626,7 +6630,7 @@
    "reason": "authority controls: no silent authority expansion",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-670",
@@ -6898,7 +6902,7 @@
    "reason": "security/privacy of credentials and customer data",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-697",
@@ -6938,7 +6942,7 @@
    "reason": "enforceable constitution clauses: truthful selling, no fabricated evidence, no silent authority expansion, dollar provenance",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-701",
@@ -6958,7 +6962,7 @@
    "reason": "authority controls must gate only consequential actions, never initiative",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-703",
@@ -6968,7 +6972,7 @@
    "reason": "authority controls: conservative external authority, no self-granting",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-704",
@@ -6978,7 +6982,7 @@
    "reason": "safe publication: the first Etsy publications need a complete owner approval packet",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-705",
@@ -7018,7 +7022,7 @@
    "reason": "authority/Product Truth protection against self-modification",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-709",
@@ -7118,7 +7122,7 @@
    "reason": "runtime durability/provenance: critical state must not live in a conversation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-719",
@@ -7148,7 +7152,7 @@
    "reason": "an owner-gated action must not stall unrelated safe work",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-722",
@@ -7198,7 +7202,7 @@
    "reason": "defines the launch operating mode: internal autonomy with conservative external authority",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-727",
@@ -7370,7 +7374,7 @@
    "reason": "identity/authority protection against self-improvement",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-744",
@@ -7430,7 +7434,7 @@
    "reason": "IP/provenance firewall: a sellable pattern must not be a purchased pattern",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-750",
@@ -7460,7 +7464,7 @@
    "reason": "D-FB-7 lists stitch/fabric identity as a launch gate for every customer-facing image.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-753",
@@ -7480,7 +7484,7 @@
    "reason": "Correct patterns/Product Truth: gauge per region drives every length and size claim (latent for Launch-0 single-gauge items).",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-755",
@@ -7510,7 +7514,7 @@
    "reason": "Truthful listing representation: images must state which configuration they show.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-758",
@@ -7544,7 +7548,7 @@
    "reason": "listing image must pass truth and realism independently",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-761",
@@ -7594,7 +7598,7 @@
    "reason": "Correct, usable pattern product.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-766",
@@ -7764,7 +7768,7 @@
    "reason": "derivative rewrite would be IP infringement",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-783",
@@ -7774,7 +7778,7 @@
    "reason": "originality provenance required for release",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-784",
@@ -7794,7 +7798,7 @@
    "reason": "seller imagery as generation input is IP misuse",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-786",
@@ -7804,7 +7808,7 @@
    "reason": "Provenance / IP firewall.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-787",
@@ -7814,7 +7818,7 @@
    "reason": "IP firewall (independent authorship).",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-788",
@@ -7844,7 +7848,7 @@
    "reason": "sellable work must be Brambleloop-authored",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-791",
@@ -7924,7 +7928,7 @@
    "reason": "release readiness must include originality provenance",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-799",
@@ -7934,7 +7938,7 @@
    "reason": "s84 names Learn architecture and the ability to queue education work as launch-critical",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-800",
@@ -7954,7 +7958,7 @@
    "reason": "s84 names content-gap detection launch-critical",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-802",
@@ -7996,7 +8000,7 @@
    "reason": "s84 names correctness QA launch-critical; tutorials must be tested like patterns",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-806",
@@ -8096,7 +8100,7 @@
    "reason": "s84 names the canonical knowledge graph launch-critical",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-816",
@@ -8156,7 +8160,7 @@
    "reason": "s84 names provenance launch-critical; copying competitor education breaches the IP non-negotiable",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-822",
@@ -8206,7 +8210,7 @@
    "reason": "s84: the ability to queue *valuable* education work; filler is a launch risk to brand trust",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-827",
@@ -8258,7 +8262,7 @@
    "reason": "certification contract F-831..F-850",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-832",
@@ -8268,7 +8272,7 @@
    "reason": "certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-833",
@@ -8278,7 +8282,7 @@
    "reason": "certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-834",
@@ -8298,7 +8302,7 @@
    "reason": "certification contract (protected actions)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-836",
@@ -8328,7 +8332,7 @@
    "reason": "certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-839",
@@ -8388,7 +8392,7 @@
    "reason": "certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-845",
@@ -8478,7 +8482,7 @@
    "reason": "truthful Visual representation (D-FB-7)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-854",
@@ -8488,7 +8492,7 @@
    "reason": "Product Truth in imagery (D-FB-7 requires stitch/fabric identity)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-855",
@@ -8508,7 +8512,7 @@
    "reason": "structural and photographic truth are separate hard gates",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-857",
@@ -8550,7 +8554,7 @@
    "reason": "lane isolation keeps unrelated launch work moving",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-861",
@@ -8620,7 +8624,7 @@
    "reason": "F-831..F-850 certification contract",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-868",
@@ -8650,7 +8654,7 @@
    "reason": "truthful owner visibility and authority gates",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-871",
@@ -8690,7 +8694,7 @@
    "reason": "marketplace compliance / owner-action sequencing for first sale",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-875",
@@ -8720,7 +8724,7 @@
    "reason": "spend control on paid visual experiments",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-878",
@@ -8740,7 +8744,7 @@
    "reason": "launch is decided by customer-protective gates only",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   }
  ]
 }

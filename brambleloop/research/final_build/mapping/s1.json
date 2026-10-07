@@ -4,19 +4,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "No separate ranking/conversion-readiness stage; only query-match (covers/score_coverage) plus a competition 'reachable' flag exist, and they are blended into one search_share number",
-  "producer": "src/brambleloop/commerce/search.py::score_coverage",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/seo.py",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
-  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "consumer": "`listing.seo` audit `search_stages` and `i[\"search_coverage\"]`. Shown side by side with `ranking_readiness` in `search_evidence`",
   "protected_effect": "listing.seo audits search_share/gaps; no decision blocks on it",
   "tests": [
    "tests/test_commerce.py::test_coverage_is_scored_against_what_we_can_reach",
-   "tests/test_commerce.py::test_head_terms_are_marked_unreachable_for_a_shop_with_no_history"
+   "tests/test_commerce.py::test_head_terms_are_marked_unreachable_for_a_shop_with_no_history",
+   "tests/test_w3_k1_search.py::test_match_eligibility_and_rank_readiness_are_separate_stages"
   ],
   "evidence": [
    "src/brambleloop/commerce/search.py covers()/score_coverage (match only)",
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w3 handoff_K1.md claim: | F-001 Two-stage search model | COMPLETE | `CoverageReport.match_stage` (lexical eligibility, no competition) and `rank_stage` (reachable, placement-weighted proxy). Both appear in `to_dict()[\"stages\"]`. | `test_match_eligibility_and_rank_readiness_are_separate_stages`. Consumer: `listing.seo` audi"
   ],
   "build2_rows": [
    "#293 COMPLETE+PROVEN",
@@ -30,25 +32,28 @@
   "defect": null,
   "next_action": "Add commerce/search.py two-stage model: match_eligibility(listing, query)->field and a separate ranking_readiness profile (see F-003); persist both per listing in listing.seo and stop reporting one blended search_share",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K1']"
  },
  {
   "uid": "F-002",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Per-query supplying field ('where') is computed but dropped by CoverageReport.to_dict and never persisted; category/attributes are not matchable fields; query families are fixed templates, not maintained target families",
-  "producer": "src/brambleloop/commerce/search.py::score_coverage",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/storefront_api.py",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked (share+gaps only)",
-  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "consumer": "`GET /api/search-evidence` (`app/storefront_api.py`)",
   "protected_effect": null,
   "tests": [
-   "tests/test_commerce.py::test_coverage_is_scored_against_what_we_can_reach"
+   "tests/test_commerce.py::test_coverage_is_scored_against_what_we_can_reach",
+   "tests/test_w3_k1_search.py::test_the_query_field_matrix_is_served_per_listing",
+   "tests/test_w3_k1_search.py::test_the_search_evidence_route_is_registered"
   ],
   "evidence": [
    "src/brambleloop/commerce/search.py _TEMPLATES/build_query_set, covers() returns tag_exact|title_phrase|title_words|description",
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w3 handoff_K1.md claim: | F-002 Query coverage matrix | COMPLETE | The persisted `coverage_matrix` is now served per listing, with match counts by family and by field. | `test_the_query_field_matrix_is_served_per_listing`, `test_the_search_evidence_route_is_registered`. Consumer: `GET /api/search-evidence` (`app/storefront"
   ],
   "build2_rows": [
    "#293 COMPLETE+PROVEN",
@@ -59,25 +64,29 @@
    "key": null,
    "detail": "software work remains; nothing external blocks it"
   },
-  "defect": "CoverageReport.to_dict omits `where`, so the query->field matrix is not durable or visible",
+  "defect": null,
   "next_action": "Persist a query coverage matrix per listing (query family, phrase, supplying field incl. category/attribute) from handle_listing_seo into a table or the listing.seo audit detail and expose it on /api/catalogue",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K1']"
  },
  {
   "uid": "F-003",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch; listing/marketplace readiness truth",
-  "maturity": "MISSING",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "No per-listing profile tracking listing quality, click readiness, conversion readiness, shop quality and service quality as independent dimensions",
-  "producer": null,
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/ranking_readiness.py::profile",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "runtime consumer per reachability: shop_wide is live: API get api_trust -> app/main.py:api_trust -> commerce/trust.py:may_scale_ads -> commerce/search_evidence.py:supremacy_gate -> commerce/search_evidence.py:_collect",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_ranking_readiness.py::test_dimensions_are_independent",
+   "tests/test_ranking_readiness.py::test_launch_plan_calls_the_profile"
+  ],
   "evidence": [
-   "no module defines a ranking/click/conversion/shop/service readiness profile on 6f9a2f7; nearest pieces are separate: search certificate (commerce/search.py), growth/portfolio.py CTR/conversion benchmarks (post-traffic), support/service.py::service_level"
+   "no module defines a ranking/click/conversion/shop/service readiness profile on 6f9a2f7; nearest pieces are separate: search certificate (commerce/search.py), growth/portfolio.py CTR/conversion benchmarks (post-traffic), support/service.py::service_level",
+   "w3 lane K triage R: commerce/ranking_readiness.profile called from launch plan (release.py:1843)"
   ],
   "build2_rows": [
    "#17 COMPLETE+PROVEN",
@@ -92,7 +101,7 @@
   "defect": null,
   "next_action": "Build commerce/ranking_readiness.py::profile(db, slug, version) composing five independent dimensions (listing quality <- ListingSearchProfile certificate; click readiness <- listing-set frame-1 verdict; conversion readiness <- disclosure/price/first-customer gate; shop quality <- shop_package/readiness; service quality <- support.service.service_level), each MEASURED|UNMEASURED and never averaged; call it from handle_launch_plan and expose on /api/catalogue; add tests/test_ranking_readiness.py",
   "confidence": "HIGH",
-  "searched": "grep -i ranking.?readiness|click.?readiness|conversion.?readiness|shop.?quality|service.?quality over src/ and tests/: no hits"
+  "searched": "grep -i ranking.?readiness|click.?readiness|conversion.?readiness|shop.?quality|service.?quality over src/ and tests/: no hits | w4-FM re-map on fee1cfe (FOLD-R): commerce/ranking_readiness.profile called from launch plan (release.py:1843)"
  },
  {
   "uid": "F-004",
@@ -106,16 +115,19 @@
   "consumer": "src/brambleloop/publish/release_gates.py::for_publish -> runtime/pipeline.py::_release_gates (store.publish refuses)",
   "protected_effect": "store.publish refuses unless category CHOSEN, properties complete, attributes/tags true, copy gate, description and hero all pass and the listing still matches the certified fingerprint",
   "tests": [
-   "tests/test_search_truth.py::test_the_search_certificate_refuses_an_unknown_category_and_pends_on_the_hero",
-   "tests/test_search_truth.py::test_publish_refuses_when_search_is_not_certified",
+   "tests/test_search_hero_publish.py::test_a_failing_hero_refuses_and_publish_makes_no_request",
+   "tests/test_search_hero_publish.py::test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict",
    "tests/test_search_truth.py::test_a_tag_edit_after_certification_makes_the_search_gate_refuse",
-   "tests/test_search_truth.py::test_listing_seo_drafts_thirteen_tags_and_records_an_unknown_category_without_a_snapshot"
+   "tests/test_search_truth.py::test_listing_seo_drafts_thirteen_tags_and_records_an_unknown_category_without_a_snapshot",
+   "tests/test_search_truth.py::test_publish_refuses_when_search_is_not_certified",
+   "tests/test_search_truth.py::test_the_search_certificate_refuses_an_unknown_category_and_pends_on_the_hero"
   ],
   "evidence": [
    "runtime/release.py::handle_listing_seo lines ~850-920 builds and persists the certificate",
    "publish/release_gates.py:197 search_gate, :986 for_publish",
    "module_reachability: commerce/search.py reached via listing.seo; publish/release_gates.py reached via launch.plan; not in fcb982d (search_certificate absent there)",
-   "/api/catalogue still shows Listing.seo_score as 'search_share' with no basis label (planning proxy), not the certificate verdict"
+   "/api/catalogue still shows Listing.seo_score as 'search_share' with no basis label (planning proxy), not the certificate verdict",
+   "w3 lane K triage R: fb4-PUB 98c39f0: search certificate reaches PASS on the merits; no forced verdict"
   ],
   "build2_rows": [
    "#58 COMPLETE+PROVEN",
@@ -126,10 +138,10 @@
    "key": null,
    "detail": "software work remains or none; nothing external blocks it"
   },
-  "defect": "runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refuses unless the drafted ListingSearchProfile.verdict == 'PASS', but the only writer (runtime/release.py::_persist_search_profile via handle_listing_seo) calls search.search_certificate with hero=None, so the stored verdict is at best 'PENDING' -- store.publish and the owner publication preview can never build a payload at runtime (fail-closed dead end). tests/test_cert_publish_gates.py forces row.verdict='PASS' in a fixture, which hides it.",
+  "defect": null,
   "next_action": "Fix the dead end: either have certified_payload accept a drafted verdict of PENDING-on-hero-only when release_gates.search_gate returned PASS in the same publish decision, or have store.publish write the completed search_gate verdict (PASS) back to ListingSearchProfile before calling certified_payload; add a test that drives listing.seo -> store.publish without forcing row.verdict. Also show the certificate verdict next to search_share on /api/catalogue.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): fb4-PUB 98c39f0: search certificate reaches PASS on the merits; no forced verdict"
  },
  {
   "uid": "F-005",
@@ -191,7 +203,7 @@
    "detail": "effective only once a real taxonomy snapshot is stored"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (becomes effective when the etsy_api gate opens and a snapshot is stored)",
+  "next_action": "none — at target maturity for launch (becomes effective when the etsy_api gate opens and a snapshot is stored)",
   "confidence": "HIGH",
   "searched": null
  },
@@ -254,7 +266,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -320,18 +332,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "choose_tags fills up to 13 but nothing requires 13; check_listing_limits only rejects >13; no documented-limitation exception",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/commerce/search.py::choose_tags",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
   "protected_effect": null,
   "tests": [
-   "tests/test_commerce.py::test_tags_fit_the_platform_and_are_still_phrases (asserts <=13 only)"
+   "tests/test_commerce.py::test_tags_fit_the_platform_and_are_still_phrases (asserts <=13 only)",
+   "tests/test_search_truth.py::test_every_catalogue_seed_gets_thirteen_truthful_tags",
+   "tests/test_search_truth.py::test_fewer_than_thirteen_tags_block_unless_a_limitation_is_recorded"
   ],
   "evidence": [
    "runtime check: choose_tags on template queries gives 10 tags (mosaic_blanket) and 9 (basket)",
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w3 lane K triage R: LISTING_TAG_SLOTS_UNUSED blocks <13 tags unless a tag_limitation is recorded"
   ],
   "build2_rows": [
    "#240 COMPLETE+PROVEN",
@@ -342,10 +357,10 @@
    "key": null,
    "detail": "software work remains; nothing external blocks it"
   },
-  "defect": "Template query set yields fewer than 13 acceptable tags and the shortfall is not detected",
+  "defect": null,
   "next_action": "Add LISTING_TAG_SLOTS_UNUSED to commerce/seo.py::check_listing_limits (blocking unless a recorded limitation), widen query families so 13 truthful tags exist, and test len(tags)==13 on catalogue seeds",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): LISTING_TAG_SLOTS_UNUSED blocks <13 tags unless a tag_limitation is recorded"
  },
  {
   "uid": "F-012",
@@ -373,7 +388,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -382,18 +397,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Diversity is lexical (per-word budget of 3 and containment); semantic duplicates (synonyms, reorderings like 'christmas mosaic'/'mosaic blanket'/'forest mosaic') are not detected as the same intent",
-  "producer": "src/brambleloop/commerce/search.py::choose_tags",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/seo.py",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
-  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "consumer": "blocking and the certificate; audit `intent_coverage`)",
   "protected_effect": null,
   "tests": [
+   "tests/test_cert_parity_copy.py::test_diversify_moves_slots_off_shared_phrases_when_alternatives_exist",
    "tests/test_commerce.py::test_the_tag_set_is_not_one_concept_restated",
-   "tests/test_cert_parity_copy.py::test_diversify_moves_slots_off_shared_phrases_when_alternatives_exist"
+   "tests/test_w3_k1_search.py::test_chosen_tags_cover_distinct_intents_and_never_repeat_a_meaning",
+   "tests/test_w3_k1_search.py::test_semantic_duplicates_are_found_where_lexical_comparison_sees_three_strings"
   ],
   "evidence": [
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w3 handoff_K1.md claim: | F-013 Tag diversity gate | COMPLETE | `intent_key` folds stems, synonyms and word order. `semantic_duplicates` and `tag_diversity_problems` block. `choose_tags` first fills a slot for every intent it can reach, then refuses any tag whose meaning is already taken. `intent_coverage` is recorded. | `"
   ],
   "build2_rows": [
    "#240 COMPLETE+PROVEN"
@@ -406,7 +424,7 @@
   "defect": null,
   "next_action": "Add intent-level dedup in choose_tags using commerce/intent facets (one tag per facet value unless evidence) with a test on synonym/reordered pairs",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K1']"
  },
  {
   "uid": "F-014",
@@ -432,7 +450,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -441,19 +459,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Long-tail mix is driven by template demand/competition constants that are not evidence; observed buyer phrases (listing_language) join only post-fcb982d",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/commerce/search.py::build_query_set + commerce/intent.py::listing_language",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
   "protected_effect": null,
   "tests": [
    "tests/test_commerce.py::test_head_terms_are_marked_unreachable_for_a_shop_with_no_history",
-   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list"
+   "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list",
+   "tests/test_search_truth.py::test_assumed_phrases_are_labelled_and_excluded_from_the_evidence_share"
   ],
   "evidence": [
    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
-   "listing_language wired in release.py:616 after fcb982d (INTEGRATED only)"
+   "listing_language wired in release.py:616 after fcb982d (INTEGRATED only)",
+   "w3 lane K triage R: evidence share over observed phrases only; assumed phrases labelled"
   ],
   "build2_rows": [
    "#293 COMPLETE+PROVEN",
@@ -464,10 +484,10 @@
    "key": null,
    "detail": "software work remains; nothing external blocks it"
   },
-  "defect": "Template demand/competition numbers (e.g. 0.95/0.88) present as evidence without any",
+  "defect": null,
   "next_action": "Replace template constants with observed share/SERP density (as listing_language does) or label them assumed and exclude them from the evidence-supported half of the portfolio",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): evidence share over observed phrases only; assumed phrases labelled"
  },
  {
   "uid": "F-016",
@@ -572,19 +592,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Observed phrases carry provenance (observed title share, SERP density) but template queries carry hard-coded demand/competition with no provenance or freshness; no freshness timestamp on either",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/commerce/intent.py::listing_language",
   "durable_state": "audit listing.seo_drafted detail.buyer_language",
   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
   "protected_effect": "observed phrases take tag slots first",
   "tests": [
+   "tests/test_intent.py::test_arena_language_is_observed_by_construction",
    "tests/test_intent.py::test_observed_and_assumed_are_never_blended_into_one_list",
-   "tests/test_intent.py::test_arena_language_is_observed_by_construction"
+   "tests/test_search_truth.py::test_assumed_phrases_are_labelled_and_excluded_from_the_evidence_share"
   ],
   "evidence": [
    "src/brambleloop/commerce/search.py _TEMPLATES constants",
-   "listing_language not in fcb982d"
+   "listing_language not in fcb982d",
+   "w3 lane K triage R: Query.provenance + read_at; tag_provenance persisted"
   ],
   "build2_rows": [
    "#293 COMPLETE+PROVEN",
@@ -595,28 +617,31 @@
    "key": null,
    "detail": "software work remains; nothing external blocks it"
   },
-  "defect": "Template phrases enter tag selection with fabricated-looking demand numbers and no provenance",
+  "defect": null,
   "next_action": "Give search.Query a provenance field (observed:<source,date>|assumed) and a max age; have handle_listing_seo refuse or label assumed phrases and record provenance per chosen tag",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): Query.provenance + read_at; tag_provenance persisted"
  },
  {
   "uid": "F-021",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Title must contain 'pattern' and no unsupportable claim, but buyer-readability is not checked; generated titles repeat words ('Nordic ... Nordic Mosaic Blanket') which commerce/portfolio.stuffing would flag, non-blocking",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/commerce/seo.py::build_title / check_listing_limits",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
   "protected_effect": "listing draft blocked on LISTING_AMBIGUOUS_PRODUCT/unsupportable claim",
   "tests": [
-   "tests/test_commerce.py::test_a_title_never_stutters_its_own_category"
+   "tests/test_commerce.py::test_a_title_never_stutters_its_own_category",
+   "tests/test_search_truth.py::test_a_stuffed_title_is_refused_and_build_title_never_repeats_a_word",
+   "tests/test_search_truth.py::test_subjective_words_move_out_of_the_title"
   ],
   "evidence": [
    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
-   "runtime check: build_title('Nordic Forest Throw',...) = 22 words with 'Nordic' twice"
+   "runtime check: build_title('Nordic Forest Throw',...) = 22 words with 'Nordic' twice",
+   "w3 lane K triage R: stuffing blocking in search-copy gate; build_title never repeats a content word"
   ],
   "build2_rows": [
    "#41 DATA-GATED"
@@ -626,27 +651,30 @@
    "key": null,
    "detail": "software work remains; nothing external blocks it"
   },
-  "defect": "Own titles would be judged 'stuffed' by commerce/portfolio.stuffing (repeated_in_title) but the result is only audited",
+  "defect": null,
   "next_action": "Make portfolio.stuffing(title) blocking in handle_listing_seo and fix build_title to drop repeated motif/category words",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): stuffing blocking in search-copy gate; build_title never repeats a content word"
  },
  {
   "uid": "F-022",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Item name + 'Crochet Pattern PDF' lead, but the strongest differentiator is not chosen or placed early",
-  "producer": "src/brambleloop/commerce/seo.py::build_title",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/seo.py",
   "durable_state": "listings (Listing row: title/tags/description/seo_score) + audit listing.seo_drafted/blocked",
-  "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
+  "consumer": "`listing.seo` `check_search_copy(check_front_scan=True)`",
   "protected_effect": null,
   "tests": [
-   "tests/test_commerce.py::test_a_title_never_stutters_its_own_category"
+   "tests/test_commerce.py::test_a_title_never_stutters_its_own_category",
+   "tests/test_w3_k1_search.py::test_the_copy_gate_blocks_a_late_differentiator_when_asked",
+   "tests/test_w3_k1_search.py::test_the_strongest_differentiator_is_placed_early_on_every_seed_title"
   ],
   "evidence": [
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w3 handoff_K1.md claim: | F-022 Front-scan | COMPLETE | `title_differentiator` picks the season, else the motif, else the size count, and `build_title` places it right after \"Crochet Pattern PDF\". The `front_scan` check requires it to start within 60 characters. | `test_the_strongest_differentiator_…` (all 34 seeds), `test"
   ],
   "build2_rows": [],
   "gate": {
@@ -657,7 +685,7 @@
   "defect": null,
   "next_action": "Pass the product's primary differentiator (from creative brief/intent facets) into build_title as the second segment and test its position within the first 60 characters",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K1']"
  },
  {
   "uid": "F-023",
@@ -682,7 +710,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -710,7 +738,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -738,7 +766,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -766,7 +794,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -809,17 +837,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Infographic heroes and cluttered text bands are refused; no measured-evidence exception path",
-  "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan (LISTING_HERO_IS_AN_INFOGRAPHIC, layout_qa)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/publish/hero_exception.py",
   "durable_state": "listing_assets",
-  "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
+  "consumer": "`assets.build` (audit `assets.hero_restraint_excepted`)",
   "protected_effect": "blocks hero approval",
   "tests": [
-   "tests/test_layout_qa.py (LISTING_HERO_IS_AN_INFOGRAPHIC)"
+   "tests/test_layout_qa.py (LISTING_HERO_IS_AN_INFOGRAPHIC)",
+   "tests/test_w3_k1_search.py::test_an_infographic_hero_is_excepted_only_by_a_remembered_measured_test"
   ],
   "evidence": [
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w3 handoff_K1.md claim: | F-028 Hero collage/text restraint | COMPLETE | `publish/hero_exception.py` lifts `LISTING_HERO_IS_AN_INFOGRAPHIC` only for a remembered ListingMemory result that is SUPPORTED, used a `hero-text:` or `hero-collage:` treatment and had at least 200 exposures. A concept hero, a flat hero or a thumbnai"
   ],
   "build2_rows": [
    "#62 COMPLETE+PROVEN"
@@ -832,7 +862,7 @@
   "defect": null,
   "next_action": "Add an exception record (experiment id with measured CTR) that may waive the rule, else none",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K1']"
  },
  {
   "uid": "F-029",
@@ -860,7 +890,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (optionally raise LOW_RES floor to 2000 to match canvas)",
+  "next_action": "none — at target maturity for launch (optionally raise LOW_RES floor to 2000 to match canvas)",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1260,17 +1290,21 @@
   "uid": "F-043",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "P0-before-launch; customer support/remedy and marketplace standard",
-  "maturity": "MISSING",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
-  "missing_part": "No alert before Etsy's 48-hour first-response standard: support/department.py::triage_cases sets resolve_before (refund/case window, days) and enqueues draft replies, but nothing measures age-since-first-message or alerts at 24h/36h; Etsy messages are not ingested",
-  "producer": null,
+  "missing_part": null,
+  "producer": "src/brambleloop/support/response_watch.py::watch",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "runtime consumer per reachability: record_buyer_message is live: API post api_support_messages -> app/main.py:api_support_messages",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_fb4_ops.py::test_a_buyer_message_unanswered_for_30_hours_is_an_owner_action_and_an_incident",
+   "tests/test_fb4_ops.py::test_the_owner_intake_route_requires_the_operator_credential"
+  ],
   "evidence": [
    "gates/policy_knowledge.py records the 48h standard as text only",
-   "support/department.py triage_cases: no first-response clock or owner alert"
+   "support/department.py triage_cases: no first-response clock or owner alert",
+   "w3 lane K triage R: support/response_watch 24/36/48h watch in support.triage + opsauth owner intake (Etsy has no messages API; see F-556)"
   ],
   "build2_rows": [
    "#18 DATA-GATED"
@@ -1283,7 +1317,7 @@
   "defect": null,
   "next_action": "Add support.response_watch to handle_support_triage: for each unanswered SupportCase compute hours since case.at and raise an owner action + Incident at 24h and 36h (before 48h), audited; add an owner-recorded message intake route; test with a 30h-old case",
   "confidence": "HIGH",
-  "searched": "grep 48h|first.?response|response_watch|unanswered in src/brambleloop; support/department.py, support/service.py, runtime/release.py::handle_support_triage"
+  "searched": "grep 48h|first.?response|response_watch|unanswered in src/brambleloop; support/department.py, support/service.py, runtime/release.py::handle_support_triage | w4-FM re-map on fee1cfe (FOLD-R): support/response_watch 24/36/48h watch in support.triage + opsauth owner intake (Etsy has no messages API; see F-556)"
  },
  {
   "uid": "F-044",
@@ -1402,16 +1436,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Publish gates cover assets, parity, disclosures, mobile, certificate; relevance/structured data (category, Etsy attributes) and a search certification are not gates",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/runtime/pipeline.py::_release_gates + runtime/release.py::handle_listing_seo",
   "durable_state": "audit store.release_gates; listing-set certificate",
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
   "protected_effect": "store.publish refuses (also shadow)",
   "tests": [
-   "tests/test_cert_publish_gates.py::test_shadow_publish_runs_every_gate_library_on_the_real_listing_set"
+   "tests/test_cert_publish_gates.py::test_shadow_publish_runs_every_gate_library_on_the_real_listing_set",
+   "tests/test_search_truth.py::test_publish_refuses_when_search_is_not_certified"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 lane K triage R: release_gates.for_publish runs search_gate (category/attributes/copy/tags/description/hero)"
+  ],
   "build2_rows": [
    "#58 COMPLETE+PROVEN",
    "#70 COMPLETE+PROVEN",
@@ -1425,25 +1462,28 @@
   "defect": null,
   "next_action": "Require the F-004 search certification in _release_gates",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): release_gates.for_publish runs search_gate (category/attributes/copy/tags/description/hero)"
  },
  {
   "uid": "F-049",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Listing-set certificate invalidates on geometry/title/description/policy change, but tags, attributes and category are not in the claims fingerprint and there is no search certification to invalidate",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/publish/listing_set.py::still_valid",
   "durable_state": "listing-set certificate",
   "consumer": "gate.certify recheck; store.publish",
   "protected_effect": "invalidates frame approval",
   "tests": [
    "tests/test_listing_set.py::test_a_claims_change_affects_the_whole_set_rather_than_the_number_frames",
-   "tests/test_listing_set.py::test_a_geometry_change_invalidates_without_anybody_revoking_it"
+   "tests/test_listing_set.py::test_a_geometry_change_invalidates_without_anybody_revoking_it",
+   "tests/test_search_truth.py::test_a_tag_edit_after_certification_makes_the_search_gate_refuse",
+   "tests/test_search_truth.py::test_a_tag_or_taxonomy_edit_changes_the_claims_the_certificate_is_bound_to"
   ],
   "evidence": [
-   "src/brambleloop/publish/release_gates.py::claims_of (title, description, frames only)"
+   "src/brambleloop/publish/release_gates.py::claims_of (title, description, frames only)",
+   "w3 lane K triage R: claims_of binds tags, taxonomy_id, attributes"
   ],
   "build2_rows": [
    "#70 COMPLETE+PROVEN"
@@ -1456,7 +1496,7 @@
   "defect": null,
   "next_action": "Add tags, attributes and taxonomy_id to release_gates.claims_of",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): claims_of binds tags, taxonomy_id, attributes"
  },
  {
   "uid": "F-050",
@@ -1483,7 +1523,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 adequate for maturity stage",
+  "next_action": "none — adequate for maturity stage",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1521,17 +1561,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "occasion attribute is copied from the seed season without an 'actually for that occasion' check, and it never reaches Etsy; gift suitability tags are unconditional templates",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/commerce/search.py::listing_attributes",
   "durable_state": "job inputs attributes",
   "consumer": "src/brambleloop/runtime/release.py::handle_listing_seo",
   "protected_effect": null,
   "tests": [
-   "tests/test_commerce.py::test_attributes_come_from_pattern_data"
+   "tests/test_commerce.py::test_attributes_come_from_pattern_data",
+   "tests/test_search_truth.py::test_a_seasonal_product_sets_its_holiday_and_an_evergreen_one_does_not",
+   "tests/test_search_truth.py::test_attribute_truth_rejects_irrelevant_occasion_foreign_colour_and_wrong_skill"
   ],
   "evidence": [
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w3 lane K triage R: occasion/holiday property only from pattern facts"
   ],
   "build2_rows": [
    "#293 COMPLETE+PROVEN",
@@ -1545,7 +1588,7 @@
   "defect": null,
   "next_action": "Set occasion only when the CIR/seed declares the product is for that occasion (explicit field), map to Etsy's occasion property values, and keep gift language in tags",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): occasion/holiday property only from pattern facts"
  },
  {
   "uid": "F-053",
@@ -1682,7 +1725,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity",
+  "next_action": "none — at target maturity",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1691,17 +1734,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Pieces on separate routes (/api/catalogue search_share, /api/leading CTR/conversion UNMEASURED, /api/experiments, /api/portfolio, /api/serp); no single search evidence dashboard; no visibility warnings or rank readiness",
-  "producer": "app/main.py::api_catalogue / api_leading / api_experiments",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/search_evidence.py",
   "durable_state": "listings, OperatingReading",
-  "consumer": "owner dashboard",
+  "consumer": "`GET /api/search-evidence`",
   "protected_effect": null,
   "tests": [
-   "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database"
+   "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
+   "tests/test_w3_k1_search.py::test_a_listing_reads_ctr_and_conversion_as_unmeasured_without_periods",
+   "tests/test_w3_k1_search.py::test_the_dashboard_on_an_empty_shop_is_unknown_not_zero"
   ],
   "evidence": [
-   "src/brambleloop/scale/leading.py"
+   "src/brambleloop/scale/leading.py",
+   "w3 handoff_K1.md claim: | F-058 Search evidence dashboard | COMPLETE | `commerce/search_evidence.summary(db)` returns, per listing: match, matrix, rank readiness, certificate state, gallery, Search Visibility warnings, CTR and conversion (UNMEASURED until ListingOutcome periods exist), funnel stage and experiments. Follows"
   ],
   "build2_rows": [
    "#239 OWNER-GATED",
@@ -1715,7 +1761,7 @@
   "defect": null,
   "next_action": "Add /api/search/evidence composing per-listing match coverage (F-002), readiness (F-003), first-party warnings (F-037), CTR/conversion and experiments, each measured|UNMEASURED",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K1']"
  },
  {
   "uid": "F-059",
@@ -1751,16 +1797,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "may_scale_ads gates on shop rungs; no search-specific scaling gate (query coverage, competitive thumbnail, unresolved first-party warnings)",
-  "producer": "src/brambleloop/commerce/trust.py::may_scale_ads",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/trust.py",
   "durable_state": null,
-  "consumer": "ads.adjust; launch.readiness",
+  "consumer": "`may_scale_ads` callers (`release` 3752, `growth_ops`, `ads_readiness`, `/api` accelerator)",
   "protected_effect": "blocks ad scaling",
   "tests": [
-   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget"
+   "tests/test_trust.py::test_paid_traffic_is_blocked_by_the_shop_rather_than_by_the_budget",
+   "tests/test_w3_k1_search.py::test_paid_traffic_is_blocked_by_search_rungs_when_trust_is_green"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_K1.md claim: | F-060 Search supremacy gate | COMPLETE | `supremacy_gate(db)` has four per-listing rungs: truthful coverage, competitive thumbnail, conversion readiness plus gallery, and no unresolved first-party warning. `trust.may_scale_ads` now blocks on `search:<rung>`. UNMEASURED never passes. | `test_paid_t"
+  ],
   "build2_rows": [
    "#17 COMPLETE+PROVEN",
    "#272 DATA-GATED"
@@ -1773,7 +1822,7 @@
   "defect": null,
   "next_action": "Add search rungs (F-002 coverage, F-031 thumbnail, F-037 warnings) to may_scale_ads / scale readiness",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K1']"
  },
  {
   "uid": "F-061",
@@ -1864,7 +1913,7 @@
    "detail": "owner buys the selected patterns (approved to CA$300)"
   },
   "defect": null,
-  "next_action": "none \u2014 waits on purchases",
+  "next_action": "none — waits on purchases",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1895,7 +1944,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1954,7 +2003,7 @@
    "detail": "owner buys the selected patterns (approved to CA$300)"
   },
   "defect": null,
-  "next_action": "none \u2014 waits on purchases",
+  "next_action": "none — waits on purchases",
   "confidence": "HIGH",
   "searched": null
  },
@@ -2041,7 +2090,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity",
+  "next_action": "none — at target maturity",
   "confidence": "HIGH",
   "searched": null
  },
@@ -2081,17 +2130,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "launch-gate definition: no launch requirement may need owner labour",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Owner crochet ask withdrawn and gate reworded, but products/launch0.py:1240 still names 'an owner action to crochet samples' as the blocker owner for a sub-category",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/build2/executor.py Gate physical_proof; launch/readiness.py",
   "durable_state": null,
   "consumer": "src/brambleloop/launch/readiness.py::assess",
   "protected_effect": "owner queue never asks owner to crochet",
   "tests": [
-   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample"
+   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample",
+   "tests/test_launch0.py"
   ],
   "evidence": [
-   "DECISION_LOG B-532"
+   "DECISION_LOG B-532",
+   "w3 lane K triage R: owner_of_the_blocker names the independent tester route"
   ],
   "build2_rows": [
    "#64 OWNER-GATED"
@@ -2101,26 +2152,32 @@
    "key": null,
    "detail": "software work remains; nothing external blocks it"
   },
-  "defect": "Residual owner-crochet wording in products/launch0.py:1240 owner_of_the_blocker",
+  "defect": null,
   "next_action": "Change launch0.py owner_of_the_blocker to 'independent tester (tester_roster)' and add a test scanning owner-facing strings for owner-crochet asks",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): owner_of_the_blocker names the independent tester route"
  },
  {
   "uid": "F-072",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful proof claims",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "proof_states distinguish deterministic, reverse-compilation, physical tester, customer project, repeat purchase; benchmark teardown, model/visual review, independent human review and partial swatch vs full make are not distinct classes",
-  "producer": "src/brambleloop/gates/certificate.py::certify (proof_states) + gates/policy.py::check_proof_claims",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/risk_matrix.py",
   "durable_state": "pattern_versions.certificate",
-  "consumer": "listing.seo check_listing; gate.certify",
+  "consumer": "`runtime/release.py::handle_physical_record`, `gates/certificate.py::certify`",
   "protected_effect": "claims beyond held proof refused",
   "tests": [
-   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test"
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test",
+   "tests/test_risk_matrix.py::test_a_swatch_never_licenses_a_made_by_a_tester_claim",
+   "tests/test_risk_matrix.py::test_evidence_classes_are_distinct_and_only_a_full_make_contains_a_partial",
+   "tests/test_risk_matrix.py::test_runtime_swatch_without_scope_is_recorded_partial_and_does_not_unblock_class_c",
+   "tests/test_risk_matrix.py::test_scope_maps_to_a_class_and_a_full_make_must_be_measured"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_K6.md claim: | F-072 Evidence hierarchy | COMPLETE | `gates/risk_matrix.py`: six distinct classes (deterministic, benchmark_teardown, model_visual_review, independent_human_review, partial_physical, full_physical_make); `satisfies` is the only substitution rule (full make ⊇ partial; nothing else). `physical.reco"
+  ],
   "build2_rows": [
    "#8 DATA-GATED"
   ],
@@ -2132,24 +2189,29 @@
   "defect": null,
   "next_action": "Extend proof_states to the six named evidence classes and make check_claim refuse cross-class substitution",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K6']"
  },
  {
   "uid": "F-073",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "correct patterns: minimum evidence by risk",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Risk class A/B/C is set manually per CIR/seed; only C requires physical proof; no matrix deriving minimum evidence from features (fitted, grading, closed 3-D, novel assembly, high yardage, new primitive)",
-  "producer": "src/brambleloop/gates/certificate.py::certify (physical_required = risk_class=='C')",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/lanes.py",
   "durable_state": "products.risk_class",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "consumer": "`certify` (pipeline `handle_certify`), `lanes.route_certified`",
   "protected_effect": "Class C refused",
   "tests": [
+   "tests/test_fastlane.py::test_a_risk_class_the_compiler_cannot_fully_verify_is_refused",
    "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test",
-   "tests/test_fastlane.py::test_a_risk_class_the_compiler_cannot_fully_verify_is_refused"
+   "tests/test_risk_matrix.py::test_a_closed_stuffed_form_is_class_c_and_a_declared_c_is_never_lowered",
+   "tests/test_risk_matrix.py::test_graded_garments_are_at_least_class_b",
+   "tests/test_risk_matrix.py::test_launch0_tiers_are_derived_from_features_not_typed"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_K6.md claim: | F-073 Risk-class matrix | COMPLETE | `features()` derives floors from the CIR + twin: body-sized wearable (B), graded (B), closed/stuffed 3-D (C), dimensional twin shape (B), >3 seams (B), >500 m yarn (B), uncalibrated primitive (B). Effective = max(declared, derived); declared can raise, never lo"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -2159,27 +2221,29 @@
   "defect": null,
   "next_action": "Add gates/risk_matrix.py deriving the minimum evidence class from CIR features and refusing a declared risk_class below it",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K6']"
  },
  {
   "uid": "F-074",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Product Truth: size/yardage claims depend on calibrated primitives",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "The only way to record a sample (runtime/release.py::handle_physical_record) calls _load_cir, which refuses an uncertified release, so a pattern refused UNCALIBRATED_PRIMITIVE can never have the sample that would calibrate it recorded through the runtime",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/gates/certificate.py::primitive_findings; src/brambleloop/cir/stitches.py::calibration_status; runtime/pipeline.py::calibrated_primitives",
   "durable_state": "pattern_versions.certificate.primitives; physical_tests",
   "consumer": "runtime/pipeline.py::handle_certify -> certify (ERROR UNCALIBRATED_PRIMITIVE refuses grant); launch/readiness.py::unknowns",
   "protected_effect": "a pattern using a stitch no passed sample has measured is not certified for unrestricted use",
   "tests": [
    "tests/test_gates.py::test_a_pattern_using_an_uncalibrated_primitive_is_restricted_until_evidence",
-   "tests/test_gates.py::test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalibrated"
+   "tests/test_gates.py::test_every_primitive_carries_a_calibration_status_and_new_ones_start_uncalibrated",
+   "tests/test_physical_record_blocked.py::test_a_class_c_release_blocked_on_physical_evidence_takes_its_sample_and_certifies"
   ],
   "evidence": [
    "fb1_C strict patch now applied: certify line ~295 extends primitive_errors",
    "Launch-0 variants (5) certify with no uncalibrated primitive (checked by running certify on each)",
-   "not in fcb982d"
+   "not in fcb982d",
+   "w3 lane K triage R: physical.record accepts a release blocked only on physical evidence (_load_examined_cir)"
   ],
   "build2_rows": [],
   "gate": {
@@ -2187,15 +2251,15 @@
    "key": null,
    "detail": "software intake fix is buildable; actual calibration then needs a physical sample (physical_proof, owner/tester)"
   },
-  "defect": "Intake dead end: physical.record requires a certified release, but certification of a new-primitive pattern requires a recorded sample (same root as F-078)",
+  "defect": null,
   "next_action": "Let handle_physical_record accept a release whose only blocking findings are PHYSICAL_TEST_REQUIRED / UNCALIBRATED_PRIMITIVE / GAUGE_OUTSIDE_DECLARED_YARN_BAND (load the CIR from the last gate.blocked audit or PatternVersion.cir_json) and stamp measured['content_hash']; then enqueue gate.certify; test end-to-end through the queue",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): physical.record accepts a release blocked only on physical evidence (_load_examined_cir)"
  },
  {
   "uid": "F-075",
   "launch_class": "MATURE",
-  "launch_class_reason": "yardage already carries \u00b120% tolerance; calibration improves accuracy post-launch",
+  "launch_class_reason": "yardage already carries ±20% tolerance; calibration improves accuracy post-launch",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
   "missing_part": "Sample report records grams, dimensions, hours, hook, notes, deviations; measured gauge not recorded; commissioning is not triggered by yardage-confidence need (testers.plan forecasts only Class B/C demand)",
@@ -2283,21 +2347,25 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Product Truth / provenance: evidence bound to exact pattern content",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Binding and invalidation work at certify; a material change blocks with the evidence reported 'invalidated' but nothing requests a re-test (no owner/tester action or job), and physical.record neither stamps content_hash nor accepts a release blocked only on physical evidence",
-  "producer": "src/brambleloop/gates/certificate.py::bind_physical_evidence; runtime/pipeline.py::physical_evidence_rows/_content_certified_at",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/pipeline.py",
   "durable_state": "physical_tests; pattern_versions.certificate.physical_evidence; audit gate.certified/gate.blocked (content_hash)",
-  "consumer": "runtime/pipeline.py::handle_certify -> certify -> PatternVersion.certificate",
+  "consumer": "`requirement_status.retest_required` → `pipeline._request_physical_retest` queues ONE OwnerAction (key `physical_evidence:slug@version:hash12`, idempotent) in Directive format + `physical.retest_requested` audit. Recorded defect (Class C release couldn't take its sample) already fixed upstream; covered by `test_physical_record_blocked` (5/5).",
   "protected_effect": "physical evidence counts only for the exact slug@version+content hash or a declared compatible variant at its current hash",
   "tests": [
-   "tests/test_gates.py::test_physical_evidence_binds_only_to_the_exact_content_it_was_worked_against",
    "tests/test_gates.py::test_a_declared_compatible_variant_binds_only_at_its_own_current_content",
+   "tests/test_gates.py::test_physical_evidence_binds_only_to_the_exact_content_it_was_worked_against",
    "tests/test_physical.py::test_a_class_c_release_unblocks_through_the_queue_on_a_sample_of_its_own_content",
-   "tests/test_physical.py::test_a_sample_recorded_before_the_release_was_ever_examined_binds_to_nothing"
+   "tests/test_physical.py::test_a_sample_recorded_before_the_release_was_ever_examined_binds_to_nothing",
+   "tests/test_risk_matrix.py::test_runtime_full_make_unblocks_class_c_and_a_material_change_queues_one_retest",
+   "tests/test_runrate.py::test_required_visits_come_only_from_an_observed_conversion_rate",
+   "tests/test_scale.py::test_required_visits_account_for_repeat_and_off_platform_orders"
   ],
   "evidence": [
    "tests insert PhysicalTest rows directly (_passed_sample), bypassing physical.record",
-   "quality/physical.py::record is the only producer of PhysicalTest rows; not in fcb982d"
+   "quality/physical.py::record is the only producer of PhysicalTest rows; not in fcb982d",
+   "w3 handoff_K6.md claim: | F-078 Version binding + re-test | COMPLETE | Evidence binds to content hash (existing `bind_physical_evidence`, now class-aware). Invalidated required evidence → `requirement_status.retest_required` → `pipeline._request_physical_retest` queues ONE OwnerAction (key `physical_evidence:slug@version:h"
   ],
   "build2_rows": [],
   "gate": {
@@ -2305,10 +2373,10 @@
    "key": null,
    "detail": "software work remains or none; nothing external blocks it"
   },
-  "defect": "physical.record (runtime/release.py::handle_physical_record) uses _load_cir which refuses uncertified releases, so a Class C / out-of-band-gauge release cannot receive the sample that would unblock it via the runtime",
+  "defect": null,
   "next_action": "Fix handle_physical_record intake (stamp content_hash, accept physical-evidence-only blocked releases); on an 'invalidated' binding open an owner action 're-test <slug>@<version>' via the owner queue; test both",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K6']"
  },
  {
   "uid": "F-079",
@@ -2345,17 +2413,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "defines launch evidence standard",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Class A/B certify on deterministic evidence without a full make; no defined confidence threshold combining calibrated primitives",
-  "producer": "src/brambleloop/gates/certificate.py::certify",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gates/risk_matrix.py",
   "durable_state": "pattern_versions",
-  "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+  "consumer": "`certify`",
   "protected_effect": null,
   "tests": [
-   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test"
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test",
+   "tests/test_risk_matrix.py::test_class_a_meets_the_automated_threshold_without_any_physical_test",
+   "tests/test_risk_matrix.py::test_class_b_certifies_but_its_live_sale_requirement_is_a_partial_test_not_a_full_make"
   ],
   "evidence": [
-   "BUILD_STATE.md:315 production holds 15 certified patterns with no physical test"
+   "BUILD_STATE.md:315 production holds 15 certified patterns with no physical test",
+   "w3 handoff_K6.md claim: | F-080 No universal full-make | COMPLETE | `automated_threshold`: Class A clears on compile + independent reverse compile + twin-plausible dimensions + all primitives proven + gauge in declared-yarn band. B needs partial, only C needs a full make. | `test_class_a_meets_the_automated_threshold…`, `t"
   ],
   "build2_rows": [],
   "gate": {
@@ -2366,7 +2437,7 @@
   "defect": null,
   "next_action": "Define the confidence threshold in gates/confidence.py tied to F-073's matrix",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K6']"
  },
  {
   "uid": "F-081",
@@ -2474,7 +2545,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2513,17 +2584,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "launch gate truth",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Gate reworded and ask withdrawn, but the risk-based evidence requirement (F-073) has not replaced the Class-C-only rule and owner-crochet wording remains in products/launch0.py",
-  "producer": "src/brambleloop/build2/executor.py physical_proof; launch/readiness.py",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/launch/readiness.py",
   "durable_state": null,
-  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "consumer": "`launch/readiness.assess`",
   "protected_effect": null,
   "tests": [
-   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample"
+   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample",
+   "tests/test_launch0.py::test_no_owner_facing_string_asks_the_owner_to_crochet",
+   "tests/test_risk_matrix.py::test_readiness_states_the_risk_based_requirement_blocked_on_a_tester_with_a_spend_spec",
+   "tests/test_risk_matrix.py::test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet"
   ],
   "evidence": [
-   "DECISION_LOG B-532"
+   "DECISION_LOG B-532",
+   "w3 handoff_K6.md claim: | F-086 Launch gate reconciliation | COMPLETE | `launch/readiness` requirement `risk_based_physical_evidence` (from `risk_matrix.catalogue_status`: per-release tier, required vs held, live re-bound, `owner_action_spec` per unmet row), blocked on tester, never on the owner. This session: the parked `"
   ],
   "build2_rows": [
    "#64 OWNER-GATED"
@@ -2533,10 +2608,10 @@
    "key": null,
    "detail": "software work remains; nothing external blocks it"
   },
-  "defect": "products/launch0.py:1240 owner action to crochet samples",
+  "defect": null,
   "next_action": "Replace launch0 wording and wire F-073 risk matrix into readiness",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K6']"
  },
  {
   "uid": "F-087",
@@ -2563,7 +2638,7 @@
    "detail": "software work remains; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -2647,7 +2722,7 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  }

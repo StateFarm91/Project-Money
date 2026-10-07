@@ -10,18 +10,18 @@ Reachability: HEAD fee1cfe reachability; production fcb982d
 
 | | DATA-GATED | EXTERNAL-GATED | NOT-APPLICABLE | OPEN-DEFECT | OWNER-GATED | PROVEN |
 |---|---|---|---|---|---|---|
-| all rows | 73 | 27 | 7 | 600 | 114 | 96 |
-| launch-critical | 8 | 18 | 0 | 351 | 40 | 73 |
+| all rows | 75 | 28 | 7 | 420 | 121 | 266 |
+| launch-critical | 10 | 19 | 0 | 171 | 47 | 243 |
 | post-launch (not blocking) | 65 | 9 | 0 | 249 | 74 | 23 |
 
-Launch-critical OPEN-DEFECT: **351**
+Launch-critical OPEN-DEFECT: **171**
 
 ## Open clusters (launch-critical)
 
 | Cluster | Lane | Rows | Title |
 |---|---|---|---|
-| FOLD | FM | 133 | Wave-3 claims COMPLETE, canonical mapping not re-mapped: verify tests + reachabi |
-| FOLD-R | FM | 69 | Wave-3 audit (lane K) re-checked as resolved on f0c2d12; never re-mapped into th |
+| FOLD | FM | 21 | Wave-3 claims COMPLETE, canonical mapping not re-mapped: verify tests + reachabi |
+| FOLD-R | FM | 4 | Wave-3 audit (lane K) re-checked as resolved on f0c2d12; never re-mapped into th |
 | K12 | VISUAL | 4 | Visual residuals (model photography path; not Launch-0) |
 | K13 | FM | 2 | Closure/certification tooling in code |
 | K14 | FM | 2 | Supply chain, deploy & operator-tooling residuals |
@@ -33,7 +33,7 @@ Launch-critical OPEN-DEFECT: **351**
 | K8 | STORE | 2 | Etsy estate, orders & CX residuals |
 | K9 | PIPE | 18 | Pattern product-truth residuals (graded/garments; not Launch-0) |
 | PROCESS | integrator | 10 | PROCESS |
-| REGATE | FM | 25 | Wave-3 audit found an owner/data/external gate the canonical mapping does not re |
+| REGATE | FM | 22 | Wave-3 audit found an owner/data/external gate the canonical mapping does not re |
 | REMAP | FM | 3 | REMAP |
 | STRUCTURAL | FM | 12 | STRUCTURAL |
 | V11-MAP | FM | 43 | v1.1 rows (F-880..F-930) absent from the canonical matrix and the runtime snapsh |
@@ -42,202 +42,98 @@ Launch-critical OPEN-DEFECT: **351**
 
 | Row | Status | Maturity | Why / next |
 |---|---|---|---|
-| F-001 Two-Stage Search Model | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: No separate ranking/conversion-readiness stage; only query-match (covers/score_coverage) plus a competition 'reachable' fl |
-| F-002 Query Coverage Matrix | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Per-query supplying field ('where') is computed but dropped by CoverageReport.to_dict and never persisted; category/attrib |
-| F-003 Ranking Readiness Profile | OPEN-DEFECT | MISSING | maturity MISSING below target INTEGRATED |
-| F-004 Holistic Search Gate | OPEN-DEFECT | INTEGRATED | defect recorded: runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py a |
 | F-005 Deepest Truthful Category | OPEN-DEFECT | INTEGRATED | defect recorded: runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py a |
 | F-007 Attribute Completeness | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Attributes are an internal dict checked against a fixed list; Etsy's category-specific properties (getPropertiesByTaxonomy |
 | F-009 Filter-Surface Audit | OWNER-GATED | INTEGRATED | owner:etsy_api |
 | F-010 Attribute Drift Monitor | OWNER-GATED | DEPLOYED | owner:etsy_api |
-| F-011 13-Tag Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: choose_tags fills up to 13 but nothing requires 13; check_listing_limits only rejects >13; no documented-limitation except |
-| F-013 Tag Diversity Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Diversity is lexical (per-word budget of 3 and containment); semantic duplicates (synonyms, reorderings like 'christmas mo |
-| F-015 Long-Tail Portfolio | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Long-tail mix is driven by template demand/competition constants that are not evidence; observed buyer phrases (listing_la |
-| F-020 Keyword Provenance | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Observed phrases carry provenance (observed title share, SERP density) but template queries carry hard-coded demand/compet |
-| F-021 Title Clarity Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Title must contain 'pattern' and no unsupportable claim, but buyer-readability is not checked; generated titles repeat wor |
-| F-022 Front-Scan Optimization | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Item name + 'Crochet Pattern PDF' lead, but the strongest differentiator is not chosen or placed early |
 | F-027 First-Image Search Gate | OWNER-GATED | DEPLOYED | owner:image_vision |
-| F-028 Hero Collage/Text Restraint | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Infographic heroes and cluttered text bands are refused; no measured-evidence exception path |
 | F-030 Gallery Information Architecture | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Required roles are hero/whats_included/size/materials; angles, texture detail, lifestyle/use and category-specific proof a |
 | F-031 Thumbnail Simulator | OWNER-GATED | DEPLOYED | owner:image_vision |
 | F-039 Search Policy Snapshot | EXTERNAL-GATED | INTEGRATED | external:rendered_pages |
 | F-040 Shop Quality Gate | OWNER-GATED | INTEGRATED | owner:etsy_shop |
 | F-041 Listing Quality Gate | OWNER-GATED | DEPLOYED | owner:image_vision |
 | F-042 Customer-Service Search Monitor | EXTERNAL-GATED | INTEGRATED | external:rendered_pages |
-| F-043 48-Hour Response Protection | OPEN-DEFECT | MISSING | maturity MISSING below target INTEGRATED |
-| F-048 Search Launch Checklist | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Publish gates cover assets, parity, disclosures, mobile, certificate; relevance/structured data (category, Etsy attributes |
-| F-049 Search Re-Certification | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Listing-set certificate invalidates on geometry/title/description/policy change, but tags, attributes and category are not |
-| F-052 Occasion Truth Model | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: occasion attribute is copied from the seed season without an 'actually for that occasion' check, and it never reaches Etsy |
-| F-058 Search Evidence Dashboard | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Pieces on separate routes (/api/catalogue search_share, /api/leading CTR/conversion UNMEASURED, /api/experiments, /api/por |
 | F-059 SEO Self-Flattery Refusal | OWNER-GATED | INTEGRATED | owner:insights_access |
-| F-060 Search Supremacy Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: may_scale_ads gates on shop rungs; no search-specific scaling gate (query coverage, competitive thumbnail, unresolved firs |
 | F-070 Benchmark Spend Governance | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Cost ceiling (CA$300) and per-pick unknown enforced; post-purchase information value per benchmark not tracked |
-| F-071 Owner Is Not the Tester | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Owner crochet ask withdrawn and gate reworded, but products/launch0.py:1240 still names 'an owner action to crochet sample |
-| F-072 Validation Evidence Hierarchy | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: proof_states distinguish deterministic, reverse-compilation, physical tester, customer project, repeat purchase; benchmark |
-| F-073 Risk-Class Validation Matrix | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Risk class A/B/C is set manually per CIR/seed; only C requires physical proof; no matrix deriving minimum evidence from fe |
-| F-074 New Primitive Physical Calibration | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: The only way to record a sample (runtime/release.py::handle_physical_record) calls _load_cir, which refuses an uncertified |
-| F-078 Pattern Version Binding | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Binding and invalidation work at certify; a material change blocks with the evidence reported 'invalidated' but nothing re |
-| F-080 No Universal Full-Make | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Class A/B certify on deterministic evidence without a full make; no defined confidence threshold combining calibrated prim |
 | F-081 High-Risk Full-Make Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Class C refused at certify and never promoted; risk class not derived from features; evidence can never unblock (see F-078 |
-| F-086 Launch Gate Reconciliation | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Gate reworded and ask withdrawn, but the risk-based evidence requirement (F-073) has not replaced the Class-C-only rule an |
 | F-088 Post-Launch Reality Feedback | DATA-GATED | INTEGRATED | data:customers |
 | F-098 Outage Degradation Plan | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Outage handling is per-mechanism (circuit breaker, NoProviderAvailable as PermanentError -> dead letter, funding-exhaustio |
 | F-100 Owner-Gated Diversification Spend | OWNER-GATED | IMPLEMENTED | owner:model_provider |
 | F-103 Post-Call Reconciliation | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Settlement is against the provider's reported tokens priced from our own table (list-price assumption), not against provid |
-| F-105 Historical Spend Honesty | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Dashboard separates measured spend, live reservations (outstanding) and projection, and counts unreserved/unattributed row |
 | F-106 Provider Billing Reconciliation | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Reconciliation compares our ledger to owner-REPORTED dashboard figures only (ops/provider_accounts.REPORTED_FACTS in code) |
-| F-109 Budget Breach Persistence | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: record_refusal writes in its own session (survives caller rollback) and the worker audits job.budget_exceeded, but no test |
-| F-110 Quality Escalation | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Escalation carries burn/projection/what-the-money-bought, and cost-argued downgrades are refused, but 'what_is_constrained |
-| F-115 Legacy Artifact Invalidation | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Content-addressed invalidation covers pdf, chart, visual_truth, listing_copy, seo, support_knowledge, certificate, marketi |
-| F-116 Gauge Evidence Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Only creative/prototype.author derives gauge from the declared yarn's published band; runtime/pipeline.concept_to_cir (liv |
-| F-117 Twin Plausibility Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: creative/prototype refuses a compiling CIR whose twin misses the requested size by >20% and quality/physical halts a produ |
 | F-118 Risk-Based Physical Escalation | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Routing exists (quality/testers.plan on gate.lanes cadence; Class B/C need testers; first-customer gate reports twin.calib |
-| F-121 Claim-to-Evidence Contract | OPEN-DEFECT | EXERCISED | coverage PARTIAL: /api/verify checks and the Build 2 closure/maturity ladder carry evidence per claim, but there is no general claim-to-evid |
-| F-122 Positive-Evidence Requirement | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Applied module by module (72 modules define UNMEASURED/UNKNOWN states) rather than enforced by a shared type or lint; no c |
 | F-123 Vacuous-Test Detector | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Detector is a syntactic heuristic; 109 pre-existing vacuous-risk loops remain in  |
-| F-124 Postcondition Verification | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Result-verification exists for restore (digest round-trip), offsite archive round trip, provider credentials (probe = reco |
-| F-125 Production Disagreement Escalation | OPEN-DEFECT | MISSING | maturity MISSING below target INTEGRATED; coverage PARTIAL: No mechanism treats a production-vs-test/module disagreement as a defect (no inc |
-| F-127 Unknown Is First-Class | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Distinct states exist per module (health UNKNOWN, friction NOT_YET_WALKED, etsy_surfaces NOT_APPLICABLE, first_customer UN |
-| F-128 No Self-Grading Labels | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Benchmark evidence grades and executor gates are independent of labels (recorded successful calls), but ops/health.read st |
-| F-129 Registry Re-Audit | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Live re-audit exists for the Build 2 320-row registry (build2/closure.matrix with reachability + live gates on the dashboa |
-| F-130 Executable-vs-Ready Clarity | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Executable, ready, blocked (dependency-waiting), parked-by-capability, in-progress and done are reported separately and da |
-| F-131 Gate Semantic Accuracy | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Executor gates test recorded capability (successful model call, vision call, Etsy read, probe rows), but the etsy_shop gat |
-| F-133 No Orphaned Partial | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Build 2: an owner-gated row with no checkable gate is refused and closure refuses data-gated rows with no machinery; but a |
 | F-135 Lease-Recovery Drill | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Lease expiry and fencing are tested (job queue SIGKILL test, executor claim lease) and live in production, but no drill ha |
-| F-136 Executor Completion Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Build 2 completion is machine-derived (closure matrix + executor.complete requires evidence and claim); Final Master compl |
 | F-144 Production Readback Gate | OWNER-GATED | DEPLOYED | owner:production_deploy |
 | F-152 Scratch Non-Authority | OWNER-GATED | DEPLOYED | owner:offsite_storage |
-| F-154 No Security Theatre | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Applied to specific controls only (operator credential usable vs configured; offsite backup usable only after a real round |
 | F-158 Dependency Integrity Audit | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Change record is printed at regeneration and lives in git history of requirements |
 | F-159 Secret Scan Gate | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Runtime logs outside the repo (Railway/production logs) are not scanned; binaries |
 | F-160 Credential Rotation Register | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Register is library + CLI only; not wired into any owner queue/dashboard (module_ |
-| F-161 Provenance Coverage Metric | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: summary() reports fresh/stale/unproven counts by artefact class (numerator/denominator derivable) and absence is UNPROVEN; |
-| F-162 Graduated Enforcement | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Graduation is estate-wide (may_enforce_unproven when no artefact of any class is unproven), not per declared class; no dec |
-| F-167 Legacy Provenance Backfill | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Evidence-backed backfill runs daily (ops.provenance_backfill) and leaves unevidenced rows UNPROVEN; there is no launch-rel |
-| F-168 Publication Halting Scope | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Halts are per product slug (Incident.halts_publication + product_slug) and backlog incidents do not halt; there is no expl |
 | F-169 Clean-Tree Full Suite | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Mechanism exists and was really run (release-eligible on 6f9a2f7), but deploy_gua |
 | F-170 Suite Result Binding | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-171 Production Smoke Matrix | OWNER-GATED | EXERCISED | owner:production_deploy |
 | F-172 Shadow-Mode Publication Proof | OWNER-GATED | EXERCISED | owner:production_deploy |
-| F-173 Owner-Gate Inventory | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: executor.approval_inbox renders each closed gate as a card (what, why, capability, max cost, minutes, risk, rollback, cons |
-| F-174 Data-Gate Inventory | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: DATA-GATED rows are listed by the Build 2 closure and held out of the executor queue (customers gate counts evidenced reve |
 | F-176 Rollback Baseline | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Data restore is proved (continuity digest round trip, exercised in production) and per-product rollback is rehearsed (laun |
 | F-177 Final Master Reconciliation | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Registry, matrix and aggregation exist and are pinned; rows touched by FB-1/FB-2/ |
 | F-178 Final Master Completion Standard | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: aggregate.py caps claims by evidence (EXERCISED needs a committed production arte |
-| F-179 Single Owner-Action Source | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: dashboard still renders TWO owner surfaces: 'Owner action required' from the legacy OwnerAction table (done==False) and 'W |
-| F-180 Owner Action Lifecycle | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: OwnerAction has only a boolean `done` and creation `at`; no satisfied/superseded/withdrawn/parked/expired states, no close |
-| F-181 Action-to-Gate Binding | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: executor cards are emitted for every closed gate including gates with empty requirement_ids (owned_surfaces, live_listings |
-| F-183 Spend Vocabulary Unification | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: headline distinguishes monthly model ceiling, reservations, purpose allocations, agent daily caps and scoped paid-media ca |
-| F-184 Spend Limit Precedence | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: no 'binding ceiling' indicator and no explanation of how nested limits interact (month vs provider vs department vs agent  |
-| F-185 Expected Dead-Letter Presentation | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: the top-level dashboard card 'Dead letters' still shows the unsplit total; the split (dead_letter_refusals / dead_letter_d |
-| F-186 Certified-vs-Launch-Cleared Inventory | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: gauge_standard criterion is hard-coded None (UNASSESSED) in dashboard_truth.launch_inventory, so launch-cleared is 0 by co |
-| F-188 Creative Metric Cohort Label | OPEN-DEFECT | MISSING | maturity MISSING below target INTEGRATED; coverage PARTIAL: neither audit_catalogue nor the dashboard Creative standard block / headline sta |
-| F-189 CA5K Probability Semantics | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: the dashboard shows UNMEASURED, but other runtime consumers still read the raw modelled 'probability' bound as a number: g |
-| F-195 Incident Freshness/Actionability | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: last_seen and evidence-backed resolution exist, but no owning remediation/gate field and no explicit owner/source path for |
-| F-197 Tester Path in Owner UI | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: readiness evidence names tester_roster as 'the other way through' and the owner is not asked to crochet, but the owner UI  |
-| F-199 Launch Readiness Current-Evidence Audit | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: launch.readiness.assess recomputes every row from current DB state on each call/cadence (no stored ready flags), but produ |
-| F-202 Last-Deployed SHA and Verification | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: deployment time is the container start time (worker_started_at, labelled 'container started'), not a platform deploy times |
 | F-203 Data Timestamp Consistency | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: as-of is render/query time, not the latest source-row/observation time; non-block tables (jobs, products, incidents, audit |
-| F-204 Owner Queue Empty Guard | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: the readiness closer refuses to close anything when the assessment produced no requests (release.py 'if requests:'), but a |
 | F-205 Dashboard Contradiction Test | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-212 Reference Conditioning Proven End-to-End | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: reference images are passed as reference_urls and recorded in conditioned_on, and gateway.images.reference_probe proves a  |
 | F-213 Identity Trial Validity | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: missing reference, missing pair, unmeasurable morphology and unsupported conditioning return unavailable/unverifiable/unpr |
-| F-215 Garment Fit Requires Stable Body | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no garment-fit/sizing score exists to gate; the rule holds only structurally (a model frame is unusable unless whole_perso |
 | F-219 Human Review Escalation Band | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: ambiguous anatomy is never auto-approved (unverifiable blocks), but there is no human review band/queue for borderline res |
 | F-221 Photographic Realism Hard Floor | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-222 Natural, Not Over-Polished | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-225 Gallery-as-Real-Photo-Shoot | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-227 Product Truth Outranks Beauty | EXTERNAL-GATED | DEPLOYED | external:visual_v1_provider_capability |
 | F-233 Storefront Completion Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: check_storefront verifies announcement/About/policies/sections and only the existence of banner/icon TEXT BRIEFS; no actua |
-| F-234 Shop Trust Architecture | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Shop-level explanation exists (About, policies, FAQ, delivery, AI disclosure, digital sale message) and is checked by shop |
-| F-235 About / Expertise / Process | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: About text is truthful and substantive and check_about checks it on substance, but check_about is not called by the launch |
-| F-236 Shop SEO Surface | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED; coverage PARTIAL: shop title/tagline is a constant in shop_package.shop_text and About/announc |
-| F-237 Section Architecture | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Sections are buyer-facing product families (Blankets & Throws, Seasonal & Holiday, Home & Table, Baby & Nursery, To Wear,  |
-| F-238 Opening Grid Merchandising | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: only palette/hero-treatment coherence exists (library, unreached); nothing orders |
 | F-239 Mobile Storefront QA | EXTERNAL-GATED | MISSING | external:rendered_pages |
 | F-240 Public Seller Identity Integrity | OWNER-GATED | MISSING | owner:etsy_shop |
-| F-242 Official Search Policy Snapshot | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: The dated policy-snapshot + material-change-invalidates machinery exists for six watched sources (incl. advertising_rules) |
-| F-243 Query-Matching Completeness | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Category (Etsy taxonomy_id) is never verified against Etsy's seller taxonomy and required taxonomy properties are unknown  |
-| F-244 Search Intent Graph | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Products map to six-facet buyer query families with assumed/observed provenance (commerce/intent) and catalogue cannibalis |
-| F-245 Buyer-Friendly Title Gate | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Stuffing is measured (portfolio.stuffing) but only recorded in the listing.query_portfolio audit, not blocking; every titl |
+| F-243 Query-Matching Completeness | OWNER-GATED | EXERCISED | owner:etsy_api |
 | F-246 Tag Diversity Gate | DATA-GATED | EXERCISED | data:insights_access |
-| F-247 Attribute / Category Integrity | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Attributes are computed from pattern data (cannot drift), but category specificity is unverified: taxonomy_id has never be |
+| F-247 Attribute / Category Integrity | OWNER-GATED | EXERCISED | owner:etsy_api |
 | F-248 Search Visibility Intake | DATA-GATED | MISSING | data:live_listings |
 | F-249 Personalized-Ranking Humility | DATA-GATED | INTEGRATED | data:insights_access |
-| F-250 Recency Non-Gaming | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
-| F-251 Search Language Integrity | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: language rule is alphabet-based (non-ASCII regex): ASCII foreign-language words (e.g. Spanish/French without accents) pass |
 | F-252 First-Photo Click Gate | OWNER-GATED | EXERCISED | owner:image_vision |
 | F-253 Natural Photo + Product Truth | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Gates exist and refuse in production (listing_photography requirement read from owned_photography.coverage; asset-truth bl |
 | F-254 Gallery Information Architecture | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Frames carry exactly one job from a ten-job vocabulary (DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PA |
-| F-255 Description Conversion Architecture | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Description leads with what is sold (pattern, not finished item, instant download), then inclusions, size, gauge+hook, dif |
-| F-257 Price / Value Coherence | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Fake reference prices are refused at pricing.position and bundle savings are computed against prices actually charged; per |
-| F-258 Conversion Evidence Loop | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Stage diagnosis consumes ListingOutcome (impressions, visits, favourites, orders) but nothing at runtime or API writes Lis |
-| F-259 Neutral New-Listing Prior | OPEN-DEFECT | INTEGRATED | defect recorded: exposure update depends on ListingOutcome, which has no producer (see F-258) |
-| F-260 Listing Experiment Discipline | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Launch experiment pack (hero variants, title/tag strategy, confounder log) is registered write-once at launch.plan and gro |
-| F-261 Underperformer Remediation | OPEN-DEFECT | INTEGRATED | defect recorded: input ListingOutcome has no runtime producer (F-258) |
+| F-258 Conversion Evidence Loop | DATA-GATED | INTEGRATED | data:live_listings |
 | F-263 Ads Launch Readiness Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: ads eligibility requires owner authority, the #17 trust gate, a published listing (which requires the listing-set certific |
 | F-273 Offsite Ads Accounting | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Offsite Ads economics come from the dated advertising_rules reading (15%/12%, US$100 cap, 30-day window, mandatory above U |
-| F-275 Launch Demand Capture Plan | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: launch.plan produces a backward timeline (T-21 SEO indexing, post-launch -14/-30 reads) and registers the experiment pack; |
-| F-276 Christmas Search Compression | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Christmas compression, lead-time and milestone-driven work exist (seasonal/compression.programme, takeovers on listing_ind |
 | F-278 Hero Thumbnail Tournament | OWNER-GATED | INTEGRATED | owner:image_vision |
-| F-279 Storefront-to-Listing Continuity | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: banner/featured collection are generated from the same season members as the seasonal listings (seasonal/daily -> takeover |
 | F-280 Launch Search Visibility Watch | DATA-GATED | MISSING | data:live_listings |
-| F-281 First-30-Day Learning Plan | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: The launch timeline has post-launch reads at day 14 (amplify) and day 30 (first performance read); day 1/3/7 reviews and t |
-| F-282 No Zero-Sales Panic | OPEN-DEFECT | INTEGRATED | defect recorded: exposure input has no runtime producer (F-258) |
 | F-283 First-Sale Attribution | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-284 Review / Service Flywheel | DATA-GATED | INTEGRATED | data:customers |
 | F-285 Seasonal Keyword Refresh | DATA-GATED | INTEGRATED | data:insights_access |
-| F-286 Launch Success Multi-Signal | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Leading indicators refuse success without orders and scale readiness needs six conditions, but there is no single launch-s |
 | F-287 Visibility Command Center | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Pieces are served from the DB (dashboard readiness incl. storefront, /api/leading, /api/serp, /api/trust, /api/search/inte |
-| F-288 Actionable Recommendations | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: OwnerAction rows carry action, reason/evidence, max cost, minutes and consequence (e.g. ads.scale escalation with 30-day c |
-| F-289 Traffic Source Separation | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: growth/mix groups contribution by Order.acquisition_source and CAC splits ad sources, but ingest labels all orders 'etsy', |
-| F-291 Search / Ads Policy Watch | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: advertising_rules is a watched source with digest-change -> blocking incident and a dated repository reading; search guida |
+| F-291 Search / Ads Policy Watch | EXTERNAL-GATED | INTEGRATED | external:advertising_rules |
 | F-293 Storefront Visual Inspection | EXTERNAL-GATED | MISSING | external:rendered_pages |
-| F-294 Search Certificate Required | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: The listing-set certificate binds exact asset hashes, frame order, gate outcomes, geometry fingerprint, a claims fingerpri |
 | F-295 Ads Dry Run | OWNER-GATED | INTEGRATED | owner:ad_authority |
-| F-297 Measurement Before Optimization | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: The owner Stats CSV intake (search-term level) is proved end to end; listing-level organic evidence has no intake (Listing |
-| F-298 No Visibility Shortcut | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Policy gate (check_listing), unsupportable-claim screen, catchphrase/rights screen, AI classification refusing generated p |
+| F-297 Measurement Before Optimization | DATA-GATED | INTEGRATED | data:etsy_ads |
 | F-299 Controlled Phase Change | OWNER-GATED | EXERCISED | owner:etsy_shop |
-| F-300 Launch Readiness Verdict | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: launch/readiness.assess is a hard-gate verdict (any unmet requirement keeps ready false) but it does not answer the six qu |
 | F-301 Provider-Observed Spend Reconciliation | OWNER-GATED | DEPLOYED | owner:provider_usage_api |
-| F-303 Development vs Production Economics | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: CostEntry.purpose is a free-form task key; no closed development/benchmark/one-time-creation/listing/recurring/support/ads |
 | F-304 Per-Operation Cost Attribution | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: provider, model, job, agent, product, purpose, tokens, estimate and timestamp are columns; missing: listing id, image coun |
-| F-305 Unattributed Spend Is a Defect | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: attributed + unattributed reconciles to the internal ledger, not to provider-observed spend; no tolerance-based incident o |
-| F-306 No Duplicate Paid Evidence | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: dedup is per path (vision per-image judged markers, image_bench trial fingerprints, model frame reuse, reference verdict k |
-| F-307 Paid-Job Idempotency | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: jobs are DB-unique on idempotency_key and budgets are reserved before calls, but reservation, provider call and durable co |
-| F-308 Bounded Retry Economics | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: max_attempts bounded, PermanentError (auth/funding/config/content refusal) fails terminally, funding.blocked stops spendin |
 | F-309 Systematic-Failure Circuit Breaker | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: systematic-failure block (method_blocked_on, cleared only by a new METHOD_VERSION) exists for model_photography and owned_ |
 | F-310 New Evidence Requirement | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: thrash sweep suspends a paid loop whose outputs do not change (progress per iteration/dollar = 0) until handler code chang |
 | F-311 Cache Certified Evidence | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: fingerprint/version-keyed reuse exists for image_bench trials, reference realism verdicts (content hash), photoreal calibr |
 | F-312 Deterministic Before Generative | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: the gateway refuses models deciding what the compiler decides and structural questions (parity GALLERY/BRAND) are answered |
 | F-313 Quality-Proven Model Routing | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: routing is a static task->tier table; no per-task quality-floor evidence per mode |
 | F-314 Deep-Tier Escalation Policy | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: tiers are assigned per task with a stated why and ship-deciding judgements on the deep tier, but there is no escalation (c |
-| F-315 Prompt/Input Token Discipline | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: input tokens are measured per call (cost_entries.tokens_in); nothing controls or alerts on context size or repeated large  |
 | F-316 Output Token Discipline | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: judges use closed JSON vocabularies with per-task MAX_TOKENS and malformed/truncated output is rejected, but there is no s |
 | F-317 Batching With Isolation | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: gallery vision is one image per call with per-image markers and batches check each call against batch spend; no general ba |
 | F-318 Backlog Must Actually Drain | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: the gallery processor reports judged, remaining after, failures and cost, but not unique pending before; no generic check  |
 | F-319 Spend-to-Progress Ratio | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: progress_per_dollar per job type (thrash sweep) and validated products per operating dollar with an incident (governor) ex |
-| F-320 Per-Product Creation Cost | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: spend_by('product') totals attributed spend per product_slug; no per-stage breakdown (concept, engineering, certification, |
 | F-321 Per-Listing Maintenance Cost | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it '' |
 | F-322 Cost Per Usable Asset | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: attempts, failures, usable galleries and cost per usable gallery are computed, but spent_cad is render cost only (the four |
 | F-323 Cost Per Sale / Contribution | DATA-GATED | DEPLOYED | data:customers |
-| F-324 Break-Even Sales Requirement | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: creation cost is never measurable in production because no spend writer tags product_slug; a priced product with 0 tagged  |
 | F-325 Steady-State Sustainability Forecast | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: observation cadence is not a named forecast input (folded into platform spend); scenario assumptions are constants; in pro |
-| F-326 Provider Spend Anomaly Detection | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: per-agent and company daily spike detection with baseline floors pauses the agent and opens an incident; no hourly detecti |
 | F-328 No Spend To Look Busy | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: paid cadences are bounded by work_that_fits and may_spend, stalled loops are suspended and several paths skip when evidenc |
-| F-329 Sustainability Launch Gate | OPEN-DEFECT | INTEGRATED | defect recorded: fail-closed but currently un-passable: because no runtime spend writer tags product_slug, the forecast stays INSUFFICIENT_D |
 | F-331 Authoritative Job Identity | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Runtime work has durable Job ids (queue/durable.JobQueue) exercised in production; operator long-running operations (full  |
 | F-332 No Self-Matching Liveness Probe | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-333 One Operation, One State | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Runtime: idempotency keys make a duplicate enqueue return the existing job (DuplicateJob) and scheduler cadences do not du |
 | F-334 Waiter Deduplication | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-335 Completion Is Durable | OPEN-DEFECT | EXERCISED | coverage PARTIAL: Runtime job terminal states (complete/failed/dead) are persisted by the worker independent of any observer and read by pro |
-| F-337 Expected-Duration Watchdog | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: covers operator lanes only (ops/waiter durations.jsonl); the product runtime jobs |
-| F-338 Non-Destructive Hang Diagnosis | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Health escalates rather than restarting and names where repairs live; the board distinguishes running/complete-unreported/ |
-| F-339 No Blind Restart | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Expired leases are reclaimed only after heartbeat loss and a fenced completion refuses a stale worker (post-production), i |
 | F-340 Waiter Resource Bound | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-341 Result Propagation Contract | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Runtime: one terminal result per job with fencing, survives worker SIGKILL/restart (tested); operator: result line and ack |
 | F-342 Observer/Work Separation | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: registry records carry the job's own marker and waiter leases live in a separate  |
-| F-343 No False Healthy/Busy State | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Health distinguishes healthy (work completed) / idle / degraded / down / unknown and a live worker never makes it healthy; |
 | F-344 Operational Time Waste Accounting | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Only one class of waste is accounted: (ack time - job's stamped finish) when a la |
 | F-345 Test-Suite Run Record | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
 | F-346 Suite Concurrency Guard | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED |
@@ -250,26 +146,15 @@ Launch-critical OPEN-DEFECT: **351**
 | F-363 Physical Plausibility | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: neck/yoke fit, drawstring/tie refusal and applied-part refusal exist; no explicit checks of closures/button spacing, armho |
 | F-364 Visual Merchandising | EXTERNAL-GATED | DEPLOYED | external:image_vision |
 | F-371 24/7 Cloud Operation | OWNER-GATED | DEPLOYED | owner:production_window |
-| F-380 Code Change Governance | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: the runtime makes no autonomous code changes (only DB-versioned scoring/config); code changes come from Claude sessions vi |
-| F-381 Rollback First-Class | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: code-deploy rollback relies on Railway's previous deployment (not rehearsed in code); improvement/config and listing-withd |
-| F-382 Maturity Ladder | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: ladder is computed per Build 2 requirement, not per adopted improvement; improvements carry states (proposed/testing/promo |
-| F-392 Incident Learning | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: incident rows record signature/restatement/resolution, but root cause and durable prevention are human process (BUILD_STAT |
+| F-380 Code Change Governance | OWNER-GATED | DEPLOYED | owner:production_window |
+| F-381 Rollback First-Class | OWNER-GATED | INTEGRATED | owner:production_window |
 | F-396 PC-Off Improvement Continuity | OWNER-GATED | DEPLOYED | owner:production_window |
-| F-397 HQ Acceleration Without Dependency | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no promotion gate detects production reading an artifact that exists only on HQ; relies on Dockerfile copying src and a GE |
-| F-400 Never-Finished Company, Finite Launch | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Final Master launch classification not yet encoded in code (this matrix is research); readiness separates build/owner bloc |
 | F-416 Security / Supply-Chain Review | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: Python dependencies are exact-pinned and sha256-hashed and the Dockerfile install |
-| F-418 Research Spend Governance | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no research-specific budget because no research agent exists; global ceilings apply to every model/provider call |
-| F-425 Citation / Provenance | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: provenance exists for children's safety constraints/statements, policy knowledge and trend evidence; general research conc |
-| F-430 Research Agent Cannot Override Hard Floo | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: research outputs have no route into governance because no research agent exists; any proposal path is checked regardless o |
 | F-437 Primary Documentation for Integrations | OWNER-GATED | DEPLOYED | owner:etsy_api |
-| F-445 No Fabricated Citations or Capabilities | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: enforced for children's statements (source must exist, unfetched listed), learning signals (source/citation required) and  |
-| F-447 Research Agent Authority Boundary | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no research agent exists to bind; authority model enforced for all proposals |
 | F-461 Deploy Serialization | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: ops/deploy_guard.py check refuses a candidate that is not a descendant of the dep |
 | F-472 Provider Concurrency Governance | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: spend is centralised (gateway + reservations + per-provider/purpose caps) and retries are queue-governed, but circuit-brea |
-| F-474 Safe Pause/Resume | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: jobs resume by lease reclaim with idempotency keys and exactly-once completion fencing, but there are no intra-handler che |
-| F-477 Independent QA | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: deterministic certification is independent of the drafting step and improvement approval refuses the proposer, but some cr |
 | F-495 24/7 Parallel Continuity | OWNER-GATED | DEPLOYED | owner:production_window |
-| F-497 Build vs Operate Separation | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: runtime authority separation (phase SHADOW, RED/GREEN authority matrix, publish/activate gates) is code; build-agent vs pr |
+| F-497 Build vs Operate Separation | OWNER-GATED | INTEGRATED | owner:plane_violations |
 | F-501 Etsy Event Feedback | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-518@v0.15 Safe Rollback | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: rollback exists for improvement promotions (monitor revert), league config, paid-media pause and a rehearsed listing withd |
 | F-514@v0.16 Etsy Surface Inventory | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: The inventory is static code (35 surfaces with verdicts/operations/scopes/evidence); it is consumed at runtime (readiness  |
@@ -278,20 +163,13 @@ Launch-critical OPEN-DEFECT: **351**
 | F-532 Customer-Service Standards Watch | EXTERNAL-GATED | INTEGRATED | external:customer_service_stats |
 | F-535 Refund/Cancellation Root Cause | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: refunds are captured as a flag on ingested orders and counted into refund rate/kill-table defect ceilings, but there is no |
 | F-536 Policy-Violation Watch | EXTERNAL-GATED | INTEGRATED | external:rendered_pages |
-| F-537 Shop Policy Consistency | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: PDF/listing/FAQ render terms from one decision and consistency is checked in listing.seo; shop policies come from shop_pac |
 | F-538 Finance Reconciliation | OWNER-GATED | DEPLOYED | owner:transactions_r |
 | F-540 OAuth Credential Health | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: credential health (stored, openable under current sealing key, scopes, rotations, fingerprints) is readable at /api/etsy/o |
-| F-541 OAuth Failure Recovery | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Both paths convert EtsyAuthNeedsOwner into an owner action + incident (publish/activate/cadences via etsy_ops.record_auth_ |
 | F-542 Remote Write Readback | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: field-by-field read-back (etsy_verify.verify) runs in the exercise/probe path (/api/etsy/exercise) and catches ignored wri |
 | F-543 Draft-to-Live Activation Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: store.publish enforces shadow refusal, credentials/authority, creative parity, certified-PDF hash, search-grid tournament  |
-| F-544 Live Listing Drift Detector | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Daily census compares state and certified fields (title, description, tags, materials, price, quantity, taxonomy, type) an |
-| F-545 Listing Lifecycle Audit Trail | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: publish outcomes and refusals are audited with remote id and file hashes, and the exercise path breadcrumbs test drafts, r |
-| F-547 Browser-Only Work Queue | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: the owner approval inbox (gates) and owner-actions route are live, and etsy_surfaces defines exact Etsy owner actions (act |
-| F-553 Listing Estate Manager | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Census stores id, state (active/draft/inactive/sold_out/expired), taxonomy, price, quantity, ending_timestamp, should_auto |
 | F-556 Message SLA Engine | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: No Etsy message source (no messaging API), so first-message clocks of real buyer threads are not tracked; Etsy customer-se |
 | F-557 Message Triage & Escalation | EXTERNAL-GATED | INTEGRATED | external:no_messages_api |
 | F-558 Order Operations Ledger | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Ingest records order, version and a sale ledger line; payment (getPayments/ledger entries), digital delivery state, buyer  |
-| F-559 Digital Delivery Verification | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: After publish and at activation the listing's files are read back (getAllListingFiles) and compared by name + exact size;  |
 | F-568 Policy Violation Incident System | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: A created listing that vanished or changed state opens a halting P1 'policy_violation_suspected:<id>' with source_text, de |
 | F-577 Payment Settings Guard | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Drift monitoring of payment onboarding (getShop is_etsy_payments_onboarded via assess_shop) is not run at runtime; no code |
 | F-578 Tax Information Registry | OWNER-GATED | INTEGRATED | owner:legal_and_tax |
@@ -299,37 +177,24 @@ Launch-critical OPEN-DEFECT: **351**
 | F-587 Policy Settings Canonicalization | OWNER-GATED | INTEGRATED | owner:policy_settings |
 | F-588 Partners You Work With | OWNER-GATED | TESTED | owner:etsy_ai_partner_guidance |
 | F-592 Shop Security Posture | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: No continuous verification cadence (health does not read OAuth state), no callback-config or suspicious-authorisation moni |
-| F-593 Owner-Only Action Queue | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: The 15 Etsy owner actions in etsy_surfaces.owner_queue (apps, shared access, subscription, ads-off, policy violations, mes |
 | F-594 First-Sale Readiness Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Remote Etsy write/read/delete proof is never recorded (etsy_integration hard-coded not ready; etsy_exercise prepared, neve |
 | F-608 Independent Accountant | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Books report sales UNMEASURED (None + why) unless the order source is open and was read; Etsy fee entries without a matchi |
 | F-609 Auditable Ledger | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: LedgerEntry lacks source, currency, original amount, classification beyond category and reconciliation state; AI spend is  |
 | F-617 Customer Experience Department | EXTERNAL-GATED | INTEGRATED | external:no_messages_api |
-| F-623 Owner Actions & Evidence Drilldown | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Drilldown from each KPI to source/timestamp/transformation/reconciliation state is not uniform; owner actions are split be |
 | F-628 24/7 Runtime & Continuity | OWNER-GATED | DEPLOYED | owner:offsite_storage |
 | F-629 Department Spend Governance | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Department allocation mechanism exists but is empty (no department caps set) and is post-fcb982d; promotional/cloud credit |
 | F-654 Cloud-Always-On Core | OWNER-GATED | DEPLOYED | owner:production_window |
-| F-658 Durable Coordinator | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: The persisted DAG is the Build-2 requirement graph (BuildTask/BuildEvent) plus artefact rebuild edges; company work has no |
 | F-659 Durable Workers | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Long-job checkpoints are absent (handlers restart from the beginning; resumption is at pipeline-stage granularity); lease  |
-| F-663 Owner Inbox | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Two lists rather than one prioritized queue (OwnerAction rows and executor gate cards rendered separately); duplicates occ |
-| F-665 Evidence WHY | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: No universal evidence envelope (source, timestamp, transformation, confidence, reconciliation/calibration state, external  |
-| F-669 Progressive Authority | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Actions are not classified into the eleven classes (OBSERVE..CREDENTIALS); authority is a 3-level GREEN/YELLOW/RED agent g |
+| F-665 Evidence WHY | OWNER-GATED | INTEGRATED | owner:dashboard_truth.evidence |
 | F-674 Visual Pipeline | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Main-line runtime has no 3D -> conditioning -> photoreal stage: assets.owned_photography generates the product from a CIR- |
 | F-676 AI Photography | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Generation runs in production with realism, asset-truth and motif-fidelity floors, but no generated product image has pass |
 | F-677 Final Image Gate | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Product-truth checking on generated images is a vision-model judgement (motif fidelity vs chart, inspection vs CIR claim)  |
 | F-682 Accountant Activity | OWNER-GATED | INTEGRATED | owner:transactions_r |
 | F-689 Customer Workspace | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Support triage (desk routing, escalation, never sends in shadow, version-aware) and order ingest exist; there is no Etsy m |
 | F-695 Spend Governance | OWNER-GATED | DEPLOYED | owner:spend_policy numbers |
-| F-696 Security & Privacy | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Writes and exports require the operator credential and credentials are sealed, but read-only endpoints are unauthenticated |
 | F-697 Business Continuity | OWNER-GATED | DEPLOYED | owner:offsite_storage |
-| F-700 Brambleloop Constitution | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Clauses are enforced piecemeal (governance.check refuses fabrication/authority widening/gate weakening; three-valued verdi |
 | F-701 Autonomy Is Core | OWNER-GATED | DEPLOYED | owner:production_window |
-| F-702 Authority May Be Gated; Initiative May N | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: There is no 'publication awaiting approval' task state: publication is refused by phase/authority and dead-lettered as a d |
-| F-703 Earned Autonomy Ladder | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Conservative authority is enforced (phase SHADOW, BRAMBLELOOP_PUBLISH_AUTHORISED flag, per-call Launch-0 authorisation for |
-| F-704 Autonomous Approval Packages | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Gate/capability cards (what, why, capability, max spend, risk, rollback, consequence) and improvement owner cards exist; t |
-| F-708 Protected Truth and Authority | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Gate/threshold weakening, Product Truth changes and authority widening are refused at propose and promotion; explicit prot |
-| F-718 No Chat as Source of Truth | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Runtime state, registry, decisions and briefs are durable (Postgres, repo, DECISION_LOG/BUILD_STATE); gaps: the approved c |
-| F-721 Owner Block Does Not Cascade | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Satisfied for Build-2 requirements (only gated rows park) and for runtime refusals (a refused publish blocks nothing else) |
-| F-726 Maturity: Launch | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Mode holds in production (autonomous cadences; publication/spend refused without owner grant); the owner's first-publicati |
+| F-718 No Chat as Source of Truth | OWNER-GATED | DEPLOYED | owner:production_window |
 | F-731 Canonical Model Is Mandatory | EXTERNAL-GATED | DEPLOYED | external:model_bearing_render |
 | F-732 Exact Identity, Not a Similar Person | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Face and whole-person morphology are separate hard floors against the frozen pack and unmeasurable never passes; identity  |
 | F-733 Canonical Asset Registry | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: Versioned ModelIdentity row, freeze with owner approval and replace_canonical exist; hash-pinned references, MANIFEST.json |
@@ -337,58 +202,32 @@ Launch-critical OPEN-DEFECT: **351**
 | F-736 No Silent Substitution | EXTERNAL-GATED | DEPLOYED | external:model_bearing_render |
 | F-740 Persistent Character Continuity | EXTERNAL-GATED | DEPLOYED | external:model_bearing_render |
 | F-741 Product Before Pose | EXTERNAL-GATED | INTEGRATED | external:model_bearing_render |
-| F-743 No Model Drift Through Learning | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: select/freeze refuse a second canonical and a redesign needs an owner approval record; the improvement governance does not |
 | F-746 Listing Set Consistency | EXTERNAL-GATED | DEPLOYED | external:model_bearing_render |
-| F-749 Purchased Pattern = Benchmark Evidence,  | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: numeric benchmark-in-our-clothes firewall covers only benchmark 1 (side-to-side cardigan, cir/benchmarks.py); the purchase |
 | F-750 Instruction-to-Topology Compiler | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: no explicit work direction (top-down vs bottom-up), no first-class construction step order, no typed hood/pocket/band/butt |
 | F-751 Stitch Semantics Are First-Class | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: eye/leg/base anchor relationships of star stitch are modelled only as consumes/produces counts; clusters and mosaic loop p |
-| F-752 Stitch-Pattern Identity Gate | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: parity PRODUCT_TRUTH no longer accepts motif/colour judgement: it passes only when every exported frame's structural_floor |
 | F-753 Gauge Is Product Truth | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: no separate ribbing/border gauge on the CIR (one Gauge per CIR); apparent stitch scale in generated imagery is not measure |
-| F-754 Multi-Gauge Regions | OPEN-DEFECT | MISSING | maturity MISSING below target INTEGRATED |
 | F-755 All-Size Parse Before Single-Size Render | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Brambleloop graded designs are built and checked at every size, but no src path parses a purchased/graded benchmark's full |
 | F-756 Schematic Cross-Check | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Brambleloop schematics are drawn from the assembly model so cannot disagree; dimensions contradictions are detected; but t |
-| F-757 Optional Feature State | OPEN-DEFECT | MISSING | maturity MISSING below target INTEGRATED; coverage PARTIAL: No optional-feature/variant configuration on the CIR and no represented-variant  |
-| F-760 Commercial Certification Requires Dual P | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: the PRODUCT TRUTH half is a colour-motif judgement (see F-752/F-753), so the dual pass is structurally present but the tru |
 | F-761 Pattern Package Completeness | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: PDF lacks a size chart/finished-measurement-and-ease table for graded products, a construction overview section, and care/ |
 | F-762 Size Architecture | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: size matrix covers measurements, stitch counts and monotonicity; per-size yardage and schematic dimensions are not held in |
 | F-763 Ease and Fit Are Explicit | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: FitIntent separates body from finished (finished = body + ease) in graded designs, but the PDF/listing do not print intend |
-| F-765 Construction Overview Before Instruction | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Multi-piece CIRs get a 'How it goes together' section (pieces, counts, construction, every join) before Instructions. A on |
 | F-768 Pattern QA Must Recompute | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: reverse compiler independently recomputes counts/repeats from customer text and the twin recomputes dimensions; grading re |
 | F-770 Supportability Is a Product Requirement | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: support path and version-aware answers exist; the product does not record which modifications are outside support |
 | F-777 Evidence-Backed Listing Claims | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: size, shape, material, difficulty and proof-level claims are checked; 'anti-pilling', 'machine washable', 'quick', 'revers |
 | F-779 Listing Conversion Is Not Product Truth | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: brief-subset rule covers creative; SEO title/listing-test variants are not re-checked against the brief for every variant |
-| F-782 No Derivative Rewrite Pipeline | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: numeric firewall only against benchmark 1; no wording/paraphrase similarity check against benchmark text (reader keeps no  |
-| F-783 Independent Design Provenance | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Provenance(concept_key, brief_digest, primitives_used, benchmarks_consulted) is stamped only on graded/garment designs; la |
 | F-784 Similarity/Contamination Review | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: numeric/construction comparison only vs benchmark 1; no wording or presentation comparison; not an independent agent |
-| F-785 Benchmark Images Never Become Listing In | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: provenance refuses competitor-sourced assets; there is no explicit guard that a generation *reference input* (image gatewa |
-| F-786 Licence Terms Are Machine-Readable | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: benchmark_licences table (source_kind, terms_source, allowed/prohibited uses, attribution, finished_item_rights, pattern_r |
-| F-787 Public/Free Version Does Not Erase Right | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: licence.register_public_source records public_web/public_video sources with patte |
-| F-790 Improve the Idea, Not the Protected Expr | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: authorship enforced negatively (benchmark numeric match refused, garments import no benchmark); positive evidence of impro |
 | F-792 Independent Instruction Draft | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: instructions are always generated from the CIR by cir/writer.py and the library refuses writing roles; no explicit 'frozen |
 | F-794 Design-Difference Ledger | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Ledger table (benchmark_ref, learned, changed, why_better, independent_aspects, verdict) is persisted by preengineering.re |
 | F-795 Similarity Review Before Sale | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: numeric piece-table comparison vs benchmark 1 at certify; wording, distinctive feature combination, construction-sequence  |
-| F-798 Originality Is Part of Product Truth | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: certify checks title originality/IP and benchmark numeric match, but does not require a complete design provenance record  |
-| F-799 Learn Department | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Learn exists as a scheduled, durable department (hourly learn.scan, own agent, gap queue, graph, lesson store, authenticat |
-| F-801 Pattern-to-Lesson Trigger | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: topics() extracts only explicit CIR keys (stitch, construction, front/back loop, gauge, yarn weight, hook mm); finishing/s |
-| F-805 Education Product Truth | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: validate_spec machine-checks per-step counts against cir.stitches semantics (consumes/produces x repeat), US/UK terminolog |
 | F-806 Technique Visual Truth | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: visual correctness is enforced only as a required human-attested review dimension (visual_accuracy must be PASS; UNKNOWN w |
 | F-808 Contextual Help Inside Patterns | OWNER-GATED | INTEGRATED | owner:owned_surfaces |
-| F-815 Knowledge Graph | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: learn_nodes/learn_edges are written (pattern->topic 'needs_help', support->specia |
-| F-821 Original Education Assets | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: validate_spec requires every lesson asset to declare rights in {brambleloop_original, licensed}, a source, a sha256 and (i |
-| F-826 No Content Mill | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: nothing generates lessons (scan reports generated:0/published:0, WATCH when no QUEUED gap); drafts require a learner_probl |
-| F-831 Capability Proof Chain | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: Build 2 closure requires module+test+live-root reachability, not the full chain (consumer -> decision -> effect -> observa |
-| F-832 Existence Is Not Execution | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: enforced for Build 2 rows (a covered row whose module is unreached cannot be C+P); not yet applied to Final Master require |
-| F-833 Live-Root Reachability | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: reachability is module-level from live roots; function-level reachability of the specific producer/consumer is not compute |
 | F-834 Consumption Required | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: build2/final_proof.py requires a consumer/decision/effect chain bound by evidence |
-| F-835 Protected-Action Revalidation | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: store.publish re-reads phase, credentials, authority, withholding and incidents at execution; no test that authority revok |
 | F-836 No Fixture-Only Proof | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: final_proof refuses evidence_class fixture/static and requires a production_produ |
 | F-837 Proxy Honesty | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: final_proof requires direct=True ('proxy cannot satisfy direct proof') but 'direc |
-| F-838 Closure Integrity | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: applied to the 320-row Build 2 registry; the Final Master matrix must adopt explicit-park-only semantics |
 | F-839 Final-Head Re-Audit | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: module_reachability.json regenerated on 6f9a2f7 and a release-eligible full suite |
 | F-840 Green Suite Necessary, Not Sufficient | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: rules exist that a green suite does not raise maturity (aggregate.py caps INTEGRA |
 | F-841 Build 2 Freeze | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED |
 | F-843 Final Master Closure Matrix | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: closure_matrix.json maps all 866 registry records (aggregated, test-pinned) with  |
-| F-844 Explicit Maturity | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: build2/maturity.py ladder has implemented/tested/deployed/exercised/evidenced/production_observed but no INTEGRATED or COM |
 | F-845 Release Candidate Freeze | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED; coverage PARTIAL: no Final Build launch candidate frozen (FINAL_BUILD_STATE: 'RC freeze decisi |
 | F-846 Audit-Repair Loop | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED; coverage PARTIAL: the loop is being run (Codex reconciliation 76+15 items -> FB-2/FB-3 repairs |
 | F-847 No Final-Build Drift | OPEN-DEFECT | IMPLEMENTED | maturity IMPLEMENTED below target INTEGRATED; coverage PARTIAL: D-FB-5 rule plus launch_class per matrix row; new questions are recorded as  |
@@ -396,18 +235,9 @@ Launch-critical OPEN-DEFECT: **351**
 | F-849 Claude/Chat Independence | OWNER-GATED | INTEGRATED | owner:production_window |
 | F-850 Restart Recovery | OWNER-GATED | INTEGRATED | owner:production_window |
 | F-851 B+C Default | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: main line has the deterministic half only in 2D (twin/chart heroes disclosed as renders, visual/render.py fabric raster);  |
-| F-853 Authoritative Product Region | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: the launch path is a disclosed render whose every pixel is derived from the certified CIR/twin and verified on its sha256- |
-| F-854 Construction Fidelity | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: the disclosed renderer encodes one glyph per twin cell, per-stitch row height, colour placement, raised posts, ring/polygo |
-| F-856 Structural vs Photographic Gates | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: gates are independent (parity eight dimensions; model_photography six floors), but the structural leg is a vision motif ju |
-| F-860 Visual Does Not Stall Independent Work | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: executor parks only gated rows and the worker has lane controls (C-68); no s92 test 'one lane blocked on Visual/owner, unr |
-| F-867 Worker Does Not Self-Certify | OPEN-DEFECT | TESTED | maturity TESTED below target INTEGRATED; coverage PARTIAL: final_proof.py refuses a packet whose independent reviewer equals the implementer |
-| F-870 Owner Action Packets | OPEN-DEFECT | DEPLOYED | coverage PARTIAL: approval cards carry what/why/capability/max spend/risk/rollback/consequence/minutes; 'why software cannot do it' exists a |
 | F-871 Provider Funding Is Authority | OWNER-GATED | EXERCISED | owner:model_provider |
 | F-872 Etsy Scope Reauthorization | OWNER-GATED | INTEGRATED | owner:transactions_r |
-| F-874 No Premature KYC | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: nothing in the runtime requires identity/banking/tax before shadow, certification or publication-grant steps; legal_and_ta |
-| F-877 Bounded Visual Spend | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: hard per-experiment ceilings exist in code (provider_trial CA$4, image_bench ceiling, research judge cap) but there is no  |
 | F-878 Launch Packet | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: launch readiness assesses listings, owner actions, launch package (disclosure, FAQ, pricing plan, calendar, baseline, roll |
-| F-879 Launch Starts Feedback | OPEN-DEFECT | INTEGRATED | coverage PARTIAL: readiness blocks on its own items but is not tied to the Final Master launch-critical set; mature items are not explicitly |
 | F-880 Cloud-Resident Always-On Runtime | OPEN-DEFECT | MISSING | v1.1 row not mapped |
 | F-881 No Development-Chat Dependency | OPEN-DEFECT | MISSING | v1.1 row not mapped |
 | F-882 Mobile-First Owner Command Center | OPEN-DEFECT | MISSING | v1.1 row not mapped |

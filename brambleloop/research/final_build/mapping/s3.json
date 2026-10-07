@@ -4,21 +4,23 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (launch-critical list)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "dashboard still renders TWO owner surfaces: 'Owner action required' from the legacy OwnerAction table (done==False) and 'Waiting on the owner' from build2.executor.approval_inbox (live gate state); /api/owner-actions serves only the legacy table",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
   "durable_state": "owner_actions",
   "consumer": "src/brambleloop/app/main.py::dashboard",
   "protected_effect": "owner is shown actions from one reconciled source",
   "tests": [
-   "tests/test_launch.py::test_an_owner_action_whose_requirement_is_satisfied_closes_itself",
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing",
+   "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
    "tests/test_launch.py::test_a_closer_may_only_close_what_it_opens",
-   "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named"
+   "tests/test_launch.py::test_an_owner_action_whose_requirement_is_satisfied_closes_itself"
   ],
   "evidence": [
    "app/main.py:4758 _approvals (executor cards) and :4944 owner_html (OwnerAction rows) both rendered",
    "release.py:3147 closes rows no longer requested (guarded)",
-   "same two surfaces present in fcb982d main.py:4298/4330"
+   "same two surfaces present in fcb982d main.py:4298/4330",
+   "w3 lane K triage R: one owner queue merges OwnerAction rows into gate cards (executor:1432)"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN",
@@ -29,29 +31,34 @@
    "key": "",
    "detail": ""
   },
-  "defect": "two owner-action sources coexist on the dashboard (legacy OwnerAction table + executor gate cards); nothing reconciles them against each other",
+  "defect": null,
   "next_action": "Make build2.executor.approval_inbox (or one merged model) the only owner surface: render OwnerAction rows only when bound to a closed gate/requirement_key, drop the separate owner_html block in app/main.py::dashboard, point /api/owner-actions at the same model, and add a test that a satisfied gate cannot appear in either",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): one owner queue merges OwnerAction rows into gate cards (executor:1432)"
  },
  {
   "uid": "F-180",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (launch-critical list)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "OwnerAction has only a boolean `done` and creation `at`; no satisfied/superseded/withdrawn/parked/expired states, no closed_at or close reason on the row (reason only in the launch.assessed audit detail)",
-  "producer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/owner_queue.py",
   "durable_state": "owner_actions (done flag); audit_log launch.assessed owner_actions_closed",
-  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "consumer": "adds the OwnerAction columns `state`, `state_at`, `state_reason` and `expires_at`. Supported states: open, satisfied, superseded, withdrawn, parked, expired, plus an honest `closed_unclassified` for a bare `done=True`. The audited `owner_queue.transition` handles moves. The CC `owner_action.defer` now parks the action. `sweep` expires rows (on the ops.health cadence). Ten producers now close with ",
   "protected_effect": "satisfied actions leave the active queue without deleting history",
   "tests": [
+   "tests/test_funding.py::test_the_action_is_closed_by_the_thing_working_rather_than_by_a_tick",
    "tests/test_launch.py::test_an_owner_action_whose_requirement_is_satisfied_closes_itself",
-   "tests/test_funding.py::test_the_action_is_closed_by_the_thing_working_rather_than_by_a_tick"
+   "tests/test_w3_k7_owner_queue.py::test_inbox_and_cc_carry_empty_state_and_defer_parks",
+   "tests/test_w3_k7_owner_queue.py::test_legacy_done_flag_is_closed_unclassified_not_satisfied",
+   "tests/test_w3_k7_owner_queue.py::test_lifecycle_states_and_history",
+   "tests/test_w3_k7_owner_queue.py::test_satisfied_leaves_active_queue_parked_listed_apart"
   ],
   "evidence": [
    "core/models.py:705 OwnerAction(done: bool)",
-   "launch.readiness physical_calibration owner_parked evidence (parked concept exists only in readiness evidence)"
+   "launch.readiness physical_calibration owner_parked evidence (parked concept exists only in readiness evidence)",
+   "w3 handoff_K7.md claim: | F-180 Owner action lifecycle | COMPLETE | `test_lifecycle_states_and_history`, `test_satisfied_leaves_active_queue_parked_listed_apart`, `test_legacy_done_flag_is_closed_unclassified_not_satisfied`, `test_inbox_and_cc_carry_empty_state_and_defer_parks` → adds the OwnerAction columns `state`, `stat"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN"
@@ -64,25 +71,27 @@
   "defect": null,
   "next_action": "Add state enum (open/satisfied/superseded/withdrawn/parked/expired), state_changed_at and state_reason columns to OwnerAction with a migration; have handle_launch_readiness/funding/growth_ops closers set the specific state; dashboard filters on state=open; test each transition",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-181",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (launch-critical list)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "executor cards are emitted for every closed gate including gates with empty requirement_ids (owned_surfaces, live_listings, customers, model_bearing_render, second_market_benchmark, image_generation/canonical_model when closed); legacy OwnerAction rows bind only by free-text `blocks`",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/build2/executor.py::approval_inbox",
   "durable_state": "executor GATES (code) + owner_actions",
   "consumer": "src/brambleloop/app/main.py::dashboard",
   "protected_effect": "each active action names the gate/requirements it unlocks",
   "tests": [
+   "tests/test_cert_dashboard.py::test_one_owner_surface_and_no_card_unblocks_nothing",
    "tests/test_executor.py::test_owner_blocked_requirements_are_parked_and_everything_else_continues"
   ],
   "evidence": [
    "executor.py:1443 loops all GATES, skips only open gates; unblocks_count may be 0",
-   "executor.py:708 owned_surfaces/live_listings/customers carry ()"
+   "executor.py:708 owned_surfaces/live_listings/customers carry ()",
+   "w3 lane K triage R: cards that unblock nothing are suppressed"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN"
@@ -92,10 +101,10 @@
    "key": "",
    "detail": ""
   },
-  "defect": "approval_inbox presents cards that unblock nothing (unblocks_count 0), including 'customers' which is not an owner action at all",
+  "defect": null,
   "next_action": "In executor.approval_inbox skip gates whose requirement_ids are empty and non-owner kinds (data/external per build2.closure), and add a test asserting every card has unblocks_count>0 and an owner-kind gate",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): cards that unblock nothing are suppressed"
  },
  {
   "uid": "F-182",
@@ -133,18 +142,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "spend-control truth on owner dashboard",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "headline distinguishes monthly model ceiling, reservations, purpose allocations, agent daily caps and scoped paid-media caps, but has no infra ceiling row, no research-approval (benchmark purchase) row and no explicit ad-authority status row; top grid still shows unlabelled 'Agent opex'",
-  "producer": "src/brambleloop/finance/spend_report.py::governance",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_policy.py",
   "durable_state": "cost_entries, spend_reservations, spend_limits",
-  "consumer": "src/brambleloop/app/main.py::_spend_governance_html",
+  "consumer": "`spend_report",
   "protected_effect": "owner never reads 'no spend limits' while ceilings bind",
   "tests": [
    "tests/test_cert_dashboard.py::test_dashboard_never_claims_no_spend_limits",
    "tests/test_spend_governance.py::test_no_configured_scope_is_not_evidence_that_the_ceilings_are_on"
   ],
   "evidence": [
-   "fcb982d main.py:4348 still prints 'No spend limits configured.' -- fix is post-production"
+   "fcb982d main.py:4348 still prints 'No spend limits configured.' -- fix is post-production",
+   "w3 handoff_SPEND.md claim: - **F-183, F-184, F-110**: `spend_policy.vocabulary / binding_ceiling / escalation`. These go through `spend_report.governance` to `app/main.py` spend controls."
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN",
@@ -158,24 +168,25 @@
   "defect": null,
   "next_action": "Add infra ceiling, benchmark/research approval (BENCHMARK_PURCHASES CA$300) and ad_authority gate state rows to _spend_governance_html; deploy",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-184",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "spend-control truth on owner dashboard",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "no 'binding ceiling' indicator and no explanation of how nested limits interact (month vs provider vs department vs agent vs purpose)",
-  "producer": "src/brambleloop/finance/spend_report.py::governance",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_policy.py",
   "durable_state": "cost_entries, spend_reservations",
-  "consumer": "src/brambleloop/app/main.py::_spend_governance_html",
+  "consumer": "`spend_report",
   "protected_effect": "agent cap cannot imply the company has no limit",
   "tests": [
    "tests/test_cert_dashboard.py::test_dashboard_never_claims_no_spend_limits"
   ],
   "evidence": [
-   "main.py:1664 renders controls side by side; no precedence/binding computation"
+   "main.py:1664 renders controls side by side; no precedence/binding computation",
+   "w3 handoff_SPEND.md claim: - **F-183, F-184, F-110**: `spend_policy.vocabulary / binding_ceiling / escalation`. These go through `spend_report.governance` to `app/main.py` spend controls."
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN"
@@ -188,26 +199,28 @@
   "defect": null,
   "next_action": "Add spend_report.binding_ceiling(db) returning the tightest remaining headroom across month/provider/department/agent/purpose and render it first in _spend_governance_html; test with seeded rows where each ceiling binds in turn",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-185",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (launch-critical list)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "the top-level dashboard card 'Dead letters' still shows the unsplit total; the split (dead_letter_refusals / dead_letter_defects) exists only in /api/status JSON",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/app/main.py::api_status",
   "durable_state": "jobs (status=DEAD)",
   "consumer": "src/brambleloop/app/main.py::dashboard",
   "protected_effect": "expected refusals are not read as defects",
   "tests": [
-   "tests/test_cert_dashboard.py::test_status_numbers_equal_sql",
-   "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql"
+   "tests/test_cert_dashboard.py::test_dashboard_cards_equal_sql",
+   "tests/test_cert_dashboard.py::test_refusal_only_dead_letters_render_zero_defects",
+   "tests/test_cert_dashboard.py::test_status_numbers_equal_sql"
   ],
   "evidence": [
    "main.py:4960 card shows st['dead_letters'] only",
-   "queue.durable.deliberate_refusal classifier (C-14)"
+   "queue.durable.deliberate_refusal classifier (C-14)",
+   "w3 lane K triage R: dashboard dead-letter split 'N expected / M defects'"
   ],
   "build2_rows": [],
   "gate": {
@@ -215,30 +228,32 @@
    "key": "",
    "detail": ""
   },
-  "defect": "dashboard headline 'Dead letters' card is the misleading unsplit number the requirement names; test_dashboard_cards_equal_sql asserts that unsplit total",
+  "defect": null,
   "next_action": "Render 'Dead letters: N expected / M defects' in app/main.py::dashboard from st['dead_letter_refusals'] and st['dead_letter_defects']; update test_dashboard_cards_equal_sql to assert both",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): dashboard dead-letter split 'N expected / M defects'"
  },
  {
   "uid": "F-186",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "gauge_standard criterion is hard-coded None (UNASSESSED) in dashboard_truth.launch_inventory, so launch-cleared is 0 by construction; the certificate now records gauge_standard (gates/certificate.py) and publish/eligibility.legacy_status checks it, but the dashboard does not read it; no canonical launch_cleared() in launch/readiness.py",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/app/dashboard_truth.py::launch_inventory",
   "durable_state": "pattern_versions, listing_assets (read)",
   "consumer": "src/brambleloop/app/main.py::dashboard headline; GET /api/headline",
   "protected_effect": "certified-but-not-launch-standard products never read as launch-ready inventory ('Launch-cleared / certified 0 / N')",
   "tests": [
-   "tests/test_cert_dashboard.py::test_a_certified_product_that_fails_launch_criteria_is_not_launch_cleared"
+   "tests/test_cert_dashboard.py::test_a_certified_product_that_fails_launch_criteria_is_not_launch_cleared",
+   "tests/test_fin_truth_closure.py::test_a_certified_launch0_product_with_the_current_gauge_standard_is_launch_cleared"
   ],
   "evidence": [
    "research/final_build/waves/fb1_E.json F-186 PARTIAL",
    "dashboard_truth.py:83-87 gauge_standard: None",
    "publish/eligibility.py::legacy_status uses cert.gauge_standard == GAUGE_STANDARD",
-   "module_reachability: app/dashboard_truth.py reached via GET /, in_production_fcb982d False"
+   "module_reachability: app/dashboard_truth.py reached via GET /, in_production_fcb982d False",
+   "w3 lane K triage R: launch_inventory reads the certificate gauge_standard stamp"
   ],
   "build2_rows": [],
   "gate": {
@@ -246,10 +261,10 @@
    "key": "none",
    "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "proxy-by-construction: the gauge criterion is never assessed, so clearance cannot become true even for a product that meets it",
+  "defect": null,
   "next_action": "Replace the gauge_standard None in dashboard_truth.launch_inventory with publish/eligibility.legacy_status(slug, stored certificate)['cleared'] (or a launch/readiness.launch_cleared that wraps it), and add a test where a Launch-0/recertified product with asset+survivor reads launch-cleared while a legacy uncertified one does not.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): launch_inventory reads the certificate gauge_standard stamp"
  },
  {
   "uid": "F-187",
@@ -279,7 +294,7 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (DEPLOYED follows the next owner-approved deploy).",
+  "next_action": "none — at target maturity for launch (DEPLOYED follows the next owner-approved deploy).",
   "confidence": "HIGH",
   "searched": null
  },
@@ -287,18 +302,21 @@
   "uid": "F-188",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
-  "maturity": "MISSING",
-  "coverage": "PARTIAL",
-  "missing_part": "neither audit_catalogue nor the dashboard Creative standard block / headline states which cohort or generator version is measured; legacy catalogue (products/builder.CATALOGUE) and tournament outputs are not separated",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/creative/audit.py::audit_catalogue",
   "durable_state": null,
   "consumer": "src/brambleloop/app/main.py::dashboard._creative; app/dashboard_truth.py::creative_survivors",
   "protected_effect": null,
-  "tests": [],
+  "tests": [
+   "tests/test_fin_truth_closure.py::test_the_creative_audit_names_its_cohort_and_the_tournament_is_separate"
+  ],
   "evidence": [
    "creative/audit.py:102-155 returns products_audited/survivors with no cohort/version key; Field opportunity string 'existing generated catalogue' is not exposed",
    "main.py:5016-5027 _creative renders no cohort label",
-   "no wave report claims F-188"
+   "no wave report claims F-188",
+   "w3 lane K triage R: creative audit names its cohort; tournament separate"
   ],
   "build2_rows": [],
   "gate": {
@@ -306,31 +324,34 @@
    "key": "none",
    "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "the creative metric measures only the legacy builder CATALOGUE yet is presented unlabeled as 'the current creative gate'",
+  "defect": null,
   "next_action": "Add cohort={'name':'legacy_builder_catalogue','generator':CHAIN_VERSION/builder version,'n':11} to audit_catalogue, a separate tournament-cohort reading from AuditLog creative.tournament/expedition rows, render both labelled rows in _creative and the headline why-text; test that legacy failures are not attributed to the tournament cohort.",
   "confidence": "HIGH",
-  "searched": "grep cohort/generator_version/legacy/tournament in creative/audit.py, app/main.py, app/dashboard_truth.py; fb1_E.json"
+  "searched": "grep cohort/generator_version/legacy/tournament in creative/audit.py, app/main.py, app/dashboard_truth.py; fb1_E.json | w4-FM re-map on fee1cfe (FOLD-R): creative audit names its cohort; tournament separate"
  },
  {
   "uid": "F-189",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "the dashboard shows UNMEASURED, but other runtime consumers still read the raw modelled 'probability' bound as a number: growth/weekly.py:171 (weekly growth reading), runtime/release.py:5803, finance/reinvestment.py:100",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/scale/confidence.py::probability (state/reported_probability/display)",
   "durable_state": null,
   "consumer": "src/brambleloop/app/main.py::dashboard _scale block; GET /api/scale",
   "protected_effect": "the CA$5K card displays 'UNMEASURED / insufficient commercial evidence' instead of 0.00",
   "tests": [
+   "tests/test_cert_dashboard.py::test_the_ca5k_card_reads_unmeasured_rather_than_zero",
+   "tests/test_fin_truth_closure.py::test_reinvestment_makes_no_recommendation_from_an_unmeasured_confidence",
+   "tests/test_fin_truth_closure.py::test_the_weekly_growth_reading_carries_unmeasured_not_the_modelled_bound",
    "tests/test_scale.py::test_a_sophisticated_system_that_has_sold_nothing_reports_unmeasured",
-   "tests/test_scale.py::test_the_gate_opening_is_what_finally_allows_a_high_number",
-   "tests/test_cert_dashboard.py::test_the_ca5k_card_reads_unmeasured_rather_than_zero"
+   "tests/test_scale.py::test_the_gate_opening_is_what_finally_allows_a_high_number"
   ],
   "evidence": [
    "research/final_build/waves/fb1_E.json F-189 DONE with remaining consumers",
    "confidence.py:412-461",
-   "fcb982d main.py lacks the UNMEASURED display: behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
+   "fcb982d main.py lacks the UNMEASURED display: behaviour added after fcb982d (not in production tree), so at most INTEGRATED",
+   "w3 lane K triage R: weekly/reinvestment/release read reported_probability (None when UNMEASURED)"
   ],
   "build2_rows": [],
   "gate": {
@@ -338,10 +359,10 @@
    "key": "none",
    "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "growth/weekly and release.py weekly reading still record the modelled bound under 'confidence' as a bare number",
+  "defect": null,
   "next_action": "Switch growth/weekly.py:171, runtime/release.py:5803 and finance/reinvestment.py:100 to reported_probability/state (None/UNMEASURED while the gate is unmet); add a test that the weekly growth reading carries UNMEASURED with zero commercial evidence.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): weekly/reinvestment/release read reported_probability (None when UNMEASURED)"
  },
  {
   "uid": "F-190",
@@ -490,19 +511,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (launch-critical list)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "last_seen and evidence-backed resolution exist, but no owning remediation/gate field and no explicit owner/source path for unreadable policy incidents; dashboard incident table shows no last-confirmed time",
-  "producer": "src/brambleloop/ops/incident_lifecycle.py::reconcile",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/incident_lifecycle.py",
   "durable_state": "incidents.detail.last_seen/resolution",
-  "consumer": "src/brambleloop/app/main.py::api_incidents",
+  "consumer": "`incident_lifecycle.actionability` adds last_confirmed, applicability (current, UNCONFIRMED after 48h, or resolved) and remediation owner and path. Policy incidents get an explicit owner path (`POST /api/policy/snapshot`). Unowned families are listed under `needs_owner_path`. Shown in `/api/incidents` (snapshot) and in the CC operations incidents",
   "protected_effect": null,
   "tests": [
    "tests/test_incident_lifecycle.py::test_a_condition_that_still_holds_is_restated_on_one_row",
    "tests/test_incident_lifecycle.py::test_reconcile_resolves_only_what_stopped_and_says_why",
-   "tests/test_incident_lifecycle.py::test_the_incidents_endpoint_serves_the_snapshot"
+   "tests/test_incident_lifecycle.py::test_the_incidents_endpoint_serves_the_snapshot",
+   "tests/test_w3_k7_ops_truth.py::test_incident_actionability_and_owner_path"
   ],
   "evidence": [
-   "ops/incident_lifecycle.py not in fcb982d"
+   "ops/incident_lifecycle.py not in fcb982d",
+   "w3 handoff_K7.md claim: | F-195 Incident freshness/actionability | COMPLETE | `test_incident_actionability_and_owner_path` → `incident_lifecycle.actionability` adds last_confirmed, applicability (current, UNCONFIRMED after 48h, or resolved) and remediation owner and path. Policy incidents get an explicit owner path (`POST "
   ],
   "build2_rows": [],
   "gate": {
@@ -513,7 +536,7 @@
   "defect": null,
   "next_action": "Add owner_gate/remediation keys on open_or_restate, surface last_seen and owner in the dashboard incident table, deploy",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-196",
@@ -545,7 +568,7 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch.",
+  "next_action": "none — at target maturity for launch.",
   "confidence": "HIGH",
   "searched": null
  },
@@ -554,18 +577,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "physical proof / owner authority honesty",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "readiness evidence names tester_roster as 'the other way through' and the owner is not asked to crochet, but the owner UI does not link to tester roster status",
-  "producer": "src/brambleloop/launch/readiness.py::assess",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/command_center/approvals.py",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "consumer": "the physical_proof card asks for tester outreach and never asks the owner to crochet. Its `tester_route.tester_status` reads roster status, which is shown in the CC approvals card and at `/api/cc/truth` (tester_roster)",
   "protected_effect": null,
   "tests": [
-   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample"
+   "tests/test_launch.py::test_the_owner_is_not_asked_to_crochet_the_calibration_sample",
+   "tests/test_w3_k7_owner_queue.py::test_physical_proof_offers_tester_route"
   ],
   "evidence": [
    "readiness.py PHYSICAL_SAMPLE_PARKED the_other_way_through",
-   "executor physical_proof gate wording (no owner hands)"
+   "executor physical_proof gate wording (no owner hands)",
+   "w3 handoff_K7.md claim: | F-197 Tester path in owner UI | COMPLETE | `test_physical_proof_offers_tester_route` → the physical_proof card asks for tester outreach and never asks the owner to crochet. Its `tester_route.tester_status` reads roster status, which is shown in the CC approvals card and at `/api/cc/truth` (tester_"
   ],
   "build2_rows": [
    "#64 OWNER-GATED",
@@ -579,7 +604,7 @@
   "defect": null,
   "next_action": "Render tester_roster gate status/link on the physical-proof card; wire when Final Master tester architecture lands",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-198",
@@ -612,18 +637,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "launch readiness truth",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "launch.readiness.assess recomputes every row from current DB state on each call/cadence (no stored ready flags), but product-level clearance against the newer creative/gauge standards is not one of its rows",
-  "producer": "src/brambleloop/launch/readiness.py::assess",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/assurance.py",
   "durable_state": "audit_log launch.assessed",
-  "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "consumer": "`assurance.readiness_reproof` re-proves the last `launch.assessed` verdict and the clearance of every product against the current launch standard. It is recorded daily as `launch.reproved` from the ops.health sweep",
   "protected_effect": null,
   "tests": [
+   "tests/test_launch.py::test_no_asset_is_blocked_is_not_true_of_no_assets",
    "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
-   "tests/test_launch.py::test_no_asset_is_blocked_is_not_true_of_no_assets"
+   "tests/test_w3_k7_ops_truth.py::test_readiness_reproof_fails_a_stale_ready_verdict"
   ],
   "evidence": [
-   "assess called live from dashboard and launch.readiness cadence"
+   "assess called live from dashboard and launch.readiness cadence",
+   "w3 handoff_K7.md claim: | F-199 Readiness current-evidence audit | COMPLETE | `test_readiness_reproof_fails_a_stale_ready_verdict` → `assurance.readiness_reproof` re-proves the last `launch.assessed` verdict and the clearance of every product against the current launch standard. It is recorded daily as `launch.reproved` fr"
   ],
   "build2_rows": [
    "#54 OWNER-GATED"
@@ -636,7 +663,7 @@
   "defect": null,
   "next_action": "Add a per-product launch-standard row (creative survivor + gauge + usable asset) to assess so legacy certified products are re-evaluated",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-200",
@@ -695,8 +722,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "deployment time is the container start time (worker_started_at, labelled 'container started'), not a platform deploy timestamp",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/app/main.py::api_verify (VERIFY_AUDIT_ACTION) + core/build.py::identity",
   "durable_state": "audit_logs action verify.completed",
   "consumer": "src/brambleloop/app/main.py::dashboard header",
@@ -707,7 +734,8 @@
   "evidence": [
    "research/final_build/waves/fb1_E.json F-202 PARTIAL",
    "main.py:5082-5098",
-   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
+   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED",
+   "w3 lane K triage R: header names commit, labelled container start and last clean verify"
   ],
   "build2_rows": [
    "#183 COMPLETE+PROVEN"
@@ -718,9 +746,9 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "Optionally record a deploy timestamp at boot from RAILWAY_DEPLOYMENT_ID/created-at env (or build-time stamp baked into core/build.identity) and render it beside 'container started'; test. Low priority \u2014 container start is an honest labelled proxy.",
+  "next_action": "Optionally record a deploy timestamp at boot from RAILWAY_DEPLOYMENT_ID/created-at env (or build-time stamp baked into core/build.identity) and render it beside 'container started'; test. Low priority — container start is an honest labelled proxy.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): header names commit, labelled container start and last clean verify"
  },
  {
   "uid": "F-203",
@@ -758,17 +786,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (launch-critical list)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "the readiness closer refuses to close anything when the assessment produced no requests (release.py 'if requests:'), but an empty dashboard owner block/inbox renders 'nothing is waiting on the owner' without proving assessment health",
-  "producer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/owner_queue.py",
   "durable_state": "owner_actions",
-  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "consumer": "`owner_queue.empty_guard` reports PROVEN-EMPTY only when there is a launch.assessed within 26h, the gates were read live, and nothing is withheld. Otherwise it reports UNPROVEN-EMPTY. `closes_anything=False`. The value is in `approval_inbox.empty_state` and the CC approvals inbox. The existing `if requests:` closer guard is unchanged",
   "protected_effect": "empty queue never closes rows by itself",
   "tests": [
-   "tests/test_launch.py::test_an_owner_action_whose_requirement_is_satisfied_closes_itself"
+   "tests/test_launch.py::test_an_owner_action_whose_requirement_is_satisfied_closes_itself",
+   "tests/test_w3_k7_owner_queue.py::test_empty_queue_proves_nothing_without_fresh_assessment"
   ],
   "evidence": [
-   "release.py:3147 guard; fcb982d release.py:1300 same guard"
+   "release.py:3147 guard; fcb982d release.py:1300 same guard",
+   "w3 handoff_K7.md claim: | F-204 Owner queue empty guard | COMPLETE | `test_empty_queue_proves_nothing_without_fresh_assessment` → `owner_queue.empty_guard` reports PROVEN-EMPTY only when there is a launch.assessed within 26h, the gates were read live, and nothing is withheld. Otherwise it reports UNPROVEN-EMPTY. `closes_an"
   ],
   "build2_rows": [
    "#196 COMPLETE+PROVEN"
@@ -781,7 +811,7 @@
   "defect": null,
   "next_action": "Make the empty-state text conditional on a fresh successful launch.assessed audit row and gate evaluation; add a test that an assessment returning no requests closes nothing",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K7']"
  },
  {
   "uid": "F-205",
@@ -812,7 +842,7 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (requirement is an acceptance test; it runs in the release-eligible suite against the live GET / route).",
+  "next_action": "none — at target maturity for launch (requirement is an acceptance test; it runs in the release-eligible suite against the live GET / route).",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -826,7 +856,7 @@
   "producer": "src/brambleloop/app/dashboard_truth.py::headline",
   "durable_state": null,
   "consumer": "src/brambleloop/app/main.py::dashboard; GET /api/headline",
-  "protected_effect": "headline leads with launch-cleared/certified, creative survivors, benchmark status and evidenced sales; volume counts moved under 'Volume and operations \u2014 not business readiness'",
+  "protected_effect": "headline leads with launch-cleared/certified, creative survivors, benchmark status and evidenced sales; volume counts moved under 'Volume and operations — not business readiness'",
   "tests": [
    "tests/test_cert_dashboard.py::test_the_headline_leads_with_commercial_truth_and_demotes_volume"
   ],
@@ -841,7 +871,7 @@
    "detail": "no external/owner/data gate on the remaining software step"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (launch-cleared accuracy depends on F-186 gauge wiring).",
+  "next_action": "none — at target maturity for launch (launch-cleared accuracy depends on F-186 gauge wiring).",
   "confidence": "HIGH",
   "searched": null
  },
@@ -876,7 +906,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -907,7 +937,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -941,7 +971,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -973,7 +1003,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1006,7 +1036,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1015,20 +1045,24 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful Visual representation of any model-bearing listing",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "reference images are passed as reference_urls and recorded in conditioned_on, and gateway.images.reference_probe proves a provider accepts a reference; but no per-request proof that the provider adapter actually transmitted the reference bytes (probe treats 'no exception' as proof and is only used by image_bench, not model_photography)",
-  "producer": "src/brambleloop/gateway/images.py::reference_probe",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/images.py",
   "durable_state": "audit_log image.reference_probe",
-  "consumer": "src/brambleloop/gateway/image_bench.py",
+  "consumer": "`reference_probe`, by the `image_bench` handler, and by the `visual.provider_trial` handler.",
   "protected_effect": null,
   "tests": [
-   "tests/test_model_photography.py::test_the_frame_is_conditioned_on_the_frozen_pack_rather_than_described",
+   "tests/test_cert_identity.py::test_gate_does_not_pass_a_model_frame_that_carries_no_hashes_at_all",
    "tests/test_image_bench.py::test_reference_conditioning_is_proven_for_two_images_before_thirty_are_spent",
-   "tests/test_cert_identity.py::test_gate_does_not_pass_a_model_frame_that_carries_no_hashes_at_all"
+   "tests/test_model_photography.py::test_the_frame_is_conditioned_on_the_frozen_pack_rather_than_described",
+   "tests/test_w3_k12_model_photography.py::test_f212_generate_attaches_receipt_and_refuses_unprovable_conditioning",
+   "tests/test_w3_k12_model_photography.py::test_f212_receipt_proves_reference_bytes_are_in_the_request_body",
+   "tests/test_w3_k12_model_photography.py::test_f212_reference_proven_needs_a_receipt"
   ],
   "evidence": [
    "C-23: model frames need conditioned_on hashes",
-   "images._request_for builds provider payload"
+   "images._request_for builds provider payload",
+   "w3 handoff_K12.md claim: | **F-212** Reference conditioning proven end-to-end | **COMPLETE** | `gateway.images.conditioning_receipt` reads the exact request body that `_post` sends. It records each reference's sha256 and whether its bytes are in the body (base64 inline for google/bfl, the raw multipart upload for openai). `"
   ],
   "build2_rows": [
    "#200 COMPLETE+PROVEN"
@@ -1041,7 +1075,7 @@
   "defect": null,
   "next_action": "Record, per generate() call, the provider-adapter request evidence (reference byte hashes actually encoded into the multipart/inline payload) and require it in model_photography.make's conditioned_on; call images.reference_proven before model renders",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['K12']"
  },
  {
   "uid": "F-213",
@@ -1111,8 +1145,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful Visual representation of any model-bearing listing",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "no garment-fit/sizing score exists to gate; the rule holds only structurally (a model frame is unusable unless whole_person_morphology passes)",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/publish/model_photography.py::make",
   "durable_state": null,
   "consumer": "src/brambleloop/visual/parity.py::assess",
@@ -1121,7 +1155,8 @@
    "tests/test_model_photography.py::test_a_drifted_face_and_a_drifted_body_each_block_on_their_own"
   ],
   "evidence": [
-   "identity.drift_check docstring: garment fit cannot be compared if the body changes"
+   "identity.drift_check docstring: garment fit cannot be compared if the body changes",
+   "w3 lane K triage R: structural only: a model frame is unusable unless whole-person morphology passes"
   ],
   "build2_rows": [
    "#201 COMPLETE+PROVEN"
@@ -1134,7 +1169,7 @@
   "defect": null,
   "next_action": "When a fit score is introduced, require morphology==pass as its precondition in code and test it",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): structural only: a model frame is unusable unless whole-person morphology passes"
  },
  {
   "uid": "F-216",
@@ -1161,7 +1196,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1281,7 +1316,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1378,7 +1413,7 @@
    "detail": "product-only imagery: no provider renders a certified stitch structure (research/VISUAL_V1_GRADUATION.md: 0 of 16 certified); Visual V2 R&D (035ff0c) not integrated"
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1540,7 +1575,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1573,7 +1608,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1605,7 +1640,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1669,7 +1704,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch (current-policy re-fetch stays with #35 / rendered_pages)",
+  "next_action": "none — at target maturity for launch (current-policy re-fetch stays with #35 / rendered_pages)",
   "confidence": "MEDIUM",
   "searched": null
  },
@@ -1732,7 +1767,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -1741,16 +1776,18 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "CostEntry.purpose is a free-form task key; no closed development/benchmark/one-time-creation/listing/recurring/support/ads taxonomy and no separation of one-time build burn from steady-state cost in any report",
-  "producer": "src/brambleloop/finance/spend_report.py::record",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/economics.py",
   "durable_state": "cost_entries.purpose",
-  "consumer": "src/brambleloop/finance/spend_report.py::what_it_bought",
+  "consumer": "runtime consumer per reachability: by_class is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/moat.py:inventory -> brand/moat.py:evidence -> brand/moat.py:measure_recognisability -> visual/inspe",
   "protected_effect": null,
   "tests": [
    "tests/test_spend_policy.py::test_the_report_answers_by_every_dimension"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_SPEND.md claim: - **F-303, F-320**: `finance/economics`, `unit_cost`."
+  ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN",
    "#31 DATA-GATED"
@@ -1763,7 +1800,7 @@
   "defect": null,
   "next_action": "Add an economic_class column (closed enum) set in spend_report.record from a purpose->class map, and report one-time vs recurring separately in what_it_bought and the dashboard",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-304",
@@ -1803,17 +1840,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "attributed + unattributed reconciles to the internal ledger, not to provider-observed spend; no tolerance-based incident on unattributed spend",
-  "producer": "src/brambleloop/finance/governor.py::attribution",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_hygiene.py",
   "durable_state": "cost_entries",
-  "consumer": "src/brambleloop/app/main.py::api_governor",
+  "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty",
   "protected_effect": null,
   "tests": [
    "tests/test_governor.py::test_every_dollar_is_attributed_or_named_unattributed",
    "tests/test_governor.py::test_spend_with_no_key_in_a_dimension_is_unattributed_rather_than_dropped"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_SPEND.md claim: - **F-305, F-308, F-315, F-326**: `spend_hygiene.sweep` covers the unattributed tolerance, retry storm, oversized input, hourly spike and repeat paid request. It runs in the governor pass."
+  ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN"
   ],
@@ -1825,27 +1864,28 @@
   "defect": null,
   "next_action": "In governor.enforce open an incident when unattributed share exceeds a named tolerance; reconcile the total against provider observations once F-301 lands",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-306",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "dedup is per path (vision per-image judged markers, image_bench trial fingerprints, model frame reuse, reference verdict keyed by content hash, photoreal calibration by CHECKS_VERSION); the general content-fingerprint cache gateway/routing.cached_analysis/remember_analysis has no runtime caller",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/intel/vision.py::_mark_judged",
   "durable_state": "benchmark_listings.detail gallery_ranks_judged; audit_log fingerprints",
   "consumer": "src/brambleloop/intel/vision.py::pending",
   "protected_effect": "a judged image is never paid for again",
   "tests": [
-   "tests/test_intel.py::test_a_judged_image_is_never_offered_again",
    "tests/test_image_bench.py::test_a_candidate_measured_under_this_rubric_is_not_paid_for_twice",
-   "tests/test_model_photography.py::test_a_kept_frame_does_not_bill_twice",
-   "tests/test_model_access.py::test_unchanged_evidence_is_never_paid_for_twice"
+   "tests/test_intel.py::test_a_judged_image_is_never_offered_again",
+   "tests/test_model_access.py::test_unchanged_evidence_is_never_paid_for_twice",
+   "tests/test_model_photography.py::test_a_kept_frame_does_not_bill_twice"
   ],
   "evidence": [
-   "BUILD_STATE B-647 observed in production: backlog fell exactly by unique judged"
+   "BUILD_STATE B-647 observed in production: backlog fell exactly by unique judged",
+   "w3 handoff_SPEND.md claim: - **F-306**: the content-keyed cache plus the repeated-request detector. This holds for the laura phrase and `cached_analysis` paths only."
   ],
   "build2_rows": [
    "#225 COMPLETE+PROVEN"
@@ -1855,28 +1895,31 @@
    "key": "",
    "detail": ""
   },
-  "defect": "routing.cached_analysis/remember_analysis (the #225 cache) is called only by tests/test_model_access.py -- no runtime path uses it",
+  "defect": null,
   "next_action": "Wire routing.cached_analysis/remember_analysis into gateway ModelGateway.complete_json for analysis tasks (or delete it and re-state #225), and add a test that a repeated identical request is not billed",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-307",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "jobs are DB-unique on idempotency_key and budgets are reserved before calls, but reservation, provider call and durable completion are not linked: a worker dying after the provider call and before completion re-runs the paid call on lease reclaim",
-  "producer": "src/brambleloop/queue/durable.py::JobQueue.enqueue",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/gateway/paid_calls.py",
   "durable_state": "jobs.idempotency_key; spend_reservations",
-  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "consumer": "the worker's `spend_report.attributed_to` opens the job scope.",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_orchestration.py::test_stale_complete_and_fail_are_refused_and_new_holder_result_survives",
    "tests/test_model_photography.py::test_a_release_with_a_usable_frame_is_not_rendered_again",
-   "tests/test_provider_trial.py::test_a_completed_trial_does_stop_it_being_re_bought"
+   "tests/test_provider_trial.py::test_a_completed_trial_does_stop_it_being_re_bought",
+   "tests/test_w3_spend_paid_calls.py::test_a_budget_refusal_survives_the_callers_rollback"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_SPEND.md claim: | F-307 / F-339: a paid model or image call is never repeated when a job lease is reclaimed | COMPLETE | `gateway/paid_calls.py` is a write-ahead intent keyed by (effect, job, request sha256, occurrence). It claims through `queue.effects.claim` (interface only, no queue/** edit). It is guarded at th"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -1886,26 +1929,27 @@
   "defect": null,
   "next_action": "Persist a paid-operation key (job id + evidence version) on the reservation and check for a settled reservation/stored result before re-executing on retry",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-308",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "max_attempts bounded, PermanentError (auth/funding/config/content refusal) fails terminally, funding.blocked stops spending; no retry-storm detector raises a financial-integrity incident",
-  "producer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_hygiene.py",
   "durable_state": "jobs",
-  "consumer": "src/brambleloop/queue/durable.py::JobQueue.fail",
+  "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty",
   "protected_effect": null,
   "tests": [
-   "tests/test_gateway.py::test_a_bad_provider_is_retried_then_abandoned_not_looped_on",
    "tests/test_funding.py::test_a_spent_balance_stops_the_spending_it_cannot_check",
+   "tests/test_gateway.py::test_a_bad_provider_is_retried_then_abandoned_not_looped_on",
    "tests/test_provider_trial.py::test_a_spent_provider_balance_is_a_refusal_rather_than_a_dead_letter"
   ],
   "evidence": [
-   "C-51 terminal PermanentError is post-fcb982d (fcb982d worker has no retry=not isinstance(PermanentError))"
+   "C-51 terminal PermanentError is post-fcb982d (fcb982d worker has no retry=not isinstance(PermanentError))",
+   "w3 handoff_SPEND.md claim: - **F-305, F-308, F-315, F-326**: `spend_hygiene.sweep` covers the unattributed tolerance, retry storm, oversized input, hourly spike and repeat paid request. It runs in the governor pass."
   ],
   "build2_rows": [],
   "gate": {
@@ -1916,7 +1960,7 @@
   "defect": null,
   "next_action": "Add a retry-storm check (paid job attempts per hour per type above a bound) in swarm.orchestrate.thrash_sweep that opens a financial-integrity incident; deploy",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-309",
@@ -2034,7 +2078,7 @@
  {
   "uid": "F-313",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "P0 addendum: provider cost truth \u2014 quality-first routing",
+  "launch_class_reason": "P0 addendum: provider cost truth — quality-first routing",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
   "missing_part": "routing is a static task->tier table; no per-task quality-floor evidence per model drives or authorises a cheaper route; spend_policy.may_downgrade_for_cost has no runtime caller",
@@ -2099,16 +2143,18 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "input tokens are measured per call (cost_entries.tokens_in); nothing controls or alerts on context size or repeated large unchanged inputs",
-  "producer": "src/brambleloop/finance/spend_report.py::record",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_hygiene.py",
   "durable_state": "cost_entries.tokens_in",
-  "consumer": null,
+  "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty",
   "protected_effect": null,
   "tests": [
    "tests/test_gateway.py::test_a_call_priced_at_zero_still_leaves_the_tokens_it_spent"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_SPEND.md claim: - **F-305, F-308, F-315, F-326**: `spend_hygiene.sweep` covers the unattributed tolerance, retry storm, oversized input, hourly spike and repeat paid request. It runs in the governor pass."
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
@@ -2118,7 +2164,7 @@
   "defect": null,
   "next_action": "Add per-task max_input_tokens to routing.TASKS enforced in check_budget, and a governor reading of tokens_in per purpose trend",
   "confidence": "MEDIUM",
-  "searched": "grep context size / max_input in gateway, finance"
+  "searched": "grep context size / max_input in gateway, finance | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-316",
@@ -2245,16 +2291,18 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "spend_by('product') totals attributed spend per product_slug; no per-stage breakdown (concept, engineering, certification, imagery, listing, judging), no provider/model breakdown per product and no sunk-infrastructure separation",
-  "producer": "src/brambleloop/finance/governor.py::spend_by",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/economics.py",
   "durable_state": "cost_entries.product_slug",
-  "consumer": "src/brambleloop/app/main.py::api_governor",
+  "consumer": "runtime consumer per reachability: by_class is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/moat.py:inventory -> brand/moat.py:evidence -> brand/moat.py:measure_recognisability -> visual/inspe",
   "protected_effect": null,
   "tests": [
    "tests/test_governor.py::test_all_five_dimensions_the_requirement_names_are_reconciled"
   ],
-  "evidence": [],
+  "evidence": [
+   "w3 handoff_SPEND.md claim: - **F-303, F-320**: `finance/economics`, `unit_cost`."
+  ],
   "build2_rows": [
    "#31 DATA-GATED"
   ],
@@ -2266,12 +2314,12 @@
   "defect": null,
   "next_action": "Add finance.unit_cost.product_creation_cost(db, slug) grouping cost_entries by stage (purpose->stage map) and provider/model, excluding sunk infra, and show it per product",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-321",
   "launch_class": "LAUNCH-CRITICAL",
-  "launch_class_reason": "P0 addendum: provider cost truth \u2014 per-listing maintenance cost",
+  "launch_class_reason": "P0 addendum: provider cost truth — per-listing maintenance cost",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
   "missing_part": "no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it ''), so maintenance cost can never be attributed to a listing in production; reads UNMEASURED while nothing is live",
@@ -2361,19 +2409,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "P0 addendum: pricing/economics integrity (break-even)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "creation cost is never measurable in production because no spend writer tags product_slug; a priced product with 0 tagged creation cost reports break_even_sales 0 and recovered=True",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/finance/sustainability.py::break_even",
   "durable_state": "cost_entries, listings, orders (read)",
   "consumer": "src/brambleloop/launch/readiness.py::assess (sustainable_economics evidence.break_even)",
   "protected_effect": "per-product sales required to recover one-time creation spend, separate from recurring maintenance",
   "tests": [
+   "tests/test_fin_truth_closure.py::test_break_even_with_no_tagged_creation_cost_is_unknown_not_zero",
    "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost"
   ],
   "evidence": [
    "research/final_build/waves/fb1_D.json F-324 DONE",
    "sustainability.py:163-215: n = ceil(creation/per_sale) if creation > 0 else 0",
-   "launch.readiness daily cadence; not in fcb982d"
+   "launch.readiness daily cadence; not in fcb982d",
+   "w3 lane K triage R: break_even UNKNOWN (None) with no tagged creation cost"
   ],
   "build2_rows": [],
   "gate": {
@@ -2381,10 +2431,10 @@
    "key": "none",
    "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "zero (untagged) creation cost is reported as break_even_sales 0 / recovered True \u2014 a quantitative claim from missing data",
+  "defect": null,
   "next_action": "In break_even, return break_even_sales None with 'creation cost UNMEASURED (no product-tagged spend)' when creation == 0, and fix the slug tagging gap (see F-321); test the untagged case.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): break_even UNKNOWN (None) with no tagged creation cost"
  },
  {
   "uid": "F-325",
@@ -2422,18 +2472,19 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "per-agent and company daily spike detection with baseline floors pauses the agent and opens an incident; no hourly detection and no detectors for repeated identical purposes, unexpected expensive-model routing, backlog loops or provider/internal divergence",
-  "producer": "src/brambleloop/finance/governor.py::enforce",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/spend_hygiene.py",
   "durable_state": "incidents spend-anomaly:*; spend_reservations governor holds",
-  "consumer": "src/brambleloop/runtime/release.py::handle_finance_governor",
+  "consumer": "runtime consumer per reachability: provider_discrepancy is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance -> finance/spend_report.py:_honesty",
   "protected_effect": "a spiking agent is refused at dispatch for the rest of the UTC day",
   "tests": [
    "tests/test_governor.py::test_a_baseline_makes_a_spike_sayable",
    "tests/test_governor.py::test_a_first_observation_is_not_a_spike"
   ],
   "evidence": [
-   "enforce/_pause_agent absent from fcb982d governor.py"
+   "enforce/_pause_agent absent from fcb982d governor.py",
+   "w3 handoff_SPEND.md claim: - **F-305, F-308, F-315, F-326**: `spend_hygiene.sweep` covers the unattributed tolerance, retry storm, oversized input, hourly spike and repeat paid request. It runs in the governor pass."
   ],
   "build2_rows": [
    "#188 COMPLETE+PROVEN"
@@ -2446,7 +2497,7 @@
   "defect": null,
   "next_action": "Add model-tier, purpose-repetition and provider-divergence detectors to governor.enforce; deploy",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD): claims ['SPEND']"
  },
  {
   "uid": "F-327",
@@ -2477,7 +2528,7 @@
    "detail": ""
   },
   "defect": null,
-  "next_action": "none \u2014 at target maturity for launch",
+  "next_action": "none — at target maturity for launch",
   "confidence": "HIGH",
   "searched": null
  },
@@ -2521,14 +2572,16 @@
   "consumer": "src/brambleloop/launch/readiness.py::assess (Requirement sustainable_economics, blocked_by build)",
   "protected_effect": "launch is blocked unless the base case nets positive with AI/API <= 50% of contribution; low-case owner top-up flagged",
   "tests": [
+   "tests/test_fin_truth_closure.py::test_with_runtime_attribution_the_forecast_becomes_computable",
+   "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people",
    "tests/test_money_truth.py::test_launch_readiness_carries_the_sustainable_economics_requirement",
-   "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost",
-   "tests/test_launch.py::test_a_company_that_has_done_its_half_is_only_blocked_on_people"
+   "tests/test_money_truth.py::test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost"
   ],
   "evidence": [
    "research/final_build/waves/fb1_D.json F-329 DONE",
    "readiness.py:795-822",
-   "launch.readiness daily cadence and dashboard; not in fcb982d"
+   "launch.readiness daily cadence and dashboard; not in fcb982d",
+   "w3 lane K triage R: sustainability verdict computable once product-tagged spend exists (runtime attribution)"
   ],
   "build2_rows": [],
   "gate": {
@@ -2536,10 +2589,10 @@
    "key": "none",
    "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "fail-closed but currently un-passable: because no runtime spend writer tags product_slug, the forecast stays INSUFFICIENT_DATA ('no AI/API spend is tagged to a product') and this gate blocks launch indefinitely",
+  "defect": null,
   "next_action": "Fix product_slug tagging in spend writers (F-321) so the gate can be passed on real data; add a test that a product pipeline run produces slug-tagged creation cost and the forecast leaves INSUFFICIENT_DATA.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM re-map on fee1cfe (FOLD-R): sustainability verdict computable once product-tagged spend exists (runtime attribution)"
  },
  {
   "uid": "F-330",

@@ -171,11 +171,17 @@ def _default_test_file(text: str) -> str | None:
 
 def parse() -> dict[str, list[dict]]:
     claims: dict[str, list[dict]] = {}
+    last: dict[str, list[str]] = {}
 
-    def add(uid, lane, status, text, dflt):
+    def add(uid, lane, status, text, dflt, cell=None):
         tests = resolve_tests(text, dflt)
+        if not tests and re.search(r"\bsame\b", text, re.I):
+            tests = list(last.get(lane, []))  # "same test" / "same review test": the row above
+        if tests:
+            last[lane] = tests
         claims.setdefault(uid, []).append({
             "uid": uid, "lane": lane, "status": status, "text": text.strip()[:1200],
+            "status_cell": (cell or status).strip(),
             "tests": tests, "modules": resolve_modules(text, test_imports(tests)),
             "test_imports": sorted(test_imports(tests))})
 
@@ -204,7 +210,7 @@ def parse() -> dict[str, list[dict]]:
             if st is None:
                 continue
             for u in ids:
-                add(u, lane, st, line, dflt)
+                add(u, lane, st, line, dflt, cells[1])
     return claims
 
 
