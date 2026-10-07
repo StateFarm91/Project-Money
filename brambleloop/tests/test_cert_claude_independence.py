@@ -312,6 +312,8 @@ def test_production_start_command_runs_kills_and_resumes_without_this_session():
             _kill(b)
 
         after = {j.id: j for j in _jobs(db)}
+        assert before, "boot A left no jobs: the identity checks below would be vacuous"
+        assert cadence_keys_a, "boot A scheduled no cadence windows to check for duplicates"
         # Nothing lost: every job boot A knew about still exists with its identity intact.
         for jid, (jt, key, inputs) in before.items():
             assert jid in after, f"job {jid} ({jt}) vanished across the restart"

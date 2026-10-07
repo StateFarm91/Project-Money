@@ -220,14 +220,7 @@ def key(f: tuple[str, int, str, str]) -> tuple[str, str, str]:
     return (f[3], f[0], f[2])
 
 
-BASELINE: set[tuple[str, str, str]] = {
-    ('test_cert_claude_independence.py', 'test_production_start_command_runs_kills_and_resumes_without_this_session', 'before.items()'),
-    ('test_cert_claude_independence.py', 'test_production_start_command_runs_kills_and_resumes_without_this_session', 'cadence_keys_a'),
-    ('test_launch.py', 'test_nothing_blocked_on_build_is_ever_sent_to_the_owner', 'readiness.buildable'),
-    ('test_launch.py', 'test_the_owner_queue_carries_everything_the_directive_asks_for', "assess(db, phase='shadow').owner_requests()"),
-    ('test_product_run.py', 'test_the_detected_repeat_is_the_real_one_not_a_convenient_one', 'enumerate(grid)'),
-    ('test_product_run.py', 'test_the_detected_repeat_is_the_real_one_not_a_convenient_one', 'enumerate(row)'),
-}
+BASELINE: set[tuple[str, str, str]] = set()  # W4-FM2: emptied (every loop guarded)
 
 
 # --- the gate --------------------------------------------------------------------------------------

@@ -382,7 +382,9 @@ def test_a_blocked_asset_stops_the_launch_and_is_not_an_owner_problem():
 def test_the_owner_queue_carries_everything_the_directive_asks_for():
     db = _db()
     _stock(db)
-    for request in assess(db, phase="shadow").owner_requests():
+    requests = assess(db, phase="shadow").owner_requests()
+    assert requests, "a stocked shadow shop must carry owner requests to check"
+    for request in requests:
         assert request.action.strip()
         assert request.reason.strip()
         assert request.minutes > 0, request.action
@@ -394,6 +396,7 @@ def test_the_owner_queue_carries_everything_the_directive_asks_for():
 def test_nothing_blocked_on_build_is_ever_sent_to_the_owner():
     db = _db()
     readiness = assess(db, phase="shadow")
+    assert readiness.buildable, "nothing buildable: the check below would pass vacuously"
     for r in readiness.buildable:
         assert r.owner_request is None, r.key
 

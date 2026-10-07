@@ -366,6 +366,7 @@ def test_the_detected_repeat_is_the_real_one_not_a_convenient_one():
     twin = build_twin(cir, compile_cir(cir))
     grid, colour_grid = twin.chart_grid(), twin.color_grid()
     cols, rows = detect_repeat(grid, colour_grid)
+    assert grid and all(row for row in grid), "an empty chart grid proves no repeat"
     for i, row in enumerate(grid):
         for j, cell in enumerate(row):
             assert cell == grid[i % rows][j % cols], f"repeat lies at row {i}, column {j}"

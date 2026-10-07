@@ -241,20 +241,21 @@ ROWS = {
         tests=["tests/test_final_proof.py::test_disabling_the_consumer_reopens_the_proof"]),
     "F-123": dict(
         refresh=True,
-        checked="W4-FM2: the BASELINE shrank 109 -> 6 (a runtime non-emptiness guard on every "
-                "grandfathered loop in 50 test files, each file run green; per-item inner loops "
-                "guarded on their union) and the values/items/keys root-stripping note is "
-                "resolved (_iter_roots strips only the view method of a call; regression case "
-                "test_a_variable_named_like_a_view_is_still_a_root)",
-        set=dict(coverage="PARTIAL", defect=None,
-                 missing_part="6 BASELINE loops remain: test_launch (2) and test_product_run (2) "
-                              "need their slow suites re-run with the guard, test_cert_claude_"
-                              "independence (2) stalls under shared-container load before its loop",
-                 next_action="guard the 6 remaining loops and run those three suites on a quiet "
-                             "machine; then BASELINE is empty and the row needs the integrator's "
-                             "TESTED-target override (tooling producer)"),
+        checked="W4-FM2: the BASELINE is empty (109 -> 6 -> 0): every grandfathered loop carries a "
+                "runtime non-emptiness guard (last six in test_launch, test_product_run, "
+                "test_cert_claude_independence; the edited test_launch and test_product_run tests run green "
+                "one by one; the independence test stalls past 15 min under shared-container load, "
+                "and its two guards are implied by its earlier assertions: done_a is non-empty and "
+                "every CADENCES type is scheduled under a cadence: key) and the values/items/keys "
+                "root-stripping note is resolved (_iter_roots strips only the view method of a "
+                "call; regression case test_a_variable_named_like_a_view_is_still_a_root)",
+        set=dict(coverage="FULL", defect=None, missing_part=None,
+                 next_action="integrator: accept the TESTED completion target in "
+                             "w4/OVERRIDES_PROPOSED_FM2.json (producer tests/test_vacuity.py is "
+                             "operator tooling; INTEGRATED is unreachable by construction)"),
         tests=["tests/test_vacuity.py::test_a_variable_named_like_a_view_is_still_a_root",
-               "tests/test_vacuity.py::test_the_baseline_only_shrinks"]),
+               "tests/test_vacuity.py::test_the_baseline_only_shrinks",
+               "tests/test_vacuity.py::test_no_new_vacuous_risk_loop_anywhere_in_the_suite"]),
 }
 
 
