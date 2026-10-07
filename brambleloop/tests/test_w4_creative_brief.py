@@ -83,10 +83,66 @@ def test_title_imagery_conflicts_are_held_and_still_fail():
     report = audit.audit_catalogue()
     held = report["briefs"]["held"]
     assert set(held) == set(EB.HELD), held
-    for key in held:
+    for key in held:  # vacuity-ok: HELD is empty once every product's title is truthful
         assert report["decisions"][key] == jury.REJECTED
     assert EB.title_conflicts("Autumn Oak Overlay Mosaic Throw", "fir-and-star") == ["oak"]
     assert EB.title_conflicts("Heart Motif Garland", "heart-row") == []
+    # The mechanism, not just the current (empty) list: a briefed design whose title regains
+    # imagery its motif does not depict is held by validation and judged as bare output.
+    from brambleloop.creative.jury import Context, judge
+    regressed = replace(CATALOGUE["autumn-oak-mosaic-throw"],
+                        title="Autumn Oak Overlay Mosaic Throw")
+    concept, state = audit.briefed_concept(regressed)
+    assert state["state"] == "held", state
+    assert any("oak" in p for p in state["problems"]), state
+    assert concept.function == "" and judge(concept, Context()).decision == jury.REJECTED
+
+
+# W4-CREATIVE2: the five products held for Product Truth until W4-PIPE/PIPE3 retitled them.
+FORMERLY_HELD = ("winter-village-graphghan", "autumn-oak-mosaic-throw", "nordic-star-ornaments",
+                 "pressed-flower-motifs", "cottage-wall-hanging")
+
+
+def test_every_hold_is_live():
+    """A hold is self-checking: an entry whose product no longer has a live title/motif
+    conflict is stale and fails CI, so a truthful product is never silently kept out."""
+    for slug in EB.HELD:  # vacuity-ok: an empty HELD has no stale entry by definition
+        design = CATALOGUE.get(slug)
+        assert design is not None, f"HELD names {slug!r}, which is not in the catalogue"
+        assert EB.title_conflicts(design.title, design.motif), (
+            f"stale hold: {slug!r} title {design.title!r} no longer conflicts with its "
+            f"{design.motif!r} motif; remove it from HELD and write its brief")
+    assert EB.stale_holds() == []
+    # The detector itself fires on a stale entry and on an unknown slug (fixture, restored).
+    saved = dict(EB.HELD)
+    try:
+        EB.HELD["cottage-wall-hanging"] = {"conflict": "fixture", "proposed_title": "x"}
+        EB.HELD["no-such-product"] = {"conflict": "fixture", "proposed_title": "x"}
+        assert EB.stale_holds() == ["cottage-wall-hanging", "no-such-product"]
+    finally:
+        EB.HELD.clear()
+        EB.HELD.update(saved)
+
+
+def test_retitled_products_are_briefed_truthfully():
+    report = audit.audit_catalogue()
+    assert len(FORMERLY_HELD) == 5
+    for slug in FORMERLY_HELD:
+        design = CATALOGUE[slug]
+        assert slug not in EB.HELD
+        assert EB.title_conflicts(design.title, design.motif) == [], design.title
+        brief = EB.CATALOGUE_BRIEFS[slug]
+        assert EB.validate(brief, motif=design.motif, title=design.title,
+                           declared=EB.declared_by_slug(slug)) == [], slug
+        assert report["briefs"]["states"][slug]["state"] == "briefed"
+        assert report["decisions"][slug] == jury.NEEDS_TASTE  # never APPROVED without eyes
+    # The validator still refuses a story the fabric cannot carry: the ornaments' snowfall
+    # motif depicts no tree, so a premise promising one is Product-Truth refused.
+    orn = EB.CATALOGUE_BRIEFS["nordic-star-ornaments"]
+    bad = replace(orn, premise="Six small ornaments each carry raised snowfall flakes and a "
+                               "tiny tree in forest and cream rows.")
+    d = CATALOGUE["nordic-star-ornaments"]
+    assert any("tree" in p for p in EB.validate(bad, motif=d.motif, title=d.title))
 
 
 def test_validator_refuses_dishonest_or_default_briefs():
