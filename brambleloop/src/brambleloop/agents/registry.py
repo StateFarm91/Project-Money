@@ -724,7 +724,8 @@ class SpendGuard:
 for _agent in DEFAULT_AGENTS:
     if _agent["name"] == "orchestrator":
         _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + [
-            "etsy.credential_health", "etsy.shop_snapshot", "etsy.listing_census"]
+            "etsy.credential_health", "etsy.shop_snapshot", "etsy.listing_census",
+            "store.live_drift"]
     elif _agent["name"] == "store_operator":
         _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + ["store.activate"]
 for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):

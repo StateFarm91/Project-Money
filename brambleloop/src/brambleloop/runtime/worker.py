@@ -699,6 +699,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # compared with what we created, field drift and suspected takedowns as incidents.
     ("etsy_credential_health", "orchestrator", "etsy.credential_health", 24 * 60 * 60),
     ("etsy_shop_snapshot", "orchestrator", "etsy.shop_snapshot", 24 * 60 * 60),
+    # W4-STORE: read the stored live snapshot back against the canonical brand/owner fields;
+    # drift becomes incidents and proposals, never an Etsy write.
+    ("store_live_drift", "orchestrator", "store.live_drift", 86400),
     ("etsy_listing_census", "orchestrator", "etsy.listing_census", 24 * 60 * 60),
     # v1.1 lane A (PRIORITY ZERO, F-893/F-894): the Executive Orchestrator. Every fifteen
     # minutes it reads every department, reconciles the missions it created, and gives each

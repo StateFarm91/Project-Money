@@ -535,7 +535,9 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         ctx.enqueue("validator", "cir.compile", compile_inputs,
                     idempotency_key=(f"compile:{engineered.slug}:{engineered.version}"
                                      f":{engineered.fingerprint}"))
-        return {"artifact": f"{engineered.slug}@{engineered.version}",
+        # W4-AUTO: `drafted` is the declared work key (WORK_KEYS); the success paths omitted
+        # it, so every CIR this department drafted was judged a no-op (Product & Design 0%).
+        return {"artifact": f"{engineered.slug}@{engineered.version}", "drafted": True,
                 "rows": len(engineered.components[0].rows), "engineered": True}
 
     i = ctx.job.inputs
@@ -569,7 +571,8 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                                                if cir.provenance is not None else None)})
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
-    return {"artifact": f"{cir.slug}@{cir.version}", "rows": len(cir.components[0].rows)}
+    return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
+            "rows": len(cir.components[0].rows)}
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -2286,7 +2289,12 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "finance.governor": ("paused", "incidents", "agents_spiking", "ceilings_changed"),
     "finance.reconcile": ("pl.gross_sales_cad", "pl.net_sales_cad", "pl.refunds_cad",
                           "pl.platform_fees_cad"),
-    "gate.certify": ("granted",),
+    # W4-AUTO: a refusal with deterministic reasons is Product Truth doing its job (a defective
+    # release blocked), not a no-op; repeats of the same refusal dedupe by fingerprint.
+    "gate.certify": ("granted", "reasons"),
+    # W4-AUTO: launch.plan was undeclared, so the generic counters never saw the dated plan
+    # (and the publish/marketing hand-off) it produces for each certified release.
+    "launch.plan": ("launch_on", "held", "withheld"),
     "gate.lanes": ("release_refused", "withdrawn", "testers_assigned"),
     "growth.conclude": ("concluded", "killed"),
     "growth.distribution": ("pins_ready", "pins_amplified", "clusters_buildable",
@@ -2371,13 +2379,18 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.tournament": ("proposed", "survivors", "judged", "generated"),
     "etsy.listing_census": ("observed",),
     "etsy.shop_snapshot": ("failures", "incidents_opened"),
+    # W4-STORE: live-vs-canonical drift read-back (stored readings only, writes_performed 0).
+    "store.live_drift": ("findings", "proposals", "incidents_opened"),
     "improve.replay": ("runs", "challengers_registered", "proposed", "retired"),
     "intel.gallery_analysis": ("judged",),
     "intel.serp_capture": ("captured",),
     "listing.search_visibility_watch": ("read_today", "card_raised"),
     "listing.taxonomy_refresh": ("new_snapshot",),
     "mjs.reviews": ("reviews_read",),
-    "mjs.scan": ("new", "reclassified", "inspected", "learning_domains"),
+    # W4-MJS: findings synthesis counts only when a finding changed since the previous day's
+    # `mjs.findings` reading (`findings.changed`); a re-publish of the same digest, or the
+    # `{"error": ...}` a failed synthesis records, is not work.
+    "mjs.scan": ("new", "reclassified", "inspected", "learning_domains", "findings.changed"),
     "ops.retention": ("removed",),
     "plan.strategy": (),
     "seasonal.cycle_proof": ("complete", "assets_state"),

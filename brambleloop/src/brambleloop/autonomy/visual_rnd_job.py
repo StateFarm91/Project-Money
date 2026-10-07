@@ -30,6 +30,11 @@ def summarise(report: dict) -> dict:
     overturned = sum(1 for e in classes.values()
                      if (e.get("calibration") or {}).get("verdict") == "overturned")
     paid_planned = sum(1 for e in classes.values() if (e.get("paid") or {}).get("new"))
+    # W4-VISUAL: the cycle also refreshes the Launch-0 listing imagery ledger; a listing whose
+    # registered imagery set was re-assembled is durable work, an up-to-date one is not.
+    imagery = report.get("launch_imagery") or {}
+    imagery_refreshed = sum(1 for e in imagery.values()
+                            if isinstance(e, dict) and e.get("refreshed"))
     for cls, e in classes.items():
         state = str((e.get("paid") or {}).get("state") or "")
         if state in ("executed", "running", "spent"):
@@ -37,8 +42,11 @@ def summarise(report: dict) -> dict:
                                f"({state}); refusing -- paid challengers wait for the owner")
     return {"ran": True, "classes": len(classes), "generated": generated,
             "experiments": experiments, "rolled_back": rolled_back, "overturned": overturned,
-            "paid_planned": paid_planned,
-            "work_done": generated + experiments + rolled_back + overturned + paid_planned,
+            "paid_planned": paid_planned, "imagery_refreshed": imagery_refreshed,
+            "imagery_errors": sum(1 for e in imagery.values()
+                                  if isinstance(e, dict) and e.get("error")),
+            "work_done": (generated + experiments + rolled_back + overturned + paid_planned
+                          + imagery_refreshed),
             "incumbents": {c: e.get("incumbent") for c, e in classes.items()},
             "spend_cad": 0.0}
 
