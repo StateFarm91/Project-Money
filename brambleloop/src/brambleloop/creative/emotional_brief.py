@@ -329,27 +329,120 @@ CATALOGUE_BRIEFS: dict[str, EmotionalBrief] = {
                      "behind; the mat is the subject."),
         premise=("A dense basketweave mat in pine and gold marks out the dog's own spot "
                  "beside the fire.")),
+    # W4-CREATIVE2 (2026-10-07): the five products held for Product Truth were retitled by
+    # W4-PIPE/PIPE3 to what their motif depicts and their fabric makes (relief: double crochet
+    # standing above a single-crochet ground, one colour per row). Each brief below is written
+    # to the released title and the certified motif; `title_conflicts` on that title is empty.
+    "winter-village-graphghan": EmotionalBrief(
+        key="winter-village-graphghan", recipient="grandparent", occasion="christmas",
+        feeling="heirloom",
+        moment=("A grandchild starts the throw when the first snow falls in November and "
+                "works a band of flakes each weekend, so it is wrapped under the tree by "
+                "Christmas Eve."),
+        function=("keeps a grandparent warm in their reading chair through the long snowy "
+                  "evenings after the holidays"),
+        gifting=("Given to a grandparent on Christmas morning by the grandchild who made it, "
+                 "to stay over the arm of their chair all winter."),
+        sensory=("raised double crochet snowflakes standing above a flat single crochet "
+                 "ground",
+                 "deep forest and cream rows that read as snowfall from across the room"),
+        handmade_life=("A winter-long make that turns a season of evenings into a gift a "
+                       "family keeps and passes down."),
+        laura_scene=("The throw over a wingback chair by a frosted window with a teacup on "
+                     "the arm; Laura optional, tucking it round; the throw is the subject."),
+        premise=("Raised snowfall flakes in forest and cream rows drift across the whole "
+                 "throw, standing proud of a flat ground.")),
+    "autumn-oak-mosaic-throw": EmotionalBrief(
+        key="autumn-oak-mosaic-throw", recipient="self", occasion="thanksgiving",
+        feeling="folkloric",
+        moment=("The throw comes down from the cupboard the weekend of the harvest dinner, "
+                "goes over the back of the sofa while the house fills with family, and "
+                "stays there until the new year."),
+        function=("marks the turn into the holiday season on the family sofa and keeps the "
+                  "maker warm through the dark evenings that follow"),
+        gifting="",
+        sensory=("raised double crochet firs and stars standing above a single crochet "
+                 "ground",
+                 "wine and gold rows that carry the folk pattern across a full sofa width"),
+        handmade_life=("A long make worked through the autumn so the maker's own hands "
+                       "dress the home for every holiday that follows."),
+        laura_scene=("Laura shaking the throw out over a sofa back in low autumn light, a "
+                     "harvest table glimpsed behind; product-first."),
+        premise=("Rows of raised fir and star figures in wine and gold march across the "
+                 "throw like a folk border repeated.")),
+    "nordic-star-ornaments": EmotionalBrief(
+        key="nordic-star-ornaments", recipient="newlyweds", occasion="christmas",
+        feeling="heirloom",
+        moment=("A couple decorate their first tree together in a new home, and the first "
+                "six things on its branches are snowflakes made for them that autumn."),
+        function=("gives a couple their first set of ornaments that will come out of the box "
+                  "every December of their married life"),
+        gifting=("Given in early December to newlyweds or a couple in their first home "
+                 "together, ready for the first tree they trim."),
+        sensory=("six small raised snowflake panels, each about ten by fifteen centimetres",
+                 "crisp forest and cream rows that read clearly against green needles"),
+        handmade_life=("Six quick pieces that start a family's own box of decorations with "
+                       "something made rather than bought."),
+        laura_scene=("Six ornaments laid on kraft tissue in a keepsake box beside a ribbon "
+                     "spool; one held up by Laura's hand; ornaments in sharp focus."),
+        premise=("Six small ornaments each carry a scatter of raised snowfall flakes in "
+                 "forest and cream rows for a couple's first Christmas.")),
+    "pressed-flower-motifs": EmotionalBrief(
+        key="pressed-flower-motifs", recipient="child", occasion="everyday",
+        feeling="whimsical",
+        moment=("A child's school bag wears thin at the front, and instead of a new bag the "
+                "child picks one heart panel from the sewing tin and watches it stitched on."),
+        function=("turns mending into a choice a child makes: a heart panel sewn over a worn "
+                  "school bag, a cushion front or the corner of a play blanket"),
+        gifting=("Made for the children in the family and kept in the sewing tin, a panel "
+                 "ready whenever something they love wears through."),
+        sensory=("raised double crochet hearts standing above a flat single crochet ground",
+                 "wine and cream rows that stand out against faded canvas and denim"),
+        handmade_life=("Mending instead of replacing, from a library of twelve pieces each "
+                       "small enough to finish in an evening."),
+        laura_scene=("Flat lay of the twelve panels beside a darning needle and a canvas "
+                     "school bag with one panel stitched on; Laura's hands optional."),
+        premise=("Twelve appliqué panels of raised heart row figures in wine and cream wait "
+                 "in a sewing tin for something worn.")),
+    "cottage-wall-hanging": EmotionalBrief(
+        key="cottage-wall-hanging", recipient="student", occasion="back_to_school",
+        feeling="bold",
+        moment=("A student moving into a first rented room unpacks a hanging made at home "
+                "that summer, slides a dowel through the pocket and hangs it over the desk."),
+        function=("gives a bare rented wall something from home that hangs from a single "
+                  "nail and leaves no mark when the lease ends"),
+        gifting=("Made over the summer by a parent or sibling and packed in the moving box "
+                 "for the first week away from home."),
+        sensory=("raised chevron bands in wine and cream that read boldly from the bed",
+                 "a stiff relief panel hanging straight from its dowel rod pocket"),
+        handmade_life=("A small make that carries home into a first room of one's own and "
+                       "comes down again in one minute."),
+        laura_scene=("The hanging over a plain desk in a small rented room with a lamp and "
+                     "stacked books; no Laura needed, product-first."),
+        premise=("Bold raised chevron bands in wine and cream climb a narrow panel hung "
+                 "from a dowel over a desk.")),
 }
 
 # Products the design process cannot honestly brief until Product resolves a title/fabric
 # conflict. The proposed titles are suggestions for the product owner, not changes made here.
-HELD: dict[str, dict[str, str]] = {
-    "winter-village-graphghan": {"conflict": "title promises a village; the snowfall motif "
-                                             "depicts snowflakes only",
-                                 "proposed_title": "Winter Snowfall Graphghan"},
-    "autumn-oak-mosaic-throw": {"conflict": "title promises oak; the fir-and-star motif "
-                                            "depicts firs and stars",
-                                "proposed_title": "Fir and Star Mosaic Throw"},
-    "nordic-star-ornaments": {"conflict": "title promises stars; the snowfall motif depicts "
-                                          "snowflakes",
-                              "proposed_title": "Nordic Snowflake Ornament Set (6)"},
-    "pressed-flower-motifs": {"conflict": "title promises flowers; the heart-row motif "
-                                          "depicts hearts",
-                              "proposed_title": "Heart Appliqué Motif Library (12)"},
-    "cottage-wall-hanging": {"conflict": "title promises botanical imagery; the chevron-band "
-                                         "motif depicts chevrons",
-                             "proposed_title": "Cottage Chevron Wall Hanging"},
-}
+#
+# W4-CREATIVE2 (2026-10-07): empty. The five products first held here (winter-village-graphghan,
+# autumn-oak-mosaic-throw, nordic-star-ornaments, pressed-flower-motifs, cottage-wall-hanging)
+# were retitled by W4-PIPE/PIPE3 to what their motif depicts; `title_conflicts` on each released
+# title is empty, so each now carries a brief above. A hold is self-checking: every entry here
+# must still have a live title conflict (tests/test_w4_creative_brief.py
+# ::test_every_hold_is_live), so a stale hold fails CI instead of silently keeping a truthful
+# product out of the gate.
+HELD: dict[str, dict[str, str]] = {}
+
+
+def stale_holds() -> list[str]:
+    """HELD entries whose product no longer has a title/motif conflict (or no longer exists)."""
+    from ..products.builder import CATALOGUE
+
+    return sorted(slug for slug in HELD
+                  if slug not in CATALOGUE
+                  or not title_conflicts(CATALOGUE[slug].title, CATALOGUE[slug].motif))
 
 
 def declared_by_slug(slug: str) -> dict[str, str]:
