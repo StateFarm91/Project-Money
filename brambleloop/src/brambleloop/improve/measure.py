@@ -129,20 +129,35 @@ def measure_quality(db, *, now: datetime | None = None):
 
 
 def measure_market_radar(db, *, now: datetime | None = None):
-    """age of the most recent BenchmarkObservation, in hours."""
+    """age of the freshest benchmark evidence, in hours.
+
+    W4-LEARN: benchmark evidence arrives two ways -- dated `BenchmarkObservation` rows (review
+    scans, mission evidence) and the catalogue map `mjs.scan` refreshes every few hours
+    (`BenchmarkListing.last_seen`). Reading only the first left the cell UNMEASURED in a
+    company whose catalogue map was hours old. Withdrawn listings are not evidence.
+    """
     from sqlalchemy import func, select
 
-    from ..core.models import BenchmarkObservation
+    from ..core.models import BenchmarkListing, BenchmarkObservation
 
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
-        newest = s.scalar(select(func.max(BenchmarkObservation.at)))
-        count = s.scalar(select(func.count()).select_from(BenchmarkObservation)) or 0
-    if newest is None or not count:
-        return NotMeasured("market_radar", "no BenchmarkObservation has been recorded yet")
-    hours = max(0.0, (now - _aware(newest)).total_seconds() / 3600.0)
-    return Measurement("market_radar", round(hours, 3), int(count),
-                       {"newest_at": _aware(newest).isoformat()})
+        obs_newest = s.scalar(select(func.max(BenchmarkObservation.at)))
+        obs_count = s.scalar(select(func.count()).select_from(BenchmarkObservation)) or 0
+        live = BenchmarkListing.audit_state != "withdrawn"
+        map_newest = s.scalar(select(func.max(BenchmarkListing.last_seen)).where(live))
+        map_count = s.scalar(select(func.count()).select_from(BenchmarkListing)
+                             .where(live)) or 0
+    stamps = [_aware(t) for t, n in ((obs_newest, obs_count), (map_newest, map_count))
+              if t is not None and n]
+    if not stamps:
+        return NotMeasured("market_radar", "no BenchmarkObservation or BenchmarkListing has "
+                                           "been recorded yet")
+    newest = max(stamps)
+    hours = max(0.0, (now - newest).total_seconds() / 3600.0)
+    return Measurement("market_radar", round(hours, 3), int(obs_count + map_count),
+                       {"newest_at": newest.isoformat(), "observations": int(obs_count),
+                        "catalogue_listings": int(map_count)})
 
 
 def measure_creative_assets(db, *, now: datetime | None = None):

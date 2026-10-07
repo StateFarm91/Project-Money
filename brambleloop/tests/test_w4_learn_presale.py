@@ -158,9 +158,14 @@ def test_presale_readings_are_unmeasured_not_zero_on_an_empty_database():
     db = _db()
     r = presale.readings(db)
     assert set(r) == set(presale.METRICS) and r
-    for metric, v in r.items():
+    # Every row-sourced reading is UNMEASURED on an empty database. The catalogue cohort is
+    # judged from the generated catalogue itself (no row needed), so it alone is measured.
+    row_sourced = {k: v for k, v in r.items() if k != "catalogue_creative_survival_rate"}
+    assert len(row_sourced) == len(presale.METRICS) - 1
+    for metric, v in row_sourced.items():
         assert v["reading"] == "UNMEASURED" and v["value"] is None and v["why"], metric
         assert v["customer_outcome"] is False
+    assert r["catalogue_creative_survival_rate"]["sample"] > 0
     db.engine.dispose()
 
 
@@ -337,6 +342,40 @@ def test_defect_lesson_moves_the_matching_gap_and_is_recorded_acted_on():
     JobQueue(db).enqueue("learn", "learn.scan", {}, idempotency_key="second-scan")
     assert worker.run_once()
     assert bus.compounding(db)["acted_on"] == 1
+    db.engine.dispose()
+
+
+# ---- measured inputs that exist before a sale -------------------------------------------------
+
+
+def test_market_radar_reads_the_catalogue_map_the_scan_refreshes():
+    from brambleloop.core.models import BenchmarkListing
+    from brambleloop.improve import measure
+    db = _db()
+    m = measure.measure_market_radar(db, now=NOW)
+    assert isinstance(m, measure.NotMeasured), m          # empty is UNMEASURED, never 0
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key="mjs", listing_ref="1", pod="blankets",
+                               last_seen=NOW - timedelta(hours=3)))
+        s.add(BenchmarkListing(benchmark_key="mjs", listing_ref="2", pod="blankets",
+                               audit_state="withdrawn", last_seen=NOW))
+    m = measure.measure_market_radar(db, now=NOW)
+    assert isinstance(m, measure.Measurement), m
+    assert m.value == 3.0 and m.sample == 1, m             # withdrawn listing is not evidence
+    assert m.detail["catalogue_listings"] == 1 and m.detail["observations"] == 0
+    db.engine.dispose()
+
+
+def test_catalogue_creative_survival_is_its_own_labelled_cohort():
+    from brambleloop.improve import presale
+    db = _db()
+    r = presale.readings(db)
+    c = r["catalogue_creative_survival_rate"]
+    assert c["reading"] == "MEASURED" and c["sample"] > 0, c
+    assert c["detail"]["cohort"] == "legacy_builder_catalogue", c
+    assert c["customer_outcome"] is False
+    # The tournament cohort stays separate: no tournament run -> UNMEASURED, not borrowed.
+    assert r["creative_survival_rate"]["reading"] == "UNMEASURED"
     db.engine.dispose()
 
 

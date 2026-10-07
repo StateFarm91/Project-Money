@@ -34,6 +34,9 @@ METRICS: dict[str, tuple[bool, str]] = {
     "product_truth_refusal_rate": (False, "gate.listing_copy_refused audits per certified-or-"
                                           "blocked slug@version"),
     "creative_survival_rate": (True, "creative.tournament audits: survivors / generated"),
+    "catalogue_creative_survival_rate": (True, "creative.audit.audit_catalogue: legacy builder "
+                                               "catalogue concepts the deterministic jury "
+                                               "passes (cohort-labelled, F-188)"),
     "render_qa_block_rate": (False, "decided ListingAsset rows blocked by the visual gate"),
     "seo_certificate_pass_rate": (True, "ListingSearchProfile verdict PASS, newest per slug"),
     "release_gate_pass_rate": (True, "newest store.release_gates audit per slug not blocking"),
@@ -115,6 +118,27 @@ def creative_survival(s) -> dict:
                            "no creative.tournament audit has generated a field yet")
     return _measured("creative_survival_rate", survived / generated, generated,
                      survivors=survived, runs=runs)
+
+
+def catalogue_creative_survival(s) -> dict:
+    """The legacy catalogue cohort, judged by the same deterministic jury the dashboard reads.
+
+    A separate metric from the tournament rate, so the two cohorts never share a series
+    (F-188): the first tournament must not read as a jump in the catalogue's survival.
+    """
+    from ..creative.audit import audit_catalogue
+
+    report = audit_catalogue()
+    audited = int(report.get("products_audited") or 0)
+    if audited <= 0:
+        return _unmeasured("catalogue_creative_survival_rate",
+                           "the legacy catalogue has no concept to judge")
+    survivors = [str(x) for x in report.get("survivors") or []]
+    cohort = report.get("cohort") or {}
+    return _measured("catalogue_creative_survival_rate", len(survivors) / audited, audited,
+                     survivors=len(survivors), cohort=cohort.get("name"),
+                     generator_version=cohort.get("generator_version"),
+                     dominant_failure=(report.get("autopsy") or {}).get("dominant_cause"))
 
 
 def render_qa(s) -> dict:
@@ -224,7 +248,8 @@ def cost_per_ready(s) -> dict:
                      products=len(ready), total_cad=round(total, 2), basis="actual")
 
 
-READERS = (gate_first_pass, product_truth, creative_survival, render_qa, seo_certificate,
+READERS = (gate_first_pass, product_truth, creative_survival, catalogue_creative_survival,
+           render_qa, seo_certificate,
            release_gates, time_to_publish_request, cost_per_ready)
 assert len(READERS) == len(METRICS)
 
