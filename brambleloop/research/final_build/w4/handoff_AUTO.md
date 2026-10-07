@@ -30,6 +30,11 @@ Branch `claude/w4-AUTO` (from claude/visual-investigation fee1cfe; merged origin
 | F-659 durable checkpoints | PROVEN (primitive) | `queue/checkpoints.py` (`job_checkpoints`, registered via autonomy.models), `JobQueue.checkpoint/restore`, `JobContext.checkpoint/restore`, fenced to lease token, cleared on complete; paid-call replay untouched (test_w3_spend_paid_calls 8 OK). `test_checkpoint_resumes_after_reclaim_without_repeating_steps`, `test_stale_worker_cannot_overwrite_a_checkpoint`. Adoption inside release.py handlers (model photography / seasonal cycle) = WIRING REQUEST to release.py owner |
 | GATESB blockers | PROVEN | `autonomy.status.gate_blocker` via `build2.closure.kind_of` (owner/data/external; unclassified -> company); used in summary, agents, map. `test_gate_blockers_name_who_they_wait_on_from_the_closure_classifier` |
 | store.live_drift band | fixed | `truth_defect` band (test_swarm_runtime band test) |
+| PIPE2 ENGINEERED | PROVEN | six `moment_candidates` builders in `runtime.pipeline.ENGINEERED` (cir.draft builds engineered CIR). tests/test_w4_auto_pipe2_wiring.py (3 OK) |
+| PIPE2 filing cadence | PROVEN | `creative.candidates_file` daily (creative_director): files boards when version/fingerprint changed, registers with taste gate when no intake row; idempotent; WORK_KEYS boards_filed/registered; band exploration |
+| FM2 F-514 | wired | `etsy_openapi_reverify` weekly (orchestrator), allow-list, band truth_defect, WORK_KEYS `affected`; test `test_fm2_openapi_reverify_is_scheduled_authorised_banded_and_judged` (needs FM2 handler merged) |
+
+## WIRING REQUEST (release.py owner): adopt `ctx.checkpoint/restore` in assets.model_photography / seasonal.cycle_proof (F-659 adoption).
 
 ## In progress / next deterministic actions
 1. After-proof: `python -m brambleloop.autonomy.proof --seconds 600 --out $TMPDIR/after.json --keep-db $TMPDIR/after.sqlite`
