@@ -3,7 +3,7 @@ and ease, package completeness, children's sizing, claim evidence and graded pro
 
 Rows: F-762 size architecture, F-768 QA recomputes grading, F-763 ease and fit explicit,
 F-761 package completeness, F-362 age-range clarity, F-777 evidence-backed claims, F-794
-design-difference ledger for graded designs.
+design-difference ledger for graded designs, F-750 work direction and construction order.
 """
 from __future__ import annotations
 
@@ -170,6 +170,54 @@ def test_a_benchmark_informed_graded_garment_needs_its_ledger():
     assert "DESIGN_LEDGER_MISSING" in codes, codes
     plain = _one("pebble-raglan-cardigan", "4")
     assert "DESIGN_LEDGER_MISSING" not in [f.code for f in O.provenance_findings(plain)]
+
+
+# ---- F-750 -------------------------------------------------------------------------------
+
+def test_work_direction_is_written_read_back_and_held_to_the_rows():
+    from brambleloop.cir import topology as TP
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.reverse import compare
+    from brambleloop.cir.writer import write_pattern
+
+    base = _one("pebble-raglan-cardigan", "4")
+    assert TP.topology_problems(base) == []
+    steps = TP.construction_steps(base)
+    assert steps and [s["sleeve"] for s in steps if s["step"] == "work"] == \
+        [None, "built_in", "built_in"], steps
+    d = base.to_dict()
+    for c in d["components"]:
+        c["work_direction"] = "top_down"
+    top = CIR.from_dict(d)
+    assert TP.construction_fingerprint(top) != TP.construction_fingerprint(base)
+    text = write_pattern(top, compile_cir(top))
+    assert "Worked from the top down." in text
+    assert [f for f in compare(top, text) if f.code == "REVERSE_DIRECTION"] == []
+    # The document says one direction, the validated design another: refused.
+    lied = text.replace("Worked from the top down.", "Worked from the bottom up.", 1)
+    assert any(f.code == "REVERSE_DIRECTION" for f in compare(top, lied))
+    # A sleeve continuing from held stitches cannot run the other way.
+    d2 = top.to_dict()
+    d2["components"][1]["work_direction"] = "bottom_up"
+    msgs = TP.topology_problems(CIR.from_dict(d2))
+    assert any("same direction" in m for m in msgs), msgs
+    codes = [f.code for f in certify(CIR.from_dict(d2)).errors]
+    assert "TOPOLOGY_INCONSISTENT" in codes, codes
+    # Side to side contradicts an 'up' grain; an unknown direction or feature is refused.
+    d3 = base.to_dict()
+    d3["components"][0]["work_direction"] = "side_to_side"
+    assert any("side to side" in m for m in TP.topology_problems(CIR.from_dict(d3)))
+    for bad in ({"work_direction": "inside_out"}, {"feature": "tail"}):
+        d4 = base.to_dict()
+        d4["components"][0].update(bad)
+        try:
+            CIR.from_dict(d4)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"accepted {bad}")
+    # The certified digests of designs that declare nothing do not move.
+    assert "work_direction" not in base.to_dict()["components"][0]
 
 
 if __name__ == "__main__":

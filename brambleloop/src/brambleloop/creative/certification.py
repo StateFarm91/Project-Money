@@ -116,7 +116,10 @@ def listing_for(concept, cir, price_cad: float):
     """
     from ..gates.policy import ListingDraft
 
-    object_name = concept.form.replace("_", " ")
+    # "fitted garment" is a form category, not a fit: as copy it claims a fitted fit the
+    # design may not have (gates.policy FIT_CLAIMS, F-763), so the copy names the object.
+    object_name = ("garment" if concept.form == "fitted_garment"
+                   else concept.form.replace("_", " "))
     tags = list(dict.fromkeys(
         list(BASE_TAGS) + [object_name, concept.pod.replace("_", " ")]))[:13]
     return ListingDraft(

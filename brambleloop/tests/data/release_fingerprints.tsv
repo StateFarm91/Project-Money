@@ -22,20 +22,22 @@
 # PT-10 hexagon spans and titles): every design whose content or stated figures changed moved
 # one minor (1.1.0 -> 1.2.0; autumn-oak and pebble-raglan 1.0.0 -> 1.1.0). Unchanged:
 # chunky-ribbed-scarf.
+# 2026-10-07 (W4-K9, F-762/F-763): every graded size carries its family's size matrix and stated
+# fit (CIR.grading), printed as the PDF size chart: harbour 1.2.0 -> 1.3.0, pebble 1.1.0 -> 1.2.0.
 autumn-oak-mosaic-throw	1.1.0	c24616643183	b3d865c373bb
 bobble-floor-pillow	1.2.0	87baeed51c10	7f538b0f6102
 chunky-ribbed-scarf	1.0.0	f448cc0f7c80	7d5a5845e3ee
 cloudline-baby-blanket	1.2.0	bbce94ae1e9b	0901f575a487
 cottage-wall-hanging	1.2.0	913d45e8d1c5	ed02b980c1d8
-harbour-drop-shoulder-pullover-2x	1.2.0	c714d44d5925	e74b15fec820
-harbour-drop-shoulder-pullover-3x	1.2.0	2beee6c991fe	bcffec8adbcc
-harbour-drop-shoulder-pullover-4x	1.2.0	cb1cd4350319	679f7187fb28
-harbour-drop-shoulder-pullover-5x	1.2.0	729e2b23ac64	5d29b304d0ed
-harbour-drop-shoulder-pullover-l	1.2.0	45a3acbc6c9e	352836388e80
-harbour-drop-shoulder-pullover-m	1.2.0	fec17e8f74a5	ef6fce0d3d4e
-harbour-drop-shoulder-pullover-s	1.2.0	98425a609c68	227e8cd214de
-harbour-drop-shoulder-pullover-xl	1.2.0	728218ca78df	2c1307f38ab0
-harbour-drop-shoulder-pullover-xs	1.2.0	986d9e45ac8b	b5a468918d86
+harbour-drop-shoulder-pullover-2x	1.3.0	83cc0b73c2f4	e74b15fec820
+harbour-drop-shoulder-pullover-3x	1.3.0	e30eed41d47f	bcffec8adbcc
+harbour-drop-shoulder-pullover-4x	1.3.0	364d0ca51b18	679f7187fb28
+harbour-drop-shoulder-pullover-5x	1.3.0	7a15e6379539	5d29b304d0ed
+harbour-drop-shoulder-pullover-l	1.3.0	a852216400d6	352836388e80
+harbour-drop-shoulder-pullover-m	1.3.0	5bf0678b9d1a	ef6fce0d3d4e
+harbour-drop-shoulder-pullover-s	1.3.0	55527d3be3bb	227e8cd214de
+harbour-drop-shoulder-pullover-xl	1.3.0	baab131a56d9	2c1307f38ab0
+harbour-drop-shoulder-pullover-xs	1.3.0	bd3c15d8616c	b5a468918d86
 harvest-table-runner	1.2.0	7f245d5622f0	aa6deb04bcb6
 heirloom-cable-blanket	1.2.0	16add01242d8	8ee53d0f570c
 hexagon-coaster-set	1.2.0	73804e8d503a	7e7667b8dcbc
@@ -47,14 +49,14 @@ nordic-forest-mosaic-throw-baby	1.2.0	f7bd97bbfec8	6df656dee69e
 nordic-forest-mosaic-throw-large	1.2.0	4e4b65eeb341	19ef316f3aba
 nordic-forest-mosaic-throw-throw	1.2.0	2837393b8d11	180d69216a7e
 nordic-star-ornaments	1.2.0	be4ec5b67cf8	6c389529f86a
-pebble-raglan-cardigan-10	1.1.0	9deb38e98379	bb2ca4deaba5
-pebble-raglan-cardigan-12	1.1.0	269064052b9a	e11948df77c7
-pebble-raglan-cardigan-14	1.1.0	07b44d318389	41515704a4c1
-pebble-raglan-cardigan-16	1.1.0	272ee8aa43dc	656904aad4b7
-pebble-raglan-cardigan-2	1.1.0	d12b0ab707a0	d5a2c682ca84
-pebble-raglan-cardigan-4	1.1.0	c9b4d22c1c9f	0010c9623c96
-pebble-raglan-cardigan-6	1.1.0	f2e10b9fc314	c1b9a78bf031
-pebble-raglan-cardigan-8	1.1.0	ef8f1ec1e47c	26a26b020f4e
+pebble-raglan-cardigan-10	1.2.0	e366e786607b	bb2ca4deaba5
+pebble-raglan-cardigan-12	1.2.0	f8a8b5b08cce	e11948df77c7
+pebble-raglan-cardigan-14	1.2.0	1ac9d0a2f152	41515704a4c1
+pebble-raglan-cardigan-16	1.2.0	f7cd4fe6fd98	656904aad4b7
+pebble-raglan-cardigan-2	1.2.0	528220933686	d5a2c682ca84
+pebble-raglan-cardigan-4	1.2.0	418aeb2e8a11	0010c9623c96
+pebble-raglan-cardigan-6	1.2.0	beae1e56328c	c1b9a78bf031
+pebble-raglan-cardigan-8	1.2.0	0943e9b3d0c2	26a26b020f4e
 pet-snuggle-mat	1.2.0	fc8689dc7961	0d35dc313012
 pressed-flower-motifs	1.2.0	552f168f7ffd	4bc8d8584713
 spooky-garland	1.2.0	f7a5d674d703	45c5ce019704
