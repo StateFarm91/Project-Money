@@ -87,6 +87,87 @@ def test_a_listing_variant_may_not_distort_product_truth():
     assert any("VARIANT_NO_PRODUCT_TRUTH" in p for p in out["problems"]), out
 
 
+# ---- F-784 / F-795 -----------------------------------------------------------------------
+
+def _photo(seed: int, size=(240, 180)) -> bytes:
+    import io
+    import random
+
+    from PIL import Image, ImageDraw
+
+    rnd = random.Random(seed)
+    img = Image.new("RGB", size, (rnd.randrange(256), rnd.randrange(256), rnd.randrange(256)))
+    d = ImageDraw.Draw(img)
+    for _ in range(12):
+        x, y = rnd.randrange(size[0]), rnd.randrange(size[1])
+        d.ellipse((x, y, x + rnd.randrange(20, 90), y + rnd.randrange(20, 90)),
+                  fill=(rnd.randrange(256), rnd.randrange(256), rnd.randrange(256)))
+    out = io.BytesIO()
+    img.save(out, "PNG")
+    return out.getvalue()
+
+
+def _reencoded(data: bytes) -> bytes:
+    import io
+
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(data)).convert("RGB").resize((480, 360))
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=70)
+    return out.getvalue()
+
+
+def test_presentation_is_a_similarity_dimension_read_from_the_library():
+    import tempfile
+    from pathlib import Path
+
+    from brambleloop.core.db import Database
+    from brambleloop.gates import originality as O
+    from brambleloop.publish import release_gates
+    from brambleloop.teardown import intake, library
+
+    theirs = _photo(1)
+    copy_of_theirs = _reencoded(theirs)
+    ours = {f"frame-{i}": _photo(100 + i) for i in range(3)}
+    assert ours
+    assert O.presentation_compare(ours, {"b/photo.png": theirs})["verdict"] == "clear"
+    hit = O.presentation_compare({**ours, "frame-9": copy_of_theirs}, {"b/photo.png": theirs})
+    assert hit["verdict"] == "material" and hit["hits"][0]["frame"] == "frame-9", hit
+    assert O.presentation_compare({}, {"b/photo.png": theirs})["verdict"] == "unmeasured"
+    assert O.presentation_compare(ours, {})["verdict"] == "unmeasured"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Database("sqlite:///" + str(Path(tmp) / "k9.db"))
+        db.create_all()
+        try:
+            env = {library.LIBRARY_ENV: str(Path(tmp) / "quarantine")}
+            # Before any purchase: unmeasured, said aloud rather than read as clear.
+            out = O.presentation_review(db, frames=ours, env=env)
+            assert [f.code for f in out] == ["SIMILARITY_UNMEASURED"], out
+            from brambleloop.core.models import BenchmarkListing
+            from brambleloop.intel import benchmarks
+
+            with db.session() as s:
+                s.add(BenchmarkListing(benchmark_key=benchmarks.MJS_KEY, listing_ref="77",
+                                       title="Synthetic purchased evidence", pod="blankets",
+                                       product_type="pattern", price_cad=7,
+                                       url="https://example.invalid/77", detail={}))
+            intake.receive(db, "77", [("seller-photo.png", theirs)], env=env,
+                           mirror_files=False)
+            assert O.benchmark_images(db, env), "manifest image not readable for review"
+            assert O.presentation_review(db, frames=ours, env=env) == []
+            out = O.presentation_review(db, frames={**ours, "frame-9": copy_of_theirs},
+                                        env=env)
+            assert out and all(f.code == "SIMILARITY_ESCALATED" and f.is_error for f in out)
+            # The store gate reads the release's own frames (none stored here).
+            assert release_gates._frame_bytes(db, "nothing", "1.0.0") == {}
+            assert "presentation_review" in __import__("inspect").getsource(
+                release_gates.originality_gate)
+        finally:
+            db.engine.dispose()
+
+
 if __name__ == "__main__":
     fails = 0
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith("test_")]
