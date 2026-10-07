@@ -364,10 +364,9 @@ def prerequisite(db, gate: str, env: dict | None = None) -> str | None:
             return ("no listing is ready to sell yet: " + "; ".join(state["why_not"])
                     + ". The initial budget is recommended (paid_media.CONSERVATIVE_CAPS) "
                     "the day it is")
-    if gate == "physical_proof" and not is_open("tester_roster"):
-        return ("no tester has agreed yet (tester_roster gate closed); the physical make is "
-                "commissioned from the first agreed tester, so answer the tester_roster card "
-                "first. Kit and protocol: research/final_build/w4/tester_kit/")
+    # physical_proof stays askable: it is the same owner decision as tester_roster
+    # (owner_queue DECISIONS `tester_outreach`, F-197) -- the owner confirms the outreach and
+    # approves the first agreed tester's paid make in one answer.
     if gate == "live_listings":
         state = live_listing_readiness(db)
         if not state["grant_ever_approved"] and not is_open("live_listings"):
