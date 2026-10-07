@@ -1,0 +1,4005 @@
+{
+ "as_of": "2026-10-07",
+ "stages": [
+  "INTELLIGENCE",
+  "DESIGN",
+  "PRODUCT",
+  "PRODUCT_TRUTH",
+  "VISUAL",
+  "SEARCH",
+  "LISTING_READINESS",
+  "PUBLICATION"
+ ],
+ "candidates": [
+  {
+   "slug": "alpine-slouch-beanie",
+   "title": "Alpine Slouch Beanie",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.544,
+      "components": {
+       "demand": 0.74,
+       "competition_headroom": 0.22,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.464,
+       "whitespace": 0.5
+      },
+      "category": "hat",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'hat', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "autumn-oak-mosaic-throw",
+   "title": "Fir and Star Relief Throw",
+   "source": "catalogue",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "rename to what the fabric makes or change the CIR (new version)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.635,
+      "components": {
+       "demand": 0.92,
+       "competition_headroom": 0.12,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.05,
+       "margin": 0.893,
+       "whitespace": 0.6
+      },
+      "category": "mosaic_blanket",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.3.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR GAUGE_OUTSIDE_DECLARED_YARN_BAND: 16 sc/10cm is outside the published medium band of 11-14 for the declared yarn (worsted). Every finished size and yardage figure is arithmetic from this gauge, and a 'swatch first' note cannot make it"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "rename to what the fabric makes or change the CIR (new version)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "basketweave-textured-hand-towel",
+   "title": "Basketweave Textured Hand Towel",
+   "source": "proposal",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "demand_basis": "SOURCED (mjs.findings coverage_gaps): 'Kitchen and bath textiles' is an uncovered benchmark arena; demand per listing there is a favourites proxy, not sales",
+      "rationale": "the third kitchen-and-bath texture, so the family can carry a priced bundle (mjs.findings bundle_premium)",
+      "finding": {
+       "key": "coverage_gaps",
+       "statement": "7 benchmark arenas have no Brambleloop answer; first in the queue: Hats and wearables, Amigurumi and soft sculpture, Garments and clothing, Multi-pattern collections and ebooks, Christmas stockings, Kitchen and bath textiles",
+       "confidence": {
+        "basis": "coverage gap queue (intel.coverage)",
+        "grade": "observed"
+       },
+       "opportunity": "the gap queue's top arenas are the next original-concept briefs"
+      }
+     },
+     "next_step": "measure demand once the shop has search data (DATA)",
+     "clearer": "DATA"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "proposal",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "6688a3708170",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "basketweave-textured-washcloth",
+   "title": "Basketweave Textured Washcloth",
+   "source": "proposal",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "demand_basis": "ESTIMATED: same cluster as the dishcloth; no washcloth listing observed",
+      "rationale": "a second texture at the price floor, so a buyer of one can bundle the other"
+     },
+     "next_step": "measure demand once the shop has search data (DATA)",
+     "clearer": "DATA"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "proposal",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "32a37997e579",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "bobble-floor-pillow",
+   "title": "Bobble Floor Pillow Cover",
+   "source": "catalogue",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch (physical calibration)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.559,
+      "components": {
+       "demand": 0.58,
+       "competition_headroom": 0.52,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.5,
+       "whitespace": 0.52
+      },
+      "category": "pillow",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.3.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR UNCALIBRATED_PRIMITIVE: ['bob'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch (physical calibration)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "boxy-summer-tee",
+   "title": "Boxy Summer Tee",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "Class C: needs physical testing and graded sizing before design (OWNER/tester)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.52,
+      "components": {
+       "demand": 0.7,
+       "competition_headroom": 0.28,
+       "verifiability": 0.22,
+       "seasonal_fit": 0.55,
+       "margin": 0.964,
+       "whitespace": 0.56
+      },
+      "category": "garment",
+      "risk_class": "C"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'garment', risk C)",
+     "next_step": "Class C: needs physical testing and graded sizing before design (OWNER/tester)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "chevron-relief-scarf",
+   "title": "Chevron Relief Scarf",
+   "source": "proposal",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "demand_basis": "SOURCED (pool): radar.opportunity scores the scarf category (chunky-ribbed-scarf 0.599) and the scarf is blocked on uncalibrated post stitches; this is a scarf that needs no new primitive",
+      "rationale": "a scarf the company can certify today: sc/dc relief only, no fpdc/bpdc"
+     },
+     "next_step": "measure demand once the shop has search data (DATA)",
+     "clearer": "DATA"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "proposal",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "3d8e8ed8d79a",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "hero: 340 px legibility ['the product fills 6% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']",
+       "scale: structural truth UNKNOWN",
+       "scale: 340 px legibility ['the product fills 8% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "chunky-ribbed-scarf",
+   "title": "Chunky Ribbed Scarf",
+   "source": "catalogue",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch (physical calibration)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.599,
+      "components": {
+       "demand": 0.64,
+       "competition_headroom": 0.34,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.393,
+       "whitespace": 0.42
+      },
+      "category": "scarf",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "scarf",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.0.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR UNCALIBRATED_PRIMITIVE: ['bpdc', 'fpdc'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of i"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch (physical calibration)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "cloudline-baby-blanket",
+   "title": "Cloudline Textured Baby Blanket",
+   "source": "launch0",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
+   "stage_status": "FAIL",
+   "next_step": "fix the listing copy the gates refuse",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.676,
+      "components": {
+       "demand": 0.82,
+       "competition_headroom": 0.25,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.607,
+       "whitespace": 0.64
+      },
+      "category": "baby",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "launch0",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "7c63dbdd501f",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "PASS",
+     "evidence": {
+      "made": true,
+      "usable": true,
+      "frames": [
+       [
+        "hero",
+        "PASS"
+       ],
+       [
+        "scale",
+        "PASS"
+       ],
+       [
+        "detail",
+        "PASS"
+       ]
+      ],
+      "launch_blocked": [],
+      "launch_scope": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "FAIL",
+     "evidence": {
+      "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+      "tags": [
+       "cloudline crochet",
+       "baby crochet",
+       "cloudline pattern",
+       "baby pattern",
+       "crochet pattern pdf",
+       "crochet chart",
+       "written and chart",
+       "us and uk terms",
+       "digital download",
+       "crochet gift idea",
+       "instant download"
+      ],
+      "copy_problems": [
+       "LISTING_DESCRIPTION_THIN: 0 characters"
+      ],
+      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+     },
+     "next_step": "fix the listing copy the gates refuse",
+     "clearer": "COMPANY"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ],
+      "clearers": [
+       "EXTERNAL",
+       "OWNER"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL, OWNER",
+     "clearer": "EXTERNAL,OWNER"
+    }
+   }
+  },
+  {
+   "slug": "cloudline-baby-hat",
+   "title": "Cloudline Baby Hat Set",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.57,
+      "components": {
+       "demand": 0.82,
+       "competition_headroom": 0.25,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.393,
+       "whitespace": 0.55
+      },
+      "category": "baby",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'baby', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "cottage-wall-hanging",
+   "title": "Cottage Chevron Wall Hanging",
+   "source": "catalogue",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.554,
+      "components": {
+       "demand": 0.5,
+       "competition_headroom": 0.55,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.536,
+       "whitespace": 0.6
+      },
+      "category": "wall_decor",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.3.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "6916ff797b70",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "hero: 340 px legibility ['the product fills 22% of the frame at 340 px']",
+       "scale: structural truth UNKNOWN",
+       "scale: 340 px legibility ['the product fills 22% of the frame at 340 px']"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "cropped-cardigan",
+   "title": "Everyday Cropped Cardigan",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "Class C: needs physical testing and graded sizing before design (OWNER/tester)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.525,
+      "components": {
+       "demand": 0.7,
+       "competition_headroom": 0.28,
+       "verifiability": 0.22,
+       "seasonal_fit": 0.55,
+       "margin": 1.0,
+       "whitespace": 0.58
+      },
+      "category": "garment",
+      "risk_class": "C"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'garment', risk C)",
+     "next_step": "Class C: needs physical testing and graded sizing before design (OWNER/tester)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "diamond-lattice-dishcloth",
+   "title": "Diamond Lattice Textured Dishcloth",
+   "source": "proposal",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "demand_basis": "ESTIMATED: kitchen quick-makes sit in the CA$4-12 cluster recorded in radar/market.py OBSERVATIONS; no dishcloth-specific listing was observed",
+      "rationale": "a one-evening make at the bottom of the price ladder, reusing the Cloudline lattice the renderer and verifier already draw truthfully"
+     },
+     "next_step": "measure demand once the shop has search data (DATA)",
+     "clearer": "DATA"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "proposal",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "5475a405e292",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "easter-egg-cosies",
+   "title": "Easter Egg Cosy Set",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.482,
+      "components": {
+       "demand": 0.8,
+       "competition_headroom": 0.3,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.017,
+       "margin": 0.321,
+       "whitespace": 0.46
+      },
+      "category": "seasonal_decor",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'seasonal_decor', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "everyday-market-tote",
+   "title": "Everyday Market Tote",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.562,
+      "components": {
+       "demand": 0.66,
+       "competition_headroom": 0.38,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.536,
+       "whitespace": 0.54
+      },
+      "category": "bag",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'bag', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "fir-star-relief-table-runner",
+   "title": "Fir and Star Relief Table Runner",
+   "source": "proposal",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "demand_basis": "SOURCED (mjs.findings seasonality): Christmas is inside the buying window and the benchmark's seasonal shelf is stockings and ornaments only; a table piece is an open Christmas form",
+      "rationale": "Christmas demand now, in a flat relief the tiler, renderer and verifier draw",
+      "finding": {
+       "key": "seasonality",
+       "statement": "Christmas (2026-12-25) is inside the buying window: the benchmark carries 10 christmas stocking and 13 ornament listings; title-level seasonal positioning is unmeasured in this evidence. Christmas stocking and ornament concepts are quick makes that still sell late in the season",
+       "confidence": {
+        "basis": "seasonal pods (stockings, ornaments) as a proxy; titles not in evidence",
+        "grade": "proxy"
+       },
+       "opportunity": "prioritise christmas stocking and ornament quick makes now"
+      }
+     },
+     "next_step": "measure demand once the shop has search data (DATA)",
+     "clearer": "DATA"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "proposal",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "dfac41043f7b",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "hero: 340 px legibility ['the product fills 13% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']",
+       "scale: structural truth UNKNOWN",
+       "scale: 340 px legibility ['the product fills 14% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "harvest-table-runner",
+   "title": "Harvest Table Runner",
+   "source": "catalogue",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.551,
+      "components": {
+       "demand": 0.42,
+       "competition_headroom": 0.68,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.05,
+       "margin": 0.464,
+       "whitespace": 0.58
+      },
+      "category": "runner",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "179cb1277bec",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: harvest-table-runner: palette too close to a contract colour to measure"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "heart-relief-table-runner",
+   "title": "Heart Relief Table Runner",
+   "source": "proposal",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "demand_basis": "SOURCED (pool): runner category scored (harvest-table-runner 0.551) and the valentine-heart-garland concept 0.573; a runner needs no assembly, the garland does",
+      "rationale": "the Valentine's demand the garland targets, in a form whose name the pattern backs"
+     },
+     "next_step": "measure demand once the shop has search data (DATA)",
+     "clearer": "DATA"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "proposal",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "b39003fa0c8c",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "hero: 340 px legibility ['the product fills 13% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']",
+       "scale: structural truth UNKNOWN",
+       "scale: 340 px legibility ['the product fills 14% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "heirloom-cable-blanket",
+   "title": "Heirloom Cable Throw",
+   "source": "catalogue",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch (physical calibration)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.688,
+      "components": {
+       "demand": 0.85,
+       "competition_headroom": 0.2,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.821,
+       "whitespace": 0.55
+      },
+      "category": "blanket",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "throw",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR UNCALIBRATED_PRIMITIVE: ['bpdc', 'cable2x2', 'fpdc'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physic"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch (physical calibration)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "hexagon-coaster-set",
+   "title": "Hexagon Coaster Set",
+   "source": "launch0",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
+   "stage_status": "FAIL",
+   "next_step": "fix the listing copy the gates refuse",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "basis": "a built product (Launch-0 or catalogue); its demand case is recorded on its candidate"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "launch0",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "coaster",
+        4
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "3754ed17a63b",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "PASS",
+     "evidence": {
+      "made": true,
+      "usable": true,
+      "frames": [
+       [
+        "hero",
+        "PASS"
+       ],
+       [
+        "scale",
+        "PASS"
+       ],
+       [
+        "detail",
+        "PASS"
+       ]
+      ],
+      "launch_blocked": [],
+      "launch_scope": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "FAIL",
+     "evidence": {
+      "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+      "tags": [
+       "hexagon crochet",
+       "coaster crochet",
+       "hexagon pattern",
+       "coaster pattern",
+       "crochet pattern",
+       "crochet pattern pdf",
+       "crochet chart",
+       "written and chart",
+       "us and uk terms",
+       "digital download",
+       "crochet gift idea",
+       "instant download"
+      ],
+      "copy_problems": [
+       "LISTING_DESCRIPTION_THIN: 0 characters"
+      ],
+      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+     },
+     "next_step": "fix the listing copy the gates refuse",
+     "clearer": "COMPANY"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ],
+      "clearers": [
+       "EXTERNAL",
+       "OWNER"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL, OWNER",
+     "clearer": "EXTERNAL,OWNER"
+    }
+   }
+  },
+  {
+   "slug": "hexie-coaster-set",
+   "title": "Hexagon Coaster Set",
+   "source": "catalogue",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "BLOCKED",
+   "next_step": "retired concept: its design ships as hexagon-coaster-set",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.614,
+      "components": {
+       "demand": 0.6,
+       "competition_headroom": 0.48,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.321,
+       "whitespace": 0.5
+      },
+      "category": "coaster",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "BLOCKED",
+     "evidence": {
+      "retired": {
+       "candidate": "hexagon-coaster-set",
+       "superseded_by": [
+        "hexagon-coaster-set"
+       ],
+       "why": "the engineered 'hexie-coaster-set' design is the Launch-0 hexagon coaster set under a concept slug; the coasters are sold as hexagon-coaster-set",
+       "retired_on": "2026-10-06"
+      }
+     },
+     "next_step": "retired concept: its design ships as hexagon-coaster-set",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "lattice-triangle-shawl",
+   "title": "Lattice Triangle Shawl",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.558,
+      "components": {
+       "demand": 0.58,
+       "competition_headroom": 0.42,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.607,
+       "whitespace": 0.58
+      },
+      "category": "shawl",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'shawl', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "market-basket-large",
+   "title": "Crochet Hexagonal Market Basket",
+   "source": "launch0",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
+   "stage_status": "FAIL",
+   "next_step": "fix the listing copy the gates refuse",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "basis": "a built product (Launch-0 or catalogue); its demand case is recorded on its candidate"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "launch0",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "basket",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "cc698c1b1498",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "PASS",
+     "evidence": {
+      "made": true,
+      "usable": true,
+      "frames": [
+       [
+        "hero",
+        "PASS"
+       ],
+       [
+        "scale",
+        "PASS"
+       ],
+       [
+        "detail",
+        "PASS"
+       ]
+      ],
+      "launch_blocked": [],
+      "launch_scope": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "FAIL",
+     "evidence": {
+      "title": "Hexagonal Market Basket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+      "tags": [
+       "market crochet",
+       "basket crochet",
+       "market pattern",
+       "basket pattern",
+       "crochet pattern",
+       "crochet pattern pdf",
+       "crochet chart",
+       "written and chart",
+       "us and uk terms",
+       "digital download",
+       "crochet gift idea",
+       "instant download"
+      ],
+      "copy_problems": [
+       "LISTING_DESCRIPTION_THIN: 0 characters"
+      ],
+      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+     },
+     "next_step": "fix the listing copy the gates refuse",
+     "clearer": "COMPANY"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ],
+      "clearers": [
+       "EXTERNAL",
+       "OWNER"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL, OWNER",
+     "clearer": "EXTERNAL,OWNER"
+    }
+   }
+  },
+  {
+   "slug": "market-basket-medium",
+   "title": "Crochet Hexagonal Storage Basket",
+   "source": "launch0",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
+   "stage_status": "FAIL",
+   "next_step": "fix the listing copy the gates refuse",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "basis": "a built product (Launch-0 or catalogue); its demand case is recorded on its candidate"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "launch0",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "basket",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "00182234041c",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "PASS",
+     "evidence": {
+      "made": true,
+      "usable": true,
+      "frames": [
+       [
+        "hero",
+        "PASS"
+       ],
+       [
+        "scale",
+        "PASS"
+       ],
+       [
+        "detail",
+        "PASS"
+       ]
+      ],
+      "launch_blocked": [],
+      "launch_scope": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "FAIL",
+     "evidence": {
+      "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Market | Written Instructions and Chart | US and UK Terms",
+      "tags": [
+       "market crochet",
+       "basket crochet",
+       "market pattern",
+       "basket pattern",
+       "crochet pattern",
+       "crochet pattern pdf",
+       "crochet chart",
+       "written and chart",
+       "us and uk terms",
+       "digital download",
+       "crochet gift idea",
+       "instant download"
+      ],
+      "copy_problems": [
+       "LISTING_DESCRIPTION_THIN: 0 characters"
+      ],
+      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+     },
+     "next_step": "fix the listing copy the gates refuse",
+     "clearer": "COMPANY"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ],
+      "clearers": [
+       "EXTERNAL",
+       "OWNER"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL, OWNER",
+     "clearer": "EXTERNAL,OWNER"
+    }
+   }
+  },
+  {
+   "slug": "market-basket-small",
+   "title": "Crochet Hexagonal Bread Basket",
+   "source": "launch0",
+   "stage": "SEARCH",
+   "highest_passed": "VISUAL",
+   "stage_status": "FAIL",
+   "next_step": "fix the listing copy the gates refuse",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "basis": "a built product (Launch-0 or catalogue); its demand case is recorded on its candidate"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "launch0",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "basket",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "1ddde587f537",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "PASS",
+     "evidence": {
+      "made": true,
+      "usable": true,
+      "frames": [
+       [
+        "hero",
+        "PASS"
+       ],
+       [
+        "scale",
+        "PASS"
+       ],
+       [
+        "detail",
+        "PASS"
+       ]
+      ],
+      "launch_blocked": [],
+      "launch_scope": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "SEARCH": {
+     "status": "FAIL",
+     "evidence": {
+      "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Market | Written Instructions and Chart | US and UK Terms",
+      "tags": [
+       "market crochet",
+       "basket crochet",
+       "market pattern",
+       "basket pattern",
+       "crochet pattern",
+       "crochet pattern pdf",
+       "crochet chart",
+       "written and chart",
+       "us and uk terms",
+       "digital download",
+       "crochet gift idea",
+       "instant download"
+      ],
+      "copy_problems": [
+       "LISTING_DESCRIPTION_THIN: 0 characters"
+      ],
+      "category": "UNKNOWN until an Etsy-read taxonomy snapshot exists (listing.taxonomy_refresh); none is assumed"
+     },
+     "next_step": "fix the listing copy the gates refuse",
+     "clearer": "COMPANY"
+    },
+    "LISTING_READINESS": {
+     "status": "BLOCKED",
+     "evidence": {
+      "reasons": [
+       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+       "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+       "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+       "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+      ],
+      "clearers": [
+       "EXTERNAL",
+       "OWNER"
+      ]
+     },
+     "next_step": "only owner/external gates remain: EXTERNAL, OWNER",
+     "clearer": "EXTERNAL,OWNER"
+    }
+   }
+  },
+  {
+   "slug": "market-basket-trio",
+   "title": "Crochet Storage Basket",
+   "source": "catalogue",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "BLOCKED",
+   "next_step": "retired concept: its design ships as market-basket-small, market-basket-medium, market-basket-large",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.643,
+      "components": {
+       "demand": 0.62,
+       "competition_headroom": 0.5,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.464,
+       "whitespace": 0.56
+      },
+      "category": "basket",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "BLOCKED",
+     "evidence": {
+      "retired": {
+       "candidate": "nursery-nesting-baskets",
+       "superseded_by": [
+        "market-basket-small",
+        "market-basket-medium",
+        "market-basket-large"
+       ],
+       "why": "the engineered 'market-basket-trio' design is the medium Launch-0 basket under a concept slug; the baskets are sold as the Launch-0 nesting baskets",
+       "retired_on": "2026-10-06"
+      }
+     },
+     "next_step": "retired concept: its design ships as market-basket-small, market-basket-medium, market-basket-large",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "mosaic-placemat-pair",
+   "title": "Diamond Lattice Placemat Pair",
+   "source": "catalogue",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.621,
+      "components": {
+       "demand": 0.45,
+       "competition_headroom": 0.65,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.393,
+       "whitespace": 0.62
+      },
+      "category": "placemat",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        2
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.3.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "b2cd736f0f34",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "mothers-day-shawlette",
+   "title": "Mother's Day Lace Shawlette",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.475,
+      "components": {
+       "demand": 0.58,
+       "competition_headroom": 0.42,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.0,
+       "margin": 0.607,
+       "whitespace": 0.52
+      },
+      "category": "shawl",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'shawl', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "no-sew-reindeer",
+   "title": "No-Sew Reindeer Amigurumi",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.532,
+      "components": {
+       "demand": 0.88,
+       "competition_headroom": 0.1,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.27,
+       "margin": 0.357,
+       "whitespace": 0.7
+      },
+      "category": "amigurumi",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'amigurumi', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "nordic-forest-basket",
+   "title": "Nordic Forest Mosaic Storage Basket",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.569,
+      "components": {
+       "demand": 0.62,
+       "competition_headroom": 0.5,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.464,
+       "whitespace": 0.58
+      },
+      "category": "basket",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'basket', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "nordic-forest-bundle",
+   "title": "Nordic Forest Collection Bundle",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.789,
+      "components": {
+       "demand": 0.8,
+       "competition_headroom": 0.3,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.903,
+       "margin": 1.0,
+       "whitespace": 0.85
+      },
+      "category": "seasonal_decor",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'seasonal_decor', risk A)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "nordic-forest-mosaic-throw",
+   "title": "Nordic Forest Overlay Mosaic Throw",
+   "source": "catalogue",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "rename to what the fabric makes or change the CIR (new version)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.759,
+      "components": {
+       "demand": 0.92,
+       "competition_headroom": 0.12,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.844,
+       "margin": 0.893,
+       "whitespace": 0.72
+      },
+      "category": "mosaic_blanket",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "blanket",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": true,
+      "release_hash": "0e3a561744e2",
+      "certificate_errors": [],
+      "name_truth": [
+       "fabric: claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row, and a two-colour motif needs two"
+      ],
+      "compile_warnings": 0
+     },
+     "next_step": "rename to what the fabric makes or change the CIR (new version)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "nordic-forest-stocking",
+   "title": "Nordic Forest Mosaic Stocking",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.541,
+      "components": {
+       "demand": 0.68,
+       "competition_headroom": 0.4,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.28,
+       "margin": 0.536,
+       "whitespace": 0.62
+      },
+      "category": "stocking",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'stocking', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "nordic-star-ornaments",
+   "title": "Nordic Snowflake Ornament Set (6)",
+   "source": "catalogue",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.627,
+      "components": {
+       "demand": 0.72,
+       "competition_headroom": 0.45,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.265,
+       "margin": 0.393,
+       "whitespace": 0.68
+      },
+      "category": "ornament",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        6
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.4.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "18c6e64fa4c5",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "nursery-cloud-mobile",
+   "title": "Nursery Cloud and Star Mobile",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.556,
+      "components": {
+       "demand": 0.6,
+       "competition_headroom": 0.45,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.464,
+       "whitespace": 0.6
+      },
+      "category": "nursery",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'nursery', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "pet-snuggle-mat",
+   "title": "Pet Snuggle Mat",
+   "source": "catalogue",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.626,
+      "components": {
+       "demand": 0.52,
+       "competition_headroom": 0.6,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.357,
+       "whitespace": 0.6
+      },
+      "category": "pet",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "5dccca80a6ab",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: pet-snuggle-mat: palette too close to a contract colour to measure"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "pocket-penguin-trio",
+   "title": "Pocket Penguin Trio",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.518,
+      "components": {
+       "demand": 0.88,
+       "competition_headroom": 0.1,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.272,
+       "margin": 0.393,
+       "whitespace": 0.52
+      },
+      "category": "amigurumi",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'amigurumi', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "pressed-flower-motifs",
+   "title": "Heart Applique Motif Library (12)",
+   "source": "catalogue",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.633,
+      "components": {
+       "demand": 0.56,
+       "competition_headroom": 0.5,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.55,
+       "margin": 0.429,
+       "whitespace": 0.66
+      },
+      "category": "flower",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        12
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.3.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "d5d9cbcb66cb",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "pumpkin-cluster-set",
+   "title": "Pumpkin Cluster Set (3 sizes)",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.622,
+      "components": {
+       "demand": 0.8,
+       "competition_headroom": 0.3,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.9,
+       "margin": 0.393,
+       "whitespace": 0.55
+      },
+      "category": "seasonal_decor",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'seasonal_decor', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "pumpkin-relief-table-runner",
+   "title": "Pumpkin Relief Table Runner",
+   "source": "proposal",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "demand_basis": "SOURCED (pool): spooky-garland 0.682 and harvest-table-runner 0.551 carry the autumn demand; the garland fails assembly truth",
+      "rationale": "autumn demand in a form that needs no assembly"
+     },
+     "next_step": "measure demand once the shop has search data (DATA)",
+     "clearer": "DATA"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "proposal",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "b0fc3e8ac888",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "hero: 340 px legibility ['the product fills 13% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']",
+       "scale: structural truth UNKNOWN",
+       "scale: 340 px legibility ['the product fills 14% of the frame at 340 px', 'colour cream is shown at full size and not visible at 340 px']"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "spooky-garland",
+   "title": "Spooky Bunting Garland",
+   "source": "catalogue",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "rename to what the fabric makes or change the CIR (new version)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.682,
+      "components": {
+       "demand": 0.8,
+       "competition_headroom": 0.3,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.884,
+       "margin": 0.321,
+       "whitespace": 0.48
+      },
+      "category": "seasonal_decor",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": true,
+      "release_hash": "61a161b3a66b",
+      "certificate_errors": [],
+      "name_truth": [
+       "assembly: the title names 'garland'; the CIR carries 0 seams and 1 pieces"
+      ],
+      "compile_warnings": 0
+     },
+     "next_step": "rename to what the fabric makes or change the CIR (new version)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "valentine-heart-garland",
+   "title": "Heart Motif Garland",
+   "source": "catalogue",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "rename to what the fabric makes or change the CIR (new version)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.573,
+      "components": {
+       "demand": 0.8,
+       "competition_headroom": 0.3,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.137,
+       "margin": 0.321,
+       "whitespace": 0.44
+      },
+      "category": "seasonal_decor",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.2.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": true,
+      "release_hash": "73d7bb8a6536",
+      "certificate_errors": [],
+      "name_truth": [
+       "assembly: the title names 'garland'; the CIR carries 0 seams and 1 pieces"
+      ],
+      "compile_warnings": 0
+     },
+     "next_step": "rename to what the fabric makes or change the CIR (new version)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "wedding-ring-cushion",
+   "title": "Wedding Ring Cushion",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.521,
+      "components": {
+       "demand": 0.4,
+       "competition_headroom": 0.62,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.464,
+       "whitespace": 0.5
+      },
+      "category": "wedding",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'wedding', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "winter-village-graphghan",
+   "title": "Winter Snowfall Relief Throw",
+   "source": "catalogue",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "UNKNOWN",
+   "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.729,
+      "components": {
+       "demand": 0.7,
+       "competition_headroom": 0.38,
+       "verifiability": 1.0,
+       "seasonal_fit": 0.886,
+       "margin": 0.75,
+       "whitespace": 0.66
+      },
+      "category": "graphghan",
+      "risk_class": "A"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "catalogue",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "1.3.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "b41e0430fe3d",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "UNKNOWN",
+     "evidence": {
+      "made": true,
+      "usable": false,
+      "frames": [
+       [
+        "hero",
+        "UNKNOWN"
+       ],
+       [
+        "scale",
+        "UNKNOWN"
+       ],
+       [
+        "detail",
+        "UNKNOWN"
+       ]
+      ],
+      "launch_blocked": [
+       "hero: structural truth UNKNOWN",
+       "scale: structural truth UNKNOWN",
+       "detail: structural truth UNKNOWN"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 products; promotion is a catalogue decision, see backlog notes)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "woodland-fox-amigurumi",
+   "title": "Woodland Fox Amigurumi",
+   "source": "radar_pool",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "radar_score": 0.556,
+      "components": {
+       "demand": 0.88,
+       "competition_headroom": 0.1,
+       "verifiability": 0.62,
+       "seasonal_fit": 0.55,
+       "margin": 0.429,
+       "whitespace": 0.48
+      },
+      "category": "amigurumi",
+      "risk_class": "B"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no engineered design and no catalogue Design for this concept (radar category 'amigurumi', risk B)",
+     "next_step": "engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament, pillow, pouch, rectangle_throw, round_disc, runner, scarf, sphere, stocking, tube, wall_hanging",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "housewarming-key-basket",
+   "title": "Housewarming Key Basket",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A round basketweave catch-all in pine and cream sits on the hall table to hold the keys of a first home.",
+      "function": "keeps the keys, letters and dog lead of a first home together in one place by the door",
+      "occasion": "housewarming",
+      "pod": "home_decor",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "basket",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "142b52f0f9c6",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: housewarming-key-basket: the increases neither all stack nor all stagger, so the outline is not a named shape and drawing one would be a guess (cir.geometry.corners)"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer cannot name this round piece's outline (staggered increases: cir.geometry.corners returns None); renderer/geometry work",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "reading-nook-cable-wrap",
+   "title": "Reading Nook Cable Wrap",
+   "source": "creative",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A long cable twist wrap in forest and cream lies across the shoulders like a heavier shawl.",
+      "function": "stays across the shoulders through a long evening of reading in the coldest room of the house",
+      "occasion": "winter_nesting",
+      "pod": "wearables",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "wrap",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it pa"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "first-christmas-stocking",
+   "title": "First Christmas Fir and Star Relief Stocking",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A fir and star stocking in forest and cream with a plain cuff band waiting for the baby's initial.",
+      "function": "marks a baby's first Christmas and hangs on the mantel every December of their childhood",
+      "occasion": "christmas",
+      "pod": "seasonal",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "leg_front",
+        1
+       ],
+       [
+        "leg_back",
+        1
+       ],
+       [
+        "foot_front",
+        1
+       ],
+       [
+        "foot_back",
+        1
+       ],
+       [
+        "toe_front",
+        1
+       ],
+       [
+        "toe_back",
+        1
+       ],
+       [
+        "cuff",
+        1
+       ],
+       [
+        "loop",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "37997da15179",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: first-christmas-stocking: 8 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "mothers-day-heart-tea-cosy",
+   "title": "Heart Row Tea Cosy",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A heart row tea cosy in cream and wine fits the round teapot that comes out when the family visits.",
+      "function": "keeps the Sunday teapot hot through a long conversation at the kitchen table",
+      "occasion": "mothers_day",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "cosy",
+        1
+       ],
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "96408a469e36",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: mothers-day-heart-tea-cosy: 3 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "teacher-chevron-pencil-roll",
+   "title": "Chevron Pencil Roll",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A chevron band pencil roll in wine and gold ties shut with a single crocheted cord.",
+      "function": "carries a full set of pencils between classroom and home and unrolls flat across the desk",
+      "occasion": "back_to_school",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "panel",
+        1
+       ],
+       [
+        "tie",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "25411a7789ab",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: teacher-chevron-pencil-roll: 2 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "heart-row-ring-pillow",
+   "title": "Heart Row Ring Pillow",
+   "source": "creative",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A round heart row ring pillow in cream and wine with a centre loop to tie the two rings.",
+      "function": "carries the rings down the aisle and then keeps them safe on the shelf as a wedding keepsake",
+      "occasion": "wedding",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "pillow",
+        1
+       ],
+       [
+        "bottom",
+        1
+       ],
+       [
+        "ring_loop",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "snowfall-advent-garland",
+   "title": "Snowfall Mitten Advent Garland",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "Twenty-four numbered mitten pockets banded in snowfall, forest and cream, hang along the stairs for the December countdown.",
+      "function": "holds a note or small treat for each morning of December so the children count down together",
+      "occasion": "christmas",
+      "pod": "seasonal",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "mitten",
+        24
+       ],
+       [
+        "thumb",
+        24
+       ],
+       [
+        "loop_tab",
+        24
+       ],
+       [
+        "cord",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "8a79bd978d0f",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: snowfall-advent-garland: 4 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "spring-garden-kneeler",
+   "title": "Spring Garden Kneeler",
+   "source": "creative",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A dense trellis kneeling pad in pine and gold, tulip heads at the crossings, saves the knees on the first spring weekend outdoors.",
+      "function": "cushions the knees through a full morning of planting out the spring garden beds",
+      "occasion": "spring_refresh",
+      "pod": "home_decor",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "gap-hats-and-wearables",
+   "title": "Hats and wearables",
+   "source": "intelligence",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "finding": {
+       "key": "coverage_gaps",
+       "statement": "7 benchmark arenas have no Brambleloop answer; first in the queue: Hats and wearables, Amigurumi and soft sculpture, Garments and clothing, Multi-pattern collections and ebooks, Christmas stockings, Kitchen and bath textiles",
+       "confidence": {
+        "basis": "coverage gap queue (intel.coverage)",
+        "grade": "observed"
+       },
+       "opportunity": "the gap queue's top arenas are the next original-concept briefs"
+      },
+      "arena_state": "uncovered",
+      "demand_proxy": "Median favourites per benchmark listing rank garments 1701, stockings 1472, blankets 1400, amigurumi 1111, bags 920; stockings draw above-median favourites on below-median shelf depth"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no original concept yet for this arena",
+     "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "gap-amigurumi-and-soft-sculpture",
+   "title": "Amigurumi and soft sculpture",
+   "source": "intelligence",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "finding": {
+       "key": "coverage_gaps",
+       "statement": "7 benchmark arenas have no Brambleloop answer; first in the queue: Hats and wearables, Amigurumi and soft sculpture, Garments and clothing, Multi-pattern collections and ebooks, Christmas stockings, Kitchen and bath textiles",
+       "confidence": {
+        "basis": "coverage gap queue (intel.coverage)",
+        "grade": "observed"
+       },
+       "opportunity": "the gap queue's top arenas are the next original-concept briefs"
+      },
+      "arena_state": "uncovered",
+      "demand_proxy": "Median favourites per benchmark listing rank garments 1701, stockings 1472, blankets 1400, amigurumi 1111, bags 920; stockings draw above-median favourites on below-median shelf depth"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no original concept yet for this arena",
+     "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "gap-garments-and-clothing",
+   "title": "Garments and clothing",
+   "source": "intelligence",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "finding": {
+       "key": "coverage_gaps",
+       "statement": "7 benchmark arenas have no Brambleloop answer; first in the queue: Hats and wearables, Amigurumi and soft sculpture, Garments and clothing, Multi-pattern collections and ebooks, Christmas stockings, Kitchen and bath textiles",
+       "confidence": {
+        "basis": "coverage gap queue (intel.coverage)",
+        "grade": "observed"
+       },
+       "opportunity": "the gap queue's top arenas are the next original-concept briefs"
+      },
+      "arena_state": "uncovered",
+      "demand_proxy": "Median favourites per benchmark listing rank garments 1701, stockings 1472, blankets 1400, amigurumi 1111, bags 920; stockings draw above-median favourites on below-median shelf depth"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no original concept yet for this arena",
+     "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+     "clearer": "COMPANY"
+    }
+   }
+  },
+  {
+   "slug": "gap-education-and-guidebooks",
+   "title": "Education and guidebooks",
+   "source": "intelligence",
+   "stage": "DESIGN",
+   "highest_passed": "INTELLIGENCE",
+   "stage_status": "NOT_RUN",
+   "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "finding": {
+       "key": "coverage_gaps",
+       "statement": "7 benchmark arenas have no Brambleloop answer; first in the queue: Hats and wearables, Amigurumi and soft sculpture, Garments and clothing, Multi-pattern collections and ebooks, Christmas stockings, Kitchen and bath textiles",
+       "confidence": {
+        "basis": "coverage gap queue (intel.coverage)",
+        "grade": "observed"
+       },
+       "opportunity": "the gap queue's top arenas are the next original-concept briefs"
+      },
+      "arena_state": "uncovered",
+      "demand_proxy": "Median favourites per benchmark listing rank garments 1701, stockings 1472, blankets 1400, amigurumi 1111, bags 920; stockings draw above-median favourites on below-median shelf depth"
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "NOT_RUN",
+     "evidence": "no original concept yet for this arena",
+     "next_step": "W4-CREATIVE: write a moment-first brief (creative.emotional_brief) for this arena, then engineer a deterministic design; never copy the benchmark",
+     "clearer": "COMPANY"
+    }
+   }
+  }
+ ],
+ "at_stage": {
+  "INTELLIGENCE": 0,
+  "DESIGN": 23,
+  "PRODUCT": 0,
+  "PRODUCT_TRUTH": 10,
+  "VISUAL": 19,
+  "SEARCH": 5,
+  "LISTING_READINESS": 0,
+  "PUBLICATION": 0
+ },
+ "passed_stage": {
+  "INTELLIGENCE": 57,
+  "DESIGN": 34,
+  "PRODUCT": 34,
+  "PRODUCT_TRUTH": 24,
+  "VISUAL": 5,
+  "SEARCH": 0,
+  "LISTING_READINESS": 0,
+  "PUBLICATION": 0
+ },
+ "bundle_families": {
+  "kitchen_texture": {
+   "members": [
+    "diamond-lattice-dishcloth",
+    "basketweave-textured-washcloth",
+    "basketweave-textured-hand-towel",
+    "mosaic-placemat-pair"
+   ],
+   "product_truth_passed": [
+    "diamond-lattice-dishcloth",
+    "basketweave-textured-washcloth",
+    "basketweave-textured-hand-towel",
+    "mosaic-placemat-pair"
+   ],
+   "bundle_ready_for_pricing": true,
+   "basis": "mjs.findings bundle_premium (listed prices; whether bundles sell is unmeasured)"
+  },
+  "table_runners": {
+   "members": [
+    "heart-relief-table-runner",
+    "pumpkin-relief-table-runner",
+    "fir-star-relief-table-runner"
+   ],
+   "product_truth_passed": [
+    "heart-relief-table-runner",
+    "pumpkin-relief-table-runner",
+    "fir-star-relief-table-runner"
+   ],
+   "bundle_ready_for_pricing": true,
+   "basis": "mjs.findings bundle_premium (listed prices; whether bundles sell is unmeasured)"
+  }
+ },
+ "findings_as_of": "2026-10-07",
+ "advances_publication": false,
+ "publication_gate": "owner: shop/KYC, payout, fees, phase, sealed publication grant per release (D-FB-10); never advanced by this board",
+ "generated_at": "2026-10-07T01:44:01+00:00",
+ "head": "e72f086",
+ "pipe2_rows": {
+  "by": "W4-PIPE2 research/final_build/w4/pipe2_run.py",
+  "slugs": [
+   "first-christmas-stocking",
+   "reading-nook-cable-wrap",
+   "mothers-day-heart-tea-cosy",
+   "snowfall-advent-garland",
+   "teacher-chevron-pencil-roll",
+   "heart-row-ring-pillow",
+   "housewarming-key-basket",
+   "spring-garden-kneeler"
+  ],
+  "at": "2026-10-07T02:55:35+00:00",
+  "detail": "PIPE2_CANDIDATES.json"
+ }
+}

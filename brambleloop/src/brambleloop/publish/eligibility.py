@@ -522,6 +522,59 @@ LEGACY_PRE_CALIBRATION = "LEGACY_PRE_CALIBRATION"
 FIRST_CUSTOMER_BLOCKING = "FIRST_CUSTOMER_BLOCKING"
 NOT_CERTIFIED = "NOT_CERTIFIED"
 RETIRED_DUPLICATE = "RETIRED_DUPLICATE"
+NAME_OUTRUNS_PATTERN = "NAME_OUTRUNS_PATTERN"
+
+
+def name_truth(cir, listing: dict | None = None) -> list[str]:
+    """W4-PIPE: what the product's name promises that its CIR does not make.
+
+    `launch0.title_promise` (piece count), `assembly_promise` (an assembled form) and
+    `fabric_truth` (a colourwork fabric) were enforced at publish only through the
+    first-customer gate, i.e. only for Launch-0. A re-certified product outside Launch-0
+    ("Nordic Star Ornament Set (6)" whose CIR makes one ornament) skipped all three and
+    could be published under a name its pattern does not make. Every product is held to
+    them here; deterministic validation, not scope, decides.
+    """
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+    from ..products import launch0 as l0
+
+    out: list[str] = []
+    for key, verdict in (("count", l0.title_promise(cir)),
+                         ("assembly", l0.assembly_promise(cir))):
+        if not verdict.get("backed"):
+            out.append(f"{key}: {verdict.get('why')}")
+    result = compile_cir(cir)
+    if result.ok:
+        twin = build_twin(cir, result)
+        fabric = l0.fabric_truth(cir, twin)
+        if not fabric.get("backed"):
+            out.append(f"fabric: {fabric.get('why')}")
+        if listing:
+            # The drafted copy can say "mosaic" when the CIR title no longer does: the radar
+            # seed and the slug feed the listing words outside Launch-0.
+            from ..gates.first_customer import colourwork_findings
+
+            out.extend(f"listing: {f}" for f in colourwork_findings(
+                cir, twin, title=listing.get("title") or "", tags=listing.get("tags") or ()))
+    # W4-PIPE: imagery the name promises that the motif does not depict (W4-CREATIVE's
+    # `title_conflicts`, the same word lists its HELD findings used). The listing copy is
+    # checked too: outside Launch-0 its words come from the slug and radar seed, which can
+    # still say "village" or "flower" after the CIR was retitled to what it makes.
+    motif = next((p.split(":", 1)[1] for p in
+                  (getattr(cir.provenance, "primitives_used", None) or ())
+                  if isinstance(p, str) and p.startswith("products.motifs:")), None)
+    if motif:
+        from ..creative.emotional_brief import title_conflicts
+
+        for where, text in (("title", cir.title),
+                            ("listing", " ".join([(listing or {}).get("title") or ""]
+                                                 + list((listing or {}).get("tags") or ())))):
+            bad = title_conflicts(text, motif)
+            if bad:
+                out.append(f"imagery: the {where} promises {bad}; the {motif} motif does "
+                           "not depict it")
+    return out
 
 
 def legacy_status(slug: str, certificate: dict | None) -> dict:
@@ -581,6 +634,12 @@ def product_publication(db, slug: str, version: str, *, listing=None, frames=Non
     legacy = legacy_status(slug, certificate)
     if not legacy["cleared"]:
         reasons.append({"code": LEGACY_PRE_CALIBRATION, "why": legacy["why"]})
+
+    if cir_json and retired is None:
+        for problem in name_truth(CIR.from_dict(cir_json), listing):
+            reasons.append({"code": NAME_OUTRUNS_PATTERN,
+                            "why": f"{slug}@{version}: the name promises what the pattern "
+                                   f"does not make -- {problem}"[:300]})
 
     blocking: list[dict] | None = None
     if legacy["in_launch_scope"] and cir_json:

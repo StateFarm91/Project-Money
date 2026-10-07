@@ -2396,6 +2396,24 @@ def _motifs_for(slug: str) -> list[str]:
     words = [w for w in slug.replace("_", "-").split("-")
              if w not in {"mosaic", "pattern", "concept", "throw", "blanket", "set",
                           "trio", "pair", "library", "bundle"} and not w.isdigit()]
+    # W4-PIPE: a slug is a permanent id, not a description. A catalogue design retitled to
+    # what it makes ("winter-village-graphghan" is a snowfall relief throw) must not have the
+    # slug's old words put back into its listing: imagery its motif does not depict
+    # (`creative.emotional_brief.title_conflicts`) and colourwork its one-colour-per-row
+    # fabric cannot make are replaced by the motif's own words. `publish.eligibility.
+    # name_truth` and `colourwork_findings` refuse either at publish if it got through.
+    from ..products import builder as _builder
+
+    design = _builder.CATALOGUE.get(slug)
+    if design is not None:
+        from ..creative.emotional_brief import title_conflicts
+
+        false = set(title_conflicts(" ".join(words), design.motif)) | (
+            set(words) & {"graphghan", "tapestry", "intarsia"})
+        if false:
+            words = [w for w in words if w not in false]
+            words += [w for w in design.motif.split("-")
+                      if w not in ("and", "row", "band") and w not in words]
     return words[:3]
 
 

@@ -27,14 +27,15 @@ def plan():
 
 def products():
     ps = plan()["products"]
-    assert len(ps) == 3, [p["slug"] for p in ps]
+    assert len(ps) == 5, [p["slug"] for p in ps]   # W4-PIPE: 5 Launch-0 products
     return ps
 
 
-def test_three_products_and_baskets_are_one_listing_with_sizes():
+def test_five_products_and_baskets_are_one_listing_with_sizes():
     by = {p["slug"]: p for p in products()}
     assert set(by) == {"nursery-nesting-baskets", "hexagon-coaster-set",
-                       "cloudline-baby-blanket"}
+                       "cloudline-baby-blanket", "nordic-star-ornaments",
+                       "winter-village-graphghan"}
     b = by["nursery-nesting-baskets"]
     assert b["listing_unit"] == "product" and len(b["variants"]) == 3
     assert "3 Sizes" in b["title"]
@@ -44,7 +45,7 @@ def test_three_products_and_baskets_are_one_listing_with_sizes():
 
 def test_every_product_passes_every_check():
     ps = products()
-    assert len(ps) == 3
+    assert len(ps) == 5
     for p in ps:
         assert p["ok"], (p["slug"], p["blocking"])
         assert p["writes_to_etsy"] is False
@@ -52,7 +53,7 @@ def test_every_product_passes_every_check():
 
 def test_thirteen_tags_within_limits_and_charset():
     ps = products()
-    assert len(ps) == 3
+    assert len(ps) == 5
     for p in ps:
         assert len(p["tags"]) == 13, p["slug"]
         assert len({t.lower() for t in p["tags"]}) == 13
@@ -64,7 +65,7 @@ def test_titles_buyer_first_no_repeats_under_limit():
     from brambleloop.seo import strategy
 
     ps = products()
-    assert len(ps) == 3
+    assert len(ps) == 5
     for p in ps:
         assert len(p["title"]) <= 140
         assert "crochet pattern" in p["title"].lower()[:45], p["title"]
@@ -75,7 +76,7 @@ def test_no_stem_stuffing():
     from brambleloop.seo import strategy
 
     ps = products()
-    assert len(ps) == 3
+    assert len(ps) == 5
     for p in ps:
         counts = strategy.stem_slot_counts(p["tags"])
         assert counts and max(counts.values()) <= strategy.MAX_STEM_SLOTS, counts
@@ -83,7 +84,7 @@ def test_no_stem_stuffing():
 
 def test_demand_is_modelled_not_measured_without_evidence():
     ps = products()
-    assert len(ps) == 3
+    assert len(ps) == 5
     for p in ps:
         assert p["tag_basis_counts"] == {"modelled": 13}
         assert p["families"]
@@ -145,7 +146,7 @@ def test_category_and_attributes_gated():
 
 def test_description_natural_and_honest():
     ps = products()
-    assert len(ps) == 3
+    assert len(ps) == 5
     for p in ps:
         d = p["description"]
         assert d["final"] is False and d["findings"] == []
@@ -170,7 +171,7 @@ def test_existing_validator_agrees():
     from brambleloop.seo import facts, truth
 
     ps = products()
-    assert len(ps) == 3
+    assert len(ps) == 5
     for p in ps:
         f = facts.for_product(L.candidate(p["slug"]))
         v = truth.validate_listing(p["title"], p["tags"], f, competitors=[])
