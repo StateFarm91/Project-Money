@@ -54,6 +54,11 @@ _SECTION_HEADINGS = {"assembly", "finishing"}
 _HOLD_RE = re.compile(r"(\d+)\s+sts\s+\(sts\s+(\d+)-(\d+)\)\s+for\s+([a-z0-9 _]+?)(?=,|\s+on\s+a)",
                       re.I)
 _RESUME_RE = re.compile(r"^Rejoin yarn to the sts held for (.+?) and work", re.I)
+# F-750: the piece's work direction, in this reader's own grammar.
+_DIRECTION_RE = re.compile(r"^Worked from (the bottom up|the top down|side to side|"
+                           r"the centre out)\.$", re.I)
+_DIRECTIONS = {"the bottom up": "bottom_up", "the top down": "top_down",
+               "side to side": "side_to_side", "the centre out": "centre_out"}
 
 
 @dataclass
@@ -64,6 +69,7 @@ class ParsedPiece:
     make: int = 1
     holds: list[tuple[str, int, int, int]] = field(default_factory=list)  # name,row,count,from
     resumes: str | None = None
+    direction: str | None = None
 
 
 def parse_pieces(text: str) -> dict[str | None, ParsedPiece]:
@@ -94,6 +100,10 @@ def parse_pieces(text: str) -> dict[str | None, ParsedPiece]:
         m = _ROW_RE.match(_NOTE_RE.sub("", line))
         if m:
             last_row = int(m.group(2))
+            continue
+        dm = _DIRECTION_RE.match(line)
+        if dm:
+            pieces[current].direction = _DIRECTIONS[dm.group(1).lower()]
             continue
         r = _RESUME_RE.match(line)
         if r:
@@ -621,6 +631,11 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
                 ERROR, "REVERSE_HOLD",
                 f"stitches held differ from the validated design: CIR holds {want_holds}, "
                 f"customer text holds {sorted(piece.holds)}", comp.name))
+        if piece.direction != comp.work_direction:
+            findings.append(Finding(
+                ERROR, "REVERSE_DIRECTION",
+                f"the document works {comp.name} {piece.direction!r}; the validated design "
+                f"works it {comp.work_direction!r}", comp.name))
         want_resume = comp.resumes.replace("_", " ") if comp.resumes else None
         if piece.resumes != want_resume:
             findings.append(Finding(

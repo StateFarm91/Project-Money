@@ -391,6 +391,10 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
             out.append(f"## {comp.name}{make}")
         if comp.foundation and comp.foundation_kind == "chain":
             out.append(f"Foundation: ch {comp.foundation}.")
+        # F-750: a piece that declares its work direction says it (cir.topology).
+        from .topology import direction_line
+        if direction_line(comp):
+            out.append(direction_line(comp))
         resumed = resume_line(comp)
         if resumed:
             out.append(resumed)

@@ -322,6 +322,15 @@ class Hold:
         return (self.from_stitch, self.from_stitch + self.count)
 
 
+# F-750: the directions a piece can be worked in, and the typed features a piece can be.
+WorkDirection = Literal["bottom_up", "top_down", "side_to_side", "centre_out"]
+WORK_DIRECTIONS: tuple[str, ...] = ("bottom_up", "top_down", "side_to_side", "centre_out")
+Feature = Literal["body", "yoke", "sleeve", "band", "button_band", "hood", "pocket",
+                  "collar", "cuff", "panel"]
+FEATURES: tuple[str, ...] = ("body", "yoke", "sleeve", "band", "button_band", "hood",
+                             "pocket", "collar", "cuff", "panel")
+
+
 @dataclass
 class Component:
     """A separately-worked piece (a sleeve, a motif, a granny square).
@@ -370,6 +379,15 @@ class Component:
     # per-component gauge is carried end to end. Omitted from `to_dict` when None, so no
     # existing Product Truth digest moves.
     gauge: "Gauge | None" = None
+    # Which way the piece is worked (F-750), and what it is on the finished object. Both are
+    # construction semantics the stitch counts cannot carry: a top-down raglan yoke and a
+    # bottom-up body can have identical row counts, and a hood, a pocket and a band are all
+    # "a flat piece" to the compiler. Optional and omitted from `to_dict` when None, so no
+    # existing Product Truth digest moves; a design that states them is held to them by
+    # `cir.topology` (direction against grain and holds) and they enter its construction
+    # fingerprint, the writer's piece heading and the reverse compiler's comparison.
+    work_direction: "WorkDirection | None" = None
+    feature: "Feature | None" = None
 
     @property
     def rows_run_vertically_on_the_body(self) -> bool:
@@ -386,6 +404,12 @@ class Component:
             raise ValueError(f"component {self.name!r} has duplicate hold names: {names}")
         if isinstance(self.gauge, dict):
             self.gauge = Gauge(**self.gauge)
+        if self.work_direction is not None and self.work_direction not in WORK_DIRECTIONS:
+            raise ValueError(f"component {self.name!r} work_direction "
+                             f"{self.work_direction!r} is not one of {WORK_DIRECTIONS}")
+        if self.feature is not None and self.feature not in FEATURES:
+            raise ValueError(f"component {self.name!r} feature {self.feature!r} is not one "
+                             f"of {FEATURES}")
 
 
 SeamMethod = Literal["whipstitch", "slst", "mattress", "sew"]
@@ -485,6 +509,48 @@ class Provenance:
         self.benchmarks_consulted = tuple(str(b) for b in (self.benchmarks_consulted or ()))
 
 
+@dataclass
+class Grading:
+    """This release as one size of a graded design, with the whole size family (F-762).
+
+    A graded garment is a function of size, and each size is released as its own CIR. Until
+    this existed the CIR of size M knew nothing about the other eight: the size chart, the
+    ease and the fit were properties of a `GradedDesign` object that did not survive one
+    pipeline hop, so the PDF could not print them, the listing check could not read them and
+    certification could not recompute them.
+
+    `sizes` is the machine-readable size matrix, one entry per sourced size in the body
+    table's order: `body_cm` and `intended_cm` (body + ease) per required measurement,
+    `built_cm` measured from that size's compiled rows and twin, `stitches` (widest row) and
+    `rows` per piece, and `yarn_m` for the whole garment. `cir.graded.grading_problems`
+    recomputes this size's entry from the rows and re-checks every grading relationship at
+    certification (F-768).
+
+    Optional and omitted from `to_dict` when None: only graded releases carry it.
+    """
+
+    design_key: str
+    size: str
+    table: str
+    source_url: str
+    retrieved: str
+    fit: str | None = None
+    ease_cm: dict[str, float] = field(default_factory=dict)
+    sizes: list[dict] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.ease_cm = {str(k): float(v) for k, v in dict(self.ease_cm or {}).items()}
+        self.sizes = [dict(e) for e in (self.sizes or [])]
+
+    def entry(self, size: str | None = None) -> dict | None:
+        want = self.size if size is None else size
+        return next((e for e in self.sizes if e.get("size") == want), None)
+
+    @property
+    def size_names(self) -> tuple[str, ...]:
+        return tuple(str(e.get("size")) for e in self.sizes)
+
+
 SINGLE_VARIANT = "single"
 
 
@@ -570,6 +636,8 @@ class CIR:
     provenance: Provenance | None = None
     # Optional (F-757). Absent from `to_dict` when None: a single-variant design.
     configuration: Configuration | None = None
+    # Optional (F-762). Absent from `to_dict` when None: only graded releases carry it.
+    grading: Grading | None = None
 
     def __post_init__(self) -> None:
         if not self.components:
@@ -581,6 +649,8 @@ class CIR:
             self.provenance = Provenance(**self.provenance)
         if isinstance(self.configuration, dict):
             self.configuration = Configuration(**self.configuration)
+        if isinstance(self.grading, dict):
+            self.grading = Grading(**self.grading)
 
     @property
     def represented_variant(self) -> dict[str, str]:
@@ -632,9 +702,12 @@ class CIR:
             out.pop("provenance", None)
         if out.get("configuration") is None:
             out.pop("configuration", None)
+        if out.get("grading") is None:
+            out.pop("grading", None)
         for comp in out.get("components", []):
-            if comp.get("gauge") is None:
-                comp.pop("gauge", None)
+            for optional in ("gauge", "work_direction", "feature"):
+                if comp.get(optional) is None:
+                    comp.pop(optional, None)
         return out
 
     def to_json(self, **kw: Any) -> str:
@@ -669,6 +742,8 @@ class CIR:
                 resumes=c.get("resumes"),
                 grain=c.get("grain", "up"),
                 gauge=Gauge(**c["gauge"]) if c.get("gauge") else None,
+                work_direction=c.get("work_direction"),
+                feature=c.get("feature"),
                 rows=[
                     Row(
                         index=r["index"],
@@ -704,6 +779,7 @@ class CIR:
             provenance=Provenance(**d["provenance"]) if d.get("provenance") else None,
             configuration=(Configuration(**d["configuration"])
                            if d.get("configuration") else None),
+            grading=Grading(**d["grading"]) if d.get("grading") else None,
         )
 
     @staticmethod

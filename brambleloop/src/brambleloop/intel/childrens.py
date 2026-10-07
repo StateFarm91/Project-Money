@@ -644,6 +644,18 @@ STATEMENT_SET: dict[str, Statement] = {s.key: s for s in (
         marker="you become its manufacturer",
         source="cpsc_childrens_product"),
     Statement(
+        "measurements_govern_fit",
+        obligation=("that finished measurements, not age, govern the fit of a sized "
+                    "children's garment (F-362)"),
+        heading="Choosing the size",
+        text=("Children's sizes are named by age because that is how the size standard names "
+              "them, but age does not decide fit. Measure the child's chest and choose the "
+              "size whose to-fit chest is closest, then check the finished measurements in "
+              "the size chart in this document: those, not the age on the label, are what "
+              "the garment will measure."),
+        marker="age does not decide fit",
+        source="cyc_child_sizes"),
+    Statement(
         "not_legal_advice",
         obligation="that this is not legal advice, and the date the safety guidance was compiled",
         heading="About these safety notes",
@@ -1032,7 +1044,7 @@ SUBCATEGORIES: dict[str, Subcategory] = {s.slug: s for s in (
         "Class C. The CYC tables make grading arithmetic rather than guesswork, but fit is not "
         "verifiable by compiler, and the drawstring rule bites on anything hooded.",
         ("neck_or_hood_drawstring", "waist_or_bottom_tie_length", "small_parts_under_3"),
-        _BABY_STATEMENTS),
+        _BABY_STATEMENTS + ("measurements_govern_fit",)),
     Subcategory(
         "rattle_or_teether", "Rattles and teethers",
         "amigurumi", (UNDER_3,),

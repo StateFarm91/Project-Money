@@ -189,6 +189,13 @@ def certify(
     #     configuration other than the one these rows encode is describing another product.
     findings.extend(component_gauge_findings(cir))
     findings.extend(configuration_findings(cir, listing_variant=listing_variant))
+    # 1d. Grading (F-762, F-768): a graded release's size matrix is recomputed for this size
+    #     from its own rows and every grading relationship in the family re-checked.
+    findings.extend(grading_findings(cir))
+    # 1e. Construction topology (F-750): a declared work direction or sleeve construction
+    #     the rows contradict.
+    from ..cir.topology import topology_problems
+    findings.extend(Finding(ERROR, "TOPOLOGY_INCONSISTENT", p) for p in topology_problems(cir))
     stages.append("specification")
 
     # 2. Digital twin -- one per piece. Only the first component used to be modelled, so a
@@ -585,6 +592,13 @@ def specification_findings(cir: CIR) -> list[Finding]:
     except _specification.BenchmarkDerived as exc:
         out.append(Finding(ERROR, "BENCHMARK_DERIVED", str(exc)))
     return out
+
+
+def grading_findings(cir: CIR) -> list[Finding]:
+    """F-768: recompute a graded release's size matrix entry and re-check the family."""
+    from ..cir.graded import grading_problems
+
+    return [Finding(ERROR, "GRADING_INCONSISTENT", p) for p in grading_problems(cir)]
 
 
 def component_gauge_findings(cir: CIR) -> list[Finding]:
