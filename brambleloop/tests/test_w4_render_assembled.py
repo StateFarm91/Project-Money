@@ -91,8 +91,19 @@ def test_cosy():
 def test_refusals():
     why = _refused(mc.snowfall_advent_garland())
     check("garland_refused_pieces_not_placeable", "round pieces" in why, why)
-    why = _refused(pb.pencil_roll_cir())
-    check("pencil_roll_refused_on_palette_contract", "palette" in why, why)
+    roll = pb.pencil_roll_cir()
+    hero = D.render(roll, "hero")
+    panel = next(p for p in hero.manifest["layout"]["pieces"] if p["piece"] == "panel")
+    tops = __import__("brambleloop.cir.twin", fromlist=["build_twin"]).build_twin(
+        roll, __import__("brambleloop.cir.compiler", fromlist=["compile_cir"]).compile_cir(roll),
+        component="panel").row_top_cm
+    k = panel["fold_rows"]
+    check("pencil_roll_pocket_fold_from_self_seams", k == 11
+          and panel["drawn"]["fold"]["fold_rows"] == 11, panel["fold_rows"])
+    check("pencil_roll_height_is_rows_above_the_fold",
+          abs(panel["up_cm"] - (tops[max(tops)] - tops[k])) < 1e-6, panel["up_cm"])
+    check("pencil_roll_tie_placed_by_its_seam",
+          hero.manifest["assembly"]["drawn"] == ["panel", "tie"])
     cir = pb.stocking_cir()
     seams = [replace(s, edge_b="left") if (s.piece_a, s.piece_b) == ("leg_front", "foot_front")
              else s for s in cir.assembly]

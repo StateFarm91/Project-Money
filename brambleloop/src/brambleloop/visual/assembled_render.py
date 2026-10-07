@@ -195,10 +195,19 @@ def _planar(cir, result, twins) -> Plan:
     if body in back:
         raise D.RenderRefused(f"{cir.slug}: the body piece is stacked against itself")
 
+    def new_placed(name: str) -> Placed:
+        c = comps[name]
+        p = Placed(name, c, twins[name], 0.0, 0.0, feet[name].across_cm, feet[name].up_cm,
+                   c.grain, fold=_fold_of(cir, c))
+        if p.fold:
+            # Folded rows lie over the piece, so its height is the rows above the fold.
+            tops = p.twin.row_top_cm
+            p.up = tops[max(tops)] - tops[p.fold]
+        return p
+
     plan = Plan(form="planar", body=body)
     order = [body]
-    placed = {body: Placed(body, comps[body], twins[body], 0.0, 0.0, feet[body].across_cm,
-                           feet[body].up_cm, comps[body].grain, fold=_fold_of(cir, comps[body]))}
+    placed = {body: new_placed(body)}
     front_rows: dict[str, list[tuple[int, int]]] = {}
     back_rows: dict[str, list[tuple[int, int]]] = {}
     queue = [body]
@@ -215,9 +224,7 @@ def _planar(cir, result, twins) -> Plan:
                     (s.at_round, s.at_round + s.spans_rounds - 1))
             if other in placed:
                 continue
-            c = comps[other]
-            p_new = Placed(other, c, twins[other], 0.0, 0.0, feet[other].across_cm,
-                           feet[other].up_cm, c.grain, fold=_fold_of(cir, c))
+            p_new = new_placed(other)
             cur_edge = s.edge_a if s.piece_a == cur else s.edge_b
             new_edge = s.edge_b if s.piece_a == cur else s.edge_a
             _place(placed[cur], cur_edge, p_new, new_edge, n_is_b=(other == s.piece_b), seam=s)
