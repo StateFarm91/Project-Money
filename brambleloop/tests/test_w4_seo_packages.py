@@ -117,6 +117,50 @@ def test_listing_seo_persists_a_package_the_consumer_reads():
     print("OK listing_seo_persists_a_package_the_consumer_reads")
 
 
+def test_mjs_findings_flow_into_the_package():
+    """Benchmark findings (intel.findings reading) reach the package, labelled by grade.
+
+    The reading below is a FIXTURE in the stored shape of `mjs.findings`; the numbers are
+    illustrative, not observations of any seller.
+    """
+    from brambleloop.core.models import OperatingReading
+    from brambleloop.intel import findings as F
+    from brambleloop.seo import jobs
+
+    db = _chain("real", fixture_taxonomy=False)
+    version = _version(db)
+    before = P.current(db, SLUG, version)
+    assert before["competitive"]["status"] == "UNKNOWN", before["competitive"]
+    assert before["competitive"]["price"] is None   # UNKNOWN is never 0
+    prov = {"benchmark_key": "fixture", "source": "fixture:test_w4_seo_packages",
+            "sample": 40, "observed_from": "2026-10-01", "observed_to": "2026-10-06"}
+    payload = {"as_of": "2026-10-06", "findings": [
+        {"key": "pricing", "metrics": {"by_pod": {"home_decor": {
+            "median": 18.0, "p25": 17.5, "p75": 18.0, "n": 11}}},
+         "confidence": {"grade": "observed", "basis": "fixture"}, "provenance": prov},
+        {"key": "demand_by_pod", "metrics": {"median_favourites": {"home_decor": 911.0},
+                                             "underserved": []},
+         "confidence": {"grade": "proxy", "basis": "favourites are a proxy"},
+         "provenance": prov},
+        {"key": "seasonality", "metrics": {"season_pods": {"ornaments": 13},
+                                           "upcoming": [{"event": "Christmas",
+                                                         "date": "2026-12-25"}]},
+         "confidence": {"grade": "proxy", "basis": "fixture"}, "provenance": prov}]}
+    with db.session() as s:
+        s.add(OperatingReading(kind=F.KIND, period_key="2026-10-06", payload=payload))
+    cycle = jobs.run_cycle(db)
+    assert f"{SLUG}@{version}" in cycle["packages"]["written"], cycle["packages"]
+    comp = P.current(db, SLUG, version)["competitive"]
+    assert comp["status"] == "OBSERVED" and comp["pod"] == "home_decor", comp
+    assert comp["price"]["median_cad"] == 18.0 and comp["price"]["grade"] == "observed"
+    assert comp["price"]["position"] in ("below benchmark p25", "inside benchmark IQR",
+                                         "above benchmark p75")
+    assert comp["demand_proxy"]["grade"] == "proxy" and "PROXY" in comp["demand_proxy"]["note"]
+    assert comp["seasonality"]["grade"] == "proxy"
+    assert comp["seasonality"]["pod_is_seasonal"] is False
+    print("OK mjs_findings_flow_into_the_package")
+
+
 def test_search_evidence_consumes_the_package():
     from brambleloop.commerce import search_evidence as se
 

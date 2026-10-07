@@ -231,6 +231,73 @@ def pricing_context(db, slug: str, category: str | None, priced: dict | None) ->
             "status": "DECIDED" if price is not None else "UNKNOWN"}
 
 
+def competitive_findings(db, category: str | None, price_cad=None) -> dict:
+    """The benchmark seller's stored findings (intel.findings, W4-MJS) for this product's pod.
+
+    Read from the latest `mjs.findings` OperatingReading only -- no network. One benchmark
+    seller's shelf is not the Etsy market: prices are `observed` for that seller, favourites
+    are a `proxy` for demand, seasonal pods a `proxy` for seasonality. No reading -> UNKNOWN.
+    """
+    from ..seasonal.daily import DEPARTMENT_OF
+
+    pod = DEPARTMENT_OF.get(str(category or ""))
+    try:
+        from ..intel import findings as F
+
+        reading = F.latest(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable evidence is unknown, never zero
+        reading, why = None, f"unreadable: {type(exc).__name__}"
+    else:
+        why = "no mjs.findings reading stored yet (intel.findings.refresh has not run)"
+    if not reading:
+        return {"status": "UNKNOWN", "pod": pod, "why": why, "price": None,
+                "demand_proxy": None, "seasonality": None, "observed_window": None}
+    by_key = {f.get("key"): f for f in (reading.get("findings") or [])}
+
+    def _prov(f):
+        p = (f or {}).get("provenance") or {}
+        return {"benchmark_key": p.get("benchmark_key"), "source": p.get("source"),
+                "sample": p.get("sample"), "grade": ((f or {}).get("confidence") or {})
+                .get("grade"), "basis": ((f or {}).get("confidence") or {}).get("basis")}
+
+    pr = by_key.get("pricing")
+    band = (((pr or {}).get("metrics") or {}).get("by_pod") or {}).get(pod) if pod else None
+    price = None
+    if band:
+        position = None
+        if isinstance(price_cad, (int, float)) and band.get("median") is not None:
+            position = ("below benchmark p25" if price_cad < band.get("p25", band["median"])
+                        else "above benchmark p75" if price_cad > band.get("p75", band["median"])
+                        else "inside benchmark IQR")
+        price = {"median_cad": band.get("median"), "p25_cad": band.get("p25"),
+                 "p75_cad": band.get("p75"), "n": band.get("n"),
+                 "our_price_cad": price_cad, "position": position, **_prov(pr)}
+    dm = by_key.get("demand_by_pod")
+    favs = (((dm or {}).get("metrics") or {}).get("median_favourites") or {}).get(pod)
+    demand = None if favs is None else {
+        "median_favourites": favs,
+        "underserved_pod": pod in (((dm or {}).get("metrics") or {}).get("underserved") or []),
+        **_prov(dm), "note": "favourites are a demand PROXY, not sales or search volume"}
+    se = by_key.get("seasonality")
+    season = None if se is None else {
+        "season_pods": (se.get("metrics") or {}).get("season_pods"),
+        "upcoming": [{k: e.get(k) for k in ("event", "date")}
+                     for e in ((se.get("metrics") or {}).get("upcoming") or [])],
+        "pod_is_seasonal": pod in ((se.get("metrics") or {}).get("season_pods") or {}),
+        **_prov(se)}
+    window = None
+    if pr or dm or se:
+        p = (pr or dm or se).get("provenance") or {}
+        window = {"as_of": reading.get("as_of"), "observed_from": p.get("observed_from"),
+                  "observed_to": p.get("observed_to")}
+    return {"status": "OBSERVED" if (price or demand) else "UNKNOWN", "pod": pod,
+            "why": None if (price or demand) else f"no benchmark finding for pod {pod!r}",
+            "price": price, "demand_proxy": demand, "seasonality": season,
+            "observed_window": window,
+            "scope": "one benchmark seller (intel.findings); not the Etsy market; no "
+                     "competitor title, tag or copy is stored or reused"}
+
+
 def seasonality(db, slug: str, version: str, record: dict | None) -> dict:
     try:
         from ..publish.release_gates import window_decision
@@ -391,6 +458,9 @@ def assemble(db, slug: str, version: str, *, evidence_rows: list[dict] | None = 
                         "checks": (cert.get("checks") or {}).get("description")},
         "pricing": pricing_context(db, slug, record.get("category"), priced),
         "seasonality": seasonality(db, slug, version, record),
+        "competitive": competitive_findings(
+            db, record.get("category"),
+            (((priced or {}).get("detail") or {}).get("price_cad"))),
         "search_stages": detail.get("search_stages"),
         "intent_coverage": detail.get("intent_coverage"),
         "buyer_language": detail.get("buyer_language"),
@@ -403,7 +473,8 @@ def assemble(db, slug: str, version: str, *, evidence_rows: list[dict] | None = 
                            "copied here (F-020)",
             "sources": ["listing_search_profiles", "listings", "audit_log:listing.seo_*",
                         "audit_log:pricing.positioned", "seo_keyword_evidence",
-                        "seo.constraints", "radar/market.py", "listing_outcomes"],
+                        "seo.constraints", "radar/market.py", "listing_outcomes",
+                        "operating_readings:mjs.findings (intel.findings)"],
             "constraints_status": {k: v["status"] for k, v in limits.items()},
         },
         "certificate": {"verdict": p["verdict"], "checks": cert.get("checks"),
@@ -427,7 +498,9 @@ def assemble(db, slug: str, version: str, *, evidence_rows: list[dict] | None = 
     pkg["fingerprint"] = _fp({k: v for k, v in pkg.items()
                               if k not in ("profile_updated_at", "fingerprint")}
                              | {"pricing": {k: v for k, v in pkg["pricing"].items()
-                                            if k != "decided_at"}})
+                                            if k != "decided_at"},
+                                "competitive": {k: v for k, v in pkg["competitive"].items()
+                                                if k != "observed_window"}})
     return pkg
 
 
