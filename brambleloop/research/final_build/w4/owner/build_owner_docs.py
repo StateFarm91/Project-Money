@@ -192,6 +192,37 @@ def owner_actions() -> dict:
             item["sources"].append("lane B2 ledger")
         b2_placed[r["id"]] = d["id"]
     assert len(b2_placed) == len(b2)
+
+    # Gate-clearance lanes (W4-GATESI infra, W4-GATESB business): their per-gate actions are
+    # folded onto the one decision that gate already belongs to, never a second card.
+    # Vendored when the lanes push: owner/gate_clearance_{infra,business}.json.
+    clearance_folded, clearance_not_owner, clearance_unmapped = [], [], []
+    for name in ("infra", "business"):
+        f = HERE / f"gate_clearance_{name}.json"
+        if not f.exists():
+            continue
+        data = json.loads(f.read_text())
+        rows = data if isinstance(data, list) else (data.get("gates") or data.get("items")
+                                                   or data.get("actions") or [])
+        for g in rows:
+            gate = g.get("gate") or g.get("key") or g.get("id")
+            if gate == "customers" or str(g.get("classification", "")).upper().startswith(
+                    ("DATA", "EXTERNAL")):
+                clearance_not_owner.append({"lane": name, "gate": gate,
+                                            "why": g.get("classification") or
+                                            "customers is not an owner action"})
+                continue
+            d = Q.DECISION_BY_GATE.get(gate)
+            if d is None:
+                clearance_unmapped.append({"lane": name, "gate": gate})
+                continue
+            item = ensure_item(d["id"])
+            item.setdefault("clearance", []).append({"lane": f"W4-GATES{name[0].upper()}",
+                                                     "gate": gate, "detail": g})
+            src = f"lane W4-GATES{'I' if name == 'infra' else 'B'}"
+            if src not in item["sources"]:
+                item["sources"].append(src)
+            clearance_folded.append({"lane": name, "gate": gate, "decision": d["id"]})
     store = json.loads((HERE / "store_owner_actions.json").read_text())
     assert store, "store owner actions missing"
     company_work, deferred = [], []
@@ -244,7 +275,7 @@ def owner_actions() -> dict:
             "items": [{k: i.get(k) for k in (
                 "id", "decision", "why", "evidence", "max_cost_cad", "max_cost_display",
                 "max_cost_basis", "consequence_of_yes", "consequence_of_no", "minutes",
-                "gates", "requirement_keys", "owner_action_ids", "b2_rows", "sources",
+                "gates", "requirement_keys", "owner_action_ids", "b2_rows", "clearance", "sources",
                 "store_detail",
                 "fields_missing")} for i in b["items"]]})
     items = [i for b in out_batches for i in b["items"]]
@@ -290,6 +321,10 @@ def owner_actions() -> dict:
                            "source": json.loads((HERE / "b2_owner_gated.json").read_text())
                            ["source"]},
         "mislabelled_company_work": MISLABELLED,
+        "gate_clearance": {"folded": clearance_folded, "not_owner": clearance_not_owner,
+                           "unmapped": clearance_unmapped,
+                           "pending": [n for n in ("infra", "business")
+                                       if not (HERE / f"gate_clearance_{n}.json").exists()]},
         "b2_genuine_gate_evidence_gaps": EVIDENCE_GAPS,
     }
 
@@ -338,6 +373,12 @@ def _md_owner(d: dict) -> str:
               "| row | parked on | executable company part | owning lane |", "|---|---|---|---|"]
     lines += [f"| #{m['row']} | {m['gate']} | {m['executable_part']} | {m['owning_lane']} |"
               for m in d["mislabelled_company_work"]]
+    gc = d["gate_clearance"]
+    lines += ["", "## Gate-clearance lanes (W4-GATESI / W4-GATESB)", "",
+              f"Folded onto existing decisions: {len(gc['folded'])}; not owner actions "
+              f"(customers, data/external): {len(gc['not_owner'])}; unmapped: "
+              f"{[u['gate'] for u in gc['unmapped']]}; pending (not yet pushed): "
+              f"{gc['pending'] or 'none'}. Customers is never an owner action."]
     lines += ["", "Genuine owner gates with an unmapped test (company work for the ledger "
               "owner): " + "; ".join(f"#{g['row']} {g['note']}"
                                     for g in d["b2_genuine_gate_evidence_gaps"]) + "."]

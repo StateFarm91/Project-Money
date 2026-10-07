@@ -1,6 +1,6 @@
 # Owner actions -- decision packet (W4-OWNER)
 
-Generated 2026-10-07T01:11:09+00:00 by `research/final_build/w4/owner/build_owner_docs.py` from the runtime approvals inbox plus the STORE and VISUAL lanes. Phase stays SHADOW. UNKNOWN cost is never CA$0.
+Generated 2026-10-07T01:12:48+00:00 by `research/final_build/w4/owner/build_owner_docs.py` from the runtime approvals inbox plus the STORE and VISUAL lanes. Phase stays SHADOW. UNKNOWN cost is never CA$0.
 
 **Before:** 45 separate asks (9 production rows, 20 gate cards, 13 store items, 3 visual plans). **After:** 25 decisions in 9 batches, ~196 owner minutes; 3 converted back to company work, 1 deferred.
 
@@ -11,10 +11,10 @@ _each of these is a step of the same move out of shadow mode; none is useful alo
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
 | leave_shadow | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above are done. | 9 requirements are parked on it | gate 'live_listings' opens when: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing | CA$0.00 | listings can be published under the publication authority; the live-listing requirements un-park | everything stays drafted and nothing reaches a customer | 5 |
-| etsy_kyc_payout | Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not. | production reason payout | OwnerAction #3 raised 2026-10-07T01:11:09.504423 for payout | CA$0.00 | the payout prerequisite for publishing is met | delay payout | 15 |
-| listing_fees | Approve Etsy's listing fees for the opening catalogue (figure on the card). | production reason listing_fees | OwnerAction #4 raised 2026-10-07T01:11:09.504948 for listing_fees | CA$6.00 | publishing is no longer blocked on fees | delay listing_fees | 2 |
+| etsy_kyc_payout | Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not. | production reason payout | OwnerAction #3 raised 2026-10-07T01:12:48.104420 for payout | CA$0.00 | the payout prerequisite for publishing is met | delay payout | 15 |
+| listing_fees | Approve Etsy's listing fees for the opening catalogue (figure on the card). | production reason listing_fees | OwnerAction #4 raised 2026-10-07T01:12:48.104707 for listing_fees | CA$6.00 | publishing is no longer blocked on fees | delay listing_fees | 2 |
 | tester_outreach | Authorise outreach to independent pattern testers and one paid sample make (the 20 cm storage basket). You are not asked to crochet. | 3 requirements are parked on it | gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester | CA$185.00 | a measured sample calibrates yardage and Class C products can become shippable | yardage stays a +/-20% tolerance, Class C stays unshippable, the first buyer becomes the tester | 5 |
-| trademark_filing | Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work. | production reason brand_clearance | OwnerAction #5 raised 2026-10-07T01:11:09.505414 for brand_clearance | CA$460.00 | the name is protected before brand equity accumulates on it | delay brand_clearance | 20 |
+| trademark_filing | Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work. | production reason brand_clearance | OwnerAction #5 raised 2026-10-07T01:12:48.104966 for brand_clearance | CA$460.00 | the name is protected before brand equity accumulates on it | delay brand_clearance | 20 |
 
 ## Fund the model provider (1 decisions, 5 min, max CA$25.00)
 
@@ -56,7 +56,7 @@ _both are storage accounts outside the code, approved as one spend line_
 
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
-| storage_durable | Approve durable object storage for purchased files (Railway volume or S3). | production reason artifact_storage | OwnerAction #1 raised 2026-10-07T01:11:09.502391 for artifact_storage | CA$5.00 | purchased files survive deploys | delay artifact_storage | 10 |
+| storage_durable | Approve durable object storage for purchased files (Railway volume or S3). | production reason artifact_storage | OwnerAction #1 raised 2026-10-07T01:12:48.100181 for artifact_storage | CA$5.00 | purchased files survive deploys | delay artifact_storage | 10 |
 | storage_offsite | Create an object-storage bucket outside this provider and its credential. | 1 requirements are parked on it | gate 'offsite_storage' opens when: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all | UNKNOWN | the continuity archive survives losing the provider (#51) | a provider loss loses the archive with it | 15 |
 
 ## Competitive benchmark purchases (1 decisions, 30 min, max CA$300.00)
@@ -134,5 +134,9 @@ Source: origin/claude/w4-B2 5241e46 brambleloop/research/final_build/w4/BUILD2_L
 | #10 | owned_surfaces | the ledger note says no free work has been made: drafting a free lead-magnet asset through the product chain and running growth/free_to_paid.check_asset on it needs no surface (it stays unpublished in shadow); only publication waits on owned_surfaces | B2 / growth |
 | #165 | benchmark_purchases | refresh detection (new category, strong competitor, format/market shift) is software and already runs (intel.benchmark_refresh, runtime/release.py); only buying the refreshed set is the owner's. The row should be split: detection PROVEN, purchase OWNER-GATED | B2 (ledger) |
 | #54 | insights_access | the pre-Etsy launch readiness gate is company software (launch/readiness.assess, 2 tests, rollback rehearsal, search baseline from listing.query_portfolio); an Insights reading is one input that stays UNKNOWN until recorded. Gate = PROVEN, Insights input = OWNER-GATED under insights_reading | B2 (ledger) |
+
+## Gate-clearance lanes (W4-GATESI / W4-GATESB)
+
+Folded onto existing decisions: 0; not owner actions (customers, data/external): 0; unmapped: []; pending (not yet pushed): ['infra', 'business']. Customers is never an owner action.
 
 Genuine owner gates with an unmapped test (company work for the ledger owner): #254 tests/test_personalisation.py and runtime callers (runtime/commerce_readings.py, products/launch0.py) exist but the ledger lists 0 tests; #263 scale/leading.py reports all ten indicators; ledger lists 0 tests; #37 intel/insights_budget.py runs on commerce.readings; 0 tests mapped; #14 commerce/benchmarks.py; 0 tests mapped; #16 commerce/listing_tests.py, growth/experiments.py; 0 tests mapped; #9 growth/creators.py; 0 tests mapped; #51 core/continuity.py export path; 0 tests mapped.

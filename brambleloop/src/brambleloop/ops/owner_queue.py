@@ -443,6 +443,8 @@ BATCHES: tuple[dict, ...] = (
                      "in the same login")},
     {"id": "storage", "order": 5, "title": "Storage and continuity spend",
      "why_batched": "both are storage accounts outside the code, approved as one spend line"},
+    {"id": "infra", "order": 5, "title": "Infrastructure services the code cannot create",
+     "why_batched": "third-party service accounts with a recurring cost, approved together"},
     {"id": "benchmark", "order": 6, "title": "Competitive benchmark purchases",
      "why_batched": ("the purchase gate and the pre-launch benchmark challenge wait on the "
                      "same purchased patterns")},
@@ -571,6 +573,19 @@ DECISIONS: tuple[dict, ...] = (
      "max_cost_cad": None, "cost_basis": "UNKNOWN (provider not chosen)", "minutes": 15,
      "consequence_of_yes": "the continuity archive survives losing the provider (#51)",
      "consequence_of_no": "a provider loss loses the archive with it"},
+    {"id": "browser_worker", "batch": "infra", "kind": "spend",
+     "gates": ("rendered_pages",), "keys": (),
+     "decision": ("Approve a hosted browser worker account (provider and plan per the "
+                  "W4-GATESI clearance packet) so policy pages can be read as a buyer sees "
+                  "them; no CAPTCHA or bot-protection bypass is permitted."),
+     "why": ("a third-party service account with a recurring cost; Etsy refuses automated "
+             "fetchers (HTTP 403) and software must not spoof a browser"),
+     "max_cost_cad": None, "cost_basis": "UNKNOWN until the W4-GATESI packet names a plan",
+     "minutes": 10,
+     "consequence_of_yes": ("#35 and #39 can read current policy pages instead of "
+                            "search-engine excerpts"),
+     "consequence_of_no": ("policy knowledge stays on dated search-engine excerpts, "
+                           "refreshed by a build session every 30 days")},
     {"id": "benchmark_purchase", "batch": "benchmark", "kind": "spend",
      "gates": ("benchmark_purchases",), "keys": ("benchmark_challenge",),
      "decision": ("Buy the selected benchmark patterns (/api/benchmark-selection) and upload "

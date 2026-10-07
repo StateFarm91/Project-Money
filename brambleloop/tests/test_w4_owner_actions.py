@@ -78,12 +78,13 @@ def test_fresh_inbox_batches_every_card_with_seven_fields():
     inbox = executor.approval_inbox(_db(), env={})
     cards, packet = inbox["cards"], inbox["batches"]
     assert cards and packet["batches"], packet
-    items = [i for b in packet["batches"] for i in b["items"]]
-    assert items
-    assert packet["decisions"] == len(items) < len(cards), (packet["decisions"], len(cards))
-    covered = {(g) for i in items for g in i["gates"]}
+    decs = [i for b in packet["batches"] for i in b["items"]]
+    assert decs
+    assert packet["decisions"] == len(decs) < len(cards), (packet["decisions"], len(cards))
+    covered = {(g) for i in decs for g in i["gates"]}
     assert {c["gate"] for c in cards if c["gate"]} <= covered
-    for i in items:
+    assert decs
+    for i in decs:
         assert not i["fields_missing"], (i["id"], i["fields_missing"])
         for f in Q.DECISION_FIELDS:
             assert f in i, (i["id"], f)
@@ -97,9 +98,9 @@ def test_fresh_inbox_batches_every_card_with_seven_fields():
     assert "culture_feed" not in {c["gate"] for c in cards}
     assert [g["gate"] for g in inbox["company_opened_not_owner"]] == ["culture_feed"]
     # tester_roster and physical_proof are one decision (F-197: a tester, not the owner).
-    tester = [i for i in items if "tester_roster" in i["gates"]]
+    tester = [i for i in decs if "tester_roster" in i["gates"]]
     assert tester and "physical_proof" in tester[0]["gates"], tester
-    ok(f"fresh inbox: {len(cards)} cards -> {len(items)} decisions in "
+    ok(f"fresh inbox: {len(cards)} cards -> {len(decs)} decisions in "
        f"{len(packet['batches'])} batches, all seven fields present, culture_feed not asked")
 
 
@@ -188,18 +189,19 @@ def test_owner_packet_folds_store_visual_and_b2_once():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     packet = mod.owner_actions()
-    items = [i for b in packet["batches"] for i in b["items"]]
-    assert items and packet["batches"]
-    ids = [i["id"] for i in items]
+    decs = [i for b in packet["batches"] for i in b["items"]]
+    assert decs and packet["batches"]
+    ids = [i["id"] for i in decs]
     assert len(ids) == len(set(ids)), ids
-    for i in items:
+    assert decs
+    for i in decs:
         for f in ("decision", "why", "evidence", "consequence_of_yes", "consequence_of_no"):
             assert str(i[f] or "").strip(), (i["id"], f)
         assert i["minutes"] and i["minutes"] > 0, i["id"]
         if i["max_cost_cad"] is None:
             assert "UNKNOWN" in i["max_cost_display"], i["id"]
     # each B2 OWNER-GATED row is shown on exactly one decision, or listed as company work
-    placed = [r for i in items for r in (i.get("b2_rows") or [])]
+    placed = [r for i in decs for r in (i.get("b2_rows") or [])]
     assert len(placed) == len(set(placed)), placed
     not_owner = {m["row"] for m in packet["mislabelled_company_work"]
                  if m.get("no_owner_part")}
@@ -208,13 +210,13 @@ def test_owner_packet_folds_store_visual_and_b2_once():
     assert packet["b2_owner_gated"]["rows"] == len(set(placed) | not_owner)
     # store items: OA-A1 merges into the transactions_r re-authorisation, OA-LAUNCH into
     # leaving shadow, OA-A2 is company work (read-back), OA-STATS is deferred
-    by = {i["id"]: i for i in items}
+    by = {i["id"]: i for i in decs}
     assert "lane STORE OA-A1" in by["transactions_scope"]["sources"]
     assert "lane STORE OA-LAUNCH" in by["leave_shadow"]["sources"]
     assert "OA-A2" in {c["id"] for c in packet["converted_to_company_work"]}
     assert [d["id"] for d in packet["deferred"]] == ["OA-STATS"]
     assert by["visual_paid_generation"]["max_cost_cad"] == 4.01
-    ok(f"owner packet: {len(items)} decisions in {len(packet['batches'])} batches; "
+    ok(f"owner packet: {len(decs)} decisions in {len(packet['batches'])} batches; "
        f"{len(placed)} B2 rows placed once, {len(not_owner)} returned to company work")
 
 

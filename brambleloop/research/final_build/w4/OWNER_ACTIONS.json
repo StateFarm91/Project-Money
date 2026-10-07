@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07T01:11:09+00:00",
+ "generated_at": "2026-10-07T01:12:48+00:00",
  "lane": "W4-OWNER",
  "sources": {
   "runtime": "build2.executor.approval_inbox (Command Center approvals inbox)",
@@ -74,6 +74,7 @@
       263,
       266
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger",
@@ -88,7 +89,7 @@
      "id": "etsy_kyc_payout",
      "decision": "Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not.",
      "why": "production reason payout",
-     "evidence": "OwnerAction #3 raised 2026-10-07T01:11:09.504423 for payout",
+     "evidence": "OwnerAction #3 raised 2026-10-07T01:12:48.104420 for payout",
      "max_cost_cad": 0.0,
      "max_cost_display": "CA$0.00",
      "max_cost_basis": "stated by the producer",
@@ -103,6 +104,7 @@
       3
      ],
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "runtime approval_inbox"
      ],
@@ -113,7 +115,7 @@
      "id": "listing_fees",
      "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
      "why": "production reason listing_fees",
-     "evidence": "OwnerAction #4 raised 2026-10-07T01:11:09.504948 for listing_fees",
+     "evidence": "OwnerAction #4 raised 2026-10-07T01:12:48.104707 for listing_fees",
      "max_cost_cad": 6.0,
      "max_cost_display": "CA$6.00",
      "max_cost_basis": "stated by the producer",
@@ -128,6 +130,7 @@
       4
      ],
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "runtime approval_inbox"
      ],
@@ -160,6 +163,7 @@
       64,
       250
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -171,7 +175,7 @@
      "id": "trademark_filing",
      "decision": "Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work.",
      "why": "production reason brand_clearance",
-     "evidence": "OwnerAction #5 raised 2026-10-07T01:11:09.505414 for brand_clearance",
+     "evidence": "OwnerAction #5 raised 2026-10-07T01:12:48.104966 for brand_clearance",
      "max_cost_cad": 460.0,
      "max_cost_display": "CA$460.00",
      "max_cost_basis": "stated by the producer",
@@ -186,6 +190,7 @@
       5
      ],
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "runtime approval_inbox"
      ],
@@ -243,6 +248,7 @@
       308,
       309
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -285,6 +291,7 @@
       222,
       320
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -313,6 +320,7 @@
      "b2_rows": [
       195
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -353,6 +361,7 @@
       11,
       12
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger",
@@ -388,6 +397,7 @@
       236,
       237
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -410,6 +420,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-OBS"
      ],
@@ -431,6 +442,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-B"
      ],
@@ -452,6 +464,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-BANNER"
      ],
@@ -473,6 +486,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-C"
      ],
@@ -494,6 +508,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-D1"
      ],
@@ -515,6 +530,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-E"
      ],
@@ -536,6 +552,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-F"
      ],
@@ -557,6 +574,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-G1"
      ],
@@ -578,7 +596,7 @@
      "id": "storage_durable",
      "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
      "why": "production reason artifact_storage",
-     "evidence": "OwnerAction #1 raised 2026-10-07T01:11:09.502391 for artifact_storage",
+     "evidence": "OwnerAction #1 raised 2026-10-07T01:12:48.100181 for artifact_storage",
      "max_cost_cad": 5.0,
      "max_cost_display": "CA$5.00",
      "max_cost_basis": "stated by the producer",
@@ -593,6 +611,7 @@
       1
      ],
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "runtime approval_inbox"
      ],
@@ -620,6 +639,7 @@
      "b2_rows": [
       51
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -666,6 +686,7 @@
       315,
       317
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -711,6 +732,7 @@
       251,
       255
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -751,6 +773,7 @@
       294,
       295
      ],
+     "clearance": null,
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
@@ -773,6 +796,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane STORE OA-G2"
      ],
@@ -805,6 +829,7 @@
      "requirement_keys": null,
      "owner_action_ids": null,
      "b2_rows": null,
+     "clearance": null,
      "sources": [
       "lane VISUAL"
      ],
@@ -957,6 +982,15 @@
    "executable_part": "the pre-Etsy launch readiness gate is company software (launch/readiness.assess, 2 tests, rollback rehearsal, search baseline from listing.query_portfolio); an Insights reading is one input that stays UNKNOWN until recorded. Gate = PROVEN, Insights input = OWNER-GATED under insights_reading"
   }
  ],
+ "gate_clearance": {
+  "folded": [],
+  "not_owner": [],
+  "unmapped": [],
+  "pending": [
+   "infra",
+   "business"
+  ]
+ },
  "b2_genuine_gate_evidence_gaps": [
   {
    "row": 254,

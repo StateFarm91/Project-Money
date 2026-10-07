@@ -132,6 +132,7 @@ def test_production_18_close_by_rule_or_stay_true():
             assert v["resolution"] and v["resolved_at"], (sig, v)
     text = legacy["seasonal.at_risk:nordic-forest-mosaic-throw:Christmas"]["resolution"]
     assert "not merchandised for Christmas (its occasion is Christmas)" not in text, text
+    assert out["new_open"], "this build re-raises the current seasonal conditions"
     for row in out["new_open"]:
         # Anything this build raises is year-keyed (or the backlog), never the old shape.
         fam = L.kind_of(row["signature"])
