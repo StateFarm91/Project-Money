@@ -219,16 +219,25 @@ def test_the_disclosed_set_is_certified_and_served_with_its_alt_text():
     assert all(g == "passed" for f in verdict["frames"] for g in f["gates"].values())
     cert = _valid_certs(db, cir)[-1]
     rec = disclosed_listing.last_asset(db, slug=SLUG)
-    assert [f["sha256"] for f in cert["frames"]] == [f["image"]["sha256"] for f in
-                                                     sorted(rec["frames"],
-                                                            key=lambda f: f["position"])]
+    n = len(rec["frames"])
+    assert [f["sha256"] for f in cert["frames"][:n]] == [f["image"]["sha256"] for f in
+                                                         sorted(rec["frames"],
+                                                                key=lambda f: f["position"])]
     assert all(f["kind"] == "disclosed_render" and f["alt_text"].startswith(
-        disclosed_listing.DISCLOSURE) for f in cert["frames"])
+        disclosed_listing.DISCLOSURE) for f in cert["frames"][:n])
+    # W4-VISUAL (F-030/F-254): the verified gallery frames follow the disclosed set, each a
+    # different job, each certified as a disclosed gallery frame with the disclosure first.
+    extra = cert["frames"][n:]
+    assert extra, "the blanket's verified MATERIALS/COLOUR_CONTEXT frames were not certified"
+    assert {f["job"] for f in extra} == {"MATERIALS", "COLOUR_CONTEXT"}, extra
+    assert all(f["kind"] == "disclosed_gallery_frame" and f["alt_text"].startswith(
+        disclosed_listing.DISCLOSURE) for f in extra)
+    assert [f["position"] for f in cert["frames"]] == list(range(1, len(cert["frames"]) + 1))
     assert cert["disclosures"] == [disclosed_listing.DISCLOSURE]
 
     served = etsy_ops.certified_images(db, SLUG, cir.version)
     assert served["problems"] == [], served["problems"]
-    assert len(served["images"]) == 3
+    assert len(served["images"]) == len(cert["frames"]) == n + len(extra)
     for (name, data), entry, frame in zip(served["images"], served["images"], cert["frames"]):
         assert hashlib.sha256(data).hexdigest() == frame["sha256"]
         assert entry.alt_text == frame["alt_text"]
@@ -246,7 +255,7 @@ def test_the_disclosed_set_is_certified_and_served_with_its_alt_text():
     # tests/test_publish_execution_gate.py and tests/test_rc1_auth.py.
     outcome = EtsyClient.publish(fake, payload=None, filename="p.pdf", data=b"%PDF",
                                  images=served["images"], grant=_TransportTestGrant())
-    assert outcome.images_uploaded == 3, outcome
+    assert outcome.images_uploaded == len(cert["frames"]), outcome
     assert [u["alt_text"] for u in fake.uploads] == [f["alt_text"] for f in cert["frames"]]
 
 

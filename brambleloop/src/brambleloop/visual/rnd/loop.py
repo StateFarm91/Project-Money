@@ -817,12 +817,24 @@ def execute_paid(db, experiment_id: int) -> dict:
 # ---------------------------------------------------------------------------- the cycle
 
 def cycle(db, *, builds=None, classes=None, now: datetime | None = None,
-          experiments_per_class: int = 1, hero: bool = True) -> dict:
-    """One REPEAT of the loop for every class. Deterministic work runs; paid work is queued."""
+          experiments_per_class: int = 1, hero: bool = True,
+          imagery: bool | None = None) -> dict:
+    """One REPEAT of the loop for every class. Deterministic work runs; paid work is queued.
+
+    `imagery` (default: on for a whole-catalogue cycle, off when `builds` narrows it) also
+    refreshes the Launch-0 listing imagery ledger (`visual.launch_imagery.refresh`): the
+    disclosed set plus verified gallery frames per listing, registered for the listing
+    pipeline, skipped when the registered record already matches the certified CIRs."""
     M.ensure_tables(db)
     now = now or _now()
     cat = catalogue(builds)
     report = {"at": now.isoformat(), "classes": {}}
+    if imagery is None:
+        imagery = builds is None
+    if imagery:
+        from .. import launch_imagery
+
+        report["launch_imagery"] = launch_imagery.refresh(db)
     for cls in (classes or list(P.PRODUCT_CLASSES)):
         entry: dict = {}
         cirs = cat.get(cls, [])

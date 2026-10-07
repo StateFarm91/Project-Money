@@ -57,6 +57,9 @@ VIEWS: dict[str, dict] = {
     "hero": {"role": "hero", "job": "DESIRE"},
     "scale": {"role": "scale", "job": "SCALE"},
     "detail": {"role": "detail", "job": "DETAIL"},
+    # Vessels only: a raised camera that shows the inside and the base (job ANGLE). Not part
+    # of `listing_set`; a flat or plan-form product refuses it rather than repeat its hero.
+    "angle": {"role": "angle", "job": "ANGLE"},
 }
 
 
@@ -528,6 +531,9 @@ def _round_view(cir, result, twin, palette, view: str,
     extra: list[str] = []
     dims = dimension_figures(twin)
     layout: dict = {"sides": sides, "objects": 1}
+    if view == "angle" and not wall:
+        raise RenderRefused(f"{cir.slug}: a flat round piece has no side or inside the hero "
+                            f"cannot show; an angle view would repeat it")
     if not wall:
         make = cir.components[0].make
         if view == "hero" and make > 1:
@@ -573,7 +579,7 @@ def _round_view(cir, result, twin, palette, view: str,
             extra = K.annotation_lines("detail", "rounds",
                                        {"vessel": True, "base_rounds": len(base)})
         else:
-            alpha = math.radians(K.OBLIQUE_DEG if view == "hero" else 0.0)
+            alpha = math.radians(K.camera_deg(view))
             ca, sa = math.cos(alpha), math.sin(alpha)
             margin = 80 if view == "scale" else 0
             height_cm = H * ca + span_y * sa
@@ -618,6 +624,9 @@ def render(cir, view: str, *, layout: dict | None = None) -> RenderedFrame:
     result, twin, palette = _compiled(cir)
     construction = cir.components[0].construction
     if construction == "flat_rows":
+        if view == "angle":
+            raise RenderRefused(f"{cir.slug}: a flat piece's back is its front; an angle view "
+                                f"would repeat the hero")
         img, drawn = _flat_view(cir, twin, palette, view)
         form = "flat"
     elif construction in ("joined_rounds", "spiral_rounds"):

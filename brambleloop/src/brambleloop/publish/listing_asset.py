@@ -33,6 +33,18 @@ def _in_launch_scope(slug: str) -> bool:
     return slug in launch_scope_slugs()
 
 
+def has_render_authority(slug: str) -> bool:
+    """A disclosed render may be made for `slug`: it is Launch-0, or a design registry
+    defines it (`render_verification.authoritative_cir`), so its frames can be verified
+    against the CIR its release is built from. Not a launch-scope widening: publication
+    keeps every gate it has."""
+    if _in_launch_scope(slug):
+        return True
+    from ..visual.render_verification import authoritative_cir
+
+    return authoritative_cir(slug) is not None
+
+
 def make(db, cir, twin, *, record: bool = True, **kw) -> dict:
     """Render the listing asset this product actually needs, by its form, and file it.
 
@@ -60,7 +72,7 @@ def make(db, cir, twin, *, record: bool = True, **kw) -> dict:
         for identity_only in ("observer", "realism_judger"):
             kw.pop(identity_only, None)
         action, out = owned_photography.ACTION, owned_photography.make(db, cir, twin, **kw)
-        if not out.get("made") and _in_launch_scope(cir.slug):
+        if not out.get("made") and has_render_authority(cir.slug):
             # D-FB-7: no qualified photograph and generative redraw is refused (F-852), so
             # the product's listing imagery is the disclosed deterministic render -- drawn
             # from this CIR, verified against it from the pixels, disclosed in the image,
