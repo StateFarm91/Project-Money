@@ -13,6 +13,9 @@ misses the shapes of waste that do not look like a big day:
   bought again because a cadence ran again.
 * **Unattributed spend over tolerance (F-305).** Spend with no agent, job or product cannot
   be explained; past a small share of the month it is a defect, not a rounding.
+* **Flat paid backlog (F-318).** A paid backlog processor (gallery vision and any other that
+  calls `note_backlog_run`) whose consecutive runs spent money while the backlog did not fall
+  is a financial-integrity incident: money is leaving and the work is not draining.
 * **Oversized input (F-315).** A call whose input tokens exceed the per-call allowance is a
   context-discipline fault (an unbounded catalogue pasted into a prompt).
 
@@ -42,7 +45,12 @@ SIGNATURES = {"retry_storm": "spend-retry-storm", "hourly_spike": "spend-hourly-
               "repeat_request": "spend-repeat-paid-request",
               "unattributed": "spend-unattributed-over-tolerance",
               "oversized_input": "spend-oversized-input",
-              "provider_billing": "spend-provider-billing-discrepancy"}
+              "provider_billing": "spend-provider-billing-discrepancy",
+              "flat_backlog": "spend-flat-paid-backlog"}
+
+BACKLOG_ACTION = "paid.backlog_run"
+FLAT_BACKLOG_RUNS = 3
+FLAT_BACKLOG_WINDOW = timedelta(hours=48)
 
 _FAILED_BILLINGS = frozenset({"accepted_then_failed", "unknown_counted_at_estimate",
                               "unknown_usage_counted_at_estimate", "exception_usage"})
@@ -181,6 +189,58 @@ def provider_discrepancy(db, now: datetime) -> list[dict]:
     return out
 
 
+def note_backlog_run(db, *, processor: str, pending_before: int, pending_after: int,
+                     processed: int, cost_cad: float, agent: str = "",
+                     job_id: int | None = None, now: datetime | None = None) -> None:
+    """F-318: one paid backlog run, as a durable row the flat-backlog detector reads.
+
+    Any paid processor that drains a queue calls this once per run with the backlog counted
+    before and after (counted, never computed to fall)."""
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(at=now or datetime.now(timezone.utc), actor=(agent or "gateway")[:64],
+                       action=BACKLOG_ACTION, artifact=processor[:200],
+                       detail={"processor": processor, "pending_before": int(pending_before),
+                               "pending_after": int(pending_after),
+                               "processed": int(processed),
+                               "cost_cad": round(float(cost_cad or 0.0), 6),
+                               "job_id": job_id}))
+
+
+def flat_backlogs(db, now: datetime) -> list[dict]:
+    """Processors whose last `FLAT_BACKLOG_RUNS` paid runs left the backlog no lower.
+
+    Measured from the first of those runs' `pending_before` to the last run's `pending_after`.
+    Runs that spent nothing are not evidence either way and are skipped; fewer paid runs than
+    the threshold is not a finding."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.execute(select(AuditLog.artifact, AuditLog.at, AuditLog.detail).where(
+            AuditLog.action == BACKLOG_ACTION, AuditLog.at >= now - FLAT_BACKLOG_WINDOW)
+            .order_by(AuditLog.at, AuditLog.id)).all())
+    by: dict[str, list[dict]] = defaultdict(list)
+    for proc, _at, d in rows:
+        if float((d or {}).get("cost_cad") or 0.0) > 0:
+            by[proc or ""].append(d or {})
+    out = []
+    for proc, runs in sorted(by.items()):
+        last = runs[-FLAT_BACKLOG_RUNS:]
+        if len(last) < FLAT_BACKLOG_RUNS:
+            continue
+        before = int(last[0].get("pending_before") or 0)
+        after = int(last[-1].get("pending_after") or 0)
+        if after >= before and before > 0:
+            out.append({"processor": proc, "runs": len(last), "pending_before": before,
+                        "pending_after": after,
+                        "processed": sum(int(r.get("processed") or 0) for r in last),
+                        "cad": round(sum(float(r.get("cost_cad") or 0.0) for r in last), 6)})
+    return out
+
+
 def sweep(db, *, now: datetime | None = None) -> dict:
     """Run every detector and open an incident for each finding. Changes no ceiling."""
     from sqlalchemy import select
@@ -198,7 +258,8 @@ def sweep(db, *, now: datetime | None = None) -> dict:
              "repeated_requests": repeated_requests(db, now),
              "unattributed": unattributed(rows, now),
              "oversized_inputs": oversized_inputs(rows, now),
-             "provider_billing": provider_discrepancy(db, now)}
+             "provider_billing": provider_discrepancy(db, now),
+             "flat_backlogs": flat_backlogs(db, now)}
     stamp, hour = now.date().isoformat(), now.strftime("%Y-%m-%dT%H")
     incidents = []
 
@@ -238,4 +299,10 @@ def sweep(db, *, now: datetime | None = None) -> dict:
                   f"{pb['provider']} reports US${pb['reported_used_usd']} used; this ledger "
                   f"records US${pb['ledger_usd']} (difference US${pb['difference_usd']}). "
                   f"Other usage on the account, or assumed prices that are wrong", pb)
+    for fb in found["flat_backlogs"]:
+        _open(f"{SIGNATURES['flat_backlog']}:{fb['processor']}:{stamp}"[:200],
+              f"Financial integrity: {fb['processor']} spent CA${fb['cad']} over "
+              f"{fb['runs']} runs and its backlog went from {fb['pending_before']} to "
+              f"{fb['pending_after']}. Money is leaving and the work is not draining", fb,
+              severity="P1")
     return {**found, "incidents": incidents, "ceilings_changed": 0}

@@ -231,7 +231,8 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
                  now: datetime | None = None, uncommitted_cad: float = 0.0,
                  agent: str = "", purpose: str = "", job_id: int | None = None,
                  reserve: bool = True, holder: str | None = None,
-                 ttl_seconds: int | None = None, product_slug: str = "") -> dict:
+                 ttl_seconds: int | None = None, product_slug: str = "",
+                 evidence_ref: str = "") -> dict:
     """Refuse a call that would cross the ceiling, before it is made.
 
     Assumes the model writes its entire output allowance. It usually does not, and budgeting
@@ -286,14 +287,26 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
     return check_budget_cad(db, estimate_cad=estimate, model=model, provider="anthropic",
                             now=now, uncommitted_cad=uncommitted_cad, agent=agent,
                             purpose=purpose, job_id=job_id, reserve=reserve, holder=holder,
-                            ttl_seconds=ttl_seconds, product_slug=product_slug)
+                            ttl_seconds=ttl_seconds, product_slug=product_slug,
+                            evidence_ref=evidence_ref)
+
+
+class NoQuestionRefused(BudgetExceeded):
+    """F-328: a paid call that names neither the question it answers nor the evidence it
+    serves. Money spent to look busy is refused at any budget (`spend_policy.WASTE`)."""
+
+
+class SystematicFailureRefused(BudgetExceeded):
+    """F-309: this handler's current method has a floor that failed every time it was asked.
+    A `BudgetExceeded`, so every caller already built to stop a run on a refusal stops."""
 
 
 def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str = "",
                      job_id: int | None = None, uncommitted_cad: float = 0.0,
                      holder: str | None = None, ttl_seconds: int | None = None,
                      now: datetime | None = None, reserve: bool = True,
-                     model: str = "", provider: str = "", product_slug: str = "") -> dict:
+                     model: str = "", provider: str = "", product_slug: str = "",
+                     evidence_ref: str = "") -> dict:
     """The ceiling check itself, on an estimate already expressed in dollars.
 
     Factored out of `check_budget` on 2026-09-26 so that image generation could stop being
@@ -318,6 +331,36 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     """
     from ..finance import reservations
 
+    if reserve and not (str(purpose or "").strip() or str(evidence_ref or "").strip()):
+        # F-328 (No Spend To Look Busy): every reservation -- i.e. every call about to spend
+        # -- names the question it answers (`purpose`: a declared task or pinned prompt) or the
+        # evidence it serves (`evidence_ref`). A call with neither is refused before any money
+        # moves, and the refusal is recorded like every other.
+        from ..finance import spend_report
+
+        why = ("a paid call must name the question it answers (purpose) or the evidence it "
+               "serves (evidence_ref); this one named neither, so it is spend with nothing "
+               "on the other side of it and is refused at any budget")
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=monthly_ceiling_cad(), estimate_cad=estimate_cad,
+            committed_cad=0.0, which="no_question", why=why, purpose="", now=now,
+            detail={"model": model, "provider": provider, "job_id": job_id})
+        raise NoQuestionRefused(why)
+    if reserve:
+        # F-309: the shared systematic-failure breaker. A handler whose current method has a
+        # floor that never once passed is refused before the reservation, like any ceiling.
+        from ..finance import systematic
+
+        blocked = systematic.refusal(db, purpose)
+        if blocked:
+            from ..finance import spend_report
+
+            spend_report.record_refusal(
+                db, agent=agent, ceiling_cad=monthly_ceiling_cad(),
+                estimate_cad=estimate_cad, committed_cad=0.0, which="systematic_failure",
+                why=blocked, purpose=purpose, now=now,
+                detail={"model": model, "provider": provider, "job_id": job_id})
+            raise SystematicFailureRefused(blocked)
     me = holder or reservations.holder_id()
     decided: dict = {}
     # RC1 audit B4: the read of what is committed and the write of this call's claim are one
