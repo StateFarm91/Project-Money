@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-10-07T01:33:48+00:00",
+ "generated_at": "2026-10-07T02:05:10+00:00",
  "generated_by": "research/final_build/w4/seo_packages_build.py (real release chain, shadow worker, scratch SQLite, network closed, no Etsy taxonomy snapshot)",
- "seconds": 721.4,
+ "seconds": 619.3,
  "counts": {
   "products_with_cir": 21,
   "viable_product_truth_clean": 7,
@@ -21,6 +21,11 @@
   "as_of": "2026-10-07",
   "findings": 10,
   "evidence_source": "production public read-only endpoints (GET only)"
+ },
+ "pipe_inventory_source": {
+  "inventory_file": "PRODUCT_INVENTORY.json",
+  "inventory_head": "e72f086",
+  "inventory_generated_at": "2026-10-07T01:38:19+00:00"
  },
  "supremacy_gate": {
   "cleared": false,
@@ -120,13 +125,14 @@
     "status": "COMPANY_WORK",
     "blockers": [
      "gauge_truth (COMPANY)",
-     "name_fabric_truth (COMPANY)",
      "outside_launch_scope (COMPANY)",
      "not_built_by_planner (COMPANY)",
      "production_stale (DEPLOY)",
      "production_imagery (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": null
   },
@@ -150,7 +156,9 @@
      "outside_launch_scope (COMPANY)",
      "not_built_by_planner (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": null
   },
@@ -174,7 +182,9 @@
      "outside_launch_scope (COMPANY)",
      "not_built_by_planner (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": null
   },
@@ -200,7 +210,9 @@
      "production_stale (DEPLOY)",
      "production_imagery (DEPLOY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -530,7 +542,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:47.406170",
+     "decided_at": "2026-10-07T02:03:31.522235",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -786,7 +798,7 @@
      "price_cad": 7.5
     },
     "listing_fingerprint": "2fba59badceb27fd91d8ba9204ddc90c9a29c45eb7f533b3f050c01f2e229d51",
-    "profile_updated_at": "2026-10-07T01:32:11.224765",
+    "profile_updated_at": "2026-10-07T02:03:45.920294",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -828,7 +840,7 @@
     "writes_to_etsy": false,
     "fingerprint": "6d9b8fcbaea6a451d00be09d82bbcdcb387201d9cfed506ae18a9e043ea3f977",
     "id": 1,
-    "created_at": "2026-10-07T01:32:11.297994"
+    "created_at": "2026-10-07T02:03:46.019326"
    }
   },
   {
@@ -847,11 +859,15 @@
    "pipeline": {
     "status": "COMPANY_WORK",
     "blockers": [
-     "name_assembly_truth (COMPANY)",
      "outside_launch_scope (COMPANY)",
-     "not_built_by_planner (COMPANY)"
+     "listing_imagery_qa (COMPANY)",
+     "listing_set_certificate (COMPANY)",
+     "etsy_taxonomy_snapshot (EXTERNAL)",
+     "etsy_taxonomy_snapshot (EXTERNAL)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -1168,7 +1184,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:47.714747",
+     "decided_at": "2026-10-07T02:03:31.674062",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -1427,7 +1443,7 @@
      "price_cad": 6.21
     },
     "listing_fingerprint": "0a45f7cef6ab209862db38775c95ece9952c67d4e1137a88ae98809f700af55a",
-    "profile_updated_at": "2026-10-07T01:32:14.628829",
+    "profile_updated_at": "2026-10-07T02:03:49.379452",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -1469,7 +1485,7 @@
     "writes_to_etsy": false,
     "fingerprint": "51d356b8fa87853931e4d8c0407100791135e9319ffa205c3c9ff3f112bd7c58",
     "id": 2,
-    "created_at": "2026-10-07T01:32:14.698394"
+    "created_at": "2026-10-07T02:03:50.385318"
    }
   },
   {
@@ -1491,7 +1507,9 @@
      "production_stale (DEPLOY)",
      "production_imagery (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -1802,7 +1820,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:47.898237",
+     "decided_at": "2026-10-07T02:03:31.922813",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -2051,7 +2069,7 @@
      "price_cad": 6.94
     },
     "listing_fingerprint": "e62787c85027e453b489c18a1efb066153b575137dff804bc2edb58510527e98",
-    "profile_updated_at": "2026-10-07T01:32:17.674706",
+    "profile_updated_at": "2026-10-07T02:03:55.718216",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -2093,7 +2111,7 @@
     "writes_to_etsy": false,
     "fingerprint": "ca61030fdf5d2a13ad7996952393d97698463ef030b9b029439f609f2bcf5ba7",
     "id": 3,
-    "created_at": "2026-10-07T01:32:17.835354"
+    "created_at": "2026-10-07T02:03:56.252235"
    }
   },
   {
@@ -2117,7 +2135,9 @@
      "not_built_by_planner (COMPANY)",
      "production_stale (DEPLOY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": null
   },
@@ -2133,12 +2153,17 @@
    "draft_blocking": [],
    "chain_not_done": [],
    "pipeline": {
-    "status": "COMPANY_WORK",
+    "status": "OWNER_AND_DEPLOY_GATED",
     "blockers": [
-     "listing_imagery (COMPANY)",
-     "not_built_by_planner (COMPANY)"
+     "etsy_taxonomy_snapshot (EXTERNAL)",
+     "etsy_taxonomy_snapshot (EXTERNAL)",
+     "physical_sample (OWNER)",
+     "etsy_remote_confirmation (EXTERNAL)",
+     "durable_artifact_storage (OWNER)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -2458,7 +2483,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:48.030185",
+     "decided_at": "2026-10-07T02:03:32.098231",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -2709,7 +2734,7 @@
      "price_cad": 4.0
     },
     "listing_fingerprint": "1f878b05fa23297c92ca38e4d44949e7b8197e8e93e7b770060725bc0e1cedc2",
-    "profile_updated_at": "2026-10-07T01:32:32.155445",
+    "profile_updated_at": "2026-10-07T02:04:08.062088",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -2751,7 +2776,7 @@
     "writes_to_etsy": false,
     "fingerprint": "c0d09a49954a46405c00469bf2a2f3ded045435c0714e345a68be45978480f6a",
     "id": 4,
-    "created_at": "2026-10-07T01:32:32.193434"
+    "created_at": "2026-10-07T02:04:08.087658"
    }
   },
   {
@@ -2774,7 +2799,9 @@
      "etsy_remote_confirmation (EXTERNAL)",
      "durable_artifact_storage (OWNER)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -3096,7 +3123,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:48.194128",
+     "decided_at": "2026-10-07T02:03:32.260080",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -3347,7 +3374,7 @@
      "price_cad": 6.5
     },
     "listing_fingerprint": "daffaf940283a90d01f81fd50ebd6cb77f238dca2c79ef05bfd555f50eb0c32a",
-    "profile_updated_at": "2026-10-07T01:32:50.866799",
+    "profile_updated_at": "2026-10-07T02:04:22.256457",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -3389,7 +3416,7 @@
     "writes_to_etsy": false,
     "fingerprint": "6a753a31d683d4d722b53a28064b00b17d5c418a3a21e20be342137b0b759f69",
     "id": 5,
-    "created_at": "2026-10-07T01:32:50.889122"
+    "created_at": "2026-10-07T02:04:22.284187"
    }
   },
   {
@@ -3412,7 +3439,9 @@
      "etsy_remote_confirmation (EXTERNAL)",
      "durable_artifact_storage (OWNER)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -3733,7 +3762,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:48.350169",
+     "decided_at": "2026-10-07T02:03:32.601994",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -3983,7 +4012,7 @@
      "price_cad": 6.5
     },
     "listing_fingerprint": "b2fe556840d25afec65ca4202184b5a6b774d4273f430e0f5dd9e8a5eb57721b",
-    "profile_updated_at": "2026-10-07T01:33:06.634588",
+    "profile_updated_at": "2026-10-07T02:04:34.962768",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -4025,7 +4054,7 @@
     "writes_to_etsy": false,
     "fingerprint": "54732be713795deee1de7b5beaf4b1b709def2ca30de1c9780c886cf8577736f",
     "id": 6,
-    "created_at": "2026-10-07T01:33:06.663893"
+    "created_at": "2026-10-07T02:04:34.989288"
    }
   },
   {
@@ -4048,7 +4077,9 @@
      "etsy_remote_confirmation (EXTERNAL)",
      "durable_artifact_storage (OWNER)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -4369,7 +4400,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:48.490124",
+     "decided_at": "2026-10-07T02:03:32.685967",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -4619,7 +4650,7 @@
      "price_cad": 6.5
     },
     "listing_fingerprint": "6c3a8f5390d9cc7dce4e74ed8d8d09389498be374e0573b90391f05e5d8d33cb",
-    "profile_updated_at": "2026-10-07T01:33:18.568683",
+    "profile_updated_at": "2026-10-07T02:04:44.727072",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -4661,7 +4692,7 @@
     "writes_to_etsy": false,
     "fingerprint": "2131c868d6dc886da57a7997d9c214ca12ee44e59886116b2ca6ac9ba4e6a008",
     "id": 7,
-    "created_at": "2026-10-07T01:33:18.608467"
+    "created_at": "2026-10-07T02:04:44.769381"
    }
   },
   {
@@ -4681,14 +4712,18 @@
    "pipeline": {
     "status": "COMPANY_WORK",
     "blockers": [
-     "name_count_truth (COMPANY)",
-     "name_fabric_truth (COMPANY)",
      "outside_launch_scope (COMPANY)",
-     "not_built_by_planner (COMPANY)",
-     "production_stale (DEPLOY)",
-     "production_imagery (COMPANY)"
+     "listing_imagery_qa (COMPANY)",
+     "listing_set_certificate (COMPANY)",
+     "etsy_taxonomy_snapshot (EXTERNAL)",
+     "etsy_taxonomy_snapshot (EXTERNAL)",
+     "name_truth (COMPANY)",
+     "name_truth (COMPANY)",
+     "production_stale (DEPLOY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -5013,7 +5048,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:48.670045",
+     "decided_at": "2026-10-07T02:03:32.785890",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -5266,7 +5301,7 @@
      "price_cad": 5.98
     },
     "listing_fingerprint": "79daa6a964005b9fa12b930636910081efd85a75f577e84c5e17a65df5598e89",
-    "profile_updated_at": "2026-10-07T01:33:21.516130",
+    "profile_updated_at": "2026-10-07T02:04:46.863098",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -5308,7 +5343,7 @@
     "writes_to_etsy": false,
     "fingerprint": "42715a168b41c5aa5d1cb5f6e1a700ad3216f71135727ced2ebc8fd6419bec31",
     "id": 8,
-    "created_at": "2026-10-07T01:33:21.536354"
+    "created_at": "2026-10-07T02:04:46.887170"
    }
   },
   {
@@ -5337,9 +5372,11 @@
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "name_truth (COMPANY)",
-     "production_stale (DEPLOY)"
+     "name_truth (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -5542,7 +5579,7 @@
       "basis": "observed"
      },
      "position": "above shelf median",
-     "decided_at": "2026-10-07T01:31:48.818082",
+     "decided_at": "2026-10-07T02:03:32.874008",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -5818,7 +5855,7 @@
      "price_cad": null
     },
     "listing_fingerprint": "0f6c553c665af05989a4ccf944f59ca08b6c80fc04c60568e9f502c6b9afc56b",
-    "profile_updated_at": "2026-10-07T01:33:21.865208",
+    "profile_updated_at": "2026-10-07T02:04:47.395711",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -5887,9 +5924,11 @@
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "name_truth (COMPANY)",
-     "production_stale (DEPLOY)"
+     "name_truth (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -6092,7 +6131,7 @@
       "basis": "observed"
      },
      "position": "above shelf median",
-     "decided_at": "2026-10-07T01:31:48.966809",
+     "decided_at": "2026-10-07T02:03:32.965955",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -6368,7 +6407,7 @@
      "price_cad": null
     },
     "listing_fingerprint": "15fb2d17161f18a6d1acc13258e2ed525b3aea25ef6ef01389a4788c62b8df09",
-    "profile_updated_at": "2026-10-07T01:33:22.745398",
+    "profile_updated_at": "2026-10-07T02:04:48.431869",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -6434,9 +6473,11 @@
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "name_truth (COMPANY)",
-     "production_stale (DEPLOY)"
+     "name_truth (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -6765,7 +6806,7 @@
       "basis": "observed"
      },
      "position": "above shelf median",
-     "decided_at": "2026-10-07T01:31:49.157344",
+     "decided_at": "2026-10-07T02:03:33.090048",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -7042,7 +7083,7 @@
      "price_cad": 14.0
     },
     "listing_fingerprint": "f008760e9169908f4223249850238136124196c5702425c82e5c2a14ab0ec312",
-    "profile_updated_at": "2026-10-07T01:33:26.069295",
+    "profile_updated_at": "2026-10-07T02:04:51.599002",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -7084,7 +7125,7 @@
     "writes_to_etsy": false,
     "fingerprint": "77aab68f68152af36ac1875814d032f20084c5867691c0f879d5387fdeb2345d",
     "id": 9,
-    "created_at": "2026-10-07T01:33:26.323871"
+    "created_at": "2026-10-07T02:04:51.807138"
    }
   },
   {
@@ -7103,16 +7144,17 @@
    "pipeline": {
     "status": "COMPANY_WORK",
     "blockers": [
-     "name_count_truth (COMPANY)",
      "outside_launch_scope (COMPANY)",
      "listing_imagery_qa (COMPANY)",
      "listing_set_certificate (COMPANY)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
-     "name_truth (COMPANY)",
-     "production_stale (DEPLOY)"
+     "production_stale (DEPLOY)",
+     "production_imagery (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -7435,7 +7477,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:49.351264",
+     "decided_at": "2026-10-07T02:03:33.205955",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -7711,7 +7753,7 @@
      "price_cad": 4.63
     },
     "listing_fingerprint": "be17e20f6c5546e15304d9d6d57f666345b06cde5caadfa586e32c295ceaf75b",
-    "profile_updated_at": "2026-10-07T01:33:29.614352",
+    "profile_updated_at": "2026-10-07T02:04:54.531126",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -7753,7 +7795,7 @@
     "writes_to_etsy": false,
     "fingerprint": "40454e4c8d367cb47f85bfc3d8fd6b840cff4603e171596e8594b00e4403875f",
     "id": 10,
-    "created_at": "2026-10-07T01:33:29.656718"
+    "created_at": "2026-10-07T02:04:54.552588"
    }
   },
   {
@@ -7778,7 +7820,9 @@
      "production_stale (DEPLOY)",
      "production_imagery (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -8099,7 +8143,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:49.546222",
+     "decided_at": "2026-10-07T02:03:33.297959",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -8355,7 +8399,7 @@
      "price_cad": 5.11
     },
     "listing_fingerprint": "25984060ea1f331446a1a084169c886ef06048d5c2bc66e6b3ac1cdec956d167",
-    "profile_updated_at": "2026-10-07T01:33:32.556292",
+    "profile_updated_at": "2026-10-07T02:04:56.962692",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -8397,7 +8441,7 @@
     "writes_to_etsy": false,
     "fingerprint": "4a11cbe3b2609331c82b458045148e1ade41eb523818fd2b2f2eacd9e79ee0ef",
     "id": 11,
-    "created_at": "2026-10-07T01:33:32.592974"
+    "created_at": "2026-10-07T02:04:56.992413"
    }
   },
   {
@@ -8416,16 +8460,18 @@
    "pipeline": {
     "status": "COMPANY_WORK",
     "blockers": [
-     "name_count_truth (COMPANY)",
      "outside_launch_scope (COMPANY)",
      "listing_imagery_qa (COMPANY)",
      "listing_set_certificate (COMPANY)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "name_truth (COMPANY)",
-     "production_stale (DEPLOY)"
+     "production_stale (DEPLOY)",
+     "production_imagery (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -8745,7 +8791,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:50.154194",
+     "decided_at": "2026-10-07T02:03:33.389892",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -9007,7 +9053,7 @@
      "price_cad": 4.83
     },
     "listing_fingerprint": "2b3c107214bc0ef0d621a7707d1c945ae90df64c699b247fd3930349e37904d7",
-    "profile_updated_at": "2026-10-07T01:33:35.469324",
+    "profile_updated_at": "2026-10-07T02:04:59.242733",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -9049,7 +9095,7 @@
     "writes_to_etsy": false,
     "fingerprint": "eb505384fe4bb7d8387c84d562bd4e5c1aea93f4760ce8250906a529f737d67a",
     "id": 12,
-    "created_at": "2026-10-07T01:33:35.517043"
+    "created_at": "2026-10-07T02:04:59.268415"
    }
   },
   {
@@ -9077,7 +9123,9 @@
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "name_truth (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -9399,7 +9447,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:50.378167",
+     "decided_at": "2026-10-07T02:03:33.489971",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -9674,7 +9722,7 @@
      "price_cad": 5.23
     },
     "listing_fingerprint": "303491e43b87837b6c0043436f5bb3b1ec34ab3f163e257276ca50a72a9385a1",
-    "profile_updated_at": "2026-10-07T01:33:38.546010",
+    "profile_updated_at": "2026-10-07T02:05:01.579757",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -9716,7 +9764,7 @@
     "writes_to_etsy": false,
     "fingerprint": "e6d5a9e358472b2031d3f4cc8ea84b459c12b50eba5fac09a1f5a2f4b40ebf32",
     "id": 13,
-    "created_at": "2026-10-07T01:33:38.602896"
+    "created_at": "2026-10-07T02:05:01.617208"
    }
   },
   {
@@ -9741,7 +9789,9 @@
      "production_stale (DEPLOY)",
      "production_imagery (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -10063,7 +10113,7 @@
       "basis": "observed"
      },
      "position": "at or below shelf median",
-     "decided_at": "2026-10-07T01:31:50.630244",
+     "decided_at": "2026-10-07T02:03:33.597963",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -10338,7 +10388,7 @@
      "price_cad": 5.23
     },
     "listing_fingerprint": "4b3d8e411be6a43a55ccbdffdd86c9953496b8c542c819ce0b1ef7cc3ebda276",
-    "profile_updated_at": "2026-10-07T01:33:41.877238",
+    "profile_updated_at": "2026-10-07T02:05:04.195548",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -10380,7 +10430,7 @@
     "writes_to_etsy": false,
     "fingerprint": "d4f903143cf801b6e401ad7a8965dc07dc5dda9069a1c0ee4dbece48a8be1707",
     "id": 14,
-    "created_at": "2026-10-07T01:33:41.934117"
+    "created_at": "2026-10-07T02:05:04.229258"
    }
   },
   {
@@ -10399,16 +10449,18 @@
    "pipeline": {
     "status": "COMPANY_WORK",
     "blockers": [
-     "name_fabric_truth (COMPANY)",
      "outside_launch_scope (COMPANY)",
      "listing_imagery_qa (COMPANY)",
      "listing_set_certificate (COMPANY)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "etsy_taxonomy_snapshot (EXTERNAL)",
      "name_truth (COMPANY)",
-     "production_stale (DEPLOY)"
+     "name_truth (COMPANY)",
+     "name_truth (COMPANY)"
     ],
-    "inventory_generated_at": "2026-10-07T00:15:24+00:00"
+    "inventory_file": "PRODUCT_INVENTORY.json",
+    "inventory_head": "e72f086",
+    "inventory_generated_at": "2026-10-07T01:38:19+00:00"
    },
    "package": {
     "package_version": "seo-package-v1",
@@ -10734,7 +10786,7 @@
       "basis": "observed"
      },
      "position": "above shelf median",
-     "decided_at": "2026-10-07T01:31:50.886165",
+     "decided_at": "2026-10-07T02:03:33.698095",
      "status": "DECIDED"
     },
     "seasonality": {
@@ -11006,7 +11058,7 @@
      "price_cad": 12.0
     },
     "listing_fingerprint": "9c5b4d83a8c682ce6a14adc33d73309f053b53a65d811fd2af359e1fe86fbeee",
-    "profile_updated_at": "2026-10-07T01:33:45.908254",
+    "profile_updated_at": "2026-10-07T02:05:07.686436",
     "learning": {
      "status": "UNKNOWN",
      "signals": {
@@ -11048,7 +11100,7 @@
     "writes_to_etsy": false,
     "fingerprint": "b765373836debc4bcef6b7168387d53e7b91bae35bbd7aaaf559e449639dbf2b",
     "id": 15,
-    "created_at": "2026-10-07T01:33:46.149230"
+    "created_at": "2026-10-07T02:05:07.877785"
    }
   }
  ]

@@ -1,6 +1,6 @@
 # W4-SEO handoff: Etsy search packages for every product
 
-Branch `claude/w4-SEO`. Base: `claude/visual-investigation` fee1cfe, merged with `origin/claude/w4-INTEG` 7631026 (MJS findings). Latest pushed SHA: see `git log -1 origin/claude/w4-SEO`.
+Branch `claude/w4-SEO`. Base: `claude/visual-investigation` (merged again at a7b7973 on 2026-10-07), merged with `origin/claude/w4-INTEG` 7631026 (MJS findings). Latest pushed SHA: see `git log -1 origin/claude/w4-SEO`.
 
 ## Owned / touched
 - NEW `src/brambleloop/seo/packages.py`. It assembles, records, refreshes and reads packages (`current`, `history`). It also provides:
@@ -15,7 +15,7 @@ Branch `claude/w4-SEO`. Base: `claude/visual-investigation` fee1cfe, merged with
   - `commerce/intent.py`: `package:modelled` phrases are not counted as observed market language.
   - `intel/insights_budget.py`: package rows are not counted as query snapshots on file.
 - Tests: `tests/test_w4_seo_packages.py`, 6 tests: producer→consumer, certified fixture branch plus staleness, MJS findings, W4L-1 measurable cell, search evidence, and the Stats update loop (FIXTURE).
-- `research/final_build/w4/seo_packages_build.py` writes `SEO_PACKAGES.json` and `SEO_PACKAGES.md`. It runs the real chain over 21 CIR products, with the MJS reading seeded and PIPE inventory statuses alongside.
+- `research/final_build/w4/seo_packages_build.py` writes `SEO_PACKAGES.json` and `SEO_PACKAGES.md`. It runs the real chain over 21 CIR products, with the MJS reading seeded. PIPE statuses are cross-referenced from the current `PRODUCT_INVENTORY.json` (PIPE head e72f086); `_BEFORE` is the fallback only.
 
 ## Status (SEO_PACKAGES.md)
 - 21 products have a CIR. 7 are viable (Product Truth clean).
@@ -31,6 +31,11 @@ Branch `claude/w4-SEO`. Base: `claude/visual-investigation` fee1cfe, merged with
 ## Wiring requests
 - PIPE / imagery: hero imagery for harvest-table-runner and pet-snuggle-mat.
 - Product Truth renames or re-engineering for the 11 not-viable products. This is PIPE's work.
+
+## Done (resume session 2026-10-07)
+- Report regenerated with the keyword sync and the current PIPE inventory. Counts: 21 products with a CIR, 7 viable, 17 packages, 0 PASS, 5 EXTERNAL_GATED, 12 BLOCKED.
+- Mission items are complete: packages and certificates for every viable product, persisted in `seo_search_packages` for `listing.seo` and search_evidence; Keyword rows (W4L-1); the Stats update loop (fixture).
+- Remaining work is gated only. EXTERNAL: `ETSY_KEYSTRING` taxonomy read. DATA: a live listing's Stats.
 
 ## Resume
 `PYTHONPATH=src python tests/test_w4_seo_packages.py`, then `python research/final_build/w4/seo_packages_build.py`, then commit and push.

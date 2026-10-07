@@ -1,6 +1,6 @@
 # SEO packages: every catalogue product's Etsy search package (W4-SEO)
 
-Generated 2026-10-07T01:33:48+00:00 by `research/final_build/w4/seo_packages_build.py (real release chain, shadow worker, scratch SQLite, network closed, no Etsy taxonomy snapshot)`. The machine record is `SEO_PACKAGES.json`; packages are also persisted by `listing.seo` in `seo_search_packages` (`seo.packages`) and refreshed by every `seo.cycle`.
+Generated 2026-10-07T02:05:10+00:00 by `research/final_build/w4/seo_packages_build.py (real release chain, shadow worker, scratch SQLite, network closed, no Etsy taxonomy snapshot)`. The machine record is `SEO_PACKAGES.json`; packages are also persisted by `listing.seo` in `seo_search_packages` (`seo.packages`) and refreshed by every `seo.cycle`.
 
 ## Counts
 
@@ -10,6 +10,7 @@ Generated 2026-10-07T01:33:48+00:00 by `research/final_build/w4/seo_packages_bui
 - Search packages persisted: **17** (7 for viable products)
 - Search certificate PASS: **0**; FAIL/REFUSED: **17**
 - Readiness: {'EXTERNAL_GATED': 5, 'BLOCKED': 12}
+- PIPE inventory cross-referenced: {'inventory_file': 'PRODUCT_INVENTORY.json', 'inventory_head': 'e72f086', 'inventory_generated_at': '2026-10-07T01:38:19+00:00'}
 - Supremacy gate cleared: False (failed ['conversion_readiness', 'truthful_query_coverage'], unmeasured ['competitive_thumbnail', 'no_unresolved_first_party_warning'])
 
 ## Why the certificate fails
@@ -31,7 +32,7 @@ Competitor context: `research/final_build/w4/MJS_FINDINGS.json` (as of 2026-10-0
 | cottage-wall-hanging | False | COMPANY_WORK | BLOCKED | REFUSED (failed ['category', 'attributes', 'hero']) | Cottage Botanical Wall Hanging | Crochet Pattern PDF | Decor | US and ... (78) | 13 (obs 0, mod 13, meas 0) | 6.21 | home_decor: 18.0 (17.5-18.0, n=11) → below benchmark p25 | 911.0 | wall decor crochet pattern pdf |
 | harvest-table-runner | True | COMPANY_WORK | BLOCKED | REFUSED (failed ['category', 'attributes', 'hero']) | Harvest Table Runner | Crochet Pattern PDF | Written Instructions and ... (93) | 13 (obs 0, mod 13, meas 0) | 6.94 | home_decor: 18.0 (17.5-18.0, n=11) → below benchmark p25 | 911.0 | runner crochet pattern pdf |
 | heirloom-cable-blanket | False | COMPANY_WORK | no package | - | - | - | - | - | - | not in products.launch0 inventory (no Product Truth gate run there); PIPE: physical_calibration (OWNER); outside_launch_scope (COMPANY); not_built_by_planner (C |
-| hexagon-coaster-set | True | COMPANY_WORK | EXTERNAL_GATED | REFUSED (failed ['category', 'attributes']) | Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and C... (92) | 13 (obs 0, mod 13, meas 0) | 4.0 | home_decor: 18.0 (17.5-18.0, n=11) → below benchmark p25 | 911.0 | coaster crochet pattern pdf |
+| hexagon-coaster-set | True | OWNER_AND_DEPLOY_GATED | EXTERNAL_GATED | REFUSED (failed ['category', 'attributes']) | Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and C... (92) | 13 (obs 0, mod 13, meas 0) | 4.0 | home_decor: 18.0 (17.5-18.0, n=11) → below benchmark p25 | 911.0 | coaster crochet pattern pdf |
 | market-basket-large | True | OWNER_AND_DEPLOY_GATED | EXTERNAL_GATED | REFUSED (failed ['category', 'attributes']) | Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Inst... (106) | 13 (obs 0, mod 13, meas 0) | 6.5 | home_decor: 18.0 (17.5-18.0, n=11) → below benchmark p25 | 911.0 | basket crochet pattern pdf |
 | market-basket-medium | True | OWNER_AND_DEPLOY_GATED | EXTERNAL_GATED | REFUSED (failed ['category', 'attributes']) | Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Ins... (107) | 13 (obs 0, mod 13, meas 0) | 6.5 | home_decor: 18.0 (17.5-18.0, n=11) → below benchmark p25 | 911.0 | basket crochet pattern pdf |
 | market-basket-small | True | OWNER_AND_DEPLOY_GATED | EXTERNAL_GATED | REFUSED (failed ['category', 'attributes']) | Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instr... (105) | 13 (obs 0, mod 13, meas 0) | 6.5 | home_decor: 18.0 (17.5-18.0, n=11) → below benchmark p25 | 911.0 | basket crochet pattern pdf |

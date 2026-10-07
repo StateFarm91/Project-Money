@@ -11,8 +11,8 @@ SEO_PACKAGES.json / SEO_PACKAGES.md beside it.
 The latest MJS findings (`MJS_FINDINGS.json`, lane W4-MJS: aggregated from the production
 build's public read-only benchmark endpoints) are stored as the `mjs.findings` reading the
 runtime writes, so each package's `competitive` block reads them through the same code path
-as production (`intel.findings.latest`). PIPE's `PRODUCT_INVENTORY_BEFORE.json` (local file,
-else `origin/claude/w4-PIPE`) is cross-referenced for each product's pipeline status.
+as production (`intel.findings.latest`). PIPE's `PRODUCT_INVENTORY.json` (local file,
+else `origin/claude/w4-PIPE`; `_BEFORE` as fallback) is cross-referenced for each product's pipeline status.
 
 No Etsy taxonomy snapshot is loaded: that is the company's real state (no keystring, the
 tree has never been read), so every category is UNKNOWN and no taxonomy id is assumed.
@@ -83,21 +83,30 @@ def _builders() -> dict:
 
 
 def _pipe_inventory() -> dict:
+    """PIPE's current PRODUCT_INVENTORY.json (local, else origin/claude/w4-PIPE); the
+    pre-work PRODUCT_INVENTORY_BEFORE.json only when neither current copy is readable."""
     import subprocess
 
-    local = OUT / "PRODUCT_INVENTORY_BEFORE.json"
-    try:
-        text = local.read_text() if local.exists() else subprocess.run(
-            ["git", "show", "origin/claude/w4-PIPE:brambleloop/research/final_build/w4/"
-             "PRODUCT_INVENTORY_BEFORE.json"], capture_output=True, text=True, check=True,
-            cwd=ROOT).stdout
-        d = json.loads(text)
-    except Exception:  # noqa: BLE001 - absent inventory is reported as absent
+    d = None
+    for name in ("PRODUCT_INVENTORY.json", "PRODUCT_INVENTORY_BEFORE.json"):
+        local = OUT / name
+        try:
+            text = local.read_text() if local.exists() else subprocess.run(
+                ["git", "show", "origin/claude/w4-PIPE:brambleloop/research/final_build/w4/"
+                 + name], capture_output=True, text=True, check=True, cwd=ROOT).stdout
+            d = json.loads(text)
+            d["_file"] = name
+            break
+        except Exception:  # noqa: BLE001 - absent inventory is reported as absent
+            continue
+    if not d:
         return {}
     return {p["slug"]: {"status": p.get("status"),
                         "blockers": [f"{b.get('gate')} ({b.get('clearer')})"
                                      if isinstance(b, dict) else str(b)
                                      for b in (p.get("blockers") or [])][:8],
+                        "inventory_file": d["_file"],
+                        "inventory_head": d.get("head"),
                         "inventory_generated_at": d.get("generated_at")}
             for p in d.get("products") or []}
 
@@ -209,6 +218,9 @@ def main() -> dict:
         "seconds": round(time.time() - t0, 1),
         "counts": counts,
         "competitor_findings_source": findings_src,
+        "pipe_inventory_source": next(({k: v for k, v in r.items()
+                                        if k.startswith("inventory_")}
+                                       for r in pipe.values()), None),
         "supremacy_gate": {k: gate[k] for k in ("cleared", "failed", "unmeasured", "why")},
         "product_level_plan": {
             "note": "seo.strategy.plan(): the Launch-0 product-level search decisions (the "
@@ -244,6 +256,7 @@ def _markdown(r: dict) -> str:
         f"- Search certificate PASS: **{c['certificate_pass']}**; FAIL/REFUSED: "
         f"**{c['certificate_fail']}**",
         f"- Readiness: {c['readiness']}",
+        f"- PIPE inventory cross-referenced: {r.get('pipe_inventory_source') or 'UNKNOWN'}",
         f"- Supremacy gate cleared: {r['supremacy_gate']['cleared']} "
         f"(failed {r['supremacy_gate']['failed']}, unmeasured "
         f"{r['supremacy_gate']['unmeasured']})",
