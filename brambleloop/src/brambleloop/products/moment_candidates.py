@@ -731,7 +731,7 @@ BOARD_PX = 570
 # Pieces worked from the top down (crown or top first): their first row is the top of the
 # object as it is used. Every other main piece is drawn with its last row at the top.
 WORKED_DOWN = frozenset({"mothers-day-heart-tea-cosy", "heart-row-ring-pillow"})
-RAISED = frozenset({"dc", "cable2x2", "cable1x1", "fpdc", "bpdc", "bob"})
+RAISED = frozenset({"cable2x2", "cable1x1", "fpdc", "bpdc", "bob"})
 
 
 def board_png(cir: CIR, *, px: int = 26, window: int = 40) -> bytes:
@@ -756,7 +756,16 @@ def board_png(cir: CIR, *, px: int = 26, window: int = 40) -> bytes:
         raise ValueError(f"{cir.slug} does not compile; there is no fabric to draw")
     twin = build_twin(cir, result, component=cir.components[0].name)
     rows = sorted({c.row for c in twin.cells})
-    motif_rows = [r for r in rows if any(c.stitch in RAISED for c in twin.cells if c.row == r)]
+    kinds: dict[int, set[str]] = {}
+    for c in twin.cells:
+        kinds.setdefault(c.row, set()).add(c.stitch)
+
+    def raised(c) -> bool:
+        # A crossing or post stitch always stands out; a dc only where it sits among sc in
+        # its own row (relief), not in an all-dc row.
+        return c.stitch in RAISED or (c.stitch == "dc" and "sc" in kinds[c.row])
+
+    motif_rows = [r for r in rows if any(raised(c) for c in twin.cells if c.row == r)]
     lo_r, hi_r = (motif_rows[0], motif_rows[-1]) if motif_rows else (rows[0], rows[-1])
     span = [r for r in rows if lo_r - 2 <= r <= hi_r + 2][:window]
     if cir.slug not in WORKED_DOWN:
@@ -779,12 +788,12 @@ def board_png(cir: CIR, *, px: int = 26, window: int = 40) -> bytes:
     for ri, r in enumerate(span):
         for col, c in enumerate(by_row[r]):
             base = rgb(c.color)
-            raised = c.stitch in RAISED
-            tone = rng.uniform(0.95, 1.05) * (1.08 if raised else 0.92)
+            up = raised(c)
+            tone = rng.uniform(0.95, 1.05) * (1.08 if up else 0.92)
             body = _shade(base, tone)
-            hgt = ch * (1.3 if raised else 1.0)
+            hgt = ch * (1.3 if up else 1.0)
             _stitch(d, col * cw, ri * pitch - (hgt - ch), cw, hgt, rng.uniform(-1, 1), body,
-                    _shade(base, 1.3 if raised else 1.12), _shade(base, 0.6),
+                    _shade(base, 1.3 if up else 1.12), _shade(base, 0.6),
                     loop=getattr(c, "loop", "both"), rng=rng)
     side = min(img.size)
     img = img.crop((0, 0, side, side)).resize((BOARD_PX, BOARD_PX))

@@ -84,6 +84,156 @@
      "clearer": "COMPANY"
     }
    }
+  },
+  {
+   "slug": "reading-nook-cable-wrap",
+   "title": "Reading Nook Cable Wrap",
+   "source": "creative",
+   "stage": "PRODUCT_TRUTH",
+   "highest_passed": "PRODUCT",
+   "stage_status": "FAIL",
+   "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+   "clearer": "OWNER",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A long cable twist wrap in forest and cream lies across the shoulders like a heavier shawl.",
+      "function": "stays across the shoulders through a long evening of reading in the coldest room of the house",
+      "occasion": "winter_nesting",
+      "pod": "wearables",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "flat_rows",
+      "components": [
+       [
+        "wrap",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "FAIL",
+     "evidence": {
+      "certified": false,
+      "release_hash": null,
+      "certificate_errors": [
+       "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it pa"
+      ],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "a pattern tester works the new stitch or makes the full piece (physical evidence)",
+     "clearer": "OWNER"
+    }
+   }
+  },
+  {
+   "slug": "mothers-day-heart-tea-cosy",
+   "title": "Heart Row Tea Cosy",
+   "source": "creative",
+   "stage": "VISUAL",
+   "highest_passed": "PRODUCT_TRUTH",
+   "stage_status": "FAIL",
+   "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+   "clearer": "COMPANY",
+   "stages": {
+    "INTELLIGENCE": {
+     "status": "PASS",
+     "evidence": {
+      "premise": "A heart row tea cosy in cream and wine fits the round teapot that comes out when the family visits.",
+      "function": "keeps the Sunday teapot hot through a long conversation at the kitchen table",
+      "occasion": "mothers_day",
+      "pod": "gifts",
+      "demand_basis": "ESTIMATED: creative brief; demand is unmeasured until the shop has search data",
+      "concept_accepted": true
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "DESIGN": {
+     "status": "PASS",
+     "evidence": {
+      "builder": "creative",
+      "construction": "joined_rounds",
+      "components": [
+       [
+        "cosy",
+        1
+       ],
+       [
+        "front",
+        1
+       ],
+       [
+        "back",
+        1
+       ]
+      ]
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT": {
+     "status": "PASS",
+     "evidence": {
+      "version": "0.1.0",
+      "compiles": true,
+      "errors": 0,
+      "warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "PRODUCT_TRUTH": {
+     "status": "PASS",
+     "evidence": {
+      "certified": true,
+      "release_hash": "96408a469e36",
+      "certificate_errors": [],
+      "name_truth": [],
+      "compile_warnings": 0
+     },
+     "next_step": "",
+     "clearer": "COMPANY"
+    },
+    "VISUAL": {
+     "status": "FAIL",
+     "evidence": {
+      "made": false,
+      "usable": false,
+      "frames": [],
+      "launch_blocked": [
+       "renderer refused: mothers-day-heart-tea-cosy: 3 components. This renderer draws one compiled piece; assembling several into one object is a claim it cannot yet derive"
+      ],
+      "launch_scope": false
+     },
+     "next_step": "the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed)",
+     "clearer": "COMPANY"
+    }
+   }
   }
  ],
  "records": {
@@ -195,15 +345,214 @@
     "board_digest_for": "8e0df827312d3ffb38c4e793364decd9ae025e9484c28f0757f817335dcc8c95",
     "vision_usable": false
    }
+  },
+  "reading-nook-cable-wrap": {
+   "slug": "reading-nook-cable-wrap",
+   "title": "Reading Nook Cable Wrap",
+   "version": "0.1.0",
+   "fingerprint": "23420beed766",
+   "risk_class": "B",
+   "components": [
+    [
+     "wrap",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineering_note": "Real 2-over-2 cable crossings (cable2x2), so the name's cable claim is backed; the crossing is an uncalibrated primitive, which is a physical-tester gate. The cream 'border edging' is cream end bands (a perimeter round is not expressible on one flat component).",
+   "pdf": {
+    "path": "pipe2/reading-nook-cable-wrap/reading-nook-cable-wrap-0.1.0-US.pdf",
+    "pages": 35,
+    "sha256": "e1ec5d02752b14256156697620cac39ca84d4c72970b1dad4f94aa2512472f43",
+    "finished_size_cm": [
+     47.2,
+     166.7
+    ],
+    "yardage_by_color": {
+     "cream": 23.6,
+     "forest": 596.7
+    },
+    "difficulty": "intermediate"
+   },
+   "concept_board": {
+    "slug": "reading-nook-cable-wrap",
+    "version": "0.1.0",
+    "fingerprint": "23420beed766",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "7e5af44eb246879839d32f416f8ab0dbd871e26c6c23210f57f9c3ef2e48c1f2"
+    },
+    "image_ref": "sha256:7e5af44eb246879839d32f416f8ab0dbd871e26c6c23210f57f9c3ef2e48c1f2",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/reading-nook-cable-wrap/concept-board.png",
+    "file_sha256": "7e5af44eb246879839d32f416f8ab0dbd871e26c6c23210f57f9c3ef2e48c1f2"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty",
+     "grid_tournament"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [
+    {
+     "finding": "demand_by_pod",
+     "digest": "5728fb2aed",
+     "grade": "proxy",
+     "sample": 437,
+     "says": "median favourites per benchmark listing: garments 1701, stockings 1472.5, home_decor 911, kitchen_bath 738.5, seasonal_gift 491; stockings are underserved (above-median favourites on below-median shelf depth)",
+     "fit": "garments: the highest favourites median"
+    },
+    {
+     "finding": "coverage_gaps",
+     "digest": "cc58125e5d",
+     "grade": "observed",
+     "sample": 7,
+     "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+     "fit": "garments and clothing arena is uncovered"
+    }
+   ],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:7e5af44eb246879839d32f416f8ab0dbd871e26c6c23210f57f9c3ef2e48c1f2",
+    "board_digest_for": "7e5af44eb246879839d32f416f8ab0dbd871e26c6c23210f57f9c3ef2e48c1f2",
+    "vision_usable": false
+   }
+  },
+  "mothers-day-heart-tea-cosy": {
+   "slug": "mothers-day-heart-tea-cosy",
+   "title": "Heart Row Tea Cosy",
+   "version": "0.1.0",
+   "fingerprint": "c7e4b554f1fa",
+   "risk_class": "B",
+   "components": [
+    [
+     "cosy",
+     1,
+     "joined_rounds"
+    ],
+    [
+     "front",
+     1,
+     "flat_rows"
+    ],
+    [
+     "back",
+     1,
+     "flat_rows"
+    ]
+   ],
+   "engineering_note": "Seamless top-down: crown, heart band, then held halves worked as front and back skirts; the gaps between them are the spout and handle openings.",
+   "pdf": {
+    "path": "pipe2/mothers-day-heart-tea-cosy/mothers-day-heart-tea-cosy-0.1.0-US.pdf",
+    "pages": 8,
+    "sha256": "1d703c6528798f09f1a0ed94e9088d4d20a845523a7c636bc33fb500393ea18e",
+    "finished_size_cm": [
+     19.8,
+     11.1
+    ],
+    "yardage_by_color": {
+     "cream": 70.5,
+     "wine": 24.0
+    },
+    "difficulty": "confident beginner"
+   },
+   "concept_board": {
+    "slug": "mothers-day-heart-tea-cosy",
+    "version": "0.1.0",
+    "fingerprint": "c7e4b554f1fa",
+    "kind": "digital_twin_render",
+    "image": {
+     "sha256": "9781e11c27f420769c8423da05c43e36daa5a27cdd8328f01418b377df810650"
+    },
+    "image_ref": "sha256:9781e11c27f420769c8423da05c43e36daa5a27cdd8328f01418b377df810650",
+    "disclosure": "a deterministic render of the engineered pattern's fabric from its compiled digital twin, not a photograph",
+    "source": "W4-PIPE2 products.moment_candidates",
+    "path": "pipe2/mothers-day-heart-tea-cosy/concept-board.png",
+    "file_sha256": "9781e11c27f420769c8423da05c43e36daa5a27cdd8328f01418b377df810650"
+   },
+   "taste_gate_registration": {
+    "registered": true,
+    "decision": "waiting",
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "gate": {
+    "decision": "waiting",
+    "failed": [],
+    "unmeasured": [
+     "premise_thumbnail",
+     "jury",
+     "novelty"
+    ],
+    "waiting_on": [
+     "benchmark_observation",
+     "image_vision"
+    ]
+   },
+   "demand": [
+    {
+     "finding": "coverage_gaps",
+     "digest": "cc58125e5d",
+     "grade": "observed",
+     "sample": 7,
+     "says": "uncovered arenas with no Brambleloop answer include Christmas stockings, garments and clothing, hats and wearables, and kitchen and bath textiles",
+     "fit": "kitchen and bath arena is uncovered"
+    }
+   ],
+   "taste_gate": {
+    "state": "needs_taste",
+    "regate_held_waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ],
+    "board_for": "sha256:9781e11c27f420769c8423da05c43e36daa5a27cdd8328f01418b377df810650",
+    "board_digest_for": "9781e11c27f420769c8423da05c43e36daa5a27cdd8328f01418b377df810650",
+    "vision_usable": false
+   }
   }
  },
  "queue": [
-  "first-christmas-stocking"
+  "first-christmas-stocking",
+  "reading-nook-cable-wrap",
+  "mothers-day-heart-tea-cosy"
  ],
  "regate_held": {
   "presented": [],
   "queued": [],
   "held": [
+   {
+    "slug": "mothers-day-heart-tea-cosy",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
+   {
+    "slug": "reading-nook-cable-wrap",
+    "waiting_on": [
+     "vision_model (no vision probe has succeeded)"
+    ]
+   },
    {
     "slug": "first-christmas-stocking",
     "waiting_on": [
@@ -213,6 +562,6 @@
   ],
   "vision_usable": false
  },
- "generated_at": "2026-10-07T02:49:38+00:00",
- "head": "44b3f64"
+ "generated_at": "2026-10-07T02:52:16+00:00",
+ "head": "785ca4a"
 }

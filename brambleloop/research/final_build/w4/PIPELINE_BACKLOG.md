@@ -7,10 +7,10 @@ Generated 2026-10-07T01:44:01+00:00 at `e72f086` by `research/final_build/w4/pip
 | stage | at stage | passed |
 |---|---|---|
 | INTELLIGENCE | 0 | 57 |
-| DESIGN | 29 | 28 |
-| PRODUCT | 0 | 28 |
-| PRODUCT_TRUTH | 7 | 21 |
-| VISUAL | 16 | 5 |
+| DESIGN | 27 | 30 |
+| PRODUCT | 0 | 30 |
+| PRODUCT_TRUTH | 8 | 22 |
+| VISUAL | 17 | 5 |
 | SEARCH | 5 | 0 |
 | LISTING_READINESS | 0 | 0 |
 | PUBLICATION | 0 | 0 |
@@ -43,6 +43,7 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 | harvest-table-runner | catalogue | VISUAL | FAIL | renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify | COMPANY |
 | heart-relief-table-runner | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | mosaic-placemat-pair | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
+| mothers-day-heart-tea-cosy | creative | VISUAL | FAIL | the disclosed renderer draws one compiled piece; an assembled multi-piece render is renderer work (visual owner; the gate is not relaxed) | COMPANY |
 | nordic-star-ornaments | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | pet-snuggle-mat | catalogue | VISUAL | FAIL | renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify | COMPANY |
 | pressed-flower-motifs | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
@@ -54,6 +55,7 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 | chunky-ribbed-scarf | catalogue | PRODUCT_TRUTH | FAIL | a pattern tester works the new stitch (physical calibration) | OWNER |
 | heirloom-cable-blanket | catalogue | PRODUCT_TRUTH | FAIL | a pattern tester works the new stitch (physical calibration) | OWNER |
 | nordic-forest-mosaic-throw | catalogue | PRODUCT_TRUTH | FAIL | rename to what the fabric makes or change the CIR (new version) | COMPANY |
+| reading-nook-cable-wrap | creative | PRODUCT_TRUTH | FAIL | a pattern tester works the new stitch or makes the full piece (physical evidence) | OWNER |
 | spooky-garland | catalogue | PRODUCT_TRUTH | FAIL | rename to what the fabric makes or change the CIR (new version) | COMPANY |
 | valentine-heart-garland | catalogue | PRODUCT_TRUTH | FAIL | rename to what the fabric makes or change the CIR (new version) | COMPANY |
 | alpine-slouch-beanie | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
@@ -71,7 +73,6 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 | housewarming-key-basket | creative | DESIGN | NOT_RUN | engineer a in_the_round builder for a basket (basketweave, pine and cream); the products.builder tiler makes flat rows only | COMPANY |
 | lattice-triangle-shawl | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
 | market-basket-trio | catalogue | DESIGN | BLOCKED | retired concept: its design ships as market-basket-small, market-basket-medium, market-basket-large | COMPANY |
-| mothers-day-heart-tea-cosy | creative | DESIGN | NOT_RUN | engineer a seamless_tube builder for a tube (heart-row, cream and wine); the products.builder tiler makes flat rows only | COMPANY |
 | mothers-day-shawlette | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
 | no-sew-reindeer | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
 | nordic-forest-basket | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
@@ -80,7 +81,6 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 | nursery-cloud-mobile | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
 | pocket-penguin-trio | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
 | pumpkin-cluster-set | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
-| reading-nook-cable-wrap | creative | DESIGN | NOT_RUN | engineer a side_to_side builder for a draped_garment (cable-twist, forest and cream); the products.builder tiler makes flat rows only | COMPANY |
 | snowfall-advent-garland | creative | DESIGN | NOT_RUN | engineer a motif_join builder for a garland (snowfall, forest and cream); the products.builder tiler makes flat rows only | COMPANY |
 | spring-garden-kneeler | creative | DESIGN | NOT_RUN | engineer a modular_panels builder for a pillow (tulip-trellis, pine and gold); the products.builder tiler makes flat rows only | COMPANY |
 | wedding-ring-cushion | radar_pool | DESIGN | NOT_RUN | engineer a deterministic design (products.builder Design or a dedicated builder); prototype.FORM_GEOMETRY sizes: bag, basket, coaster, flat_panel, hat, ornament | COMPANY |
