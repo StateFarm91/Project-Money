@@ -151,6 +151,8 @@ def observed_phrases(db) -> set[str]:
     out: set[str] = set()
     with db.session() as s:
         for row in s.scalars(select(Keyword)):
+            if str(getattr(row, "intent", "") or "") == "package:modelled":
+                continue   # our own modelled phrase (seo.packages), not market language
             if getattr(row, "phrase", None):
                 out.add(row.phrase.strip().lower())
         for row in s.scalars(select(BenchmarkListing)):

@@ -242,7 +242,15 @@ def test_spend_gate_without_stated_cost_is_not_free():
     spend = [c for c in cards if c.get("requirement_kind") == "spend"]
     assert spend, [c["gate"] for c in cards]
     unstated = [c for c in spend if not c["max_cost_cad"]]
-    assert unstated, "a fresh database states no ceiling for some spend gate"
+    if not unstated:
+        # W4-GATESB: every spend card a fresh database raises now states its ceiling (the ad
+        # budget is not askable before a listing can sell). The rule is still exercised on a
+        # spend gate whose ceiling nobody stated, through the same enrichment.
+        unstated = Q.enrich_cards(db, [{"gate": "ad_authority", "kind": "OWNER-GATED",
+                                        "owner_action_id": -1, "action": "set a cap",
+                                        "steps": "set a cap", "max_cost_cad": 0.0,
+                                        "minutes": 5, "unblocks_count": 2}])
+    assert unstated, "a spend gate with no stated ceiling to check"
     for c in unstated:
         assert c["max_cost_basis"] == "UNKNOWN" and not c["packet_complete"], c["gate"]
         assert "free" not in c["urgency"], c["urgency"]

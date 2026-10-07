@@ -372,6 +372,85 @@ def owner_actions(drift: dict) -> list[dict]:
     return rows
 
 
+# ---- owner-action rows (W4-GATESB, integrator request) ----------------------------------------
+#
+# The store items above lived only in STORE_READINESS.md/json, so the live inbox never batched
+# them. `sync_owner_actions` writes each as an OwnerAction row, keyed so the one queue merges it
+# rather than listing it twice: OA-A1 is the transactions_r re-authorisation (gate alias), and
+# OA-LAUNCH is the `phase` decision (leave_shadow). OA-A2 is company work (the getShop
+# snapshot reads it once OA-A1 is done) and OA-STATS is deferred until listings are live, so
+# neither is asked. Everything else is `store:<id>`, batched with the Etsy-account screens.
+
+STORE_KEY_PREFIX = "store:"
+_ALIASED = {"OA-A1": "reauthorise_transactions_r", "OA-LAUNCH": "phase"}
+_NOT_ASKED = {"OA-A2": "company work: etsy.shop_snapshot reads the shop state after OA-A1",
+              "OA-STATS": "deferred: only meaningful after the first listings are live"}
+# An alias is already represented by another producer's row under any of these keys.
+_ALREADY_ASKED_UNDER = {"OA-A1": ("reauthorise_transactions_r", "etsy.auth:reauthorise",
+                                  "transactions_r"),
+                        "OA-LAUNCH": ("phase", "live_listings")}
+
+
+def _cost_cad(text: str) -> tuple[float, str]:
+    t = (text or "").strip()
+    if t.upper().startswith("CA$"):
+        try:
+            return float(t[3:].replace(",", "")), "stated"
+        except ValueError:
+            pass
+    # A fee on attributed sales is not spend the owner approves now (OA-G2).
+    return 0.0, "stated"
+
+
+def sync_owner_actions(db, drift: dict | None = None) -> dict:
+    """Upsert the store owner actions as OwnerAction rows; idempotent, never duplicates."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    drift = drift if drift is not None else {}
+    items = owner_actions(drift)
+    created, updated, skipped = [], [], {}
+    with db.session() as s:
+        open_rows = {r.requirement_key: r for r in s.scalars(select(OwnerAction).where(
+            OwnerAction.done == False))}  # noqa: E712
+        done_keys = {k for (k,) in s.execute(select(OwnerAction.requirement_key).where(
+            OwnerAction.done == True))}  # noqa: E712
+        for it in items:
+            oid = it["id"]
+            if oid in _NOT_ASKED:
+                skipped[oid] = _NOT_ASKED[oid]
+                continue
+            if oid in _ALREADY_ASKED_UNDER and any(
+                    k in open_rows for k in _ALREADY_ASKED_UNDER[oid]):
+                skipped[oid] = "already asked under " + next(
+                    k for k in _ALREADY_ASKED_UNDER[oid] if k in open_rows)
+                continue
+            key = _ALIASED.get(oid, STORE_KEY_PREFIX + oid)
+            if key in done_keys and key not in open_rows:
+                skipped[oid] = "already done"
+                continue
+            cost, basis = _cost_cad(it["max_cost"])
+            reason = f"{it['why']} (store readiness {oid}; cost: {it['max_cost']})"
+            row = open_rows.get(key)
+            if row is None:
+                s.add(OwnerAction(requirement_key=key, action=it["action"], reason=reason,
+                                  max_cost_cad=cost, max_cost_basis=basis,
+                                  minutes=int(it["minutes"]),
+                                  consequence_of_delay=it["if_you_wait"],
+                                  blocks="store readiness",
+                                  why_software_cannot=("an Etsy account screen only the "
+                                                       "signed-in owner can change; software "
+                                                       "never writes live owner fields")))
+                created.append(key)
+            elif row.action != it["action"] or row.reason != reason:
+                row.action, row.reason = it["action"], reason
+                row.minutes, row.max_cost_cad = int(it["minutes"]), cost
+                updated.append(key)
+    return {"created": created, "updated": updated, "skipped": skipped,
+            "items": len(items)}
+
+
 # ---- rendering ---------------------------------------------------------------------------
 
 

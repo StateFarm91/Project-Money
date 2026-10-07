@@ -115,7 +115,7 @@ check("every PROVEN row carries a test, an artefact and a runtime consumer",
       [r["id"] for r in proven if not r["evidence"]["runtime_consumers"]][:10])
 check("a gate given as open returns its rows to OPEN-DEFECT rather than leaving them parked",
       all(r["state"] == "OPEN-DEFECT" for r in C.ledger(gate_open={"ad_authority": True},
-          gate_source="test")["rows"] if r["id"] in (242, 243)))
+          gate_source="test")["rows"] if r["id"] in (294, 295)))
 
 print("FAILED" if FAILS else "ALL OK", FAILS)
 sys.exit(1 if FAILS else 0)

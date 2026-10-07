@@ -679,7 +679,11 @@ GATES: tuple[Gate, ...] = (
          "a ModelIdentity row is canonical with an owner approval timestamp. `select` "
          "refuses to promote a candidate without one, so a better picture cannot make "
          "this true"),
-    Gate("benchmark_purchases", "roughly ten purchased competitor patterns",
+    # W4-GATESB: the owner's approved set is thirteen (B-501/B-512, teardown.intake SET_SIZE,
+    # CA$300 ceiling), not "roughly ten"; the exact list is gate_clearance.benchmark_purchase_list.
+    Gate("benchmark_purchases",
+         "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and "
+         "uploaded at /ops/teardown",
          _benchmarks_purchased,
          (165, 168, 317),
          "at least one BenchmarkProduct row exists -- counted, not asked about"),
@@ -705,22 +709,26 @@ GATES: tuple[Gate, ...] = (
     # for: a concept post and a free article wait on somewhere of this company's own to
     # publish them. A gate that is nearly right is worse than a new one, because it opens on
     # the wrong day and puts work in the ready queue that still cannot start.
+    # W4-GATESB: the Etsy shop exists and is recognised (gate etsy_shop) as the paid
+    # destination; it is not a surface the company can publish free content, pins, video or
+    # email to. gate_clearance.owned_surfaces_inventory names each missing surface and why.
     Gate("owned_surfaces",
-         "a site or a Pinterest account this company can publish to, which only the owner "
-         "can create",
+         "an owned publishing surface beyond the Etsy shop (which exists and is the paid "
+         "destination): a site and/or Pinterest account, opened by the owner",
          _owned_surface_probed,
          (),
          "the latest owned_surface.probe audit row records ok: true -- a real publish-path "
          "check, not a site URL or token variable being set"),
     Gate("live_listings",
-         "a listing that exists on the marketplace, which shadow mode forbids by design",
+         "a listing that exists on the marketplace: company work first (a product clears the "
+         "final publication gate), then the owner's per-listing publication grant",
          _has_live_listing,
          (),
          "at least one Listing row carries an Etsy listing id -- counted, not read from the "
          "phase flag, because a phase is a statement of intent and a listing id is a listing"),
     Gate("customers",
-         "real orders, which only a buyer can create -- not an owner action, and the reason "
-         "this gate is in the same table as the ones that are",
+         "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner "
+         "action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
          _has_customers,
          (),
          "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with "
@@ -788,9 +796,14 @@ GATES: tuple[Gate, ...] = (
          "an assets.model_photography audit row that is made, carries the model, is usable "
          "as a listing asset and reads `pass` on all six model_photography.FLOORS. "
          "`unverifiable` is not a pass, and a product-first frame does not count"),
-    Gate("ad_authority", "an approved advertising budget",
+    # W4-GATESB (W4-OWNER finding): #242-245 are computed daily by ads.adjust whatever the
+    # authority and wait on order data, so they park on `customers` (registry parked_on).
+    # Only the paid scaling rows wait on a budget.
+    Gate("ad_authority",
+         "an approved advertising budget -- recommended only once a listing is ready to sell "
+         "(gate_clearance.ad_readiness)",
          _ads_authorised,
-         (242, 243, 244, 245, 294, 295),
+         (294, 295),
          "a SpendLimit row for 'ads' exists with a positive, unpaused daily cap"),
 )
 
@@ -1566,6 +1579,7 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
     suppressed: list[dict] = []
     satisfied_but_open: list[dict] = []
     company_opened: list[dict] = []
+    not_yet_askable: list[dict] = []
     gate_open: dict[str, bool] = {}
     for gate in GATES:
         is_open = gate.open(db, env)
@@ -1603,6 +1617,17 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
                                "owner_action_ids": [r["id"] for r in bound],
                                "why": "closed, but no requirement is parked on it, so "
                                       "opening it unblocks nothing"})
+            continue
+        # W4-GATESB: a card the owner cannot usefully answer yet (company work or another
+        # gate must land first) is listed with its precondition, never asked.
+        from . import gate_clearance
+
+        precondition = gate_clearance.prerequisite(db, gate.key, env)
+        if precondition:
+            not_yet_askable.append({"gate": gate.key, "what": gate.what, "kind": kind,
+                                    "unblocks": parked, "precondition": precondition,
+                                    "owner_action_ids": [r["id"] for r in bound],
+                                    "how_it_is_checked": gate.how})
             continue
         request = requests.get(gate.key)
         row = bound[0] if bound else None
@@ -1691,6 +1716,7 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
         "batched_free_and_quick": [c["gate"] or c["requirement_key"] for c in free_and_quick],
         "external_capability_unavailable": external,
         "waiting_on_data": data_wait,
+        "not_yet_askable": not_yet_askable,
         "suppressed_unblocks_nothing": suppressed,
         "satisfied_but_open": satisfied_but_open,
         # W4-OWNER: gates the company opens itself, never presented as owner asks.
