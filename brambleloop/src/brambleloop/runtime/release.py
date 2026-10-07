@@ -220,6 +220,39 @@ def _seed_for(slug: str):
 
 UNKNOWN_PRODUCT = "UNKNOWN_PRODUCT"
 
+# Radar categories that name a colourwork technique, and the plain category of the object.
+_COLOURWORK_CATEGORIES = {"mosaic_blanket": "blanket", "graphghan": "blanket"}
+
+
+def _truthful_category(slug: str, category: str) -> str:
+    """The seed's category, unless it names colourwork the product's own title no longer
+    claims (W4-PIPE): a design renamed to the relief it actually works ("Nordic Forest Fir and
+    Star Relief Throw") must not be tagged and filed as a "mosaic blanket" by the concept it
+    started from. The title is the CIR's, built now; colourwork_findings still refuse a claim
+    the fabric cannot make if one gets through."""
+    plain = _COLOURWORK_CATEGORIES.get(category)
+    if plain is None:
+        return category
+    try:
+        from .pipeline import _engineered_cir
+
+        cir = _engineered_cir(slug)
+    except Exception:  # noqa: BLE001 - no design to read: keep the seed's word
+        return category
+    title = (getattr(cir, "title", "") or "").lower()
+    technique = "mosaic" if category == "mosaic_blanket" else "graphghan"
+    return category if (cir is None or technique in title) else plain
+
+
+# W4-PIPE3: catalogue designs retitled to what they make (W4-PIPE 1.3.0) whose radar seed still
+# names what they do not. "pressed-flower-motifs" is twelve heart appliques: its seed category
+# "flower" put "flower crochet" / "Pressed Flower" back into the listing, which name truth
+# refuses (the heart-row motif depicts no flower). The seed is the concept's history; the
+# correction is what the released product is filed and described as.
+SEED_CORRECTIONS: dict[str, dict] = {
+    "pressed-flower-motifs": {"category": "applique", "not_motifs": ("pressed",)},
+}
+
 
 def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
     """What this product IS, read from its own record -- never a default (PT-01).
@@ -240,7 +273,9 @@ def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
                 "source": f"products.launch0:{cand.slug if cand else slug}"}
     seed = _seed_for(slug)
     if seed is not None:
-        return {"category": seed.category, "kind": seed.category, "nouns": [],
+        category = _truthful_category(seed.slug, seed.category)
+        category = SEED_CORRECTIONS.get(slug, {}).get("category", category)
+        return {"category": category, "kind": category, "nouns": [],
                 "motifs": _motifs_for(slug), "techniques": None, "season": seed.season,
                 "launch0": False, "source": f"radar.pool:{seed.slug}"}
     category = (inputs or {}).get("category")
@@ -864,6 +899,16 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         return {"slug": slug, "version": version, "ok": False, "blocking": [why]}
     category = (record["category"] if record["launch0"]
                 else (i.get("category") or record["category"]))
+    # W4-PIPE3: a radar seed's colourwork category ("mosaic_blanket", "graphghan") and a slug
+    # containing "mosaic" are ids, not descriptions. When the fabric works one colour per row
+    # it cannot be a mosaic or a graphghan, so the listing is filed and tagged as the blanket
+    # it is: otherwise "mosaic blanket" / "overlay mosaic" phrases come back into the title and
+    # tags of a product retitled to its relief, and publish refuses it
+    # (`gates.first_customer.colourwork_findings`, `eligibility.name_truth`).
+    _per_row = max((len(set(row)) for row in twin.color_grid()), default=0)
+    colourwork_fabric = _per_row >= 2
+    if not colourwork_fabric and category in _COLOURWORK_CATEGORIES:
+        category = _COLOURWORK_CATEGORIES[category]
     season = record["season"]
     # #297: a pivot to evergreen removes the seasonal premise from the copy -- no season in
     # the title and none in the query set -- rather than relabelling a Christmas listing.
@@ -908,7 +953,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # scarce, and spending them on head terms a shop with no history cannot place for is the
     # most common way a new listing is invisible.
     techniques = (list(record["techniques"]) if record["techniques"] is not None else
-                  (["mosaic"] if "mosaic" in (category + " " + cir.slug) else ["texture"]))
+                  (["mosaic"] if colourwork_fabric and "mosaic" in (category + " " + cir.slug)
+                   else ["texture"]))
     queries = search_mod.build_query_set(category, motifs, season, techniques,
                                          difficulty=difficulty)
     # #293: the phrases buyers were observed using for this product's facets join the query
@@ -2414,6 +2460,8 @@ def _motifs_for(slug: str) -> list[str]:
             words = [w for w in words if w not in false]
             words += [w for w in design.motif.split("-")
                       if w not in ("and", "row", "band") and w not in words]
+    dropped = SEED_CORRECTIONS.get(slug, {}).get("not_motifs", ())
+    words = [w for w in words if w not in dropped]
     return words[:3]
 
 

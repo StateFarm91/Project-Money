@@ -64,11 +64,18 @@ class GaugeTests(unittest.TestCase):
         self.assertFalse(compile_cir(c).ok)
 
     def test_legacy_catalogue_does_not_gain_a_gauge_pass(self):
-        from brambleloop.products.builder import for_slug
-        c=for_slug("autumn-oak-mosaic-throw")
-        self.assertEqual(c.gauge.stitches_per_10cm,16)
+        # W4-PIPE3: the typed record (released 1.3.0, as drawn) is still refused; the design
+        # passes only as the 1.4.0 re-engineering, whose gauge IS its yarn's derived gauge.
+        from brambleloop.products.builder import as_drawn, for_slug
+        c=as_drawn("autumn-oak-mosaic-throw")
+        self.assertEqual((c.version,c.gauge.stitches_per_10cm),("1.3.0",16))
         self.assertFalse(certify(c).granted)
         self.assertIn("GAUGE_OUTSIDE_DECLARED_YARN_BAND",[f.code for f in certify(c).errors])
+        n=for_slug("autumn-oak-mosaic-throw")
+        self.assertEqual(n.version,"1.4.0")
+        self.assertEqual(n.gauge.stitches_per_10cm,gauge_for("worsted").stitches_per_10cm)
+        self.assertFalse(gauge_findings(n))
+        self.assertTrue(certify(n).granted)
 
     def test_cloudline_explicit_symmetric_border_preserves_full_motifs(self):
         from brambleloop.products.motifs import get

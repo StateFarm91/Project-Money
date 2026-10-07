@@ -177,7 +177,10 @@ def assembly_promise(cir: CIR) -> dict:
     named = [f for f in ASSEMBLED_FORMS if f in lowered]
     seams = len(cir.assembly or [])
     pieces = sum(c.make for c in cir.components)
-    backed = (not named) or seams > 0 or pieces > 1
+    # W4-PIPE (2026-10-07): only seams back an assembled form. "pieces > 1" used to back it
+    # too, so five loose pennants with no cord and no join passed as a "garland" -- several
+    # pieces are a kit, and the join is what makes them the object the name promises.
+    backed = (not named) or seams > 0
     return {"forms_named": tuple(named), "seams": seams, "pieces": pieces, "backed": backed,
             "why": ("the title names no assembled form" if not named else
                     f"the title names {named[0]!r}; the CIR carries {seams} seams and "
@@ -645,8 +648,9 @@ CANDIDATES: tuple[Candidate, ...] = (
             "tier the cluster band cannot reach."),
         variants=(Variant("one_size", "86.4 x 91.8 cm", "snowfall_throw"),),
         pod="blankets",
-        listing=ListingIdentity(kind="throw", etsy_category="blanket",
-                                nouns=("throw", "blanket"), qualifiers=("snowfall", "winter"),
+        # kind is the product-type FAMILY (gates.first_customer): a throw is a blanket.
+        listing=ListingIdentity(kind="blanket", etsy_category="blanket",
+                                nouns=("blanket", "throw"), qualifiers=("snowfall", "winter"),
                                 techniques=("texture",)),
         price=PriceBand(
             *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,

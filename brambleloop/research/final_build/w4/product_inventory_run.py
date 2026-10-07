@@ -11,6 +11,7 @@ an older build (fcb982d); its rows are labelled as observations of that build.
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import subprocess
 from datetime import datetime, timezone
@@ -144,6 +145,13 @@ def main():
     ap.add_argument("--out", default=str(HERE))
     ap.add_argument("--name", default="PRODUCT_INVENTORY")
     a = ap.parse_args()
+    if a.chain_db and not os.environ.get("BRAMBLELOOP_ARTIFACT_DIR"):
+        # The chain's frames are bound by sha256 to bytes in the chain's artifact store; read
+        # without it, every frame's structural floor is UNKNOWN ("bound image bytes
+        # unavailable") and a usable set reads as unusable.
+        art = Path(a.chain_db).parent / "art"
+        if art.is_dir():
+            os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = str(art)
     from brambleloop.products import inventory as inv_mod
 
     db = None
