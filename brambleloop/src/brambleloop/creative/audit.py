@@ -340,19 +340,33 @@ def generator_degrees_of_freedom() -> dict:
                     stitches(node, used)
         vocabularies[tuple(sorted(used))] += 1
 
+    # The verdict is derived from the measurement (integrator, W4): the earlier fixed text kept
+    # saying "every product is single-component" after real multi-piece designs shipped.
+    dims = {"construction": constructions, "component count": components,
+            "stitch vocabulary": vocabularies}
+    varies = ["motif", "palette", "width", "repeat count"] + [
+        name for name, c in dims.items() if len(c) > 1]
+    fixed = [name for name, c in dims.items() if len(c) <= 1]
+    single = components.get(1, 0)
+    vocab = ", ".join(",".join(k) for k in vocabularies) or "none"
+    if not [n for n in dims if n in varies]:
+        finding = ("Every product is a single-component flat-rows panel worked in exactly two "
+                   "stitches. A garland, an ornament, a wall hanging, a table runner and a baby "
+                   "blanket are the same object at different widths. The names promise "
+                   f"{len(CATALOGUE)} products and the fabric delivers one.")
+    else:
+        finding = (f"{single} of {len(CATALOGUE)} products are single-component; constructions "
+                   f"used: {dict(constructions)}; stitch vocabularies: {vocab}. What still "
+                   f"does not vary: {', '.join(fixed + ['silhouette', 'shaping'])}.")
     return {
         "products": len(CATALOGUE),
         "constructions_used": dict(constructions),
         "components_per_product": {str(k): v for k, v in components.items()},
         "stitch_vocabularies": {",".join(k): v for k, v in vocabularies.items()},
-        "varies": ["motif", "palette", "width", "repeat count"],
-        "does_not_vary": ["construction", "component count", "stitch vocabulary",
-                          "silhouette", "assembly", "shaping"],
-        "finding": (
-            "Every product is a single-component flat-rows panel worked in exactly two "
-            "stitches. A garland, an ornament, a wall hanging, a table runner and a baby "
-            "blanket are the same object at different widths. The names promise eleven "
-            "products and the fabric delivers one."),
+        "varies": varies,
+        "does_not_vary": fixed + ["silhouette", "assembly", "shaping"]
+        if "component count" not in varies else fixed + ["silhouette", "shaping"],
+        "finding": finding,
     }
 
 

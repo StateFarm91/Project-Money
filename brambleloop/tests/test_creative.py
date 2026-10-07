@@ -308,12 +308,27 @@ def test_the_generators_degrees_of_freedom_are_measured_from_the_cir_not_asserte
     """
     freedom = audit.generator_degrees_of_freedom()
 
-    assert freedom["products"] == 11
-    assert freedom["constructions_used"] == {"flat_rows": 11}
-    assert freedom["components_per_product"] == {"1": 11}
-    assert freedom["stitch_vocabularies"] == {"dc,sc": 11}
-    assert "construction" in freedom["does_not_vary"]
-    assert "same object at different widths" in freedom["finding"]
+    from brambleloop.products.builder import CATALOGUE, build
+
+    # Measured independently here from the compiled CIR, then compared: the audit may not assert.
+    cirs = [build(d) for d in CATALOGUE.values()]
+    assert cirs, "empty catalogue"
+    comps: dict = {}
+    cons: dict = {}
+    for cir in cirs:
+        comps[str(len(cir.components))] = comps.get(str(len(cir.components)), 0) + 1
+        for c in cir.components:
+            cons[c.construction] = cons.get(c.construction, 0) + 1
+    assert freedom["products"] == len(CATALOGUE) == len(cirs)
+    assert freedom["components_per_product"] == comps
+    assert freedom["constructions_used"] == cons
+    assert sum(freedom["stitch_vocabularies"].values()) == len(cirs)
+    # The verdict follows the measurement: a dimension with more than one value varies.
+    for name, measured in (("component count", comps), ("construction", cons)):
+        assert (name in freedom["varies"]) == (len(measured) > 1), (name, freedom)
+        assert (name in freedom["does_not_vary"]) == (len(measured) <= 1), (name, freedom)
+    if len(comps) > 1:
+        assert "single-component" in freedom["finding"] and "same object" not in freedom["finding"]
 
 
 if __name__ == "__main__":
