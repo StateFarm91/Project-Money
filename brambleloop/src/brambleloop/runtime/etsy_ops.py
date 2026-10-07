@@ -586,7 +586,7 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
             from ..visual import launch_imagery as _li
 
             job = str(frame.get("job") or "")
-            verdict = _li.check_supplement(slug, version, job, data)
+            verdict = _li.check_supplement(slug, version, job, data, db=db, store=store)
             want_alt = _li.expected_alt_text(slug, job)
             if verdict["status"] != "PASS":
                 problems.append(f"frame {position} ({sha[:12]}) gallery frame refused at "
