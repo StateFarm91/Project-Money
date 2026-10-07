@@ -136,7 +136,7 @@ def test_a_call_that_would_cross_the_ceiling_is_refused_before_it_is_made():
 
     try:
         A.check_budget(db, model="claude-opus-5", input_tokens=1000, max_tokens=4000,
-                       now=NOW)
+                       now=NOW, purpose="test.unnamed")
     except A.BudgetExceeded as e:
         assert "rather than found on the invoice" in str(e)
     else:
@@ -165,9 +165,9 @@ def test_the_budget_assumes_the_whole_output_allowance_is_used():
     """Budgeting for the usual case is how a ceiling becomes a target."""
     db = _db()
     small = A.check_budget(db, model="claude-sonnet-5", input_tokens=10, max_tokens=10,
-                           now=NOW)
+                           now=NOW, purpose="test.unnamed")
     large = A.check_budget(db, model="claude-sonnet-5", input_tokens=10, max_tokens=4000,
-                           now=NOW)
+                           now=NOW, purpose="test.unnamed")
     assert large["estimate_cad"] > small["estimate_cad"]
 
 

@@ -388,6 +388,14 @@ def parse_observation(text: str) -> dict:
     return observation
 
 
+def method_version() -> str:
+    """The analysis method's identity: system prompt, user prompt and token budget."""
+    import hashlib
+
+    blob = f"{ANALYSIS_SYSTEM}\x00{analysis_prompt()}\x00{ANALYSIS_MAX_TOKENS}"
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:12]
+
+
 def analyse(db, benchmark_key: str, *, limit: int = 10,
             provider=None, env: dict[str, str] | None = None,
             job_id: int | None = None) -> dict:
@@ -411,6 +419,16 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
     # A probe's model is not an analysis model, and the two sharing a constant is how the
     # substitution happened without anybody choosing it.
     provider = provider or gw.provider_for(TASK)
+    # F-318: the backlog before the run, counted the same way as after it, so a run that
+    # paid and left the backlog where it was is visible as exactly that.
+    pending_before = pending_count(db, benchmark_key)["unjudged"]
+    # F-309: this handler's method for the shared systematic-failure breaker. A prompt or
+    # parser change is a new method; a parse floor that never once passes under one method
+    # stops `check_budget` paying for it again.
+    from ..finance import systematic
+
+    method = method_version()
+    systematic.declare(TASK, method)
     queue = pending(db, benchmark_key, limit=limit)
 
     judged, failures, spent = 0, [], 0.0
@@ -481,14 +499,25 @@ def analyse(db, benchmark_key: str, *, limit: int = 10,
         except AnalysisRefused as exc:
             failures.append({"key": item.key, "why": str(exc)[:200]})
             _mark_failed(db, item)
+            systematic.record(db, TASK, method, {"closed_vocabulary_observation": "fail"},
+                              agent=AGENT)
             continue
+        systematic.record(db, TASK, method, {"closed_vocabulary_observation": "pass"},
+                          agent=AGENT)
         judged += 1
 
     _bill(db, spent, judged, job_id, provider=provider, reserved=reserved,
           tokens_in=tokens_in, tokens_out=tokens_out)
     backlog = pending_count(db, benchmark_key)
+    from ..finance import spend_hygiene
+
+    spend_hygiene.note_backlog_run(db, processor=f"{TASK}:{benchmark_key}",
+                                   pending_before=pending_before,
+                                   pending_after=backlog["unjudged"], processed=judged,
+                                   cost_cad=spent, agent=AGENT, job_id=job_id)
     return {
         "benchmark": benchmark_key,
+        "pending_before": pending_before,
         "model": provider.model,
         "tier": TASK,
         "judged": judged,

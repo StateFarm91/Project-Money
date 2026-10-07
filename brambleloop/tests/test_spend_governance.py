@@ -214,17 +214,17 @@ def test_a_batch_checks_each_call_against_what_the_batch_has_already_spent():
     NOW = _real_now()  # noqa: N806 - same clock as the row above
 
     first = gw.check_budget(db, model="claude-haiku-4-5", input_tokens=200_000,
-                            max_tokens=100, now=NOW)
+                            max_tokens=100, now=NOW, purpose="test.unnamed")
     assert first["estimate_cad"] > 0.25, "the fixture needs a call big enough to matter"
 
     # The old behaviour: the same call again, with the run's own spend invisible.
     gw.check_budget(db, model="claude-haiku-4-5", input_tokens=200_000, max_tokens=100,
-                    now=NOW)
+                    now=NOW, purpose="test.unnamed")
 
     raised = False
     try:
         gw.check_budget(db, model="claude-haiku-4-5", input_tokens=200_000, max_tokens=100,
-                        now=NOW, uncommitted_cad=first["estimate_cad"] * 3)
+                        now=NOW, uncommitted_cad=first["estimate_cad"] * 3, purpose="test.unnamed")
     except gw.BudgetExceeded as exc:
         raised = True
         assert "not yet billed" in str(exc), str(exc)
@@ -262,14 +262,14 @@ def test_modelled_unknown_and_unbilled_spend_all_count_against_the_ceiling():
     # The gate counts every one of them at its recorded amount.
     assert gw.spent_this_month_cad(db, now=NOW) == 95.0
     out = gw.check_budget(db, model="claude-haiku-4-5", input_tokens=1000, max_tokens=100,
-                          now=NOW)
+                          now=NOW, purpose="test.unnamed")
     assert out["spent_cad"] == 95.0 and out["committed_cad"] >= 95.0
 
     # Unbilled spend on top of unmeasured spend crosses the ceiling, and is refused.
     raised = False
     try:
         gw.check_budget(db, model="claude-haiku-4-5", input_tokens=1000, max_tokens=100,
-                        now=NOW, uncommitted_cad=5.0)
+                        now=NOW, uncommitted_cad=5.0, purpose="test.unnamed")
     except gw.BudgetExceeded:
         raised = True
     assert raised, "modelled/unknown spend plus a batch's unbilled spend escaped the ceiling"
@@ -282,7 +282,7 @@ def test_modelled_unknown_and_unbilled_spend_all_count_against_the_ceiling():
     raised = False
     try:
         gw.check_budget(db2, model="claude-haiku-4-5", input_tokens=200_000,
-                        max_tokens=100, now=NOW, uncommitted_cad=-50.0)
+                        max_tokens=100, now=NOW, uncommitted_cad=-50.0, purpose="test.unnamed")
     except gw.BudgetExceeded:
         raised = True
     assert raised, "a negative uncommitted figure bought headroom under the ceiling"
@@ -302,7 +302,7 @@ def test_a_caller_that_bills_every_call_is_unaffected():
 
     db = _db()
     out = gw.check_budget(db, model="claude-haiku-4-5", input_tokens=1000, max_tokens=100,
-                          now=NOW)
+                          now=NOW, purpose="test.unnamed")
     assert out["committed_cad"] == out["spent_cad"] == 0.0
 
 
@@ -313,7 +313,7 @@ def test_the_headroom_it_reports_is_the_headroom_after_the_batch():
 
     db = _db()
     out = gw.check_budget(db, model="claude-haiku-4-5", input_tokens=1000, max_tokens=100,
-                          now=NOW, uncommitted_cad=10.0)
+                          now=NOW, uncommitted_cad=10.0, purpose="test.unnamed")
     assert out["committed_cad"] == 10.0
     assert out["headroom_cad"] == round(100.0 - 10.0 - out["estimate_cad"], 6)
 
