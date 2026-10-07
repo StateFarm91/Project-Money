@@ -95,6 +95,13 @@ test_blind_review 11. Guards (vacuity, secret_scan, reachability, tmp_hygiene): 
   release_hash 37997da15179. **For W4-PIPE2**: the stocking CIR is DONE here (pipeline_board.stocking_cir,
   CREATIVE_ENGINEERED/CREATIVE_SEARCH, test_w4_pipe_board stocking_*). Pencil roll was done earlier
   (pencil_roll_cir). No other new-candidate CIR work started; PIPE2 owns the remaining 6 of the queue.
+- Garlands 1.3.0 (spooky, valentine): five pennants + a side-to-side cord (`builder.Design.cord`,
+  `_with_cord`), one placed seam per pennant run; certify + name-true; fingerprints re-pinned.
+  Gate TIGHTENED: `launch0.assembly_promise` now needs a seam (pieces>1 alone no longer backs a
+  garland/pillow/...); test_launch0 updated to the stricter expectation.
+- Observation (not PIPE-caused, reproduced on origin/claude/visual-investigation 5660235):
+  test_launch::test_a_company_that_has_done_its_half_is_only_blocked_on_people fails --
+  opening_grid is no longer empty (creative survivors now visible). Owner: CREATIVE/launch lane.
 - Composition pins updated (strict 3->5): test_w3_store_ux_structure, test_v11_store_foundation, test_w3_seo_learning.
 
 ## Next deterministic action (superseded below if a later commit says otherwise)
