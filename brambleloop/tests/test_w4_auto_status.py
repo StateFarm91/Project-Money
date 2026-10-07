@@ -167,6 +167,13 @@ def test_gate_blockers_name_who_they_wait_on_from_the_closure_classifier():
     b = status.gate_blocker("nobody.classified.this")
     assert b["waiting_on"] == "company" and b["closure_kind"] == "UNCLASSIFIED", b
     db = boot()
+    from brambleloop.queue.durable import JobQueue
+
+    q = JobQueue(db)  # the summary needs one recorded job, else it is honestly UNKNOWN
+    q.enqueue("orchestrator", "ops.capacity", {"probe": 1})
+    job = q.claim("w", job_types=["ops.capacity"])
+    assert job is not None
+    q.complete(job.id, {"probe": 1})
     gate_blks = [blk for row in status.summary(db)["items"] for blk in row.get("blockers", [])
                  if blk.get("gate")]
     assert gate_blks, "a fresh shadow company has closed gates; none reached the summary"
