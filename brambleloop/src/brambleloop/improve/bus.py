@@ -26,8 +26,9 @@ from .cells import BY_KEY, CELLS
 # because a list is maintained by whoever remembers to.
 SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     "construction_preference": ("product_creativity", "pattern_engineering", "market_radar"),
-    "sizing": ("pattern_engineering", "quality", "customer_experience"),
-    "instruction_clarity": ("pattern_engineering", "quality", "customer_experience"),
+    "sizing": ("pattern_engineering", "quality", "customer_experience", "learn"),
+    "instruction_clarity": ("pattern_engineering", "quality", "customer_experience",
+                            "learn"),
     "chart_quality": ("creative_assets", "quality", "customer_experience"),
     "thumbnail": ("creative_assets", "seo_search", "product_creativity"),
     "palette": ("product_creativity", "creative_assets"),
@@ -35,7 +36,11 @@ SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     "pricing_response": ("pricing", "portfolio", "finance"),
     "search_language": ("seo_search", "product_creativity", "growth"),
     "delivery_experience": ("customer_experience", "creative_assets", "quality"),
-    "defect": ("quality", "pattern_engineering", "runtime"),
+    # W4-LEARN: a defect, an unclear instruction or a sizing failure is also something a
+    # learner needs help with, and Learn is the one routed department that acts on it before
+    # any sale: `learn.metrics.calendar` moves the matching gap up the editor's plan and
+    # records the lesson as acted on (`learn.runtime.handle_scan`).
+    "defect": ("quality", "pattern_engineering", "runtime", "learn"),
     "cost": ("finance", "runtime", "growth"),
     # #147: culture findings are useless inside the culture engine. A cultural territory that
     # translated well is a creativity lesson, a search-language lesson and a seasonal lesson

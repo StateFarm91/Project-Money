@@ -1,0 +1,106 @@
+[
+ {
+  "action": "Re-authorise the Etsy app: Command Center GET /api/etsy/oauth/start -> Allow all scopes incl. transactions_r",
+  "id": "OA-A1",
+  "if_you_wait": "every live field stays UNKNOWN; nothing real can be verified",
+  "max_cost": "CA$0",
+  "minutes": 5,
+  "why": "the only route to a real read-back of the live shop (title, icon, banner), taxonomy, upload proof and orders"
+ },
+ {
+  "action": "Record what the live shop shows for the fields no API returns: About headline, About story, Laura's member bio and role (paste text; one dated observation)",
+  "id": "OA-OBS",
+  "if_you_wait": "About/Laura fields stay UNKNOWN; previews may show stale repo drafts",
+  "max_cost": "CA$0",
+  "minutes": 5,
+  "why": "lets the drift job treat your configuration as authoritative and check it (Laura disclosed as AI, not in the Owner role) without touching it"
+ },
+ {
+  "action": "Report whether the shop is 'open' (title/announcement editable)",
+  "id": "OA-A2",
+  "if_you_wait": "C5 stays blocked",
+  "max_cost": "CA$0",
+  "minutes": 1,
+  "why": "decides whether announcement can be set now"
+ },
+ {
+  "action": "Account settings: profile picture = logo mark, real preferred name, short bio, 2FA on (Batch B)",
+  "id": "OA-B",
+  "if_you_wait": "a persona could read as the legal owner",
+  "max_cost": "CA$0",
+  "minutes": 5,
+  "why": "the account picture/name present the legal account holder; Laura must not appear as the account holder"
+ },
+ {
+  "action": "Phone check: open the shop in the Etsy app, screenshot the banner; and decide on the banner gate findings listed in IMG-2 (nav footer shows Wearables/Gifts/Seasonal, which have no products yet; Laura publication status)",
+  "id": "OA-BANNER",
+  "if_you_wait": "crop/footer findings stay unresolved",
+  "max_cost": "CA$0",
+  "minutes": 3,
+  "why": "the live banner is yours and is not replaced; Etsy publishes no mobile crop, and the repo gates found items only you can rule on"
+ },
+ {
+  "action": "Shop settings still open: announcement (C5), location (C9), listing order Custom (C10), sold visibility off (C11)",
+  "id": "OA-C",
+  "if_you_wait": "shop snapshot keeps reporting missing trust surfaces",
+  "max_cost": "CA$0",
+  "minutes": 5,
+  "why": "trust surfaces and ordering"
+ },
+ {
+  "action": "Create sections for populated categories only (today: Home, Baby)",
+  "id": "OA-D1",
+  "if_you_wait": "listings land unsectioned",
+  "max_cost": "CA$0",
+  "minutes": 3,
+  "why": "D-FB-18 item 3: never advertise empty categories"
+ },
+ {
+  "action": "Info & Appearance: Message to Buyers + Message for Digital Items (Batch E)",
+  "id": "OA-E",
+  "if_you_wait": "first buyers get no download guidance",
+  "max_cost": "CA$0",
+  "minutes": 3,
+  "why": "the digital message is the only text every buyer receives at purchase"
+ },
+ {
+  "action": "Policy Settings: privacy policy, FAQ with licence, cancellations (Batch F)",
+  "id": "OA-F",
+  "if_you_wait": "policy_consistency stays failing",
+  "max_cost": "CA$0",
+  "minutes": 10,
+  "why": "Etsy trust surfaces; licence belongs in the FAQ for a Canadian shop"
+ },
+ {
+  "action": "Settings > Options: 'Allow buyers to purchase digital prints' = Disabled",
+  "id": "OA-G1",
+  "if_you_wait": "auto-enrolment may put a third-party product beside ours",
+  "max_cost": "CA$0",
+  "minutes": 1,
+  "why": "a third party would sell printed copies of a pattern PDF"
+ },
+ {
+  "action": "Offsite Ads: decide enrolment (15% fee on attributed sales, no fixed spend)",
+  "id": "OA-G2",
+  "if_you_wait": "default enrolment stands",
+  "max_cost": "15% of attributed orders (cap US$100/order)",
+  "minutes": 1,
+  "why": "a margin decision, recorded rather than defaulted"
+ },
+ {
+  "action": "After the first listings are live: export the listing-level Etsy Stats CSV and upload it (POST /api/attribution/stats)",
+  "id": "OA-STATS",
+  "if_you_wait": "funnel stays UNMEASURED",
+  "max_cost": "CA$0",
+  "minutes": 3,
+  "why": "impressions/carts are not in the API; the CSV is the only measurement"
+ },
+ {
+  "action": "Launch authorisation for the first listings (separate gated approval)",
+  "id": "OA-LAUNCH",
+  "if_you_wait": "the shop stays without listings",
+  "max_cost": "CA$0",
+  "minutes": 5,
+  "why": "no listing is activated without it"
+ }
+]

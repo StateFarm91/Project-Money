@@ -1,0 +1,279 @@
+{
+ "generated_at": "2026-10-07T01:12:53+00:00",
+ "source": "production /api/status open_incidents=18 (fcb982d, 2026-10-06); reproduced by tests/test_w4_owner_incidents.py",
+ "counts": {
+  "before_open": 18,
+  "after_closed_by_rule": 17,
+  "after_open": 1,
+  "owner_remediation": 0,
+  "re_raised_current_year_keyed": 5
+ },
+ "rules": [
+  "duplicates close into the oldest row (incident_lifecycle.close_duplicates)",
+  "a failed cadence closes once it enqueues again (close_recovered_cadences)",
+  "both run on every ops.health truth sweep; closing never deletes; every close carries resolution and resolved_at"
+ ],
+ "incidents": [
+  {
+   "signature": "seasonal.at_risk:market-basket-trio:Halloween",
+   "severity": "P2",
+   "product": "market-basket-trio",
+   "family": "seasonal.at_risk",
+   "class": "stale/incoherent",
+   "rule": "seasonal.sentinel re-keys by event+year and reconciles; legacy un-keyed rows close by rule",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "re-keyed by event and year; resolves when the product is no longer at risk, its occasion does not match, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "market-basket-trio is not merchandised for Halloween (its occasion is evergreen), so it has no Halloween window to be at risk in. The row was raised when every product was scheduled against every event.",
+   "resolved_at": "2026-10-07T01:12:52.662705+00:00"
+  },
+  {
+   "signature": "seasonal.at_risk:pet-snuggle-mat:Halloween",
+   "severity": "P2",
+   "product": "pet-snuggle-mat",
+   "family": "seasonal.at_risk",
+   "class": "stale/incoherent",
+   "rule": "seasonal.sentinel re-keys by event+year and reconciles; legacy un-keyed rows close by rule",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "re-keyed by event and year; resolves when the product is no longer at risk, its occasion does not match, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "pet-snuggle-mat is not merchandised for Halloween (its occasion is evergreen), so it has no Halloween window to be at risk in. The row was raised when every product was scheduled against every event.",
+   "resolved_at": "2026-10-07T01:12:52.662755+00:00"
+  },
+  {
+   "signature": "policy_stale:seller_policy",
+   "severity": "P2",
+   "product": null,
+   "family": "policy_stale",
+   "class": "executable (company)",
+   "rule": "ops.policy_watch reads the dated policy_knowledge reading and closes the row; readings dated 2026-09-26 go stale on the 30-day rule (2026-10-26) and are refreshed by a build session",
+   "remediation_owner": "company",
+   "remediation_path": "a build session refreshes the dated search-engine-excerpt reading in gates.policy_knowledge (basis declared) and ops.policy_watch re-reads it; optionally the owner records a page reading with POST /api/policy/snapshot (operator credential), which supersedes the excerpt. Software is refused by Etsy (HTTP 403) and must not spoof a browser",
+   "status": "CLOSED",
+   "resolution": "seller_policy read on 2026-09-26 (version 2026-09-26:search_engine_excerpt_of_official_page); the watch reports it current",
+   "resolved_at": "2026-10-07T01:12:51.538251+00:00"
+  },
+  {
+   "signature": "policy_stale:creativity_standards",
+   "severity": "P2",
+   "product": null,
+   "family": "policy_stale",
+   "class": "executable (company)",
+   "rule": "ops.policy_watch reads the dated policy_knowledge reading and closes the row; readings dated 2026-09-26 go stale on the 30-day rule (2026-10-26) and are refreshed by a build session",
+   "remediation_owner": "company",
+   "remediation_path": "a build session refreshes the dated search-engine-excerpt reading in gates.policy_knowledge (basis declared) and ops.policy_watch re-reads it; optionally the owner records a page reading with POST /api/policy/snapshot (operator credential), which supersedes the excerpt. Software is refused by Etsy (HTTP 403) and must not spoof a browser",
+   "status": "CLOSED",
+   "resolution": "creativity_standards read on 2026-09-26 (version 2026-09-26:search_engine_excerpt_of_official_page); the watch reports it current",
+   "resolved_at": "2026-10-07T01:12:51.538295+00:00"
+  },
+  {
+   "signature": "policy_stale:listing_image_rules",
+   "severity": "P2",
+   "product": null,
+   "family": "policy_stale",
+   "class": "executable (company)",
+   "rule": "ops.policy_watch reads the dated policy_knowledge reading and closes the row; readings dated 2026-09-26 go stale on the 30-day rule (2026-10-26) and are refreshed by a build session",
+   "remediation_owner": "company",
+   "remediation_path": "a build session refreshes the dated search-engine-excerpt reading in gates.policy_knowledge (basis declared) and ops.policy_watch re-reads it; optionally the owner records a page reading with POST /api/policy/snapshot (operator credential), which supersedes the excerpt. Software is refused by Etsy (HTTP 403) and must not spoof a browser",
+   "status": "CLOSED",
+   "resolution": "listing_image_rules read on 2026-09-26 (version 2026-09-26:search_engine_excerpt_of_official_page); the watch reports it current",
+   "resolved_at": "2026-10-07T01:12:51.538302+00:00"
+  },
+  {
+   "signature": "policy_stale:advertising_rules",
+   "severity": "P2",
+   "product": null,
+   "family": "policy_stale",
+   "class": "executable (company)",
+   "rule": "ops.policy_watch reads the dated policy_knowledge reading and closes the row; readings dated 2026-09-26 go stale on the 30-day rule (2026-10-26) and are refreshed by a build session",
+   "remediation_owner": "company",
+   "remediation_path": "a build session refreshes the dated search-engine-excerpt reading in gates.policy_knowledge (basis declared) and ops.policy_watch re-reads it; optionally the owner records a page reading with POST /api/policy/snapshot (operator credential), which supersedes the excerpt. Software is refused by Etsy (HTTP 403) and must not spoof a browser",
+   "status": "CLOSED",
+   "resolution": "advertising_rules read on 2026-09-26 (version 2026-09-26:search_engine_excerpt_of_official_page); the watch reports it current",
+   "resolved_at": "2026-10-07T01:12:51.538308+00:00"
+  },
+  {
+   "signature": "policy_stale:shilling_and_reviews",
+   "severity": "P2",
+   "product": null,
+   "family": "policy_stale",
+   "class": "executable (company)",
+   "rule": "ops.policy_watch reads the dated policy_knowledge reading and closes the row; readings dated 2026-09-26 go stale on the 30-day rule (2026-10-26) and are refreshed by a build session",
+   "remediation_owner": "company",
+   "remediation_path": "a build session refreshes the dated search-engine-excerpt reading in gates.policy_knowledge (basis declared) and ops.policy_watch re-reads it; optionally the owner records a page reading with POST /api/policy/snapshot (operator credential), which supersedes the excerpt. Software is refused by Etsy (HTTP 403) and must not spoof a browser",
+   "status": "CLOSED",
+   "resolution": "shilling_and_reviews read on 2026-09-26 (version 2026-09-26:search_engine_excerpt_of_official_page); the watch reports it current",
+   "resolved_at": "2026-10-07T01:12:51.538314+00:00"
+  },
+  {
+   "signature": "seasonal.at_risk:mosaic-placemat-pair:Halloween",
+   "severity": "P2",
+   "product": "mosaic-placemat-pair",
+   "family": "seasonal.at_risk",
+   "class": "stale/incoherent",
+   "rule": "seasonal.sentinel re-keys by event+year and reconciles; legacy un-keyed rows close by rule",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "re-keyed by event and year; resolves when the product is no longer at risk, its occasion does not match, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "mosaic-placemat-pair is not merchandised for Halloween (its occasion is evergreen), so it has no Halloween window to be at risk in. The row was raised when every product was scheduled against every event.",
+   "resolved_at": "2026-10-07T01:12:52.662771+00:00"
+  },
+  {
+   "signature": "seasonal.calendar_behind:Halloween",
+   "severity": "P2",
+   "product": null,
+   "family": "seasonal.calendar_behind",
+   "class": "stale",
+   "rule": "seasonal.sentinel reconciles per occurrence",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "resolves when the milestones have evidence, no lane can still reach a customer, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "no product lane can still reach a customer for Halloween 2026; the remaining work is next year's, which the compression programme carries.",
+   "resolved_at": "2026-10-07T01:12:52.690240+00:00"
+  },
+  {
+   "signature": "seasonal.preparation_late:LONG:search_language",
+   "severity": "P3",
+   "product": null,
+   "family": "seasonal.preparation_late",
+   "class": "stale",
+   "rule": "seasonal.sentinel reconciles per stream",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "resolves when the stream's preparation evidence is recorded",
+   "status": "CLOSED",
+   "resolution": "re-keyed with the event and year as seasonal.preparation_late:Christmas:2026:search_language; the old signature named a lane and no occasion, so it could never close.",
+   "resolved_at": "2026-10-07T01:12:52.726397+00:00"
+  },
+  {
+   "signature": "stale-artefact:backlog",
+   "severity": "P3",
+   "product": null,
+   "family": "stale-artefact",
+   "class": "true condition",
+   "rule": "artefacts sweep: closes when every artefact carries a provenance row (company work, not owner)",
+   "remediation_owner": "ops.sentinel + rebuild graph",
+   "remediation_path": "rebuild enqueued by the sentinel; resolves when upstreams match",
+   "status": "OPEN (condition true)",
+   "resolution": null,
+   "resolved_at": null
+  },
+  {
+   "signature": "seasonal.calendar_behind:Thanksgiving (CA)",
+   "severity": "P2",
+   "product": null,
+   "family": "seasonal.calendar_behind",
+   "class": "stale",
+   "rule": "seasonal.sentinel reconciles per occurrence",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "resolves when the milestones have evidence, no lane can still reach a customer, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "no product lane can still reach a customer for Thanksgiving (CA) 2026; the remaining work is next year's, which the compression programme carries.",
+   "resolved_at": "2026-10-07T01:12:52.690273+00:00"
+  },
+  {
+   "signature": "build.stalled",
+   "severity": "P2",
+   "product": null,
+   "family": "build.stalled",
+   "class": "stale",
+   "rule": "build.tick reconciles on the watchdog verdict",
+   "remediation_owner": "build.tick",
+   "remediation_path": "resolves when the watchdog verdict is not a claimed-but-idle stall (moving / awaiting a build session / waiting on gates)",
+   "status": "CLOSED",
+   "resolution": "nothing is ready: every remaining requirement is parked on a gate, which is waiting rather than a stall",
+   "resolved_at": "2026-10-07T01:12:52.980294+00:00"
+  },
+  {
+   "signature": "seasonal.at_risk:pressed-flower-motifs:Halloween",
+   "severity": "P2",
+   "product": "pressed-flower-motifs",
+   "family": "seasonal.at_risk",
+   "class": "stale/incoherent",
+   "rule": "seasonal.sentinel re-keys by event+year and reconciles; legacy un-keyed rows close by rule",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "re-keyed by event and year; resolves when the product is no longer at risk, its occasion does not match, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "pressed-flower-motifs is not merchandised for Halloween (its occasion is evergreen), so it has no Halloween window to be at risk in. The row was raised when every product was scheduled against every event.",
+   "resolved_at": "2026-10-07T01:12:52.662787+00:00"
+  },
+  {
+   "signature": "policy_stale:children_and_baby",
+   "severity": "P2",
+   "product": null,
+   "family": "policy_stale",
+   "class": "executable (company)",
+   "rule": "ops.policy_watch reads the dated policy_knowledge reading and closes the row; readings dated 2026-09-26 go stale on the 30-day rule (2026-10-26) and are refreshed by a build session",
+   "remediation_owner": "company",
+   "remediation_path": "a build session refreshes the dated search-engine-excerpt reading in gates.policy_knowledge (basis declared) and ops.policy_watch re-reads it; optionally the owner records a page reading with POST /api/policy/snapshot (operator credential), which supersedes the excerpt. Software is refused by Etsy (HTTP 403) and must not spoof a browser",
+   "status": "CLOSED",
+   "resolution": "children_and_baby read on 2026-09-26 (version 2026-09-26:search_engine_excerpt_of_official_page); the watch reports it current",
+   "resolved_at": "2026-10-07T01:12:51.538336+00:00"
+  },
+  {
+   "signature": "seasonal.at_risk:nordic-forest-bundle:Halloween",
+   "severity": "P2",
+   "product": "nordic-forest-bundle",
+   "family": "seasonal.at_risk",
+   "class": "stale/incoherent",
+   "rule": "seasonal.sentinel re-keys by event+year and reconciles; legacy un-keyed rows close by rule",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "re-keyed by event and year; resolves when the product is no longer at risk, its occasion does not match, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "nordic-forest-bundle is not merchandised for Halloween (its occasion is Christmas), so it has no Halloween window to be at risk in. The row was raised when every product was scheduled against every event.",
+   "resolved_at": "2026-10-07T01:12:52.662799+00:00"
+  },
+  {
+   "signature": "seasonal.preparation_late:MEDIUM:search_language",
+   "severity": "P3",
+   "product": null,
+   "family": "seasonal.preparation_late",
+   "class": "stale",
+   "rule": "seasonal.sentinel reconciles per stream",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "resolves when the stream's preparation evidence is recorded",
+   "status": "CLOSED",
+   "resolution": "re-keyed with the event and year as seasonal.preparation_late:Christmas:2026:search_language; the old signature named a lane and no occasion, so it could never close.",
+   "resolved_at": "2026-10-07T01:12:52.726429+00:00"
+  },
+  {
+   "signature": "seasonal.at_risk:nordic-forest-mosaic-throw:Christmas",
+   "severity": "P2",
+   "product": "nordic-forest-mosaic-throw",
+   "family": "seasonal.at_risk",
+   "class": "stale/incoherent",
+   "rule": "seasonal.sentinel re-keys by event+year and reconciles; legacy un-keyed rows close by rule",
+   "remediation_owner": "seasonal.sentinel",
+   "remediation_path": "re-keyed by event and year; resolves when the product is no longer at risk, its occasion does not match, or the occurrence passes",
+   "status": "CLOSED",
+   "resolution": "nordic-forest-mosaic-throw has no seasonal plan this run (it is not a certified product in the catalogue the calendar schedules), so it has no Christmas launch window to be at risk in. It is raised again if it is certified and still at risk.",
+   "resolved_at": "2026-10-07T01:12:52.662811+00:00"
+  }
+ ],
+ "re_raised": [
+  {
+   "signature": "seasonal.at_risk:winter-village-graphghan:Christmas:2026",
+   "severity": "P2",
+   "summary": "winter-village-graphghan has 20 days of runway left for Christmas 2026: past its preferred launch date and inside the last window where reallocating effort still changes whether a customer can finish the object in time. After the latest effective date the only honest options are pivot, simplify or h"
+  },
+  {
+   "signature": "seasonal.calendar_behind:Christmas:2026",
+   "severity": "P2",
+   "summary": "Christmas 2026: 1 of 10 collection milestones are already past with no evidence (listing_indexing_date) while winter-village-graphghan, nordic-star-ornaments target it and a MEDIUM product can still reach a customer. A missed date is a portfolio failure rather than a scheduling detail, and the failu"
+  },
+  {
+   "signature": "seasonal.calendar_behind:Valentine's:2027",
+   "severity": "P2",
+   "summary": "Valentine's 2027: 1 of 10 collection milestones are already past with no evidence (physical_test_deadline) while valentine-heart-garland target it and a LONG product can still reach a customer. A missed date is a portfolio failure rather than a scheduling detail, and the failure is silent -- a phase"
+  },
+  {
+   "signature": "seasonal.preparation_late:Christmas:2026:search_language",
+   "severity": "P3",
+   "summary": "search_language for Christmas 2026 (MEDIUM) should have started 11 days ago and nothing shows it has (mjs.scanned/culture.sweep/learning.ingested). map buyer language before the copy is written, or the copy is written in ours A product ready on its launch date is late: indexing is not instant, and a"
+  },
+  {
+   "signature": "seasonal.preparation_late:Christmas:2026:creative_assets",
+   "severity": "P3",
+   "summary": "creative_assets for Christmas 2026 (MEDIUM) should have started 4 days ago and nothing shows it has (assets.built/assets.listing_images_built). photography and thumbnails take longer than anybody plans for A product ready on its launch date is late: indexing is not instant, and a listing nobody can "
+  }
+ ]
+}

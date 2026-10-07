@@ -1459,7 +1459,8 @@ def _urgency(card: dict) -> tuple:
     # W3-WIRE4: an UNKNOWN cost (None) is never ranked as free; it sorts after every stated
     # cost, because nobody can say yet what answering it would spend.
     cost = card["max_cost_cad"]
-    return (cost is None, cost if cost is not None else 0.0, card["minutes"],
+    minutes = card.get("minutes")
+    return (cost is None, cost if cost is not None else 0.0, minutes is None, minutes or 0,
             -card["unblocks_count"])
 
 
@@ -1482,6 +1483,21 @@ OWNER_ACTION_GATE_ALIASES: dict[str, str] = {
     "canonical_model_approval": "canonical_model",
     ACCEPTANCE_RULING_KEY: "acceptance_ruling",
 }
+
+
+def _table_cost(gate_key: str):
+    """W4-OWNER: the decision table's ceiling for a gate, or None (UNKNOWN)."""
+    from ..ops import owner_queue
+
+    d = owner_queue.DECISION_BY_GATE.get(gate_key)
+    return d["max_cost_cad"] if d else None
+
+
+def _table_minutes(gate_key: str):
+    from ..ops import owner_queue
+
+    d = owner_queue.DECISION_BY_GATE.get(gate_key)
+    return d["minutes"] if d else None
 
 
 def gate_for_owner_action(requirement_key: str | None) -> str | None:
@@ -1549,6 +1565,7 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
     data_wait: list[dict] = []
     suppressed: list[dict] = []
     satisfied_but_open: list[dict] = []
+    company_opened: list[dict] = []
     gate_open: dict[str, bool] = {}
     for gate in GATES:
         is_open = gate.open(db, env)
@@ -1574,6 +1591,13 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
             data_wait.append({"gate": gate.key, "what": gate.what, "kind": kind,
                               "unblocks": parked, "how_it_is_checked": gate.how})
             continue
+        if gate.key in owner_queue.COMPANY_OPENED_GATES:
+            # W4-OWNER: the company's own cadence opens this gate; never an owner ask.
+            company_opened.append({"gate": gate.key, "what": gate.what, "unblocks": parked,
+                                   "owner_action_ids": [r["id"] for r in bound],
+                                   "why": owner_queue.COMPANY_OPENED_GATES[gate.key],
+                                   "how_it_is_checked": gate.how})
+            continue
         if not parked:
             suppressed.append({"gate": gate.key, "what": gate.what,
                                "owner_action_ids": [r["id"] for r in bound],
@@ -1595,11 +1619,14 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
                     request.purpose if request else
                     f"{len(parked)} requirements are parked on it"),
             "capability_unlocked": (request.unlocks if request else gate.what),
+            # W4-OWNER: no row and no access request means the cost is UNKNOWN (None),
+            # never CA$0; minutes come from the decision table, never an invented 10.
             "max_spend_cad": (row["max_cost_cad"] if row else
-                              request.max_cost_cad if request else 0.0),
-            "monthly_ceiling_cad": request.monthly_ceiling_cad if request else 0.0,
+                              request.max_cost_cad if request else
+                              _table_cost(gate.key)),
+            "monthly_ceiling_cad": request.monthly_ceiling_cad if request else None,
             "minutes": (row["minutes"] if row and row["minutes"] else
-                        request.minutes if request else 10),
+                        request.minutes if request else _table_minutes(gate.key)),
             "risk": (request.security_scope if request else
                      "scope not yet described in the access registry"),
             "rollback": ("revocable at the source at any time; the gate closes again and "
@@ -1617,7 +1644,8 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
             "steps": (row["action"] if row else request.action if request else
                       f"grant {gate.what}"),
             "max_cost_cad": (row["max_cost_cad"] if row else
-                             request.max_cost_cad if request else 0.0),
+                             request.max_cost_cad if request else
+                             _table_cost(gate.key)),
         })
     for row in standalone:
         cards.append({
@@ -1631,7 +1659,7 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
             "why": row["reason"] or "a decision only the owner can make",
             "capability_unlocked": row["blocks"] or row["requirement_key"],
             "max_spend_cad": row["max_cost_cad"],
-            "monthly_ceiling_cad": 0.0,
+            "monthly_ceiling_cad": None,
             "minutes": row["minutes"],
             "risk": "stated in the action" if row["reason"] else "not described",
             "rollback": "the decision is recorded and can be reversed by a later decision",
@@ -1665,6 +1693,10 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
         "waiting_on_data": data_wait,
         "suppressed_unblocks_nothing": suppressed,
         "satisfied_but_open": satisfied_but_open,
+        # W4-OWNER: gates the company opens itself, never presented as owner asks.
+        "company_opened_not_owner": company_opened,
+        # W4-OWNER: the owner's decision packet -- cards merged into decisions, batched.
+        "batches": owner_queue.batch_cards(cards),
         "parked_owner_actions": [{"owner_action_id": r["id"],
                                   "requirement_key": r["requirement_key"],
                                   "action": r["action"]} for r in parked_actions],

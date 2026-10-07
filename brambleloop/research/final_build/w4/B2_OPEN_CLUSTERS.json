@@ -1,0 +1,18 @@
+{
+  "lane": "W4-B2",
+  "as_of": "2026-10-07",
+  "basis": "BUILD2_LEDGER.json (build2.closure.ledger with production /api/build gate readings at fcb982d) plus a note-level scan of every gated row for an executable remainder parked behind its gate",
+  "before": {"PROVEN": 215, "NOT-APPLICABLE": 3, "OWNER-GATED": 58, "DATA-GATED": 35, "EXTERNAL-GATED": 7, "OPEN-DEFECT": 2},
+  "after": {"PROVEN": 215, "NOT-APPLICABLE": 3, "OWNER-GATED": 58, "DATA-GATED": 37, "EXTERNAL-GATED": 7, "OPEN-DEFECT": 0},
+  "clusters": [
+    {"cluster": "culture-feed-colour-signals", "rows": [280], "status": "FIXED",
+     "defect": "fashion-and-home half reported 'no external trend feed is connected' while the culture_feed gate was OPEN in production",
+     "fix": "seasonal/colour.sweep_colour_signals (called by culture.sweep) + fashion_and_home_signals in colour.forecast, labelled reference-reading proxy",
+     "evidence": "tests/test_w4_b2_build2_ledger.py", "remaining_gate": "customers (Brambleloop colour performance needs sales)"},
+    {"cluster": "culture-lessons-to-content-and-seasonal", "rows": [147], "status": "FIXED",
+     "defect": "Content and Seasonal Planning 'only receive' culture lessons; no reader existed (radar.py comment claimed seasonal.engine read them)",
+     "fix": "seasonal/daily.culture_lessons (seasonal.engine) and growth/content.apply_cultural_timing (marketing.schedule), both recording bus.acted_on",
+     "evidence": "tests/test_w4_b2_culture_consumers.py", "remaining_gate": "customers (post-launch weight update needs sales)"}
+  ],
+  "open_clusters": []
+}
