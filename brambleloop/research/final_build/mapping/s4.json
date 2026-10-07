@@ -671,13 +671,14 @@
   "consumer": "src/brambleloop/launch/readiness.py::assess (listing_photography, imagery_truthful); src/brambleloop/runtime/pipeline.py::_release_gates",
   "protected_effect": "no listing may be launched without a photograph that cleared the realism and product-truth floors",
   "tests": [
-   "tests/test_launch.py::test_the_launch_gate_can_see_the_photographs_and_not_only_the_charts",
    "tests/test_launch.py::test_no_asset_is_blocked_is_not_true_of_no_assets",
+   "tests/test_launch.py::test_the_launch_gate_can_see_the_photographs_and_not_only_the_charts",
    "tests/test_owned_photography.py"
   ],
   "evidence": [
    "fcb982d launch/readiness.py includes listing_photography (deployed)",
-   "BUILD_STATE.md:1571 production /api/asset-coverage listable: 0 of 10"
+   "BUILD_STATE.md:1571 production /api/asset-coverage listable: 0 of 10",
+   "w4-FM close on 8b67414 (REGATE): generative product redraw is refused in every role (publish/eligibility.py:449, F-852); Launch-0 uses disclosed renders, so the path is no longer the defect"
   ],
   "build2_rows": [
    "#72 EXTERNAL-BLOCKED",
@@ -685,14 +686,14 @@
    "#58 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "external",
-   "key": "model_bearing_render",
-   "detail": "no provider has rendered a frame clearing every floor; product-first frames also 0 of 10 listable"
+   "kind": "owner",
+   "key": "image_vision",
+   "detail": "Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain"
   },
-  "defect": "gate is correct but produces zero passing galleries: the launch path is blocked on imagery",
-  "next_action": "Continue the Visual programme (other slice): produce a product-first frame that clears owned_photography floors for at least one certified product; no change to the gate.",
+  "defect": null,
+  "next_action": "owner gate image_vision: Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-254",
@@ -700,18 +701,19 @@
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Frames carry exactly one job from a ten-job vocabulary (DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PATTERN_PREVIEW, PROOF, CROSS_SELL) with collision refusal at publish; the master's jobs 'useful alternate angle', 'construction detail', 'colour context' and 'fit/worn views' have no job in the vocabulary.",
+  "missing_part": "the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the applicable frames",
   "producer": "src/brambleloop/publish/eligibility.py::check_set",
   "durable_state": "ListingAsset frame roles",
   "consumer": "src/brambleloop/runtime/pipeline.py::_release_gates -> store.publish_blocked",
   "protected_effect": "a gallery with job collisions or no DESIRE hero fails COMMERCIAL_QA and cannot export",
   "tests": [
-   "tests/test_eligibility.py::test_two_frames_doing_one_job_is_the_defect_not_two_similar_images",
+   "tests/test_cert_publish_gates.py::test_a_filler_frame_with_no_job_is_refused_and_blocks_export",
    "tests/test_eligibility.py::test_frame_one_must_be_the_hero_doing_desire",
-   "tests/test_cert_publish_gates.py::test_a_filler_frame_with_no_job_is_refused_and_blocks_export"
+   "tests/test_eligibility.py::test_two_frames_doing_one_job_is_the_defect_not_two_similar_images"
   ],
   "evidence": [
-   "eligibility.check_set wiring is post-production (B2 #65 repair)"
+   "eligibility.check_set wiring is post-production (B2 #65 repair)",
+   "w4-FM close on 8b67414 (FOLD): same reading as F-030 (wave-3 K1): the vocabulary is complete, frames missing"
   ],
   "build2_rows": [
    "#65 COMPLETE+PROVEN",
@@ -720,13 +722,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "none",
-   "detail": "no external/owner/data gate on the remaining software step"
+   "key": null,
+   "detail": "producing the frames is company work (visual lane)"
   },
   "defect": null,
-  "next_action": "Extend eligibility frame jobs with ALTERNATE_ANGLE, CONSTRUCTION_DETAIL, COLOUR_CONTEXT and FIT_WORN (applicable-by-form rules for garments) and report missing applicable jobs; tests.",
+  "next_action": "Visual lane: produce the applicable ANGLE/CONSTRUCTION/COLOUR_CONTEXT/LIFESTYLE frames on the certified set",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-255",
@@ -1322,12 +1324,14 @@
   "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
   "protected_effect": "Offsite Ads share and fee impact are reported separately and UNMEASURED without orders",
   "tests": [
+   "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
    "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
    "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold"
   ],
   "evidence": [
    "src/brambleloop/commerce/orders_ingest.py: offsite_ad_attributed never written",
-   "gates/policy_knowledge.py advertising_rules reading"
+   "gates/policy_knowledge.py advertising_rules reading",
+   "w4-FM close on 8b67414 (REGATE): finance/reconcile.py:484 and finance/sources.py:100 set offsite_ad_attributed from ledger evidence; contribution deducts it"
   ],
   "build2_rows": [
    "#244 OWNER-GATED"
@@ -1335,12 +1339,12 @@
   "gate": {
    "kind": "owner",
    "key": "transactions_r",
-   "detail": "receipts need transactions_r; the Offsite Ads fee line is on the Etsy payment account ledger"
+   "detail": "offsite-ads fee set from ledger evidence; real rows need transactions_r"
   },
-  "defect": "offsite_ad_attributed has no producer; contribution per order ignores Offsite Ads fees",
-  "next_action": "Read the Offsite Ads fee from the Etsy ledger/receipt data at orders_ingest (or owner export) to set Order.offsite_ad_attributed and deduct the fee from contribution; test.",
+  "defect": null,
+  "next_action": "owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-274",
@@ -1756,29 +1760,34 @@
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); truthful owner visibility",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Pieces are served from the DB (dashboard readiness incl. storefront, /api/leading, /api/serp, /api/trust, /api/search/intent, ads.plan reading), but there is no visibility command-center view; Search Visibility issues, search terms, impressions/clicks/conversion and Offsite Ads are absent or UNMEASURED.",
-  "producer": "src/brambleloop/app/main.py::dashboard / api_leading / api_serp / api_trust",
+  "missing_part": "impressions, clicks, conversion, search terms and Offsite Ads are UNMEASURED until a live listing and an Etsy Stats export exist",
+  "producer": "src/brambleloop/launch/visibility.py::summary",
   "durable_state": null,
-  "consumer": null,
+  "consumer": "app/command_center/providers PROVIDERS['visibility'] and GET /api/owner/phase/visibility (app/phase_api.py)",
   "protected_effect": "owner reads readiness and indicators with UNMEASURED reasons",
   "tests": [
    "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
-   "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named"
+   "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
+   "tests/test_w3_k4_launch_verdict.py::test_F289_F287_visibility_provider_contract_and_separate_sources",
+   "tests/test_w3_k4_launch_verdict.py::test_routes_are_owner_only_and_registered_operator_gets",
+   "tests/test_w3_laura_cc_providers.py::test_visibility_and_search_evidence_tolerate_absence"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on 8b67414 (FOLD): the Command Center card the claim left to lane F is wired: providers.PROVIDERS['visibility'] = launch.visibility.summary; GET /api/owner/phase/visibility serves the full view (app/phase_api). Impressions, clicks, conversion and ads read UNMEASURED with their reason until live listings exist"
+  ],
   "build2_rows": [
    "#263 OWNER-GATED",
    "#239 OWNER-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "none",
-   "detail": "no external/owner/data gate on the remaining software step"
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "no live listing exists (shadow mode)"
   },
   "defect": null,
-  "next_action": "Add /api/visibility aggregating storefront completion (F-233), search readiness/certificates (F-294), Search Visibility intake (F-248), funnel (F-258), ads/offsite readings and open owner actions; test it computes from DB.",
+  "next_action": "data gate live_listings: the sections fill from ListingOutcome periods once a listing is live",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-288",
@@ -2205,18 +2214,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime work has durable Job ids (queue/durable.JobQueue) exercised in production; operator long-running operations (full suite runs, agent lanes) get identity only by manual `ops/registry.py enrol <name>`, and run_tests.sh does not register itself.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/queue/durable.py::JobQueue.enqueue; ops/registry.py (repo root)::Registry.enrol",
   "durable_state": "jobs table (Postgres in production); ops/JOBS.json",
   "consumer": "src/brambleloop/runtime/worker.py (claim/complete by id); ops/registry.py (repo root)::survey",
   "protected_effect": "consumers read job state by id rather than by process matching",
   "tests": [
+   "tests/test_board_restart.py (checks 'the board names every lane of the night it never saw in this process')",
    "tests/test_persistence.py::test_unfinished_jobs_are_visible_for_recovery_after_restart",
-   "tests/test_board_restart.py (checks 'the board names every lane of the night it never saw in this process')"
+   "tests/test_w3_suite_job_identity.py::test_every_terminal_path_ends_the_log_with_the_exit_sentinel_matching_the_record",
+   "tests/test_w3_suite_job_identity.py::test_the_run_enrols_itself_and_a_late_observer_in_a_fresh_process_reads_its_result"
   ],
   "evidence": [
-   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal) -- worker_is_alive, scheduler_has_ticked, no dead letters; queue in fcb982d"
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal) -- worker_is_alive, scheduler_has_ticked, no dead letters; queue in fcb982d",
+   "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN"
@@ -2229,7 +2241,7 @@
   "defect": null,
   "next_action": "Make run_tests.sh self-enrol (registry enrol with a run id = sha+timestamp) and write its own terminal sentinel so suite runs get durable identity without an operator step; test.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-332",
@@ -2268,18 +2280,20 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
   "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime: idempotency keys make a duplicate enqueue return the existing job (DuplicateJob) and scheduler cadences do not duplicate across restarts; operator: one registry record per lane name. There is no subscribe/attach mechanism for multiple agents/waiters on one operation.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/queue/durable.py::JobQueue.enqueue (idempotency_key)",
   "durable_state": "jobs.idempotency_key unique",
   "consumer": "src/brambleloop/runtime/worker.py (cadence enqueue)",
   "protected_effect": "a second request for the same operation does not start a second underlying operation",
   "tests": [
+   "tests/test_chaos.py::test_duplicate_webhook_event_cannot_double_process",
    "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts",
-   "tests/test_chaos.py::test_duplicate_webhook_event_cannot_double_process"
+   "tests/test_w3_suite_job_identity.py::test_an_attached_observer_starts_nothing_and_takes_the_running_runs_result"
   ],
   "evidence": [
-   "fcb982d queue/durable.py enqueue with idempotency_key/DuplicateJob"
+   "fcb982d queue/durable.py enqueue with idempotency_key/DuplicateJob",
+   "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN"
@@ -2292,7 +2306,7 @@
   "defect": null,
   "next_action": "Add a registry 'attach' command returning the existing record/verdict for a name instead of re-enrolling, and have heartbeat instructions use it; test.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-334",
@@ -2329,18 +2343,21 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
   "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime job terminal states (complete/failed/dead) are persisted by the worker independent of any observer and read by prod verify; operator side derives completion from the job's own log sentinel, but run_tests.sh writes no 'EXIT n' sentinel or stamp itself (callers must wrap it).",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/queue/durable.py::JobQueue.complete / fail",
   "durable_state": "jobs table state/outputs",
   "consumer": "ops/board.py (repo root, outside brambleloop/)::read; src/brambleloop/ops/health.py::read",
   "protected_effect": "a completed job is recorded complete even if no observer saw it",
   "tests": [
+   "tests/test_board.py (checks 'a finished job nobody acknowledged becomes COMPLETE_UNREPORTED')",
    "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
-   "tests/test_board.py (checks 'a finished job nobody acknowledged becomes COMPLETE_UNREPORTED')"
+   "tests/test_w3_suite_job_identity.py::test_an_interrupted_run_writes_the_130_sentinel_after_its_record",
+   "tests/test_w3_suite_job_identity.py::test_every_terminal_path_ends_the_log_with_the_exit_sentinel_matching_the_record"
   ],
   "evidence": [
-   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal)"
+   "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal)",
+   "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN"
@@ -2353,7 +2370,7 @@
   "defect": null,
   "next_action": "Make run_tests.sh write a terminal sentinel line ('EXIT <n>' with UTC stamp) and result file itself; test board reads it without a wrapper.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-336",
@@ -2522,17 +2539,22 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Runtime: one terminal result per job with fencing, survives worker SIGKILL/restart (tested); operator: result line and acknowledgement survive container restart (tested). Delayed observers/agent interruption for runtime jobs and shell-exit propagation for run_tests.sh are not tested explicitly.",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/queue/durable.py::JobQueue.complete (_fenced)",
   "durable_state": "jobs.outputs",
   "consumer": "src/brambleloop/app/main.py (job reads); ops/registry.py (repo root)::survey",
   "protected_effect": "consumers read the single persisted terminal result",
   "tests": [
+   "tests/test_board_restart.py (check 'a completion acted on before the restart is still COMPLETE_REPORTED after it')",
    "tests/test_persistence.py::test_pipeline_resumes_across_a_worker_restart_mid_flight",
-   "tests/test_board_restart.py (check 'a completion acted on before the restart is still COMPLETE_REPORTED after it')"
+   "tests/test_w3_suite_job_identity.py::test_an_attached_observer_starts_nothing_and_takes_the_running_runs_result",
+   "tests/test_w3_suite_job_identity.py::test_an_interrupted_run_writes_the_130_sentinel_after_its_record",
+   "tests/test_w3_suite_job_identity.py::test_the_run_enrols_itself_and_a_late_observer_in_a_fresh_process_reads_its_result"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
+  ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN"
   ],
@@ -2544,7 +2566,7 @@
   "defect": null,
   "next_action": "Add a test that a second complete() from a fenced-out worker is refused and that a late observer reads the first result; add run_tests.sh result-file propagation test.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-342",

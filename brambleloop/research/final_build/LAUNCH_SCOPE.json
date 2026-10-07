@@ -7,17 +7,21 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 214
+     "rows": 172
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
      "rows": 180
+    },
+    "8b67414": {
+     "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+     "rows": 42
     }
    },
    "rows_on_base": 472,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD fee1cfe reachability; production fcb982d",
+  "reachability": "HEAD 8b67414 reachability; production fcb982d",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json"
  },
@@ -96,7 +100,7 @@
    "reason": "P0-before-launch; marketplace compliance/truthful categorisation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-006",
@@ -116,7 +120,7 @@
    "reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-008",
@@ -856,7 +860,7 @@
    "reason": "customer-protective: high-risk products blocked from sale",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-082",
@@ -1226,7 +1230,7 @@
    "reason": "uncalibrated drape/fit/yardage claims need physical evidence before sale",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-119",
@@ -1626,7 +1630,7 @@
    "reason": "release/supply-chain integrity before deploy",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-159",
@@ -1646,7 +1650,7 @@
    "reason": "security: exposed credentials must be rotated before launch",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-161",
@@ -1806,7 +1810,7 @@
    "reason": "recovery: a restorable pre-launch baseline",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-177",
@@ -2076,7 +2080,7 @@
    "reason": "truthful owner visibility (dashboard/owner-state hardening)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-204",
@@ -2576,7 +2580,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); natural photo + exact product truth are hard gates",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-254",
@@ -2792,7 +2796,7 @@
    "reason": "order/economics truth: Offsite Ads fees apply to real orders from the first sale without any ad authority",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-274",
@@ -2934,7 +2938,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); truthful owner visibility",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-288",
@@ -3278,7 +3282,7 @@
    "reason": "P0 addendum: provider cost truth — per-listing maintenance cost",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-322",
@@ -3380,7 +3384,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-332",
@@ -3400,7 +3404,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-334",
@@ -3420,7 +3424,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-336",
@@ -3480,7 +3484,7 @@
    "reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-342",
@@ -4680,7 +4684,7 @@
    "reason": "Safe publication/runtime durability: production must not be overwritten by a race or rollback.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-462",
@@ -5290,7 +5294,7 @@
    "reason": "missing trust surfaces (policies, About, icon/banner, seller info) must not silently pass launch readiness",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-516@v0.16",
@@ -5380,7 +5384,7 @@
    "reason": "the first image must truthfully represent the product at first sale; experiments are post-launch",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-525",
@@ -5490,7 +5494,7 @@
    "reason": "every refund/complaint needs a cause and owner to protect customers and trigger remedy",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-536",
@@ -5540,7 +5544,7 @@
    "reason": "a dead Etsy credential silently stops publication and order reading",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-541",
@@ -5560,7 +5564,7 @@
    "reason": "a 2xx is not proof a customer-facing field changed — safe publication",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-543",
@@ -5570,7 +5574,7 @@
    "reason": "activation is the moment a product reaches customers",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-544",
@@ -5700,7 +5704,7 @@
    "reason": "Timely buyer response is core customer support/remedy for the first sale.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-557",
@@ -5720,7 +5724,7 @@
    "reason": "Order truth (payment, version delivered, refund state, accounting evidence) is required to serve and remedy the first buyer.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-559",
@@ -5820,7 +5824,7 @@
    "reason": "Marketplace compliance.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-569",
@@ -5910,7 +5914,7 @@
    "reason": "Bank/payout settings are owner-reserved authority; payment onboarding is a first-sale blocker.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-578",
@@ -5990,7 +5994,7 @@
    "reason": "Vacation mode / currency drift silently stops every sale.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-586",
@@ -6060,7 +6064,7 @@
    "reason": "OAuth credential integrity guards shop writes (authority controls, runtime durability).",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-593",
@@ -6080,7 +6084,7 @@
    "reason": "This is the first-sale gate itself.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-595",
@@ -6220,7 +6224,7 @@
    "reason": "Pricing/economics integrity: missing data must never read as zero.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-609",
@@ -6230,7 +6234,7 @@
    "reason": "Economics integrity requires every money row to be sourced and reconcilable from the first sale.",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-610",
@@ -6680,7 +6684,7 @@
    "reason": "truthful Visual/listing representation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-675",
@@ -6702,7 +6706,7 @@
    "reason": "truthful Visual representation: generation must not redesign the product",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-677",
@@ -6832,7 +6836,7 @@
    "reason": "customer support/remedy and order truth for the first sale",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-690",
@@ -7272,7 +7276,7 @@
    "reason": "canonical identity must resolve from a durable registry, not memory",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-734",
@@ -7282,7 +7286,7 @@
    "reason": "truthful imagery: product and model identity both required",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-735",
@@ -8010,7 +8014,7 @@
    "reason": "s84 correctness QA; incorrect technique imagery is customer-facing misinformation",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "COMPLETE"
   },
   {
    "uid": "F-807",
@@ -8462,7 +8466,7 @@
    "reason": "listing imagery must come from product-authoritative rendering to be truthful",
    "reclassified": false,
    "reclassified_against": [],
-   "completion": "OPEN"
+   "completion": "GATED"
   },
   {
    "uid": "F-852",

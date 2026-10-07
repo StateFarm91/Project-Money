@@ -5,17 +5,21 @@
    "remaps": {
     "6f9a2f7": {
      "sha": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-     "rows": 214
+     "rows": 172
     },
     "fee1cfe": {
      "sha": "fee1cfe773e09011d5a8a47a357c4d3443948263",
      "rows": 180
+    },
+    "8b67414": {
+     "sha": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+     "rows": 42
     }
    },
    "rows_on_base": 472,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD fee1cfe reachability; production fcb982d",
+  "reachability": "HEAD 8b67414 reachability; production fcb982d",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json"
  },
@@ -34,17 +38,17 @@
   "unmapped": [],
   "problems": [],
   "maturity": {
-   "DEPLOYED": 212,
-   "INTEGRATED": 416,
+   "DEPLOYED": 209,
+   "INTEGRATED": 419,
    "MISSING": 109,
    "IMPLEMENTED": 57,
    "TESTED": 54,
    "EXERCISED": 18
   },
   "maturity_claimed": {
-   "EXERCISED": 122,
-   "INTEGRATED": 391,
-   "DEPLOYED": 150,
+   "EXERCISED": 120,
+   "INTEGRATED": 394,
+   "DEPLOYED": 149,
    "MISSING": 109,
    "IMPLEMENTED": 46,
    "TESTED": 48
@@ -55,64 +59,65 @@
    "NA": 7
   },
   "launch_critical_maturity": {
-   "DEPLOYED": 140,
-   "INTEGRATED": 240,
+   "DEPLOYED": 137,
+   "INTEGRATED": 243,
    "IMPLEMENTED": 5,
    "EXERCISED": 18,
    "TESTED": 31,
    "MISSING": 5
   },
   "gate_kind": {
-   "none": 591,
-   "owner": 157,
-   "data": 81,
-   "external": 37
+   "none": 582,
+   "owner": 163,
+   "data": 83,
+   "external": 38
   },
   "launch_critical_gate_kind": {
-   "none": 328,
-   "owner": 70,
-   "external": 27,
-   "data": 14
+   "none": 319,
+   "owner": 76,
+   "external": 28,
+   "data": 16
   },
   "coverage": {
-   "FULL": 321,
-   "PARTIAL": 545
+   "FULL": 330,
+   "PARTIAL": 536
   },
-  "downgraded": 147,
-  "defects": 63,
+  "downgraded": 145,
+  "defects": 36,
   "wave_reported": {
    "PARTIAL": 50,
    "DONE": 55,
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 243,
-   "OPEN": 120,
-   "GATED": 76,
+   "COMPLETE": 253,
+   "GATED": 105,
    "POST-LAUNCH": 420,
+   "OPEN": 81,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 243,
-   "OPEN": 120,
-   "GATED": 76
+   "COMPLETE": 253,
+   "GATED": 105,
+   "OPEN": 81
   },
-  "launch_critical_open": 120,
+  "launch_critical_open": 81,
   "launch_critical_open_reasons": {
-   "defect recorded": 39,
-   "coverage PARTIAL": 108,
-   "maturity TESTED": 30,
+   "coverage PARTIAL": 70,
+   "defect recorded": 12,
+   "maturity TESTED": 27,
    "maturity IMPLEMENTED": 4
   },
   "protected_action_applicability": {
-   "protected": 564,
-   "unprotected": 302
+   "protected": 563,
+   "unprotected": 303
   },
   "capped_by_unwritten_state": 1,
   "capped_by_proxy_evidence": 0,
   "mapped_on": {
    "fee1cfe": 180,
-   "6f9a2f7": 214,
+   "8b67414": 42,
+   "6f9a2f7": 172,
    "019ebf0": 472
   },
   "orphaned_partials": [],
@@ -339,35 +344,38 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "P0-before-launch; marketplace compliance/truthful categorisation",
    "maturity": "INTEGRATED",
-   "coverage": "FULL",
-   "missing_part": null,
+   "coverage": "PARTIAL",
+   "missing_part": "the deepest truthful category is chosen from the seller taxonomy snapshot, which has never been read (listing.taxonomy_refresh is a no-op behind etsy_api); until it is, every category reads UNKNOWN and publish refuses",
    "producer": "src/brambleloop/commerce/category.py::choose (+ refuse_broad); src/brambleloop/integrations/etsy_taxonomy.py::refresh",
    "durable_state": "etsy_taxonomy_snapshots; listing_search_profiles.taxonomy_id/taxonomy_path/category_status",
    "consumer": "src/brambleloop/runtime/etsy_ops.py::certified_payload (payload.taxonomy_id from category.publish_inputs; UNKNOWN refuses, no 66 fallback); release_gates.search_gate",
    "protected_effect": "no listing is sent with a default/shallow taxonomy; UNKNOWN category refuses publication",
    "tests": [
+    "tests/test_search_hero_publish.py::test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict",
+    "tests/test_search_hero_publish.py::test_no_certified_listing_set_means_no_hero_pass_and_publish_makes_no_request",
+    "tests/test_search_truth.py::test_a_parent_of_a_valid_deeper_node_is_refused",
     "tests/test_search_truth.py::test_no_snapshot_is_unknown_and_never_taxonomy_66",
     "tests/test_search_truth.py::test_the_deepest_crochet_pattern_node_is_chosen_per_product",
-    "tests/test_search_truth.py::test_a_parent_of_a_valid_deeper_node_is_refused",
-    "tests/test_search_truth.py::test_with_a_snapshot_listing_seo_chooses_the_node_and_writes_the_property_payload",
-    "tests/test_search_truth.py::test_the_refresh_is_an_honest_noop_while_the_etsy_api_gate_is_closed"
+    "tests/test_search_truth.py::test_the_refresh_is_an_honest_noop_while_the_etsy_api_gate_is_closed",
+    "tests/test_search_truth.py::test_with_a_snapshot_listing_seo_chooses_the_node_and_writes_the_property_payload"
    ],
    "evidence": [
     "cadence etsy_taxonomy -> listing.taxonomy_refresh (module_reachability: integrations/etsy_taxonomy.py reached)",
     "commerce/category.py not in fcb982d",
     "real Etsy tree never read: tests use a recorded-shape fixture with illustrative ids; CATEGORY_NODE_TERMS unverified against live tree",
-    "integrations/etsy.py still defines TAXONOMY_PATTERNS=66 as the ListingPayload default but certified_payload overwrites it"
+    "integrations/etsy.py still defines TAXONOMY_PATTERNS=66 as the ListingPayload default but certified_payload overwrites it",
+    "w4-FM close on 8b67414 (REGATE): runtime/etsy_ops.certified_payload refuses UNKNOWN taxonomy and reads the certified verdict that search.judge_hero writes back (release.py:1255, release_gates.py:1005) -- no fixture forces PASS any more"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
     "key": "etsy_api",
-    "detail": "the taxonomy snapshot (getSellerTaxonomyNodes/getPropertiesByTaxonomyId) is read only once the Etsy API credential gate opens; until then every category is UNKNOWN and publication refuses"
+    "detail": "certified_payload refuses UNKNOWN taxonomy; real seller taxonomy read needs the Etsy credential gate"
    },
-   "defect": "runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refuses unless the drafted ListingSearchProfile.verdict == 'PASS', but the only writer (runtime/release.py::_persist_search_profile via handle_listing_seo) calls search.search_certificate with hero=None, so the stored verdict is at best 'PENDING' -- store.publish and the owner publication preview can never build a payload at runtime (fail-closed dead end). tests/test_cert_publish_gates.py forces row.verdict='PASS' in a fixture, which hides it.",
-   "next_action": "Software: fix the certified_payload PASS dead end (see defect). Then, when etsy_api opens, let the etsy_taxonomy cadence store a real snapshot and verify CATEGORY_NODE_TERMS choose the expected node for each Launch-0 category (basket, blanket, coaster).",
+   "defect": null,
+   "next_action": "owner gate etsy_api: certified_payload refuses UNKNOWN taxonomy; real seller taxonomy read needs the Etsy credential gate",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s1",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -375,12 +383,13 @@
    "title": "Deepest Truthful Category",
    "version": "v0.1",
    "master_priority": "P0-before-launch",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "defect recorded: runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refus"
+    "owner gate 'etsy_api'",
+    "coverage PARTIAL: the deepest truthful category is chosen from the seller taxonomy snapshot, which has never been read (listing.taxonomy_refresh is a no-op behind etsy_api); unti"
    ],
    "wave": [
     {
@@ -455,23 +464,25 @@
    "protected_effect": "internal draft blocked on missing digital/file_type/craft/pattern_type/skill/primary_color",
    "tests": [
     "tests/test_commerce.py::test_attributes_come_from_pattern_data",
-    "tests/test_commerce.py::test_missing_attributes_are_reported"
+    "tests/test_commerce.py::test_missing_attributes_are_reported",
+    "tests/test_r2_product_listing_writes.py::test_the_pipeline_passes_the_grant_to_every_post_create_write"
    ],
    "evidence": [
     "src/brambleloop/integrations/etsy.py ListingPayload has no properties; etsy_probe.py:318 'implement updateListingProperty' outstanding",
     "src/brambleloop/publish/listing_schema.py taxonomy_required_properties clause",
-    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+    "w4-FM close on 8b67414 (REGATE): runtime/pipeline.py:1844 sends each canonical property through EtsyClient.set_listing_property (the 'never transmitted' defect is repaired)"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
     "key": "etsy_api",
-    "detail": "reading required properties for the chosen node needs the credentialed Etsy run; the mapping and write code are buildable now"
+    "detail": "set_listing_property wired (pipeline); node property schema read needs etsy_api"
    },
-   "defect": "Attributes computed and 'checked' but never transmitted to Etsy -- internal completeness is a proxy with no marketplace effect",
-   "next_action": "Implement integrations/etsy.py::update_listing_property and a properties mapper from listing_attributes to the node's getPropertiesByTaxonomyId schema; make completeness = every relevant property of the chosen node set or explicitly N/A",
+   "defect": null,
+   "next_action": "owner gate etsy_api: set_listing_property wired (pipeline); node property schema read needs etsy_api",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s1",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -481,13 +492,13 @@
    "title": "Attribute Completeness",
    "version": "v0.1",
    "master_priority": "P0-before-launch",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Attributes are an internal dict checked against a fixed list; Etsy's category-specific properties (getPropertiesByTaxonomyId) are never used to decide completen",
-    "defect recorded: Attributes computed and 'checked' but never transmitted to Etsy -- internal completeness is a proxy with no marketplace effect"
+    "owner gate 'etsy_api'",
+    "coverage PARTIAL: Attributes are an internal dict checked against a fixed list; Etsy's category-specific properties (getPropertiesByTaxonomyId) are never used to decide completen"
    ],
    "wave": [
     {
@@ -1550,9 +1561,9 @@
    "uid": "F-030",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
-   "maturity": "DEPLOYED",
+   "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Required roles are hero/whats_included/size/materials; angles, texture detail, lifestyle/use and category-specific proof are not required per category",
+   "missing_part": "the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT stays photograph-only)",
    "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
    "durable_state": "listing_assets",
    "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
@@ -1562,7 +1573,8 @@
     "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position"
    ],
    "evidence": [
-    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+    "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+    "w4-FM close on 8b67414 (FOLD): the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing"
    ],
    "build2_rows": [
     "#65 COMPLETE+PROVEN",
@@ -1571,27 +1583,25 @@
    "gate": {
     "kind": "none",
     "key": null,
-    "detail": "software work remains; nothing external blocks it"
+    "detail": "producing the frames is company work (visual lane)"
    },
    "defect": null,
-   "next_action": "Add a per-category frame-job requirement table (e.g. garment: fit/scale; blanket: texture detail) to check_frame_plan",
+   "next_action": "Visual lane: produce disclosed-render frames for each applicable missing job on the Launch-0 certified set and re-certify the set",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s1",
-   "maturity_claimed": "EXERCISED",
-   "adjudication": [
-    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED"
-   ],
+   "maturity_claimed": "INTEGRATED",
+   "adjudication": [],
    "id": "F-030",
    "title": "Gallery Information Architecture",
    "version": "v0.1",
    "master_priority": "P0-before-launch",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "OPEN",
    "completion_reasons": [
-    "coverage PARTIAL: Required roles are hero/whats_included/size/materials; angles, texture detail, lifestyle/use and category-specific proof are not required per category"
+    "coverage PARTIAL: the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT "
    ]
   },
   {
@@ -3788,20 +3798,22 @@
    "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
    "protected_effect": "Class C certificate refused",
    "tests": [
-    "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test",
-    "tests/test_garments.py (PHYSICAL_TEST_REQUIRED)"
+    "tests/test_garments.py (PHYSICAL_TEST_REQUIRED)",
+    "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test"
    ],
-   "evidence": [],
+   "evidence": [
+    "w4-FM close on 8b67414 (REGATE): gates/certificate.certify binds physical evidence (binding['passed'] sets physical_test_passed), so the gate is no longer fail-closed forever"
+   ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
     "key": "tester_roster",
-    "detail": "needs a recruited independent tester"
+    "detail": "physical intake fixed (fb4-PUB); Class C needs an independent tester's make"
    },
-   "defect": "physical_test_passed is never supplied by gate.certify, so the gate is fail-closed forever",
-   "next_action": "Fix F-078 wiring; derive C from CIR features (F-073)",
+   "defect": null,
+   "next_action": "owner gate tester_roster: physical intake fixed (fb4-PUB); Class C needs an independent tester's make",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s1",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -3809,13 +3821,13 @@
    "title": "High-Risk Full-Make Gate",
    "version": "v0.2",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Class C refused at certify and never promoted; risk class not derived from features; evidence can never unblock (see F-078 defect)",
-    "defect recorded: physical_test_passed is never supplied by gate.certify, so the gate is fail-closed forever"
+    "owner gate 'tester_roster'",
+    "coverage PARTIAL: Class C refused at certify and never promoted; risk class not derived from features; evidence can never unblock (see F-078 defect)"
    ],
    "wave": [
     {
@@ -5477,13 +5489,16 @@
    "consumer": "src/brambleloop/runtime/release.py::handle_lane_routing",
    "protected_effect": "uncalibrated claims stay UNRESOLVED and block",
    "tests": [
+    "tests/test_eligibility.py::test_a_launch0_slug_is_held_to_the_first_customer_gate",
+    "tests/test_eligibility.py::test_the_real_first_customer_gate_blocks_launch0_today",
     "tests/test_first_customer_gate.py::test_physical_validation_is_reported_unresolved_and_cannot_be_marked_otherwise",
-    "tests/test_physical.py::test_with_no_sample_the_estimate_stays_uncalibrated",
-    "tests/test_launch0.py::test_no_launch0_product_is_calibrated_and_the_report_leads_with_that"
+    "tests/test_launch0.py::test_no_launch0_product_is_calibrated_and_the_report_leads_with_that",
+    "tests/test_physical.py::test_with_no_sample_the_estimate_stays_uncalibrated"
    ],
    "evidence": [
     "executor Gate tester_roster / physical_proof",
-    "gates/first_customer.py reached=false"
+    "gates/first_customer.py reached=false",
+    "w4-FM close on 8b67414 (REGATE): gates/first_customer is called from publish/eligibility.py:588 and runtime/pipeline.py:682 (it had no runtime caller)"
    ],
    "build2_rows": [
     "#43 OWNER-GATED",
@@ -5493,12 +5508,12 @@
    "gate": {
     "kind": "owner",
     "key": "tester_roster",
-    "detail": "a recruited independent tester (and the physical_proof sample) is required to calibrate"
+    "detail": "first_customer gate wired via eligibility; calibration needs a recruited tester"
    },
-   "defect": "gates/first_customer.py (which reports UNRESOLVED physical claims) has no runtime caller.",
-   "next_action": "Wire gates.first_customer.blocking() into the store.publish path for Launch-0 slugs; owner: recruit testers per F-071-F-090 (tester_roster gate).",
+   "defect": null,
+   "next_action": "owner gate tester_roster: first_customer gate wired via eligibility; calibration needs a recruited tester",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s2",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -5506,13 +5521,13 @@
    "title": "Risk-Based Physical Escalation",
    "version": "v0.3",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Routing exists (quality/testers.plan on gate.lanes cadence; Class B/C need testers; first-customer gate reports twin.calibrated False as UNRESOLVED), but no phy",
-    "defect recorded: gates/first_customer.py (which reports UNRESOLVED physical claims) has no runtime caller."
+    "owner gate 'tester_roster'",
+    "coverage PARTIAL: Routing exists (quality/testers.plan on gate.lanes cadence; Class B/C need testers; first-customer gate reports twin.calibrated False as UNRESOLVED), but no phy"
    ],
    "wave": [
     {
@@ -7313,31 +7328,35 @@
    "launch_class_reason": "release/supply-chain integrity before deploy",
    "maturity": "TESTED",
    "coverage": "PARTIAL",
-   "missing_part": "Change record is printed at regeneration and lives in git history of requirements.lock, not in a release-evidence file; the Docker image has never been built from the lock (Railway build not run)",
+   "missing_part": "the image has never been built from the lock: the Railway build of a candidate is the deploy",
    "producer": "scripts/lock_requirements.py -> requirements.lock",
    "durable_state": "brambleloop/requirements.lock",
    "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock",
    "protected_effect": "the deployed image installs exactly pinned, hash-verified distributions",
    "tests": [
     "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
+    "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions",
     "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
     "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
-    "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions"
+    "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
+    "tests/test_w3_supply_chain.py::test_release_evidence_is_computed_at_the_sha_and_a_bad_lock_refuses_the_record",
+    "tests/test_w3_supply_chain.py::test_sbom_and_change_record_are_derived_from_the_lock"
    ],
    "evidence": [
     "requirements.lock absent from fcb982d",
-    "build/release path, not a runtime root"
+    "build/release path, not a runtime root",
+    "w4-FM close on 8b67414 (FOLD): ops/deploy_guard record embeds the lock verification, an SBOM and the change record derived from requirements.lock at the SHA (tests/test_w3_supply_chain.py); the Dockerfile installs only the hash-checked lock. The image has never been built from the lock because no candidate has been deployed"
    ],
    "build2_rows": [],
    "gate": {
-    "kind": "none",
-    "key": null,
-    "detail": "software work remains or none; nothing external blocks it"
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "deploying the frozen candidate builds the image from the lock"
    },
    "defect": null,
-   "next_action": "Write the lock change record (lock_requirements.py --diff against the deployed SHA) into the release evidence for the RC; build the Docker image from the RC once (local or Railway preview) and record success",
+   "next_action": "owner gate production_window: deploy the candidate; deploy_guard record then binds the lock verification to the built image",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s2",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -7345,13 +7364,14 @@
    "title": "Dependency Integrity Audit",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
+    "owner gate 'production_window'",
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Change record is printed at regeneration and lives in git history of requirements.lock, not in a release-evidence file; the Docker image has never been built fr"
+    "coverage PARTIAL: the image has never been built from the lock: the Railway build of a candidate is the deploy"
    ],
    "wave": [
     {
@@ -7369,19 +7389,21 @@
    "launch_class_reason": "release safety: no credential leaks",
    "maturity": "TESTED",
    "coverage": "PARTIAL",
-   "missing_part": "Runtime logs outside the repo (Railway/production logs) are not scanned; binaries >20MB or NUL-bearing and compressed PDF streams are skipped",
+   "missing_part": "production runtime logs (Railway) are not exported into the scan before release",
    "producer": "tests/test_secret_scan.py",
    "durable_state": null,
    "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
    "protected_effect": "a credential-shaped string in tracked/untracked/generated/evidence files fails the release suite",
    "tests": [
-    "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
+    "tests/test_secret_scan.py::test_a_credential_inside_a_compressed_pdf_stream_is_found",
+    "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value",
     "tests/test_secret_scan.py::test_each_credential_family_is_detected_by_its_pattern",
-    "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks",
-    "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value"
+    "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
+    "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks"
    ],
    "evidence": [
-    "RUN_6f9a2f7_full_suite.json green"
+    "RUN_6f9a2f7_full_suite.json green",
+    "w4-FM close on 8b67414 (FOLD): tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan"
    ],
    "build2_rows": [],
    "gate": {
@@ -7390,9 +7412,9 @@
     "detail": "software work remains or none; nothing external blocks it"
    },
    "defect": null,
-   "next_action": "Add a pre-release scan of exported production logs (owner-provided or Railway log export) and decoded PDF text streams of generated artefacts",
+   "next_action": "At release: export the deployed service's log window read-only and run the secret-scan patterns over it, recording the verdict beside the deploy_guard record",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s2",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -7400,13 +7422,13 @@
    "title": "Secret Scan Gate",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "OPEN",
    "completion_reasons": [
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Runtime logs outside the repo (Railway/production logs) are not scanned; binaries >20MB or NUL-bearing and compressed PDF streams are skipped"
+    "coverage PARTIAL: production runtime logs (Railway) are not exported into the scan before release"
    ],
    "wave": [
     {
@@ -7430,22 +7452,25 @@
    "consumer": null,
    "protected_effect": null,
    "tests": [
-    "tests/test_credential_register.py::test_the_chat_exposed_anthropic_key_is_seeded_as_rotation_required",
-    "tests/test_credential_register.py::test_every_unrotated_credential_is_an_owner_card_in_the_directive_format",
     "tests/test_credential_register.py::test_a_rotation_with_evidence_retires_the_card_and_age_alone_never_does",
-    "tests/test_credential_register.py::test_the_register_refuses_an_entry_carrying_something_shaped_like_a_value"
+    "tests/test_credential_register.py::test_every_unrotated_credential_is_an_owner_card_in_the_directive_format",
+    "tests/test_credential_register.py::test_the_chat_exposed_anthropic_key_is_seeded_as_rotation_required",
+    "tests/test_credential_register.py::test_the_register_refuses_an_entry_carrying_something_shaped_like_a_value",
+    "tests/test_fb4_ops.py::test_the_credential_rotation_card_reaches_the_owner_queue_and_the_dashboard"
    ],
-   "evidence": [],
+   "evidence": [
+    "w4-FM close on 8b67414 (REGATE): ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner"
+   ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
     "key": "credential_rotation",
-    "detail": "rotating the Anthropic key is an owner action; wiring the card is buildable now"
+    "detail": "rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act"
    },
-   "defect": "Unwired: owner_requests() is never called by a runtime root, so the rotation card never reaches the owner",
-   "next_action": "Buildable now: append credential_register.owner_requests() to the launch readiness owner queue (launch/readiness.assess or runtime/release.py launch assessment) and show it on the dashboard; test it is present. Owner: rotate ANTHROPIC_API_KEY and record rotated_at + evidence",
+   "defect": null,
+   "next_action": "owner gate credential_rotation: rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s2",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -7453,14 +7478,14 @@
    "title": "Credential Rotation Register",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'Credential'",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
+    "owner gate 'credential_rotation'",
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: Register is library + CLI only; not wired into any owner queue/dashboard (module_reachability: ops/credential_register.py not reached); the exposed ANTHROPIC_AP",
-    "defect recorded: Unwired: owner_requests() is never called by a runtime root, so the rotation card never reaches the owner"
+    "coverage PARTIAL: Register is library + CLI only; not wired into any owner queue/dashboard (module_reachability: ops/credential_register.py not reached); the exposed ANTHROPIC_AP"
    ],
    "wave": [
     {
@@ -8180,49 +8205,51 @@
    "uid": "F-176",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "recovery: a restorable pre-launch baseline",
-   "maturity": "DEPLOYED",
+   "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Data restore is proved (continuity digest round trip, exercised in production) and per-product rollback is rehearsed (launch/rollback.rehearse), and core/build.identity records the running SHA; there is no single baseline artefact binding code SHA + schema + config names + coverage map + test log + restore proof.",
-   "producer": "src/brambleloop/core/continuity.py::prove_restore",
+   "missing_part": "the baseline is recoverable only with the deployed candidate's code SHA, its release-record suite and a production restore proof; locally it reads recoverable=false and names them",
+   "producer": "src/brambleloop/ops/assurance.py::rollback_baseline / record_baseline",
    "durable_state": "continuity exports; audit_log ops.continuity",
-   "consumer": "src/brambleloop/launch/readiness.py::assess",
+   "consumer": "runtime/release.handle_health_sweep -> ops/truth.sweep (ops.health cadence) -> audit_log",
    "protected_effect": "company restorable to a known state",
    "tests": [
+    "tests/test_cert_rebuild_chain.py::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced",
     "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
-    "tests/test_cert_rebuild_chain.py::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced"
+    "tests/test_w3_k7_ops_truth.py::test_health_handler_runs_the_truth_sweep",
+    "tests/test_w3_k7_ops_truth.py::test_rollback_baseline_names_missing_components"
    ],
    "evidence": [
     "BUILD_STATE.md ~l.360/4831 continuity proved in production",
-    "launch/rollback.py not in production fcb982d"
+    "launch/rollback.py not in production fcb982d",
+    "w4-FM close on 8b67414 (FOLD): ops/assurance.rollback_baseline binds code SHA, tree digest, schema digest, config names (never values), coverage map, release-record tests, restore proof and rollback target, and names each missing component; record_baseline writes it once per digest on the ops.health sweep (ops/truth.py:353). It reads recoverable=false locally: code SHA, release-record tests and restore proof exist only on a deployed build"
    ],
    "build2_rows": [
     "#51 OWNER-GATED",
     "#54 OWNER-GATED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "",
-    "detail": ""
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "deploy the candidate so the baseline is recorded on it"
    },
    "defect": null,
-   "next_action": "Add scripts/prelaunch_baseline.py writing baseline.json (SHA, alembic/schema digest, env var NAMES only, closure_matrix digest, suite log SHA, latest restore-proof id) and a test that it refuses when any part is missing.",
+   "next_action": "owner gate production_window: deploy the frozen candidate; the ops.health sweep then records a recoverable baseline",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s2",
-   "maturity_claimed": "EXERCISED",
-   "adjudication": [
-    "exercise evidence is not a committed production artefact (status prose is secondary) -> capped at DEPLOYED"
-   ],
+   "maturity_claimed": "INTEGRATED",
+   "adjudication": [],
    "id": "F-176",
    "title": "Rollback Baseline",
    "version": "v0.4",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Data restore is proved (continuity digest round trip, exercised in production) and per-product rollback is rehearsed (launch/rollback.rehearse), and core/build."
+    "owner gate 'production_window'",
+    "coverage PARTIAL: the baseline is recoverable only with the deployed candidate's code SHA, its release-record suite and a production restore proof; locally it reads recoverable=f"
    ]
   },
   {
@@ -9451,20 +9478,23 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "as-of is render/query time, not the latest source-row/observation time; non-block tables (jobs, products, incidents, audit) carry no as-of",
-   "producer": "src/brambleloop/app/main.py::dashboard._block (asof div); dashboard_truth.evidence as_of",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/ops/truth.py::observation_window",
    "durable_state": null,
-   "consumer": "src/brambleloop/app/main.py::dashboard",
+   "consumer": "app/command_center/providers.validate (every CC card) and app/main.py::dashboard (_newest_row_line)",
    "protected_effect": "every command-centre block and headline KPI states when it was read",
    "tests": [
     "tests/test_cert_dashboard.py::test_every_block_renders_an_as_of_time",
-    "tests/test_cert_dashboard.py::test_every_headline_kpi_carries_its_evidence_envelope"
+    "tests/test_cert_dashboard.py::test_every_headline_kpi_carries_its_evidence_envelope",
+    "tests/test_w3_k7_ops_truth.py::test_vocabulary_rate_and_claims",
+    "tests/test_w3_wire4.py::test_k7_dashboard_tables_state_their_newest_row"
    ],
    "evidence": [
     "research/final_build/waves/fb1_E.json F-203 PARTIAL",
     "main.py:4818-4826",
-    "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
+    "behaviour added after fcb982d (not in production tree), so at most INTEGRATED",
+    "w4-FM close on 8b67414 (FOLD): the dashboard half the claim left as a wiring request landed (W3-WIRE4 1c): app/main.py _newest_row_line states query time and newest row for the jobs, products, incidents and audit tables; CC cards carry observation_window (providers.validate -> ops/truth.observation_window, mixed_snapshot)"
    ],
    "build2_rows": [],
    "gate": {
@@ -9472,10 +9502,10 @@
     "key": "none",
     "detail": "no external/owner/data gate on the remaining software step"
    },
-   "defect": "query-time as-of on blocks that summarise older snapshots (e.g. benchmark observations, last scan) can still present mixed snapshots as current",
+   "defect": null,
    "next_action": "For snapshot-backed blocks (benchmark, scan, learning, seasonal, spend) pass the max source-row timestamp into _block and render 'observed <t>' alongside 'read <t>'; add as-of to the jobs/products/incidents/audit tables; extend test_every_block_renders_an_as_of_time to assert an observed time where the source has one.",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s3",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -9483,14 +9513,11 @@
    "title": "Data Timestamp Consistency",
    "version": "v0.5",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: as-of is render/query time, not the latest source-row/observation time; non-block tables (jobs, products, incidents, audit) carry no as-of",
-    "defect recorded: query-time as-of on blocks that summarise older snapshots (e.g. benchmark observations, last scan) can still present mixed snapshots as current"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "E",
@@ -11807,13 +11834,14 @@
    "consumer": "src/brambleloop/launch/readiness.py::assess (listing_photography, imagery_truthful); src/brambleloop/runtime/pipeline.py::_release_gates",
    "protected_effect": "no listing may be launched without a photograph that cleared the realism and product-truth floors",
    "tests": [
-    "tests/test_launch.py::test_the_launch_gate_can_see_the_photographs_and_not_only_the_charts",
     "tests/test_launch.py::test_no_asset_is_blocked_is_not_true_of_no_assets",
+    "tests/test_launch.py::test_the_launch_gate_can_see_the_photographs_and_not_only_the_charts",
     "tests/test_owned_photography.py"
    ],
    "evidence": [
     "fcb982d launch/readiness.py includes listing_photography (deployed)",
-    "BUILD_STATE.md:1571 production /api/asset-coverage listable: 0 of 10"
+    "BUILD_STATE.md:1571 production /api/asset-coverage listable: 0 of 10",
+    "w4-FM close on 8b67414 (REGATE): generative product redraw is refused in every role (publish/eligibility.py:449, F-852); Launch-0 uses disclosed renders, so the path is no longer the defect"
    ],
    "build2_rows": [
     "#72 EXTERNAL-BLOCKED",
@@ -11821,14 +11849,14 @@
     "#58 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "external",
-    "key": "model_bearing_render",
-    "detail": "no provider has rendered a frame clearing every floor; product-first frames also 0 of 10 listable"
+    "kind": "owner",
+    "key": "image_vision",
+    "detail": "Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain"
    },
-   "defect": "gate is correct but produces zero passing galleries: the launch path is blocked on imagery",
-   "next_action": "Continue the Visual programme (other slice): produce a product-first frame that clears owned_photography floors for at least one certified product; no change to the gate.",
+   "defect": null,
+   "next_action": "owner gate image_vision: Launch-0 disclosed renders; parity HERO judgement + competitive blind review (data) remain",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s4",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -11838,13 +11866,13 @@
    "title": "Natural Photo + Product Truth",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Gates exist and refuse in production (listing_photography requirement read from owned_photography.coverage; asset-truth blocks), but no frame has yet cleared al",
-    "defect recorded: gate is correct but produces zero passing galleries: the launch path is blocked on imagery"
+    "owner gate 'image_vision'",
+    "coverage PARTIAL: Gates exist and refuse in production (listing_photography requirement read from owned_photography.coverage; asset-truth blocks), but no frame has yet cleared al"
    ]
   },
   {
@@ -11853,18 +11881,19 @@
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Frames carry exactly one job from a ten-job vocabulary (DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PATTERN_PREVIEW, PROOF, CROSS_SELL) with collision refusal at publish; the master's jobs 'useful alternate angle', 'construction detail', 'colour context' and 'fit/worn views' have no job in the vocabulary.",
+   "missing_part": "the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the applicable frames",
    "producer": "src/brambleloop/publish/eligibility.py::check_set",
    "durable_state": "ListingAsset frame roles",
    "consumer": "src/brambleloop/runtime/pipeline.py::_release_gates -> store.publish_blocked",
    "protected_effect": "a gallery with job collisions or no DESIRE hero fails COMMERCIAL_QA and cannot export",
    "tests": [
-    "tests/test_eligibility.py::test_two_frames_doing_one_job_is_the_defect_not_two_similar_images",
+    "tests/test_cert_publish_gates.py::test_a_filler_frame_with_no_job_is_refused_and_blocks_export",
     "tests/test_eligibility.py::test_frame_one_must_be_the_hero_doing_desire",
-    "tests/test_cert_publish_gates.py::test_a_filler_frame_with_no_job_is_refused_and_blocks_export"
+    "tests/test_eligibility.py::test_two_frames_doing_one_job_is_the_defect_not_two_similar_images"
    ],
    "evidence": [
-    "eligibility.check_set wiring is post-production (B2 #65 repair)"
+    "eligibility.check_set wiring is post-production (B2 #65 repair)",
+    "w4-FM close on 8b67414 (FOLD): same reading as F-030 (wave-3 K1): the vocabulary is complete, frames missing"
    ],
    "build2_rows": [
     "#65 COMPLETE+PROVEN",
@@ -11873,13 +11902,13 @@
    ],
    "gate": {
     "kind": "none",
-    "key": "none",
-    "detail": "no external/owner/data gate on the remaining software step"
+    "key": null,
+    "detail": "producing the frames is company work (visual lane)"
    },
    "defect": null,
-   "next_action": "Extend eligibility frame jobs with ALTERNATE_ANGLE, CONSTRUCTION_DETAIL, COLOUR_CONTEXT and FIT_WORN (applicable-by-form rules for garments) and report missing applicable jobs; tests.",
+   "next_action": "Visual lane: produce the applicable ANGLE/CONSTRUCTION/COLOUR_CONTEXT/LIFESTYLE frames on the certified set",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -11887,12 +11916,12 @@
    "title": "Gallery Information Architecture",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
    "completion": "OPEN",
    "completion_reasons": [
-    "coverage PARTIAL: Frames carry exactly one job from a ten-job vocabulary (DESIRE, SCALE, DETAIL, CONTENTS, DIFFICULTY, MATERIALS, SIZING, PATTERN_PREVIEW, PROOF, CROSS_SELL) with"
+    "coverage PARTIAL: the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the"
    ]
   },
   {
@@ -12711,12 +12740,14 @@
    "consumer": "src/brambleloop/runtime/growth_ops.py::handle_ads_adjust",
    "protected_effect": "Offsite Ads share and fee impact are reported separately and UNMEASURED without orders",
    "tests": [
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
     "tests/test_paid_media_economics.py::test_offsite_terms_come_from_the_advertising_reading_and_cite_it",
     "tests/test_paid_media_economics.py::test_the_forecast_tracks_attributed_orders_and_the_mandatory_threshold"
    ],
    "evidence": [
     "src/brambleloop/commerce/orders_ingest.py: offsite_ad_attributed never written",
-    "gates/policy_knowledge.py advertising_rules reading"
+    "gates/policy_knowledge.py advertising_rules reading",
+    "w4-FM close on 8b67414 (REGATE): finance/reconcile.py:484 and finance/sources.py:100 set offsite_ad_attributed from ledger evidence; contribution deducts it"
    ],
    "build2_rows": [
     "#244 OWNER-GATED"
@@ -12724,12 +12755,12 @@
    "gate": {
     "kind": "owner",
     "key": "transactions_r",
-    "detail": "receipts need transactions_r; the Offsite Ads fee line is on the Etsy payment account ledger"
+    "detail": "offsite-ads fee set from ledger evidence; real rows need transactions_r"
    },
-   "defect": "offsite_ad_attributed has no producer; contribution per order ignores Offsite Ads fees",
-   "next_action": "Read the Offsite Ads fee from the Etsy ledger/receipt data at orders_ingest (or owner export) to set Order.offsite_ad_attributed and deduct the fee from contribution; test.",
+   "defect": null,
+   "next_action": "owner gate transactions_r: offsite-ads fee set from ledger evidence; real rows need transactions_r",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -12737,13 +12768,13 @@
    "title": "Offsite Ads Accounting",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Offsite Ads economics come from the dated advertising_rules reading (15%/12%, US$100 cap, 30-day window, mandatory above US$10k) and are forecast in ads.adjust,",
-    "defect recorded: offsite_ad_attributed has no producer; contribution per order ignores Offsite Ads fees"
+    "owner gate 'transactions_r'",
+    "coverage PARTIAL: Offsite Ads economics come from the dated advertising_rules reading (15%/12%, US$100 cap, 30-day window, mandatory above US$10k) and are forecast in ads.adjust,"
    ],
    "wave": [
     {
@@ -13349,29 +13380,34 @@
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS); truthful owner visibility",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Pieces are served from the DB (dashboard readiness incl. storefront, /api/leading, /api/serp, /api/trust, /api/search/intent, ads.plan reading), but there is no visibility command-center view; Search Visibility issues, search terms, impressions/clicks/conversion and Offsite Ads are absent or UNMEASURED.",
-   "producer": "src/brambleloop/app/main.py::dashboard / api_leading / api_serp / api_trust",
+   "missing_part": "impressions, clicks, conversion, search terms and Offsite Ads are UNMEASURED until a live listing and an Etsy Stats export exist",
+   "producer": "src/brambleloop/launch/visibility.py::summary",
    "durable_state": null,
-   "consumer": null,
+   "consumer": "app/command_center/providers PROVIDERS['visibility'] and GET /api/owner/phase/visibility (app/phase_api.py)",
    "protected_effect": "owner reads readiness and indicators with UNMEASURED reasons",
    "tests": [
     "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
-    "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named"
+    "tests/test_health.py::test_the_dashboard_carries_the_two_views_the_requirement_named",
+    "tests/test_w3_k4_launch_verdict.py::test_F289_F287_visibility_provider_contract_and_separate_sources",
+    "tests/test_w3_k4_launch_verdict.py::test_routes_are_owner_only_and_registered_operator_gets",
+    "tests/test_w3_laura_cc_providers.py::test_visibility_and_search_evidence_tolerate_absence"
    ],
-   "evidence": [],
+   "evidence": [
+    "w4-FM close on 8b67414 (FOLD): the Command Center card the claim left to lane F is wired: providers.PROVIDERS['visibility'] = launch.visibility.summary; GET /api/owner/phase/visibility serves the full view (app/phase_api). Impressions, clicks, conversion and ads read UNMEASURED with their reason until live listings exist"
+   ],
    "build2_rows": [
     "#263 OWNER-GATED",
     "#239 OWNER-GATED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "none",
-    "detail": "no external/owner/data gate on the remaining software step"
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "no live listing exists (shadow mode)"
    },
    "defect": null,
-   "next_action": "Add /api/visibility aggregating storefront completion (F-233), search readiness/certificates (F-294), Search Visibility intake (F-248), funnel (F-258), ads/offsite readings and open owner actions; test it computes from DB.",
+   "next_action": "data gate live_listings: the sections fill from ListingOutcome periods once a listing is live",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -13379,12 +13415,13 @@
    "title": "Visibility Command Center",
    "version": "v0.8",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Pieces are served from the DB (dashboard readiness incl. storefront, /api/leading, /api/serp, /api/trust, /api/search/intent, ads.plan reading), but there is no"
+    "data gate 'live_listings'",
+    "coverage PARTIAL: impressions, clicks, conversion, search terms and Offsite Ads are UNMEASURED until a live listing and an Etsy Stats export exist"
    ]
   },
   {
@@ -14909,23 +14946,25 @@
    "consumer": "finance/sustainability.py::forecast -> verdict -> launch/readiness.py::assess (sustainable_economics)",
    "protected_effect": null,
    "tests": [
-    "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost"
+    "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost",
+    "tests/test_w3_spend_attribution.py::test_product_creation_cost_is_split_by_stage"
    ],
    "evidence": [
     "research/final_build/waves/fb1_D.json F-321 PARTIAL",
     "grep 'product_slug=' over gateway/, visual/, culture/: no spend_report.record call sets it",
-    "launch.readiness daily cadence (runtime/worker.py:408); sustainability.py not in fcb982d"
+    "launch.readiness daily cadence (runtime/worker.py:408); sustainability.py not in fcb982d",
+    "w4-FM close on 8b67414 (REGATE): runtime spend writers pass product_slug (gateway/model_gateway.py:229, gateway/anthropic.py:289/334 -> finance/spend_report.record)"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "data",
     "key": "live_listings",
-    "detail": "no live listing exists (shadow mode); slug tagging of maintenance spend is buildable now"
+    "detail": "spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing"
    },
-   "defect": "attribution input is never produced at runtime: tests feed product-tagged CostEntry fixtures that no production writer creates",
-   "next_action": "Thread product_slug from job payloads into every spend_report.record call (gateway/anthropic.py, gateway/images.py, visual/*.py, culture/classify.py) for observation, revalidation, seasonal refresh and support jobs; add a test that a slug-bearing job's model call writes a slug-tagged CostEntry.",
+   "defect": null,
+   "next_action": "data gate live_listings: spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s3",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -14933,13 +14972,13 @@
    "title": "Per-Listing Maintenance Cost",
    "version": "v0.9",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'Listing'",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it ''), so maintenance cost can never be at",
-    "defect recorded: attribution input is never produced at runtime: tests feed product-tagged CostEntry fixtures that no production writer creates"
+    "data gate 'live_listings'",
+    "coverage PARTIAL: no runtime spend writer passes product_slug to finance.spend_report.record (all gateway/visual/culture writers leave it ''), so maintenance cost can never be at"
    ],
    "wave": [
     {
@@ -15384,18 +15423,21 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "maturity": "EXERCISED",
-   "coverage": "PARTIAL",
-   "missing_part": "Runtime work has durable Job ids (queue/durable.JobQueue) exercised in production; operator long-running operations (full suite runs, agent lanes) get identity only by manual `ops/registry.py enrol <name>`, and run_tests.sh does not register itself.",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/queue/durable.py::JobQueue.enqueue; ops/registry.py (repo root)::Registry.enrol",
    "durable_state": "jobs table (Postgres in production); ops/JOBS.json",
    "consumer": "src/brambleloop/runtime/worker.py (claim/complete by id); ops/registry.py (repo root)::survey",
    "protected_effect": "consumers read job state by id rather than by process matching",
    "tests": [
+    "tests/test_board_restart.py (checks 'the board names every lane of the night it never saw in this process')",
     "tests/test_persistence.py::test_unfinished_jobs_are_visible_for_recovery_after_restart",
-    "tests/test_board_restart.py (checks 'the board names every lane of the night it never saw in this process')"
+    "tests/test_w3_suite_job_identity.py::test_every_terminal_path_ends_the_log_with_the_exit_sentinel_matching_the_record",
+    "tests/test_w3_suite_job_identity.py::test_the_run_enrols_itself_and_a_late_observer_in_a_fresh_process_reads_its_result"
    ],
    "evidence": [
-    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal) -- worker_is_alive, scheduler_has_ticked, no dead letters; queue in fcb982d"
+    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal) -- worker_is_alive, scheduler_has_ticked, no dead letters; queue in fcb982d",
+    "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
    ],
    "build2_rows": [
     "#184 COMPLETE+PROVEN"
@@ -15408,7 +15450,7 @@
    "defect": null,
    "next_action": "Make run_tests.sh self-enrol (registry enrol with a run id = sha+timestamp) and write its own terminal sentinel so suite runs get durable identity without an operator step; test.",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "EXERCISED",
    "adjudication": [],
@@ -15416,13 +15458,11 @@
    "title": "Authoritative Job Identity",
    "version": "v0.10",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: Runtime work has durable Job ids (queue/durable.JobQueue) exercised in production; operator long-running operations (full suite runs, agent lanes) get identity "
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-332",
@@ -15475,18 +15515,20 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "Runtime: idempotency keys make a duplicate enqueue return the existing job (DuplicateJob) and scheduler cadences do not duplicate across restarts; operator: one registry record per lane name. There is no subscribe/attach mechanism for multiple agents/waiters on one operation.",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/queue/durable.py::JobQueue.enqueue (idempotency_key)",
    "durable_state": "jobs.idempotency_key unique",
    "consumer": "src/brambleloop/runtime/worker.py (cadence enqueue)",
    "protected_effect": "a second request for the same operation does not start a second underlying operation",
    "tests": [
+    "tests/test_chaos.py::test_duplicate_webhook_event_cannot_double_process",
     "tests/test_persistence.py::test_scheduler_does_not_duplicate_cadences_across_restarts",
-    "tests/test_chaos.py::test_duplicate_webhook_event_cannot_double_process"
+    "tests/test_w3_suite_job_identity.py::test_an_attached_observer_starts_nothing_and_takes_the_running_runs_result"
    ],
    "evidence": [
-    "fcb982d queue/durable.py enqueue with idempotency_key/DuplicateJob"
+    "fcb982d queue/durable.py enqueue with idempotency_key/DuplicateJob",
+    "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
    ],
    "build2_rows": [
     "#184 COMPLETE+PROVEN"
@@ -15499,7 +15541,7 @@
    "defect": null,
    "next_action": "Add a registry 'attach' command returning the existing record/verdict for a name instead of re-enrolling, and have heartbeat instructions use it; test.",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -15507,13 +15549,11 @@
    "title": "One Operation, One State",
    "version": "v0.10",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: Runtime: idempotency keys make a duplicate enqueue return the existing job (DuplicateJob) and scheduler cadences do not duplicate across restarts; operator: one"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-334",
@@ -15573,18 +15613,21 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "maturity": "EXERCISED",
-   "coverage": "PARTIAL",
-   "missing_part": "Runtime job terminal states (complete/failed/dead) are persisted by the worker independent of any observer and read by prod verify; operator side derives completion from the job's own log sentinel, but run_tests.sh writes no 'EXIT n' sentinel or stamp itself (callers must wrap it).",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/queue/durable.py::JobQueue.complete / fail",
    "durable_state": "jobs table state/outputs",
    "consumer": "ops/board.py (repo root, outside brambleloop/)::read; src/brambleloop/ops/health.py::read",
    "protected_effect": "a completed job is recorded complete even if no observer saw it",
    "tests": [
+    "tests/test_board.py (checks 'a finished job nobody acknowledged becomes COMPLETE_UNREPORTED')",
     "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
-    "tests/test_board.py (checks 'a finished job nobody acknowledged becomes COMPLETE_UNREPORTED')"
+    "tests/test_w3_suite_job_identity.py::test_an_interrupted_run_writes_the_130_sentinel_after_its_record",
+    "tests/test_w3_suite_job_identity.py::test_every_terminal_path_ends_the_log_with_the_exit_sentinel_matching_the_record"
    ],
    "evidence": [
-    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal)"
+    "research/b2_resume/evidence/prod_api_verify_2026-09-28T0816Z.json (production fcb982d: phase shadow, store.publish_refused 165, certified_versions 15 -- the listing chain ran through listing.seo/assets.build/launch.plan to the publish refusal)",
+    "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
    ],
    "build2_rows": [
     "#184 COMPLETE+PROVEN"
@@ -15597,7 +15640,7 @@
    "defect": null,
    "next_action": "Make run_tests.sh write a terminal sentinel line ('EXIT <n>' with UTC stamp) and result file itself; test board reads it without a wrapper.",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "EXERCISED",
    "adjudication": [],
@@ -15605,13 +15648,11 @@
    "title": "Completion Is Durable",
    "version": "v0.10",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: Runtime job terminal states (complete/failed/dead) are persisted by the worker independent of any observer and read by prod verify; operator side derives comple"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-336",
@@ -15862,17 +15903,22 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.10 runtime durability / truthful progress)",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "Runtime: one terminal result per job with fencing, survives worker SIGKILL/restart (tested); operator: result line and acknowledgement survive container restart (tested). Delayed observers/agent interruption for runtime jobs and shell-exit propagation for run_tests.sh are not tested explicitly.",
+   "coverage": "FULL",
+   "missing_part": null,
    "producer": "src/brambleloop/queue/durable.py::JobQueue.complete (_fenced)",
    "durable_state": "jobs.outputs",
    "consumer": "src/brambleloop/app/main.py (job reads); ops/registry.py (repo root)::survey",
    "protected_effect": "consumers read the single persisted terminal result",
    "tests": [
+    "tests/test_board_restart.py (check 'a completion acted on before the restart is still COMPLETE_REPORTED after it')",
     "tests/test_persistence.py::test_pipeline_resumes_across_a_worker_restart_mid_flight",
-    "tests/test_board_restart.py (check 'a completion acted on before the restart is still COMPLETE_REPORTED after it')"
+    "tests/test_w3_suite_job_identity.py::test_an_attached_observer_starts_nothing_and_takes_the_running_runs_result",
+    "tests/test_w3_suite_job_identity.py::test_an_interrupted_run_writes_the_130_sentinel_after_its_record",
+    "tests/test_w3_suite_job_identity.py::test_the_run_enrols_itself_and_a_late_observer_in_a_fresh_process_reads_its_result"
    ],
-   "evidence": [],
+   "evidence": [
+    "w4-FM close on 8b67414 (FOLD): the operator half of the PARTIAL is closed on this head: run_tests.sh enrols itself with a durable run id, every terminal path writes the EXIT sentinel after its record, an attached observer starts nothing and reads the running run's result, a late observer in a fresh process reads it, and the registry separates work from observers (tests/test_w3_suite_job_identity.py); the runtime half (queue/durable job ids, fencing, idempotency) was already tested"
+   ],
    "build2_rows": [
     "#184 COMPLETE+PROVEN"
    ],
@@ -15884,7 +15930,7 @@
    "defect": null,
    "next_action": "Add a test that a second complete() from a fenced-out worker is refused and that a late observer reads the first result; add run_tests.sh result-file propagation test.",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -15892,13 +15938,11 @@
    "title": "Result Propagation Contract",
    "version": "v0.10",
    "master_priority": "addendum-P0-launch-critical",
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: Runtime: one terminal result per job with fencing, survives worker SIGKILL/restart (tested); operator: result line and acknowledgement survive container restart"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-342",
@@ -21081,29 +21125,32 @@
    "consumer": null,
    "protected_effect": "refuses rollback, unknown deployed commit, missing/red/contradicted suite record",
    "tests": [
-    "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
     "tests/test_deploy_guard.py::test_a_candidate_that_is_not_a_descendant_of_production_is_refused_as_a_rollback",
-    "tests/test_deploy_guard.py::test_unknown_or_foreign_deployed_commit_is_refused_not_assumed",
+    "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
     "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused",
-    "tests/test_deploy_guard.py::test_a_record_whose_log_contradicts_it_or_is_gone_is_refused"
+    "tests/test_deploy_guard.py::test_a_record_whose_log_contradicts_it_or_is_gone_is_refused",
+    "tests/test_deploy_guard.py::test_unknown_or_foreign_deployed_commit_is_refused_not_assumed",
+    "tests/test_deploy_path.py::test_a_push_to_production_runs_the_guard_with_the_deployed_commit",
+    "tests/test_deploy_path.py::test_the_installed_hook_refuses_an_unproven_push_to_production_and_passes_others"
    ],
    "evidence": [
     "research/final_build/waves/fb1_F.json F-461 DONE (script only)",
     "grep deploy_guard in *.md: only a test count in FINAL_BUILD_RESUME_MANIFEST.md; not in ops/HEARTBEAT_PROMPT.md or any deploy runbook",
-    "FINAL_BUILD_STATE: 'a push there can redeploy production'"
+    "FINAL_BUILD_STATE: 'a push there can redeploy production'",
+    "w4-FM close on 8b67414 (REGATE): ops/hooks/pre-push and ops/deploy.sh run ops/deploy_guard.py on a push to the production branch; a client hook can be skipped, so server-side enforcement is the owner's Railway/GitHub setting"
    ],
    "build2_rows": [
     "#195 OWNER-GATED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "none",
-    "detail": "wiring the guard is software; the Build 2 deploy itself is the owner's production_window decision"
+    "kind": "owner",
+    "key": "deploy_trigger_config",
+    "detail": "guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipped and Railway auto-deploys on push -> server-side enforcement (Railway 'wait for CI' / branch protection) is an owner setting"
    },
-   "defect": "Guard exists but the actual deploy trigger (push to the production branch) does not pass through it.",
-   "next_action": "Wire the guard into the only deploy path: a git pre-push hook / `ops/deploy.sh` wrapper that runs `deploy_guard.py check --candidate HEAD --deployed <sha from /api/verify>` before any push to claude/repository-setup-nc9x6o, add the step to ops/HEARTBEAT_PROMPT.md and the resume manifest, and (owner, optional) enable Railway 'wait for CI' on a GitHub check that runs the guard.",
+   "defect": null,
+   "next_action": "owner gate deploy_trigger_config: guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipped and Railway auto-deploys on push -> server-side enforcement (Railway 'wait for CI' / branch protection) is an owner setting",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s6",
    "maturity_claimed": "TESTED",
    "adjudication": [],
@@ -21111,14 +21158,14 @@
    "title": "Deploy Serialization",
    "version": "v0.14",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
+    "owner gate 'deploy_trigger_config'",
     "maturity TESTED below target INTEGRATED",
-    "coverage PARTIAL: ops/deploy_guard.py check refuses a candidate that is not a descendant of the deployed commit or lacks a release-eligible run, but it is advisory: nothing invok",
-    "defect recorded: Guard exists but the actual deploy trigger (push to the production branch) does not pass through it."
+    "coverage PARTIAL: ops/deploy_guard.py check refuses a candidate that is not a descendant of the deployed commit or lacks a release-eligible run, but it is advisory: nothing invok"
    ],
    "wave": [
     {
@@ -23787,12 +23834,15 @@
    "protected_effect": "storefront problems block the 'storefront' readiness item",
    "tests": [
     "tests/test_brand.py",
+    "tests/test_etsy_readback_observe.py::test_a_complete_shop_is_stored_and_closes_the_owner_actions_it_evidences",
+    "tests/test_etsy_readback_observe.py::test_missing_trust_surfaces_cannot_pass_silently",
     "tests/test_etsy_surfaces.py::test_an_empty_shop_body_is_no_evidence_on_every_check_and_never_green",
     "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked"
    ],
    "evidence": [
     "launch/readiness.py:463 check_storefront(build_storefront(db=db)) — readiness and storefront present in fcb982d",
-    "intel/etsy_surfaces.py is not reached by any runtime root (module_reachability); file exists in fcb982d"
+    "intel/etsy_surfaces.py is not reached by any runtime root (module_reachability); file exists in fcb982d",
+    "w4-FM close on 8b67414 (REGATE): runtime/etsy_ops.handle_shop_snapshot (daily) feeds intel/etsy_surfaces.assess_shop (etsy_ops.py:894) -- remote verification is wired"
    ],
    "build2_rows": [
     "#17 COMPLETE+PROVEN",
@@ -23800,14 +23850,14 @@
     "#54 OWNER-GATED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "",
-    "detail": ""
+    "kind": "owner",
+    "key": "etsy_shop",
+    "detail": "daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build"
    },
-   "defect": "remote shop verification (assess_shop) is tested but unwired, so readiness reads the package we intend rather than the shop Etsy shows",
-   "next_action": "Add a shop.snapshot cadence calling EtsyClient.get_shop (shops_r is granted; etsy_api gate open) that stores the body and feeds etsy_surfaces.assess_shop into launch/readiness.assess as a blocking item",
+   "defect": null,
+   "next_action": "owner gate etsy_shop: daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s6",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -23815,13 +23865,13 @@
    "title": "Shop Completeness Gate",
    "version": "v0.16",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: launch readiness checks the intended storefront package (announcement, About length, all policy sections, returns wording, sections, banner/icon briefs) but not",
-    "defect recorded: remote shop verification (assess_shop) is tested but unwired, so readiness reads the package we intend rather than the shop Etsy shows"
+    "owner gate 'etsy_shop'",
+    "coverage PARTIAL: launch readiness checks the intended storefront package (announcement, About length, all policy sections, returns wording, sections, banner/icon briefs) but not"
    ],
    "wave": [
     {
@@ -24190,12 +24240,15 @@
    "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
    "protected_effect": "a thumbnail that fails readability/mobile checks does not certify",
    "tests": [
-    "tests/test_cert_listing_frames.py"
+    "tests/test_cert_listing_frames.py",
+    "tests/test_etsy_readback_observe.py::test_a_missing_frame_refuses_before_anything_is_created_on_etsy",
+    "tests/test_etsy_readback_observe.py::test_publish_sends_the_certified_image_bytes_in_certificate_order_and_reads_back"
    ],
    "evidence": [
     "commerce/thumbnail.py reached via assets.build and present in fcb982d",
     "integrations/etsy.py::publish docstring: 'No caller in this system supplies image bytes yet'",
-    "BUILD_STATE.md header: Product-Only Visual V1 remains NOT LOCKED"
+    "BUILD_STATE.md header: Product-Only Visual V1 remains NOT LOCKED",
+    "w4-FM close on 8b67414 (REGATE): store.publish reads etsy_ops.certified_images and sends the certified bytes in certificate order before anything is created (pipeline.py:1587-1611)"
    ],
    "build2_rows": [
     "#62 COMPLETE+PROVEN",
@@ -24204,14 +24257,14 @@
     "#16 OWNER-GATED"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "image_generation",
-    "detail": "truthful listing imagery depends on the Visual lane / image capability"
+    "kind": "data",
+    "key": "live_listings",
+    "detail": "store.publish sends certified images; hero experiments need a live listing"
    },
-   "defect": "store.publish uploads no images, so any draft it creates is unactivatable and has no first image at all",
-   "next_action": "Pass certified listing image bytes from the artifact store into client.publish(images=...) in runtime/pipeline.py::handle_store_publish, ordered by publish/listing_set frame jobs",
+   "defect": null,
+   "next_action": "data gate live_listings: store.publish sends certified images; hero experiments need a live listing",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s6",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -24219,13 +24272,13 @@
    "title": "First-Image Program",
    "version": "v0.16",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: thumbnail readability/crop/mobile checks run in assets.build and hero standard/asset-truth gates apply, but no listing image bytes are passed to Etsy by store.p",
-    "defect recorded: store.publish uploads no images, so any draft it creates is unactivatable and has no first image at all"
+    "data gate 'live_listings'",
+    "coverage PARTIAL: thumbnail readability/crop/mobile checks run in assets.build and hero standard/asset-truth gates apply, but no listing image bytes are passed to Etsy by store.p"
    ],
    "wave": [
     {
@@ -24673,30 +24726,34 @@
    "launch_class_reason": "every refund/complaint needs a cause and owner to protect customers and trigger remedy",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "refunds are captured as a flag on ingested orders and counted into refund rate/kill-table defect ceilings, but there is no reason code, no owner assignment per refund/cancellation/case and no repeated-cause trigger",
-   "producer": "src/brambleloop/commerce/orders_ingest.py::lines",
+   "missing_part": "no real refund/cancellation has been read: receipts need the owner's transactions_r grant",
+   "producer": "src/brambleloop/commerce/cx_root_cause.py::run",
    "durable_state": "orders.refunded; ledger refunds_cad",
-   "consumer": "src/brambleloop/support/department.py::CustomerExperience",
+   "consumer": "runtime/orders.handle_order_readings (commerce.order_readings cadence) -> commerce/order_readings.read",
    "protected_effect": "refund rate above ceiling reads as a defect",
    "tests": [
-    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+    "tests/test_k8_shop_cx.py::test_every_refund_and_case_gets_a_code_and_owner_and_repetition_opens_an_investigation",
+    "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest",
+    "tests/test_k8_shop_cx.py::test_the_daily_order_readings_carry_the_root_cause_reading"
    ],
    "evidence": [
     "commerce/orders_ingest.py:141 refunded = bool(receipt.get('refunds'))",
-    "commerce/kill_table.py refund_high_above"
+    "commerce/kill_table.py refund_high_above",
+    "w4-FM close on 8b67414 (FOLD): commerce/cx_root_cause.run (commerce.order_readings cadence) codes every refund, cancellation, case and complaint with an owner and opens cx.repeated_cause:<product>:<code> on 3 in 90 days; ingest keeps Etsy's refund reason. Proven on fake-Etsy rows only: real receipts need transactions_r"
    ],
    "build2_rows": [
     "#41 DATA-GATED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "",
-    "detail": ""
+    "kind": "owner",
+    "key": "transactions_r",
+    "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
    },
    "defect": null,
-   "next_action": "Add RefundCase (reason_code enum, owner, linked order/listing/version) created by orders_ingest for refunded/cancelled lines and by support intake; open an investigation incident when a reason repeats N times per listing",
+   "next_action": "owner gate transactions_r: re-authorise Etsy with transactions_r; the coding and repetition trigger then run on real receipts",
    "confidence": "HIGH",
-   "searched": "grep reason_code src/: none",
+   "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD)",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -24704,12 +24761,13 @@
    "title": "Refund/Cancellation Root Cause",
    "version": "v0.16",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: refunds are captured as a flag on ingested orders and counted into refund rate/kill-table defect ceilings, but there is no reason code, no owner assignment per "
+    "owner gate 'transactions_r'",
+    "coverage PARTIAL: no real refund/cancellation has been read: receipts need the owner's transactions_r grant"
    ]
   },
   {
@@ -24911,21 +24969,24 @@
    "tests": [
     "tests/test_etsy_oauth_callback.py::test_a_rotation_replaces_the_stored_token_and_counts_itself",
     "tests/test_etsy_oauth_callback.py::test_a_rotation_that_lost_a_race_is_refused_rather_than_overwriting_a_live_token",
+    "tests/test_etsy_readback_observe.py::test_credential_health_refreshes_rotates_and_persists_and_closes_a_reauth_action",
+    "tests/test_etsy_readback_observe.py::test_scope_drift_on_the_stored_credential_is_an_incident",
     "tests/test_oauth_security_audit.py"
    ],
    "evidence": [
-    "BUILD_STATE.md 2026-09-25 'VERIFIED: Brambleloop is authorised on Etsy': credential sealed, rotations 0, scopes listings_r listings_w listings_d shops_r shops_w; 'The rotation fix is not yet proven'"
+    "BUILD_STATE.md 2026-09-25 'VERIFIED: Brambleloop is authorised on Etsy': credential sealed, rotations 0, scopes listings_r listings_w listings_d shops_r shops_w; 'The rotation fix is not yet proven'",
+    "w4-FM close on 8b67414 (REGATE): etsy.credential_health is a daily cadence (runtime/worker.py:700) that reads the OAuth credential, not only the app key"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
     "key": "production_window",
-    "detail": "rotation proof (/api/etsy/exercise mode rotation) is held on the owner's word and on deploying the leak fix"
+    "detail": "credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build"
    },
-   "defect": "etsy.probe cadence checks only the app key (openapi-ping), not the OAuth credential",
-   "next_action": "Add an etsy.credential_health cadence that reads credential_health + performs a refresh when <24h to expiry, opening an incident when not openable or scopes drift; after deploy, run /api/etsy/exercise rotation mode once (owner-authorised)",
+   "defect": null,
+   "next_action": "owner gate production_window: credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s6",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -24935,13 +24996,13 @@
    "title": "OAuth Credential Health",
    "version": "v0.16",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: credential health (stored, openable under current sealing key, scopes, rotations, fingerprints) is readable at /api/etsy/oauth/status and was observed on the re",
-    "defect recorded: etsy.probe cadence checks only the app key (openapi-ping), not the OAuth credential"
+    "owner gate 'production_window'",
+    "coverage PARTIAL: credential health (stored, openable under current sealing key, scopes, rotations, fingerprints) is readable at /api/etsy/oauth/status and was observed on the re"
    ],
    "wave": [
     {
@@ -25032,24 +25093,26 @@
    "consumer": "src/brambleloop/integrations/etsy_probe.py::run_exercise",
    "protected_effect": "an ignored write (e.g. quantity PATCH 200) or misread tag list fails read-back",
    "tests": [
-    "tests/test_etsy_transport.py::test_a_write_the_server_ignored_returns_200_and_fails_read_back",
+    "tests/test_etsy_readback_observe.py::test_a_write_etsy_silently_changed_is_caught_by_read_back_and_halts_the_product",
     "tests/test_etsy_transport.py::test_a_comma_joined_tag_list_etsy_misreads_is_caught_by_the_read_back_and_nothing_else",
+    "tests/test_etsy_transport.py::test_a_write_the_server_ignored_returns_200_and_fails_read_back",
     "tests/test_etsy_transport.py::test_read_back_verifies_every_field_including_the_ones_etsy_transforms"
    ],
    "evidence": [
     "integrations/etsy_verify.py and etsy_exercise.py present in fcb982d; /api/etsy/exercise route",
-    "BUILD_STATE.md 2026-09-25: 11 of 11 fields matched on read-back against tests/fake_etsy.py only; 'Nothing has been exercised against Etsy'"
+    "BUILD_STATE.md 2026-09-25: 11 of 11 fields matched on read-back against tests/fake_etsy.py only; 'Nothing has been exercised against Etsy'",
+    "w4-FM close on 8b67414 (REGATE): store.publish reads the created listing back (pipeline.py:1877 etsy_ops.read_back) and records store.published only when verified"
    ],
    "build2_rows": [],
    "gate": {
     "kind": "owner",
-    "key": "etsy_exercise_authorisation",
-    "detail": "the one controlled round trip against Etsy is held on the owner's word"
+    "key": "etsy_api",
+    "detail": "store.publish reads back fields/properties/files; the controlled round trip is owner-authorised"
    },
-   "defect": "runtime/pipeline.py::handle_store_publish records store.published without reading the listing back from Etsy",
-   "next_action": "In handle_store_publish, after publish/attach_file call client.get_listing and etsy_verify.verify(sent, remote) (plus file list) and record store.publish_incomplete + incident on any mismatch; then run the owner-authorised exercise round trip",
+   "defect": null,
+   "next_action": "owner gate etsy_api: store.publish reads back fields/properties/files; the controlled round trip is owner-authorised",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s6",
    "maturity_claimed": "DEPLOYED",
    "adjudication": [],
@@ -25057,13 +25120,13 @@
    "title": "Remote Write Readback",
    "version": "v0.16",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: field-by-field read-back (etsy_verify.verify) runs in the exercise/probe path (/api/etsy/exercise) and catches ignored writes, but the production publish path (",
-    "defect recorded: runtime/pipeline.py::handle_store_publish records store.published without reading the listing back from Etsy"
+    "owner gate 'etsy_api'",
+    "coverage PARTIAL: field-by-field read-back (etsy_verify.verify) runs in the exercise/probe path (/api/etsy/exercise) and catches ignored writes, but the production publish path ("
    ],
    "wave": [
     {
@@ -25087,13 +25150,16 @@
    "consumer": "src/brambleloop/integrations/etsy.py::EtsyClient.activate",
    "protected_effect": "no listing goes live without every gate and owner authority",
    "tests": [
+    "tests/test_etsy_exercise.py::test_activate_keeps_its_three_gates_byte_for_byte",
+    "tests/test_etsy_readback_observe.py::test_activation_verifies_the_draft_and_without_a_launch_authorisation_does_not_activate",
+    "tests/test_etsy_readback_observe.py::test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back",
     "tests/test_etsy_transport.py::test_activation_refuses_a_listing_with_no_image_before_spending_anything",
-    "tests/test_etsy_transport.py::test_activation_refuses_without_a_launch_authorisation_even_when_everything_else_is_true",
-    "tests/test_etsy_exercise.py::test_activate_keeps_its_three_gates_byte_for_byte"
+    "tests/test_etsy_transport.py::test_activation_refuses_without_a_launch_authorisation_even_when_everything_else_is_true"
    ],
    "evidence": [
     "release gates enforced in store.publish (publish/release_gates.py not in fcb982d)",
-    "BUILD_STATE.md 2026-09-25: activate 'implemented and triple-gated ... and never called against Etsy'"
+    "BUILD_STATE.md 2026-09-25: activate 'implemented and triple-gated ... and never called against Etsy'",
+    "w4-FM close on 8b67414 (REGATE): store.publish passes the certified image bytes (F-524) and store.activate re-validates authority at execution"
    ],
    "build2_rows": [
     "#70 COMPLETE+PROVEN",
@@ -25103,12 +25169,12 @@
    "gate": {
     "kind": "owner",
     "key": "publication_authority",
-    "detail": "going live (phase change + BRAMBLELOOP_PUBLISH_AUTHORISED + Launch-0 authorisation) is the owner's decision"
+    "detail": "store.activate built with revalidated authority; going live is the owner's grant + phase change"
    },
-   "defect": "store.publish passes no image bytes to client.publish, so every draft it would create cannot be activated",
-   "next_action": "Build a store.activate handler: read the remote draft, verify images/files/taxonomy/price-inventory/disclosures via etsy_verify against the certified listing, re-run release gates, then call activate with the owner's authorisation; wire images per F-524",
+   "defect": null,
+   "next_action": "owner gate publication_authority: store.activate built with revalidated authority; going live is the owner's grant + phase change",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s6",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -25116,13 +25182,13 @@
    "title": "Draft-to-Live Activation Gate",
    "version": "v0.16",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: store.publish enforces shadow refusal, credentials/authority, creative parity, certified-PDF hash, search-grid tournament and release-chain gates before creatin",
-    "defect recorded: store.publish passes no image bytes to client.publish, so every draft it would create cannot be activated"
+    "owner gate 'publication_authority'",
+    "coverage PARTIAL: store.publish enforces shadow refusal, credentials/authority, creative parity, certified-PDF hash, search-grid tournament and release-chain gates before creatin"
    ],
    "wave": [
     {
@@ -25683,12 +25749,15 @@
    "consumer": "src/brambleloop/support/service.py::service_level",
    "protected_effect": "separate canonical (5 min) and escalated (24 h) targets with a 90% floor",
    "tests": [
-    "tests/test_cert_growth_ops.py::test_support_reply_times_the_case_and_refuses_a_gating_draft"
+    "tests/test_cert_growth_ops.py::test_support_reply_times_the_case_and_refuses_a_gating_draft",
+    "tests/test_fb4_ops.py::test_a_buyer_message_unanswered_for_30_hours_is_an_owner_action_and_an_incident",
+    "tests/test_fb4_ops.py::test_the_owner_intake_route_requires_the_operator_credential"
    ],
    "evidence": [
     "src/brambleloop/runtime/release.py::handle_support_reply -> _check_and_time_reply",
     "src/brambleloop/support/service.py TARGETS/SERVICE_FLOOR",
-    "research/ETSY_SURFACE_REGISTRY.md row 3 messages OWNER_ONLY (no API) and owner action 14 (notification inbox)"
+    "research/ETSY_SURFACE_REGISTRY.md row 3 messages OWNER_ONLY (no API) and owner action 14 (notification inbox)",
+    "w4-FM close on 8b67414 (REGATE): support/response_watch (fb4-OPS) times buyer messages from the owner's opsauth intake; Etsy exposes no conversation API"
    ],
    "build2_rows": [
     "#18 DATA-GATED"
@@ -25696,12 +25765,12 @@
    "gate": {
     "kind": "external",
     "key": "no_messages_api",
-    "detail": "Etsy exposes no conversation API; the owner must confirm message notifications reach a read inbox (registry owner action 14)"
+    "detail": "SLA watch + opsauth owner intake built (fb4-OPS); Etsy exposes no conversation API"
    },
-   "defect": "SupportCase rows have no ingestion path from Etsy messages; SLA timing starts at case creation and ends at draft_ready, which is not a buyer-facing response.",
-   "next_action": "Add an owner-facing case-intake route (POST /api/support/case with received_at from the Etsy message) and a support.sla cadence that flags cases approaching Etsy's and the internal target before breach; record the owner action for notification routing in OwnerAction.",
+   "defect": null,
+   "next_action": "external gate no_messages_api: SLA watch + opsauth owner intake built (fb4-OPS); Etsy exposes no conversation API",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -25709,13 +25778,13 @@
    "title": "Message SLA Engine",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: No Etsy message source (no messaging API), so first-message clocks of real buyer threads are not tracked; Etsy customer-service standard vs internal target not ",
-    "defect recorded: SupportCase rows have no ingestion path from Etsy messages; SLA timing starts at case creation and ends at draft_ready, which is not a buyer-facing response."
+    "external gate 'no_messages_api'",
+    "coverage PARTIAL: No Etsy message source (no messaging API), so first-message clocks of real buyer threads are not tracked; Etsy customer-service standard vs internal target not "
    ]
   },
   {
@@ -25774,19 +25843,22 @@
    "launch_class_reason": "Order truth (payment, version delivered, refund state, accounting evidence) is required to serve and remedy the first buyer.",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Ingest records order, version and a sale ledger line; payment (getPayments/ledger entries), digital delivery state, buyer issue linkage, cancellation/case state and actual Etsy fees are not reconciled.",
+   "missing_part": "no real receipt, payment or ledger entry has been read: ingestion needs the owner's transactions_r grant",
    "producer": "src/brambleloop/commerce/orders_ingest.py::ingest",
    "durable_state": "orders, customers, order_versions, ledger",
    "consumer": "src/brambleloop/commerce/order_readings.py::read",
    "protected_effect": "no order invented; UNMEASURED with reason while gated; idempotent per receipt:transaction",
    "tests": [
     "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
-    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+    "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest",
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed"
    ],
    "evidence": [
     "src/brambleloop/runtime/orders.py::handle_orders_ingest (6-hourly cadence orders_ingest)",
     "commerce/orders_ingest.py not in production fcb982d",
-    "transactions_r not granted (BUILD_STATE, ETSY_SURFACE_REGISTRY Finding 1)"
+    "transactions_r not granted (BUILD_STATE, ETSY_SURFACE_REGISTRY Finding 1)",
+    "w4-FM close on 8b67414 (REMAP): commerce/orders_ingest reads Etsy's payment-account ledger (orders_ingest.py:262-277) so charged fees replace the model and fees_basis says which; cancelled / refunded receipts are voided not deleted; refund reasons kept; buyer issues join through support/workspace. The defect (modelled fees stored as charged, refund boolean) is repaired (fees_basis, VOIDED_STATES, refund_reasons). No real receipt has been read"
    ],
    "build2_rows": [
     "#11 OWNER-GATED",
@@ -25796,12 +25868,12 @@
    "gate": {
     "kind": "owner",
     "key": "transactions_r",
-    "detail": "owner must re-authorise the Etsy app with transactions_r (6 minutes)"
+    "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
    },
-   "defect": "Ledger fees on each sale line are pricing.fees() model output (known incomplete: offsite/regulatory/currency unmodelled) stored as if charged; refund is a boolean only.",
-   "next_action": "Add Payment/ledger-entry reads (getShopPaymentByReceiptId) to EtsyReceiptReader and store actual fees, refund/cancel status and payment id on the order; mark modelled fees basis=modelled until replaced.",
+   "defect": null,
+   "next_action": "owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from real rows",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REMAP)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -25809,13 +25881,13 @@
    "title": "Order Operations Ledger",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Ingest records order, version and a sale ledger line; payment (getPayments/ledger entries), digital delivery state, buyer issue linkage, cancellation/case state",
-    "defect recorded: Ledger fees on each sale line are pricing.fees() model output (known incomplete: offsite/regulatory/currency unmodelled) stored as if charged; refund is a boole"
+    "owner gate 'transactions_r'",
+    "coverage PARTIAL: no real receipt, payment or ledger entry has been read: ingestion needs the owner's transactions_r grant"
    ],
    "wave": [
     {
@@ -26225,18 +26297,23 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "Marketplace compliance.",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "A created listing that vanished or changed state opens a halting P1 'policy_violation_suspected:<id>' with source_text, deadline (+2d), remediation_owner and closure_evidence, and reopens the owner's policy_violations_check. Missing: an owner route to record an actual Policy Violations item (source text, affected listing/action, deadline) since Etsy has no API; severity is flat P1 (not ranked); no legal-escalation path.",
-   "producer": "src/brambleloop/runtime/etsy_ops.py::handle_listing_census",
-   "durable_state": "incidents policy_violation_suspected:<id>; owner_actions",
-   "consumer": "incidents (halts_publication); owner queue",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/commerce/policy_violations.py::apply_observation / escalate_overdue",
+   "durable_state": "incidents policy_violation:*; owner_actions",
+   "consumer": "POST /api/etsy/shop-observation (page=policy_violations) and GET /api/etsy/policy-violations (commerce/estate_api, app/main.py); runtime/etsy_ops census -> escalate_overdue",
    "protected_effect": "suspected takedowns halt publication until a person reads Policy Violations",
    "tests": [
+    "tests/test_etsy_readback_observe.py::test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves",
     "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
-    "tests/test_etsy_readback_observe.py::test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves"
+    "tests/test_k8_shop_cx.py::test_a_violation_past_its_deadline_is_restated_overdue_with_an_owner_action",
+    "tests/test_k8_shop_cx.py::test_policy_violation_items_become_ranked_incidents_with_escalation_and_closure_proof",
+    "tests/test_k8_shop_cx.py::test_routes_guard_customer_content_and_writes_with_the_operator_credential",
+    "tests/test_w3_laura_cc_providers.py::test_k8_estate_routes_are_mounted_and_customer_data_is_operator_only"
    ],
    "evidence": [
-    "grep policy.violation app/main.py: no route"
+    "grep policy.violation app/main.py: no route",
+    "w4-FM close on 8b67414 (FOLD): the owner-intake half the claim left to W1 is mounted: commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential); commerce/policy_violations ranks P0/P1/P2, sets deadline, remediation owner, legal-review owner action and closure proof; census escalates overdue items"
    ],
    "build2_rows": [],
    "gate": {
@@ -26247,7 +26324,7 @@
    "defect": null,
    "next_action": "Add POST /api/policy-violation (ops-token) creating an Incident 'policy_violation:<id>' with source_text, listing_id, action, deadline, severity (ranked by Etsy action: removal/suspension > warning) and required closure_evidence; legal escalation flag; test that closure without evidence is refused.",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -26255,13 +26332,11 @@
    "title": "Policy Violation Incident System",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: A created listing that vanished or changed state opens a halting P1 'policy_violation_suspected:<id>' with source_text, deadline (+2d), remediation_owner and cl"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "B",
@@ -26625,12 +26700,14 @@
    "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
    "protected_effect": "payout is an owner request; software never receives bank details",
    "tests": [
-    "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for",
-    "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked"
+    "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
+    "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked",
+    "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for"
    ],
    "evidence": [
     "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True (assess_shop)",
-    "research/ETSY_SURFACE_REGISTRY.md row 17 payment_settings OWNER_ONLY; owner action 2"
+    "research/ETSY_SURFACE_REGISTRY.md row 17 payment_settings OWNER_ONLY; owner action 2",
+    "w4-FM close on 8b67414 (REGATE): the daily shop snapshot judges is_etsy_payments_onboarded and reopens the owner action on drift"
    ],
    "build2_rows": [
     "#54 OWNER-GATED"
@@ -26638,12 +26715,12 @@
    "gate": {
     "kind": "owner",
     "key": "payout",
-    "detail": "owner completes Etsy Payments onboarding in a browser"
+    "detail": "drift monitor built; owner completes Etsy Payments onboarding"
    },
-   "defect": "assess_shop's payments-onboarded check is tested but never fed a getShop reading.",
-   "next_action": "Add a daily etsy.shop_snapshot cadence calling EtsyClient.get_shop (API key only), storing the response, running etsy_surfaces.assess_shop and closing the payout OwnerAction on is_etsy_payments_onboarded=true / opening an incident if it flips false.",
+   "defect": null,
+   "next_action": "owner gate payout: drift monitor built; owner completes Etsy Payments onboarding",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -26651,13 +26728,13 @@
    "title": "Payment Settings Guard",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Drift monitoring of payment onboarding (getShop is_etsy_payments_onboarded via assess_shop) is not run at runtime; no code path can change payout details (none ",
-    "defect recorded: assess_shop's payments-onboarded check is tested but never fed a getShop reading."
+    "owner gate 'payout'",
+    "coverage PARTIAL: Drift monitoring of payment onboarding (getShop is_etsy_payments_onboarded via assess_shop) is not run at runtime; no code path can change payout details (none "
    ],
    "wave": [
     {
@@ -26962,21 +27039,24 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "Vacation mode / currency drift silently stops every sale.",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "Daily getShop snapshot is stored and judged (vacation, CAD currency, payments onboarded, policies, digital listing) with halting incidents and owner-action closure on evidence. Options not exposed by getShop (browser-only Settings > Options controls) have no registry of current value / owner authority / desired state and no drift detection; readiness has no shop-snapshot freshness item.",
-   "producer": "src/brambleloop/runtime/etsy_ops.py::handle_shop_snapshot (intel/etsy_surfaces.py::assess_shop)",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/commerce/shop_options.py::evaluate",
    "durable_state": "operating_readings (shop snapshot); incidents etsy.shop:*",
-   "consumer": "incidents (halts_publication); owner_actions",
+   "consumer": "runtime/etsy_ops.handle_shop_snapshot (daily cadence) -> incident etsy.shop:options_drift; POST /api/etsy/shop-observation",
    "protected_effect": "vacation/currency/payments drift halts publication",
    "tests": [
-    "tests/test_etsy_readback_observe.py::test_vacation_mode_and_a_foreign_currency_open_halting_incidents",
-    "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
     "tests/test_etsy_readback_observe.py::test_no_credentials_means_no_reading_not_an_empty_shop",
-    "tests/test_etsy_surfaces.py::test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green"
+    "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
+    "tests/test_etsy_readback_observe.py::test_vacation_mode_and_a_foreign_currency_open_halting_incidents",
+    "tests/test_etsy_surfaces.py::test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green",
+    "tests/test_k8_shop_cx.py::test_an_observation_must_be_dated_complete_and_shaped",
+    "tests/test_k8_shop_cx.py::test_options_registry_judges_api_controls_and_reports_browser_only_as_unobserved"
    ],
    "evidence": [
     "runtime/worker.py cadence etsy_shop_snapshot 24h",
-    "not in fcb982d -> not DEPLOYED"
+    "not in fcb982d -> not DEPLOYED",
+    "w4-FM close on 8b67414 (FOLD): commerce/shop_options.evaluate judges 8 controls (value, desired state, consequence, authority) inside the daily etsy.shop_snapshot and detects DRIFT/CHANGED/label changes; the browser-only half is the owner's dated observation through commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential)"
    ],
    "build2_rows": [],
    "gate": {
@@ -26987,7 +27067,7 @@
    "defect": null,
    "next_action": "Add an Options registry (intel/etsy_surfaces.py) listing every Settings > Options control with desired value, consequence and authority, an owner attestation route storing observed values with date, staleness-based re-audit owner action, and a readiness item requiring a fresh shop snapshot.",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -26995,13 +27075,11 @@
    "title": "Shop Options Registry",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: Daily getShop snapshot is stored and judged (vacation, CAD currency, payments onboarded, policies, digital listing) with halting incidents and owner-action clos"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "B",
@@ -27278,21 +27356,25 @@
    "uid": "F-592",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "OAuth credential integrity guards shop writes (authority controls, runtime durability).",
-   "maturity": "DEPLOYED",
-   "coverage": "PARTIAL",
-   "missing_part": "No continuous verification cadence (health does not read OAuth state), no callback-config or suspicious-authorisation monitor; connected apps/shared access are owner-only.",
-   "producer": "src/brambleloop/core/oauth_store.py (rotation / sealed refresh token)",
-   "durable_state": "oauth_credentials",
-   "consumer": "src/brambleloop/app/main.py::/api/etsy/oauth/status",
+   "maturity": "INTEGRATED",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/commerce/shop_security.py::posture",
+   "durable_state": "oauth_credentials; operating_readings etsy.credential_health",
+   "consumer": "runtime/etsy_ops.handle_credential_health (daily cadence) -> incident etsy.security:posture; GET /api/etsy/oauth/status",
    "protected_effect": "tokens sealed, never echoed; rotation race refused",
    "tests": [
+    "tests/test_continuity.py::test_token_health_never_reveals_the_token",
     "tests/test_etsy_oauth_callback.py::test_a_rotation_replaces_the_stored_token_and_counts_itself",
     "tests/test_etsy_oauth_callback.py::test_a_rotation_that_lost_a_race_is_refused_rather_than_overwriting_a_live_token",
-    "tests/test_continuity.py::test_token_health_never_reveals_the_token"
+    "tests/test_k8_shop_cx.py::test_an_empty_apps_reading_closes_its_owner_action_and_a_listed_app_reopens_it",
+    "tests/test_k8_shop_cx.py::test_credential_health_carries_the_posture_and_opens_its_incident",
+    "tests/test_k8_shop_cx.py::test_security_posture_flags_unexpected_scopes_and_a_credential_replaced_outside_refresh"
    ],
    "evidence": [
     "research/OAUTH_SECURITY_AUDIT.md",
-    "/api/etsy/oauth/status present in fcb982d; real grant recorded 2026-09-25 (BUILD_STATE)"
+    "/api/etsy/oauth/status present in fcb982d; real grant recorded 2026-09-25 (BUILD_STATE)",
+    "w4-FM close on 8b67414 (FOLD): commerce/shop_security.posture runs inside the daily etsy.credential_health (runtime/etsy_ops._security_posture): scope drift, credential replaced outside a refresh, rotation age, callback config; apps and shared-access readings come from the owner's dated observation through commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential); never echoes credentials"
    ],
    "build2_rows": [],
    "gate": {
@@ -27303,21 +27385,19 @@
    "defect": null,
    "next_action": "Add an OAuth health reading to ops/health.read (token age, rotations, granted scopes vs expected, last refresh outcome) and open an Incident on unexpected scope/key-fingerprint change.",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s7",
-   "maturity_claimed": "DEPLOYED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-592",
    "title": "Shop Security Posture",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: No continuous verification cadence (health does not read OAuth state), no callback-config or suspicious-authorisation monitor; connected apps/shared access are "
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-593",
@@ -27389,15 +27469,17 @@
    "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
    "protected_effect": "launch never ready in shadow; off-device proof, rollback rehearsal, disclosures, support knowledge, FAQ, pricing plan block",
    "tests": [
-    "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
-    "tests/test_launch.py::test_etsy_is_reported_as_written_but_never_called",
     "tests/test_cert_growth_ops.py::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate",
-    "tests/test_first_customer_gate.py::test_the_gate_never_authorises_publication_however_green_it_gets"
+    "tests/test_etsy_readback_observe.py::test_etsy_integration_turns_ready_only_on_a_live_full_round_trip_with_nothing_left",
+    "tests/test_first_customer_gate.py::test_the_gate_never_authorises_publication_however_green_it_gets",
+    "tests/test_launch.py::test_etsy_is_reported_as_written_but_never_called",
+    "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready"
    ],
    "evidence": [
     "readiness._launch_package_items is post-fcb982d",
     "src/brambleloop/integrations/etsy_exercise.py (prepared, not run: BUILD_STATE 'Nothing has been exercised against Etsy')",
-    "gates/first_customer.py reached=False"
+    "gates/first_customer.py reached=False",
+    "w4-FM close on 8b67414 (REGATE): launch/readiness reads _etsy_exercise_evidence (readiness.py:611-623) instead of a hard-coded False"
    ],
    "build2_rows": [
     "#54 OWNER-GATED",
@@ -27405,13 +27487,13 @@
    ],
    "gate": {
     "kind": "owner",
-    "key": "etsy_exercise",
-    "detail": "owner authorises the one controlled round trip; also transactions_r and production_window"
+    "key": "etsy_api",
+    "detail": "readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains"
    },
-   "defect": "readiness 'etsy_integration' is hard-coded ready=False / ever_called=False instead of reading exercise breadcrumbs, so it cannot turn green after a real round trip.",
-   "next_action": "Make the etsy_integration item read etsy_exercise audit breadcrumbs (create/verify/delete matched pair); add items for exact file verification (F-559) and search readiness (taxonomy 66 confirmed, tags, SEO score); call gates/first_customer from launch.readiness.",
+   "defect": null,
+   "next_action": "owner gate etsy_api: readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -27419,13 +27501,13 @@
    "title": "First-Sale Readiness Gate",
    "version": "v0.17",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Remote Etsy write/read/delete proof is never recorded (etsy_integration hard-coded not ready; etsy_exercise prepared, never run); exact customer file verificati",
-    "defect recorded: readiness 'etsy_integration' is hard-coded ready=False / ever_called=False instead of reading exercise breadcrumbs, so it cannot turn green after a real round t"
+    "owner gate 'etsy_api'",
+    "coverage PARTIAL: Remote Etsy write/read/delete proof is never recorded (etsy_integration hard-coded not ready; etsy_exercise prepared, never run); exact customer file verificati"
    ],
    "wave": [
     {
@@ -28000,34 +28082,38 @@
    "launch_class_reason": "Pricing/economics integrity: missing data must never read as zero.",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Books report sales UNMEASURED (None + why) unless the order source is open and was read; Etsy fee entries without a matching internal order open an idempotent reconciliation incident. Missing: reconciliation against Payment Account payouts / monthly statements and future accounting integrations; reverse check (internal order with no ledger entry after N days); no independent 'Accountant' role output beyond these.",
-   "producer": "src/brambleloop/finance/books.py::Books.profit_and_loss; src/brambleloop/finance/reconcile.py::reconciliation_incident; src/brambleloop/commerce/orders_ingest.py::source_state",
+   "missing_part": "no bank, Etsy payment-ledger or processor statement has been imported; reconciliation runs on fixtures only",
+   "producer": "src/brambleloop/finance/accounting/reconciliation.py::match / compare_with_books",
    "durable_state": "ledger/orders tables; incidents finance.reconciliation.etsy_vs_orders",
-   "consumer": "app/main.py::api_finance; runtime/pipeline.py plan.strategy / finance.* handlers",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence) -> finance/accounting/controller",
    "protected_effect": "no CA$0.00 / 'no orders' claims while the order source is closed",
    "tests": [
+    "tests/test_deploy.py::test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast",
     "tests/test_finance.py::test_sales_are_unmeasured_not_zero_while_the_order_source_is_closed",
-    "tests/test_money_truth.py::test_the_books_measure_sales_only_after_a_connected_source_was_read",
     "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
-    "tests/test_deploy.py::test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast"
+    "tests/test_money_truth.py::test_the_books_measure_sales_only_after_a_connected_source_was_read",
+    "tests/test_v11_accounting_controller.py::test_the_cycle_runs_as_a_worker_job",
+    "tests/test_v11_accounting_reconciliation.py::test_charged_fee_that_disagrees_with_the_books_is_a_mismatch",
+    "tests/test_v11_accounting_reconciliation.py::test_payout_matches_bank_deposit_and_unmatched_lines_become_exceptions"
    ],
    "evidence": [
     "waves/fb1_D.json F-608; FB-2 O (3b540fa) orders/refund truth",
     "finance/reconcile.py not in fcb982d -> not DEPLOYED",
-    "previous defect (zero-as-truth pinned by test_an_empty_business_reports_zeroes_rather_than_nothing) resolved: that test no longer exists; replaced by unmeasured tests"
+    "previous defect (zero-as-truth pinned by test_an_empty_business_reports_zeroes_rather_than_nothing) resolved: that test no longer exists; replaced by unmeasured tests",
+    "w4-FM close on 8b67414 (REMAP): finance/accounting/reconciliation imports bank / Etsy-ledger / processor statements, matches payouts to deposits, raises unmatched lines and charged-fee mismatches as exceptions and compares with the books (compare_with_books); the Accountant cycle runs every 6 h (runtime/worker.py:731 finance.accounting.cycle). No real statement feed is connected"
    ],
    "build2_rows": [
     "#11 OWNER-GATED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "transactions_r",
-    "detail": "reverse check and payout reconciliation are buildable now; real data needs owner reauthorisation with transactions_r"
+    "kind": "owner",
+    "key": "bank_and_payment_ledger_feed",
+    "detail": "a real bank / Etsy payment-ledger feed needs the owner"
    },
    "defect": null,
-   "next_action": "Add finance/reconcile.py checks: internal order without a ledger fee/sale entry after 3 days -> incident; payouts (getPaymentAccountLedgerEntries) vs recorded sales-minus-fees per period -> incident on disagreement, UNKNOWN when unread; tests for each disagreement and for unread = UNKNOWN.",
+   "next_action": "owner gate bank_and_payment_ledger_feed: connect or export the statements; reconciliation then runs on them",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REMAP)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -28035,12 +28121,13 @@
    "title": "Independent Accountant",
    "version": "v0.18",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Books report sales UNMEASURED (None + why) unless the order source is open and was read; Etsy fee entries without a matching internal order open an idempotent r"
+    "owner gate 'bank_and_payment_ledger_feed'",
+    "coverage PARTIAL: no bank, Etsy payment-ledger or processor statement has been imported; reconciliation runs on fixtures only"
    ],
    "wave": [
     {
@@ -28057,18 +28144,23 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "Economics integrity requires every money row to be sourced and reconcilable from the first sale.",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "LedgerEntry lacks source, currency, original amount, classification beyond category and reconciliation state; AI spend is in cost_entries (separate); payouts/owner funding/adjustments/subscriptions have no writers.",
-   "producer": "src/brambleloop/commerce/orders_ingest.py::_record_line",
-   "durable_state": "ledger, cost_entries, orders (currency, fx)",
-   "consumer": "src/brambleloop/finance/books.py::Books.profit_and_loss",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/finance/accounting/posting_rules.py",
+   "durable_state": "acct_journal_entries, acct_postings, ledger",
+   "consumer": "finance.accounting.cycle (runtime/worker.py cadence) -> finance/accounting/controller",
    "protected_effect": null,
    "tests": [
     "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
-    "tests/test_finance.py::test_operating_cost_is_read_from_real_agent_spend"
+    "tests/test_finance.py::test_operating_cost_is_read_from_real_agent_spend",
+    "tests/test_v11_accounting_ledger.py::test_a_correction_is_a_reversal_plus_a_new_version_never_an_edit",
+    "tests/test_v11_accounting_ledger.py::test_assumed_fx_is_posted_as_modelled_not_measured",
+    "tests/test_v11_accounting_ledger.py::test_entries_are_idempotent_by_key_and_balanced_to_the_micro",
+    "tests/test_v11_accounting_ledger.py::test_raw_sql_tampering_is_detected_by_the_seal"
    ],
    "evidence": [
-    "src/brambleloop/core/models.py::LedgerEntry (at, category, description, gross/fees/refunds/expense, evidence_ref)"
+    "src/brambleloop/core/models.py::LedgerEntry (at, category, description, gross/fees/refunds/expense, evidence_ref)",
+    "w4-FM close on 8b67414 (REMAP): LedgerEntry now carries source, currency, basis and fees_basis (core/models.py LedgerEntry; modelled fees marked modelled, orders_ingest.py:964); the v1.1 journal (finance/accounting/models AcctJournalEntry/AcctPosting) carries source table/id/ref, per-line basis, currency and amount_original, sealed append-only with reversals; spend and statement lines post into it (posting_rules). The defect (modelled fees read as charged) is repaired"
    ],
    "build2_rows": [
     "#269 COMPLETE+PROVEN"
@@ -28078,10 +28170,10 @@
     "key": "transactions_r",
     "detail": "sales rows need orders"
    },
-   "defect": "Sale ledger fees_cad are modelled pricing.fees() values (unmodelled offsite/regulatory/currency fees omitted) stored without a basis flag, so they read as charged fees.",
+   "defect": null,
    "next_action": "Add ledger columns source, external_id, currency, amount_original, classification and reconciliation_state (additive migration), set basis=modelled for fee estimates, and write owner-funding/subscription rows from recorded owner inputs.",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REMAP)",
    "slice": "s7",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -28089,14 +28181,11 @@
    "title": "Auditable Ledger",
    "version": "v0.18",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
-   "protected_action_applicability": "protected",
-   "protected_action_basis": "title/producer/consumer names 'order'",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: LedgerEntry lacks source, currency, original amount, classification beyond category and reconciliation state; AI spend is in cost_entries (separate); payouts/ow",
-    "defect recorded: Sale ledger fees_cad are modelled pricing.fees() values (unmodelled offsite/regulatory/currency fees omitted) stored without a basis flag, so they read as charg"
-   ],
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+   "protected_action_applicability": "unprotected",
+   "protected_action_basis": "no protected_effect and no protected action named",
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "D",
@@ -30119,14 +30208,15 @@
    "consumer": "src/brambleloop/visual/parity.py::assess (read by store.publish)",
    "protected_effect": "no uncertified image reaches a listing",
    "tests": [
-    "tests/test_owned_photography.py::test_the_prompt_is_derived_from_the_certified_pattern",
     "tests/test_owned_photography.py::test_it_is_an_illustration_and_it_says_so_everywhere",
+    "tests/test_owned_photography.py::test_the_prompt_is_derived_from_the_certified_pattern",
     "tests/test_parity.py::test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it"
    ],
    "evidence": [
     "research/VISUAL_V1_GRADUATION.md (NOT LOCKED)",
     "research/final_build/module_reachability.json: visual/yarn, drape, crochet_topology, pbr_scene, final_standard reached=False",
-    "R&D only: git show 035ff0c:brambleloop/research/visual_v2/README.md (deterministic render + protected composition, no certified image)"
+    "R&D only: git show 035ff0c:brambleloop/research/visual_v2/README.md (deterministic render + protected composition, no certified image)",
+    "w4-FM close on 8b67414 (REGATE): the generative-redraw direction is refused in every role (F-852: publish/eligibility.py:449, visual/product_authority.py); the protected photoreal stage is R&D (D-FB-7) awaiting provider capability"
    ],
    "build2_rows": [
     "#63 COMPLETE+PROVEN",
@@ -30135,13 +30225,13 @@
    ],
    "gate": {
     "kind": "external",
-    "key": "model_bearing_render / image generation fidelity",
-    "detail": "no provider has rendered a certified structure faithfully; B+C direction removes the dependency for the product region"
+    "key": "visual_v1_provider_capability",
+    "detail": "generative redraw refused (F-852); B+C photoreal stays R&D, not launch-critical under D-FB-7"
    },
-   "defect": "runtime path is the superseded generative-redraw direction",
-   "next_action": "Integrate the B+C route (F-851): deterministic product render from CIR + protected composition as a new assets job reached from the model/owned photography cadence, with structural and photographic gates as separate floors; port V2 R&D verify_probe checks into tests.",
+   "defect": null,
+   "next_action": "external gate visual_v1_provider_capability: generative redraw refused (F-852); B+C photoreal stays R&D, not launch-critical under D-FB-7",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -30151,13 +30241,13 @@
    "title": "Visual Pipeline",
    "version": "v0.19",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Main-line runtime has no 3D -> conditioning -> photoreal stage: assets.owned_photography generates the product from a CIR-derived text prompt (the generative re",
-    "defect recorded: runtime path is the superseded generative-redraw direction"
+    "external gate 'visual_v1_provider_capability'",
+    "coverage PARTIAL: Main-line runtime has no 3D -> conditioning -> photoreal stage: assets.owned_photography generates the product from a CIR-derived text prompt (the generative re"
    ]
   },
   {
@@ -30223,13 +30313,14 @@
    "consumer": "src/brambleloop/visual/photoreal.py::gate",
    "protected_effect": "an image reading as a render or changing the product is refused",
    "tests": [
-    "tests/test_model_photography.py::test_a_frame_that_reads_as_generated_fails_even_when_everything_else_holds",
     "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
+    "tests/test_model_photography.py::test_a_frame_that_reads_as_generated_fails_even_when_everything_else_holds",
     "tests/test_provider_trial.py::test_clearing_the_blocker_while_losing_product_truth_is_not_a_win"
    ],
    "evidence": [
     "BUILD_STATE.md 'What was proved in production' (model_photography live runs)",
-    "research/VISUAL_BENCH2.md 0 of 7; VISUAL_V1_GRADUATION.md 0 of 16"
+    "research/VISUAL_BENCH2.md 0 of 7; VISUAL_V1_GRADUATION.md 0 of 16",
+    "w4-FM close on 8b67414 (REGATE): generative product redraw refused (F-852); protected-region enhancement waits on provider fidelity at stitch scale"
    ],
    "build2_rows": [
     "#72 EXTERNAL-BLOCKED",
@@ -30239,12 +30330,12 @@
    "gate": {
     "kind": "external",
     "key": "model_bearing_render",
-    "detail": "provider fidelity at stitch scale"
+    "detail": "F-852 refusal; protected-region enhancement waits on V2/provider fidelity"
    },
-   "defect": "generative product redraw is the superseded default (F-852)",
-   "next_action": "Restrict generation to background/material enhancement around a protected product region (F-855) once F-674 B+C route exists; add a test that product-region pixels are unchanged after enhancement.",
+   "defect": null,
+   "next_action": "external gate model_bearing_render: F-852 refusal; protected-region enhancement waits on V2/provider fidelity",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -30254,13 +30345,13 @@
    "title": "AI Photography",
    "version": "v0.19",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Generation runs in production with realism, asset-truth and motif-fidelity floors, but no generated product image has passed; generation redraws the whole produ",
-    "defect recorded: generative product redraw is the superseded default (F-852)"
+    "external gate 'model_bearing_render'",
+    "coverage PARTIAL: Generation runs in production with realism, asset-truth and motif-fidelity floors, but no generated product image has passed; generation redraws the whole produ"
    ]
   },
   {
@@ -30785,33 +30876,37 @@
    "launch_class_reason": "customer support/remedy and order truth for the first sale",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "Support triage (desk routing, escalation, never sends in shadow, version-aware) and order ingest exist; there is no Etsy message/review/refund ingestion path in production, no CX workspace, and orders_ingest needs transactions_r. /api/support serves customer question text without authentication.",
-   "producer": "src/brambleloop/support/service.py",
+   "missing_part": "Etsy exposes no conversation API: buyer messages reach the workspace only through the owner's intake",
+   "producer": "src/brambleloop/support/workspace.py::workspace",
    "durable_state": "support_cases, orders, customers",
-   "consumer": "src/brambleloop/runtime/release.py (support.triage handler)",
+   "consumer": "GET /api/cx/workspace (commerce/estate_api, operator credential); support.triage mine_cases -> workspace summary",
    "protected_effect": "no reply is sent in shadow; legal/privacy always escalate",
    "tests": [
+    "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
     "tests/test_departments.py::test_legal_and_privacy_always_escalate",
     "tests/test_departments.py::test_nothing_is_ever_sent_in_shadow_mode",
     "tests/test_departments.py::test_support_will_not_answer_without_knowing_which_version",
-    "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader"
+    "tests/test_k8_shop_cx.py::test_support_mining_carries_the_workspace_summary",
+    "tests/test_k8_shop_cx.py::test_the_workspace_joins_messages_orders_reviews_and_refunds_per_buyer",
+    "tests/test_w3_laura_cc_providers.py::test_k8_estate_routes_are_mounted_and_customer_data_is_operator_only"
    ],
    "evidence": [
-    "src/brambleloop/app/main.py:595 api_support (no opsauth)"
+    "src/brambleloop/app/main.py:595 api_support (no opsauth)",
+    "w4-FM close on 8b67414 (FOLD): support/workspace.workspace joins messages, orders, reviews, refunds, risks and upstream fixes per buyer; the operator view the claim left to W1 is served at GET /api/cx/workspace (operator credential, app/main.py:776 CUSTOMER_DATA_ROUTES); the recorded defect (unauthenticated /api/support) is repaired (test_customer_data_auth). Etsy has no messages API, so messages enter through the owner intake (F-556 gate)"
    ],
    "build2_rows": [
     "#18 DATA-GATED",
     "#41 DATA-GATED"
    ],
    "gate": {
-    "kind": "owner",
-    "key": "transactions_r",
-    "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
+    "kind": "external",
+    "key": "no_messages_api",
+    "detail": "Etsy exposes no conversation API"
    },
-   "defect": "customer message text exposed on unauthenticated /api/support",
-   "next_action": "Put /api/support (and any customer-bearing read) behind opsauth; build a CX workspace joining SupportCase, Order, reviews, refunds; test the endpoint refuses without the operator credential.",
+   "defect": null,
+   "next_action": "external gate no_messages_api: ingest messages when Etsy exposes them; until then the owner intake (F-556) feeds the workspace",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s8",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -30819,13 +30914,13 @@
    "title": "Customer Workspace",
    "version": "v0.19",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Support triage (desk routing, escalation, never sends in shadow, version-aware) and order ingest exist; there is no Etsy message/review/refund ingestion path in",
-    "defect recorded: customer message text exposed on unauthenticated /api/support"
+    "external gate 'no_messages_api'",
+    "coverage PARTIAL: Etsy exposes no conversation API: buyer messages reach the workspace only through the owner's intake"
    ],
    "wave": [
     {
@@ -32822,28 +32917,29 @@
    "consumer": "src/brambleloop/visual/freeze.py::reference_paths",
    "protected_effect": "only hash-verified approved bytes are handed to renderers",
    "tests": [
-    "tests/test_model_freeze.py::test_the_freeze_pins_every_reference_by_hash",
-    "tests/test_model_freeze.py::test_reference_paths_hands_out_only_files_that_hash_to_the_pinned_bytes",
     "tests/test_asset_manifest.py::test_exactly_one_asset_is_the_approved_face",
-    "tests/test_cert_identity.py::test_the_approved_pack_fingerprint_is_unknown_not_invented"
+    "tests/test_cert_identity.py::test_the_approved_pack_fingerprint_is_unknown_not_invented",
+    "tests/test_model_freeze.py::test_reference_paths_hands_out_only_files_that_hash_to_the_pinned_bytes",
+    "tests/test_model_freeze.py::test_the_freeze_pins_every_reference_by_hash"
    ],
    "evidence": [
     "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack",
-    "research/BUILD2_CLOSEOUT_REPORT.md I"
+    "research/BUILD2_CLOSEOUT_REPORT.md I",
+    "w4-FM close on 8b67414 (REGATE): visual/freeze.py leaves approved_pack_fingerprint None by design (its only copy is the production model.frozen audit row) and enforcement_proof compares it only when known -- recording it is the production approval row"
    ],
    "build2_rows": [
     "#73 COMPLETE+PROVEN",
     "#200 COMPLETE+PROVEN"
    ],
    "gate": {
-    "kind": "none",
-    "key": "none",
-    "detail": "no gate on the remaining software work"
+    "kind": "owner",
+    "key": "production_window",
+    "detail": "same as F-718: production approval row / OA-CANON-1"
    },
-   "defect": "approved pack fingerprint recorded only in a production audit row (left None in code)",
-   "next_action": "After deploy, read the production approval row and record the pack fingerprint in MANIFEST.json; add provider conditioning-package records per provider.",
+   "defect": null,
+   "next_action": "owner gate production_window: same as F-718: production approval row / OA-CANON-1",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -32853,13 +32949,13 @@
    "title": "Canonical Asset Registry",
    "version": "v0.21",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Versioned ModelIdentity row, freeze with owner approval and replace_canonical exist; hash-pinned references, MANIFEST.json and hash-verified reference_paths are",
-    "defect recorded: approved pack fingerprint recorded only in a production audit row (left None in code)"
+    "owner gate 'production_window'",
+    "coverage PARTIAL: Versioned ModelIdentity row, freeze with owner approval and replace_canonical exist; hash-pinned references, MANIFEST.json and hash-verified reference_paths are"
    ]
   },
   {
@@ -32879,7 +32975,8 @@
     "tests/test_model_photography.py::test_nothing_in_the_sequence_is_averaged"
    ],
    "evidence": [
-    "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable"
+    "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable",
+    "w4-FM close on 8b67414 (REGATE): the product floor is refused for generated product imagery (F-852); a model-bearing frame clearing every floor needs provider capability"
    ],
    "build2_rows": [
     "#201 COMPLETE+PROVEN",
@@ -32888,12 +32985,12 @@
    "gate": {
     "kind": "external",
     "key": "model_bearing_render",
-    "detail": "no provider has rendered a model-bearing frame that clears all six floors (0/16, 0/7 certified); gate opens on a recorded passing assets.model_photography frame"
+    "detail": "no provider renders a model-bearing frame clearing every floor"
    },
-   "defect": "product-truth floor is an LLM vision proxy",
-   "next_action": "Add the deterministic structural floor (F-677 next action) to model frames.",
+   "defect": null,
+   "next_action": "external gate model_bearing_render: no provider renders a model-bearing frame clearing every floor",
    "confidence": "HIGH",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s8",
    "maturity_claimed": "EXERCISED",
    "adjudication": [
@@ -32903,13 +33000,13 @@
    "title": "Dual Truth Contract",
    "version": "v0.21",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: Both obligations are independent floors (plus realism, asset truth, styling), but the product floor is a vision-model motif-fidelity judgement against the chart",
-    "defect recorded: product-truth floor is an LLM vision proxy"
+    "external gate 'model_bearing_render'",
+    "coverage PARTIAL: Both obligations are independent floors (plus realism, asset truth, styling), but the product floor is a vision-model motif-fidelity judgement against the chart"
    ]
   },
   {
@@ -36169,21 +36266,28 @@
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "s84 correctness QA; incorrect technique imagery is customer-facing misinformation",
    "maturity": "INTEGRATED",
-   "coverage": "PARTIAL",
-   "missing_part": "visual correctness is enforced only as a required human-attested review dimension (visual_accuracy must be PASS; UNKNOWN withholds), labelled automated_truth_proof=false; no deterministic technique-diagram generator or loop/insertion-point verifier exists for lessons; note the public lesson route does not serve assets at all, so no lesson image can currently reach a customer",
-   "producer": "src/brambleloop/learn/service.py::review_lesson",
+   "coverage": "FULL",
+   "missing_part": null,
+   "producer": "src/brambleloop/learn/technique.py::render / read_drawing",
    "durable_state": "learn_lessons.reviews",
-   "consumer": "src/brambleloop/learn/service.py::eligible",
+   "consumer": "GET /learn/{slug}/technique/{stitch}.svg (learn/api.py, mounted in app/main.py); learn/service.validate_spec asset rules",
    "protected_effect": "no lesson is approved or linked unless a distinct reviewer attests visual accuracy for that exact revision",
    "tests": [
+    "tests/test_learn_launch.py::test_public_route_refuses_draft_and_stale_revision",
     "tests/test_learn_launch.py::test_unknown_visual_review_withholds_and_self_review_refused",
-    "tests/test_learn_launch.py::test_public_route_refuses_draft_and_stale_revision"
+    "tests/test_w3_k10_learn.py::test_f806_dc_diagram_drawn_as_sc_fails",
+    "tests/test_w3_k10_learn.py::test_f806_every_supported_diagram_verifies_and_is_deterministic",
+    "tests/test_w3_k10_learn.py::test_f806_human_visual_attestation_is_still_required",
+    "tests/test_w3_k10_learn.py::test_f806_lesson_assets_refuse_photos_generic_images_and_other_stitch_diagrams",
+    "tests/test_w3_k10_learn.py::test_f806_public_route_serves_only_verified_declared_diagram",
+    "tests/test_w3_k10_learn.py::test_f806_wrong_insertion_point_wrong_post_and_orientation_fail"
    ],
    "evidence": [
     "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
     "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
     "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
-    "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+    "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+    "w4-FM close on 8b67414 (FOLD): learn/technique renders a deterministic diagram per supported stitch and read_drawing verifies loops, insertion point, post and orientation; GET /learn/{slug}/technique/{stitch}.svg (learn/api.py:143) re-renders and verifies before serving (fail-closed 404); lesson assets refuse photos, generic images and another stitch's diagram. The human attestation remains an additional floor, no longer the only evidence -- the recorded proxy defect is repaired"
    ],
    "build2_rows": [],
    "gate": {
@@ -36191,10 +36295,10 @@
     "key": "",
     "detail": "remaining work is software"
    },
-   "defect": "proxy: visual truth rests on human attestation, honestly labelled (automated_truth_proof=false) but not measured",
+   "defect": null,
    "next_action": "Before lesson images are served: generate technique diagrams deterministically (extend visual/disclosed_render glyphs or visual/render.py loop targets per stitch) and verify them with visual/render_verification-style pixel checks; add a test that a dc diagram drawn as sc fails",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (FOLD)",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -36202,14 +36306,11 @@
    "title": "Technique Visual Truth",
    "version": "v0.24",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "coverage PARTIAL: visual correctness is enforced only as a required human-attested review dimension (visual_accuracy must be PASS; UNKNOWN withholds), labelled automated_truth_pr",
-    "defect recorded: proxy: visual truth rests on human attestation, honestly labelled (automated_truth_proof=false) but not measured"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-807",
@@ -38083,26 +38184,27 @@
    "consumer": "runtime/release.py::handle_assets_build",
    "protected_effect": "customer sees truthful disclosed render, not a photoreal claim",
    "tests": [
-    "tests/test_render.py::test_the_raster_is_deterministic_for_a_given_seed",
-    "tests/test_cert_hero_title_safe.py"
+    "tests/test_cert_hero_title_safe.py",
+    "tests/test_render.py::test_the_raster_is_deterministic_for_a_given_seed"
    ],
    "evidence": [
     "codex/visual-v2-rnd @ 035ff0c research/visual_v2/CURRENT_STATE.md + VISUAL_V2_ARCHITECTURE.md (R&D only, not on 019ebf0): B+C recommended; V2-P06 FAIL, V2-P07 structural UNKNOWN; composition preserved 12,008 opaque pixels",
-    "research/BUILD2_CERTIFICATION.md C-58 (hero render disclosure)"
+    "research/BUILD2_CERTIFICATION.md C-58 (hero render disclosure)",
+    "w4-FM close on 8b67414 (REGATE): V1 generative redraw is refused (F-852) on the main line; the B+C photoreal presentation waits on V2 provider capability (D-FB-7)"
    ],
    "build2_rows": [
     "#72 EXTERNAL-BLOCKED",
     "#300 EXTERNAL-BLOCKED"
    ],
    "gate": {
-    "kind": "none",
-    "key": "",
-    "detail": "remaining work is software"
+    "kind": "external",
+    "key": "visual_v1_provider_capability",
+    "detail": "V1 redraw refused; protected photoreal presentation waits on V2 R&D"
    },
-   "defect": "main-line photoreal path (publish/model_photography.py, owned_photography.py) is still generative product redraw (V1), contrary to the new default",
-   "next_action": "Integrate V2 as a separate module after R&D passes a topology-correct coupon: port research/visual_v2 compositor (C=aF+(1-a)B with preserved foreground) into src/brambleloop/visual/compose.py with pixel-preservation tests; keep V1 generation off the default path",
+   "defect": null,
+   "next_action": "external gate visual_v1_provider_capability: V1 redraw refused; protected photoreal presentation waits on V2 R&D",
    "confidence": "MEDIUM",
-   "searched": null,
+   "searched": " | w4-FM close on 8b67414 (REGATE)",
    "slice": "s9",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -38110,13 +38212,13 @@
    "title": "B+C Default",
    "version": "v1.0",
    "master_priority": null,
-   "mapped_on": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
+   "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
+   "completion": "GATED",
    "completion_reasons": [
-    "coverage PARTIAL: main line has the deterministic half only in 2D (twin/chart heroes disclosed as renders, visual/render.py fabric raster); protected photoreal presentation (C) a",
-    "defect recorded: main-line photoreal path (publish/model_photography.py, owned_photography.py) is still generative product redraw (V1), contrary to the new default"
+    "external gate 'visual_v1_provider_capability'",
+    "coverage PARTIAL: main line has the deterministic half only in 2D (twin/chart heroes disclosed as renders, visual/render.py fabric raster); protected photoreal presentation (C) a"
    ]
   },
   {

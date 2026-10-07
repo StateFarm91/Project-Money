@@ -1,5 +1,5 @@
 {
- "basis": "HEAD fee1cfe reachability; production fcb982d",
+ "basis": "HEAD 8b67414 reachability; production fcb982d",
  "modules": {
   "__init__.py": {
    "reached": false,
@@ -1057,8 +1057,8 @@
    "in_production_fcb982d": false
   },
   "finance/accounting/dashboard.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "summary is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/tal",
    "in_production_fcb982d": false
   },
   "finance/accounting/exceptions.py": {
@@ -1067,8 +1067,8 @@
    "in_production_fcb982d": false
   },
   "finance/accounting/forecast.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "forecast is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/ta",
    "in_production_fcb982d": false
   },
   "finance/accounting/guardrails.py": {
@@ -1982,8 +1982,8 @@
    "in_production_fcb982d": false
   },
   "learn/improvement_status.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "summary is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/tal",
    "in_production_fcb982d": false
   },
   "learn/metrics.py": {
@@ -2587,8 +2587,8 @@
    "in_production_fcb982d": false
   },
   "seo/constraints.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "snapshot is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/ta",
    "in_production_fcb982d": false
   },
   "seo/evidence.py": {
@@ -2612,8 +2612,8 @@
    "in_production_fcb982d": false
   },
   "seo/learning.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "funnel is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/talk",
    "in_production_fcb982d": false
   },
   "seo/measure.py": {
@@ -2637,13 +2637,13 @@
    "in_production_fcb982d": false
   },
   "seo/status.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "summary is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/tal",
    "in_production_fcb982d": false
   },
   "seo/strategy.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "plan is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/talk.p",
    "in_production_fcb982d": false
   },
   "seo/taxonomy.py": {
@@ -3027,8 +3027,8 @@
    "in_production_fcb982d": false
   },
   "visual/rnd/evolution.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "report is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/talk",
    "in_production_fcb982d": false
   },
   "visual/rnd/gates.py": {
@@ -3067,13 +3067,13 @@
    "in_production_fcb982d": false
   },
   "visual/rnd/sequence.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "describe is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/ta",
    "in_production_fcb982d": false
   },
   "visual/rnd/status.py": {
-   "reached": false,
-   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "reached": true,
+   "why": "summary is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/tal",
    "in_production_fcb982d": false
   },
   "visual/sc_swatch.py": {

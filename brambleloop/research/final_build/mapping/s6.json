@@ -329,29 +329,32 @@
   "consumer": null,
   "protected_effect": "refuses rollback, unknown deployed commit, missing/red/contradicted suite record",
   "tests": [
-   "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
    "tests/test_deploy_guard.py::test_a_candidate_that_is_not_a_descendant_of_production_is_refused_as_a_rollback",
-   "tests/test_deploy_guard.py::test_unknown_or_foreign_deployed_commit_is_refused_not_assumed",
+   "tests/test_deploy_guard.py::test_a_green_full_clean_run_on_a_descendant_of_production_is_allowed",
    "tests/test_deploy_guard.py::test_a_missing_or_red_suite_record_is_refused",
-   "tests/test_deploy_guard.py::test_a_record_whose_log_contradicts_it_or_is_gone_is_refused"
+   "tests/test_deploy_guard.py::test_a_record_whose_log_contradicts_it_or_is_gone_is_refused",
+   "tests/test_deploy_guard.py::test_unknown_or_foreign_deployed_commit_is_refused_not_assumed",
+   "tests/test_deploy_path.py::test_a_push_to_production_runs_the_guard_with_the_deployed_commit",
+   "tests/test_deploy_path.py::test_the_installed_hook_refuses_an_unproven_push_to_production_and_passes_others"
   ],
   "evidence": [
    "research/final_build/waves/fb1_F.json F-461 DONE (script only)",
    "grep deploy_guard in *.md: only a test count in FINAL_BUILD_RESUME_MANIFEST.md; not in ops/HEARTBEAT_PROMPT.md or any deploy runbook",
-   "FINAL_BUILD_STATE: 'a push there can redeploy production'"
+   "FINAL_BUILD_STATE: 'a push there can redeploy production'",
+   "w4-FM close on 8b67414 (REGATE): ops/hooks/pre-push and ops/deploy.sh run ops/deploy_guard.py on a push to the production branch; a client hook can be skipped, so server-side enforcement is the owner's Railway/GitHub setting"
   ],
   "build2_rows": [
    "#195 OWNER-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "none",
-   "detail": "wiring the guard is software; the Build 2 deploy itself is the owner's production_window decision"
+   "kind": "owner",
+   "key": "deploy_trigger_config",
+   "detail": "guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipped and Railway auto-deploys on push -> server-side enforcement (Railway 'wait for CI' / branch protection) is an owner setting"
   },
-  "defect": "Guard exists but the actual deploy trigger (push to the production branch) does not pass through it.",
-  "next_action": "Wire the guard into the only deploy path: a git pre-push hook / `ops/deploy.sh` wrapper that runs `deploy_guard.py check --candidate HEAD --deployed <sha from /api/verify>` before any push to claude/repository-setup-nc9x6o, add the step to ops/HEARTBEAT_PROMPT.md and the resume manifest, and (owner, optional) enable Railway 'wait for CI' on a GitHub check that runs the guard.",
+  "defect": null,
+  "next_action": "owner gate deploy_trigger_config: guard runs in ops/hooks/pre-push + ops/deploy.sh (ffcb62e); a client hook can be skipped and Railway auto-deploys on push -> server-side enforcement (Railway 'wait for CI' / branch protection) is an owner setting",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-462",
@@ -2251,12 +2254,15 @@
   "protected_effect": "storefront problems block the 'storefront' readiness item",
   "tests": [
    "tests/test_brand.py",
+   "tests/test_etsy_readback_observe.py::test_a_complete_shop_is_stored_and_closes_the_owner_actions_it_evidences",
+   "tests/test_etsy_readback_observe.py::test_missing_trust_surfaces_cannot_pass_silently",
    "tests/test_etsy_surfaces.py::test_an_empty_shop_body_is_no_evidence_on_every_check_and_never_green",
    "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked"
   ],
   "evidence": [
    "launch/readiness.py:463 check_storefront(build_storefront(db=db)) — readiness and storefront present in fcb982d",
-   "intel/etsy_surfaces.py is not reached by any runtime root (module_reachability); file exists in fcb982d"
+   "intel/etsy_surfaces.py is not reached by any runtime root (module_reachability); file exists in fcb982d",
+   "w4-FM close on 8b67414 (REGATE): runtime/etsy_ops.handle_shop_snapshot (daily) feeds intel/etsy_surfaces.assess_shop (etsy_ops.py:894) -- remote verification is wired"
   ],
   "build2_rows": [
    "#17 COMPLETE+PROVEN",
@@ -2264,14 +2270,14 @@
    "#54 OWNER-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "",
-   "detail": ""
+   "kind": "owner",
+   "key": "etsy_shop",
+   "detail": "daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build"
   },
-  "defect": "remote shop verification (assess_shop) is tested but unwired, so readiness reads the package we intend rather than the shop Etsy shows",
-  "next_action": "Add a shop.snapshot cadence calling EtsyClient.get_shop (shops_r is granted; etsy_api gate open) that stores the body and feeds etsy_surfaces.assess_shop into launch/readiness.assess as a blocking item",
+  "defect": null,
+  "next_action": "owner gate etsy_shop: daily etsy.shop_snapshot judges getShop; needs a usable shop credential on the deployed build",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-516@v0.16",
@@ -2534,12 +2540,15 @@
   "consumer": "src/brambleloop/runtime/release.py::handle_assets_build",
   "protected_effect": "a thumbnail that fails readability/mobile checks does not certify",
   "tests": [
-   "tests/test_cert_listing_frames.py"
+   "tests/test_cert_listing_frames.py",
+   "tests/test_etsy_readback_observe.py::test_a_missing_frame_refuses_before_anything_is_created_on_etsy",
+   "tests/test_etsy_readback_observe.py::test_publish_sends_the_certified_image_bytes_in_certificate_order_and_reads_back"
   ],
   "evidence": [
    "commerce/thumbnail.py reached via assets.build and present in fcb982d",
    "integrations/etsy.py::publish docstring: 'No caller in this system supplies image bytes yet'",
-   "BUILD_STATE.md header: Product-Only Visual V1 remains NOT LOCKED"
+   "BUILD_STATE.md header: Product-Only Visual V1 remains NOT LOCKED",
+   "w4-FM close on 8b67414 (REGATE): store.publish reads etsy_ops.certified_images and sends the certified bytes in certificate order before anything is created (pipeline.py:1587-1611)"
   ],
   "build2_rows": [
    "#62 COMPLETE+PROVEN",
@@ -2548,14 +2557,14 @@
    "#16 OWNER-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "image_generation",
-   "detail": "truthful listing imagery depends on the Visual lane / image capability"
+   "kind": "data",
+   "key": "live_listings",
+   "detail": "store.publish sends certified images; hero experiments need a live listing"
   },
-  "defect": "store.publish uploads no images, so any draft it creates is unactivatable and has no first image at all",
-  "next_action": "Pass certified listing image bytes from the artifact store into client.publish(images=...) in runtime/pipeline.py::handle_store_publish, ordered by publish/listing_set frame jobs",
+  "defect": null,
+  "next_action": "data gate live_listings: store.publish sends certified images; hero experiments need a live listing",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-525",
@@ -2870,30 +2879,34 @@
   "launch_class_reason": "every refund/complaint needs a cause and owner to protect customers and trigger remedy",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "refunds are captured as a flag on ingested orders and counted into refund rate/kill-table defect ceilings, but there is no reason code, no owner assignment per refund/cancellation/case and no repeated-cause trigger",
-  "producer": "src/brambleloop/commerce/orders_ingest.py::lines",
+  "missing_part": "no real refund/cancellation has been read: receipts need the owner's transactions_r grant",
+  "producer": "src/brambleloop/commerce/cx_root_cause.py::run",
   "durable_state": "orders.refunded; ledger refunds_cad",
-  "consumer": "src/brambleloop/support/department.py::CustomerExperience",
+  "consumer": "runtime/orders.handle_order_readings (commerce.order_readings cadence) -> commerce/order_readings.read",
   "protected_effect": "refund rate above ceiling reads as a defect",
   "tests": [
-   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+   "tests/test_k8_shop_cx.py::test_every_refund_and_case_gets_a_code_and_owner_and_repetition_opens_an_investigation",
+   "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest",
+   "tests/test_k8_shop_cx.py::test_the_daily_order_readings_carry_the_root_cause_reading"
   ],
   "evidence": [
    "commerce/orders_ingest.py:141 refunded = bool(receipt.get('refunds'))",
-   "commerce/kill_table.py refund_high_above"
+   "commerce/kill_table.py refund_high_above",
+   "w4-FM close on 8b67414 (FOLD): commerce/cx_root_cause.run (commerce.order_readings cadence) codes every refund, cancellation, case and complaint with an owner and opens cx.repeated_cause:<product>:<code> on 3 in 90 days; ingest keeps Etsy's refund reason. Proven on fake-Etsy rows only: real receipts need transactions_r"
   ],
   "build2_rows": [
    "#41 DATA-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "",
-   "detail": ""
+   "kind": "owner",
+   "key": "transactions_r",
+   "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
   },
   "defect": null,
-  "next_action": "Add RefundCase (reason_code enum, owner, linked order/listing/version) created by orders_ingest for refunded/cancelled lines and by support intake; open an investigation incident when a reason repeats N times per listing",
+  "next_action": "owner gate transactions_r: re-authorise Etsy with transactions_r; the coding and repetition trigger then run on real receipts",
   "confidence": "HIGH",
-  "searched": "grep reason_code src/: none"
+  "searched": "grep reason_code src/: none | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-536",
@@ -3040,21 +3053,24 @@
   "tests": [
    "tests/test_etsy_oauth_callback.py::test_a_rotation_replaces_the_stored_token_and_counts_itself",
    "tests/test_etsy_oauth_callback.py::test_a_rotation_that_lost_a_race_is_refused_rather_than_overwriting_a_live_token",
+   "tests/test_etsy_readback_observe.py::test_credential_health_refreshes_rotates_and_persists_and_closes_a_reauth_action",
+   "tests/test_etsy_readback_observe.py::test_scope_drift_on_the_stored_credential_is_an_incident",
    "tests/test_oauth_security_audit.py"
   ],
   "evidence": [
-   "BUILD_STATE.md 2026-09-25 'VERIFIED: Brambleloop is authorised on Etsy': credential sealed, rotations 0, scopes listings_r listings_w listings_d shops_r shops_w; 'The rotation fix is not yet proven'"
+   "BUILD_STATE.md 2026-09-25 'VERIFIED: Brambleloop is authorised on Etsy': credential sealed, rotations 0, scopes listings_r listings_w listings_d shops_r shops_w; 'The rotation fix is not yet proven'",
+   "w4-FM close on 8b67414 (REGATE): etsy.credential_health is a daily cadence (runtime/worker.py:700) that reads the OAuth credential, not only the app key"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
    "key": "production_window",
-   "detail": "rotation proof (/api/etsy/exercise mode rotation) is held on the owner's word and on deploying the leak fix"
+   "detail": "credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build"
   },
-  "defect": "etsy.probe cadence checks only the app key (openapi-ping), not the OAuth credential",
-  "next_action": "Add an etsy.credential_health cadence that reads credential_health + performs a refresh when <24h to expiry, opening an incident when not openable or scopes drift; after deploy, run /api/etsy/exercise rotation mode once (owner-authorised)",
+  "defect": null,
+  "next_action": "owner gate production_window: credential_health cadence built; rotation proof needs owner-authorised exercise on the deployed build",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-541",
@@ -3107,24 +3123,26 @@
   "consumer": "src/brambleloop/integrations/etsy_probe.py::run_exercise",
   "protected_effect": "an ignored write (e.g. quantity PATCH 200) or misread tag list fails read-back",
   "tests": [
-   "tests/test_etsy_transport.py::test_a_write_the_server_ignored_returns_200_and_fails_read_back",
+   "tests/test_etsy_readback_observe.py::test_a_write_etsy_silently_changed_is_caught_by_read_back_and_halts_the_product",
    "tests/test_etsy_transport.py::test_a_comma_joined_tag_list_etsy_misreads_is_caught_by_the_read_back_and_nothing_else",
+   "tests/test_etsy_transport.py::test_a_write_the_server_ignored_returns_200_and_fails_read_back",
    "tests/test_etsy_transport.py::test_read_back_verifies_every_field_including_the_ones_etsy_transforms"
   ],
   "evidence": [
    "integrations/etsy_verify.py and etsy_exercise.py present in fcb982d; /api/etsy/exercise route",
-   "BUILD_STATE.md 2026-09-25: 11 of 11 fields matched on read-back against tests/fake_etsy.py only; 'Nothing has been exercised against Etsy'"
+   "BUILD_STATE.md 2026-09-25: 11 of 11 fields matched on read-back against tests/fake_etsy.py only; 'Nothing has been exercised against Etsy'",
+   "w4-FM close on 8b67414 (REGATE): store.publish reads the created listing back (pipeline.py:1877 etsy_ops.read_back) and records store.published only when verified"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
-   "key": "etsy_exercise_authorisation",
-   "detail": "the one controlled round trip against Etsy is held on the owner's word"
+   "key": "etsy_api",
+   "detail": "store.publish reads back fields/properties/files; the controlled round trip is owner-authorised"
   },
-  "defect": "runtime/pipeline.py::handle_store_publish records store.published without reading the listing back from Etsy",
-  "next_action": "In handle_store_publish, after publish/attach_file call client.get_listing and etsy_verify.verify(sent, remote) (plus file list) and record store.publish_incomplete + incident on any mismatch; then run the owner-authorised exercise round trip",
+  "defect": null,
+  "next_action": "owner gate etsy_api: store.publish reads back fields/properties/files; the controlled round trip is owner-authorised",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-543",
@@ -3138,13 +3156,16 @@
   "consumer": "src/brambleloop/integrations/etsy.py::EtsyClient.activate",
   "protected_effect": "no listing goes live without every gate and owner authority",
   "tests": [
+   "tests/test_etsy_exercise.py::test_activate_keeps_its_three_gates_byte_for_byte",
+   "tests/test_etsy_readback_observe.py::test_activation_verifies_the_draft_and_without_a_launch_authorisation_does_not_activate",
+   "tests/test_etsy_readback_observe.py::test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back",
    "tests/test_etsy_transport.py::test_activation_refuses_a_listing_with_no_image_before_spending_anything",
-   "tests/test_etsy_transport.py::test_activation_refuses_without_a_launch_authorisation_even_when_everything_else_is_true",
-   "tests/test_etsy_exercise.py::test_activate_keeps_its_three_gates_byte_for_byte"
+   "tests/test_etsy_transport.py::test_activation_refuses_without_a_launch_authorisation_even_when_everything_else_is_true"
   ],
   "evidence": [
    "release gates enforced in store.publish (publish/release_gates.py not in fcb982d)",
-   "BUILD_STATE.md 2026-09-25: activate 'implemented and triple-gated ... and never called against Etsy'"
+   "BUILD_STATE.md 2026-09-25: activate 'implemented and triple-gated ... and never called against Etsy'",
+   "w4-FM close on 8b67414 (REGATE): store.publish passes the certified image bytes (F-524) and store.activate re-validates authority at execution"
   ],
   "build2_rows": [
    "#70 COMPLETE+PROVEN",
@@ -3154,12 +3175,12 @@
   "gate": {
    "kind": "owner",
    "key": "publication_authority",
-   "detail": "going live (phase change + BRAMBLELOOP_PUBLISH_AUTHORISED + Launch-0 authorisation) is the owner's decision"
+   "detail": "store.activate built with revalidated authority; going live is the owner's grant + phase change"
   },
-  "defect": "store.publish passes no image bytes to client.publish, so every draft it would create cannot be activated",
-  "next_action": "Build a store.activate handler: read the remote draft, verify images/files/taxonomy/price-inventory/disclosures via etsy_verify against the certified listing, re-run release gates, then call activate with the owner's authorisation; wire images per F-524",
+  "defect": null,
+  "next_action": "owner gate publication_authority: store.activate built with revalidated authority; going live is the owner's grant + phase change",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-544",

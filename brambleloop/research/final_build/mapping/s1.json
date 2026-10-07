@@ -148,35 +148,38 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "P0-before-launch; marketplace compliance/truthful categorisation",
   "maturity": "INTEGRATED",
-  "coverage": "FULL",
-  "missing_part": null,
+  "coverage": "PARTIAL",
+  "missing_part": "the deepest truthful category is chosen from the seller taxonomy snapshot, which has never been read (listing.taxonomy_refresh is a no-op behind etsy_api); until it is, every category reads UNKNOWN and publish refuses",
   "producer": "src/brambleloop/commerce/category.py::choose (+ refuse_broad); src/brambleloop/integrations/etsy_taxonomy.py::refresh",
   "durable_state": "etsy_taxonomy_snapshots; listing_search_profiles.taxonomy_id/taxonomy_path/category_status",
   "consumer": "src/brambleloop/runtime/etsy_ops.py::certified_payload (payload.taxonomy_id from category.publish_inputs; UNKNOWN refuses, no 66 fallback); release_gates.search_gate",
   "protected_effect": "no listing is sent with a default/shallow taxonomy; UNKNOWN category refuses publication",
   "tests": [
+   "tests/test_search_hero_publish.py::test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict",
+   "tests/test_search_hero_publish.py::test_no_certified_listing_set_means_no_hero_pass_and_publish_makes_no_request",
+   "tests/test_search_truth.py::test_a_parent_of_a_valid_deeper_node_is_refused",
    "tests/test_search_truth.py::test_no_snapshot_is_unknown_and_never_taxonomy_66",
    "tests/test_search_truth.py::test_the_deepest_crochet_pattern_node_is_chosen_per_product",
-   "tests/test_search_truth.py::test_a_parent_of_a_valid_deeper_node_is_refused",
-   "tests/test_search_truth.py::test_with_a_snapshot_listing_seo_chooses_the_node_and_writes_the_property_payload",
-   "tests/test_search_truth.py::test_the_refresh_is_an_honest_noop_while_the_etsy_api_gate_is_closed"
+   "tests/test_search_truth.py::test_the_refresh_is_an_honest_noop_while_the_etsy_api_gate_is_closed",
+   "tests/test_search_truth.py::test_with_a_snapshot_listing_seo_chooses_the_node_and_writes_the_property_payload"
   ],
   "evidence": [
    "cadence etsy_taxonomy -> listing.taxonomy_refresh (module_reachability: integrations/etsy_taxonomy.py reached)",
    "commerce/category.py not in fcb982d",
    "real Etsy tree never read: tests use a recorded-shape fixture with illustrative ids; CATEGORY_NODE_TERMS unverified against live tree",
-   "integrations/etsy.py still defines TAXONOMY_PATTERNS=66 as the ListingPayload default but certified_payload overwrites it"
+   "integrations/etsy.py still defines TAXONOMY_PATTERNS=66 as the ListingPayload default but certified_payload overwrites it",
+   "w4-FM close on 8b67414 (REGATE): runtime/etsy_ops.certified_payload refuses UNKNOWN taxonomy and reads the certified verdict that search.judge_hero writes back (release.py:1255, release_gates.py:1005) -- no fixture forces PASS any more"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
    "key": "etsy_api",
-   "detail": "the taxonomy snapshot (getSellerTaxonomyNodes/getPropertiesByTaxonomyId) is read only once the Etsy API credential gate opens; until then every category is UNKNOWN and publication refuses"
+   "detail": "certified_payload refuses UNKNOWN taxonomy; real seller taxonomy read needs the Etsy credential gate"
   },
-  "defect": "runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refuses unless the drafted ListingSearchProfile.verdict == 'PASS', but the only writer (runtime/release.py::_persist_search_profile via handle_listing_seo) calls search.search_certificate with hero=None, so the stored verdict is at best 'PENDING' -- store.publish and the owner publication preview can never build a payload at runtime (fail-closed dead end). tests/test_cert_publish_gates.py forces row.verdict='PASS' in a fixture, which hides it.",
-  "next_action": "Software: fix the certified_payload PASS dead end (see defect). Then, when etsy_api opens, let the etsy_taxonomy cadence store a real snapshot and verify CATEGORY_NODE_TERMS choose the expected node for each Launch-0 category (basket, blanket, coaster).",
+  "defect": null,
+  "next_action": "owner gate etsy_api: certified_payload refuses UNKNOWN taxonomy; real seller taxonomy read needs the Etsy credential gate",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-006",
@@ -220,23 +223,25 @@
   "protected_effect": "internal draft blocked on missing digital/file_type/craft/pattern_type/skill/primary_color",
   "tests": [
    "tests/test_commerce.py::test_attributes_come_from_pattern_data",
-   "tests/test_commerce.py::test_missing_attributes_are_reported"
+   "tests/test_commerce.py::test_missing_attributes_are_reported",
+   "tests/test_r2_product_listing_writes.py::test_the_pipeline_passes_the_grant_to_every_post_create_write"
   ],
   "evidence": [
    "src/brambleloop/integrations/etsy.py ListingPayload has no properties; etsy_probe.py:318 'implement updateListingProperty' outstanding",
    "src/brambleloop/publish/listing_schema.py taxonomy_required_properties clause",
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w4-FM close on 8b67414 (REGATE): runtime/pipeline.py:1844 sends each canonical property through EtsyClient.set_listing_property (the 'never transmitted' defect is repaired)"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
    "key": "etsy_api",
-   "detail": "reading required properties for the chosen node needs the credentialed Etsy run; the mapping and write code are buildable now"
+   "detail": "set_listing_property wired (pipeline); node property schema read needs etsy_api"
   },
-  "defect": "Attributes computed and 'checked' but never transmitted to Etsy -- internal completeness is a proxy with no marketplace effect",
-  "next_action": "Implement integrations/etsy.py::update_listing_property and a properties mapper from listing_attributes to the node's getPropertiesByTaxonomyId schema; make completeness = every relevant property of the chosen node set or explicitly N/A",
+  "defect": null,
+  "next_action": "owner gate etsy_api: set_listing_property wired (pipeline); node property schema read needs etsy_api",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-008",
@@ -898,9 +903,9 @@
   "uid": "F-030",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
-  "maturity": "EXERCISED",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Required roles are hero/whats_included/size/materials; angles, texture detail, lifestyle/use and category-specific proof are not required per category",
+  "missing_part": "the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT stays photograph-only)",
   "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
   "durable_state": "listing_assets",
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
@@ -910,7 +915,8 @@
    "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position"
   ],
   "evidence": [
-   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d"
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w4-FM close on 8b67414 (FOLD): the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing"
   ],
   "build2_rows": [
    "#65 COMPLETE+PROVEN",
@@ -919,12 +925,12 @@
   "gate": {
    "kind": "none",
    "key": null,
-   "detail": "software work remains; nothing external blocks it"
+   "detail": "producing the frames is company work (visual lane)"
   },
   "defect": null,
-  "next_action": "Add a per-category frame-job requirement table (e.g. garment: fit/scale; blanket: texture detail) to check_frame_plan",
+  "next_action": "Visual lane: produce disclosed-render frames for each applicable missing job on the Launch-0 certified set and re-certify the set",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-031",
@@ -2451,20 +2457,22 @@
   "consumer": "src/brambleloop/runtime/pipeline.py::handle_certify",
   "protected_effect": "Class C certificate refused",
   "tests": [
-   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test",
-   "tests/test_garments.py (PHYSICAL_TEST_REQUIRED)"
+   "tests/test_garments.py (PHYSICAL_TEST_REQUIRED)",
+   "tests/test_gates.py::test_class_c_pattern_requires_a_physical_test"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on 8b67414 (REGATE): gates/certificate.certify binds physical evidence (binding['passed'] sets physical_test_passed), so the gate is no longer fail-closed forever"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
    "key": "tester_roster",
-   "detail": "needs a recruited independent tester"
+   "detail": "physical intake fixed (fb4-PUB); Class C needs an independent tester's make"
   },
-  "defect": "physical_test_passed is never supplied by gate.certify, so the gate is fail-closed forever",
-  "next_action": "Fix F-078 wiring; derive C from CIR features (F-073)",
+  "defect": null,
+  "next_action": "owner gate tester_roster: physical intake fixed (fb4-PUB); Class C needs an independent tester's make",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-082",

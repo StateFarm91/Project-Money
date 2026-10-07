@@ -6,34 +6,19 @@
    "title": "Wave-3 claims COMPLETE, canonical mapping not re-mapped: verify tests + reachability, fold into mapping/remap_<head>",
    "rows": [
     "F-030",
-    "F-158",
     "F-159",
-    "F-176",
-    "F-203",
     "F-254",
-    "F-287",
-    "F-331",
-    "F-333",
-    "F-335",
-    "F-341",
     "F-342",
-    "F-535",
-    "F-568",
-    "F-585",
-    "F-592",
-    "F-689",
-    "F-806",
     "F-907",
     "F-909",
     "F-916"
    ],
-   "size": 21,
+   "size": 7,
    "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
    "owner_lane": "FM",
    "reasons": {
-    "coverage PARTIAL": 18,
-    "maturity TESTED": 3,
-    "defect recorded": 3,
+    "coverage PARTIAL": 4,
+    "maturity TESTED": 2,
     "v1.1 row not mapped": 3
    }
   },
@@ -251,56 +236,6 @@
     "coverage PARTIAL": 9,
     "defect recorded": 2,
     "maturity IMPLEMENTED": 3
-   }
-  },
-  "REGATE": {
-   "title": "Wave-3 audit found an owner/data/external gate the canonical mapping does not record (gate key missing)",
-   "rows": [
-    "F-005",
-    "F-007",
-    "F-081",
-    "F-118",
-    "F-160",
-    "F-253",
-    "F-273",
-    "F-321",
-    "F-461",
-    "F-515@v0.16",
-    "F-524",
-    "F-540",
-    "F-542",
-    "F-543",
-    "F-556",
-    "F-577",
-    "F-594",
-    "F-674",
-    "F-676",
-    "F-733",
-    "F-734",
-    "F-851"
-   ],
-   "size": 22,
-   "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
-   "owner_lane": "FM",
-   "reasons": {
-    "defect recorded": 22,
-    "coverage PARTIAL": 21,
-    "maturity TESTED": 2
-   }
-  },
-  "REMAP": {
-   "title": "REMAP",
-   "rows": [
-    "F-558",
-    "F-608",
-    "F-609"
-   ],
-   "size": 3,
-   "files": "research/final_build/mapping/*, aggregate.py, build2/final_master_closure.json (FM-owned)",
-   "owner_lane": "FM",
-   "reasons": {
-    "coverage PARTIAL": 3,
-    "defect recorded": 2
    }
   },
   "STRUCTURAL": {

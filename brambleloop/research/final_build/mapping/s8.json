@@ -780,14 +780,15 @@
   "consumer": "src/brambleloop/visual/parity.py::assess (read by store.publish)",
   "protected_effect": "no uncertified image reaches a listing",
   "tests": [
-   "tests/test_owned_photography.py::test_the_prompt_is_derived_from_the_certified_pattern",
    "tests/test_owned_photography.py::test_it_is_an_illustration_and_it_says_so_everywhere",
+   "tests/test_owned_photography.py::test_the_prompt_is_derived_from_the_certified_pattern",
    "tests/test_parity.py::test_any_one_failure_blocks_and_the_other_seven_cannot_outvote_it"
   ],
   "evidence": [
    "research/VISUAL_V1_GRADUATION.md (NOT LOCKED)",
    "research/final_build/module_reachability.json: visual/yarn, drape, crochet_topology, pbr_scene, final_standard reached=False",
-   "R&D only: git show 035ff0c:brambleloop/research/visual_v2/README.md (deterministic render + protected composition, no certified image)"
+   "R&D only: git show 035ff0c:brambleloop/research/visual_v2/README.md (deterministic render + protected composition, no certified image)",
+   "w4-FM close on 8b67414 (REGATE): the generative-redraw direction is refused in every role (F-852: publish/eligibility.py:449, visual/product_authority.py); the protected photoreal stage is R&D (D-FB-7) awaiting provider capability"
   ],
   "build2_rows": [
    "#63 COMPLETE+PROVEN",
@@ -796,13 +797,13 @@
   ],
   "gate": {
    "kind": "external",
-   "key": "model_bearing_render / image generation fidelity",
-   "detail": "no provider has rendered a certified structure faithfully; B+C direction removes the dependency for the product region"
+   "key": "visual_v1_provider_capability",
+   "detail": "generative redraw refused (F-852); B+C photoreal stays R&D, not launch-critical under D-FB-7"
   },
-  "defect": "runtime path is the superseded generative-redraw direction",
-  "next_action": "Integrate the B+C route (F-851): deterministic product render from CIR + protected composition as a new assets job reached from the model/owned photography cadence, with structural and photographic gates as separate floors; port V2 R&D verify_probe checks into tests.",
+  "defect": null,
+  "next_action": "external gate visual_v1_provider_capability: generative redraw refused (F-852); B+C photoreal stays R&D, not launch-critical under D-FB-7",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-675",
@@ -855,13 +856,14 @@
   "consumer": "src/brambleloop/visual/photoreal.py::gate",
   "protected_effect": "an image reading as a render or changing the product is refused",
   "tests": [
-   "tests/test_model_photography.py::test_a_frame_that_reads_as_generated_fails_even_when_everything_else_holds",
    "tests/test_model_photography.py::test_a_beautiful_photograph_of_the_wrong_crochet_fails",
+   "tests/test_model_photography.py::test_a_frame_that_reads_as_generated_fails_even_when_everything_else_holds",
    "tests/test_provider_trial.py::test_clearing_the_blocker_while_losing_product_truth_is_not_a_win"
   ],
   "evidence": [
    "BUILD_STATE.md 'What was proved in production' (model_photography live runs)",
-   "research/VISUAL_BENCH2.md 0 of 7; VISUAL_V1_GRADUATION.md 0 of 16"
+   "research/VISUAL_BENCH2.md 0 of 7; VISUAL_V1_GRADUATION.md 0 of 16",
+   "w4-FM close on 8b67414 (REGATE): generative product redraw refused (F-852); protected-region enhancement waits on provider fidelity at stitch scale"
   ],
   "build2_rows": [
    "#72 EXTERNAL-BLOCKED",
@@ -871,12 +873,12 @@
   "gate": {
    "kind": "external",
    "key": "model_bearing_render",
-   "detail": "provider fidelity at stitch scale"
+   "detail": "F-852 refusal; protected-region enhancement waits on V2/provider fidelity"
   },
-  "defect": "generative product redraw is the superseded default (F-852)",
-  "next_action": "Restrict generation to background/material enhancement around a protected product region (F-855) once F-674 B+C route exists; add a test that product-region pixels are unchanged after enhancement.",
+  "defect": null,
+  "next_action": "external gate model_bearing_render: F-852 refusal; protected-region enhancement waits on V2/provider fidelity",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-677",
@@ -1246,33 +1248,37 @@
   "launch_class_reason": "customer support/remedy and order truth for the first sale",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Support triage (desk routing, escalation, never sends in shadow, version-aware) and order ingest exist; there is no Etsy message/review/refund ingestion path in production, no CX workspace, and orders_ingest needs transactions_r. /api/support serves customer question text without authentication.",
-  "producer": "src/brambleloop/support/service.py",
+  "missing_part": "Etsy exposes no conversation API: buyer messages reach the workspace only through the owner's intake",
+  "producer": "src/brambleloop/support/workspace.py::workspace",
   "durable_state": "support_cases, orders, customers",
-  "consumer": "src/brambleloop/runtime/release.py (support.triage handler)",
+  "consumer": "GET /api/cx/workspace (commerce/estate_api, operator credential); support.triage mine_cases -> workspace summary",
   "protected_effect": "no reply is sent in shadow; legal/privacy always escalate",
   "tests": [
+   "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
    "tests/test_departments.py::test_legal_and_privacy_always_escalate",
    "tests/test_departments.py::test_nothing_is_ever_sent_in_shadow_mode",
    "tests/test_departments.py::test_support_will_not_answer_without_knowing_which_version",
-   "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader"
+   "tests/test_k8_shop_cx.py::test_support_mining_carries_the_workspace_summary",
+   "tests/test_k8_shop_cx.py::test_the_workspace_joins_messages_orders_reviews_and_refunds_per_buyer",
+   "tests/test_w3_laura_cc_providers.py::test_k8_estate_routes_are_mounted_and_customer_data_is_operator_only"
   ],
   "evidence": [
-   "src/brambleloop/app/main.py:595 api_support (no opsauth)"
+   "src/brambleloop/app/main.py:595 api_support (no opsauth)",
+   "w4-FM close on 8b67414 (FOLD): support/workspace.workspace joins messages, orders, reviews, refunds, risks and upstream fixes per buyer; the operator view the claim left to W1 is served at GET /api/cx/workspace (operator credential, app/main.py:776 CUSTOMER_DATA_ROUTES); the recorded defect (unauthenticated /api/support) is repaired (test_customer_data_auth). Etsy has no messages API, so messages enter through the owner intake (F-556 gate)"
   ],
   "build2_rows": [
    "#18 DATA-GATED",
    "#41 DATA-GATED"
   ],
   "gate": {
-   "kind": "owner",
-   "key": "transactions_r",
-   "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
+   "kind": "external",
+   "key": "no_messages_api",
+   "detail": "Etsy exposes no conversation API"
   },
-  "defect": "customer message text exposed on unauthenticated /api/support",
-  "next_action": "Put /api/support (and any customer-bearing read) behind opsauth; build a CX workspace joining SupportCase, Order, reviews, refunds; test the endpoint refuses without the operator credential.",
+  "defect": null,
+  "next_action": "external gate no_messages_api: ingest messages when Etsy exposes them; until then the owner intake (F-556) feeds the workspace",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-690",
@@ -2674,28 +2680,29 @@
   "consumer": "src/brambleloop/visual/freeze.py::reference_paths",
   "protected_effect": "only hash-verified approved bytes are handed to renderers",
   "tests": [
-   "tests/test_model_freeze.py::test_the_freeze_pins_every_reference_by_hash",
-   "tests/test_model_freeze.py::test_reference_paths_hands_out_only_files_that_hash_to_the_pinned_bytes",
    "tests/test_asset_manifest.py::test_exactly_one_asset_is_the_approved_face",
-   "tests/test_cert_identity.py::test_the_approved_pack_fingerprint_is_unknown_not_invented"
+   "tests/test_cert_identity.py::test_the_approved_pack_fingerprint_is_unknown_not_invented",
+   "tests/test_model_freeze.py::test_reference_paths_hands_out_only_files_that_hash_to_the_pinned_bytes",
+   "tests/test_model_freeze.py::test_the_freeze_pins_every_reference_by_hash"
   ],
   "evidence": [
    "BUILD_STATE.md 2026-09-22T03:52:53Z: canonical identity frozen in production (creative.model_freeze), /api/model-identity canonical_selected v1, enforcement proves seven properties against the persisted pack",
-   "research/BUILD2_CLOSEOUT_REPORT.md I"
+   "research/BUILD2_CLOSEOUT_REPORT.md I",
+   "w4-FM close on 8b67414 (REGATE): visual/freeze.py leaves approved_pack_fingerprint None by design (its only copy is the production model.frozen audit row) and enforcement_proof compares it only when known -- recording it is the production approval row"
   ],
   "build2_rows": [
    "#73 COMPLETE+PROVEN",
    "#200 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "none",
-   "key": "none",
-   "detail": "no gate on the remaining software work"
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "same as F-718: production approval row / OA-CANON-1"
   },
-  "defect": "approved pack fingerprint recorded only in a production audit row (left None in code)",
-  "next_action": "After deploy, read the production approval row and record the pack fingerprint in MANIFEST.json; add provider conditioning-package records per provider.",
+  "defect": null,
+  "next_action": "owner gate production_window: same as F-718: production approval row / OA-CANON-1",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-734",
@@ -2714,7 +2721,8 @@
    "tests/test_model_photography.py::test_nothing_in_the_sequence_is_averaged"
   ],
   "evidence": [
-   "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable"
+   "BUILD_STATE.md 'What was proved in production': assets.model_photography frames conditioned on the frozen pack, face and whole-person morphology passing, verified by a model that never saw the prompt; no frame usable",
+   "w4-FM close on 8b67414 (REGATE): the product floor is refused for generated product imagery (F-852); a model-bearing frame clearing every floor needs provider capability"
   ],
   "build2_rows": [
    "#201 COMPLETE+PROVEN",
@@ -2723,12 +2731,12 @@
   "gate": {
    "kind": "external",
    "key": "model_bearing_render",
-   "detail": "no provider has rendered a model-bearing frame that clears all six floors (0/16, 0/7 certified); gate opens on a recorded passing assets.model_photography frame"
+   "detail": "no provider renders a model-bearing frame clearing every floor"
   },
-  "defect": "product-truth floor is an LLM vision proxy",
-  "next_action": "Add the deterministic structural floor (F-677 next action) to model frames.",
+  "defect": null,
+  "next_action": "external gate model_bearing_render: no provider renders a model-bearing frame clearing every floor",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-735",

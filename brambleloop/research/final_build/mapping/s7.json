@@ -153,12 +153,15 @@
   "consumer": "src/brambleloop/support/service.py::service_level",
   "protected_effect": "separate canonical (5 min) and escalated (24 h) targets with a 90% floor",
   "tests": [
-   "tests/test_cert_growth_ops.py::test_support_reply_times_the_case_and_refuses_a_gating_draft"
+   "tests/test_cert_growth_ops.py::test_support_reply_times_the_case_and_refuses_a_gating_draft",
+   "tests/test_fb4_ops.py::test_a_buyer_message_unanswered_for_30_hours_is_an_owner_action_and_an_incident",
+   "tests/test_fb4_ops.py::test_the_owner_intake_route_requires_the_operator_credential"
   ],
   "evidence": [
    "src/brambleloop/runtime/release.py::handle_support_reply -> _check_and_time_reply",
    "src/brambleloop/support/service.py TARGETS/SERVICE_FLOOR",
-   "research/ETSY_SURFACE_REGISTRY.md row 3 messages OWNER_ONLY (no API) and owner action 14 (notification inbox)"
+   "research/ETSY_SURFACE_REGISTRY.md row 3 messages OWNER_ONLY (no API) and owner action 14 (notification inbox)",
+   "w4-FM close on 8b67414 (REGATE): support/response_watch (fb4-OPS) times buyer messages from the owner's opsauth intake; Etsy exposes no conversation API"
   ],
   "build2_rows": [
    "#18 DATA-GATED"
@@ -166,12 +169,12 @@
   "gate": {
    "kind": "external",
    "key": "no_messages_api",
-   "detail": "Etsy exposes no conversation API; the owner must confirm message notifications reach a read inbox (registry owner action 14)"
+   "detail": "SLA watch + opsauth owner intake built (fb4-OPS); Etsy exposes no conversation API"
   },
-  "defect": "SupportCase rows have no ingestion path from Etsy messages; SLA timing starts at case creation and ends at draft_ready, which is not a buyer-facing response.",
-  "next_action": "Add an owner-facing case-intake route (POST /api/support/case with received_at from the Etsy message) and a support.sla cadence that flags cases approaching Etsy's and the internal target before breach; record the owner action for notification routing in OwnerAction.",
+  "defect": null,
+  "next_action": "external gate no_messages_api: SLA watch + opsauth owner intake built (fb4-OPS); Etsy exposes no conversation API",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-557",
@@ -214,19 +217,22 @@
   "launch_class_reason": "Order truth (payment, version delivered, refund state, accounting evidence) is required to serve and remedy the first buyer.",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Ingest records order, version and a sale ledger line; payment (getPayments/ledger entries), digital delivery state, buyer issue linkage, cancellation/case state and actual Etsy fees are not reconciled.",
+  "missing_part": "no real receipt, payment or ledger entry has been read: ingestion needs the owner's transactions_r grant",
   "producer": "src/brambleloop/commerce/orders_ingest.py::ingest",
   "durable_state": "orders, customers, order_versions, ledger",
   "consumer": "src/brambleloop/commerce/order_readings.py::read",
   "protected_effect": "no order invented; UNMEASURED with reason while gated; idempotent per receipt:transaction",
   "tests": [
    "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader",
-   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger"
+   "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+   "tests/test_k8_shop_cx.py::test_refund_reasons_are_captured_at_ingest",
+   "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed"
   ],
   "evidence": [
    "src/brambleloop/runtime/orders.py::handle_orders_ingest (6-hourly cadence orders_ingest)",
    "commerce/orders_ingest.py not in production fcb982d",
-   "transactions_r not granted (BUILD_STATE, ETSY_SURFACE_REGISTRY Finding 1)"
+   "transactions_r not granted (BUILD_STATE, ETSY_SURFACE_REGISTRY Finding 1)",
+   "w4-FM close on 8b67414 (REMAP): commerce/orders_ingest reads Etsy's payment-account ledger (orders_ingest.py:262-277) so charged fees replace the model and fees_basis says which; cancelled / refunded receipts are voided not deleted; refund reasons kept; buyer issues join through support/workspace. The defect (modelled fees stored as charged, refund boolean) is repaired (fees_basis, VOIDED_STATES, refund_reasons). No real receipt has been read"
   ],
   "build2_rows": [
    "#11 OWNER-GATED",
@@ -236,12 +242,12 @@
   "gate": {
    "kind": "owner",
    "key": "transactions_r",
-   "detail": "owner must re-authorise the Etsy app with transactions_r (6 minutes)"
+   "detail": "order/receipt ingestion needs the owner's Etsy re-authorisation"
   },
-  "defect": "Ledger fees on each sale line are pricing.fees() model output (known incomplete: offsite/regulatory/currency unmodelled) stored as if charged; refund is a boolean only.",
-  "next_action": "Add Payment/ledger-entry reads (getShopPaymentByReceiptId) to EtsyReceiptReader and store actual fees, refund/cancel status and payment id on the order; mark modelled fees basis=modelled until replaced.",
+  "defect": null,
+  "next_action": "owner gate transactions_r: re-authorise Etsy; orders.ingest then records payments, charged fees and cancellations from real rows",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REMAP)"
  },
  {
   "uid": "F-559",
@@ -522,18 +528,23 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Marketplace compliance.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "A created listing that vanished or changed state opens a halting P1 'policy_violation_suspected:<id>' with source_text, deadline (+2d), remediation_owner and closure_evidence, and reopens the owner's policy_violations_check. Missing: an owner route to record an actual Policy Violations item (source text, affected listing/action, deadline) since Etsy has no API; severity is flat P1 (not ranked); no legal-escalation path.",
-  "producer": "src/brambleloop/runtime/etsy_ops.py::handle_listing_census",
-  "durable_state": "incidents policy_violation_suspected:<id>; owner_actions",
-  "consumer": "incidents (halts_publication); owner queue",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/policy_violations.py::apply_observation / escalate_overdue",
+  "durable_state": "incidents policy_violation:*; owner_actions",
+  "consumer": "POST /api/etsy/shop-observation (page=policy_violations) and GET /api/etsy/policy-violations (commerce/estate_api, app/main.py); runtime/etsy_ops census -> escalate_overdue",
   "protected_effect": "suspected takedowns halt publication until a person reads Policy Violations",
   "tests": [
+   "tests/test_etsy_readback_observe.py::test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves",
    "tests/test_etsy_readback_observe.py::test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
-   "tests/test_etsy_readback_observe.py::test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves"
+   "tests/test_k8_shop_cx.py::test_a_violation_past_its_deadline_is_restated_overdue_with_an_owner_action",
+   "tests/test_k8_shop_cx.py::test_policy_violation_items_become_ranked_incidents_with_escalation_and_closure_proof",
+   "tests/test_k8_shop_cx.py::test_routes_guard_customer_content_and_writes_with_the_operator_credential",
+   "tests/test_w3_laura_cc_providers.py::test_k8_estate_routes_are_mounted_and_customer_data_is_operator_only"
   ],
   "evidence": [
-   "grep policy.violation app/main.py: no route"
+   "grep policy.violation app/main.py: no route",
+   "w4-FM close on 8b67414 (FOLD): the owner-intake half the claim left to W1 is mounted: commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential); commerce/policy_violations ranks P0/P1/P2, sets deadline, remediation owner, legal-review owner action and closure proof; census escalates overdue items"
   ],
   "build2_rows": [],
   "gate": {
@@ -544,7 +555,7 @@
   "defect": null,
   "next_action": "Add POST /api/policy-violation (ops-token) creating an Incident 'policy_violation:<id>' with source_text, listing_id, action, deadline, severity (ranked by Etsy action: removal/suspension > warning) and required closure_evidence; legal escalation flag; test that closure without evidence is refused.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-569",
@@ -803,12 +814,14 @@
   "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
   "protected_effect": "payout is an owner request; software never receives bank details",
   "tests": [
-   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for",
-   "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked"
+   "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
+   "tests/test_etsy_surfaces.py::test_the_settings_that_silently_stop_every_sale_are_checked",
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for"
   ],
   "evidence": [
    "module_reachability: intel/etsy_surfaces.py reached=False on 019ebf0 (library + tests only), in_production_fcb982d=True (assess_shop)",
-   "research/ETSY_SURFACE_REGISTRY.md row 17 payment_settings OWNER_ONLY; owner action 2"
+   "research/ETSY_SURFACE_REGISTRY.md row 17 payment_settings OWNER_ONLY; owner action 2",
+   "w4-FM close on 8b67414 (REGATE): the daily shop snapshot judges is_etsy_payments_onboarded and reopens the owner action on drift"
   ],
   "build2_rows": [
    "#54 OWNER-GATED"
@@ -816,12 +829,12 @@
   "gate": {
    "kind": "owner",
    "key": "payout",
-   "detail": "owner completes Etsy Payments onboarding in a browser"
+   "detail": "drift monitor built; owner completes Etsy Payments onboarding"
   },
-  "defect": "assess_shop's payments-onboarded check is tested but never fed a getShop reading.",
-  "next_action": "Add a daily etsy.shop_snapshot cadence calling EtsyClient.get_shop (API key only), storing the response, running etsy_surfaces.assess_shop and closing the payout OwnerAction on is_etsy_payments_onboarded=true / opening an incident if it flips false.",
+  "defect": null,
+  "next_action": "owner gate payout: drift monitor built; owner completes Etsy Payments onboarding",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-578",
@@ -1029,21 +1042,24 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Vacation mode / currency drift silently stops every sale.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "Daily getShop snapshot is stored and judged (vacation, CAD currency, payments onboarded, policies, digital listing) with halting incidents and owner-action closure on evidence. Options not exposed by getShop (browser-only Settings > Options controls) have no registry of current value / owner authority / desired state and no drift detection; readiness has no shop-snapshot freshness item.",
-  "producer": "src/brambleloop/runtime/etsy_ops.py::handle_shop_snapshot (intel/etsy_surfaces.py::assess_shop)",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/shop_options.py::evaluate",
   "durable_state": "operating_readings (shop snapshot); incidents etsy.shop:*",
-  "consumer": "incidents (halts_publication); owner_actions",
+  "consumer": "runtime/etsy_ops.handle_shop_snapshot (daily cadence) -> incident etsy.shop:options_drift; POST /api/etsy/shop-observation",
   "protected_effect": "vacation/currency/payments drift halts publication",
   "tests": [
-   "tests/test_etsy_readback_observe.py::test_vacation_mode_and_a_foreign_currency_open_halting_incidents",
-   "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
    "tests/test_etsy_readback_observe.py::test_no_credentials_means_no_reading_not_an_empty_shop",
-   "tests/test_etsy_surfaces.py::test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green"
+   "tests/test_etsy_readback_observe.py::test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
+   "tests/test_etsy_readback_observe.py::test_vacation_mode_and_a_foreign_currency_open_halting_incidents",
+   "tests/test_etsy_surfaces.py::test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green",
+   "tests/test_k8_shop_cx.py::test_an_observation_must_be_dated_complete_and_shaped",
+   "tests/test_k8_shop_cx.py::test_options_registry_judges_api_controls_and_reports_browser_only_as_unobserved"
   ],
   "evidence": [
    "runtime/worker.py cadence etsy_shop_snapshot 24h",
-   "not in fcb982d -> not DEPLOYED"
+   "not in fcb982d -> not DEPLOYED",
+   "w4-FM close on 8b67414 (FOLD): commerce/shop_options.evaluate judges 8 controls (value, desired state, consequence, authority) inside the daily etsy.shop_snapshot and detects DRIFT/CHANGED/label changes; the browser-only half is the owner's dated observation through commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential)"
   ],
   "build2_rows": [],
   "gate": {
@@ -1054,7 +1070,7 @@
   "defect": null,
   "next_action": "Add an Options registry (intel/etsy_surfaces.py) listing every Settings > Options control with desired value, consequence and authority, an owner attestation route storing observed values with date, staleness-based re-audit owner action, and a readiness item requiring a fresh shop snapshot.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-586",
@@ -1243,21 +1259,25 @@
   "uid": "F-592",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "OAuth credential integrity guards shop writes (authority controls, runtime durability).",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "No continuous verification cadence (health does not read OAuth state), no callback-config or suspicious-authorisation monitor; connected apps/shared access are owner-only.",
-  "producer": "src/brambleloop/core/oauth_store.py (rotation / sealed refresh token)",
-  "durable_state": "oauth_credentials",
-  "consumer": "src/brambleloop/app/main.py::/api/etsy/oauth/status",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/commerce/shop_security.py::posture",
+  "durable_state": "oauth_credentials; operating_readings etsy.credential_health",
+  "consumer": "runtime/etsy_ops.handle_credential_health (daily cadence) -> incident etsy.security:posture; GET /api/etsy/oauth/status",
   "protected_effect": "tokens sealed, never echoed; rotation race refused",
   "tests": [
+   "tests/test_continuity.py::test_token_health_never_reveals_the_token",
    "tests/test_etsy_oauth_callback.py::test_a_rotation_replaces_the_stored_token_and_counts_itself",
    "tests/test_etsy_oauth_callback.py::test_a_rotation_that_lost_a_race_is_refused_rather_than_overwriting_a_live_token",
-   "tests/test_continuity.py::test_token_health_never_reveals_the_token"
+   "tests/test_k8_shop_cx.py::test_an_empty_apps_reading_closes_its_owner_action_and_a_listed_app_reopens_it",
+   "tests/test_k8_shop_cx.py::test_credential_health_carries_the_posture_and_opens_its_incident",
+   "tests/test_k8_shop_cx.py::test_security_posture_flags_unexpected_scopes_and_a_credential_replaced_outside_refresh"
   ],
   "evidence": [
    "research/OAUTH_SECURITY_AUDIT.md",
-   "/api/etsy/oauth/status present in fcb982d; real grant recorded 2026-09-25 (BUILD_STATE)"
+   "/api/etsy/oauth/status present in fcb982d; real grant recorded 2026-09-25 (BUILD_STATE)",
+   "w4-FM close on 8b67414 (FOLD): commerce/shop_security.posture runs inside the daily etsy.credential_health (runtime/etsy_ops._security_posture): scope drift, credential replaced outside a refresh, rotation age, callback config; apps and shared-access readings come from the owner's dated observation through commerce/estate_api.make_router, mounted in app/main.py:93-95 (POST /api/etsy/shop-observation, GET /api/etsy/policy-violations, GET /api/cx/workspace behind the operator credential); never echoes credentials"
   ],
   "build2_rows": [],
   "gate": {
@@ -1268,7 +1288,7 @@
   "defect": null,
   "next_action": "Add an OAuth health reading to ops/health.read (token age, rotations, granted scopes vs expected, last refresh outcome) and open an Incident on unexpected scope/key-fingerprint change.",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-593",
@@ -1319,15 +1339,17 @@
   "consumer": "src/brambleloop/runtime/release.py::handle_launch_readiness",
   "protected_effect": "launch never ready in shadow; off-device proof, rollback rehearsal, disclosures, support knowledge, FAQ, pricing plan block",
   "tests": [
-   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
-   "tests/test_launch.py::test_etsy_is_reported_as_written_but_never_called",
    "tests/test_cert_growth_ops.py::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate",
-   "tests/test_first_customer_gate.py::test_the_gate_never_authorises_publication_however_green_it_gets"
+   "tests/test_etsy_readback_observe.py::test_etsy_integration_turns_ready_only_on_a_live_full_round_trip_with_nothing_left",
+   "tests/test_first_customer_gate.py::test_the_gate_never_authorises_publication_however_green_it_gets",
+   "tests/test_launch.py::test_etsy_is_reported_as_written_but_never_called",
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready"
   ],
   "evidence": [
    "readiness._launch_package_items is post-fcb982d",
    "src/brambleloop/integrations/etsy_exercise.py (prepared, not run: BUILD_STATE 'Nothing has been exercised against Etsy')",
-   "gates/first_customer.py reached=False"
+   "gates/first_customer.py reached=False",
+   "w4-FM close on 8b67414 (REGATE): launch/readiness reads _etsy_exercise_evidence (readiness.py:611-623) instead of a hard-coded False"
   ],
   "build2_rows": [
    "#54 OWNER-GATED",
@@ -1335,13 +1357,13 @@
   ],
   "gate": {
    "kind": "owner",
-   "key": "etsy_exercise",
-   "detail": "owner authorises the one controlled round trip; also transactions_r and production_window"
+   "key": "etsy_api",
+   "detail": "readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains"
   },
-  "defect": "readiness 'etsy_integration' is hard-coded ready=False / ever_called=False instead of reading exercise breadcrumbs, so it cannot turn green after a real round trip.",
-  "next_action": "Make the etsy_integration item read etsy_exercise audit breadcrumbs (create/verify/delete matched pair); add items for exact file verification (F-559) and search readiness (taxonomy 66 confirmed, tags, SEO score); call gates/first_customer from launch.readiness.",
+  "defect": null,
+  "next_action": "owner gate etsy_api: readiness reads exercise evidence; the owner-authorised create/read/delete round trip remains",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-595",
@@ -1750,52 +1772,61 @@
   "launch_class_reason": "Pricing/economics integrity: missing data must never read as zero.",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Books report sales UNMEASURED (None + why) unless the order source is open and was read; Etsy fee entries without a matching internal order open an idempotent reconciliation incident. Missing: reconciliation against Payment Account payouts / monthly statements and future accounting integrations; reverse check (internal order with no ledger entry after N days); no independent 'Accountant' role output beyond these.",
-  "producer": "src/brambleloop/finance/books.py::Books.profit_and_loss; src/brambleloop/finance/reconcile.py::reconciliation_incident; src/brambleloop/commerce/orders_ingest.py::source_state",
+  "missing_part": "no bank, Etsy payment-ledger or processor statement has been imported; reconciliation runs on fixtures only",
+  "producer": "src/brambleloop/finance/accounting/reconciliation.py::match / compare_with_books",
   "durable_state": "ledger/orders tables; incidents finance.reconciliation.etsy_vs_orders",
-  "consumer": "app/main.py::api_finance; runtime/pipeline.py plan.strategy / finance.* handlers",
+  "consumer": "finance.accounting.cycle (runtime/worker.py cadence) -> finance/accounting/controller",
   "protected_effect": "no CA$0.00 / 'no orders' claims while the order source is closed",
   "tests": [
+   "tests/test_deploy.py::test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast",
    "tests/test_finance.py::test_sales_are_unmeasured_not_zero_while_the_order_source_is_closed",
-   "tests/test_money_truth.py::test_the_books_measure_sales_only_after_a_connected_source_was_read",
    "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
-   "tests/test_deploy.py::test_the_finance_endpoint_reports_unmeasured_sales_and_no_forecast"
+   "tests/test_money_truth.py::test_the_books_measure_sales_only_after_a_connected_source_was_read",
+   "tests/test_v11_accounting_controller.py::test_the_cycle_runs_as_a_worker_job",
+   "tests/test_v11_accounting_reconciliation.py::test_charged_fee_that_disagrees_with_the_books_is_a_mismatch",
+   "tests/test_v11_accounting_reconciliation.py::test_payout_matches_bank_deposit_and_unmatched_lines_become_exceptions"
   ],
   "evidence": [
    "waves/fb1_D.json F-608; FB-2 O (3b540fa) orders/refund truth",
    "finance/reconcile.py not in fcb982d -> not DEPLOYED",
-   "previous defect (zero-as-truth pinned by test_an_empty_business_reports_zeroes_rather_than_nothing) resolved: that test no longer exists; replaced by unmeasured tests"
+   "previous defect (zero-as-truth pinned by test_an_empty_business_reports_zeroes_rather_than_nothing) resolved: that test no longer exists; replaced by unmeasured tests",
+   "w4-FM close on 8b67414 (REMAP): finance/accounting/reconciliation imports bank / Etsy-ledger / processor statements, matches payouts to deposits, raises unmatched lines and charged-fee mismatches as exceptions and compares with the books (compare_with_books); the Accountant cycle runs every 6 h (runtime/worker.py:731 finance.accounting.cycle). No real statement feed is connected"
   ],
   "build2_rows": [
    "#11 OWNER-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "transactions_r",
-   "detail": "reverse check and payout reconciliation are buildable now; real data needs owner reauthorisation with transactions_r"
+   "kind": "owner",
+   "key": "bank_and_payment_ledger_feed",
+   "detail": "a real bank / Etsy payment-ledger feed needs the owner"
   },
   "defect": null,
-  "next_action": "Add finance/reconcile.py checks: internal order without a ledger fee/sale entry after 3 days -> incident; payouts (getPaymentAccountLedgerEntries) vs recorded sales-minus-fees per period -> incident on disagreement, UNKNOWN when unread; tests for each disagreement and for unread = UNKNOWN.",
+  "next_action": "owner gate bank_and_payment_ledger_feed: connect or export the statements; reconciliation then runs on them",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REMAP)"
  },
  {
   "uid": "F-609",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Economics integrity requires every money row to be sourced and reconcilable from the first sale.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "LedgerEntry lacks source, currency, original amount, classification beyond category and reconciliation state; AI spend is in cost_entries (separate); payouts/owner funding/adjustments/subscriptions have no writers.",
-  "producer": "src/brambleloop/commerce/orders_ingest.py::_record_line",
-  "durable_state": "ledger, cost_entries, orders (currency, fx)",
-  "consumer": "src/brambleloop/finance/books.py::Books.profit_and_loss",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/finance/accounting/posting_rules.py",
+  "durable_state": "acct_journal_entries, acct_postings, ledger",
+  "consumer": "finance.accounting.cycle (runtime/worker.py cadence) -> finance/accounting/controller",
   "protected_effect": null,
   "tests": [
    "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
-   "tests/test_finance.py::test_operating_cost_is_read_from_real_agent_spend"
+   "tests/test_finance.py::test_operating_cost_is_read_from_real_agent_spend",
+   "tests/test_v11_accounting_ledger.py::test_a_correction_is_a_reversal_plus_a_new_version_never_an_edit",
+   "tests/test_v11_accounting_ledger.py::test_assumed_fx_is_posted_as_modelled_not_measured",
+   "tests/test_v11_accounting_ledger.py::test_entries_are_idempotent_by_key_and_balanced_to_the_micro",
+   "tests/test_v11_accounting_ledger.py::test_raw_sql_tampering_is_detected_by_the_seal"
   ],
   "evidence": [
-   "src/brambleloop/core/models.py::LedgerEntry (at, category, description, gross/fees/refunds/expense, evidence_ref)"
+   "src/brambleloop/core/models.py::LedgerEntry (at, category, description, gross/fees/refunds/expense, evidence_ref)",
+   "w4-FM close on 8b67414 (REMAP): LedgerEntry now carries source, currency, basis and fees_basis (core/models.py LedgerEntry; modelled fees marked modelled, orders_ingest.py:964); the v1.1 journal (finance/accounting/models AcctJournalEntry/AcctPosting) carries source table/id/ref, per-line basis, currency and amount_original, sealed append-only with reversals; spend and statement lines post into it (posting_rules). The defect (modelled fees read as charged) is repaired"
   ],
   "build2_rows": [
    "#269 COMPLETE+PROVEN"
@@ -1805,10 +1836,10 @@
    "key": "transactions_r",
    "detail": "sales rows need orders"
   },
-  "defect": "Sale ledger fees_cad are modelled pricing.fees() values (unmodelled offsite/regulatory/currency fees omitted) stored without a basis flag, so they read as charged fees.",
+  "defect": null,
   "next_action": "Add ledger columns source, external_id, currency, amount_original, classification and reconciliation_state (additive migration), set basis=modelled for fee estimates, and write owner-funding/subscription rows from recorded owner inputs.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REMAP)"
  },
  {
   "uid": "F-610",

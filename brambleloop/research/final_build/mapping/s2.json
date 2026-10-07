@@ -890,13 +890,16 @@
   "consumer": "src/brambleloop/runtime/release.py::handle_lane_routing",
   "protected_effect": "uncalibrated claims stay UNRESOLVED and block",
   "tests": [
+   "tests/test_eligibility.py::test_a_launch0_slug_is_held_to_the_first_customer_gate",
+   "tests/test_eligibility.py::test_the_real_first_customer_gate_blocks_launch0_today",
    "tests/test_first_customer_gate.py::test_physical_validation_is_reported_unresolved_and_cannot_be_marked_otherwise",
-   "tests/test_physical.py::test_with_no_sample_the_estimate_stays_uncalibrated",
-   "tests/test_launch0.py::test_no_launch0_product_is_calibrated_and_the_report_leads_with_that"
+   "tests/test_launch0.py::test_no_launch0_product_is_calibrated_and_the_report_leads_with_that",
+   "tests/test_physical.py::test_with_no_sample_the_estimate_stays_uncalibrated"
   ],
   "evidence": [
    "executor Gate tester_roster / physical_proof",
-   "gates/first_customer.py reached=false"
+   "gates/first_customer.py reached=false",
+   "w4-FM close on 8b67414 (REGATE): gates/first_customer is called from publish/eligibility.py:588 and runtime/pipeline.py:682 (it had no runtime caller)"
   ],
   "build2_rows": [
    "#43 OWNER-GATED",
@@ -906,12 +909,12 @@
   "gate": {
    "kind": "owner",
    "key": "tester_roster",
-   "detail": "a recruited independent tester (and the physical_proof sample) is required to calibrate"
+   "detail": "first_customer gate wired via eligibility; calibration needs a recruited tester"
   },
-  "defect": "gates/first_customer.py (which reports UNRESOLVED physical claims) has no runtime caller.",
-  "next_action": "Wire gates.first_customer.blocking() into the store.publish path for Launch-0 slugs; owner: recruit testers per F-071-F-090 (tester_roster gate).",
+  "defect": null,
+  "next_action": "owner gate tester_roster: first_customer gate wired via eligibility; calibration needs a recruited tester",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-119",
@@ -2159,31 +2162,35 @@
   "launch_class_reason": "release/supply-chain integrity before deploy",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "Change record is printed at regeneration and lives in git history of requirements.lock, not in a release-evidence file; the Docker image has never been built from the lock (Railway build not run)",
+  "missing_part": "the image has never been built from the lock: the Railway build of a candidate is the deploy",
   "producer": "scripts/lock_requirements.py -> requirements.lock",
   "durable_state": "brambleloop/requirements.lock",
   "consumer": "Dockerfile: pip install --require-hashes --no-deps -r requirements.lock",
   "protected_effect": "the deployed image installs exactly pinned, hash-verified distributions",
   "tests": [
    "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
+   "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions",
    "tests/test_dependency_lock.py::test_the_dockerfile_installs_the_lock_with_require_hashes_and_never_the_unpinned_file",
    "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
-   "tests/test_dependency_lock.py::test_the_change_record_names_added_removed_and_changed_distributions"
+   "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
+   "tests/test_w3_supply_chain.py::test_release_evidence_is_computed_at_the_sha_and_a_bad_lock_refuses_the_record",
+   "tests/test_w3_supply_chain.py::test_sbom_and_change_record_are_derived_from_the_lock"
   ],
   "evidence": [
    "requirements.lock absent from fcb982d",
-   "build/release path, not a runtime root"
+   "build/release path, not a runtime root",
+   "w4-FM close on 8b67414 (FOLD): ops/deploy_guard record embeds the lock verification, an SBOM and the change record derived from requirements.lock at the SHA (tests/test_w3_supply_chain.py); the Dockerfile installs only the hash-checked lock. The image has never been built from the lock because no candidate has been deployed"
   ],
   "build2_rows": [],
   "gate": {
-   "kind": "none",
-   "key": null,
-   "detail": "software work remains or none; nothing external blocks it"
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "deploying the frozen candidate builds the image from the lock"
   },
   "defect": null,
-  "next_action": "Write the lock change record (lock_requirements.py --diff against the deployed SHA) into the release evidence for the RC; build the Docker image from the RC once (local or Railway preview) and record success",
+  "next_action": "owner gate production_window: deploy the candidate; deploy_guard record then binds the lock verification to the built image",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-159",
@@ -2191,19 +2198,21 @@
   "launch_class_reason": "release safety: no credential leaks",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "Runtime logs outside the repo (Railway/production logs) are not scanned; binaries >20MB or NUL-bearing and compressed PDF streams are skipped",
+  "missing_part": "production runtime logs (Railway) are not exported into the scan before release",
   "producer": "tests/test_secret_scan.py",
   "durable_state": null,
   "consumer": "run_tests.sh full run -> release_eligible -> ops/deploy_guard.py",
   "protected_effect": "a credential-shaped string in tracked/untracked/generated/evidence files fails the release suite",
   "tests": [
-   "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
+   "tests/test_secret_scan.py::test_a_credential_inside_a_compressed_pdf_stream_is_found",
+   "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value",
    "tests/test_secret_scan.py::test_each_credential_family_is_detected_by_its_pattern",
-   "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks",
-   "tests/test_secret_scan.py::test_a_finding_never_contains_the_matched_value"
+   "tests/test_secret_scan.py::test_no_credential_shaped_string_in_tracked_files_evidence_or_generated_artefacts",
+   "tests/test_secret_scan.py::test_the_scan_includes_untracked_and_generated_files_not_only_what_git_tracks"
   ],
   "evidence": [
-   "RUN_6f9a2f7_full_suite.json green"
+   "RUN_6f9a2f7_full_suite.json green",
+   "w4-FM close on 8b67414 (FOLD): tests/test_secret_scan.py now scans inside compressed PDF streams and untracked generated files; production (Railway) logs are still outside the scan"
   ],
   "build2_rows": [],
   "gate": {
@@ -2212,9 +2221,9 @@
    "detail": "software work remains or none; nothing external blocks it"
   },
   "defect": null,
-  "next_action": "Add a pre-release scan of exported production logs (owner-provided or Railway log export) and decoded PDF text streams of generated artefacts",
+  "next_action": "At release: export the deployed service's log window read-only and run the secret-scan patterns over it, recording the verdict beside the deploy_guard record",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-160",
@@ -2228,22 +2237,25 @@
   "consumer": null,
   "protected_effect": null,
   "tests": [
-   "tests/test_credential_register.py::test_the_chat_exposed_anthropic_key_is_seeded_as_rotation_required",
-   "tests/test_credential_register.py::test_every_unrotated_credential_is_an_owner_card_in_the_directive_format",
    "tests/test_credential_register.py::test_a_rotation_with_evidence_retires_the_card_and_age_alone_never_does",
-   "tests/test_credential_register.py::test_the_register_refuses_an_entry_carrying_something_shaped_like_a_value"
+   "tests/test_credential_register.py::test_every_unrotated_credential_is_an_owner_card_in_the_directive_format",
+   "tests/test_credential_register.py::test_the_chat_exposed_anthropic_key_is_seeded_as_rotation_required",
+   "tests/test_credential_register.py::test_the_register_refuses_an_entry_carrying_something_shaped_like_a_value",
+   "tests/test_fb4_ops.py::test_the_credential_rotation_card_reaches_the_owner_queue_and_the_dashboard"
   ],
-  "evidence": [],
+  "evidence": [
+   "w4-FM close on 8b67414 (REGATE): ops/credential_register.owner_requests is called by runtime/release.py:3679 (owner queue) -- the rotation card reaches the owner"
+  ],
   "build2_rows": [],
   "gate": {
    "kind": "owner",
    "key": "credential_rotation",
-   "detail": "rotating the Anthropic key is an owner action; wiring the card is buildable now"
+   "detail": "rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act"
   },
-  "defect": "Unwired: owner_requests() is never called by a runtime root, so the rotation card never reaches the owner",
-  "next_action": "Buildable now: append credential_register.owner_requests() to the launch readiness owner queue (launch/readiness.assess or runtime/release.py launch assessment) and show it on the dashboard; test it is present. Owner: rotate ANTHROPIC_API_KEY and record rotated_at + evidence",
+  "defect": null,
+  "next_action": "owner gate credential_rotation: rotation card wired into owner queue (fb4-OPS); exposed ANTHROPIC_API_KEY rotation is an owner act",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-161",
@@ -2731,34 +2743,37 @@
   "uid": "F-176",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "recovery: a restorable pre-launch baseline",
-  "maturity": "EXERCISED",
+  "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "Data restore is proved (continuity digest round trip, exercised in production) and per-product rollback is rehearsed (launch/rollback.rehearse), and core/build.identity records the running SHA; there is no single baseline artefact binding code SHA + schema + config names + coverage map + test log + restore proof.",
-  "producer": "src/brambleloop/core/continuity.py::prove_restore",
+  "missing_part": "the baseline is recoverable only with the deployed candidate's code SHA, its release-record suite and a production restore proof; locally it reads recoverable=false and names them",
+  "producer": "src/brambleloop/ops/assurance.py::rollback_baseline / record_baseline",
   "durable_state": "continuity exports; audit_log ops.continuity",
-  "consumer": "src/brambleloop/launch/readiness.py::assess",
+  "consumer": "runtime/release.handle_health_sweep -> ops/truth.sweep (ops.health cadence) -> audit_log",
   "protected_effect": "company restorable to a known state",
   "tests": [
+   "tests/test_cert_rebuild_chain.py::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced",
    "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
-   "tests/test_cert_rebuild_chain.py::test_launch_readiness_measures_the_launch_package_from_what_the_chain_produced"
+   "tests/test_w3_k7_ops_truth.py::test_health_handler_runs_the_truth_sweep",
+   "tests/test_w3_k7_ops_truth.py::test_rollback_baseline_names_missing_components"
   ],
   "evidence": [
    "BUILD_STATE.md ~l.360/4831 continuity proved in production",
-   "launch/rollback.py not in production fcb982d"
+   "launch/rollback.py not in production fcb982d",
+   "w4-FM close on 8b67414 (FOLD): ops/assurance.rollback_baseline binds code SHA, tree digest, schema digest, config names (never values), coverage map, release-record tests, restore proof and rollback target, and names each missing component; record_baseline writes it once per digest on the ops.health sweep (ops/truth.py:353). It reads recoverable=false locally: code SHA, release-record tests and restore proof exist only on a deployed build"
   ],
   "build2_rows": [
    "#51 OWNER-GATED",
    "#54 OWNER-GATED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "",
-   "detail": ""
+   "kind": "owner",
+   "key": "production_window",
+   "detail": "deploy the candidate so the baseline is recorded on it"
   },
   "defect": null,
-  "next_action": "Add scripts/prelaunch_baseline.py writing baseline.json (SHA, alembic/schema digest, env var NAMES only, closure_matrix digest, suite log SHA, latest restore-proof id) and a test that it refuses when any part is missing.",
+  "next_action": "owner gate production_window: deploy the frozen candidate; the ops.health sweep then records a recoverable baseline",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-177",

@@ -1801,21 +1801,28 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "s84 correctness QA; incorrect technique imagery is customer-facing misinformation",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "visual correctness is enforced only as a required human-attested review dimension (visual_accuracy must be PASS; UNKNOWN withholds), labelled automated_truth_proof=false; no deterministic technique-diagram generator or loop/insertion-point verifier exists for lessons; note the public lesson route does not serve assets at all, so no lesson image can currently reach a customer",
-  "producer": "src/brambleloop/learn/service.py::review_lesson",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/learn/technique.py::render / read_drawing",
   "durable_state": "learn_lessons.reviews",
-  "consumer": "src/brambleloop/learn/service.py::eligible",
+  "consumer": "GET /learn/{slug}/technique/{stitch}.svg (learn/api.py, mounted in app/main.py); learn/service.validate_spec asset rules",
   "protected_effect": "no lesson is approved or linked unless a distinct reviewer attests visual accuracy for that exact revision",
   "tests": [
+   "tests/test_learn_launch.py::test_public_route_refuses_draft_and_stale_revision",
    "tests/test_learn_launch.py::test_unknown_visual_review_withholds_and_self_review_refused",
-   "tests/test_learn_launch.py::test_public_route_refuses_draft_and_stale_revision"
+   "tests/test_w3_k10_learn.py::test_f806_dc_diagram_drawn_as_sc_fails",
+   "tests/test_w3_k10_learn.py::test_f806_every_supported_diagram_verifies_and_is_deterministic",
+   "tests/test_w3_k10_learn.py::test_f806_human_visual_attestation_is_still_required",
+   "tests/test_w3_k10_learn.py::test_f806_lesson_assets_refuse_photos_generic_images_and_other_stitch_diagrams",
+   "tests/test_w3_k10_learn.py::test_f806_public_route_serves_only_verified_declared_diagram",
+   "tests/test_w3_k10_learn.py::test_f806_wrong_insertion_point_wrong_post_and_orientation_fail"
   ],
   "evidence": [
    "learn/runtime.py handle_scan registered for learn.scan; runtime/worker.py:304 cadence ('learn_gap_scan','learn','learn.scan',3600); agents/registry.py:44 'learn' agent GREEN, CA$0 ceiling",
    "app/main.py:51-53 mounts learn.api router (queue/draft/review/public read)",
    "module_reachability.json (6f9a2f7): learn/service.py, learn/models.py, learn/runtime.py, learn/api.py reached; in_production_fcb982d False",
-   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)"
+   "research/final_build/codex_learn/HANDOFF.md (Codex worker, integrated via 07a8c3b; honest-limitations section)",
+   "w4-FM close on 8b67414 (FOLD): learn/technique renders a deterministic diagram per supported stitch and read_drawing verifies loops, insertion point, post and orientation; GET /learn/{slug}/technique/{stitch}.svg (learn/api.py:143) re-renders and verifies before serving (fail-closed 404); lesson assets refuse photos, generic images and another stitch's diagram. The human attestation remains an additional floor, no longer the only evidence -- the recorded proxy defect is repaired"
   ],
   "build2_rows": [],
   "gate": {
@@ -1823,10 +1830,10 @@
    "key": "",
    "detail": "remaining work is software"
   },
-  "defect": "proxy: visual truth rests on human attestation, honestly labelled (automated_truth_proof=false) but not measured",
+  "defect": null,
   "next_action": "Before lesson images are served: generate technique diagrams deterministically (extend visual/disclosed_render glyphs or visual/render.py loop targets per stitch) and verify them with visual/render_verification-style pixel checks; add a test that a dc diagram drawn as sc fails",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-807",
@@ -3125,26 +3132,27 @@
   "consumer": "runtime/release.py::handle_assets_build",
   "protected_effect": "customer sees truthful disclosed render, not a photoreal claim",
   "tests": [
-   "tests/test_render.py::test_the_raster_is_deterministic_for_a_given_seed",
-   "tests/test_cert_hero_title_safe.py"
+   "tests/test_cert_hero_title_safe.py",
+   "tests/test_render.py::test_the_raster_is_deterministic_for_a_given_seed"
   ],
   "evidence": [
    "codex/visual-v2-rnd @ 035ff0c research/visual_v2/CURRENT_STATE.md + VISUAL_V2_ARCHITECTURE.md (R&D only, not on 019ebf0): B+C recommended; V2-P06 FAIL, V2-P07 structural UNKNOWN; composition preserved 12,008 opaque pixels",
-   "research/BUILD2_CERTIFICATION.md C-58 (hero render disclosure)"
+   "research/BUILD2_CERTIFICATION.md C-58 (hero render disclosure)",
+   "w4-FM close on 8b67414 (REGATE): V1 generative redraw is refused (F-852) on the main line; the B+C photoreal presentation waits on V2 provider capability (D-FB-7)"
   ],
   "build2_rows": [
    "#72 EXTERNAL-BLOCKED",
    "#300 EXTERNAL-BLOCKED"
   ],
   "gate": {
-   "kind": "none",
-   "key": "",
-   "detail": "remaining work is software"
+   "kind": "external",
+   "key": "visual_v1_provider_capability",
+   "detail": "V1 redraw refused; protected photoreal presentation waits on V2 R&D"
   },
-  "defect": "main-line photoreal path (publish/model_photography.py, owned_photography.py) is still generative product redraw (V1), contrary to the new default",
-  "next_action": "Integrate V2 as a separate module after R&D passes a topology-correct coupon: port research/visual_v2 compositor (C=aF+(1-a)B with preserved foreground) into src/brambleloop/visual/compose.py with pixel-preservation tests; keep V1 generation off the default path",
+  "defect": null,
+  "next_action": "external gate visual_v1_provider_capability: V1 redraw refused; protected photoreal presentation waits on V2 R&D",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-852",

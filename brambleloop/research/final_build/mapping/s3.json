@@ -755,20 +755,23 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "truthful owner visibility (dashboard/owner-state hardening)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "as-of is render/query time, not the latest source-row/observation time; non-block tables (jobs, products, incidents, audit) carry no as-of",
-  "producer": "src/brambleloop/app/main.py::dashboard._block (asof div); dashboard_truth.evidence as_of",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/ops/truth.py::observation_window",
   "durable_state": null,
-  "consumer": "src/brambleloop/app/main.py::dashboard",
+  "consumer": "app/command_center/providers.validate (every CC card) and app/main.py::dashboard (_newest_row_line)",
   "protected_effect": "every command-centre block and headline KPI states when it was read",
   "tests": [
    "tests/test_cert_dashboard.py::test_every_block_renders_an_as_of_time",
-   "tests/test_cert_dashboard.py::test_every_headline_kpi_carries_its_evidence_envelope"
+   "tests/test_cert_dashboard.py::test_every_headline_kpi_carries_its_evidence_envelope",
+   "tests/test_w3_k7_ops_truth.py::test_vocabulary_rate_and_claims",
+   "tests/test_w3_wire4.py::test_k7_dashboard_tables_state_their_newest_row"
   ],
   "evidence": [
    "research/final_build/waves/fb1_E.json F-203 PARTIAL",
    "main.py:4818-4826",
-   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED"
+   "behaviour added after fcb982d (not in production tree), so at most INTEGRATED",
+   "w4-FM close on 8b67414 (FOLD): the dashboard half the claim left as a wiring request landed (W3-WIRE4 1c): app/main.py _newest_row_line states query time and newest row for the jobs, products, incidents and audit tables; CC cards carry observation_window (providers.validate -> ops/truth.observation_window, mixed_snapshot)"
   ],
   "build2_rows": [],
   "gate": {
@@ -776,10 +779,10 @@
    "key": "none",
    "detail": "no external/owner/data gate on the remaining software step"
   },
-  "defect": "query-time as-of on blocks that summarise older snapshots (e.g. benchmark observations, last scan) can still present mixed snapshots as current",
+  "defect": null,
   "next_action": "For snapshot-backed blocks (benchmark, scan, learning, seasonal, spend) pass the max source-row timestamp into _block and render 'observed <t>' alongside 'read <t>'; add as-of to the jobs/products/incidents/audit tables; extend test_every_block_renders_an_as_of_time to assert an observed time where the source has one.",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (FOLD)"
  },
  {
   "uid": "F-204",
@@ -2328,23 +2331,25 @@
   "consumer": "finance/sustainability.py::forecast -> verdict -> launch/readiness.py::assess (sustainable_economics)",
   "protected_effect": null,
   "tests": [
-   "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost"
+   "tests/test_money_truth.py::test_break_even_and_maintenance_split_creation_from_recurring_cost",
+   "tests/test_w3_spend_attribution.py::test_product_creation_cost_is_split_by_stage"
   ],
   "evidence": [
    "research/final_build/waves/fb1_D.json F-321 PARTIAL",
    "grep 'product_slug=' over gateway/, visual/, culture/: no spend_report.record call sets it",
-   "launch.readiness daily cadence (runtime/worker.py:408); sustainability.py not in fcb982d"
+   "launch.readiness daily cadence (runtime/worker.py:408); sustainability.py not in fcb982d",
+   "w4-FM close on 8b67414 (REGATE): runtime spend writers pass product_slug (gateway/model_gateway.py:229, gateway/anthropic.py:289/334 -> finance/spend_report.record)"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "data",
    "key": "live_listings",
-   "detail": "no live listing exists (shadow mode); slug tagging of maintenance spend is buildable now"
+   "detail": "spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing"
   },
-  "defect": "attribution input is never produced at runtime: tests feed product-tagged CostEntry fixtures that no production writer creates",
-  "next_action": "Thread product_slug from job payloads into every spend_report.record call (gateway/anthropic.py, gateway/images.py, visual/*.py, culture/classify.py) for observation, revalidation, seasonal refresh and support jobs; add a test that a slug-bearing job's model call writes a slug-tagged CostEntry.",
+  "defect": null,
+  "next_action": "data gate live_listings: spend rows tagged with product_slug at runtime (6d86a8b); maintenance cost needs a live listing",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FM close on 8b67414 (REGATE)"
  },
  {
   "uid": "F-322",
