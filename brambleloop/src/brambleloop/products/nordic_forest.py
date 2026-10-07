@@ -102,10 +102,11 @@ def _nearest(target: float, unit: float) -> int:
 # measures a row by the stitch-weighted height of the stitches in it, which moved this
 # design's stated yardage and/or size; a customer-visible figure cannot change under a
 # released version (tests/data/release_fingerprints.tsv pins content AND claims).
-# 1.3.0 (W4-PIPE3, 2026-10-07): named for the fabric it makes. "Overlay Mosaic" claimed a
-# two-colour technique; every row is worked in ONE colour (dc standing above a sc ground), so
-# the motif is a relief inside alternating stripes (`launch0.fabric_truth`, NAME_OUTRUNS_PATTERN).
-# Title, designer note and provenance changed, so every size is a new release.
+RELEASE_VERSION = "1.2.0"
+# 1.3.0 (W4-PIPE 2026-10-07): renamed to what the fabric makes. Each row is worked in one
+# colour (launch0.fabric_truth: at most one colour in any row), so the fir and star are a
+# double-crochet relief over a single-crochet ground, not overlay mosaic, which needs a
+# second colour reaching down inside the row. Stitches unchanged; title and notes changed.
 RELEASE_VERSION = "1.3.0"
 
 SIZES: dict[str, tuple[int, int]] = {
@@ -170,11 +171,9 @@ def _row_ops(pattern: str, width: int) -> list[Repeat]:
 def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
     """Build the CIR for one finished size.
 
-    Colour alternates every row and each row is worked in one colour: the fir and the star
-    are double crochet standing above a single-crochet ground, a relief inside the stripes.
-    (This docstring once called that overlay mosaic. Mosaic needs two colours in a row --
-    stitches of one colour reaching down past the other -- which this CIR cannot express and
-    this fabric does not make; `launch0.fabric_truth` refuses the name.)
+    Colour alternates every row and every row is one colour, so the fir and star read as a
+    double-crochet relief over a single-crochet ground (not overlay mosaic: that needs a
+    second colour reaching down inside a row, which this CIR does not make).
     """
     _validate_motif()
     if size not in SIZES:
@@ -203,11 +202,8 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
         # The throw is the headline product, so it carries the plain name; the other sizes
         # qualify it. A title reading "... Throw (Throw)" is the kind of small wrongness that
         # makes a premium shop look automated.
-        # W4-PIPE3: "Nordic Forest Relief Baby Blanket" rather than "... Blanket (Baby)": the
-        # bracketed size pushed the listing's season differentiator past the 60-character
-        # front scan (commerce.seo.front_scan), and the size reads as the noun it qualifies.
-        title=("Nordic Forest Relief Throw" if size == "throw"
-               else f"Nordic Forest Relief {size.title()} Blanket"),
+        title=("Nordic Forest Fir and Star Relief Throw" if size == "throw"
+               else f"Nordic Forest Fir and Star Relief Blanket ({size.title()})"),
         version=version,
         construction="flat_rows",
         risk_class="A",
@@ -218,7 +214,7 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
         components=[Component(name="blanket", construction="flat_rows", rows=rows,
                               foundation=width, foundation_kind="chain")],
         designer_notes=(
-            f"Fir and star relief on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
+            f"A fir and star relief on a {MOTIF_WIDTH}-stitch repeat, {spec.rows} rows "
             f"({repeats} motif repeats): double crochet standing above a single-crochet "
             f"ground, one colour per row. Fir and star bands alternate. "
             + _colour_note(rows, width)),
@@ -227,7 +223,7 @@ def build(size: str = "throw", version: str = RELEASE_VERSION) -> CIR:
             "nordic-forest-mosaic-throw",
             {"builder": "products.nordic_forest.build", "size": size, "width": width,
              "repeats": repeats, "motif": list(MOTIF), "palette": dict(PALETTE)},
-            ("products.nordic_forest", "products.nordic_forest.MOTIF", "fir_and_star_relief")),
+            ("products.nordic_forest", "products.nordic_forest.MOTIF", "relief")),
     )
 
 

@@ -220,9 +220,29 @@ def _seed_for(slug: str):
 
 UNKNOWN_PRODUCT = "UNKNOWN_PRODUCT"
 
-# W4-PIPE3: categories that name a colourwork fabric, and the plain category the same object is
-# filed under when its fabric puts one colour in every row (see handle_listing_seo).
-COLOURWORK_CATEGORIES: dict[str, str] = {"mosaic_blanket": "blanket", "graphghan": "blanket"}
+# Radar categories that name a colourwork technique, and the plain category of the object.
+_COLOURWORK_CATEGORIES = {"mosaic_blanket": "blanket", "graphghan": "blanket"}
+
+
+def _truthful_category(slug: str, category: str) -> str:
+    """The seed's category, unless it names colourwork the product's own title no longer
+    claims (W4-PIPE): a design renamed to the relief it actually works ("Nordic Forest Fir and
+    Star Relief Throw") must not be tagged and filed as a "mosaic blanket" by the concept it
+    started from. The title is the CIR's, built now; colourwork_findings still refuse a claim
+    the fabric cannot make if one gets through."""
+    plain = _COLOURWORK_CATEGORIES.get(category)
+    if plain is None:
+        return category
+    try:
+        from .pipeline import _engineered_cir
+
+        cir = _engineered_cir(slug)
+    except Exception:  # noqa: BLE001 - no design to read: keep the seed's word
+        return category
+    title = (getattr(cir, "title", "") or "").lower()
+    technique = "mosaic" if category == "mosaic_blanket" else "graphghan"
+    return category if (cir is None or technique in title) else plain
+
 
 # W4-PIPE3: catalogue designs retitled to what they make (W4-PIPE 1.3.0) whose radar seed still
 # names what they do not. "pressed-flower-motifs" is twelve heart appliques: its seed category
@@ -253,8 +273,9 @@ def _product_record(slug: str, inputs: dict | None = None) -> dict | None:
                 "source": f"products.launch0:{cand.slug if cand else slug}"}
     seed = _seed_for(slug)
     if seed is not None:
-        fixed = SEED_CORRECTIONS.get(slug, {}).get("category", seed.category)
-        return {"category": fixed, "kind": fixed, "nouns": [],
+        category = _truthful_category(seed.slug, seed.category)
+        category = SEED_CORRECTIONS.get(slug, {}).get("category", category)
+        return {"category": category, "kind": category, "nouns": [],
                 "motifs": _motifs_for(slug), "techniques": None, "season": seed.season,
                 "launch0": False, "source": f"radar.pool:{seed.slug}"}
     category = (inputs or {}).get("category")
@@ -886,8 +907,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # (`gates.first_customer.colourwork_findings`, `eligibility.name_truth`).
     _per_row = max((len(set(row)) for row in twin.color_grid()), default=0)
     colourwork_fabric = _per_row >= 2
-    if not colourwork_fabric and category in COLOURWORK_CATEGORIES:
-        category = COLOURWORK_CATEGORIES[category]
+    if not colourwork_fabric and category in _COLOURWORK_CATEGORIES:
+        category = _COLOURWORK_CATEGORIES[category]
     season = record["season"]
     # #297: a pivot to evergreen removes the seasonal premise from the copy -- no season in
     # the title and none in the query set -- rather than relabelling a Christmas listing.

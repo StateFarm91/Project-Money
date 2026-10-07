@@ -200,9 +200,7 @@
     "slug": "bobble-floor-pillow",
     "source": "chain",
     "release": null,
-    "jobs": [
-     "cir.draft:done"
-    ]
+    "jobs": []
    },
    "production": null,
    "blockers": [
@@ -221,7 +219,7 @@
     {
      "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "the shadow plan.cycle never drafted this product (jobs: ['cir.draft:done'])",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
      "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     }
    ],
@@ -407,7 +405,7 @@
      "release_hash": "7c63dbdd501f"
     },
     "listing": {
-     "id": 4,
+     "id": 3,
      "version": "1.2.0",
      "state": "draft",
      "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
@@ -579,37 +577,8 @@
    "chain": {
     "slug": "cottage-wall-hanging",
     "source": "chain",
-    "release": {
-     "version": "1.3.0",
-     "certified": true,
-     "release_hash": "6916ff797b70"
-    },
-    "listing": {
-     "id": 11,
-     "version": "1.3.0",
-     "state": "draft",
-     "title": "Cottage Chevron Wall Hanging | Crochet Pattern PDF | Decor | US and UK Terms",
-     "tags": 13,
-     "price_cad": 6.21,
-     "on_etsy": false
-    },
-    "store_publish": {
-     "status": "dead",
-     "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
-     "outputs": {}
-    },
-    "publish_refusal": null,
-    "imagery": null,
-    "publish_verdict": {
-     "blocks_release": true,
-     "reasons": [
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
-     ],
-     "search": "REFUSED"
-    }
+    "release": null,
+    "jobs": []
    },
    "production": null,
    "blockers": [
@@ -620,37 +589,16 @@
      "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
     },
     {
-     "gate": "listing_imagery_qa",
+     "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-     "action": "listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-     "action": "follows the taxonomy snapshot"
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     }
    ],
    "owner_action_required": [],
    "shortest_path": [
     "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
-    "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -965,7 +913,7 @@
      "release_hash": "3754ed17a63b"
     },
     "listing": {
-     "id": 12,
+     "id": 10,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
@@ -1160,7 +1108,7 @@
      "release_hash": "cc698c1b1498"
     },
     "listing": {
-     "id": 7,
+     "id": 6,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
@@ -1311,7 +1259,7 @@
      "release_hash": "00182234041c"
     },
     "listing": {
-     "id": 6,
+     "id": 5,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
@@ -1462,7 +1410,7 @@
      "release_hash": "1ddde587f537"
     },
     "listing": {
-     "id": 5,
+     "id": 4,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
@@ -1655,39 +1603,8 @@
    "chain": {
     "slug": "mosaic-placemat-pair",
     "source": "chain",
-    "release": {
-     "version": "1.3.0",
-     "certified": true,
-     "release_hash": "b2cd736f0f34"
-    },
-    "listing": {
-     "id": 13,
-     "version": "1.3.0",
-     "state": "draft",
-     "title": "Diamond Lattice Placemat Pair | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
-     "tags": 13,
-     "price_cad": 5.98,
-     "on_etsy": false
-    },
-    "store_publish": {
-     "status": "dead",
-     "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
-     "outputs": {}
-    },
-    "publish_refusal": null,
-    "imagery": null,
-    "publish_verdict": {
-     "blocks_release": true,
-     "reasons": [
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "NAME_OUTRUNS_PATTERN: mosaic-placemat-pair@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'mosaic crochet chart' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: mosaic-placemat-pair@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'overlay mosaic' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row"
-     ],
-     "search": "REFUSED"
-    }
+    "release": null,
+    "jobs": []
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -1709,40 +1626,10 @@
      "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
     },
     {
-     "gate": "listing_imagery_qa",
+     "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-     "action": "listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-     "action": "follows the taxonomy snapshot"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: mosaic-placemat-pair@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'mosaic crochet chart' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: mosaic-placemat-pair@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'overlay mosaic' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     },
     {
      "gate": "production_stale",
@@ -1760,14 +1647,9 @@
    "owner_action_required": [],
    "shortest_path": [
     "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[company] production_imagery: no imagery route outside Launch-0",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
-    "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
-    "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -1819,8 +1701,8 @@
     "slug": "nordic-forest-mosaic-throw",
     "source": "static",
     "exists": true,
-    "title": "Nordic Forest Overlay Mosaic Throw",
-    "version": "1.2.0",
+    "title": "Nordic Forest Fir and Star Relief Throw",
+    "version": "1.3.0",
     "construction": "flat_rows",
     "risk_class": "A",
     "components": [
@@ -1832,7 +1714,7 @@
     "compiles": true,
     "compile_warnings": 0,
     "certified": true,
-    "release_hash": "0e3a561744e2",
+    "release_hash": "396f7cccc0f4",
     "certificate_errors": [],
     "title_promise": {
      "claimed": null,
@@ -1860,12 +1742,9 @@
       "dc",
       "sc"
      ],
-     "colourwork_claims": [
-      "mosaic",
-      "overlay"
-     ],
-     "backed": false,
-     "why": "claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row, and a two-colour motif needs two",
+     "colourwork_claims": [],
+     "backed": true,
+     "why": "no colourwork technique is claimed, so the fabric is whatever the stitches make",
      "cir_can_express_per_stitch_colour": false,
      "cir_can_express_per_stitch_reach_down": false
     },
@@ -1875,44 +1754,32 @@
     "calibrated": false,
     "launch_scope": false,
     "launch0_candidate": null,
-    "product_truth_ok": false
+    "product_truth_ok": true
    },
    "chain": {
     "slug": "nordic-forest-mosaic-throw",
     "source": "chain",
     "release": {
-     "version": "1.2.0",
+     "version": "1.3.0",
      "certified": true,
-     "release_hash": "0e3a561744e2"
+     "release_hash": "396f7cccc0f4"
     },
-    "listing": {
-     "id": 1,
-     "version": "1.2.0",
-     "state": "draft",
-     "title": "Nordic Forest Overlay Mosaic Throw | Crochet Pattern PDF | Christmas | Blanket | US and UK Terms",
-     "tags": 13,
-     "price_cad": 14.0,
-     "on_etsy": false
-    },
-    "store_publish": {
-     "status": "dead",
-     "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
-     "outputs": {}
-    },
+    "listing": null,
+    "store_publish": null,
     "publish_refusal": null,
     "imagery": null,
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
+      "mobile QA (#66): 4 context(s) not rendered; 4 with a problem; first three ok",
+      "gallery minimum quality (#80): remove frames [1, 2, 3, 4, 5, 6, 7]",
+      "four-gate export (#58): 7 frame(s) may not export -- 1: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired; 2: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wire",
       "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
+      "search certificate (F-004): no drafted listing row to certify",
       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- fabric: claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row, and a two-colour motif needs two",
-      "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the title claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'christmas mosaic' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'mosaic blanket' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'overlay mosaic' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row"
+      "search certificate (F-004) copy: TITLE_FRONT_SCAN_DIFFERENTIATOR: 'Christmas' is not in the first 60 characters",
+      "search certificate (F-004) hero: frame 1 is not export-ready: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired up is the commonest way an unchecked asset reaches a customer"
      ],
      "search": "REFUSED"
     }
@@ -1931,12 +1798,6 @@
    },
    "blockers": [
     {
-     "gate": "name_fabric_truth",
-     "clearer": "COMPANY",
-     "evidence": "claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row, and a two-colour motif needs two",
-     "action": "rename to what the fabric makes, or change the CIR so it makes what the name says (merchandising decision, company-side)"
-    },
-    {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
      "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
@@ -1945,14 +1806,32 @@
     {
      "gate": "listing_imagery_qa",
      "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
+     "evidence": "mobile QA (#66): 4 context(s) not rendered; 4 with a problem; first three ok",
      "action": "repair the frames the mobile QA flags"
+    },
+    {
+     "gate": "publish_gate",
+     "clearer": "COMPANY",
+     "evidence": "gallery minimum quality (#80): remove frames [1, 2, 3, 4, 5, 6, 7]",
+     "action": "clear the named gate"
+    },
+    {
+     "gate": "publish_gate",
+     "clearer": "COMPANY",
+     "evidence": "four-gate export (#58): 7 frame(s) may not export -- 1: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired; 2: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wire",
+     "action": "clear the named gate"
     },
     {
      "gate": "listing_set_certificate",
      "clearer": "COMPANY",
      "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
      "action": "issue the listing-set certificate once the frame gates pass"
+    },
+    {
+     "gate": "search_certificate",
+     "clearer": "COMPANY",
+     "evidence": "search certificate (F-004): no drafted listing row to certify",
+     "action": "re-run listing.seo"
     },
     {
      "gate": "etsy_taxonomy_snapshot",
@@ -1967,53 +1846,34 @@
      "action": "follows the taxonomy snapshot"
     },
     {
-     "gate": "name_truth",
+     "gate": "search_certificate",
      "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- fabric: claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row, and a two-colour motif needs two",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
+     "evidence": "search certificate (F-004) copy: TITLE_FRONT_SCAN_DIFFERENTIATOR: 'Christmas' is not in the first 60 characters",
+     "action": "re-run listing.seo"
     },
     {
-     "gate": "name_truth",
+     "gate": "search_hero",
      "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the title claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'christmas mosaic' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'mosaic blanket' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: nordic-forest-mosaic-throw@1.2.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'overlay mosaic' claims 'mosaic'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
+     "evidence": "search certificate (F-004) hero: frame 1 is not export-ready: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired up is the commonest way an unchecked asset reaches a customer",
+     "action": "frame 1 must pass all four gates"
     },
     {
      "gate": "production_stale",
      "clearer": "DEPLOY",
-     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.2.0",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.3.0",
      "action": "deploy this build, then chain.rebuild re-certifies and redrafts"
     }
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] name_fabric_truth: rename to what the fabric makes, or change the CIR so it makes what the name says (merchandising decision, company-side)",
     "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
     "[company] listing_imagery_qa: repair the frames the mobile QA flags",
+    "[company] publish_gate: clear the named gate",
+    "[company] publish_gate: clear the named gate",
     "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
+    "[company] search_certificate: re-run listing.seo",
+    "[company] search_certificate: re-run listing.seo",
+    "[company] search_hero: frame 1 must pass all four gates",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
@@ -2022,7 +1882,7 @@
   },
   {
    "slug": "nordic-star-ornaments",
-   "status": "COMPANY_WORK",
+   "status": "OWNER_AND_DEPLOY_GATED",
    "static": {
     "slug": "nordic-star-ornaments",
     "source": "static",
@@ -2080,8 +1940,8 @@
     "height_cm": 10.2,
     "shape": null,
     "calibrated": false,
-    "launch_scope": false,
-    "launch0_candidate": null,
+    "launch_scope": true,
+    "launch0_candidate": "nordic-star-ornaments",
     "product_truth_ok": true
    },
    "chain": {
@@ -2093,12 +1953,12 @@
      "release_hash": "18c6e64fa4c5"
     },
     "listing": {
-     "id": 9,
+     "id": 8,
      "version": "1.4.0",
      "state": "draft",
-     "title": "Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | Christmas | US and UK Terms",
+     "title": "Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US and UK Terms",
      "tags": 13,
-     "price_cad": 4.63,
+     "price_cad": 4.5,
      "on_etsy": false
     },
     "store_publish": {
@@ -2107,14 +1967,22 @@
      "outputs": {}
     },
     "publish_refusal": null,
-    "imagery": null,
+    "imagery": {
+     "kind": "disclosed_render",
+     "made": true,
+     "usable": true,
+     "version": "1.4.0",
+     "frames": 3,
+     "launch_blocked": []
+    },
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+      "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+      "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+      "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
      ],
      "search": "REFUSED"
     }
@@ -2133,24 +2001,6 @@
    },
    "blockers": [
     {
-     "gate": "outside_launch_scope",
-     "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
-    },
-    {
-     "gate": "listing_imagery_qa",
-     "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
      "gate": "etsy_taxonomy_snapshot",
      "clearer": "EXTERNAL",
      "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
@@ -2163,6 +2013,24 @@
      "action": "follows the taxonomy snapshot"
     },
     {
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "action": "a pattern tester works this content (tester_roster); owner parked self-crocheting"
+    },
+    {
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "action": "first authorised Etsy draft confirms image upload / remote state"
+    },
+    {
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de",
+     "action": "owner approves object storage (CA$1-5/month, existing ceiling)"
+    },
+    {
      "gate": "production_stale",
      "clearer": "DEPLOY",
      "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.4.0",
@@ -2170,20 +2038,23 @@
     },
     {
      "gate": "production_imagery",
-     "clearer": "COMPANY",
+     "clearer": "DEPLOY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no imagery route outside Launch-0"
+     "action": "deploy (Launch-0 disclosed renders exist in this code)"
     }
    ],
-   "owner_action_required": [],
+   "owner_action_required": [
+    "durable_artifact_storage",
+    "physical_sample"
+   ],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] production_imagery: no imagery route outside Launch-0",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
+    "[deploy] production_imagery: deploy (Launch-0 disclosed renders exist in this code)",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
+    "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
+    "[external] etsy_remote_confirmation: first authorised Etsy draft confirms image upload / remote state",
+    "[owner] durable_artifact_storage: owner approves object storage (CA$1-5/month, existing ceiling)",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -2258,7 +2129,7 @@
      "release_hash": "5dccca80a6ab"
     },
     "listing": {
-     "id": 10,
+     "id": 9,
      "version": "1.2.0",
      "state": "draft",
      "title": "Pet Snuggle Mat | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
@@ -2425,7 +2296,7 @@
      "release_hash": "d5d9cbcb66cb"
     },
     "listing": {
-     "id": 8,
+     "id": 7,
      "version": "1.3.0",
      "state": "draft",
      "title": "Heart Applique Motif Library (12) | Crochet Pattern PDF | Pressed Flower | US and UK Terms",
@@ -2535,24 +2406,28 @@
     "source": "static",
     "exists": true,
     "title": "Spooky Bunting Garland",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "construction": "flat_rows",
     "risk_class": "A",
     "components": [
      {
       "name": "panel",
+      "make": 5
+     },
+     {
+      "name": "cord",
       "make": 1
      }
     ],
     "compiles": true,
     "compile_warnings": 0,
     "certified": true,
-    "release_hash": "61a161b3a66b",
+    "release_hash": "0e9ae7024dbd",
     "certificate_errors": [],
     "title_promise": {
      "claimed": null,
      "plural_markers": [],
-     "makes": 1,
+     "makes": 6,
      "backed": true,
      "why": "the title makes no multiplicity claim, so there is nothing to contradict"
     },
@@ -2561,10 +2436,10 @@
       "garland",
       "bunting"
      ],
-     "seams": 0,
-     "pieces": 1,
-     "backed": false,
-     "why": "the title names 'garland'; the CIR carries 0 seams and 1 pieces"
+     "seams": 1,
+     "pieces": 6,
+     "backed": true,
+     "why": "the title names 'garland'; the CIR carries 1 seams and 6 pieces"
     },
     "fabric_truth": {
      "max_colours_in_one_row": 1,
@@ -2584,26 +2459,26 @@
      "cir_can_express_per_stitch_colour": false,
      "cir_can_express_per_stitch_reach_down": false
     },
-    "width_cm": 24.0,
+    "width_cm": 16.0,
     "height_cm": 21.2,
     "shape": null,
     "calibrated": false,
     "launch_scope": false,
     "launch0_candidate": null,
-    "product_truth_ok": false
+    "product_truth_ok": true
    },
    "chain": {
     "slug": "spooky-garland",
     "source": "chain",
     "release": {
-     "version": "1.2.0",
+     "version": "1.3.0",
      "certified": true,
-     "release_hash": "61a161b3a66b"
+     "release_hash": "0e9ae7024dbd"
     },
     "listing": {
-     "id": 3,
-     "version": "1.2.0",
-     "state": "draft",
+     "id": 2,
+     "version": "1.3.0",
+     "state": "withdrawn",
      "title": "Spooky Bunting Garland | Crochet Pattern PDF | Seasonal Decor | US and UK Terms",
      "tags": 13,
      "price_cad": 5.23,
@@ -2623,8 +2498,7 @@
       "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
       "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "NAME_OUTRUNS_PATTERN: spooky-garland@1.2.0: the name promises what the pattern does not make -- assembly: the title names 'garland'; the CIR carries 0 seams and 1 pieces"
+      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
      ],
      "search": "REFUSED"
     }
@@ -2642,12 +2516,6 @@
     "photography": "unusable"
    },
    "blockers": [
-    {
-     "gate": "name_assembly_truth",
-     "clearer": "COMPANY",
-     "evidence": "the title names 'garland'; the CIR carries 0 seams and 1 pieces",
-     "action": "rename to what the fabric makes, or change the CIR so it makes what the name says (merchandising decision, company-side)"
-    },
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
@@ -2685,15 +2553,9 @@
      "action": "follows the taxonomy snapshot"
     },
     {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: spooky-garland@1.2.0: the name promises what the pattern does not make -- assembly: the title names 'garland'; the CIR carries 0 seams and 1 pieces",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
-    },
-    {
      "gate": "production_stale",
      "clearer": "DEPLOY",
-     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.2.0",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.3.0",
      "action": "deploy this build, then chain.rebuild re-certifies and redrafts"
     },
     {
@@ -2705,12 +2567,10 @@
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] name_assembly_truth: rename to what the fabric makes, or change the CIR so it makes what the name says (merchandising decision, company-side)",
     "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
     "[company] seasonal_window: reschedule to the next buying window",
     "[company] listing_imagery_qa: repair the frames the mobile QA flags",
     "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
     "[company] production_imagery: no imagery route outside Launch-0",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
@@ -2726,24 +2586,28 @@
     "source": "static",
     "exists": true,
     "title": "Heart Motif Garland",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "construction": "flat_rows",
     "risk_class": "A",
     "components": [
      {
       "name": "panel",
+      "make": 5
+     },
+     {
+      "name": "cord",
       "make": 1
      }
     ],
     "compiles": true,
     "compile_warnings": 0,
     "certified": true,
-    "release_hash": "73d7bb8a6536",
+    "release_hash": "9dc4e281d071",
     "certificate_errors": [],
     "title_promise": {
      "claimed": null,
      "plural_markers": [],
-     "makes": 1,
+     "makes": 6,
      "backed": true,
      "why": "the title makes no multiplicity claim, so there is nothing to contradict"
     },
@@ -2751,10 +2615,10 @@
      "forms_named": [
       "garland"
      ],
-     "seams": 0,
-     "pieces": 1,
-     "backed": false,
-     "why": "the title names 'garland'; the CIR carries 0 seams and 1 pieces"
+     "seams": 1,
+     "pieces": 6,
+     "backed": true,
+     "why": "the title names 'garland'; the CIR carries 1 seams and 6 pieces"
     },
     "fabric_truth": {
      "max_colours_in_one_row": 1,
@@ -2774,13 +2638,13 @@
      "cir_can_express_per_stitch_colour": false,
      "cir_can_express_per_stitch_reach_down": false
     },
-    "width_cm": 24.0,
+    "width_cm": 16.0,
     "height_cm": 19.9,
     "shape": null,
     "calibrated": false,
     "launch_scope": false,
     "launch0_candidate": null,
-    "product_truth_ok": false
+    "product_truth_ok": true
    },
    "chain": {
     "slug": "valentine-heart-garland",
@@ -2802,12 +2666,6 @@
    },
    "blockers": [
     {
-     "gate": "name_assembly_truth",
-     "clearer": "COMPANY",
-     "evidence": "the title names 'garland'; the CIR carries 0 seams and 1 pieces",
-     "action": "rename to what the fabric makes, or change the CIR so it makes what the name says (merchandising decision, company-side)"
-    },
-    {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
      "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
@@ -2822,7 +2680,7 @@
     {
      "gate": "production_stale",
      "clearer": "DEPLOY",
-     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.2.0",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.3.0",
      "action": "deploy this build, then chain.rebuild re-certifies and redrafts"
     },
     {
@@ -2834,7 +2692,6 @@
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] name_assembly_truth: rename to what the fabric makes, or change the CIR so it makes what the name says (merchandising decision, company-side)",
     "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[company] production_imagery: no imagery route outside Launch-0",
@@ -2844,7 +2701,7 @@
   },
   {
    "slug": "winter-village-graphghan",
-   "status": "COMPANY_WORK",
+   "status": "OWNER_AND_DEPLOY_GATED",
    "static": {
     "slug": "winter-village-graphghan",
     "source": "static",
@@ -2900,8 +2757,8 @@
     "height_cm": 91.8,
     "shape": null,
     "calibrated": false,
-    "launch_scope": false,
-    "launch0_candidate": null,
+    "launch_scope": true,
+    "launch0_candidate": "winter-village-graphghan",
     "product_truth_ok": true
    },
    "chain": {
@@ -2913,12 +2770,12 @@
      "release_hash": "b41e0430fe3d"
     },
     "listing": {
-     "id": 2,
+     "id": 1,
      "version": "1.3.0",
      "state": "draft",
-     "title": "Winter Snowfall Relief Throw | Crochet Pattern PDF | Christmas | Graphghan | US and UK Terms",
+     "title": "Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket | US and UK Terms",
      "tags": 13,
-     "price_cad": 12.0,
+     "price_cad": 7.5,
      "on_etsy": false
     },
     "store_publish": {
@@ -2927,19 +2784,22 @@
      "outputs": {}
     },
     "publish_refusal": null,
-    "imagery": null,
+    "imagery": {
+     "kind": "disclosed_render",
+     "made": true,
+     "usable": true,
+     "version": "1.3.0",
+     "frames": 3,
+     "launch_blocked": []
+    },
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
       "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the title claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'christmas graphghan' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'graphghan crochet' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'snowfall graphghan' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-      "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'winter graphghan' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row"
+      "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+      "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+      "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
      ],
      "search": "REFUSED"
     }
@@ -2958,24 +2818,6 @@
    },
    "blockers": [
     {
-     "gate": "outside_launch_scope",
-     "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
-    },
-    {
-     "gate": "listing_imagery_qa",
-     "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
      "gate": "etsy_taxonomy_snapshot",
      "clearer": "EXTERNAL",
      "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
@@ -2988,34 +2830,22 @@
      "action": "follows the taxonomy snapshot"
     },
     {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the title claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "action": "a pattern tester works this content (tester_roster); owner parked self-crocheting"
     },
     {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'christmas graphghan' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "action": "first authorised Etsy draft confirms image upload / remote state"
     },
     {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'graphghan crochet' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'snowfall graphghan' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: winter-village-graphghan@1.3.0: the name promises what the pattern does not make -- listing: LISTING_COLOURWORK_UNSUPPORTED: the tag 'winter graphghan' claims 'graphghan'; the fabric puts at most 1 colour(s) in any one row",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de",
+     "action": "owner approves object storage (CA$1-5/month, existing ceiling)"
     },
     {
      "gate": "production_stale",
@@ -3025,32 +2855,30 @@
     },
     {
      "gate": "production_imagery",
-     "clearer": "COMPANY",
+     "clearer": "DEPLOY",
      "evidence": "production asset-coverage: unusable",
-     "action": "no imagery route outside Launch-0"
+     "action": "deploy (Launch-0 disclosed renders exist in this code)"
     }
    ],
-   "owner_action_required": [],
+   "owner_action_required": [
+    "durable_artifact_storage",
+    "physical_sample"
+   ],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] production_imagery: no imagery route outside Launch-0",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
+    "[deploy] production_imagery: deploy (Launch-0 disclosed renders exist in this code)",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
+    "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
+    "[external] etsy_remote_confirmation: first authorised Etsy draft confirms image upload / remote state",
+    "[owner] durable_artifact_storage: owner approves object storage (CA$1-5/month, existing ceiling)",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   }
  ],
  "counts": {
-  "COMPANY_WORK": 14,
-  "OWNER_AND_DEPLOY_GATED": 5,
+  "COMPANY_WORK": 12,
+  "OWNER_AND_DEPLOY_GATED": 7,
   "RETIRE": 2,
   "NO_CIR": 1
  },
@@ -3108,8 +2936,8 @@
   "DATA",
   "DEPLOY"
  ],
- "generated_at": "2026-10-07T01:38:19+00:00",
- "head": "e72f086",
+ "generated_at": "2026-10-07T04:14:27+00:00",
+ "head": "4a35c98",
  "production_summary": {
   "listings": 16,
   "requirements": {
@@ -3221,7 +3049,7 @@
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 4 'Cloudline Textured Baby Blanket | Crochet Pattern PDF | Writ...' 13 tags, CA$7.5",
+    "listing_draft_seo": "draft listing 3 'Cloudline Textured Baby Blanket | Crochet Pattern PDF | Writ...' 13 tags, CA$7.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3266,7 +3094,7 @@
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 12 'Hexagon Coaster Set | Crochet Pattern PDF | Written Instruct...' 13 tags, CA$4.0",
+    "listing_draft_seo": "draft listing 10 'Hexagon Coaster Set | Crochet Pattern PDF | Written Instruct...' 13 tags, CA$4.0",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3301,7 +3129,7 @@
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 7 'Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Wr...' 13 tags, CA$6.5",
+    "listing_draft_seo": "draft listing 6 'Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Wr...' 13 tags, CA$6.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3336,7 +3164,7 @@
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 6 'Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | W...' 13 tags, CA$6.5",
+    "listing_draft_seo": "draft listing 5 'Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | W...' 13 tags, CA$6.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3371,7 +3199,7 @@
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 5 'Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Wri...' 13 tags, CA$6.5",
+    "listing_draft_seo": "draft listing 4 'Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Wri...' 13 tags, CA$6.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3394,6 +3222,96 @@
      "gate": "durable_artifact_storage",
      "clearer": "OWNER",
      "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve t"
+    }
+   ],
+   "publication": "owner authorisation (D-FB-10 sealed grant); never performed by the company"
+  },
+  {
+   "slug": "nordic-star-ornaments",
+   "version": "1.4.0",
+   "company_gates_passed": {
+    "product_truth_certificate": "certified 1.4.0 release_hash 18c6e64fa4c5",
+    "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
+    "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
+    "disclosed_imagery": "disclosed_render 3 frames, usable=True",
+    "listing_draft_seo": "draft listing 8 'Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US...' 13 tags, CA$4.5",
+    "listing_readiness_company": "no company-owned reason in the store.publish verdict"
+   },
+   "remaining": [
+    {
+     "gate": "etsy_taxonomy_snapshot",
+     "clearer": "EXTERNAL",
+     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed"
+    },
+    {
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated ga"
+    },
+    {
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to"
+    },
+    {
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve t"
+    },
+    {
+     "gate": "production_stale",
+     "clearer": "DEPLOY",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.4.0"
+    },
+    {
+     "gate": "production_imagery",
+     "clearer": "DEPLOY",
+     "evidence": "production asset-coverage: no_asset"
+    }
+   ],
+   "publication": "owner authorisation (D-FB-10 sealed grant); never performed by the company"
+  },
+  {
+   "slug": "winter-village-graphghan",
+   "version": "1.3.0",
+   "company_gates_passed": {
+    "product_truth_certificate": "certified 1.3.0 release_hash b41e0430fe3d",
+    "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
+    "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
+    "disclosed_imagery": "disclosed_render 3 frames, usable=True",
+    "listing_draft_seo": "draft listing 1 'Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket...' 13 tags, CA$7.5",
+    "listing_readiness_company": "no company-owned reason in the store.publish verdict"
+   },
+   "remaining": [
+    {
+     "gate": "etsy_taxonomy_snapshot",
+     "clearer": "EXTERNAL",
+     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed"
+    },
+    {
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated ga"
+    },
+    {
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to"
+    },
+    {
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve t"
+    },
+    {
+     "gate": "production_stale",
+     "clearer": "DEPLOY",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.3.0"
+    },
+    {
+     "gate": "production_imagery",
+     "clearer": "DEPLOY",
+     "evidence": "production asset-coverage: unusable"
     }
    ],
    "publication": "owner authorisation (D-FB-10 sealed grant); never performed by the company"

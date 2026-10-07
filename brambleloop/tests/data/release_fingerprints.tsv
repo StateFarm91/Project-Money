@@ -24,8 +24,7 @@
 # chunky-ribbed-scarf.
 # 2026-10-07 (W4-K9, F-762/F-763): every graded size carries its family's size matrix and stated
 # fit (CIR.grading), printed as the PDF size chart: harbour 1.2.0 -> 1.3.0, pebble 1.1.0 -> 1.2.0.
-# 2026-10-07 (W4-PIPE3, name/fabric truth): nordic-forest sizes 1.2.0 -> 1.3.0 (named for the
-# relief they work, not "overlay mosaic"); autumn-oak 1.3.0 -> 1.4.0 (re-engineered from its
+# 2026-10-07 (W4-PIPE3, gauge truth): autumn-oak 1.3.0 -> 1.4.0 (re-engineered from its
 # declared yarn; 1.3.0 is still built by products.builder.as_drawn and still refused).
 autumn-oak-mosaic-throw	1.4.0	836483c58b66	e6be557df8ea
 bobble-floor-pillow	1.3.0	2dfdd21e9d5c	9d594fda68f9
@@ -48,9 +47,9 @@ market-basket-large	1.2.0	42994dcaacd8	62e792bcab91
 market-basket-medium	1.2.0	a72f0ce2b325	23571934ac38
 market-basket-small	1.2.0	4c8cbcc80390	65a194bcb784
 mosaic-placemat-pair	1.3.0	9098cb49300b	aa01c04db858
-nordic-forest-mosaic-throw-baby	1.3.0	0980beb076fe	6df656dee69e
-nordic-forest-mosaic-throw-large	1.3.0	35ceb15bb6b9	19ef316f3aba
-nordic-forest-mosaic-throw-throw	1.3.0	7c041f345aab	180d69216a7e
+nordic-forest-mosaic-throw-baby	1.3.0	18b46f679a26	6df656dee69e
+nordic-forest-mosaic-throw-large	1.3.0	39c1735d54ed	19ef316f3aba
+nordic-forest-mosaic-throw-throw	1.3.0	2a2bbefd25a3	180d69216a7e
 nordic-star-ornaments	1.4.0	b50e1f47ea0e	5c3c70151073
 pebble-raglan-cardigan-10	1.2.0	e366e786607b	bb2ca4deaba5
 pebble-raglan-cardigan-12	1.2.0	f8a8b5b08cce	e11948df77c7

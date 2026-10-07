@@ -50,6 +50,10 @@ def main():
         cir = l0.cir_for(cand.variants[0].build)
         check(f"title_is_the_cir_title:{slug}", cand.title == cir.title, (cand.title, cir.title))
         check(f"certifies:{slug}", certify(cir).granted)
+        from brambleloop.gates import first_customer as fc
+        check(f"kind_is_a_cir_product_type:{slug}",
+              cand.listing.kind in fc.product_type_words_in_cir(cir),
+              (cand.listing.kind, sorted(fc.product_type_words_in_cir(cir))))
         check(f"name_true:{slug}", eligibility.name_truth(cir) == [],
               eligibility.name_truth(cir))
         auth = authoritative_cir(slug, cir.version)
