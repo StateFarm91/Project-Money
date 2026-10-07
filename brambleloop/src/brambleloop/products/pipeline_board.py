@@ -550,21 +550,32 @@ def _visual(c: Candidate, store) -> None:
     elif not rec.get("made"):
         why = " ".join(rec.get("launch_blocked") or [])
         c.set("VISUAL", FAIL, evidence,
-              # W4-PIPE2: say which refusal it is; a multi-piece object is renderer work.
-              "the disclosed renderer draws one compiled piece; an assembled multi-piece "
-              "render is renderer work (visual owner; the gate is not relaxed)"
-              if "components" in why else
-              "the disclosed renderer cannot name this round piece's outline (staggered "
-              "increases: cir.geometry.corners returns None); renderer/geometry work"
+              # W4-PIPE2 / W4-RENDER: say which refusal it is and what clears it.
+              "palette sits inside the render contract's colour separation: a palette change "
+              "(Product) or a reviewed contract decision; the gate is not relaxed"
+              if "palette too close" in why else
+              "the CIR does not place every piece structurally (no named-edge Seam, Hold/"
+              "resume or structured fold for: " + why[:160] + "); add the joins to the CIR "
+              "(new version) -- the assembled renderer draws only stated arrangements"
+              if ("round pieces" in why or "no join places" in why
+                  or "can be placed" in why or "not drawable" in why) else
+              "the round piece's outline is not a named shape (increases neither all stack "
+              "nor all stagger): change the CIR's increase placement"
               if "neither all stack nor all stagger" in why else
-              "renderer refused this design (W4-CREATIVE owns the renderer; the gate is not "
-              "relaxed): change the palette/design to one it can draw and verify")
+              "renderer refused this design (the gate is not relaxed): change the "
+              "palette/design to one it can draw and verify")
     else:
         status = UNKNOWN if all(s == UNKNOWN for _, s in frames) else FAIL
+        assembled = any((f.get("disclosed_render") or {}).get("form") == "assembled"
+                        for f in rec.get("frames") or [])
+        evidence["assembled"] = assembled
         c.set("VISUAL", status, evidence,
               ("the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural "
                "truth is UNKNOWN until the product is registered as a Launch-0 candidate "
-               "(cap 5 products; promotion is a catalogue decision, see backlog notes)")
+               "(cap 5 products; promotion is a catalogue decision, see backlog notes)"
+               + ("; its assembled hero/scale also need the verifier to measure assembled "
+                  "frames (render_verification; the body-piece detail already verifies)"
+                  if assembled else ""))
               if status == UNKNOWN and not in_scope else
               "repair the frames the verifier/QA refused (W4-CREATIVE)")
 

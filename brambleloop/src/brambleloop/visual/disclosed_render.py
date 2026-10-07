@@ -194,6 +194,25 @@ def _tile(d, poly, rgb, *, notch: bool = True) -> None:
            width=max(1, K.GAP_PX - 1))
 
 
+def _post(d, top, bottom, rgb) -> None:
+    """The raised post of a stitch taller than the gauge stitch, on a curved wall tile.
+
+    `top` and `bottom` are the tile's edges, left to right on screen. The post is the middle
+    third of the tile, inset from its top and bottom, in the yarn's relief shade -- the same
+    mark the flat renderer draws, so a relief round reads as relief (W4-RENDER)."""
+    tl, tr, bl, br = top[0], top[-1], bottom[0], bottom[-1]
+    if math.dist(tl, tr) < 6 or min(math.dist(tl, bl), math.dist(tr, br)) < 6:
+        return
+
+    def at(u, v):
+        a = (tl[0] + (tr[0] - tl[0]) * u, tl[1] + (tr[1] - tl[1]) * u)
+        b = (bl[0] + (br[0] - bl[0]) * u, bl[1] + (br[1] - bl[1]) * u)
+        return (a[0] + (b[0] - a[0]) * v, a[1] + (b[1] - a[1]) * v)
+
+    d.polygon([at(0.32, 0.14), at(0.68, 0.14), at(0.68, 0.86), at(0.32, 0.86)],
+              fill=K.relief(rgb))
+
+
 def _scale_bar(d, px_per_cm: float) -> dict:
     zx0, zy0, zx1, zy1 = K.zone_px(K.SCALE_ZONE)
     segments = max(3, min(30, int(round(420 / px_per_cm))))
@@ -479,6 +498,7 @@ def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float,
     R = base[-1].radius_cm if base else wall[0].radius_cm
     proj = lambda X, Y, Z: _project(X, Y, Z, cx=cx, cy=ground, px=px, alpha=alpha)  # noqa: E731
     sa = math.sin(alpha)
+    gauge_st = cir.gauge.stitch_type
 
     def tiles(back: bool):
         out = []
@@ -505,13 +525,17 @@ def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float,
                 if top[0][0] > top[-1][0]:
                     top, bottom = list(reversed(top)), list(reversed(bottom))
                 depth = sum(y for _x, y in path) / len(path)
-                out.append((depth, top + list(reversed(bottom)), palette[c.color]))
+                raised = _stitch_height_units(c.stitch, gauge_st) > 1.0 + 1e-9
+                out.append((depth, top + list(reversed(bottom)), palette[c.color],
+                            (top, bottom) if raised else None))
         return out
 
     if sa > 1e-9:
         # Inside of the back wall, farthest first, then the base's upper face.
-        for _depth, pts, rgb in sorted(tiles(True), key=lambda t: -t[0]):
+        for _depth, pts, rgb, post in sorted(tiles(True), key=lambda t: -t[0]):
             _tile(d, pts, rgb)
+            if post:
+                _post(d, *post, rgb)
         previous = 0.0
         for ring in base:
             cells = rows[ring.index]
@@ -522,8 +546,10 @@ def _draw_vessel(d, cir, twin, palette, sides: int, *, cx: float, ground: float,
                 inn = [proj(x, y, 0.0) for x, y in reversed(_path(previous, t0, t1, sides))]
                 _tile(d, out + inn, palette[c.color], notch=False)
             previous = ring.radius_cm
-    for _depth, pts, rgb in sorted(tiles(False), key=lambda t: -t[0]):
+    for _depth, pts, rgb, post in sorted(tiles(False), key=lambda t: -t[0]):
         _tile(d, pts, rgb)
+        if post:
+            _post(d, *post, rgb)
     # The rim, so the opening reads as an opening.
     H = levels[-1] if levels else 0.0
     rim = [proj(x, y, H) for x, y in _path(R, 0.0, 1.0, sides)]
@@ -643,6 +669,12 @@ def render(cir, view: str, *, layout: dict | None = None) -> RenderedFrame:
         raise RenderRefused(f"{view!r} is not a view: {sorted(VIEWS)}")
     if cir.gauge is None:
         raise RenderRefused(f"{cir.slug}: no gauge, so no physical size to draw at")
+    if len(cir.components) > 1 and not layout:
+        # W4-RENDER: several pieces are drawn assembled only as the CIR's joins, folds and
+        # resumed holds place them (`visual.assembled_render`); anything else is refused.
+        from . import assembled_render
+
+        return assembled_render.render(cir, view)
     result, twin, palette = _compiled(cir)
     construction = cir.components[0].construction
     if construction == "flat_rows":

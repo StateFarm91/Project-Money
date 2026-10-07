@@ -114,8 +114,58 @@ def _shares(counts: dict[str, int]) -> list[dict]:
              "percent": round(100.0 * counts[c] / total, 1)} for c in order]
 
 
+MULTI_PIECE_JOBS = (MATERIALS, COLOUR_CONTEXT)
+
+
+def _multi_counts_twins(cir) -> dict[str, int]:
+    """W4-RENDER: a multi-piece product's stitches by colour, every piece times its `make`,
+    counted from each piece's twin cells (the producer's path)."""
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise FrameRefused(f"{cir.slug} does not compile; nothing true to draw")
+    counts: dict[str, int] = {}
+    for comp in cir.components:
+        for cell in build_twin(cir, result, component=comp.name).cells:
+            counts[cell.color] = counts.get(cell.color, 0) + comp.make
+    return counts
+
+
+def _multi_counts_rows(cir) -> dict[str, int]:
+    """The same from the compiler's row stitch counts (the verifier's path)."""
+    from ..cir.compiler import compile_cir
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise FrameRefused(f"{cir.slug} does not compile")
+    counts: dict[str, int] = {}
+    for comp in cir.components:
+        colour_of = {r.index: r.color for r in comp.rows}
+        for r in result.rows:
+            if r.component == comp.name:
+                col = colour_of.get(r.index) or r.color
+                counts[col] = counts.get(col, 0) + r.stitch_count * comp.make
+    return counts
+
+
+def _multi_facts(cir, job: str, counts: dict[str, int]) -> dict:
+    if job not in MULTI_PIECE_JOBS:
+        raise FrameRefused(f"{cir.slug}: {job} is drawn for one piece; this product has "
+                           f"{len(cir.components)}")
+    base = {"job": job, "slug": cir.slug, "version": cir.version,
+            "cir_fingerprint": cir.fingerprint, "colours": dict(cir.colors or {})}
+    if job == MATERIALS:
+        return base | {"yarn": _yarn(cir), "colours_used": sorted(c for c, n in counts.items()
+                                                                  if n)}
+    return base | {"total_stitches": sum(counts.values()), "shares": _shares(counts)}
+
+
 def facts(cir, job: str, *, siblings=None) -> dict:
     """What a frame of this job states, from the twin (the producer's path)."""
+    if len(cir.components) > 1 and not siblings:
+        return _multi_facts(cir, job, _multi_counts_twins(cir))
     result, twin = _compiled(cir)
     base = {"job": job, "slug": cir.slug, "version": cir.version,
             "cir_fingerprint": cir.fingerprint, "colours": dict(cir.colors or {})}
@@ -154,6 +204,8 @@ def independent_facts(cir, job: str, *, siblings=None) -> dict:
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
 
+    if len(cir.components) > 1 and not siblings:
+        return _multi_facts(cir, job, _multi_counts_rows(cir))
     if len(cir.components) != 1:
         raise FrameRefused(f"{cir.slug}: {len(cir.components)} components; one is drawable")
     result = compile_cir(cir)
@@ -344,7 +396,7 @@ def applicable_jobs(cir, *, siblings=None) -> list[str]:
     jobs = [MATERIALS]
     if len(cir.colors or {}) > 1:
         jobs.append(COLOUR_CONTEXT)
-    if cir.components and cir.components[0].construction != "flat_rows":
+    if len(cir.components) == 1 and cir.components[0].construction != "flat_rows":
         jobs.append(CONSTRUCTION)
     if siblings:
         jobs.append(SIZING)

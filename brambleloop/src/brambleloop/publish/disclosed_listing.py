@@ -69,6 +69,13 @@ def alt_text(manifest: dict, cir) -> str:
             shows = "the finished basket seen from slightly above"
         elif (manifest.get("pieces") or 1) > 1:
             shows = f"all {manifest['pieces']} pieces seen from above"
+    if manifest.get("form") == "assembled":
+        # W4-RENDER: a multi-piece product drawn assembled from its CIR's joins.
+        oblique = (manifest.get("layout") or {}).get("projection") == "oblique"
+        shows = ("the assembled piece seen from slightly above" if oblique else
+                 "the assembled pieces seen from the front")
+        if manifest.get("view") == "scale":
+            shows = "the assembled pieces with their assembled width and height marked"
     if manifest.get("form") == "rounds" and manifest.get("view") == "detail" and \
             (manifest.get("layout") or {}).get("part") == "base":
         shows = "the base seen from above, every base round stitch for stitch"
@@ -202,7 +209,16 @@ def listing_qa(frames: list[dict], pngs: dict[str, bytes], cir, *, store=None) -
     from . import eligibility as el
     from . import layout_qa, mobile
 
-    model = expected_model(cir)
+    if len(cir.components) > 1:
+        # W4-RENDER: a multi-piece product. The detail frame is the body piece; every
+        # piece's row colours are what the 340 px legibility check must find.
+        from ..visual.render_verification import body_component
+
+        model = dict(expected_model(cir, body_component(cir)))
+        model["rows"] = list(model["rows"]) + [{"colour": r.color} for c in cir.components
+                                               for r in c.rows]
+    else:
+        model = expected_model(cir)
     images = {f["view"]: Image.open(io.BytesIO(pngs[f["view"]])).convert("RGB") for f in frames}
     out: dict = {"frames": {}}
 
@@ -276,13 +292,25 @@ def listing_qa(frames: list[dict], pngs: dict[str, bytes], cir, *, store=None) -
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
 
-    twin = build_twin(cir, compile_cir(cir), component=cir.components[0].name)
+    body = cir.components[0].name
+    if len(cir.components) > 1:
+        from ..visual.render_verification import body_component
+
+        body = body_component(cir)
+    twin = build_twin(cir, compile_cir(cir), component=body)
+
+    def _depicts(f) -> list[str]:
+        m = f["disclosed_render"]
+        if m.get("form") == "assembled":
+            return list((m.get("assembly") or {}).get("drawn") or [body])
+        return [m.get("piece") or body]
+
     assets = [Asset(asset_id=f"{cir.slug}:{f['view']}", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
                     provenance=Provenance(source="twin", created_by="publishing:disclosed_render",
                                           tool=f["disclosed_render"]["renderer_version"]),
                     depicts_stitches=sorted(twin.stitch_types_used),
                     depicts_colors=sorted(c for c in twin.colors_used if c),
-                    depicts_components=[cir.components[0].name],
+                    depicts_components=_depicts(f),
                     claims=Claims(finished_width_cm=twin.width_cm, finished_height_cm=twin.height_cm),
                     is_hero=f["role"] == "hero", disclosed_as_illustration=True)
               for f in ordered]

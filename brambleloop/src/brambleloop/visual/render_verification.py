@@ -118,15 +118,53 @@ def authoritative_cir(slug: str, version: str | None = None):
     return None
 
 
-def expected_model(cir) -> dict:
-    """What the compiled pattern makes, recomputed here from the compiler's rows."""
+def body_component(cir, result=None) -> str:
+    """The piece that carries a multi-piece object's body, by this module's own arithmetic:
+    the largest finished area (flat: widest row x summed row heights; rounds: widest round's
+    diameter x summed round heights), ties to CIR order. The producer picks its detail piece
+    by the same rule from the twin; if the two ever disagree the detail frame fails."""
+    from ..cir import stitches
+    from ..cir.compiler import compile_cir
+
+    result = result or compile_cir(cir)
+    g = cir.gauge
+    w_cm, unit_cm = 10.0 / g.stitches_per_10cm, 10.0 / g.rows_per_10cm
+    base_h = stitches.get(g.stitch_type).row_height or 1.0
+    best, area = cir.components[0].name, -1.0
+    for comp in cir.components:
+        rows = [r for r in result.rows if r.component == comp.name]
+        if not rows:
+            continue
+        height = 0.0
+        for r in rows:
+            seq = [op.stitch for op in r.ops for _ in range(op.count)]
+            worked = ([x for x in seq if x not in ("ch", "sk", "slst")]
+                      or [x for x in seq if x not in ("ch", "sk")])
+            units = (sum((stitches.get(x).row_height or base_h) for x in worked)
+                     / len(worked) / base_h) if worked else 1.0
+            height += unit_cm * units
+        widest = max(r.stitch_count for r in rows) * w_cm
+        a = (widest if comp.construction == "flat_rows" else widest / math.pi) * height
+        if a > area + 1e-9:
+            best, area = comp.name, a
+    return best
+
+
+def expected_model(cir, component: str | None = None) -> dict:
+    """What the compiled pattern makes, recomputed here from the compiler's rows.
+
+    A multi-piece CIR is modelled one piece at a time (`component`); the whole object is
+    never modelled here, so an assembled frame cannot pass on this model."""
     from ..cir import stitches
     from ..cir.compiler import compile_cir
     from ..cir.geometry import corners
 
-    if len(cir.components) != 1 or cir.gauge is None:
+    if cir.gauge is None or (len(cir.components) != 1 and component is None):
         raise ValueError("one gauged component is required")
-    comp = cir.components[0]
+    comp = next((c for c in cir.components if c.name == component), None) \
+        if component is not None else cir.components[0]
+    if comp is None:
+        raise ValueError(f"no component {component!r}")
     result = compile_cir(cir)
     if not result.ok:
         raise ValueError("the CIR does not compile")
@@ -904,8 +942,20 @@ def verify(png: bytes, *, cir, view: str) -> dict:
 
 def _verify(png: bytes, *, cir, view: str) -> dict:
     checks: list[dict] = []
+    component = None
+    if len(cir.components) > 1:
+        if view != "detail":
+            # W4-RENDER: an assembled multi-piece frame places pieces by the CIR's joins;
+            # this verifier does not yet re-derive that placement, so it cannot pass.
+            return _verdict([_check("assembled_object", UNKNOWN,
+                                    "assembled multi-piece frames are not measured by this "
+                                    "verifier yet; only a single piece's detail is")])
+        try:
+            component = body_component(cir)
+        except Exception as exc:  # noqa: BLE001
+            return _verdict([_check("expected_model", UNKNOWN, f"cannot pick the body: {exc}")])
     try:
-        model = expected_model(cir)
+        model = expected_model(cir, component)
     except Exception as exc:  # noqa: BLE001 - every refusal is an UNKNOWN, never a pass
         return _verdict([_check("expected_model", UNKNOWN, f"cannot model the CIR: {exc}")])
     used = {r["colour"] for r in model["rows"]}
