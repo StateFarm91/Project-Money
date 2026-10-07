@@ -196,6 +196,36 @@ def listing_fees_request(listings: int) -> OwnerRequest:
         blocks="publishing",
     )
 
+# W4-OWNER: once the shop exists (executor gate `etsy_shop`: identifier set AND a sanctioned
+# read succeeded, 2026-09-19), asking the owner to "open the Etsy shop" asks for something
+# already done. What software still cannot see is whether KYC, payout and tax show complete
+# in Shop Manager, so the payout request becomes that confirmation.
+ETSY_PAYOUT_CONFIRM = OwnerRequest(
+    key="payout",
+    action=("Confirm in Etsy Shop Manager > Settings > Payment settings that identity "
+            "verification, the payout bank account (Canadian chequing) and tax details "
+            "(GST/HST number or the small-supplier declaration) show complete, and complete "
+            "any that do not."),
+    reason=("The shop exists, but nothing this system can read shows whether Etsy's identity "
+            "verification, payout and tax steps are complete. Banking and KYC are entered "
+            "only by the account holder, and revenue that cannot be paid out is not revenue."),
+    max_cost_cad=0.0,
+    minutes=15,
+    consequence_of_delay="Listings cannot go live and no revenue can be paid out.",
+    blocks="publishing, and any revenue at all",
+)
+
+
+def _etsy_shop_open(db) -> bool:
+    """The executor's `etsy_shop` gate, read live. Unreadable is closed, never open."""
+    try:
+        from ..build2 import executor
+
+        return bool(executor.GATE_BY_KEY["etsy_shop"].open(db, None))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 from ..gates import risk_matrix as _rm  # noqa: E402  (pure module: re + dataclasses)
 
 PHYSICAL_SAMPLE = OwnerRequest(
@@ -298,9 +328,11 @@ BENCHMARK_PURCHASES = OwnerRequest(
 
 TRADEMARK_SCREEN = OwnerRequest(
     key="brand_clearance",
-    action=("Decide whether to run a trademark clearance search on \"Brambleloop Studio\" "
-            "before launch, and whether to file. A knock-out search on the Canadian "
-            "register is free; a filing is CA$458.05 for the first class."),
+    # W4-OWNER: the free knock-out search on the Canadian register is a public read-only
+    # search -- company work, not an owner decision. The owner's decision is the filing.
+    action=("Decide whether to file a Canadian trademark for \"Brambleloop Studio\" "
+            "(CA$458.05 for the first class). The free knock-out search on the Canadian "
+            "register is company work and is not asked of you."),
     reason=("The shop name goes on every listing, PDF and image. Discovering a conflict "
             "after the name is on a hundred customer documents is expensive in a way that "
             "checking first is not. Filing is a spend decision, so it is the owner's."),
@@ -638,19 +670,31 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
         owner_request=None if storage_durable else OBJECT_STORAGE))
 
     # -- what only a person can do ------------------------------------------
+    # W4-OWNER: the shop requirement reads the executor gate instead of being hard-coded
+    # unmet, so an existing shop is not asked for again. Identity verification, payout and
+    # tax stay unmet and owner-confirmed under `payout`, because nothing here can read them.
+    shop_open = _etsy_shop_open(db)
     out.append(Requirement(
         key="etsy_shop",
-        description="an Etsy shop exists, with identity verification complete",
-        ready=False, blocked_by=BLOCKED_OWNER,
-        evidence={"note": "cannot be automated: platform identity verification"},
-        owner_request=ETSY_ACCOUNT))
+        # Ready means the shop exists; KYC/payout/tax are the payout requirement's, so a
+        # ready row never claims verification nothing here can read.
+        description=("an Etsy shop exists (identity verification, payout and tax are "
+                     "confirmed under the payout requirement)" if shop_open else
+                     "an Etsy shop exists, with identity verification complete"),
+        ready=shop_open, blocked_by=None if shop_open else BLOCKED_OWNER,
+        evidence=({"shop_exists": True, "basis": "executor gate etsy_shop (shop identifier "
+                   "AND a recorded sanctioned read)", "identity_payout_tax": "confirmed "
+                   "under the payout requirement"} if shop_open else
+                  {"note": "cannot be automated: platform identity verification"}),
+        owner_request=None if shop_open else ETSY_ACCOUNT))
 
     out.append(Requirement(
         key="payout",
         description="a payout account and tax details are on the shop",
         ready=False, blocked_by=BLOCKED_OWNER,
-        evidence={"note": "banking credentials are entered by the account holder"},
-        owner_request=ETSY_PAYOUT))
+        evidence={"note": "banking credentials are entered by the account holder",
+                  "shop_exists": shop_open},
+        owner_request=ETSY_PAYOUT_CONFIRM if shop_open else ETSY_PAYOUT))
 
     out.append(Requirement(
         key="listing_fees",

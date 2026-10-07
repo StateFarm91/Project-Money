@@ -32,6 +32,12 @@ ACTION = "improve.mine"
 GATE_ACTIONS: tuple[str, ...] = ("gate.blocked", "gate.halted")
 _ASSET_BLOCKED = re.compile(r"^assets\.[a-z_]+_blocked$")
 
+# W4-LEARN: the release-chain publish gates are computed on every publish attempt, shadow
+# included, and a product they would hold back is a pre-sale failure the company can act on
+# (the search certificate refused every Launch-0 product on a clean shadow run). Only audits
+# that block release are read.
+RELEASE_GATES = "store.release_gates"
+
 # Where each kind of failure enters the bus, and the subject that routes it. Subjects are the
 # existing routing table's, not new ones: a lesson whose audience is undefined stays where it
 # was found, which is the failure the bus exists to remove.
@@ -90,15 +96,26 @@ def _read(db, since: dict) -> dict:
                    "detail": dict(a.detail or {})}
                   for a in s.scalars(select(AuditLog).where(AuditLog.id > since["audit_id"])
                                      .order_by(AuditLog.id))
-                  if a.action in GATE_ACTIONS or _ASSET_BLOCKED.match(a.action or "")]
+                  if a.action in GATE_ACTIONS or _ASSET_BLOCKED.match(a.action or "")
+                  or (a.action == RELEASE_GATES and (a.detail or {}).get("blocks_release"))]
+        # W4-LEARN: only DEFECT dead letters are failures. A shadow-mode refusal or a build
+        # stand-aside is a gate working (`queue.durable.classify_dead_letter`, the single
+        # classifier every dead-letter reader uses); mined, it became a false `defect` lesson
+        # ("dead:store.publish:capability not enabled") routed to three departments.
+        from ..queue.durable import DEFECT, classify_dead_letter
+
+        dead_rows = list(s.scalars(select(Job).where(Job.status == JobStatus.DEAD,
+                                                     Job.id > since["job_id"])
+                                   .order_by(Job.id)))
         dead = [{"id": j.id, "job_type": j.job_type, "agent": j.agent,
                  "error": j.last_error or ""}
-                for j in s.scalars(select(Job).where(Job.status == JobStatus.DEAD,
-                                                     Job.id > since["job_id"])
-                                   .order_by(Job.id))]
+                for j in dead_rows
+                if classify_dead_letter(j.job_type, j.last_error or "") == DEFECT]
+        not_defects = len(dead_rows) - len(dead)
         newest_audit = s.scalar(select(AuditLog.id).order_by(AuditLog.id.desc()).limit(1)) or 0
         newest_job = s.scalar(select(Job.id).order_by(Job.id.desc()).limit(1)) or 0
     return {"incidents": incidents, "blocked": audits, "dead": dead,
+            "dead_not_defects": not_defects,
             "newest_audit": int(newest_audit), "newest_job": int(newest_job)}
 
 
@@ -136,7 +153,8 @@ def group(read: dict) -> list[dict]:
         is_asset = bool(_ASSET_BLOCKED.match(row["action"]))
         key = (row["action"], code)
         g = groups.setdefault(key, {
-            "kind": "asset_block" if is_asset else "gate_block", "code": code,
+            "kind": ("asset_block" if is_asset else "release_block"
+                     if row["action"] == RELEASE_GATES else "gate_block"), "code": code,
             "origin": ASSET_ORIGIN if is_asset else GATE_ORIGIN,
             "subject": ASSET_SUBJECT if is_asset else GATE_SUBJECT,
             "evidence_ref": f"{row['action']}:{code}", "members": [], "reports": 0,
@@ -177,6 +195,11 @@ def _statement(g: dict) -> str:
         return (f"The certificate chain refused {n} time(s){products} for {g['code']!r}. "
                 f"A refusal repeated at the same code is a defect upstream of the gate, and "
                 f"the remedy is in what is submitted rather than in the gate")
+    if g["kind"] == "release_block":
+        return (f"The release gates would hold back {len(g['products']) or n} product(s)"
+                f"{products} for {g['code']!r}. A product blocked at release is finished work "
+                f"that cannot ship, and the remedy is the evidence the gate asks for, never a "
+                f"looser gate")
     if g["kind"] == "asset_block":
         return (f"Listing assets were blocked {n} time(s){products} for {g['code']!r}. "
                 f"An asset refused at the same check repeatedly is a brief or render "
@@ -280,6 +303,7 @@ def mine(db, *, now: datetime | None = None, fixture_dir: Path | None = None) ->
         "read": total_read,
         "incidents": len(read["incidents"]), "blocked": len(read["blocked"]),
         "dead": len(read["dead"]),
+        "dead_not_defects": int(read.get("dead_not_defects") or 0),
         "jury_runs": director["runs_read"], "jury_refused": director["refused"],
         "groups": len(groups),
         "found": len(published),
