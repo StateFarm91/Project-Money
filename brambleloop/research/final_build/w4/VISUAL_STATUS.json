@@ -1,0 +1,153 @@
+{
+ "generated_at": "2026-10-07",
+ "branch": "claude/w4-VISUAL",
+ "lane": "W4-VISUAL",
+ "stages": [
+  {
+   "stage": "A",
+   "status": "PASS",
+   "evidence": "milestones.assess('S'): 4 components, 0 errors, body 8556 stitches, checkered",
+   "next": null
+  },
+  {
+   "stage": "B",
+   "status": "PARTIAL",
+   "class": "DATA-GATED",
+   "evidence": "3 of 5 joins checkable, 0 mismatched; neckline length and pocket placement unstated by the third-party benchmark pattern",
+   "launch_dependency": false,
+   "next": "benchmark with stated measurements or Brambleloop garment CIR with named edges (cir/** lane)"
+  },
+  {
+   "stage": "C",
+   "status": "PARTIAL",
+   "class": "DATA-GATED",
+   "evidence": "11 correspond, 0 contradict, 3 not observable (pocket placement, stitch identity, drape)",
+   "launch_dependency": false,
+   "next": "close-up photography of a worked sample"
+  },
+  {
+   "stage": "D",
+   "status": "PARTIAL",
+   "dashboard_said": "FAIL (stale)",
+   "evidence": "milestone_d.assess('hdc') 2026-10-06: 10 PASS / 0 FAIL / 9 UNKNOWN; all structural locks PASS",
+   "unknown_local": [
+    "stationary (3.9% > 2% last-tenth motion)",
+    "images_rendered (no render_dir passed)"
+   ],
+   "unknown_paid": [
+    "fabric_folds_naturally",
+    "lighting_is_realistic",
+    "shadows_are_coherent",
+    "has_ordinary_photographic_imperfection",
+    "melted_yarn",
+    "synthetic_stitch_texture",
+    "catalogue_perfect_sterility"
+   ],
+   "d_rerun": "pending (settle_iterations=4000, Mitsuba render_dir)",
+   "next": "owner plan P1 for the 7 judged items"
+  },
+  {
+   "stage": "E",
+   "status": "NOT_STARTED",
+   "photographic": "waits on D",
+   "disclosed_route": "LIVE: all 3 Launch-0 listings have verified disclosed hero/scale/detail + MATERIALS/COLOUR_CONTEXT (+CONSTRUCTION/SIZING for baskets)",
+   "next": "plan P2 or physical sample photography for LIFESTYLE / photographic E"
+  }
+ ],
+ "launch_imagery": {
+  "nursery-nesting-baskets": {
+   "hero_ready": true,
+   "covered": [
+    "DESIRE",
+    "SCALE",
+    "DETAIL",
+    "MATERIALS",
+    "COLOUR_CONTEXT",
+    "CONSTRUCTION",
+    "SIZING"
+   ],
+   "missing": {
+    "ANGLE": "engineering: verifier-measured projection",
+    "CONTENTS": "publish.pdf preview path",
+    "LIFESTYLE": "photo or paid composite (P2)"
+   }
+  },
+  "cloudline-baby-blanket": {
+   "hero_ready": true,
+   "covered": [
+    "DESIRE",
+    "SCALE",
+    "DETAIL",
+    "MATERIALS",
+    "COLOUR_CONTEXT"
+   ],
+   "missing": {
+    "CONTENTS": "publish.pdf preview path",
+    "LIFESTYLE": "photo or paid composite (P2)"
+   }
+  },
+  "hexagon-coaster-set": {
+   "hero_ready": true,
+   "covered": [
+    "DESIRE",
+    "SCALE",
+    "DETAIL",
+    "MATERIALS",
+    "COLOUR_CONTEXT"
+   ],
+   "supporting": [
+    "CONSTRUCTION"
+   ],
+   "missing": {
+    "CONTENTS": "publish.pdf preview path",
+    "LIFESTYLE": "photo or paid composite (P2)"
+   }
+  }
+ },
+ "out_of_scope": {
+  "harvest-table-runner": "not in LAUNCH0_SLUGS; renderer refuses (gold vs raised tone 39.4 < MIN_SEPARATION 40); left refused"
+ },
+ "rnd_shadow": {
+  "cycles": 2,
+  "experiments": 14,
+  "promoted": 1,
+  "rejected": 5,
+  "gated_spend": 8,
+  "lessons": 6,
+  "promotion": "coasters hero_gap_ratio 0.06 (prominence 0.6256 -> 0.7238)",
+  "status_provider": "DEGRADED (5/8 classes no free producer; no marketplace evidence)"
+ },
+ "paid_plans": [
+  {
+   "id": "P1",
+   "what": "D photograph judging",
+   "provider": "gpt-5-2025-08-07 via visual.d_judge",
+   "calls_max": 16,
+   "max_cad": 1.0,
+   "unlocks": "D judged items -> D PASS or FAIL measured"
+  },
+  {
+   "id": "P2",
+   "what": "LIFESTYLE protected composites, 3 Launch-0 listings",
+   "provider": "flux-2-pro + realism judge",
+   "calls_max": 24,
+   "max_cad": 2.0,
+   "unlocks": "LIFESTYLE job x3, first photographic E candidate"
+  },
+  {
+   "id": "P3",
+   "what": "R&D GATED_SPEND queue for launch classes",
+   "provider": "flux-2-pro",
+   "calls_max": 36,
+   "max_cad": 1.01,
+   "unlocks": "first judged photographic challenger per launch class"
+  },
+  {
+   "id": "ALT",
+   "what": "physical sample photo session",
+   "max_cad": "yarn ~30 (estimate)",
+   "unlocks": "LIFESTYLE, owned hero, C/D ground truth"
+  }
+ ],
+ "spend_cad": 0.0
+}
