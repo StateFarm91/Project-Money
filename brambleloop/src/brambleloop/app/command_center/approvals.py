@@ -258,9 +258,36 @@ def inbox(db) -> dict:
             "waiting_on_data": raw.get("waiting_on_data") or [],
             "external_capability_unavailable": raw.get("external_capability_unavailable")
             or [],
+            # W4-GATESB: decisions the owner cannot usefully answer yet, each with what makes
+            # it askable. `customers` is data, never an owner card.
+            "not_yet_askable": _not_yet_askable(raw),
             "note": raw.get("note"),
             "sources": ["build2.executor.approval_inbox", "owner_actions",
                         "ops.publication_authority.evidence"]}
+
+
+NEVER_OWNER_CARD = frozenset({"customers"})
+
+
+def _not_yet_askable(raw: dict) -> dict:
+    items = raw.get("not_yet_askable") if isinstance(raw, dict) else None
+    if not isinstance(items, list):
+        return {"status": "UNKNOWN", "items": [], "basis": "unknown",
+                "reason": "this build's approval inbox does not report not-yet-askable "
+                          "decisions", "sources": ["build2.executor.approval_inbox"]}
+    out = []
+    for it in items:
+        if not isinstance(it, dict) or it.get("gate") in NEVER_OWNER_CARD:
+            continue
+        pre = it.get("precondition")
+        out.append({"gate": it.get("gate"), "what": it.get("what"),
+                    "askable_when": (pre if isinstance(pre, str) else
+                                     (pre or {}).get("what") or (pre or {}).get("why")
+                                     if isinstance(pre, dict) else None) or "UNKNOWN",
+                    "precondition": pre, "unblocks_count": len(it.get("unblocks") or []),
+                    "owner_action_ids": it.get("owner_action_ids") or []})
+    return {"status": "OK", "items": out, "basis": "measured",
+            "sources": ["build2.executor.approval_inbox", "build2.gate_clearance.prerequisite"]}
 
 
 def card(db, card_id: str) -> dict | None:

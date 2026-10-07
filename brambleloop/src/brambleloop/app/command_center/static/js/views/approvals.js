@@ -144,6 +144,21 @@ function batchesCard(env) {
     sourcesList(env.sources));
 }
 
+// W4-GATESB: decisions not asked yet, each with what makes it askable (never a card to answer).
+function notYetAskableCard(env) {
+  if (!env) return null;
+  const items = Array.isArray(env.items) ? env.items : [];
+  if (!items.length) {
+    return env.status === "OK" ? null : card({ title: "Not yet askable", actions: statusPill(env.status || "UNKNOWN") },
+      h("p", { class: "muted" }, env.reason || "Unknown: not reported."));
+  }
+  return card({ title: "Not yet askable", subtitle: `${items.length} decision(s) wait on a precondition`, actions: statusPill(env.status) },
+    h("ul", { class: "rows" }, items.map((it) => h("li", { class: "row" },
+      h("p", { class: "row-title" }, it.what || it.gate),
+      h("p", { class: "muted small" }, `Askable when: ${it.askable_when || UNKNOWN_TEXT}`)))),
+    sourcesList(env.sources));
+}
+
 export async function render({ params, rerender }) {
   if (params[0]) {
     const result = await api.approval(params[0]);
@@ -158,6 +173,7 @@ export async function render({ params, rerender }) {
     ...pageMeta(result, data),
     data.reason ? tabStatus(data) : null,
     batchesCard(data.decision_batches),
+    notYetAskableCard(data.not_yet_askable),
     cards.length ? cards.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0 }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
     data.waiting_on_data !== undefined ? renderSection("waiting_on_data", data.waiting_on_data, { title: "Waiting on data", result }) : null,

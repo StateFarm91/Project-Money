@@ -72,6 +72,6 @@ test_rc1_auth 11/11; others: see final report.
    `last_update_at` older than 3 h is shown STALE).
 
 ## Remaining / next deterministic action
-- Merge origin/claude/visual-investigation again once the integrator has merged W4-GATESI; rerun test_w4_cc_company.
+- DONE: merged visual-investigation incl. W4-GATESI. F-103 wiring (W4-SPEND): `tabs.estimate_drift_reading` on Money tab + `/api/verify` `readbacks.estimate_drift` (not a check; settlement OWNER-GATED); sw shell v7. Test: test_estimate_drift_on_verify_and_money_labelled_settlement_owner_gated.
 - DONE: MEDIUM availability finding mitigated (main.closure_matrix_shared / maturity_report_shared).
 - Owner actions (deploy approval, variables): CC_DEPLOY_PACKAGE §7.

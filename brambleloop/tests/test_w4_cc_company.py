@@ -633,6 +633,48 @@ def test_money_period_reaches_accounting_window():
     assert c.get("/api/cc/money").json()["window"] is None
 
 
+def test_estimate_drift_on_verify_and_money_labelled_settlement_owner_gated():
+    """F-103 (W4-SPEND wiring): estimate drift is a readback on /api/verify (it does not change
+    the verify verdict) and a Money section; provider-billing settlement says OWNER-GATED."""
+    c = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
+    r = c.get("/api/verify")
+    assert r.status_code in (200, 503), r.status_code
+    body = r.json()
+    d = body["readbacks"]["estimate_drift"]
+    assert d["state"] in ("healthy", "degraded"), d
+    assert d["settlement_against_provider_billing"] == "OWNER-GATED"
+    assert "estimated vs actual" in d["label"]
+    assert body["ok"] == all(x["ok"] for x in body["checks"])
+    m = session().get("/api/cc/money").json()["sections"]["estimate_drift"]
+    assert m["settlement_against_provider_billing"] == "OWNER-GATED", m
+    assert "OWNER-GATED" in m["settlement_why"]
+
+
+def test_not_yet_askable_listed_with_precondition_customers_never_a_card():
+    """W4-GATESB wiring: Approvals lists not-yet-askable decisions with what makes them
+    askable; `customers` never appears; an inbox without the field is UNKNOWN, not empty."""
+    from brambleloop.app.command_center import approvals
+
+    raw = {"not_yet_askable": [
+        {"gate": "ad_authority", "what": "paid ads", "precondition": "no listing is ready to "
+         "sell yet: x", "unblocks": ["a", "b"], "owner_action_ids": [3]},
+        {"gate": "customers", "what": "customers", "precondition": "launch"}]}
+    env = approvals._not_yet_askable(raw)
+    assert env["status"] == "OK" and env["items"], env
+    gates = [i["gate"] for i in env["items"]]
+    assert gates == ["ad_authority"], gates
+    assert env["items"][0]["askable_when"].startswith("no listing is ready")
+    assert env["items"][0]["unblocks_count"] == 2
+    assert approvals._not_yet_askable({})["status"] == "UNKNOWN"
+    r = session().get("/api/cc/approvals")
+    assert r.status_code == 200
+    nya = r.json()["not_yet_askable"]
+    assert nya["status"] in ("OK", "UNKNOWN"), nya
+    assert all(i["gate"] != "customers" for i in nya["items"])
+    js = (STATIC / "js" / "views" / "approvals.js").read_text()
+    assert "notYetAskableCard(data.not_yet_askable)" in js
+
+
 if __name__ == "__main__":
     t0 = time.monotonic()
     fails = 0

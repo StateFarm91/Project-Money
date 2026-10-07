@@ -4778,7 +4778,16 @@ def api_verify() -> JSONResponse:
             "commit": build_identity()["commit"]})
     except Exception:  # noqa: BLE001
         pass
-    return JSONResponse({"ok": passed, "checks": checks},
+    # F-103 (W4-SPEND): estimate drift is a readback, not a pass/fail check -- it informs, it
+    # does not decide health. Settlement against provider billing is OWNER-GATED.
+    try:
+        from .command_center.tabs import estimate_drift_reading
+
+        drift = estimate_drift_reading(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never healthy
+        drift = {"state": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+    return JSONResponse({"ok": passed, "checks": checks,
+                         "readbacks": {"estimate_drift": drift}},
                         status_code=200 if passed else 503)
 
 

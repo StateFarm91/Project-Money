@@ -199,13 +199,39 @@ def _spend_with_basis(db, spent: dict) -> dict:
             f"CA${float(spent['value_cad']):,.2f} (recorded; CA${not_measured:,.2f} not measured)"}
 
 
+SETTLEMENT_GATE = ("OWNER-GATED: settling recorded model spend against the provider's own "
+                   "billing needs provider usage-API (admin) access, which only the owner can "
+                   "grant; until then 'actual' means the recorded per-call cost, not the invoice")
+
+
+def estimate_drift_reading(db) -> dict:
+    """F-103 (W4-SPEND): pre-call estimates vs recorded per-call cost this month. Labelled
+    estimated-vs-actual; settlement against provider billing is OWNER-GATED and says so."""
+    from ...finance import spend_report
+
+    d = spend_report.estimate_drift(db)
+    return {"label": "estimated vs actual (recorded per-call cost) model spend, this month",
+            "state": d.get("state"), "degraded": d.get("degraded"),
+            "why": d.get("why") or None,
+            "token_priced_calls": d.get("token_priced_calls"),
+            "purposes_outside_tolerance": sorted((d.get("purposes_outside_tolerance") or {})),
+            "purposes_too_few_calls_to_judge": d.get("purposes_too_few_calls_to_judge"),
+            "calls_with_no_reservation_share": d.get("calls_with_no_reservation_share"),
+            "tolerance": d.get("tolerance"),
+            "settlement_against_provider_billing": "OWNER-GATED",
+            "settlement_why": SETTLEMENT_GATE,
+            "sources": ["finance.spend_report.estimate_drift", "cost_entries"]}
+
+
 def money(db, window: str | None = None) -> dict:
     m = money_section(db, window)
     acct = m["accounting"] if isinstance(m["accounting"], dict) else {}
     # F-914: the period is echoed only when the accountant confirmed it; revenue and recorded
     # spend headline tiles are the command center's own all-time readers and say so.
     echoed = (acct.get("window") or acct.get("period") or window) if window else None
-    return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db)},
+    drift = guard("estimate_drift", lambda: estimate_drift_reading(db))
+    return _tab("MONEY", {"accounting": m["accounting"], "spend_limits": readers.spend_limits(db),
+                          "estimate_drift": drift},
                 status=m["status"], revenue=m["revenue"], profit=m["profit"],
                 recorded_spend=m["recorded_spend"], source_health=m["source_health"],
                 reason=m["reason"], window=window,

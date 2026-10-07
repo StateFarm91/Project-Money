@@ -907,6 +907,10 @@ def normalize_board(board):
         for src, dst in _INTEG_KEYS.items():
             if dst not in out:
                 out[dst] = ln.get(src)
+        # The integrator omits these on freshly added lanes; absent = not reported = shown
+        # as Unknown (null), exactly as an explicit null is.
+        for k in ("useful_output", "blocker", "next_action"):
+            out.setdefault(k, None)
         out["status_text"] = ln.get("status")
         out["status"] = _integ_status(ln.get("status"))
         rc = ln.get("rows_closed")

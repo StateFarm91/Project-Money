@@ -46,6 +46,10 @@ of public, unauthenticated endpoints, or repository history.
   UNMEASURED while its evidence gate is unmet. **Money** period buttons now reach the
   accountant (`GET /api/cc/money?period=month|last_month|ytd|all|30d|YYYY-MM` or `window=`
   -> `dashboard.summary(window=...)`; anything else 400 BAD_PERIOD; F-914).
+- **Money** "Model spend: estimated vs actual" section and `/api/verify` `readbacks.estimate_drift`
+  (F-103, lane SPEND): pre-call estimates vs recorded per-call cost this month; a readback,
+  not a pass/fail check; settlement against the provider's own billing is labelled
+  OWNER-GATED (needs provider usage-API access).
 - Infrastructure fixes from lane GATESI ship only with this deploy: `image.probe` owns a
   work_dir (the production probe currently fails "generate() needs a work_dir"), offsite
   storage SigV4 region from the endpoint host, Help Center policy reader
@@ -113,8 +117,8 @@ Therefore the bounded validation lane must: run the full suite on the integrated
 ## 7. Exact owner action (OWNER ACTION REQUIRED — one batch)
 
 **Deploy target:** the integrated head of `claude/visual-investigation` after it contains
-`claude/w4-CC` and `claude/w4-GATESI` (at resume time: `claude/w4-CC` head merged with
-visual-investigation fbad855; GATESI a63eb2a not yet merged by the integrator), plus the
+`claude/w4-CC` and `claude/w4-GATESI` (`claude/w4-CC` now contains visual-investigation incl.
+GATESI a63eb2a; see `git log -1 origin/claude/w4-CC`), plus the
 release-record commit Y (§6). Mechanism: `ops/deploy.sh` (fast-forward push of Y to
 `claude/repository-setup-nc9x6o`; Railway service `brambleloop-os` builds on push) or the PR
 merge. Migrations: automatic, additive (`create_all` + `core.migrate.apply`, §3); none manual.
