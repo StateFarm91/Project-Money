@@ -176,6 +176,7 @@ def test_settlement_against_the_provider_bill_writes_observed_and_opens_an_incid
     # the recorded amount is left as recorded: observed sits beside it, never over it
     with db.session() as s:
         assert s.get(CostEntry, cid).amount_cad == 0.2
+        assert s.get(CostEntry, cid).observed_cad == provider_cad
     last = P.last_settlements(db)["anthropic"]
     assert last["state"] == "SETTLED" and last["material_gaps"] == 1
 
@@ -397,6 +398,119 @@ def test_credits_are_kept_apart_from_cash_and_never_raise_a_ceiling():
     assert w["ceilings_changed"] == 0 and spend_policy.headroom(0.0) == before
     # the month's recorded spend is unchanged by a credit: exposure is not netted
     assert spend_report.governance(db)["month"]["spent_cad"] >= 7.0
+
+
+def test_the_f304_dimensions_are_columns_on_the_ledger_row_too():
+    from brambleloop.core.models import CostEntry
+    from brambleloop.finance import spend_report
+
+    cols = set(CostEntry.__table__.columns.keys())
+    assert {"listing_id", "image_count", "observed_cad", "evidence_ref"} <= cols, cols
+    db = boot()
+    lid = _listing(db, "fern-throw", etsy_id="4401")
+    img = spend_report.record(db, agent="gateway", amount_cad=0.0411, purpose="image.generate",
+                              provider="openai_gpt_image", model="openai_gpt_image",
+                              product_slug="fern-throw", kind="image",
+                              detail={"reservation_id": 9})
+    txt = spend_report.record(db, agent="o", amount_cad=0.02, purpose="concept")
+    with db.session() as s:
+        r = s.get(CostEntry, img)
+        assert (r.listing_id, r.image_count, r.observed_cad, r.evidence_ref) == (
+            lid, 1, None, "reservation:9")
+        t = s.get(CostEntry, txt)
+        assert t.listing_id is None and t.image_count is None and t.observed_cad is None
+
+
+def test_a_database_made_before_the_columns_upgrades_additively():
+    import sqlite3
+
+    from sqlalchemy import inspect
+
+    from brambleloop.core import migrate
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import CostEntry
+
+    d = os.path.join(os.environ.get("TMPDIR") or "/tmp", "old-ledger.sqlite")
+    if os.path.exists(d):
+        os.remove(d)
+    db = Database(f"sqlite:///{d}")
+    db.create_all()
+    con = sqlite3.connect(d)
+    for col in ("listing_id", "image_count", "observed_cad", "evidence_ref"):
+        con.execute(f'ALTER TABLE cost_entries DROP COLUMN "{col}"')
+    con.execute("INSERT INTO cost_entries (at, agent, kind, amount_cad, tokens_in, tokens_out, "
+                "provider, model, department, product_slug, purpose, estimated_cad, detail) "
+                "VALUES ('2026-10-01 00:00:00', 'old', 'llm', 1.5, 0, 0, '', '', '', '', 'p', "
+                "1.5, '{}')")
+    con.commit()
+    con.close()
+    old = Database(f"sqlite:///{d}")
+    have = {c["name"] for c in inspect(old.engine).get_columns("cost_entries")}
+    assert "observed_cad" not in have
+    changes = migrate.apply(old.engine)
+    have = {c["name"] for c in inspect(old.engine).get_columns("cost_entries")}
+    assert {"listing_id", "image_count", "observed_cad", "evidence_ref"} <= have, changes
+    with old.session() as s:
+        row = s.query(CostEntry).filter_by(agent="old").one()
+        assert row.amount_cad == 1.5 and row.observed_cad is None and row.listing_id is None
+        assert row.image_count is None and row.evidence_ref == ""
+    os.remove(d)
+
+
+
+# -- F-311 ----------------------------------------------------------------------------------
+
+def test_every_evidence_reuse_path_keys_through_one_helper_with_unchanged_keys():
+    import hashlib
+    import importlib
+    import inspect as _inspect
+    import json
+
+    from brambleloop.gateway import evidence_key as EK, image_bench, paid_calls, routing
+    from brambleloop.intel import pods
+    from brambleloop.visual import photoreal
+
+    assert EK.REUSE_PATHS
+    for name, target in EK.REUSE_PATHS.items():
+        mod, fn = target.split(":")
+        src = _inspect.getsource(getattr(importlib.import_module(mod), fn))
+        assert "evidence_key" in src, (name, target)
+
+    payload = {"b": [1, "é"], "a": NOW}
+    legacy = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False,
+                                       default=str).encode("utf-8")).hexdigest()
+    assert routing.fingerprint(payload) == pods.fingerprint(payload) == legacy
+    parts = ("render", 7, {"x": 1})
+    assert paid_calls.fingerprint(*parts) == hashlib.sha256(json.dumps(
+        parts, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+
+    assert image_bench.CANDIDATES
+    cand = image_bench.CANDIDATES[0]
+    rubric_legacy = hashlib.sha256("|".join([
+        image_bench.METHOD_VERSION, cand.key, cand.resolution, f"{cand.usd_per_image}",
+        ",".join(d.key for d in image_bench.RUBRIC), image_bench.IDENTITY_DIMENSION.key,
+        image_bench.GALLERY_DIMENSION.key, ",".join(t.key for t in image_bench.TRIALS),
+        str(image_bench.SAMPLES_PER_TRIAL), str(image_bench.SCORE_MAX)]).encode()).hexdigest()[:16]
+    assert image_bench.rubric_fingerprint(cand) == rubric_legacy
+    assert image_bench.TRIALS
+    for trial in image_bench.TRIALS:
+        judged = ((image_bench.IDENTITY_DIMENSION.key,) if trial.needs_reference
+                  else tuple(d.key for d in image_bench.RUBRIC))
+        want = hashlib.sha256("|".join([
+            cand.key, cand.resolution, f"{cand.usd_per_image}", trial.key, trial.prompt,
+            ",".join(judged), str(image_bench.SCORE_MAX),
+            image_bench.METHOD_VERSION if trial.needs_reference else "method-independent",
+        ]).encode()).hexdigest()[:16]
+        assert image_bench.trial_fingerprint(cand, trial) == want, trial.key
+
+    f = os.path.join(os.environ.get("TMPDIR") or "/tmp", "portrait.bin")
+    with open(f, "wb") as fh:
+        fh.write(b"portrait-bytes")
+    assert photoreal._portrait_fingerprint(f) == hashlib.sha256(b"portrait-bytes").hexdigest()
+    os.remove(f)
+    assert photoreal._portrait_fingerprint(f) == "", "unreadable is nothing to reuse"
+    # a changed upstream is a miss, never a stale hit
+    assert routing.fingerprint({"a": 1}) != routing.fingerprint({"a": 2})
 
 
 if __name__ == "__main__":

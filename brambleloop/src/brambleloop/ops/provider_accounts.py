@@ -405,7 +405,8 @@ def settle(db, provider: str, provider_rows: list[dict], *,
                 if attr is not None:
                     attr.observed_cad = provider_cad
                     attr.observed_basis = OBSERVED_BASIS
-                    observed_written = True
+                entries[0].observed_cad = provider_cad
+                observed_written = True
             b = {"day": r["day"], "model": r["model"], "provider_usd": r["usd"],
                  "provider_cad": provider_cad, "ledger_cad": ledger_cad,
                  "ledger_rows": len(entries), "difference_cad": diff, "material": material,

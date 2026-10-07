@@ -565,11 +565,20 @@ def record(db, *, agent: str, amount_cad: float, purpose: str, provider: str = "
         s.add(row)
         s.flush()
         if sidecar:
-            cost_attribution.write(
+            attr = cost_attribution.write(
                 s, cost_entry_id=row.id, kind=kind, product_slug=product_slug,
                 detail=dict(detail or {}), job_id=job_id, listing_id=listing_id,
                 image_count=image_count, observed_cad=observed_cad,
                 observed_basis=observed_basis, evidence_ref=evidence_ref)
+            # F-304: the same four values as columns on the row itself, so a plain query
+            # over cost_entries can group by listing or images without a join.
+            row.listing_id, row.image_count = attr.listing_id, attr.image_count
+            row.observed_cad, row.evidence_ref = attr.observed_cad, attr.evidence_ref
+        else:
+            row.listing_id = listing_id
+            row.image_count = image_count
+            row.observed_cad = None if observed_cad is None else round(float(observed_cad), 8)
+            row.evidence_ref = (evidence_ref or "")[:200]
         return row.id
 
 
