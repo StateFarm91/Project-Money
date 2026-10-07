@@ -266,6 +266,16 @@ def enrich_cards(db, cards: list[dict], *, why_by_action_id: dict | None = None)
     """Add packet, urgency, rank, lifecycle state and the tester route to inbox cards."""
     why_by_action_id = why_by_action_id or {}
     for i, card in enumerate(cards, start=1):
+        # W4-GATESB: a business gate with no producer row carries its exact clearance
+        # (action, links, cost ceiling, minutes) from build2.gate_clearance.
+        if card.get("gate") and card.get("owner_action_id") is None:
+            try:
+                from ..build2 import gate_clearance
+
+                if card["gate"] in gate_clearance.BUSINESS_GATES:
+                    card.update(gate_clearance.card_fields(db, card["gate"]))
+            except Exception as exc:  # noqa: BLE001 - the card stands; the gap is named
+                card["clearance_error"] = f"{type(exc).__name__}: {exc}"[:200]
         card.update(packet_for(card, why_by_action_id.get(card.get("owner_action_id"), "")))
         card["rank"] = i
         card["urgency"] = urgency(card)
