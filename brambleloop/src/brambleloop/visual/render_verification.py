@@ -55,8 +55,10 @@ passed. Every text pixel is now accounted for.
 """
 from __future__ import annotations
 
+import bisect
 import hashlib
 import io
+import itertools
 import math
 
 import numpy as np
@@ -529,8 +531,110 @@ def _verify_plan(frame, model, view, u, checks, part) -> dict:
     return {"objects": per_object, "sides": sides}
 
 
+def _band_edge(xs: list[float], R: float) -> float:
+    """Where to cut a round's front band: in [0.4R, 0.6R], as far from every expected stitch
+    centre as possible, so no glyph sits on the cut and the count is exact, not +-1."""
+    candidates = sorted({0.4 * R, 0.6 * R} | {abs(x) for x in xs if 0.4 * R < abs(x) < 0.6 * R})
+    best, gap = 0.5 * R, -1.0
+    for a, b in zip(candidates, candidates[1:]):
+        if b - a > gap:
+            best, gap = (a + b) / 2, b - a
+    return best
+
+
+def _verify_round_vessel(frame, model, view, u, checks) -> dict:
+    """A vessel whose increases stagger (0 corners): a circular wall (W4-RENDER).
+
+    The stitches of a round are placed by the contract convention every round frame uses
+    (stitch i of n spans [i/n, (i+1)/n] of the turn, anticlockwise from +X, the convention a
+    stacked hexagon's corners are found by). The verifier computes, from its own model, the
+    centres of the front-facing stitches in each wall round, counts those inside a central
+    band whose edge falls between stitch centres, and compares glyph for glyph: count (exact),
+    colour (exact), angular pitch (+-4 %), diameter and wall height. A glyph's height on the
+    screen depends on how far round the curve it sits; that is un-projected here from the
+    glyph's own measured x before it is assigned to a round."""
+    alpha = math.radians(K.camera_deg(view))
+    ca, sa = math.cos(alpha), math.sin(alpha)
+    radii = model["radii_cm"]
+    R = radii[model["base_rounds"] - 1]
+    walls = model["rows"][model["base_rounds"]:]
+    tops = list(itertools.accumulate(r["height_cm"] for r in walls))
+    H = tops[-1] if tops else 0.0
+    objs = _objects(frame, 1)
+    checks.append(_check("object_count", PASS if len(objs) == 1 else FAIL,
+                         "one vessel", found=len(objs), expected=1))
+    if len(objs) != 1 or not walls:
+        return {}
+    bx0, by0, bx1, by1 = objs[0]
+    cx = (bx0 + bx1) / 2
+    m_R = (bx1 - bx0 + K.GAP_PX) / u / 2
+    comps, _ = _components(frame)
+    h_min = min(r["height_cm"] for r in walls)
+    comps = [c for c in comps if c["area"] >= 0.25 * (model["w_cm"] * u) * (h_min * u * ca)]
+    front = [c for c in comps if abs(c["cx"] - cx) < 0.6 * R * u]
+    half = max(2, int(model["w_cm"] * u / 2))
+    band = frame.yarn[: K.zone_px(K.PRODUCT_ZONE, frame.w)[3],
+                      int(round(cx)) - half: int(round(cx)) + half + 1] >= 0
+    ys = np.nonzero(band.any(axis=1))[0]
+    if not ys.size:
+        checks.append(_check("wall_counts", UNKNOWN, "no front face found"))
+        return {}
+    y_bottom = float(ys.max()) + K.GAP_PX / 2
+    rounds: dict[int, list] = {}
+    above = 0
+    for c in front:
+        cosine = max(-1.0, min(1.0, (c["cx"] - cx) / (R * u)))
+        lift = R * (1.0 - math.sqrt(1.0 - cosine * cosine)) * (sa / ca if ca else 0.0)
+        z = (y_bottom - c["cy"]) / (u * ca) - lift
+        j = bisect.bisect_right(tops, z)
+        if j >= len(walls):
+            above += 1               # inside of the back wall, seen over the rim
+            continue
+        rounds.setdefault(j, []).append(c)
+    count_bad, colour_bad, steps = [], [], []
+    for j, r in enumerate(walls):
+        n = len(r["seq"])
+        centres = [R * math.cos(2 * math.pi * (i + 0.5) / n) for i in range(n)
+                   if math.sin(2 * math.pi * (i + 0.5) / n) < 0]
+        edge = _band_edge(centres, R)
+        expected = sum(1 for x in centres if abs(x) < edge)
+        got = sorted((c for c in rounds.get(j, []) if abs(c["cx"] - cx) < edge * u),
+                     key=lambda c: c["cx"])
+        if len(got) != expected:
+            count_bad.append({"round": r["index"], "found": len(got), "expected": expected})
+        if any(c["colour"] != r["colour"] or c["mixed_colour"] for c in got):
+            colour_bad.append(r["index"])
+        angles = [math.acos(max(-1.0, min(1.0, (c["cx"] - cx) / (R * u)))) for c in got]
+        steps.extend(abs(b - a) * R for a, b in zip(angles, angles[1:]))
+    top_front = min((c["y0"] for j in rounds for c in rounds[j]
+                     if abs(c["cx"] - cx) < half + 1), default=None)
+    m_H = (y_bottom - top_front + K.GAP_PX / 2) / (u * ca) if top_front is not None else 0.0
+    checks.append(_check("extent_cm", PASS if _within(2 * m_R, 2 * R, EXTENT_REL, EXTENT_PX, u)
+                         else FAIL, "the diameter, from the scale bar",
+                         measured=round(2 * m_R, 2), expected=round(2 * R, 2)))
+    checks.append(_check("wall_height_cm", PASS if _within(m_H, H, HEIGHT_REL, HEIGHT_PX, u * ca)
+                         else FAIL, "front height, un-projected by the contract camera angle",
+                         measured=round(m_H, 2), expected=round(H, 2)))
+    checks.append(_check("stitch_counts", FAIL if count_bad else PASS,
+                         "every wall round: one glyph per front-facing stitch inside the "
+                         "central band, the band cut between stitch centres",
+                         rounds=len(walls), bad=count_bad[:5]))
+    checks.append(_check("colour_placement", FAIL if colour_bad else PASS,
+                         "every wall round in the colour it is worked in", bad=colour_bad[:5]))
+    if steps:
+        p = float(np.median(steps))
+        checks.append(_check("stitch_pitch_cm", PASS if _within(p, model["w_cm"], PITCH_REL)
+                             else FAIL, "arc between neighbouring stitch centres = gauge width",
+                             measured=round(p, 4), expected=round(model["w_cm"], 4)))
+    else:
+        checks.append(_check("stitch_pitch_cm", UNKNOWN, "no front-face stitches to measure"))
+    return {"wall_rounds": len(walls), "seen_over_rim": above}
+
+
 def _verify_vessel(frame, model, view, u, checks) -> dict:
     sides = model["sides"]
+    if sides == 0:
+        return _verify_round_vessel(frame, model, view, u, checks)
     if sides != 6:
         checks.append(_check("wall_counts", UNKNOWN,
                              f"wall counting is defined for a stacked hexagon; this vessel has "
@@ -542,7 +646,8 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
     R = radii[model["base_rounds"] - 1]
     walls = model["rows"][model["base_rounds"]:]
     h = model["unit_cm"]
-    H = len(walls) * h
+    tops = list(itertools.accumulate(r["height_cm"] for r in walls))
+    H = tops[-1] if tops else 0.0
     objs = _objects(frame, 1)
     checks.append(_check("object_count", PASS if len(objs) == 1 else FAIL,
                          "one vessel", found=len(objs), expected=1))
@@ -568,7 +673,7 @@ def _verify_vessel(frame, model, view, u, checks) -> dict:
     above = 0
     for c in front:
         z = (y_bottom - c["cy"]) / (u * ca)
-        j = int(z // h)
+        j = bisect.bisect_right(tops, z)       # rounds are as tall as their own stitches
         if j >= len(walls):
             above += 1               # inside of the back wall, seen over the rim
             continue
@@ -644,7 +749,10 @@ def _expected_figures(cir, model) -> tuple[dict, list[str]]:
         else:
             agree("across", twin.width_cm, 2 * R)
         if model.get("wall_rounds"):
-            agree("height", twin.height_cm, model["wall_rounds"] * model["unit_cm"])
+            # Each wall round is as tall as its own stitches (PT-08 rule, recomputed in
+            # `expected_model`): a relief round of dc is taller than a round of sc.
+            agree("height", twin.height_cm,
+                  sum(r["height_cm"] for r in model["rows"][model["base_rounds"]:]))
     return figures, problems
 
 
@@ -765,7 +873,8 @@ def _annotations(frame: _Frame, cir, model, view: str, scale: dict, detail: dict
             span = (2 * R) if not sides or sides % 2 == 0 else R * (1 + math.cos(math.pi / sides))
             want = [("h", span)]
             if model.get("wall_rounds"):
-                want.append(("v", model["wall_rounds"] * model["unit_cm"]))
+                want.append(("v", sum(r["height_cm"]
+                                      for r in model["rows"][model["base_rounds"]:])))
     lines_ok = len(found) == len(want)
     for kind, cm in want:
         target = cm * scale["px_per_cm"]

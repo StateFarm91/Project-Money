@@ -85,8 +85,32 @@ def test_corners():
         check("renderer_refuses_mixed_shape", "neither all stack" in str(exc), str(exc))
 
 
+def test_round_vessel_verifies():
+    """The round basket's frames pass the independent verifier against its CIR (relief walls
+    drawn as tall as their stitches), and a frame drawn from a recoloured CIR fails."""
+    from brambleloop.visual import disclosed_render as D
+    from brambleloop.visual import render_verification as V
+
+    basket = mc.housewarming_key_basket()
+    views = ("hero", "scale", "detail", "angle")
+    assert views, "no views"
+    for v in views:
+        r = V.verify(D.render(basket, v).png, cir=basket, view=v)
+        check(f"round_basket_{v}_verifies", r["status"] == "PASS", (r["failed"], r["unknown"]))
+    comp = basket.components[0]
+    rows = list(comp.rows)
+    i = len(rows) - 4
+    other = next(c for c in basket.colors if c != rows[i].color)
+    bad = replace(basket, components=[replace(comp, rows=rows[:i] + [replace(rows[i], color=other)]
+                                              + rows[i + 1:])])
+    r = V.verify(D.render(bad, "hero").png, cir=basket, view="hero")
+    check("recoloured_wall_round_fails", r["status"] == "FAIL"
+          and "colour_placement" in r["failed"], r["failed"])
+
+
 if __name__ == "__main__":
     test_corners()
+    test_round_vessel_verifies()
     if FAILED:
         print(f"FAILED: {FAILED}")
         sys.exit(1)
