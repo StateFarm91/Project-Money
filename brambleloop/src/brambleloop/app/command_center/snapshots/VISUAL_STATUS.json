@@ -1,6 +1,6 @@
 {
- "generated_at": "2026-10-07T05:30Z",
- "branch": "claude/w4-VISUAL",
+ "generated_at": "2026-10-07T12:00Z",
+ "branch": "claude/w4-VISUAL2",
  "lane": "W4-VISUAL",
  "stages": [
   {
@@ -72,6 +72,7 @@
     "ANGLE",
     "COLOUR_CONTEXT",
     "CONSTRUCTION",
+    "CONTENTS",
     "DESIRE",
     "DETAIL",
     "MATERIALS",
@@ -79,7 +80,6 @@
     "SIZING"
    ],
    "missing": {
-    "CONTENTS": "publish.pdf preview path (not a drawing of the object)",
     "LIFESTYLE": "photo or paid composite (VB-1 P2)"
    }
   },
@@ -87,13 +87,13 @@
    "hero_ready": true,
    "covered": [
     "COLOUR_CONTEXT",
+    "CONTENTS",
     "DESIRE",
     "DETAIL",
     "MATERIALS",
     "SCALE"
    ],
    "missing": {
-    "CONTENTS": "publish.pdf preview path",
     "LIFESTYLE": "photo or paid composite (VB-1 P2)"
    }
   },
@@ -101,6 +101,7 @@
    "hero_ready": true,
    "covered": [
     "COLOUR_CONTEXT",
+    "CONTENTS",
     "DESIRE",
     "DETAIL",
     "MATERIALS",
@@ -110,7 +111,6 @@
     "CONSTRUCTION"
    ],
    "missing": {
-    "CONTENTS": "publish.pdf preview path",
     "LIFESTYLE": "photo or paid composite (VB-1 P2)"
    }
   },
@@ -203,22 +203,29 @@
    "F-030",
    "F-254"
   ],
-  "status": "drawable jobs CERTIFIED on 6 renderable viable releases; CONTENTS OPEN (no producer: publish.pdf preview frame); LIFESTYLE OWNER-GATED (VB-1 P2 or sample photos)",
+  "status": "drawable jobs + CONTENTS CERTIFIED on all 7 renderable viable releases (incl. harvest-table-runner via the contract diagonal hero/scale; 25% fill gate unchanged); LIFESTYLE OWNER-GATED (VB-1 P2 or sample photos)",
   "mechanism": "release_gates.disclosed_supplements -> listing_set.certify_disclosed(kind disclosed_gallery_frame) -> etsy_ops.certified_images re-verifies; first_customer.disclosed_imagery re-verifies",
   "proof": [
    "research/final_build/w4/visual/certified_gallery_proof_2026-10-07.json",
-   "research/final_build/w4/visual/certified_gallery_proof_baskets_2026-10-07.json"
+   "research/final_build/w4/visual/certified_gallery_proof_baskets_2026-10-07.json",
+   "research/final_build/w4/visual/contents_gallery_proof_coasters_2026-10-07.json",
+   "research/final_build/w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json",
+   "research/final_build/w4/visual/contents_gallery_proof_all_2026-10-07.json"
   ],
   "by_release": {
-   "market-basket-small": 8,
-   "market-basket-medium": 7,
-   "market-basket-large": 7,
-   "cloudline-baby-blanket": 5,
-   "hexagon-coaster-set": 5,
-   "pet-snuggle-mat": 5,
-   "harvest-table-runner": 0
+   "market-basket-small": 9,
+   "market-basket-medium": 8,
+   "market-basket-large": 8,
+   "cloudline-baby-blanket": 6,
+   "hexagon-coaster-set": 6,
+   "pet-snuggle-mat": 6,
+   "harvest-table-runner": 6,
+   "nordic-star-ornaments": 6,
+   "winter-village-graphghan": 6
   },
-  "harvest-table-runner": "OPEN company engineering: hero/scale fill 13-14% at 340 px (gate 25%); 3.8:1 runner needs a diagonal/folded hero layout with verifier support",
-  "tests": "tests/test_w4_visual_certified_gallery.py"
- }
+  "harvest-table-runner": "PROVEN (W4-VISUAL2): render_contract.diagonal_deg draws hero/scale as one rigid rotation; render_verification recomputes it from the CIR and un-rotates every glyph; certificate valid, 6 frames, first_customer PASS",
+  "tests": "tests/test_w4_visual_certified_gallery.py, tests/test_w4_visual2.py",
+  "contents": "PROVEN (W4-VISUAL2): visual/contents_frame previews the release's assets.built US PDF (PATTERN_PREVIEW, 'Preview of the pattern document'), verified on exact bytes, certified via the supplement path"
+ },
+ "stitch_scale_wiring": "F-753 (K9): product_authority.structural_floor attaches a gates.stitch_scale reading to every generated/photo/composite frame; wrong scale FAIL, right scale stays UNKNOWN (tests/test_w4_visual2.py)"
 }

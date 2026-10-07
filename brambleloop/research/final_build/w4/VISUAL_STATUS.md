@@ -1,4 +1,6 @@
-# VISUAL_STATUS — W4-VISUAL (updated 2026-10-07T05:30Z, branch `claude/w4-VISUAL`)
+# VISUAL_STATUS — W4-VISUAL/VISUAL2 (updated 2026-10-07T12:00Z, branch `claude/w4-VISUAL2`)
+
+**2026-10-07 update (W4-VISUAL2):** CONTENTS is now PROVEN on every certified gallery (`visual/contents_frame.py`, preview of the release's real US PDF, verified on exact bytes). harvest-table-runner is now certified: hero/scale are drawn on the contract diagonal (`render_contract.diagonal_deg`) and verified un-rotated; the 25 % fill gate is unchanged; Launch-0 frames are byte-identical. Proof: `visual/contents_gallery_proof_all_2026-10-07.json` (runner, blanket, basket S/M/L, pet mat: certificate valid, upload path serves DESIRE..CONTENTS, first_customer PASS). K9 F-753: generated frames carry a stitch-scale reading (`product_authority.structural_floor`). Rows below that say CONTENTS missing or the runner refused are superseded by this paragraph. LIFESTYLE stays OWNER-GATED.
 
 Machine-readable twin: `VISUAL_STATUS.json`. Every status below was measured on this branch
 on 2026-10-06/07; nothing is carried over from the dashboard.
