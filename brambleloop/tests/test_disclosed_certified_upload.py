@@ -229,11 +229,17 @@ def test_the_disclosed_set_is_certified_and_served_with_its_alt_text():
     # different job, each certified as a disclosed gallery frame with the disclosure first.
     extra = cert["frames"][n:]
     assert extra, "the blanket's verified MATERIALS/COLOUR_CONTEXT frames were not certified"
-    assert {f["job"] for f in extra} == {"MATERIALS", "COLOUR_CONTEXT"}, extra
+    # W4-VISUAL2: CONTENTS previews the release's certified PDF (assets.build ran above),
+    # labelled as a preview of the document, never with the render disclosure.
+    assert {f["job"] for f in extra} == {"MATERIALS", "COLOUR_CONTEXT", "CONTENTS"}, extra
+    from brambleloop.publish.eligibility import PREVIEW_LABEL
     assert all(f["kind"] == "disclosed_gallery_frame" and f["alt_text"].startswith(
-        disclosed_listing.DISCLOSURE) for f in extra)
+        PREVIEW_LABEL if f["job"] == "CONTENTS" else disclosed_listing.DISCLOSURE)
+        for f in extra)
+    assert [(f["medium"], f["honesty_label"]) for f in extra if f["job"] == "CONTENTS"] == [
+        ("PATTERN_PREVIEW", PREVIEW_LABEL)]
     assert [f["position"] for f in cert["frames"]] == list(range(1, len(cert["frames"]) + 1))
-    assert cert["disclosures"] == [disclosed_listing.DISCLOSURE]
+    assert cert["disclosures"] == [disclosed_listing.DISCLOSURE, PREVIEW_LABEL]
 
     served = etsy_ops.certified_images(db, SLUG, cir.version)
     assert served["problems"] == [], served["problems"]
