@@ -34,6 +34,18 @@ Phase shadow; no deploy, no Etsy write, no spend. Production read only via publi
   `launch0.per_stitch_colour_expressible()` False), key basket / ring pillow (in_the_round), tea cosy (seamless_tube),
   cable wrap (side_to_side + uncalibrated cable = OWNER tester), advent garland (motif_join), kneeler (modular_panels).
 
+- Imagery name truth: `eligibility.name_truth` also refuses imagery the CIR motif does not depict, in the
+  title and in the drafted listing copy (`creative.emotional_brief.title_conflicts`). `runtime.release._motifs_for`
+  no longer puts a retitled product's old slug imagery/colourwork words back into its listing (replaced by motif
+  words; untouched products unchanged). PROVEN `test_w4_pipe_name_truth` (21 OK).
+- Owner directive (live_listings): `PRODUCT_INVENTORY.{json,md}` "launch_candidates" = products with zero COMPANY
+  blockers and the gates passed/remaining per product. The 5 Launch-0 products (cloudline, hexagon coasters,
+  3 market baskets) are there: remaining = etsy_taxonomy_snapshot (EXTERNAL: deployed app's Etsy read →
+  listing.taxonomy_refresh), physical_sample (OWNER/tester), etsy_remote_confirmation (EXTERNAL), durable_artifact_storage
+  (OWNER: object storage), production_stale/imagery (DEPLOY). Next 7 truthful products (wall hanging, placemat,
+  ornaments, heart library, snowfall throw, pet mat, harvest runner) are held only by Launch-0 scope (cap 5 pinned by
+  test_launch0; owner ruling D-FB-9 on catalogue depth) → imagery verifier authority (D-FB-7) follows scope.
+
 ## Tests run (focused)
 test_w4_pipe_name_truth 12, test_w4_pipe_board 31, test_launch0 52, test_release_versions 4, test_cert_growth_seasonal 24 — all OK. Others in the batch: see final report.
 
@@ -57,5 +69,11 @@ test_w4_pipe_name_truth 12, test_w4_pipe_board 31, test_launch0 52, test_release
 - Launch-0 promotion of truthful reserves (pet-snuggle-mat, harvest runner, proposals) is capped at 5 by tests/test_launch0.py and coupled to the open D-FB-9 owner ruling on catalogue depth (8).
 - Production is stale (1.0.0/chain 7 vs 1.2.0/chain 8): DEPLOY gate (integrator/owner), then chain.rebuild.
 
-## Next deterministic action
+## Tests run this resume (all OK)
+test_w4_pipe_board 51, test_w4_pipe_name_truth 21, test_launch0 52, test_launch0_gauge 1, test_launch0_listing_truth 14,
+test_release_versions 4, test_eligibility 34, test_first_customer_gate 12, test_risk_matrix 17, test_first_hundred 16,
+test_search_truth 32, test_w3_k1_search 20, test_w4_creative_brief 13, test_creative 11, test_cert_growth_seasonal 24,
+test_blind_review 11. Guards (vacuity, secret_scan, reachability, tmp_hygiene): see final commit.
+
+## Next deterministic action (superseded below if a later commit says otherwise)
 Finish scratch run2 (`/home/user/bl-tmp-PIPE/run_after.py`), run `product_inventory_run.py --chain-db run2 --name PRODUCT_INVENTORY` and `pipeline_run.py --chain-db run2`, commit.
