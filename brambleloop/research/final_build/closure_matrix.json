@@ -39,19 +39,19 @@
   "problems": [],
   "maturity": {
    "DEPLOYED": 187,
-   "INTEGRATED": 494,
+   "INTEGRATED": 495,
    "MISSING": 109,
    "IMPLEMENTED": 56,
-   "TESTED": 53,
+   "TESTED": 52,
    "EXERCISED": 18
   },
   "maturity_claimed": {
    "EXERCISED": 118,
-   "INTEGRATED": 464,
+   "INTEGRATED": 465,
    "DEPLOYED": 133,
    "MISSING": 109,
    "IMPLEMENTED": 45,
-   "TESTED": 48
+   "TESTED": 47
   },
   "launch_class": {
    "LAUNCH-CRITICAL": 490,
@@ -60,10 +60,10 @@
   },
   "launch_critical_maturity": {
    "DEPLOYED": 115,
-   "INTEGRATED": 318,
+   "INTEGRATED": 319,
    "IMPLEMENTED": 4,
    "EXERCISED": 18,
-   "TESTED": 30,
+   "TESTED": 29,
    "MISSING": 5
   },
   "gate_kind": {
@@ -90,21 +90,21 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 349,
+   "COMPLETE": 350,
    "GATED": 124,
    "POST-LAUNCH": 420,
-   "OPEN": 17,
+   "OPEN": 16,
    "NOT-APPLICABLE": 7
   },
   "launch_critical_completion": {
-   "COMPLETE": 349,
+   "COMPLETE": 350,
    "GATED": 124,
-   "OPEN": 17
+   "OPEN": 16
   },
-  "launch_critical_open": 17,
+  "launch_critical_open": 16,
   "launch_critical_open_reasons": {
    "coverage PARTIAL": 15,
-   "maturity TESTED": 7,
+   "maturity TESTED": 6,
    "defect recorded": 1,
    "maturity IMPLEMENTED": 3
   },
@@ -1583,18 +1583,23 @@
    "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT stays photograph-only)",
+   "missing_part": "CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-baskets certificates (certified before the CONTENTS producer existed); LIFESTYLE is owner-gated (VB-1 P2 or sample photos)",
    "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
    "durable_state": "listing_assets",
    "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
    "protected_effect": "missing frame blocks",
    "tests": [
     "tests/test_brand.py (MISSING_FRAME)",
-    "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position"
+    "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position",
+    "tests/test_w4_visual2.py::test_contents_frame_is_the_certified_pdf_and_verifies_only_on_it",
+    "tests/test_w4_visual2.py::test_contents_is_certified_through_the_supplement_path_with_the_preview_label",
+    "tests/test_w4_visual_certified_gallery.py::test_every_launch0_primary_is_offered_its_verified_applicable_jobs",
+    "tests/test_w4_visual_certified_gallery.py::test_the_certificate_takes_supplements_only_in_order_with_readings_and_distinct_jobs"
    ],
    "evidence": [
     "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
-    "w4-FM close on 8b67414 (FOLD): the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing"
+    "w4-FM close on 8b67414 (FOLD): the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing",
+    "w4-FM close on w4-FM2 (FM2): VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)"
    ],
    "build2_rows": [
     "#65 COMPLETE+PROVEN",
@@ -1606,9 +1611,9 @@
     "detail": "producing the frames is company work (visual lane)"
    },
    "defect": null,
-   "next_action": "Visual lane: produce disclosed-render frames for each applicable missing job on the Launch-0 certified set and re-certify the set",
+   "next_action": "VISUAL2: re-run research/final_build/w4/visual/proof_contents_gallery.py for cloudline-baby-blanket and the three nursery-nesting-baskets sizes and commit the proof; then the row is GATED on owner VB-1 (LIFESTYLE) only",
    "confidence": "MEDIUM",
-   "searched": " | w4-FM close on 8b67414 (FOLD)",
+   "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close",
    "slice": "s1",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -1621,7 +1626,7 @@
    "protected_action_basis": "row names a protected_effect",
    "completion": "OPEN",
    "completion_reasons": [
-    "coverage PARTIAL: the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT "
+    "coverage PARTIAL: CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-b"
    ]
   },
   {
@@ -11951,7 +11956,7 @@
    "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
    "maturity": "INTEGRATED",
    "coverage": "PARTIAL",
-   "missing_part": "the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the applicable frames",
+   "missing_part": "CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-baskets certificates (certified before the CONTENTS producer existed); LIFESTYLE is owner-gated (VB-1 P2 or sample photos)",
    "producer": "src/brambleloop/publish/eligibility.py::check_set",
    "durable_state": "ListingAsset frame roles",
    "consumer": "src/brambleloop/runtime/pipeline.py::_release_gates -> store.publish_blocked",
@@ -11959,11 +11964,16 @@
    "tests": [
     "tests/test_cert_publish_gates.py::test_a_filler_frame_with_no_job_is_refused_and_blocks_export",
     "tests/test_eligibility.py::test_frame_one_must_be_the_hero_doing_desire",
-    "tests/test_eligibility.py::test_two_frames_doing_one_job_is_the_defect_not_two_similar_images"
+    "tests/test_eligibility.py::test_two_frames_doing_one_job_is_the_defect_not_two_similar_images",
+    "tests/test_w4_visual2.py::test_contents_frame_is_the_certified_pdf_and_verifies_only_on_it",
+    "tests/test_w4_visual2.py::test_contents_is_certified_through_the_supplement_path_with_the_preview_label",
+    "tests/test_w4_visual_certified_gallery.py::test_every_launch0_primary_is_offered_its_verified_applicable_jobs",
+    "tests/test_w4_visual_certified_gallery.py::test_the_certificate_takes_supplements_only_in_order_with_readings_and_distinct_jobs"
    ],
    "evidence": [
     "eligibility.check_set wiring is post-production (B2 #65 repair)",
-    "w4-FM close on 8b67414 (FOLD): same reading as F-030 (wave-3 K1): the vocabulary is complete, frames missing"
+    "w4-FM close on 8b67414 (FOLD): same reading as F-030 (wave-3 K1): the vocabulary is complete, frames missing",
+    "w4-FM close on w4-FM2 (FM2): VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)"
    ],
    "build2_rows": [
     "#65 COMPLETE+PROVEN",
@@ -11976,9 +11986,9 @@
     "detail": "producing the frames is company work (visual lane)"
    },
    "defect": null,
-   "next_action": "Visual lane: produce the applicable ANGLE/CONSTRUCTION/COLOUR_CONTEXT/LIFESTYLE frames on the certified set",
+   "next_action": "VISUAL2: re-run research/final_build/w4/visual/proof_contents_gallery.py for cloudline-baby-blanket and the three nursery-nesting-baskets sizes and commit the proof; then the row is GATED on owner VB-1 (LIFESTYLE) only",
    "confidence": "HIGH",
-   "searched": " | w4-FM close on 8b67414 (FOLD)",
+   "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close",
    "slice": "s4",
    "maturity_claimed": "INTEGRATED",
    "adjudication": [],
@@ -11991,7 +12001,7 @@
    "protected_action_basis": "row names a protected_effect",
    "completion": "OPEN",
    "completion_reasons": [
-    "coverage PARTIAL: the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the"
+    "coverage PARTIAL: CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-b"
    ]
   },
   {
@@ -19365,12 +19375,12 @@
    "uid": "F-416",
    "launch_class": "LAUNCH-CRITICAL",
    "launch_class_reason": "Runtime durability / supply-chain integrity of the production image.",
-   "maturity": "TESTED",
+   "maturity": "INTEGRATED",
    "coverage": "FULL",
    "missing_part": null,
-   "producer": "scripts/supply_chain.py::verify --strict (over requirements.lock + Dockerfile: digest-pinned base, versioned apt font, pip --require-hashes)",
+   "producer": "src/brambleloop/ops/release_record.py::apply_at_import (boot guard: requirements.lock is in the deployable tree digest the release record must name) + scripts/supply_chain.py::verify --strict (lock + Dockerfile: digest-pinned base, versioned apt font, pip --require-hashes --no-deps)",
    "durable_state": "brambleloop/requirements.lock",
-   "consumer": "Docker image build (railway.json builder DOCKERFILE); ops/dependencies.DEPENDENCIES (external services with recovery)",
+   "consumer": "src/brambleloop/app/main.py (apply_at_import() at import, before Database(); an unrecorded lock forces SHADOW / refuses on the platform); Docker image build (railway.json builder DOCKERFILE); ops/dependencies.DEPENDENCIES",
    "protected_effect": "a rebuild cannot pull an untested/unhashed package",
    "tests": [
     "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
@@ -19379,14 +19389,17 @@
     "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
     "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
     "tests/test_w3_supply_chain.py::test_the_cli_verify_exits_zero_on_the_repo_and_strict_fails_on_open_pins",
-    "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named"
+    "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named",
+    "tests/test_w4_fm2_lock_boot_guard.py::test_a_rebuilt_image_with_an_unrecorded_lock_is_forced_to_shadow",
+    "tests/test_w4_fm2_lock_boot_guard.py::test_the_image_installs_only_the_hashed_lock_and_main_runs_the_guard_first",
+    "tests/test_w4_fm2_lock_boot_guard.py::test_the_lock_is_part_of_the_digest_the_boot_guard_checks"
    ],
    "evidence": [
     "research/final_build/waves/fb1_F.json F-416 PARTIAL",
     "git show fcb982d:brambleloop/Dockerfile installs requirements.txt (unpinned); requirements.lock absent in fcb982d -> not DEPLOYED",
     "No record that a Docker build from the lock has been executed (not EXERCISED).",
     "w4-FM close on 8b67414 (FOLD): scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)",
-    "w4-FM close on w4-FM2 (FM2): integrator: base image pinned by digest, apt font versioned, strict verification passes with no findings; external services are recorded with failure impact and recovery in ops/dependencies"
+    "w4-FM close on w4-FM2 (FM2): integrator: integrator: Dockerfile base pinned by digest, apt font versioned, strict verification passes with no findings (test_w3_supply_chain); FM2: the runtime consumer is the boot guard -- the lock is in the tree digest, so an image rebuilt with an unrecorded lock is forced to SHADOW at app import (test_w4_fm2_lock_boot_guard)"
    ],
    "build2_rows": [],
    "gate": {
@@ -19399,7 +19412,7 @@
    "confidence": "HIGH",
    "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close",
    "slice": "s5",
-   "maturity_claimed": "TESTED",
+   "maturity_claimed": "INTEGRATED",
    "adjudication": [],
    "id": "F-416",
    "title": "Security / Supply-Chain Review",
@@ -19408,10 +19421,8 @@
    "mapped_on": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
    "protected_action_applicability": "protected",
    "protected_action_basis": "row names a protected_effect",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ],
+   "completion": "COMPLETE",
+   "completion_reasons": [],
    "wave": [
     {
      "cluster": "F",

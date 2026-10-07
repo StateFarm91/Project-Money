@@ -1,7 +1,7 @@
 {
  "generated_by": "research/final_build/w4/fm2_open.py",
- "head": "f85ff05",
- "launch_critical_open": 17,
+ "head": "ee219e8",
+ "launch_critical_open": 16,
  "fm2_owned": [
   "F-123"
  ],
@@ -11,9 +11,9 @@
    "cluster": "FOLD",
    "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
    "why_open": [
-    "coverage PARTIAL: the Launch-0 certified gallery lacks CONTENTS, MATERIALS, LIFESTYLE, ANGLE, CONSTRUCTION and COLOUR_CONTEXT frames, so the conversion_readiness rung FAILs (FIT "
+    "coverage PARTIAL: CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-b"
    ],
-   "owning_lane": "VISUAL (gallery frames)"
+   "owning_lane": "VISUAL2 (CONTENTS on blanket + baskets; LIFESTYLE owner VB-1)"
   },
   "F-098": {
    "title": "Outage Degradation Plan",
@@ -22,7 +22,7 @@
    "why_open": [
     "coverage PARTIAL: Outage handling is per-mechanism (circuit breaker, NoProviderAvailable as PermanentError -> dead letter, funding-exhaustion block, executor parks model_provider"
    ],
-   "owning_lane": "SPEND"
+   "owning_lane": "AUTO (SPEND wiring AUTO-1: park model jobs when the provider is unusable)"
   },
   "F-123": {
    "title": "Vacuous-Test Detector",
@@ -49,9 +49,9 @@
    "cluster": "FOLD",
    "producer": "src/brambleloop/publish/eligibility.py::check_set",
    "why_open": [
-    "coverage PARTIAL: the vocabulary now has alternate angle, construction detail, colour context and fit/worn jobs with applicability rules; the Launch-0 certified gallery lacks the"
+    "coverage PARTIAL: CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-b"
    ],
-   "owning_lane": "VISUAL (gallery frames)"
+   "owning_lane": "VISUAL2 (CONTENTS on blanket + baskets; LIFESTYLE owner VB-1)"
   },
   "F-310": {
    "title": "New Evidence Requirement",
@@ -60,16 +60,7 @@
    "why_open": [
     "coverage PARTIAL: thrash sweep suspends a paid loop whose outputs do not change (progress per iteration/dollar = 0) until handler code changes; 'new evidence' is inferred from ou"
    ],
-   "owning_lane": "SPEND"
-  },
-  "F-416": {
-   "title": "Security / Supply-Chain Review",
-   "cluster": "K14",
-   "producer": "scripts/supply_chain.py::verify --strict (over requirements.lock + Dockerfile: digest-pinned base, versioned apt font, pip --require-hashes)",
-   "why_open": [
-    "maturity TESTED below target INTEGRATED"
-   ],
-   "owning_lane": "integrator (Dockerfile digest pinning)"
+   "owning_lane": "AUTO (SPEND wiring AUTO-2: durable-evidence delta in thrash_sweep)"
   },
   "F-514@v0.16": {
    "title": "Etsy Surface Inventory",
@@ -87,7 +78,7 @@
    "why_open": [
     "coverage PARTIAL: Long-job checkpoints are absent (handlers restart from the beginning; resumption is at pipeline-stage granularity); lease fencing, lease renewal and the single "
    ],
-   "owning_lane": "SPEND"
+   "owning_lane": "AUTO (SPEND wiring AUTO-3: JobContext.checkpoint on the job row)"
   },
   "F-834": {
    "title": "Consumption Required",

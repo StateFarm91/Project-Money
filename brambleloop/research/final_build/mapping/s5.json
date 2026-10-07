@@ -2008,12 +2008,12 @@
   "uid": "F-416",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Runtime durability / supply-chain integrity of the production image.",
-  "maturity": "TESTED",
+  "maturity": "INTEGRATED",
   "coverage": "FULL",
   "missing_part": null,
-  "producer": "scripts/supply_chain.py::verify --strict (over requirements.lock + Dockerfile: digest-pinned base, versioned apt font, pip --require-hashes)",
+  "producer": "src/brambleloop/ops/release_record.py::apply_at_import (boot guard: requirements.lock is in the deployable tree digest the release record must name) + scripts/supply_chain.py::verify --strict (lock + Dockerfile: digest-pinned base, versioned apt font, pip --require-hashes --no-deps)",
   "durable_state": "brambleloop/requirements.lock",
-  "consumer": "Docker image build (railway.json builder DOCKERFILE); ops/dependencies.DEPENDENCIES (external services with recovery)",
+  "consumer": "src/brambleloop/app/main.py (apply_at_import() at import, before Database(); an unrecorded lock forces SHADOW / refuses on the platform); Docker image build (railway.json builder DOCKERFILE); ops/dependencies.DEPENDENCIES",
   "protected_effect": "a rebuild cannot pull an untested/unhashed package",
   "tests": [
    "tests/test_dependency_lock.py::test_every_lock_entry_is_an_exact_pin_carrying_at_least_one_sha256",
@@ -2022,14 +2022,17 @@
    "tests/test_dependency_lock.py::test_the_lock_is_exactly_the_installed_closure_of_the_interpreter_running_the_suite",
    "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused",
    "tests/test_w3_supply_chain.py::test_the_cli_verify_exits_zero_on_the_repo_and_strict_fails_on_open_pins",
-   "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named"
+   "tests/test_w3_supply_chain.py::test_the_committed_lock_and_dockerfile_verify_and_the_open_pins_are_named",
+   "tests/test_w4_fm2_lock_boot_guard.py::test_a_rebuilt_image_with_an_unrecorded_lock_is_forced_to_shadow",
+   "tests/test_w4_fm2_lock_boot_guard.py::test_the_image_installs_only_the_hashed_lock_and_main_runs_the_guard_first",
+   "tests/test_w4_fm2_lock_boot_guard.py::test_the_lock_is_part_of_the_digest_the_boot_guard_checks"
   ],
   "evidence": [
    "research/final_build/waves/fb1_F.json F-416 PARTIAL",
    "git show fcb982d:brambleloop/Dockerfile installs requirements.txt (unpinned); requirements.lock absent in fcb982d -> not DEPLOYED",
    "No record that a Docker build from the lock has been executed (not EXERCISED).",
    "w4-FM close on 8b67414 (FOLD): scripts/supply_chain.py verifies the hash-locked install path, emits the SBOM and change record into the deploy_guard release record, and names the open pins (base image tag, apt packages) as findings (tests/test_w3_supply_chain.py)",
-   "w4-FM close on w4-FM2 (FM2): integrator: base image pinned by digest, apt font versioned, strict verification passes with no findings; external services are recorded with failure impact and recovery in ops/dependencies"
+   "w4-FM close on w4-FM2 (FM2): integrator: integrator: Dockerfile base pinned by digest, apt font versioned, strict verification passes with no findings (test_w3_supply_chain); FM2: the runtime consumer is the boot guard -- the lock is in the tree digest, so an image rebuilt with an unrecorded lock is forced to SHADOW at app import (test_w4_fm2_lock_boot_guard)"
   ],
   "build2_rows": [],
   "gate": {

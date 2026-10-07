@@ -400,14 +400,15 @@
   },
   {
    "uid": "F-416",
-   "verdict": "OPEN",
-   "refresh": true,
-   "maturity": "TESTED",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
    "gate": null,
-   "checked": "integrator: base image pinned by digest, apt font versioned, strict verification passes with no findings; external services are recorded with failure impact and recovery in ops/dependencies",
+   "checked": "integrator: integrator: Dockerfile base pinned by digest, apt font versioned, strict verification passes with no findings (test_w3_supply_chain); FM2: the runtime consumer is the boot guard -- the lock is in the tree digest, so an image rebuilt with an unrecorded lock is forced to SHADOW at app import (test_w4_fm2_lock_boot_guard)",
    "test_files": [
     "tests/test_dependency_lock.py",
-    "tests/test_w3_supply_chain.py"
+    "tests/test_w3_supply_chain.py",
+    "tests/test_w4_fm2_lock_boot_guard.py"
    ]
   },
   {
@@ -652,15 +653,43 @@
     "tests/test_garments.py",
     "tests/test_k9_rows.py"
    ]
+  },
+  {
+   "uid": "F-030",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)",
+   "test_files": [
+    "tests/test_brand.py (MISSING_FRAME)",
+    "tests/test_listing_set.py",
+    "tests/test_w4_visual2.py",
+    "tests/test_w4_visual_certified_gallery.py"
+   ]
+  },
+  {
+   "uid": "F-254",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_eligibility.py",
+    "tests/test_w4_visual2.py",
+    "tests/test_w4_visual_certified_gallery.py"
+   ]
   }
  ],
  "kept_open": [],
  "counts": {
-  "written": 48,
+  "written": 50,
   "kept": 0,
   "by_verdict": {
-   "COMPLETE": 38,
-   "OPEN": 4,
+   "COMPLETE": 39,
+   "OPEN": 5,
    "GATED": 6
   }
  }

@@ -142,15 +142,23 @@ LANE_ROWS = {
                     BILLING, "provider-billing settlement runs only with the admin usage keys",
                     "owner: set ANTHROPIC_ADMIN_KEY / OPENAI_ADMIN_KEY (read-only)"),
     # ---- integrator / CC ------------------------------------------------------------------
-    "F-416": _done("integrator", "scripts/supply_chain.py::verify --strict (over requirements.lock + "
-                   "Dockerfile: digest-pinned base, versioned apt font, pip --require-hashes)",
-                   "Docker image build (railway.json builder DOCKERFILE); ops/dependencies.DEPENDENCIES "
-                   "(external services with recovery)",
-                   ["tests/test_w3_supply_chain.py::test_the_cli_verify_exits_zero_on_the_repo_and_strict_fails_on_open_pins",
+    "F-416": _done("integrator", S + "ops/release_record.py::apply_at_import (boot guard: "
+                   "requirements.lock is in the deployable tree digest the release record must "
+                   "name) + scripts/supply_chain.py::verify --strict (lock + Dockerfile: "
+                   "digest-pinned base, versioned apt font, pip --require-hashes --no-deps)",
+                   S + "app/main.py (apply_at_import() at import, before Database(); an "
+                   "unrecorded lock forces SHADOW / refuses on the platform); Docker image build "
+                   "(railway.json builder DOCKERFILE); ops/dependencies.DEPENDENCIES",
+                   ["tests/test_w4_fm2_lock_boot_guard.py::test_a_rebuilt_image_with_an_unrecorded_lock_is_forced_to_shadow",
+                    "tests/test_w4_fm2_lock_boot_guard.py::test_the_lock_is_part_of_the_digest_the_boot_guard_checks",
+                    "tests/test_w4_fm2_lock_boot_guard.py::test_the_image_installs_only_the_hashed_lock_and_main_runs_the_guard_first",
+                    "tests/test_w3_supply_chain.py::test_the_cli_verify_exits_zero_on_the_repo_and_strict_fails_on_open_pins",
                     "tests/test_w3_supply_chain.py::test_an_install_path_that_bypasses_the_hash_checked_lock_is_refused"],
-                   "base image pinned by digest, apt font versioned, strict verification passes with "
-                   "no findings; external services are recorded with failure impact and recovery in "
-                   "ops/dependencies", maturity="INTEGRATED"),
+                   "integrator: Dockerfile base pinned by digest, apt font versioned, strict "
+                   "verification passes with no findings (test_w3_supply_chain); FM2: the runtime "
+                   "consumer is the boot guard -- the lock is in the tree digest, so an image "
+                   "rebuilt with an unrecorded lock is forced to SHADOW at app import "
+                   "(test_w4_fm2_lock_boot_guard)"),
 }
 
 K9_ROWS = {
@@ -225,8 +233,32 @@ LANE_ROWS["F-363"] = _gated(
      "detail": "practical wearability needs a worked sample"},
     "practical wearability on a worked sample", "owner: physical sample via the tester roster")
 
-# F-416's producer is build tooling (lock + Dockerfile + scripts/supply_chain.py), which no live
-# root can reach: TESTED is its ceiling. The code work is done; the completion target needs the
-# integrator's override (w4/OVERRIDES_PROPOSED_FM2.json). Written as a refresh meanwhile.
-LANE_ROWS["F-416"]["refresh"] = True
-LANE_ROWS["F-416"]["set"]["maturity"] = "TESTED"
+# ---- VISUAL / VISUAL2 (F-030 / F-254 gallery information architecture) --------------------
+# Re-read against the merged proofs (w4/visual/*gallery_proof*2026-10-07.json): the drawable
+# jobs are certified on every Launch-0 release, and CONTENTS now has a producer
+# (visual/contents_frame.py, certified-PDF raster, VISUAL2) certified on hexagon-coaster-set,
+# nordic-star-ornaments and winter-village-graphghan. Still missing: CONTENTS on the
+# cloudline-baby-blanket and nursery-nesting-baskets certificates (company work: re-run the
+# certification with the supplement path), and LIFESTYLE (owner-gated: VB-1 P2 or sample
+# photos). Honest refresh -- stays OPEN while company work remains.
+_VIS_T = ["tests/test_w4_visual_certified_gallery.py::test_every_launch0_primary_is_offered_its_verified_applicable_jobs",
+          "tests/test_w4_visual_certified_gallery.py::test_the_certificate_takes_supplements_only_in_order_with_readings_and_distinct_jobs",
+          "tests/test_w4_visual2.py::test_contents_is_certified_through_the_supplement_path_with_the_preview_label",
+          "tests/test_w4_visual2.py::test_contents_frame_is_the_certified_pdf_and_verifies_only_on_it"]
+_VIS_MISSING = ("CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and "
+                "winter-village-graphghan but not yet on the cloudline-baby-blanket and "
+                "nursery-nesting-baskets certificates (certified before the CONTENTS producer "
+                "existed); LIFESTYLE is owner-gated (VB-1 P2 or sample photos)")
+_VIS_NEXT = ("VISUAL2: re-run research/final_build/w4/visual/proof_contents_gallery.py for "
+             "cloudline-baby-blanket and the three nursery-nesting-baskets sizes and commit the "
+             "proof; then the row is GATED on owner VB-1 (LIFESTYLE) only")
+for _uid in ("F-030", "F-254"):
+    LANE_ROWS[_uid] = dict(
+        refresh=True,
+        checked="VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; "
+                "CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 "
+                "releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, "
+                "contents_gallery_proof_coasters_2026-10-07.json)",
+        set=dict(coverage="PARTIAL", defect=None, missing_part=_VIS_MISSING,
+                 next_action=_VIS_NEXT),
+        tests=_VIS_T)

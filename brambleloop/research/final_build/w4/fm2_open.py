@@ -14,9 +14,13 @@ FB = HERE.parent
 
 # Rows owned outside lane FM2 (coordinator assignment 2026-10-07).
 ELSEWHERE = {"K5a": "SPEND", "K5b": "SPEND", "K9": "K9"}
-ROW_ELSEWHERE = {"F-030": "VISUAL (gallery frames)", "F-254": "VISUAL (gallery frames)",
-                 "F-914": "CC (wiring: /api/cc/money period)",
-                 "F-416": "integrator (Dockerfile digest pinning)",
+# SPEND's three K5b residuals are AUTO-owned files (handoff_SPEND.md wiring requests AUTO-1..3).
+K5B_AUTO = {"F-098": "AUTO (SPEND wiring AUTO-1: park model jobs when the provider is unusable)",
+            "F-310": "AUTO (SPEND wiring AUTO-2: durable-evidence delta in thrash_sweep)",
+            "F-659": "AUTO (SPEND wiring AUTO-3: JobContext.checkpoint on the job row)"}
+ROW_ELSEWHERE = {"F-030": "VISUAL2 (CONTENTS on blanket + baskets; LIFESTYLE owner VB-1)",
+                 "F-254": "VISUAL2 (CONTENTS on blanket + baskets; LIFESTYLE owner VB-1)",
+                 **K5B_AUTO,
                  # W4-FM2: the remaining step is real runtime packets on the frozen RC plus an
                  # independent reviewer -- end-stage work, listed only.
                  "F-834": "END-STAGE (integrator: runtime packets on frozen RC + independent "
