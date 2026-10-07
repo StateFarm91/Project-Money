@@ -24,3 +24,10 @@ B2_OPEN_CLUSTERS.json / FM_OPEN_CLUSTERS.json / lane next-steps. Update COMPLETI
 All lanes stopped. Uncommitted tracked work of B2/FM/OWNER was committed as WIP checkpoints (a5cdc1b, 9e9cf0d, 1ade34d).
 Resumed (8, resource-limited): B2, FM, AUTO, CC, PIPE, CREATIVE, SEO, OWNER. Queued: LEARN, VISUAL, SPEND (K5a+K5b), K9.
 Complete: MJS (5092b01), STORE (ba72ca8) — merged on claude/w4-INTEG, focused tests passing so far; ff into visual-investigation next.
+
+## Model policy (owner, 2026-10-07)
+- Default: strongest appropriate model. High-risk architecture, integration, security, finance, identity, authority
+  and difficult debugging always stay on it.
+- If the primary/all-model weekly allowance approaches exhaustion: launch bounded worker missions where its capability
+  suffices on Fable (Agent model "fable") instead of stopping useful work. Never downgrade merely to consume Fable.
+- At 99% weekly usage: switch to Fable (medium effort). Same checkpoint/push/handoff rules apply.
