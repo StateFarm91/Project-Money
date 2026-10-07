@@ -1,17 +1,25 @@
 # handoff_VISUAL2 — W4-VISUAL2 (continuation of W4-VISUAL)
 
-- Branch: `claude/w4-VISUAL2` (worktree `.claude/worktrees/W4-VISUAL2`), from
-  `origin/claude/visual-investigation` 6fa6a7f. Latest pushed SHA: `git log origin/claude/w4-VISUAL2 -1`.
+- Branch: `claude/w4-VISUAL2` (worktree `.claude/worktrees/W4-VISUAL2`). Latest pushed SHA:
+  `git log origin/claude/w4-VISUAL2 -1`. Resumed 2026-10-07 after a session limit from the
+  integrator WIP checkpoint e11d2d5 (reviewed; kept).
 - Owned: (1) CONTENTS gallery frame producer + certification; (2) harvest-table-runner
-  elongated hero/scale; (3) wiring #7 `commerce.search_evidence._category_for`.
+  elongated hero/scale; (3) wiring #7 `commerce.search_evidence._category_for`;
+  (4) K9 wiring F-753: generated images carry a `gates/stitch_scale` reading.
+- Lane RENDER owns multi-piece + round-base renderer fixes (not here).
 
 ## Items → status → evidence
 | Item | Status | Evidence |
 |---|---|---|
-| Wiring #7 sizes/colours from certified CIR | **PROVEN** | `tests/test_w4_visual2.py` (2 tests), test_w3_k1_search, test_w3_wire4 13/13 |
-| CONTENTS frame | IN PROGRESS | — |
-| harvest-table-runner hero/scale | OPEN | — |
+| (3) Wiring #7 sizes/colours from certified CIR | **PROVEN** | `tests/test_w4_visual2.py::test_sizes_and_colours_come_from_the_certified_cir`, test_w3_k1_search, test_w3_wire4 |
+| (1) CONTENTS frame | **PROVEN** | `visual/contents_frame.py` (3972616); tests `test_contents_frame_is_the_certified_pdf...`, `test_contents_is_certified_through_the_supplement_path...`; runtime proofs `visual/contents_gallery_proof_*.json` + `certified_gallery_proof_launch0_new_2026-10-07.json` |
+| (2) harvest-table-runner diagonal hero/scale | **PROVEN** | `render_contract.diagonal_deg` + `render_verification.flat_rotation`/un-rotation (e11d2d5); `test_the_runner_is_drawn_on_the_diagonal...`, `test_a_recoloured_stitch_on_the_diagonal_fails...`; 25 % gate unchanged; Launch-0 hero/scale/detail bytes identical before/after (21 frames, sha256 compared); test_disclosed_render 27/27 |
+| Wiring req (W4-RENDER): measure ASSEMBLED multi-piece hero/scale | **PROVEN** | `render_verification._verify_assembled`: palette, caption, scale bar, extent_cm vs CIR-placed size, colour_set, stitch_pitch (planar grain-up), legibility_340 (unchanged 25 % gate), annotation_text + marks/dimension lines with CIR figures, placement_redraw (bytes == fresh drawing of the authoritative CIR). `disclosed-render-assembled/1.0.0` added to `product_authority.QUALIFIED_RENDERERS`. Stocking + tea cosy hero/scale PASS; pencil roll FAIL legibility_340 (10-12 %, gate kept); recolour/re-letter/wrong-design FAIL. `test_assembled_frames_are_measured_good_passes_and_bad_fails`; RENDER's test_w4_render_assembled updated UNKNOWN→PASS (ALL PASSED) |
+| (4) K9 F-753 stitch-scale reading on generated frames | **PROVEN** | `visual/product_authority.stitch_scale_reading` + `structural_floor` (every non-disclosed frame carries `stitch_scale`; wrong scale → FAIL ASSET_STITCH_SCALE_WRONG; right scale stays UNKNOWN); `test_a_generated_frame_carries_a_stitch_scale_reading...` |
 
-## Next
-- CONTENTS: `visual/contents_frame.py` (pypdfium2 page raster of the assets.built US PDF),
-  wire through `launch_imagery.check_supplement(db=...)`, `release_gates.disclosed_supplements`.
+## Done this session
+- CONTENTS + runner runtime proof `visual/contents_gallery_proof_all_2026-10-07.json`: runner, blanket,
+  basket S/M/L, pet mat — certificate valid, upload serves ...+CONTENTS, first_customer PASS.
+
+## Next (deterministic)
+- All owned items closed. Remaining (not this lane): pencil-roll legibility (PIPE CIR design), stocking/cosy Launch-0 promotion (PIPE), LIFESTYLE (owner VB-1 P2).

@@ -13,7 +13,9 @@ import hashlib
 # Renderers whose frames may be verified for structural truth. A version not listed here is
 # UNKNOWN however good its manifest looks: qualification is of a producer/verifier pair.
 # 1.0.0 is withdrawn: its frames carried unverified annotation text (PT-05).
-QUALIFIED_RENDERERS = frozenset({"disclosed-render/2.0.0"})
+# disclosed-render-assembled/1.0.0 (W4-RENDER) is qualified with its verifier
+# `render_verification._verify_assembled` (W4-VISUAL2), which measures its hero/scale.
+QUALIFIED_RENDERERS = frozenset({"disclosed-render/2.0.0", "disclosed-render-assembled/1.0.0"})
 
 
 def redraw_refusal(slug):
@@ -75,7 +77,77 @@ def disclosed_render_floor(frame):
                                                          'image_sha256', 'cir_fingerprint')}}
 
 
+def stitch_scale_reading(frame, cir=None) -> dict:
+    """F-753 (K9 wiring): the apparent stitch scale of a generated, photographic or composite
+    frame, held to the certified gauge by `gates.stitch_scale`.
+
+    The reading is the frame's own `stitch_scale` (a `gates.stitch_scale.read` result) when
+    its producer attached one; otherwise it is measured here on the bound image bytes when
+    the frame states its image scale (`px_per_cm`, optional `fabric_box`). A frame that
+    states no scale has no reading and its verdict is UNKNOWN -- never PASS."""
+    from ..gates import stitch_scale as SS
+
+    slug, version = frame.get('slug'), frame.get('version')
+    if cir is None and slug:
+        from .render_verification import authoritative_cir
+        try:
+            cir = authoritative_cir(slug, version)
+        except Exception:  # noqa: BLE001 - an unreadable registry is UNKNOWN, not PASS
+            cir = None
+    if cir is None:
+        return {'verdict': SS.UNKNOWN, 'reading': None,
+                'why': f'no authoritative CIR for {slug}@{version} to hold the scale to'}
+    reading = frame.get('stitch_scale') if isinstance(frame.get('stitch_scale'), dict) else None
+    source = 'producer' if reading else None
+    px_per_cm = frame.get('px_per_cm')
+    if reading is None and isinstance(px_per_cm, (int, float)) and px_per_cm > 0:
+        image = frame.get('image') or {}
+        sha = image.get('sha256') if isinstance(image, dict) else None
+        if sha:
+            from ..core.artifacts import ArtifactStore
+            try:
+                data = ArtifactStore(frame.get('artifact_dir') or None).get(sha)
+            except (OSError, ValueError, RuntimeError):
+                data = None
+            if data is not None and hashlib.sha256(data).hexdigest() == sha:
+                box = frame.get('fabric_box')
+                reading = SS.read(data, px_per_cm=float(px_per_cm),
+                                  expected_px=SS.expected_pitch_px(cir, float(px_per_cm)),
+                                  box=tuple(box) if box else None)
+                source = 'measured on the bound bytes'
+    out = SS.verdict(cir, reading)
+    return {**out, 'reading': reading, 'source': source}
+
+
+def _generated_floor(frame, result):
+    """Every non-disclosed frame's structural answer carries its stitch-scale reading, and a
+    wrong scale is a FAIL whatever else the frame preserves (F-753)."""
+    try:
+        scale = stitch_scale_reading(frame)
+    except Exception as exc:  # noqa: BLE001 - an unreadable image is UNKNOWN, not PASS
+        scale = {'verdict': 'UNKNOWN', 'reading': None, 'why': f'{type(exc).__name__}'}
+    if scale['verdict'] == 'FAIL' and result.get('status') != 'FAIL':
+        return {'status': 'FAIL', 'why': (
+            f"ASSET_STITCH_SCALE_WRONG: the image shows a stitch pitch of "
+            f"{scale.get('measured_px')} px where the gauge makes {scale.get('expected_px')} px "
+            f"at its stated scale: a different fabric (F-753)"), 'stitch_scale': scale,
+            **{k: v for k, v in result.items() if k not in ('status', 'why')}}
+    return {**result, 'stitch_scale': scale}
+
+
 def structural_floor(frame):
+    if not isinstance(frame, dict):
+        return {'status': 'UNKNOWN', 'why': 'invalid frame evidence'}
+    result = _structural_floor(frame)
+    if frame.get('disclosed_render') is not None and not frame.get('protected_product') \
+            and not _not_a_render(frame):
+        # A disclosed deterministic render: its stitches are verified by
+        # `render_verification` against the certified CIR, gauge included.
+        return result
+    return _generated_floor(frame, result)
+
+
+def _structural_floor(frame):
     if not isinstance(frame, dict):
         return {'status': 'UNKNOWN', 'why': 'invalid frame evidence'}
     motif = frame.get('motif') or {}

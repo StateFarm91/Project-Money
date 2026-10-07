@@ -266,13 +266,14 @@ def _png(img) -> bytes:
     return buf.getvalue()
 
 
-def _dimension_line(d, a, b, *, ticks: str) -> None:
-    d.line([a, b], fill=K.LINE, width=3)
+def _dimension_line(d, a, b, *, ticks: str, xf=None) -> None:
+    P = xf or (lambda x, y: (x, y))
+    d.line([P(*a), P(*b)], fill=K.LINE, width=3)
     for p in (a, b):
         if ticks == "v":
-            d.line([(p[0], p[1] - 14), (p[0], p[1] + 14)], fill=K.LINE, width=3)
+            d.line([P(p[0], p[1] - 14), P(p[0], p[1] + 14)], fill=K.LINE, width=3)
         else:
-            d.line([(p[0] - 14, p[1]), (p[0] + 14, p[1])], fill=K.LINE, width=3)
+            d.line([P(p[0] - 14, p[1]), P(p[0] + 14, p[1])], fill=K.LINE, width=3)
 
 
 def dimension_figures(twin) -> dict:
@@ -295,7 +296,12 @@ def _flat_geometry(cir, twin):
 
 def _draw_flat(d, cir, twin, palette, *, px: float, left: float, bottom: float,
                rows_window: tuple[int, int] | None = None,
-               cols_window: tuple[int, int] | None = None) -> dict:
+               cols_window: tuple[int, int] | None = None, xf=None) -> dict:
+    """Draw the fabric (or a window of it). `xf` (elongated pieces only) maps every drawn
+    point through one rigid rotation; None draws upright, byte-identical to before."""
+    def P(x, y):
+        return xf(x, y) if xf else (x, y)
+
     gauge, w_cm, sc_cm, rows, tops = _flat_geometry(cir, twin)
     base = gauge.stitch_type
     indices = sorted(rows)
@@ -306,8 +312,12 @@ def _draw_flat(d, cir, twin, palette, *, px: float, left: float, bottom: float,
     ncols = c1 - c0 + 1
     width_cm = ncols * w_cm
     height_cm = tops[shown[-1]] - floor_cm
-    d.rectangle([left, bottom - height_cm * px, left + width_cm * px - 1, bottom - 1],
-                fill=K.GAP)
+    if xf is None:
+        d.rectangle([left, bottom - height_cm * px, left + width_cm * px - 1, bottom - 1],
+                    fill=K.GAP)
+    else:
+        d.polygon([P(left, bottom - height_cm * px), P(left + width_cm * px, bottom - height_cm * px),
+                   P(left + width_cm * px, bottom), P(left, bottom)], fill=K.GAP)
     rendered = []
     for r in shown:
         band_bottom = bottom - (tops.get(r - 1, 0.0) - floor_cm) * px if r > indices[0] \
@@ -320,16 +330,21 @@ def _draw_flat(d, cir, twin, palette, *, px: float, left: float, bottom: float,
             # Every stitch fills its row: the twin carries a height per row, not per stitch,
             # and the fabric is continuous. A stitch taller than the gauge stitch (a dc in an
             # sc ground) stands above the ground, which is drawn as its raised post.
-            poly = [(x0, band_top), (x1, band_top), (x1, band_bottom), (x0, band_bottom)]
+            poly = [P(x0, band_top), P(x1, band_top), P(x1, band_bottom), P(x0, band_bottom)]
             rgb = palette[c.color]
             _tile(d, poly, rgb)
             if _stitch_height_units(c.stitch, base) > 1.0 + 1e-9:
                 post_w = max(2.0, (x1 - x0) * 0.36)
                 mid = (x0 + x1) / 2
                 inset = K.GAP_PX + max(1.0, (band_bottom - band_top) * 0.10)
-                d.rectangle([round(mid - post_w / 2), round(band_top + inset),
-                             round(mid + post_w / 2) - 1, round(band_bottom - inset) - 1],
-                            fill=K.relief(rgb))
+                if xf is None:
+                    d.rectangle([round(mid - post_w / 2), round(band_top + inset),
+                                 round(mid + post_w / 2) - 1, round(band_bottom - inset) - 1],
+                                fill=K.relief(rgb))
+                else:
+                    a, b = mid - post_w / 2, mid + post_w / 2
+                    t, u_ = band_top + inset, band_bottom - inset
+                    d.polygon([P(a, t), P(b, t), P(b, u_), P(a, u_)], fill=K.relief(rgb))
         rendered.append({"row": r, "count": len(cells),
                          "colour": cells[0].color if cells else None,
                          "stitches": hashlib.sha256(
@@ -358,6 +373,9 @@ def _flat_view(cir, twin, palette, view: str) -> tuple[Image.Image, dict]:
         layout = _draw_flat(d, cir, twin, palette, px=px, left=left, bottom=bottom,
                             rows_window=(min(rows), r_last), cols_window=(0, cols - 1))
         extra = K.annotation_lines("detail", "flat", {"rows": r_last, "cols": cols})
+    elif K.diagonal_deg(full_w, full_h, view) is not None:
+        layout, extra = _flat_diagonal(d, cir, twin, palette, view, full_w, full_h)
+        px = layout.pop("px")
     else:
         margin = 70 if view == "scale" else 0
         px = min((zx1 - zx0 - margin) / full_w, (zy1 - zy0 - margin) / full_h)
@@ -377,6 +395,35 @@ def _flat_view(cir, twin, palette, view: str) -> tuple[Image.Image, dict]:
     layout["scale_bar"] = _scale_bar(d, px)
     layout["caption"] = _caption(d, extra)
     return img, layout
+
+
+def _flat_diagonal(d, cir, twin, palette, view: str, full_w: float, full_h: float):
+    """An elongated flat piece's hero/scale view: the whole fabric, every stitch, rotated as
+    one rigid body (`render_contract.diagonal_deg`) and drawn as large as the zone allows."""
+    deg = K.diagonal_deg(full_w, full_h, view)
+    zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE)
+    m = 2 * K.DIAGONAL_SCALE_MARGIN_PX if view == "scale" else 0
+    r = math.radians(abs(deg if full_h < full_w else deg + 90))
+    long_, short = max(full_w, full_h), min(full_w, full_h)
+    px = min(((zx1 - zx0) - m) / (long_ * math.cos(r) + short * math.sin(r)),
+             ((zy1 - zy0) - m) / (long_ * math.sin(r) + short * math.cos(r)))
+    cx, cy = (zx0 + zx1) / 2, (zy0 + zy1) / 2
+    left, bottom = cx - full_w * px / 2, cy + full_h * px / 2
+
+    def xf(x, y):
+        return K.rotate_xy(x, y, deg, cx, cy)
+
+    layout = _draw_flat(d, cir, twin, palette, px=px, left=left, bottom=bottom, xf=xf)
+    layout["rotation_deg"] = deg
+    layout["px"] = px
+    extra = []
+    if view == "scale":
+        top = bottom - full_h * px
+        _dimension_line(d, (left, bottom + 40), (left + full_w * px, bottom + 40), ticks="v",
+                        xf=xf)
+        _dimension_line(d, (left - 40, top), (left - 40, bottom), ticks="h", xf=xf)
+        extra = K.annotation_lines("scale", "flat", dimension_figures(twin))
+    return layout, extra
 
 
 # --------------------------------------------------------------------------- round pieces
