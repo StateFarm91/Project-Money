@@ -121,7 +121,7 @@ def test_the_certified_image_path_refuses_a_disclosed_frame():
     assert got["images"] == [] and any("disclosed render" in p for p in got["problems"])
 
 
-def test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope():
+def test_listing_asset_make_falls_back_to_the_disclosed_set_only_with_a_render_authority():
     """The product-first path: generative redraw is refused (F-852), so a Launch-0 product
     gets its disclosed render set, filed where `last` finds it; a product outside Launch-0
     has no authoritative CIR to verify against and is offered nothing."""
@@ -142,7 +142,15 @@ def test_listing_asset_make_falls_back_to_the_disclosed_set_only_in_launch_scope
         assert s.scalars(select(AuditLog).where(
             AuditLog.action == disclosed_listing.ACTION)).first() is not None
 
-    other = for_slug("winter-village-graphghan")
+    # W4-VISUAL: the authority is the design registry the release is built from, not the
+    # Launch-0 list (D-FB-7 applies to every product). A design no registry defines has no
+    # authoritative CIR to verify against and is still offered nothing.
+    from brambleloop.cir.model import CIR
+
+    base = for_slug("winter-village-graphghan")
+    assert listing_asset.has_render_authority(base.slug)
+    other = CIR.from_dict({**base.to_dict(), "slug": "unregistered-design-no-authority"})
+    assert not listing_asset.has_render_authority(other.slug)
     refused = listing_asset.make(db, other, build_twin(other, compile_cir(other)))
     assert not refused.get("made") and refused.get("kind") != "disclosed_render"
 
