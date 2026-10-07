@@ -130,7 +130,7 @@ def test_a_graded_pdf_prints_its_size_chart_fit_care_and_is_complete():
     text = P.extracted_text(doc.pdf_bytes)
     assert P.SIZES_HEADING in text and P.CARE_HEADING in text
     assert "Intended fit: relaxed" in text
-    assert "size M (this document)" in text.replace("SIZE M", "size M")
+    assert "This document is size M of 9" in text and "this document; to fit chest" in text
     for e in cir.grading.sizes:
         assert f"finished chest {e['built_cm']['chest']:g} cm" in text, e["size"]
     assert P.package_missing(cir, doc.prose) == ()

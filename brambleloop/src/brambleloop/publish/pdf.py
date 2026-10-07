@@ -498,8 +498,9 @@ def size_chart(cir: CIR) -> list[tuple[str, str]] | None:
             bits.append(f"upper arm {built['upper_arm']:g} cm")
         if e.get("yarn_m"):
             bits.append(f"yarn about {e['yarn_m']:.0f} m")
-        label = f"size {e['size']}" + (" (this document)" if e["size"] == g.size else "")
-        rows.append((label, "; ".join(bits)))
+        if e["size"] == g.size:
+            bits.insert(0, "this document")
+        rows.append((f"size {e['size']}", "; ".join(bits)))
     return rows
 
 
@@ -1972,6 +1973,10 @@ def _tiled_chart_art(cir, twin, grid, colors):
         for col in range(0, full_cols, cols):
             grids = ([r[col:col+cols] for r in grid[row:row+rows]],
                      [r[col:col+cols] for r in colors[row:row+rows]])
+            if not any(grids[0]):
+                # A shaped piece's rows are ragged: past the widest row of this band there
+                # is no fabric, so there is no tile to print (every stitch is still in one).
+                continue
             image = render_chart(cir, twin, spec, grids=grids, caption="Chart tile",
                                  row_offset=row, column_offset=col, show_columns=True)
             scale = scale_for(image)
