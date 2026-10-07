@@ -525,15 +525,14 @@ def rubric_fingerprint(candidate: Candidate) -> str:
     corrected, every stored score was produced by a different experiment and reusing it
     would be averaging two questions.
     """
-    import hashlib
+    from .evidence_key import material
 
-    material = "|".join([
+    return material([
         METHOD_VERSION,
         candidate.key, candidate.resolution, f"{candidate.usd_per_image}",
         ",".join(d.key for d in RUBRIC), IDENTITY_DIMENSION.key, GALLERY_DIMENSION.key,
         ",".join(t.key for t in TRIALS), str(SAMPLES_PER_TRIAL), str(SCORE_MAX),
     ])
-    return hashlib.sha256(material.encode()).hexdigest()[:16]
 
 
 TRIAL_ACTION = "image.benchmark_trial"
@@ -549,17 +548,16 @@ def trial_fingerprint(candidate: Candidate, trial: Trial) -> str:
     always did, so their observations stay valid and re-rendering them would be paying again
     for evidence this company already has.
     """
-    import hashlib
+    from .evidence_key import material
 
     judged = ((IDENTITY_DIMENSION.key,) if trial.needs_reference
               else tuple(d.key for d in RUBRIC))
-    material = "|".join([
+    return material([
         candidate.key, candidate.resolution, f"{candidate.usd_per_image}",
         trial.key, trial.prompt, ",".join(judged), str(SCORE_MAX),
         # Only the reference-conditioned trials depend on the method.
         METHOD_VERSION if trial.needs_reference else "method-independent",
     ])
-    return hashlib.sha256(material.encode()).hexdigest()[:16]
 
 
 def _store_trial(db, candidate: Candidate, trial: Trial, scores: list[dict],
