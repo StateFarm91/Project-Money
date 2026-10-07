@@ -6,7 +6,7 @@ existing Final Master + Command Center + Store/SEO/product/autonomy; do NOT star
 
 ## Lanes (branch claude/w4-<LANE>, worktree .claude/worktrees/W4-<LANE>, handoff research/final_build/w4/handoff_<LANE>.md)
 B2, FM, AUTO, CC, PIPE, CREATIVE, MJS, STORE, SEO, VISUAL, LEARN, OWNER — launched 2026-10-06T23:56Z from fee1cfe.
-Validation lane: full suite on 94f99ad (log /home/user/bl-runs/full_94f99ad.log) — bounded; no further serial full-suite cycles
+Validation lane: stopped by the 2026-10-07 container restart; not restarted (owner: no automatic full-suite restarts during this wave).
 until a release candidate is intended.
 
 ## Integration loop
@@ -19,3 +19,8 @@ B2_OPEN_CLUSTERS.json / FM_OPEN_CLUSTERS.json / lane next-steps. Update COMPLETI
 3. Stopping condition: Build 2 executable OPEN = 0; existing Final Master executable OPEN = 0; Command Center ready for safe
    hosted deployment (owner-controlled); autonomy proven to generate useful work without prompts; real multi-product pipeline;
    store/search/SEO materially advanced; remaining non-PROVEN rows genuinely owner/data/external gated.
+
+## 2026-10-07 container restart
+All lanes stopped. Uncommitted tracked work of B2/FM/OWNER was committed as WIP checkpoints (a5cdc1b, 9e9cf0d, 1ade34d).
+Resumed (8, resource-limited): B2, FM, AUTO, CC, PIPE, CREATIVE, SEO, OWNER. Queued: LEARN, VISUAL, SPEND (K5a+K5b), K9.
+Complete: MJS (5092b01), STORE (ba72ca8) — merged on claude/w4-INTEG, focused tests passing so far; ff into visual-investigation next.

@@ -573,9 +573,12 @@ def gate_concept(db, concept, *, brief: dict | None = None, catalogue: list | No
             checks[name] = _result(NOT_APPLICABLE, ["no concept to judge"])
     else:
         if catalogue is None:
-            from .audit import catalogue_concepts
+            from .audit import briefed_catalogue_concepts
 
-            catalogue = [c for c in catalogue_concepts() if c.key != built.key]
+            # W4-CREATIVE: compare against the catalogue as the design process specifies it
+            # (briefed where a valid brief exists), not the bare builder output whose every
+            # product reads self/everyday/no-function.
+            catalogue = [c for c in briefed_catalogue_concepts()[0] if c.key != built.key]
         checks["premise_thumbnail"] = _premise_thumbnail(built, brief)
         checks["jury"] = _jury(built, brief, catalogue, today)
         checks["novelty"] = _novelty(db, built, catalogue, benchmark)
