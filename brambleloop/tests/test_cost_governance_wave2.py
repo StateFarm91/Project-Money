@@ -180,7 +180,7 @@ def test_an_agent_over_its_daily_ceiling_is_refused_before_the_call():
     _spend(db, "market_radar", 3.999, purpose="gallery_observation")
     try:
         gw.check_budget(db, model=CHEAP_MODEL, input_tokens=100_000, max_tokens=1000,
-                        now=NOW, agent="market_radar")
+                        now=NOW, agent="market_radar", purpose="test.unnamed")
         raise AssertionError("the daily ceiling did not bind")
     except gw.AgentCeilingExceeded as exc:
         assert "market_radar" in str(exc)
@@ -196,7 +196,7 @@ def test_the_agent_refusal_says_the_month_still_has_room_because_it_does():
     _spend(db, "validator", 1.5, purpose="cir.compile")  # ceiling CA$1.00
     try:
         gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                        now=NOW, agent="validator")
+                        now=NOW, agent="validator", purpose="test.unnamed")
         raise AssertionError("the daily ceiling did not bind")
     except gw.AgentCeilingExceeded as exc:
         text = str(exc)
@@ -211,7 +211,7 @@ def test_the_monthly_ceiling_is_checked_first_because_it_is_the_budget():
     _spend(db, "validator", 99.99, purpose="cir.compile")
     try:
         gw.check_budget(db, model=CHEAP_MODEL, input_tokens=100_000, max_tokens=1000,
-                        now=NOW, agent="validator")
+                        now=NOW, agent="validator", purpose="test.unnamed")
         raise AssertionError("neither ceiling bound")
     except gw.AgentCeilingExceeded as exc:  # noqa: F841
         raise AssertionError(
@@ -235,7 +235,7 @@ def test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling():
     _spend(db, "gateway", 50.0, purpose="model.probe")
     assert gw.agent_daily_ceiling(db, "gateway") is None
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                          now=NOW, agent="gateway")
+                          now=NOW, agent="gateway", purpose="test.unnamed")
     assert out["agent_permission"] is None
     # `now=NOW`: the rows above are stamped at the frozen instant, so the reader has to be
     # asked about that day rather than the wall clock's -- the exact defect the test below
@@ -259,7 +259,7 @@ def test_the_permission_and_the_month_are_asked_about_the_same_day():
     assert gw.agent_daily_ceiling(db, "validator",
                                   now=yesterday)["spent_today_cad"] == 0.0
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                          now=yesterday, agent="validator")
+                          now=yesterday, agent="validator", purpose="test.unnamed")
     assert out["agent_permission"]["spent_today_cad"] == 0.0
 
 
@@ -271,7 +271,7 @@ def test_an_agent_whose_run_is_holding_unbilled_spend_is_refused_on_the_total():
     _spend(db, "market_radar", 3.0, purpose="gallery_observation")
     try:
         gw.check_budget(db, model=CHEAP_MODEL, input_tokens=100_000, max_tokens=1000,
-                        now=NOW, agent="market_radar", uncommitted_cad=0.95)
+                        now=NOW, agent="market_radar", uncommitted_cad=0.95, purpose="test.unnamed")
         raise AssertionError("the unbilled half of the run was not counted")
     except gw.AgentCeilingExceeded as exc:
         assert "unbilled in this run" in str(exc), str(exc)
@@ -287,12 +287,12 @@ def test_a_check_writes_a_reservation_before_the_call_and_another_process_sees_i
     estimate)". Two holders, one month, and the second must see the first's claim."""
     db = _db()
     first = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                            now=NOW, agent="market_radar", holder="host:1:1")
+                            now=NOW, agent="market_radar", holder="host:1:1", purpose="test.unnamed")
     assert first["reservation_id"] is not None
     assert first["reserved_by_others_cad"] == 0.0
 
     second = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                             now=NOW, agent="market_radar", holder="host:2:1")
+                             now=NOW, agent="market_radar", holder="host:2:1", purpose="test.unnamed")
     assert second["reserved_by_others_cad"] == first["estimate_cad"], second
     assert second["reserved_by_others_count"] == 1
 
@@ -304,12 +304,12 @@ def test_the_reservation_is_what_refuses_the_second_of_two_concurrent_callers():
     _spend(db, "market_radar", 99.0, purpose="gallery_observation")
     # A big enough estimate that two of them cross the ceiling and one does not.
     a = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=350_000, max_tokens=1000,
-                        now=NOW, holder="host:1:1")
+                        now=NOW, holder="host:1:1", purpose="test.unnamed")
     assert 0.5 < a["estimate_cad"] < 1.0, (
         "the point of the sizing is that one call fits in the CA$1.00 left and two do not")
     try:
         gw.check_budget(db, model=CHEAP_MODEL, input_tokens=350_000, max_tokens=1000,
-                        now=NOW, holder="host:2:1")
+                        now=NOW, holder="host:2:1", purpose="test.unnamed")
         raise AssertionError(
             "the second caller was authorised against a month that did not include the "
             "first caller's live reservation. That is the unbounded overshoot")
@@ -324,9 +324,9 @@ def test_a_caller_does_not_reserve_against_itself():
     db = _db()
     for _ in range(5):
         gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                        now=NOW, holder="host:1:1")
+                        now=NOW, holder="host:1:1", purpose="test.unnamed")
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                          now=NOW, holder="host:1:1")
+                          now=NOW, holder="host:1:1", purpose="test.unnamed")
     assert out["reserved_by_others_cad"] == 0.0, out
     held = reservations.outstanding(db, exclude_holder="host:1:1", now=NOW)
     assert held["own_holder_count"] == 6 and held["count"] == 0
@@ -349,7 +349,7 @@ def test_a_reservation_whose_holder_died_expires_rather_than_charging_for_ever()
 
     # And the ceiling agrees with the reader.
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                          now=NOW + timedelta(seconds=120), holder="host:9:9")
+                          now=NOW + timedelta(seconds=120), holder="host:9:9", purpose="test.unnamed")
     assert out["reserved_by_others_cad"] == 0.0
     assert out["expired_unreleased_cad"] == 90.0
 
@@ -377,7 +377,7 @@ def test_release_returns_the_money_and_records_what_the_call_actually_cost():
     db = _db()
     at = datetime.now(timezone.utc)
     out = gw.check_budget(db, model=CHEAP_MODEL, input_tokens=1000, max_tokens=100,
-                          now=NOW, holder="host:1:1")
+                          now=NOW, holder="host:1:1", purpose="test.unnamed")
     # Both instants frozen, which is only possible because the asymmetry is now fixed.
     #
     # Two lanes found this check independently on the same day and diagnosed it identically:
