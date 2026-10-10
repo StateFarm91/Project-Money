@@ -21,7 +21,7 @@
    "rows_on_base": 523,
    "per_row": "matrix[].mapped_on"
   },
-  "reachability": "HEAD 8b67414 reachability; production fcb982d",
+  "reachability": "HEAD 56d7b38 (+ W4-FMLEDGER release.py F-659 checkpoint adoption) reachability; production fcb982d",
   "production": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
   "registry": "master_registry.json + master_registry_v1_1.json"
  },

@@ -1,0 +1,44 @@
+{
+ "_meta": {
+  "head": "56d7b38",
+  "runner": "close_fm2.py --run-tests (sequential)"
+ },
+ "suites": {
+  "tests/test_w4_auto_spend_wiring.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 9,
+   "seconds": 23.7
+  },
+  "tests/test_w4_auto_status.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 11,
+   "seconds": 500.6
+  },
+  "tests/test_w4_fm2_surface_reverify.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 9.0
+  },
+  "tests/test_w4_fml_checkpoint_adoption.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 3,
+   "seconds": 10.6
+  },
+  "tests/test_w4_visual2.py": {
+   "exit": 1,
+   "fail": 1,
+   "ok": 7,
+   "seconds": 71.8
+  },
+  "tests/test_w4_visual_certified_gallery.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 7,
+   "seconds": 90.1
+  }
+ }
+}
