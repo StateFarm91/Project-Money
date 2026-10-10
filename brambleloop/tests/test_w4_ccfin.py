@@ -217,6 +217,39 @@ def test_authority_dag_with_a_work_item_is_dated_and_counted():
     assert sum(env["counts"].values()) == 1, env["counts"]
 
 
+def test_estimate_drift_is_an_envelope_unknown_never_zero():
+    from brambleloop.app.command_center import tabs
+    from brambleloop.finance import spend_report
+
+    m = session().get("/api/cc/money").json()["sections"]["estimate_drift"]
+    assert m["status"] in providers.STATUSES and "basis" in m and "sources" in m, m
+    assert m["settlement_against_provider_billing"] == "OWNER-GATED"
+    real = spend_report.estimate_drift
+    try:
+        spend_report.estimate_drift = lambda db: {
+            "state": "healthy", "degraded": False, "why": "", "token_priced_calls": 0,
+            "purposes_outside_tolerance": {}, "calls_with_no_reservation_share": 0.0,
+            "tolerance": 0.25, "purposes_too_few_calls_to_judge": []}
+        u = tabs.estimate_drift_reading(DB)
+        assert u["status"] == "UNKNOWN" and u["reason"] and u["as_of"], u
+        assert u["calls_with_no_reservation_share"] is None and u["basis"] == "unknown", u
+        assert u["state"] == "healthy", "state is spend_report's word (verify readback contract)"
+        spend_report.estimate_drift = lambda db: {
+            "state": "degraded", "degraded": True, "why": "p: outside", "token_priced_calls": 9,
+            "purposes_outside_tolerance": {"p": {"calls": 9, "estimated_cad": 0.1,
+                                                 "recorded_cad": 0.3, "ratio": 3.0,
+                                                 "under_estimated": True}},
+            "calls_with_no_reservation_share": 0.0, "tolerance": 0.25}
+        d = tabs.estimate_drift_reading(DB)
+        assert d["status"] == "DEGRADED" and d["reason"] == "p: outside", d
+        assert d["items"][0]["purpose"] == "p" and d["purposes_outside_tolerance"] == ["p"]
+        assert d["calls_with_no_reservation_share"] == 0.0 and d["basis"] == "measured"
+    finally:
+        spend_report.estimate_drift = real
+    js = (STATIC / "js" / "views" / "money.js").read_text()
+    assert "driftCard(s.estimate_drift, result)" in js and "innerHTML" not in js
+
+
 def test_pwa_renders_rule1_agents_and_authority_read_only():
     learn = (STATIC / "js" / "views" / "learn.js").read_text()
     acct = (STATIC / "js" / "views" / "account.js").read_text()

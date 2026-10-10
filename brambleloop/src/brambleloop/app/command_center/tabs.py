@@ -206,21 +206,50 @@ SETTLEMENT_GATE = ("OWNER-GATED: settling recorded model spend against the provi
 
 def estimate_drift_reading(db) -> dict:
     """F-103 (W4-SPEND): pre-call estimates vs recorded per-call cost this month. Labelled
-    estimated-vs-actual; settlement against provider billing is OWNER-GATED and says so."""
+    estimated-vs-actual; settlement against provider billing is OWNER-GATED and says so.
+
+    W4-CCFIN: a status envelope like every other Money section (status, as_of, basis, items,
+    sources, reason), with the drift detail kept alongside it. No token-priced call this month
+    means nothing was judged: UNKNOWN with a reason and an unknown reservation share -- never a
+    "healthy" 0%."""
     from ...finance import spend_report
 
     d = spend_report.estimate_drift(db)
-    return {"label": "estimated vs actual (recorded per-call cost) model spend, this month",
-            "state": d.get("state"), "degraded": d.get("degraded"),
-            "why": d.get("why") or None,
-            "token_priced_calls": d.get("token_priced_calls"),
-            "purposes_outside_tolerance": sorted((d.get("purposes_outside_tolerance") or {})),
-            "purposes_too_few_calls_to_judge": d.get("purposes_too_few_calls_to_judge"),
-            "calls_with_no_reservation_share": d.get("calls_with_no_reservation_share"),
-            "tolerance": d.get("tolerance"),
-            "settlement_against_provider_billing": "OWNER-GATED",
-            "settlement_why": SETTLEMENT_GATE,
-            "sources": ["finance.spend_report.estimate_drift", "cost_entries"]}
+    calls = d.get("token_priced_calls")
+    measured = isinstance(calls, int) and calls > 0
+    outside = d.get("purposes_outside_tolerance") or {}
+    if not measured:
+        status = "UNKNOWN"
+        reason = ("no token-priced model call is recorded this month, so estimate drift has "
+                  "not been measured")
+    elif d.get("degraded"):
+        status, reason = "DEGRADED", (d.get("why") or "estimates drift from recorded cost")
+    else:
+        status, reason = "OK", None
+    items = [{"purpose": k, "calls": b.get("calls"), "estimated_cad": b.get("estimated_cad"),
+              "recorded_cad": b.get("recorded_cad"), "ratio": b.get("ratio"),
+              "under_estimated": b.get("under_estimated"),
+              "detail": "outside tolerance" + (" (under-estimated)"
+                                               if b.get("under_estimated") else ""),
+              "status": "DEGRADED"} for k, b in sorted(outside.items())]
+    return envelope(
+        status, items, ["finance.spend_report.estimate_drift", "cost_entries"],
+        basis="measured" if measured else "unknown", reason=reason,
+        provider="finance.spend_report.estimate_drift",
+        label="estimated vs actual (recorded per-call cost) model spend, this month",
+        # `state` stays spend_report's own word: /api/verify's readback contract reads it
+        # (healthy|degraded). Whether drift was measured at all is `status`.
+        state=d.get("state"),
+        degraded=d.get("degraded") if measured else None,
+        why=d.get("why") or None,
+        token_priced_calls=calls,
+        purposes_outside_tolerance=sorted(outside),
+        purposes_too_few_calls_to_judge=d.get("purposes_too_few_calls_to_judge"),
+        calls_with_no_reservation_share=(d.get("calls_with_no_reservation_share")
+                                         if measured else None),
+        tolerance=d.get("tolerance"),
+        settlement_against_provider_billing="OWNER-GATED",
+        settlement_why=SETTLEMENT_GATE)
 
 
 def money(db, window: str | None = None) -> dict:
