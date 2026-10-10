@@ -4,6 +4,9 @@ A. #35/#39 sit on `rendered_pages`, whose only opening was a recorded browser.pr
    etsy.com/legal (DataDome, 403) can never honestly give. The closure's own remedy is a
    person's page reading through POST /api/policy/snapshot. A current, reviewed, audited set
    of those readings now opens the gate as well; everything short of that keeps it closed.
+B. #10's company half: one real free motif asset (a library motif through the catalogue
+   builder, granted a certificate by the release chain), and /api/free-to-paid plus the daily
+   growth.distribution cadence planning against it. Nothing is published or sent.
 """
 from __future__ import annotations
 
@@ -192,6 +195,133 @@ def test_the_owner_card_is_the_ca0_reading_not_a_browser_at_unknown_cost():
     assert card["max_cost_cad"] == 0.0 and card["max_cost_display"] == "CA$0.00", card
     assert card["gates"] == ["rendered_pages"]
     ok("OWNER_ACTIONS asks for the CA$0 15-minute reading; the browser-worker card is gone")
+
+
+
+# ---- B. #10 Free-to-Paid, company half -------------------------------------------------------
+
+
+def test_the_free_asset_is_a_certified_release_built_from_the_existing_library():
+    from brambleloop.growth import free_assets as FA
+    from brambleloop.products import builder, motifs
+
+    assert list(FA.ASSETS) == ["diamond-lattice-relief-swatch"]
+    cir = FA.cir_for("diamond-lattice-relief-swatch")
+    # No new pattern content: the motif grid is the library's own, the palette the
+    # catalogue's, and the provenance names the builder and the motif.
+    assert "diamond-lattice" in motifs.LIBRARY
+    assert cir.colors == builder.PALETTES["cloudline"]
+    prov = str(cir.provenance)
+    assert "products.motifs:diamond-lattice" in prov and "products.builder" in prov
+    assert cir.slug not in builder.CATALOGUE
+    cert = FA.certificate("diamond-lattice-relief-swatch")
+    assert cert["granted"] is True and not cert["errors"], cert
+    for stage in ("compile", "twin", "write", "reverse", "originality"):
+        assert stage in cert["stages_run"], (stage, cert["stages_run"])
+    assert cert["content_hash"] and cert["release_hash"]
+    assert cert["physical_test_passed"] is False
+    # Built at the gauge its declared yarn holds, not a typed one.
+    from brambleloop.creative.prototype import gauge_for
+
+    assert cir.gauge.stitches_per_10cm == gauge_for("worsted").stitches_per_10cm
+    ok("one free motif asset: library motif -> CIR -> compile/twin/write/reverse -> granted")
+
+
+def test_the_certificate_is_deterministic_for_its_content():
+    from brambleloop.gates.certificate import certify
+    from brambleloop.growth import free_assets as FA
+
+    again = certify(FA.cir_for("diamond-lattice-relief-swatch"))
+    assert again.granted and again.content_hash == FA.certificate(
+        "diamond-lattice-relief-swatch")["content_hash"]
+    ok("re-certifying the same content gives the same content hash")
+
+
+def test_it_has_a_commercial_job_and_replaces_nothing_sold():
+    from brambleloop.growth import free_assets as FA
+    from brambleloop.growth import free_to_paid as F
+
+    paid = FA.paid_slugs()
+    asset = FA.ASSETS["diamond-lattice-relief-swatch"]
+    assert "cloudline-baby-blanket" in paid and asset.leads_to in paid
+    assert asset.makes not in paid
+    verdict = F.check_asset(asset, paid_slugs=paid)
+    assert verdict["ok"] is True, verdict
+    # The check is live: the same asset making a sold object is refused.
+    from dataclasses import replace
+
+    bad = F.check_asset(replace(asset, makes="cloudline-baby-blanket"), paid_slugs=paid)
+    assert bad["ok"] is False
+    ok("check_asset passes against the real catalogue and still refuses a replacement")
+
+
+def test_the_plan_reads_real_assets_and_publishes_nothing():
+    from brambleloop.growth import free_assets as FA
+
+    r = FA.reading()
+    assert r["of"] == 1 and r["with_a_job"] == 1, r
+    assert r["premium_products_fed"] == ["cloudline-baby-blanket"]
+    assert r["published"] == [] and r["publication"]["waits_on"] == "owned_surfaces"
+    assert r["certificates"]["diamond-lattice-relief-swatch"]["granted"] is True
+    assert "no free work exists" not in r["note"]
+    ok("plan over 1 real certified asset: 1 with a job, feeds Cloudline, 0 published")
+
+
+def test_an_uncertified_asset_is_not_counted():
+    from brambleloop.growth import free_assets as FA
+
+    original = FA.certificate
+    try:
+        FA.certificate = lambda key: {"granted": False}
+        assert FA.real_assets() == []
+    finally:
+        FA.certificate = original
+    ok("an asset whose certificate is refused is not an asset")
+
+
+def test_the_api_route_and_the_daily_cadence_read_the_real_plan():
+    import ast
+
+    main = (ROOT / "src/brambleloop/app/main.py").read_text()
+    route = main[main.index('@app.get("/api/free-to-paid")'):]
+    route = route[:route.index("@app.", 10)]
+    assert "plan([])" not in route and "free_assets.reading()" in route
+    ast.parse(main)
+    ops = (ROOT / "src/brambleloop/runtime/growth_ops.py").read_text()
+    assert '"free_to_paid": free_assets.reading(' in ops
+    from brambleloop.build2 import reachability
+
+    for rel in ("growth/free_assets.py", "growth/free_to_paid.py"):
+        verdict = reachability.reached(rel)
+        assert verdict["reached"], verdict
+    ok("/api/free-to-paid and growth.distribution read free_assets; both modules reached")
+
+
+def test_the_distribution_handler_records_the_free_to_paid_reading():
+    from datetime import datetime
+
+    from sqlalchemy import select
+
+    from brambleloop.agents.registry import Registry as Reg
+    from brambleloop.core.models import AuditLog, Phase
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import growth_ops
+    from brambleloop.runtime.worker import JobContext, handlers
+
+    db = _db()
+    queue = JobQueue(db)
+    job = queue.enqueue("growth", "growth.distribution", {},
+                        idempotency_key=f"b2close:{datetime.now().timestamp()}")
+    ctx = JobContext(job=job, db=db, queue=queue, registry=Reg(db), phase=Phase.SHADOW)
+    summary = handlers.get("growth.distribution")(ctx)
+    assert summary["free_assets_with_a_job"] == 1, summary
+    reading = growth_ops.latest(db, growth_ops.DISTRIBUTION_KIND)
+    assert reading and reading["free_to_paid"]["with_a_job"] == 1, reading
+    assert reading["free_to_paid"]["published"] == []
+    with db.session() as s:
+        assert s.scalars(select(AuditLog).where(
+            AuditLog.action == "growth.distribution")).first() is not None
+    ok("growth.distribution records the free-to-paid reading (1 asset with a job, 0 published)")
 
 
 if __name__ == "__main__":

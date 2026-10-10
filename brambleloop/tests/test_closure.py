@@ -49,34 +49,35 @@ _dead_data = R.Requirement(id=996, title="t", body="b", version="v", section="s"
 check("a data-gated row whose machinery nothing runs is OPEN (C-59)",
       C.classify(_dead_data)["state"] == C.OPEN)
 # C-65: the three blind spots the 9434c53 audit found in the rule above.
-# The fixture is a library only an app/main.py route uses (growth/free_to_paid.py; growth/
-# clusters.py imports one constant from it). commerce/offers.py served here until the C-64
-# repair wired it into portfolio.review, and commerce/preproduction.py until the residue repair
-# wired it into growth.preproduction (#4) -- the rule working, not a reason to loosen it. If
-# this precondition fails, pick another static-only module; do not weaken the check.
+# The fixture is a library only app/main.py routes use (visual/milestones.py). commerce/
+# offers.py served here until the C-64 repair wired it into portfolio.review,
+# commerce/preproduction.py until the residue repair wired it into growth.preproduction (#4),
+# and growth/free_to_paid.py until W4-B2CLOSE wired it into growth.distribution through
+# growth/free_assets.py (#10) -- the rule working, not a reason to loosen it. If this
+# precondition fails, pick another static-only module; do not weaken the check.
 from brambleloop.build2 import reachability as _reach
 _wired = _reach.reached("commerce/preproduction.py")
 check("#4's commerce/preproduction.py is reached through the growth.preproduction handler",
       _wired["reached"] and "handler growth.preproduction" in str(_wired.get("why", "")),
       str(_wired))
-_pre = _reach.reached("growth/free_to_paid.py")
-check("fixture precondition: growth/free_to_paid.py is still only statically imported",
+_pre = _reach.reached("visual/milestones.py")
+check("fixture precondition: visual/milestones.py is still only statically imported",
       not _pre["reached"], str(_pre))
 _static = R.Requirement(id=995, title="t", body="b", version="v", section="s",
                         status=R.COVERED, note="", parked_on="",
-                        proof="growth/free_to_paid.py runtime/release.py app/main.py "
-                              "tests/test_free_to_paid.py")
+                        proof="visual/milestones.py runtime/release.py app/main.py "
+                              "tests/test_milestone_d.py")
 _sv = C.classify(_static)
 check("a covered row whose library only a static state() route touches is OPEN, and naming a "
       "runtime root beside it does not count as reach (C-65)",
-      _sv["state"] == C.OPEN and "growth/free_to_paid.py" in _sv["proof"]["unreached"],
+      _sv["state"] == C.OPEN and "visual/milestones.py" in _sv["proof"]["unreached"],
       str(_sv["proof"]))
 _orig_gate_for = C.executor.gate_for
 C.executor.gate_for = lambda i: "owned_surfaces" if i in (994, 993) else _orig_gate_for(i)
 try:
     _og = R.Requirement(id=994, title="t", body="b", version="v", section="s",
                         status=R.OWNER_GATED, note="", parked_on="",
-                        proof="growth/free_to_paid.py tests/test_free_to_paid.py")
+                        proof="visual/milestones.py tests/test_milestone_d.py")
     _ogv = C.classify(_og, gate_open={"owned_surfaces": False})
     check("an owner_gated row whose built half names unreached machinery is OPEN (C-65)",
           _ogv["state"] == C.OPEN and "not reached" in _ogv["why"], _ogv["why"])

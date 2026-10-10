@@ -870,8 +870,11 @@ def handle_growth_distribution(ctx: JobContext) -> dict:
     """Daily distribution planning from the database (#246-#251, #255, #258, #260, #295).
 
     GREEN: reads rows and writes one reading; the only state it changes is stopping a
-    creator relationship measured as weak (#249). Nothing is published or sent.
+    creator relationship measured as weak (#249). Nothing is published or sent. It also
+    reads the free-to-paid plan over the certified free work (#10).
     """
+    from ..growth import free_assets
+
     today = _today(ctx)
     items = catalogue(ctx.db)
     previous = latest(ctx.db, DISTRIBUTION_KIND)
@@ -886,6 +889,9 @@ def handle_growth_distribution(ctx: JobContext) -> dict:
         "tools": tools_reading(ctx.db, items),
         "gallery": gallery_reading(ctx.db, items),
         "interviews": interviews_reading(ctx.db, today),
+        # #10 (W4-B2CLOSE): the free-to-paid plan over the free work that exists, checked
+        # against what the code catalogue and this database's certified products sell.
+        "free_to_paid": free_assets.reading(extra_paid=tuple(sorted(items))),
     }
     reading_id = record(ctx.db, DISTRIBUTION_KIND, today.isoformat(), reading)
     summary = {
@@ -898,6 +904,7 @@ def handle_growth_distribution(ctx: JobContext) -> dict:
         "testers_graduated": reading["creators"]["graduated"],
         "tools_hostable": reading["tools"]["hostable"],
         "interviews_may_open": reading["interviews"]["gate"]["may_open"],
+        "free_assets_with_a_job": reading["free_to_paid"]["with_a_job"],
     }
     ctx.audit("growth.distribution", detail=summary)
     return summary

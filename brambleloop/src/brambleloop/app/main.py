@@ -3733,12 +3733,15 @@ def api_free_to_paid() -> dict:
 
     A free pattern for something this company sells does not lead to it, it replaces it --
     and that failure looks exactly like success from the inside, because the downloads go up.
-    Nothing free exists yet, and an empty funnel is an empty funnel rather than a failing one.
+
+    W4-B2CLOSE: the plan reads the free work that exists (`growth.free_assets`: built by the
+    catalogue's builder and granted a certificate by the release chain), not an empty list.
+    Nothing is published, so the funnel is still empty and reported as empty.
     """
-    from ..growth import free_to_paid
+    from ..growth import free_assets, free_to_paid
 
     out = free_to_paid.state()
-    out["plan"] = free_to_paid.plan([])
+    out["plan"] = free_assets.reading()
     return out
 
 
