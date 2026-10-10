@@ -1,0 +1,87 @@
+{
+  "deployable": {
+    "dirs": [
+      "src/"
+    ],
+    "excluded": [
+      "__pycache__/",
+      "*.pyc",
+      "*.pyo",
+      "symlinks"
+    ],
+    "files": [
+      "requirements.lock"
+    ],
+    "prefix_stripped": "brambleloop/"
+  },
+  "kind": "brambleloop.release_record",
+  "note": "commit this file and suite_runs/ on top of `sha`; the deploy guard and the runtime boot guard read it from git / the image, never from artifacts/",
+  "recorded_at": "2026-10-10T08:01:30Z",
+  "release_eligible": true,
+  "sha": "3967f405ef73c0d2b069a1f45a17cb71f31467aa",
+  "source_tree_sha256": "4bdd487b80f09fa8b44a133a48e80df4d0dfe1ed36f20c359c4c52a42dcacb45",
+  "suite_log": {
+    "path": "suite_runs/20261010T062725Z-14513.log",
+    "sha256": "1d3a1c290bec6879e6cb2741f9fb47f958147d6d7520f42ec83e3b15ba9692d5"
+  },
+  "suite_record": {
+    "path": "suite_runs/20261010T062725Z-14513.json",
+    "sha256": "c6e3d9c2421111a0ae6c31672d1caea1dd158fd0aca79fed45b160c81f04cb3e"
+  },
+  "supply_chain": {
+    "change_since_deployed": {
+      "added": [
+        "Jinja2==3.1.6",
+        "MarkupSafe==3.0.3",
+        "PyYAML==6.0.3",
+        "SQLAlchemy==2.0.54",
+        "annotated-doc==0.0.5",
+        "annotated-types==0.8.0",
+        "anyio==4.15.1",
+        "cffi==2.1.1",
+        "charset-normalizer==3.5.1",
+        "click==8.5.0",
+        "cryptography==50.0.1",
+        "fastapi==0.141.1",
+        "greenlet==3.5.6",
+        "h11==0.16.0",
+        "httptools==0.8.0",
+        "idna==3.19",
+        "numpy==2.4.6",
+        "pillow==12.3.0",
+        "psycopg2-binary==2.9.13",
+        "pycparser==3.0",
+        "pydantic==2.13.5",
+        "pydantic_core==2.46.5",
+        "pypdf==6.19.0",
+        "pypdfium2==5.13.0",
+        "python-dotenv==1.2.3",
+        "python-multipart==0.0.32",
+        "reportlab==5.0.1",
+        "starlette==1.6.0",
+        "typing-inspection==0.4.4",
+        "typing_extensions==4.16.0",
+        "uvicorn==0.53.0",
+        "uvloop==0.22.1",
+        "watchfiles==1.2.0",
+        "websockets==17.1"
+      ],
+      "base": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+      "base_had_lock": false,
+      "hash_changed_same_version": [],
+      "material": true,
+      "removed": [],
+      "version_changed": []
+    },
+    "distributions": 34,
+    "findings": [],
+    "hashes": 1375,
+    "lock_sha256": "3765ff05abc4d650b5fbebaa407734bf0256532db2eb4f06508ca2dc77203523",
+    "ok": true,
+    "problems": [],
+    "sbom_components": 34,
+    "sbom_sha256": "b23f7b29f2df3f4dab98885ca2820c74a6445bcc1e3fb668c91dd6200bc84c83",
+    "status": "verified"
+  },
+  "version": 1
+}
