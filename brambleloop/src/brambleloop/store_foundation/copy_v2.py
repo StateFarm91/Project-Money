@@ -550,11 +550,12 @@ SECTIONS: tuple[SectionCopy, ...] = (
                 "planned: no wearable pattern in Launch-0"),
     SectionCopy("collections", "Gifts", "Sets and pieces made for giving.", 4,
                 "planned: maps the shop's bundles/collections slug; no bundle in Launch-0"),
-    SectionCopy("seasonal", "Seasonal", "Patterns for the season, as each one arrives.", 5,
-                "planned: no seasonal pattern in Launch-0"),
+    # W4-PIPE 18baa94 (2026-10-07): the snowflake ornaments and the snowfall throw joined
+    # Launch-0, so Seasonal and Blankets are populated and carry no "planned" note.
+    SectionCopy("seasonal", "Seasonal", "Patterns for the season, as each one arrives.", 5),
     SectionCopy("blankets", "Blankets", "Throws and blankets worth the hours.", 6,
-                "planned, and not in the owner's nav: a blanket section is proposed for when "
-                "throws launch; baby blankets stay in Baby"),
+                "not in the owner's nav: shown because a throw launched; baby blankets stay "
+                "in Baby"),
 )
 
 SECTION_BY_SLUG: dict[str, SectionCopy] = {s.slug: s for s in SECTIONS}
