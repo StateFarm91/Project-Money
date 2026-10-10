@@ -209,6 +209,19 @@ export const DATA = {
     { lane: "W4-AUTO", worker: "lane AUTO", task: "autonomy", status: "UNKNOWN", started_at: null, last_update_at: null,
       useful_output: null, blocker: null, next_action: null, rows_closed: null, rows_closed_count: null, stale: false }],
     { counts: { RUNNING: 1, UNKNOWN: 1, BLOCKED: 0, REVIEW: 0, MERGED: 0, DONE: 0 }, rows_closed_total: 3, rows_closed_lanes_unknown: 1, stale: [], schema_errors: [] }) }),
+  // W4-CCPACKET (F-878): a BLOCKED packet with one product blocked and one UNKNOWN cost.
+  launchPacket: () => tab("LAUNCH_PACKET", { packet: env("BLOCKED", [
+    { title: "harbour-throw · harbour-throw-dk v1.0.0", status: "BLOCKED", certified: true, publishable_now: false, physical_proof: "UNKNOWN",
+      listing_state: null, price_cad: null, open_gates: ["parity: FAIL"], detail: "parity FAIL: hero image not bound to release" }],
+    { verdict: "BLOCKED", reason: "verdict BLOCKED: 1 of 1 product(s) not publishable now; 2 open owner action(s)",
+      verdict_rule: "READY only when every product's gated sections PASS", candidate_sha: "3a5700e0123456789",
+      phase: { phase: "shadow", env: "shadow", recorded_phase: "shadow", agree: true },
+      owner_queue: { state: "FAIL", ready: false, owner_actions: [
+        { key: "etsy_account", action: "Open the Etsy seller account payouts", why: "payouts need KYC", max_cost_cad: 0, minutes: 20, consequence_of_delay: "no listing can go live" },
+        { key: "samples", action: "Crochet one sample", why: "physical proof", max_cost_cad: null, minutes: 240, consequence_of_delay: "launch slips" }] },
+      recorded_suite: { state: "UNKNOWN", why: "no repository root given; suite evidence not read" },
+      activation_steps: ["Resolve every open owner gate.", "Record the phase move."],
+      sources: ["launch.packet.build"], cache: { ttl_seconds: 300 } }) }, { status: "BLOCKED" }),
   ask: (question) => /overnight/i.test(question)
     ? { question, intent: "overnight", status: "ANSWERED", answer: "Overnight: 6 jobs completed, 1 parked (bank feed missing).",
       facts: [{ statement: "SEO coverage refreshed", source: "jobs:320", as_of: ago(30) }], next_action: "Connect bank feed",
