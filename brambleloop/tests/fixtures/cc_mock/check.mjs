@@ -126,6 +126,13 @@ try {
   const laneRows = await page.$$eval("li.row", (els) => els.map((e) => e.textContent));
   check(laneRows.length === 2 && laneRows.some((t) => /Rows closed\s*Unknown/.test(t)), "completion: lanes listed, unknown rows-closed shown as Unknown", JSON.stringify(laneRows.map((t) => t.slice(0, 80))));
 
+  // ---- W4-CCFIN: estimate drift is a status card that keeps its detail; Unknown, never 0% ----
+  await page.goto(`${BASE}/cc/#/money`);
+  await settle();
+  const drift = (await page.textContent("section[aria-labelledby='money-estimate-drift']").catch(() => "")) || "";
+  check(/UNKNOWN/.test(drift) && /Calls with no reservation\s*Unknown/.test(drift) && /Settlement against provider billing\s*OWNER-GATED/.test(drift)
+    && /Tolerance\s*±25%/.test(drift) && /Drift state\s*Unknown/.test(drift) && !/HEALTHY/.test(drift) && /as of/.test(drift) && !/\b0%/.test(drift), "money: estimate drift card shows status, detail and Unknown (never 0%)", drift.slice(0, 300));
+
   // ---- W4-CCFIN: Rule #1 state, per-agent status, authority (read-only, as-of shown) -------
   await page.goto(`${BASE}/cc/#/learn`);
   await settle();
