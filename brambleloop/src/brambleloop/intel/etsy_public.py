@@ -87,6 +87,20 @@ class EndpointRefused(RuntimeError):
 class ReadFailed(RuntimeError):
     """Etsy refused or could not answer. Carries the status, never the credential."""
 
+    def __init__(self, message: str = "", *, status: int | None = None):
+        super().__init__(message)
+        self.status = status
+
+    @property
+    def credential_refused(self) -> bool:
+        """401/403: Etsy refused the credential itself. Asking again gives the same answer."""
+        return self.status in AUTH_REFUSED
+
+
+# W4-PRODDIAG: the HTTP statuses with which Etsy refuses the credential itself. Not transient:
+# the same key gets the same answer, so a scan must not keep knocking (see `auth_refused`).
+AUTH_REFUSED = (401, 403)
+
 
 class Transport(Protocol):
     def request(self, method: str, url: str, *, headers: dict[str, str],
@@ -212,7 +226,7 @@ class PublicReader:
             kind = classify_http(status)
             hint = (f" — Etsy v3 requires x-api-key as keystring:shared_secret; check "
                     f"{SECRET_VAR}" if status in (401, 403) else "")
-            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}")
+            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}", status=status)
             if kind is not TransientError:
                 raise last
             self.throttled += status == 429
@@ -438,6 +452,8 @@ def probe(db, *, transport=None, env: dict[str, str] | None = None) -> dict:
             body = reader.get(PROBE_ENDPOINT)
         except Exception as exc:  # noqa: BLE001 - the reason is the point, whatever it is
             record["reason"] = f"{type(exc).__name__}: {exc}"[:400]
+            if getattr(exc, "status", None) is not None:
+                record["status"] = exc.status
         else:
             record["ok"] = True
             # The application id identifies the developer application, not the credential,
@@ -460,6 +476,21 @@ def last_probe(db) -> dict | None:
         rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "etsy.probe")
                               .order_by(desc(AuditLog.id)).limit(1)))
     return dict(rows[0].detail or {}) if rows else None
+
+
+def auth_refused(state: dict | None) -> bool:
+    """Whether a probe record says Etsy refused the credential (HTTP 401/403).
+
+    W4-PRODDIAG: records written before `status` existed carry it only in the reason text
+    ("ping returned HTTP 403 ..."), so that is read too."""
+    import re
+
+    if not state or state.get("ok"):
+        return False
+    if state.get("status") in AUTH_REFUSED:
+        return True
+    m = re.search(r"HTTP (\d{3})", str(state.get("reason") or ""))
+    return bool(m and int(m.group(1)) in AUTH_REFUSED)
 
 
 def usable(db) -> bool:
