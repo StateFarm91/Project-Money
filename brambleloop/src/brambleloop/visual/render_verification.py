@@ -66,7 +66,7 @@ from PIL import Image, ImageDraw
 
 from . import render_contract as K
 
-VERIFIER_VERSION = "render-verification/2.0.0"
+VERIFIER_VERSION = "render-verification/2.0.1"
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 
@@ -77,6 +77,8 @@ CAPTION_IOU = 0.98
 ANNOTATION_PX = 12
 LINE_THICKNESS_PX = 34
 RAISED_FRACTION = 0.08     # a raised post covers >= 25 % of a dc glyph; an sc carries none
+# Assembled forms `_verify_assembled` models (W4-VISUAL2). Anything else is UNKNOWN.
+ASSEMBLED_FORMS_MEASURED = ("planar", "vessel_skirts")
 
 TOLERANCES = {
     "counts": "exact", "colours": "exact", "raised_stitch_placement": "exact",
@@ -1035,6 +1037,16 @@ def _verify_assembled(png: bytes, *, cir, view: str) -> dict:
         return _verdict([_check("assembled_plan", UNKNOWN,
                                 f"the CIR's pieces cannot be placed: {type(exc).__name__}: "
                                 f"{str(exc)[:200]}")])
+    # Only the forms this verifier models are measured. Every check below assumes one placed
+    # object of the CIR's assembled size, lettered with the generic assembled dimension line;
+    # a form drawn later (W4-CAND "pockets": `make` copies on a hero, its own annotation) is
+    # neither of those, so judging it here would report a false FAIL -- and a future change
+    # to the expectation could just as silently turn it into an unearned PASS. Unmodelled is
+    # UNKNOWN, which blocks exactly like FAIL and claims nothing about the frame.
+    if exp["form"] not in ASSEMBLED_FORMS_MEASURED:
+        return _verdict([_check("assembled_form", UNKNOWN,
+                                f"the assembled form {exp['form']!r} is not one this verifier "
+                                f"measures ({', '.join(ASSEMBLED_FORMS_MEASURED)})")])
     palette = {k: K.hex_rgb(v) for k, v in (cir.colors or {}).items() if k in exp["colours"]}
     if set(palette) != set(exp["colours"]):
         return _verdict([_check("palette", UNKNOWN, "a row colour has no RGB in the CIR")])
