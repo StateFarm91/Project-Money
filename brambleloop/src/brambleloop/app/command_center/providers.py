@@ -22,6 +22,7 @@ BASES = ("measured", "estimated", "modelled", "unknown")
 PROVIDERS: dict[str, tuple[str, str]] = {
     "autonomy": ("brambleloop.autonomy.status", "summary"),
     "timeline": ("brambleloop.autonomy.status", "timeline"),
+    "agents": ("brambleloop.autonomy.status", "agents"),
     "improvement": ("brambleloop.learn.improvement_status", "summary"),
     "accounting": ("brambleloop.finance.accounting.dashboard", "summary"),
     "accounting_drill": ("brambleloop.finance.accounting.dashboard", "drill"),

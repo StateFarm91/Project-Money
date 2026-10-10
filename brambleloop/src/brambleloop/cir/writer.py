@@ -160,6 +160,8 @@ _SEAM_WORDS = {
     "slst": "Slip stitch",
     "mattress": "Mattress stitch",
     "sew": "Sew",
+    "pick_up": "Work",
+    "thread": "Thread",
 }
 
 
@@ -175,7 +177,10 @@ def write_seam(seam, position: int, unit: str = "round") -> str:
     if seam.is_self_seam:
         where = f"the two edges of the {seam.piece_a} together"
     else:
-        where = f"the {seam.piece_a} to the {seam.piece_b}"
+        from .model import SEAM_CONNECTOR
+
+        where = (f"the {seam.piece_a} {SEAM_CONNECTOR.get(seam.method, 'to')} "
+                 f"the {seam.piece_b}")
     if seam.is_placed:
         last = seam.at_round + seam.spans_rounds - 1
         # "rows" on a piece worked in flat rows: a maker counting rows of a flat panel is

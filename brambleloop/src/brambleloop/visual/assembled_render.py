@@ -18,8 +18,22 @@ prose, a product photograph or a model's idea of what such things look like:
     the back) shows only the rows the front-layer joins place.
   * **folds** -- a flat piece whose two side edges are each self-seamed across rows 1..k is
     folded there: those rows lie over rows k+1..2k, upside down. Nothing else is a fold.
+  * **rings** (W4-CAND) -- a flat piece whose first row's outer edge is sewn to its last
+    row's (a self-seam of its two row-end edges: bottom/top worked up, left/right worked
+    across) is a closed band. Where a planar join places it by one of those edges, it is
+    drawn lying flat with the join at that edge: rows 1..m/2 in front, rows m/2+1..m behind
+    them (hidden, the same yarn), so its finished length is half the band. An odd row count
+    puts the flattened end inside a row and is not drawn.
   * **resumed panels** -- a flat piece that `resumes` a `Hold` of a round piece continues
     that round's held stitches, so it hangs from them as part of the same wall.
+  * **pockets on a cord** (W4-CAND) -- a round body made N times whose last round's held
+    stitches are worked up as a closed loop that a cord is threaded through (a `thread`
+    join) hangs from that loop, opening up. Each body is drawn laid flat (every round's
+    front half, centred, the fold through the middle of its pick-up opening); a round piece
+    picked up into that opening (a `pick_up` join) is laid flat straight out from the fold
+    at the opening; the loop lies flat above the last round. The hero shows all N pockets;
+    the scale view one, measured. The cord is threaded through every loop and is not drawn
+    at the pockets' scale (the manifest says so and gives its length).
 
 A piece the structure cannot place is *not drawn*, and the manifest says which and why (a
 loop whose only fold is in its note, a cord threaded through tabs). A product whose main
@@ -38,6 +52,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field, replace
 
+from ..cir.assembly import BAND_EDGES
 from . import disclosed_render as D
 from . import render_contract as K
 
@@ -63,6 +78,8 @@ class Placed:
     grain: str
     rows: tuple[int, int] | None = None      # rows shown (a ring shows its front rows)
     fold: int = 0                            # rows 1..fold folded up over the piece
+    band: str = ""                           # a closed band lying flat: "rows"/"stitches"
+    cols: tuple[int, int] | None = None      # stitch positions shown (a flat band's front)
 
 
 @dataclass
@@ -120,6 +137,40 @@ def _fold_of(cir, comp) -> int:
     return 0
 
 
+def _band_of(cir, comp) -> str | None:
+    """"rows"/"stitches" for a closed band (`cir.assembly.band_axis`), else None."""
+    from ..cir.assembly import band_axis
+
+    return band_axis(cir, comp)
+
+
+def _lay_band_flat(p: Placed, axis: str, cir) -> str | None:
+    """A closed band lying flat with its seam at the placing join: the first half along its
+    axis in front, the second half behind it. None when drawable, else why not."""
+    if axis == "rows":
+        m = len(p.comp.rows)
+        if m % 2:
+            return (f"a band of {m} rows lies flat with its far end inside a row, so its "
+                    f"flattened shape is not derivable")
+        p.rows = (1, m // 2)
+        length = p.twin.row_top_cm[m // 2]
+    else:
+        counts = {len(v) for v in _cells_by_row(p.twin).values()}
+        if len(counts) != 1 or next(iter(counts)) % 2:
+            return (f"a band whose rows are {sorted(counts)} stitches lies flat with its far "
+                    f"end inside a stitch or a shaped row, so its flattened shape is not "
+                    f"derivable")
+        p.cols = (0, next(iter(counts)) // 2 - 1)
+        length = (next(iter(counts)) // 2) * 10.0 / cir.gauge.stitches_per_10cm
+    p.band = axis
+    vertical = (p.grain == "up") == (axis == "rows")
+    if vertical:
+        p.up = length
+    else:
+        p.across = length
+    return None
+
+
 def _place(p: Placed, edge_p: str, n: Placed, edge_n: str, *, n_is_b: bool, seam) -> None:
     """Put piece n against piece p's edge (opposite edges), aligned where the seam says."""
     # Offset along the shared edge: a placed seam runs across rows at_round.. of piece_b.
@@ -143,10 +194,15 @@ def _place(p: Placed, edge_p: str, n: Placed, edge_n: str, *, n_is_b: bool, seam
 
 
 def _folds_in_notes(cir, name: str) -> bool:
-    """A join whose note folds the piece being sewn on (piece_a) with no structured fold."""
+    """A join whose note folds the piece being sewn on (piece_a) with no structured fold.
+    A closed band's own self-seam is structure: it says where the band's ends meet."""
+    comp = next((c for c in cir.components if c.name == name), None)
+    band = _band_of(cir, comp) if comp is not None else None
     return any(s.piece_a == name and "fold" in (s.note or "").lower()
                and not (s.piece_a == s.piece_b and s.edge_a == s.edge_b
                         and s.edge_a in ("left", "right"))
+               and not (band and s.piece_a == s.piece_b
+                        and {s.edge_a, s.edge_b} == BAND_EDGES[(comp.grain, band)])
                for s in cir.assembly)
 
 
@@ -227,6 +283,12 @@ def _planar(cir, result, twins) -> Plan:
             p_new = new_placed(other)
             cur_edge = s.edge_a if s.piece_a == cur else s.edge_b
             new_edge = s.edge_b if s.piece_a == cur else s.edge_a
+            axis = _band_of(cir, comps[other])
+            if axis and new_edge in BAND_EDGES[(comps[other].grain, axis)]:
+                why = _lay_band_flat(p_new, axis, cir)
+                if why:
+                    plan.not_drawn[other] = why
+                    continue
             _place(placed[cur], cur_edge, p_new, new_edge, n_is_b=(other == s.piece_b), seam=s)
             placed[other] = p_new
             order.append(other)
@@ -280,13 +342,15 @@ def _planar(cir, result, twins) -> Plan:
         plan.hidden[b] = f"behind {f}: the back layer mirrors the front"
 
     for name in order:
+        if name in plan.not_drawn:
+            continue
         if name != body and _folds_in_notes(cir, name):
             plan.not_drawn[name] = ("its seam note folds it, and the fold is not a structured "
                                     "join, so its finished shape is not derivable")
             continue
         plan.placed.append(placed[name])
     for name in comps:
-        if name not in placed and name not in back:
+        if name not in placed and name not in back and name not in plan.not_drawn:
             plan.not_drawn[name] = "no join places it against the drawn pieces"
     if len(plan.placed) < 2:
         raise D.RenderRefused(f"{cir.slug}: only {len(plan.placed)} piece can be placed from "
@@ -329,6 +393,260 @@ def _vessel_skirts(cir, result, twins) -> Plan:
     return plan
 
 
+def _opening_of(row) -> tuple[int, int] | None:
+    """(first output position, stitches) of the one chain-bridged opening in a compiled row."""
+    pos, found = 0, []
+    for op in row.ops:                       # resolved ops: `produces` is the op's total
+        if op.stitch == "ch" and op.spans:
+            found.append((pos, op.spans))
+        pos += op.produces
+    return found[0] if len(found) == 1 else None
+
+
+def _pockets(cir, result, twins) -> Plan:
+    """N identical round pockets, each hanging from a closed loop threaded on one cord."""
+    from ..cir.assembly import assemble, band_axis
+
+    geo = assemble(cir, twins)
+    if geo.verdict != "assembles":
+        raise D.RenderRefused(f"{cir.slug}: the pieces do not assemble ({geo.verdict}: "
+                              f"{geo.why}); an assembled drawing would be a guess")
+    comps = {c.name: c for c in cir.components}
+    picks = [s for s in cir.assembly if s.method == "pick_up"]
+    threads = [s for s in cir.assembly if s.method == "thread"]
+    bodies = {s.piece_b for s in picks}
+    if len(bodies) != 1 or comps[next(iter(bodies))].construction == "flat_rows":
+        raise D.RenderRefused(f"{cir.slug}: pick-up joins name {sorted(bodies)}; one round "
+                              f"body is drawable as hanging pockets")
+    body = comps[bodies.pop()]
+    holds = {h.name: h for h in body.holds}
+    last = max(r.index for r in body.rows)
+    tabs = [c for c in cir.components if c.resumes in holds]
+    if len(tabs) != 1:
+        raise D.RenderRefused(f"{cir.slug}: {len(tabs)} pieces resume the body's held "
+                              f"stitches; a pocket hangs from exactly one loop")
+    tab = tabs[0]
+    hold = holds[tab.resumes]
+    if hold.at_row != last or band_axis(cir, tab) != "rows" or tab.make != body.make:
+        raise D.RenderRefused(f"{cir.slug}: {tab.name} is not a closed loop worked up from "
+                              f"the last round of every {body.name}, so nothing says which "
+                              f"way the pocket hangs")
+    cords = [s for s in threads if s.piece_b == tab.name]
+    if len(cords) != 1 or comps[cords[0].piece_a].make != 1 or len(threads) != 1:
+        raise D.RenderRefused(f"{cir.slug}: the loops are not threaded on one cord")
+    cord = comps[cords[0].piece_a]
+    thumbs = []
+    rows_b = {r.index: r for r in result.rows if r.component == body.name}
+    for s in picks:
+        t = comps[s.piece_a]
+        opening = _opening_of(rows_b.get(s.at_round)) if s.at_round in rows_b else None
+        if s.edge_b != "opening" or opening is None or t.make != body.make or \
+                t.construction == "flat_rows":
+            raise D.RenderRefused(f"{cir.slug}: {t.name} is not picked up into one opening "
+                                  f"of every {body.name}")
+        thumbs.append((t, s.at_round, opening))
+    if len(thumbs) != 1:
+        raise D.RenderRefused(f"{cir.slug}: {len(thumbs)} pieces are picked up into the "
+                              f"body; one opening's fold is drawable")
+    known = {body.name, tab.name, cord.name, *(t.name for t, _r, _o in thumbs)}
+    if known != set(comps):
+        raise D.RenderRefused(f"{cir.slug}: pieces {sorted(set(comps) - known)} have no "
+                              f"place in a pocket on the cord")
+    t, at_round, (start, span) = thumbs[0]
+    n_open = rows_b[at_round].produced
+    if (2 * start + span) % 2:
+        raise D.RenderRefused(f"{cir.slug}: the opening's middle falls inside a stitch")
+    plan_ = Plan(form="pockets", body=body.name)
+    plan_.placed = [Placed(body.name, body, twins[body.name], 0, 0, 0, 0, "round"),
+                    Placed(t.name, t, twins[t.name], 0, 0, 0, 0, "round"),
+                    Placed(tab.name, tab, twins[tab.name], 0, 0, 0, 0, tab.grain)]
+    cord_cm = twins[cord.name].width_cm
+    plan_.not_drawn[cord.name] = (
+        f"threaded through every {tab.name} loop (a structured thread join); at "
+        f"{cord_cm:.0f} cm it is not drawn at the pockets' scale")
+    plan_.extra = {"copies": body.make, "fold": (start + span / 2) / n_open,
+                   "opening_round": at_round, "opening": [start, span],
+                   "thumb": t.name, "tab": tab.name, "hold": [hold.from_stitch, hold.count],
+                   "cord": cord.name, "cord_cm": round(cord_cm, 1)}
+    return plan_
+
+
+def _relief_window(cir, rows) -> tuple[int, int]:
+    """The body rounds a detail shows: the relief rounds and one plain round either side."""
+    base = cir.gauge.stitch_type
+    raised = [i for i, cells in rows.items()
+              if any(D._stitch_height_units(c.stitch, base) > 1.0 + 1e-9 for c in cells)]
+    if not raised:
+        return min(rows), max(rows)
+    return max(min(rows), min(raised) - 1), min(max(rows), max(raised) + 1)
+
+
+def _pocket_unit(cir, result, pl: Plan, *, detail: bool = False) -> dict:
+    """One pocket laid flat, in cm with the origin at the bottom-left of its box: tiles as
+    (x0, y0, x1, y1, colour, stitch, faces) where `faces` is the side its top is on.
+    `detail`: the body's relief rounds alone (`_relief_window`), nothing else."""
+    from ..cir.geometry import row_height_cm
+
+    w = 10.0 / cir.gauge.stitches_per_10cm
+    body, thumb, tab = pl.placed
+    by = {p.name: {r.index: r for r in result.rows if r.component == p.name}
+          for p in pl.placed}
+    theta0 = pl.extra["fold"]
+
+    def front(cells, fold=None):
+        """Each stitch's span across the flattened front, in stitch widths from the fold:
+        the front is the half of the round from the fold onwards. A fold that falls inside
+        a stitch (a round whose count puts no boundary there) shows that stitch's half."""
+        c = len(cells)
+        f = (theta0 if fold is None else fold) * c
+        out = []
+        for cell in cells:
+            u = (cell.fabric_position - f) % c
+            for a in (u, u - c):
+                lo_, hi_ = max(a, 0.0), min(a + 1.0, c / 2)
+                if hi_ - lo_ > 1e-9:
+                    out.append(((lo_, hi_), cell))
+        return sorted(out, key=lambda jc: jc[0]), c
+
+    tiles, y = [], 0.0
+    rows = _cells_by_row(body.twin)
+    width = max(len(v) for v in rows.values()) / 2 * w
+    cx = width / 2
+    tops = {}
+    shape = []
+    lo, hi = _relief_window(cir, rows) if detail else (min(rows), max(rows))
+    for i in sorted(rows):
+        if not lo <= i <= hi:
+            continue
+        h = row_height_cm(by[body.name][i], cir)
+        cells, c = front(rows[i])
+        x_left = cx - c / 4 * w
+        for (a, b), cell in cells:
+            tiles.append((x_left + a * w, y, x_left + b * w, y + h, cell.color,
+                          cell.stitch, "up"))
+        shape.append({"round": i, "front": round(sum(b - a for (a, b), _c in cells), 3),
+                      "of": c, "height_cm": round(h, 3)})
+        tops[i] = y + h
+        y += h
+    body_h = y
+    if detail:
+        return {"tiles": tiles, "width_cm": round(width, 4), "height_cm": round(body_h, 4),
+                "rounds_shown": [lo, hi], "rounds": shape}
+    # The thumb: laid flat straight out from the fold at the opening, its rounds stacking away.
+    x_fold = 0.0
+    y_open = tops[pl.extra["opening_round"] - 1]
+    trows = _cells_by_row(thumb.twin)
+    x = x_fold
+    t_shape = []
+    for i in sorted(trows):
+        h = row_height_cm(by[thumb.name][i], cir)
+        cells, c = front(trows[i], fold=0.0)
+        y0 = y_open - c / 4 * w
+        for (a, b), cell in cells:
+            tiles.append((x - h, y0 + a * w, x, y0 + b * w, cell.color, cell.stitch,
+                          "left"))
+        t_shape.append({"round": i, "front": round(sum(b - a for (a, b), _c in cells), 3),
+                        "of": c})
+        x -= h
+    thumb_len = x_fold - x
+    # The loop: the held stitches' front slots on the last round, rows 1..m/2 above it.
+    last = max(rows)
+    n_last = len(rows[last])
+    frm, cnt = pl.extra["hold"]
+    slots = sorted(int((((k + 0.5) / n_last - theta0) % 1.0) * n_last)
+                   for k in range(frm, frm + cnt))
+    if any(((((k + 0.5) / n_last - theta0) % 1.0) >= 0.5) for k in range(frm, frm + cnt)) or \
+            slots != list(range(slots[0], slots[0] + cnt)):
+        raise D.RenderRefused(f"{cir.slug}: the loop's held stitches are not together on the "
+                              f"front face, so its flattened place is not derivable")
+    m = len(tab.comp.rows)
+    ttops = tab.twin.row_top_cm
+    lrows = _cells_by_row(tab.twin)
+    x_tab = cx - n_last / 4 * w + slots[0] * w
+    for r in range(1, m // 2 + 1):
+        for cell in lrows[r]:
+            tiles.append((x_tab + cell.fabric_position * w, body_h + ttops.get(r - 1, 0.0),
+                          x_tab + (cell.fabric_position + 1) * w, body_h + ttops[r],
+                          cell.color, cell.stitch, "up"))
+    loop_h = ttops[m // 2]
+    # Shift so the box starts at x = 0.
+    out = [(a + thumb_len, b, c_ + thumb_len, d_, col, st, f)
+           for a, b, c_, d_, col, st, f in tiles]
+    return {"tiles": out, "width_cm": round(thumb_len + width, 4),
+            "height_cm": round(body_h + loop_h, 4), "body_width_cm": round(width, 4),
+            "body_height_cm": round(body_h, 4), "thumb_length_cm": round(thumb_len, 4),
+            "loop_height_cm": round(loop_h, 4), "loop_rows_shown": [1, m // 2],
+            "rounds": shape, "thumb_rounds": t_shape, "opening_y_cm": round(y_open, 4)}
+
+
+def _draw_unit(d, cir, unit: dict, palette, *, px: float, left: float, bottom: float) -> int:
+    base = cir.gauge.stitch_type
+    for x0, y0, x1, y1, colour, stitch, faces in unit["tiles"]:
+        X0, X1 = left + x0 * px, left + x1 * px
+        Yb, Yt = bottom - y0 * px, bottom - y1 * px
+        rgb = palette[colour]
+        if faces == "left":
+            D._tile(d, [(X0, Yb), (X0, Yt), (X1, Yt), (X1, Yb)], rgb)
+        else:
+            D._tile(d, [(X0, Yt), (X1, Yt), (X1, Yb), (X0, Yb)], rgb)
+        if D._stitch_height_units(stitch, base) > 1.0 + 1e-9:
+            post_w = max(2.0, (X1 - X0) * 0.36)
+            mid = (X0 + X1) / 2
+            inset = K.GAP_PX + max(1.0, (Yb - Yt) * 0.10)
+            d.rectangle([round(mid - post_w / 2), round(Yt + inset),
+                         round(mid + post_w / 2) - 1, round(Yb - inset) - 1],
+                        fill=K.relief(rgb))
+    return len(unit["tiles"])
+
+
+def _pockets_view(cir, result, pl: Plan, palette, view: str):
+    img, d = D._canvas()
+    zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE)
+    zw, zh = zx1 - zx0, zy1 - zy0
+    unit = _pocket_unit(cir, result, pl, detail=view == "detail")
+    W, H = unit["width_cm"], unit["height_cm"]
+    copies = pl.extra["copies"]
+    extra: list[str] = []
+    if view == "hero" and copies > 1:
+        gap = D.DEFAULT_HERO_GAP_RATIO * W
+
+        def fit(cols):
+            nr = int(math.ceil(copies / cols))
+            return min(zw / (cols * W + (cols - 1) * gap), zh / (nr * H + (nr - 1) * gap))
+
+        # Every pocket, as large as the frame allows: the grid shape is layout, not a claim.
+        cols = max(range(1, copies + 1), key=lambda c: (fit(c), -c))
+        nrows = int(math.ceil(copies / cols))
+        px = fit(cols)
+        tw, th = (cols * W + (cols - 1) * gap) * px, (nrows * H + (nrows - 1) * gap) * px
+        drawn = 0
+        for k in range(copies):
+            rr, cc = divmod(k, cols)
+            left = zx0 + (zw - tw) / 2 + cc * (W + gap) * px
+            bottom = zy0 + (zh - th) / 2 + (rr * (H + gap) + H) * px
+            drawn += _draw_unit(d, cir, unit, palette, px=px, left=left, bottom=bottom)
+        objects = copies
+    else:
+        margin = 70 if view == "scale" else 0
+        px = min((zw - margin) / W, (zh - margin) / H)
+        left = zx0 + margin + ((zw - margin) - W * px) / 2
+        bottom = zy1 - ((zh - margin) - H * px) / 2 - margin
+        drawn = _draw_unit(d, cir, unit, palette, px=px, left=left, bottom=bottom)
+        objects = 1
+        if view == "scale":
+            top = bottom - H * px
+            D._dimension_line(d, (left, bottom + 40), (left + W * px, bottom + 40), ticks="v")
+            D._dimension_line(d, (left - 40, top), (left - 40, bottom), ticks="h")
+            extra = K.annotation_lines("scale", "assembled", {
+                "width": W, "height": H, "copies": copies, "cord_cm": pl.extra["cord_cm"]})
+    layout = {"objects": objects, "copies": copies, "projection": "front",
+              "laid_flat": True, "unit": {k: v for k, v in unit.items() if k != "tiles"},
+              "tiles_per_unit": len(unit["tiles"]), "tiles_drawn": drawn,
+              "fold_at": pl.extra["fold"], "cord_cm": pl.extra["cord_cm"],
+              "width_cm": W, "height_cm": H}
+    return img, d, px, layout, extra
+
+
 def plan(cir, result=None) -> Plan:
     from ..cir.compiler import compile_cir
 
@@ -336,6 +654,8 @@ def plan(cir, result=None) -> Plan:
     if not result.ok:
         raise D.RenderRefused(f"{cir.slug} does not compile; nothing true to render")
     twins = _twins(cir, result)
+    if any(s.method in ("pick_up", "thread") for s in cir.assembly):
+        return _pockets(cir, result, twins)
     if all(c.construction == "flat_rows" for c in cir.components):
         return _planar(cir, result, twins)
     if any(c.resumes for c in cir.components):
@@ -361,7 +681,7 @@ def _draw_up(d, cir, p: Placed, palette, *, px, ox, oy) -> dict:
     left = ox + p.x0 * px
     bottom = oy - p.y0 * px
     out = D._draw_flat(d, cir, p.twin, palette, px=px, left=left, bottom=bottom,
-                       rows_window=(lo, hi))
+                       rows_window=(lo, hi), cols_window=p.cols)
     if p.fold:
         out["fold"] = _draw_flap(d, cir, p, palette, rows, tops, px=px, left=left, bottom=bottom)
     return out
@@ -411,12 +731,16 @@ def _draw_across(d, cir, p: Placed, palette, *, px, ox, oy) -> dict:
     for r in range(lo, hi + 1):
         xa = x_origin + tops.get(r - 1, 0.0) * px
         xb = x_origin + tops[r] * px
+        k = 0
         for c in rows[r]:
+            if p.cols and not p.cols[0] <= c.fabric_position <= p.cols[1]:
+                continue                     # behind: the far half of a flat band
             y_lo = bottom - c.fabric_position * w_cm * px
             y_hi = y_lo - w_cm * px
             # The stitch top faces the next row (to the right).
             D._tile(d, [(xb, y_hi), (xb, y_lo), (xa, y_lo), (xa, y_hi)], palette[c.color])
-        drawn.append({"row": r, "count": len(rows[r]), "colour": rows[r][0].color})
+            k += 1
+        drawn.append({"row": r, "count": k, "colour": rows[r][0].color})
     return {"rows": drawn, "width_cm": round(p.across, 3), "height_cm": round(p.up, 3)}
 
 
@@ -450,7 +774,8 @@ def _planar_view(cir, pl: Plan, palette, view: str):
         pieces.append({"piece": p.name, "grain": p.grain, "x0_cm": round(p.x0 - x0, 3),
                        "y0_cm": round(p.y0 - y0, 3), "across_cm": round(p.across, 3),
                        "up_cm": round(p.up, 3), "rows_shown": list(p.rows) if p.rows else None,
-                       "fold_rows": p.fold, "drawn": drawn})
+                       "fold_rows": p.fold, "band_flat": p.band or None,
+                       "stitches_shown": list(p.cols) if p.cols else None, "drawn": drawn})
     extra = []
     if view == "scale":
         top = bottom - H * px
@@ -607,7 +932,15 @@ def render(cir, view: str) -> D.RenderedFrame:
     if K.separation({k: v for k, v in palette.items() if k in used}) < K.MIN_SEPARATION:
         raise D.RenderRefused(f"{cir.slug}: palette too close to a contract colour to measure")
     body = next(p for p in pl.placed if p.name == pl.body)
-    if view == "detail":
+    if view == "detail" and pl.form == "pockets":
+        # A pocket's relief rounds laid flat, stitch for stitch (its tip's mixed increases
+        # are no named outline, so the single-piece renderer cannot draw the whole body).
+        img, d, px, drawn, extra = _pockets_view(cir, result, pl, palette, view)
+        drawn["px_per_cm"] = px
+        drawn["scale_bar"] = D._scale_bar(d, px)
+        drawn["caption"] = D._caption(d, extra)
+        form, version, construction = "assembled", ASSEMBLED_RENDERER_VERSION, cir.construction
+    elif view == "detail":
         # The body piece, stitch for stitch, through the single-piece renderer: the frame
         # the verifier measures against that piece of the certified CIR.
         shim = replace(cir, components=[body.comp] + [c for c in cir.components
@@ -623,6 +956,8 @@ def render(cir, view: str) -> D.RenderedFrame:
     else:
         if pl.form == "planar":
             img, d, px, drawn, extra = _planar_view(cir, pl, palette, view)
+        elif pl.form == "pockets":
+            img, d, px, drawn, extra = _pockets_view(cir, result, pl, palette, view)
         else:
             img, d, px, drawn, extra = _vessel_view(cir, result, pl, palette, view)
         drawn["px_per_cm"] = px
@@ -647,7 +982,8 @@ def render(cir, view: str) -> D.RenderedFrame:
                      "hidden": dict(pl.hidden), "not_drawn": dict(pl.not_drawn)},
         "stitch_counts": {p.name: sum(1 for _ in p.twin.cells) for p in pl.placed},
         "finished_dimensions_cm": (
-            {"width": twin.width_cm, "height": twin.height_cm} if view == "detail" else
+            {"width": twin.width_cm, "height": twin.height_cm}
+            if view == "detail" and pl.form != "pockets" else
             {"width": drawn["width_cm"], "height": drawn["height_cm"]}),
         "pieces": sum(c.make for c in cir.components),
         "layout": drawn, "disclosure": K.DISCLOSURE,
@@ -660,6 +996,9 @@ def render(cir, view: str) -> D.RenderedFrame:
 
 
 def _notes(pl: Plan, view: str) -> list[str]:
+    if view == "detail" and pl.form == "pockets":
+        return [f"the {pl.body}'s relief rounds and one plain round either side, front half "
+                f"laid flat, stitch for stitch"]
     if view == "detail":
         return [f"the {pl.body} piece alone, stitch for stitch"]
     out = ["pieces placed only by the CIR's named-edge joins, folds and resumed holds"]
@@ -670,6 +1009,13 @@ def _notes(pl: Plan, view: str) -> list[str]:
                    + ", ".join(sorted(pl.not_drawn)))
     if pl.form == "vessel_skirts":
         out.append("panels resumed from held stitches continue the body's wall")
+    if pl.form == "pockets":
+        out.append(f"each of the {pl.extra['copies']} pockets laid flat (the front half of "
+                   f"every round), hanging from its loop; the {pl.extra['thumb']} laid flat "
+                   f"straight out from its opening; the cord is not drawn")
     if any(p.fold for p in pl.placed):
         out.append("folded rows are drawn over the rows they lie on, upside down")
+    if any(p.band for p in pl.placed):
+        out.append("a closed band (first row sewn to last) lies flat: its front half is "
+                   "drawn, its back half is behind it")
     return out

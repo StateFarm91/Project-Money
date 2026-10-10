@@ -423,6 +423,15 @@ ENGINEERED: dict[str, str] = {
     "heirloom-cable-blanket": "brambleloop.products.texture:build_cable_throw",
     "bobble-floor-pillow": "brambleloop.products.texture:build_bobble_pillow",
     "chunky-ribbed-scarf": "brambleloop.products.texture:build_ribbed_scarf",
+    # W4-PIPE2: the moment-first creative candidates. A candidate that clears the taste gate
+    # (regate -> ENGINEERING -> `cir.draft`) builds its engineered CIR, never a prototype.
+    "reading-nook-cable-wrap": "brambleloop.products.moment_candidates:reading_nook_cable_wrap",
+    "mothers-day-heart-tea-cosy":
+        "brambleloop.products.moment_candidates:mothers_day_heart_tea_cosy",
+    "snowfall-advent-garland": "brambleloop.products.moment_candidates:snowfall_advent_garland",
+    "heart-row-ring-pillow": "brambleloop.products.moment_candidates:heart_row_ring_pillow",
+    "housewarming-key-basket": "brambleloop.products.moment_candidates:housewarming_key_basket",
+    "spring-garden-kneeler": "brambleloop.products.moment_candidates:spring_garden_kneeler",
 }
 
 
@@ -451,6 +460,52 @@ def _engineered_cir(slug: str, version: str | None = None) -> CIR | None:
     from ..products.builder import for_slug
 
     return for_slug(slug) if version is None else for_slug(slug, version)
+
+
+@handlers.register("creative.candidates_file")
+def handle_creative_candidates_file(ctx: JobContext) -> dict:
+    """File concept boards and taste-gate registrations for the engineered creative candidates.
+
+    W4-PIPE2 engineered the moment-first candidates and proved, on a scratch database, that
+    `creative.intake.regate_held` holds each at the taste gate once its board and its intake
+    row exist. Production's database had neither, so the gate never saw them. This job puts
+    them there, idempotently:
+
+    * a board is filed only when none is on file for the candidate's current version and
+      fingerprint (a re-engineered CIR gets a fresh board; an unchanged one does not);
+    * a candidate is registered only when no intake row exists for it -- the gate's own
+      verdict, never a judgement (only a vision judge bound to the board's bytes sets one).
+
+    GREEN: deterministic renders and audit rows. No model call, no spend, no publication.
+    """
+    from ..creative import intake
+    from ..products import moment_candidates as mc
+    from ..products.pipeline_board import CREATIVE_ENGINEERED
+
+    slugs = sorted(CREATIVE_ENGINEERED)
+    boards_filed, registered, unchanged = [], [], []
+    errors: dict[str, str] = {}
+    for slug in slugs:
+        try:
+            cir = mc.creative_cir(slug)
+            rec = mc.board_record(ctx.db, slug)
+            if rec is None or rec.get("version") != cir.version \
+                    or rec.get("fingerprint") != cir.fingerprint:
+                mc.file_board(ctx.db, cir)
+                boards_filed.append(slug)
+            if not intake.intake_rows(ctx.db, slug=slug, limit=1):
+                out = mc.register_for_taste_gate(ctx.db, slug)
+                if out.get("registered"):
+                    registered.append({"slug": slug, "decision": out.get("decision"),
+                                       "waiting_on": out.get("waiting_on")})
+                else:
+                    errors[slug] = str(out.get("why") or "not registered")[:240]
+            if slug not in boards_filed and not any(r["slug"] == slug for r in registered):
+                unchanged.append(slug)
+        except Exception as exc:  # noqa: BLE001 - one candidate never stops the others
+            errors[slug] = f"{type(exc).__name__}: {exc}"[:240]
+    return {"candidates": len(slugs), "boards_filed": boards_filed, "registered": registered,
+            "unchanged": unchanged, "errors": errors}
 
 
 @handlers.register("cir.draft")
@@ -535,7 +590,9 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         ctx.enqueue("validator", "cir.compile", compile_inputs,
                     idempotency_key=(f"compile:{engineered.slug}:{engineered.version}"
                                      f":{engineered.fingerprint}"))
-        return {"artifact": f"{engineered.slug}@{engineered.version}",
+        # W4-AUTO: `drafted` is the declared work key (WORK_KEYS); the success paths omitted
+        # it, so every CIR this department drafted was judged a no-op (Product & Design 0%).
+        return {"artifact": f"{engineered.slug}@{engineered.version}", "drafted": True,
                 "rows": len(engineered.components[0].rows), "engineered": True}
 
     i = ctx.job.inputs
@@ -569,7 +626,8 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                                                if cir.provenance is not None else None)})
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
-    return {"artifact": f"{cir.slug}@{cir.version}", "rows": len(cir.components[0].rows)}
+    return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
+            "rows": len(cir.components[0].rows)}
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -2275,6 +2333,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.outcome_learning": ("concepts_with_outcomes",),
     "creative.style_learning": ("measured_styles", "promoted"),
     "creative.white_space": ("hypotheses", "complaints"),
+    "creative.candidates_file": ("boards_filed", "registered"),
     "culture.sweep": ("recorded", "discovered", "placed", "routed", "demand_points"),
     "etsy.credential_health": ("findings",),
     "etsy.probe": ("ok",),
@@ -2287,7 +2346,12 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "finance.governor": ("paused", "incidents", "agents_spiking", "ceilings_changed"),
     "finance.reconcile": ("pl.gross_sales_cad", "pl.net_sales_cad", "pl.refunds_cad",
                           "pl.platform_fees_cad"),
-    "gate.certify": ("granted",),
+    # W4-AUTO: a refusal with deterministic reasons is Product Truth doing its job (a defective
+    # release blocked), not a no-op; repeats of the same refusal dedupe by fingerprint.
+    "gate.certify": ("granted", "reasons"),
+    # W4-AUTO: launch.plan was undeclared, so the generic counters never saw the dated plan
+    # (and the publish/marketing hand-off) it produces for each certified release.
+    "launch.plan": ("launch_on", "held", "withheld"),
     "gate.lanes": ("release_refused", "withdrawn", "testers_assigned"),
     "growth.conclude": ("concluded", "killed"),
     "growth.distribution": ("pins_ready", "pins_amplified", "clusters_buildable",
@@ -2372,13 +2436,21 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "creative.tournament": ("proposed", "survivors", "judged", "generated"),
     "etsy.listing_census": ("observed",),
     "etsy.shop_snapshot": ("failures", "incidents_opened"),
+    # F-514: drift in a classified surface is work; a CURRENT re-verification is an honest
+    # no-op (the audit row still records it).
+    "etsy.openapi_reverify": ("affected",),
+    # W4-STORE: live-vs-canonical drift read-back (stored readings only, writes_performed 0).
+    "store.live_drift": ("findings", "proposals", "incidents_opened"),
     "improve.replay": ("runs", "challengers_registered", "proposed", "retired"),
     "intel.gallery_analysis": ("judged",),
     "intel.serp_capture": ("captured",),
     "listing.search_visibility_watch": ("read_today", "card_raised"),
     "listing.taxonomy_refresh": ("new_snapshot",),
     "mjs.reviews": ("reviews_read",),
-    "mjs.scan": ("new", "reclassified", "inspected", "learning_domains"),
+    # W4-MJS: findings synthesis counts only when a finding changed since the previous day's
+    # `mjs.findings` reading (`findings.changed`); a re-publish of the same digest, or the
+    # `{"error": ...}` a failed synthesis records, is not work.
+    "mjs.scan": ("new", "reclassified", "inspected", "learning_domains", "findings.changed"),
     "ops.retention": ("removed",),
     "plan.strategy": (),
     "seasonal.cycle_proof": ("complete", "assets_state"),

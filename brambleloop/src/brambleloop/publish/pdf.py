@@ -713,7 +713,7 @@ def childrens_statements(cir: CIR, twin: TwinModel,
 
 
 _SEAM_WORDS = {"whipstitch": "whipstitch", "slst": "slip-stitch", "mattress": "mattress-stitch",
-               "sew": "sew"}
+               "sew": "sew", "pick_up": "work", "thread": "thread"}
 
 
 def _piece(name: str) -> str:
@@ -756,14 +756,19 @@ def construction_overview(cir: CIR) -> list[str] | None:
         method = _SEAM_WORDS.get(seam.method, seam.method)
         a, b = _piece(seam.piece_a), _piece(seam.piece_b)
         if seam.names_its_edges:
-            what = (f"{method} the {a}'s {seam.edge_a} edge to "
+            from ..cir.model import SEAM_CONNECTOR
+
+            what = (f"{method} the {a}'s {seam.edge_a} edge "
+                    f"{SEAM_CONNECTOR.get(seam.method, 'to')} "
                     + (f"its own {seam.edge_b} edge" if seam.is_self_seam
                        else f"the {b}'s {seam.edge_b}"
                        + ("" if seam.edge_b == "opening" else " edge")))
         elif seam.is_self_seam:
             what = f"{method} the {a} to itself"
         else:
-            what = f"{method} the {a} to the {b}"
+            from ..cir.model import SEAM_CONNECTOR
+
+            what = f"{method} the {a} {SEAM_CONNECTOR.get(seam.method, 'to')} the {b}"
         if seam.at_round is not None:
             target = next((c for c in cir.components if c.name == seam.piece_b), None)
             unit = ("row" if target is not None and "rows" in target.construction

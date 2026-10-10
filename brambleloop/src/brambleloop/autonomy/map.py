@@ -210,6 +210,7 @@ def broken_links() -> list[dict]:
 def build(db=None, *, now: datetime | None = None) -> dict:
     """The full map. With a database, next wake and blockers are read from it."""
     from . import charters
+    from . import status as status_mod
     from .orchestrator import _agent_for
 
     now = now or datetime.now(timezone.utc)
@@ -285,7 +286,7 @@ def build(db=None, *, now: datetime | None = None) -> dict:
             "improvement_path": "lessons -> learn (improve.mine / improve.retrospective) -> "
                                 "improvements (sandbox/league/promotion monitor)",
             "next_wake": st.get("next_wake"),
-            "blockers": st.get("blockers", [{"kind": "owner_gate", "gate": g}
+            "blockers": st.get("blockers", [status_mod.gate_blocker(g)
                                             for g in ch.gates]),
             "never_woken_job_types": never_woken,
             "owner_one_shots": {jt: OWNER_ONE_SHOTS[jt] for jt in executable

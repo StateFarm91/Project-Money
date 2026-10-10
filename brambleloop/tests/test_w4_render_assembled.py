@@ -45,14 +45,33 @@ def test_stocking():
     assert frames, "no frames"
     a = frames["hero"].manifest["assembly"]
     check("stocking_front_pieces_drawn",
-          set(a["drawn"]) == {"leg_front", "foot_front", "toe_front", "cuff"}, a["drawn"])
+          set(a["drawn"]) == {"leg_front", "foot_front", "toe_front", "cuff", "loop"},
+          a["drawn"])
     check("stocking_back_layer_hidden_as_mirror",
           set(a["hidden"]) == {"leg_back", "foot_back", "toe_back"}, a["hidden"])
-    check("stocking_loop_not_drawn_with_reason", "loop" in a["not_drawn"]
-          and "fold" in a["not_drawn"]["loop"], a["not_drawn"])
-    cuff = next(p for p in frames["hero"].manifest["layout"]["pieces"] if p["piece"] == "cuff")
+    check("stocking_nothing_left_undrawn", not a["not_drawn"], a["not_drawn"])
+    pieces = {p["piece"]: p for p in frames["hero"].manifest["layout"]["pieces"]}
+    cuff = pieces["cuff"]
     check("stocking_cuff_ring_shows_front_rows_only", cuff["rows_shown"] == [1, 26],
           cuff["rows_shown"])
+    # W4-CAND: the loop's ends are a structured self-seam (a band along its stitches), so it
+    # lies flat at half its chain, on the cuff's top edge over cuff rows 1-2 (the back seam).
+    loop_c = next(c for c in cir.components if c.name == "loop")
+    w_cm = 10.0 / cir.gauge.stitches_per_10cm
+    loop = pieces["loop"]
+    check("stocking_loop_ends_joined_by_structure",
+          any(s.piece_a == s.piece_b == "loop" and {s.edge_a, s.edge_b} == {"top", "bottom"}
+              for s in cir.assembly) and loop_c.foundation % 2 == 0)
+    check("stocking_loop_lies_flat_at_half_its_chain",
+          loop["band_flat"] == "stitches"
+          and loop["stitches_shown"] == [0, loop_c.foundation // 2 - 1]
+          and abs(loop["up_cm"] - loop_c.foundation // 2 * w_cm) < 1e-6, loop)
+    check("stocking_loop_on_cuff_top_at_back_seam",
+          abs(loop["y0_cm"] - (cuff["y0_cm"] + cuff["up_cm"])) < 1e-6
+          and abs(loop["x0_cm"] - cuff["x0_cm"]) < 1e-6, (loop, cuff))
+    check("stocking_no_join_note_folds_unstructured",
+          not any("fold" in (s.note or "").lower() for s in cir.assembly
+                  if "loop" in (s.piece_a, s.piece_b)))
     m = frames["hero"].manifest
     check("assembled_frame_is_disclosed_and_versioned",
           m["disclosure"] == D.K.DISCLOSURE and m["renderer_version"].startswith(
@@ -90,8 +109,12 @@ def test_cosy():
 
 
 def test_refusals():
-    why = _refused(mc.snowfall_advent_garland())
-    check("garland_refused_pieces_not_placeable", "round pieces" in why, why)
+    # W4-CAND: the garland's thumb and cord are structured joins now, so it is drawn (see
+    # tests/test_w4_cand_garland.py); a garland whose cord join is removed is refused again.
+    g = mc.snowfall_advent_garland()
+    loose = replace(g, assembly=[s for s in g.assembly if s.method != "thread"])
+    why = _refused(loose)
+    check("garland_without_threaded_cord_refused", "cord" in why, why)
     roll = pb.pencil_roll_cir()
     hero = D.render(roll, "hero")
     panel = next(p for p in hero.manifest["layout"]["pieces"] if p["piece"] == "panel")
@@ -99,12 +122,47 @@ def test_refusals():
         roll, __import__("brambleloop.cir.compiler", fromlist=["compile_cir"]).compile_cir(roll),
         component="panel").row_top_cm
     k = panel["fold_rows"]
-    check("pencil_roll_pocket_fold_from_self_seams", k == 11
-          and panel["drawn"]["fold"]["fold_rows"] == 11, panel["fold_rows"])
+    seam_k = next(s.spans_rounds for s in roll.assembly
+                  if s.piece_a == s.piece_b == "panel" and s.edge_a == "left")
+    check("pencil_roll_pocket_fold_from_self_seams", k == seam_k
+          and panel["drawn"]["fold"]["fold_rows"] == k
+          and abs(tops[k] - pb.POCKET_CM) <= min(abs(tops[j] - pb.POCKET_CM) for j in tops),
+          (panel["fold_rows"], tops.get(k)))
     check("pencil_roll_height_is_rows_above_the_fold",
           abs(panel["up_cm"] - (tops[max(tops)] - tops[k])) < 1e-6, panel["up_cm"])
-    check("pencil_roll_tie_placed_by_its_seam",
-          hero.manifest["assembly"]["drawn"] == ["panel", "tie"])
+    check("pencil_roll_holds_a_pencil_above_the_fold",
+          panel["up_cm"] >= pb.PENCIL_CM + pb.ABOVE_PENCIL_CM, panel["up_cm"])
+    # W4-CAND: the closure is a closed band laid flat by its seam, just above the pocket.
+    band = next(p for p in hero.manifest["layout"]["pieces"] if p["piece"] == "band")
+    btw = __import__("brambleloop.cir.twin", fromlist=["build_twin"]).build_twin(
+        roll, __import__("brambleloop.cir.compiler", fromlist=["compile_cir"]).compile_cir(roll),
+        component="band")
+    m = len(next(c for c in roll.components if c.name == "band").rows)
+    check("pencil_roll_band_placed_by_its_seam",
+          hero.manifest["assembly"]["drawn"] == ["panel", "band"]
+          and not hero.manifest["assembly"]["not_drawn"])
+    check("pencil_roll_band_lies_flat_at_half_its_length",
+          band["band_flat"] and band["rows_shown"] == [1, m // 2] and m % 2 == 0
+          and abs(band["across_cm"] - btw.row_top_cm[m // 2]) < 1e-6, band)
+    at = next(s.at_round for s in roll.assembly if (s.piece_a, s.piece_b) == ("band", "panel"))
+    check("pencil_roll_band_above_the_pocket_as_its_note_says",
+          at == 2 * k + 1 and abs(band["y0_cm"] - (tops[2 * k] - tops[k])) < 1e-3
+          and f"rows {at}-" in next(s.note for s in roll.assembly
+                                    if (s.piece_a, s.piece_b) == ("band", "panel")),
+          (at, band["y0_cm"]))
+    check("pencil_roll_flat_footprint_compact",
+          hero.manifest["layout"]["width_cm"] < 1.5 * panel["across_cm"],
+          hero.manifest["layout"]["width_cm"])
+    from brambleloop.visual import render_contract as K
+    pal = D._palette(roll)
+    check("pencil_roll_palette_clears_contract_separation",
+          K.separation(pal) >= K.MIN_SEPARATION
+          and all(K._dist(v, K.relief(v)) >= K.MIN_SEPARATION for v in pal.values()),
+          K.separation(pal))
+    odd = replace(roll, components=[roll.components[0], replace(
+        roll.components[1], rows=roll.components[1].rows[:-1])])
+    why = _refused(odd)
+    check("odd_row_band_not_drawn_flat", "band" in why and "inside a row" in why, why)
     cir = pb.stocking_cir()
     seams = [replace(s, edge_b="left") if (s.piece_a, s.piece_b) == ("leg_front", "foot_front")
              else s for s in cir.assembly]

@@ -412,7 +412,13 @@ class Component:
                              f"of {FEATURES}")
 
 
-SeamMethod = Literal["whipstitch", "slst", "mattress", "sew"]
+# "pick_up": the first round of piece_a is worked into piece_b (an afterthought thumb into its
+# opening) -- a join with a length on both sides, made by crocheting rather than sewing.
+# "thread": piece_a is passed through piece_b (a cord through closed loops); nothing is sewn,
+# and what is checked is that it fits through (W4-CAND).
+SeamMethod = Literal["whipstitch", "slst", "mattress", "sew", "pick_up", "thread"]
+# The joining word each method's sentence uses between its two pieces.
+SEAM_CONNECTOR = {"pick_up": "into", "thread": "through"}
 
 
 @dataclass
