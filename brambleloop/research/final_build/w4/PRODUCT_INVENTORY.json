@@ -68,10 +68,7 @@
     "slug": "autumn-oak-mosaic-throw",
     "source": "chain",
     "release": null,
-    "jobs": [
-     "cir.draft:done",
-     "radar.score:done"
-    ]
+    "jobs": []
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -95,13 +92,13 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
      "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "the shadow plan.cycle never drafted this product (jobs: ['cir.draft:done', 'radar.score:done'])",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
      "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     },
     {
@@ -114,15 +111,15 @@
      "gate": "production_imagery",
      "clearer": "COMPANY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no imagery route outside Launch-0"
+     "action": "no usable imagery route for this product in this code yet"
     }
    ],
    "owner_action_required": [],
    "shortest_path": [
     "[company] gauge_truth: re-engineer from the declared yarn band (builder._derive_from_yarn) under a new version, or retire the design",
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
-    "[company] production_imagery: no imagery route outside Launch-0",
+    "[company] production_imagery: no usable imagery route for this product in this code yet",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
@@ -213,8 +210,8 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
      "gate": "not_built_by_planner",
@@ -227,7 +224,7 @@
     "physical_calibration"
    ],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[owner] physical_calibration: a pattern tester works one sample of the new stitch (tester_roster outreach); owner parked self-crocheting on 2026-09-20",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
@@ -314,8 +311,8 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
      "gate": "not_built_by_planner",
@@ -328,7 +325,7 @@
     "physical_calibration"
    ],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[owner] physical_calibration: a pattern tester works one sample of the new stitch (tester_roster outreach); owner parked self-crocheting on 2026-09-20",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
@@ -405,7 +402,7 @@
      "release_hash": "7c63dbdd501f"
     },
     "listing": {
-     "id": 3,
+     "id": 1,
      "version": "1.2.0",
      "state": "draft",
      "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
@@ -427,6 +424,7 @@
      "frames": 3,
      "launch_blocked": []
     },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
@@ -492,7 +490,7 @@
      "gate": "production_imagery",
      "clearer": "DEPLOY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "deploy (Launch-0 disclosed renders exist in this code)"
+     "action": "deploy (verified disclosed renders exist in this code)"
     }
    ],
    "owner_action_required": [
@@ -501,7 +499,7 @@
    ],
    "shortest_path": [
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
-    "[deploy] production_imagery: deploy (Launch-0 disclosed renders exist in this code)",
+    "[deploy] production_imagery: deploy (verified disclosed renders exist in this code)",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
@@ -585,8 +583,8 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
      "gate": "not_built_by_planner",
@@ -597,7 +595,7 @@
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
@@ -667,8 +665,56 @@
    "chain": {
     "slug": "harvest-table-runner",
     "source": "chain",
-    "release": null,
-    "jobs": []
+    "release": {
+     "version": "1.2.0",
+     "certified": true,
+     "release_hash": "179cb1277bec"
+    },
+    "listing": {
+     "id": 9,
+     "version": "1.2.0",
+     "state": "draft",
+     "title": "Harvest Table Runner | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+     "tags": 13,
+     "price_cad": 6.94,
+     "on_etsy": false
+    },
+    "store_publish": {
+     "status": "dead",
+     "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
+     "outputs": {}
+    },
+    "publish_refusal": null,
+    "imagery": {
+     "kind": "disclosed_render",
+     "made": true,
+     "usable": false,
+     "version": "1.2.0",
+     "frames": 3,
+     "launch_blocked": [
+      "hero: 340 px legibility ['the product fills 13% of the frame at 340 px']",
+      "scale: 340 px legibility ['the product fills 14% of the frame at 340 px']"
+     ]
+    },
+    "positioning": "evergreen",
+    "publish_verdict": {
+     "blocks_release": true,
+     "reasons": [
+      "disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']",
+      "listing-set certificate (#70): no disclosed-set certificate is issued while any precondition or gate above fails",
+      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+      "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+      "search certificate (F-004) hero: frame 1 is not export-ready: disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']; listing-set certificate (#70): no"
+     ],
+     "search": "REFUSED"
+    },
+    "render_authority": true,
+    "reserve_first_customer": [
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (179cb1277bec); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: imagery: FAIL -- a disclosed set is on file for this release and is not usable: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame a",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -684,16 +730,64 @@
    },
    "blockers": [
     {
-     "gate": "outside_launch_scope",
+     "gate": "listing_imagery",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "no usable listing imagery on the chain DB: {'kind': 'disclosed_render', 'made': True, 'usable': False, 'version': '1.2.0', 'frames': 3, 'launch_blocked': [\"hero: 340 px legibility ['the product fills 13% of the frame at 340 px']\", \"scale: 340 px legibility ['the product fills 14% of the frame at 340 px']\"]}",
+     "action": "re-run assets.build"
     },
     {
-     "gate": "not_built_by_planner",
+     "gate": "search_hero",
      "clearer": "COMPANY",
-     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
-     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
+     "evidence": "disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']",
+     "action": "frame 1 must pass all four gates"
+    },
+    {
+     "gate": "listing_set_certificate",
+     "clearer": "COMPANY",
+     "evidence": "listing-set certificate (#70): no disclosed-set certificate is issued while any precondition or gate above fails",
+     "action": "issue the listing-set certificate once the frame gates pass"
+    },
+    {
+     "gate": "etsy_taxonomy_snapshot",
+     "clearer": "EXTERNAL",
+     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "action": "listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed"
+    },
+    {
+     "gate": "etsy_taxonomy_snapshot",
+     "clearer": "EXTERNAL",
+     "evidence": "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "action": "follows the taxonomy snapshot"
+    },
+    {
+     "gate": "listing_set_certificate",
+     "clearer": "COMPANY",
+     "evidence": "search certificate (F-004) hero: frame 1 is not export-ready: disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']; listing-set certificate (#70): no",
+     "action": "issue the listing-set certificate once the frame gates pass"
+    },
+    {
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (179cb1277bec); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "action": "a pattern tester works this content (tester_roster); owner parked self-crocheting"
+    },
+    {
+     "gate": "search_hero",
+     "clearer": "COMPANY",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: imagery: FAIL -- a disclosed set is on file for this release and is not usable: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame a",
+     "action": "frame 1 must pass all four gates"
+    },
+    {
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "action": "first authorised Etsy draft confirms image upload / remote state"
+    },
+    {
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de",
+     "action": "owner approves object storage (CA$1-5/month, existing ceiling)"
     },
     {
      "gate": "production_stale",
@@ -705,15 +799,26 @@
      "gate": "production_imagery",
      "clearer": "COMPANY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no imagery route outside Launch-0"
+     "action": "no usable imagery route for this product in this code yet"
     }
    ],
-   "owner_action_required": [],
+   "owner_action_required": [
+    "durable_artifact_storage",
+    "physical_sample"
+   ],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
-    "[company] production_imagery: no imagery route outside Launch-0",
+    "[company] listing_imagery: re-run assets.build",
+    "[company] search_hero: frame 1 must pass all four gates",
+    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
+    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
+    "[company] search_hero: frame 1 must pass all four gates",
+    "[company] production_imagery: no usable imagery route for this product in this code yet",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
+    "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
+    "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
+    "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
+    "[external] etsy_remote_confirmation: first authorised Etsy draft confirms image upload / remote state",
+    "[owner] durable_artifact_storage: owner approves object storage (CA$1-5/month, existing ceiling)",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -786,10 +891,7 @@
     "slug": "heirloom-cable-blanket",
     "source": "chain",
     "release": null,
-    "jobs": [
-     "cir.draft:done",
-     "radar.score:done"
-    ]
+    "jobs": []
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -813,13 +915,13 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
      "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "the shadow plan.cycle never drafted this product (jobs: ['cir.draft:done', 'radar.score:done'])",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
      "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     },
     {
@@ -833,7 +935,7 @@
     "physical_calibration"
    ],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
     "[owner] physical_calibration: a pattern tester works one sample of the new stitch (tester_roster outreach); owner parked self-crocheting on 2026-09-20",
@@ -913,7 +1015,7 @@
      "release_hash": "3754ed17a63b"
     },
     "listing": {
-     "id": 10,
+     "id": 2,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
@@ -935,6 +1037,7 @@
      "frames": 3,
      "launch_blocked": []
     },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
@@ -1108,7 +1211,7 @@
      "release_hash": "cc698c1b1498"
     },
     "listing": {
-     "id": 6,
+     "id": 8,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
@@ -1130,6 +1233,7 @@
      "frames": 3,
      "launch_blocked": []
     },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
@@ -1259,7 +1363,7 @@
      "release_hash": "00182234041c"
     },
     "listing": {
-     "id": 5,
+     "id": 7,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
@@ -1281,6 +1385,7 @@
      "frames": 3,
      "launch_blocked": []
     },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
@@ -1410,7 +1515,7 @@
      "release_hash": "1ddde587f537"
     },
     "listing": {
-     "id": 4,
+     "id": 6,
      "version": "1.2.0",
      "state": "draft",
      "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
@@ -1432,6 +1537,7 @@
      "frames": 3,
      "launch_blocked": []
     },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
@@ -1622,8 +1728,8 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
      "gate": "not_built_by_planner",
@@ -1641,14 +1747,14 @@
      "gate": "production_imagery",
      "clearer": "COMPANY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no imagery route outside Launch-0"
+     "action": "no usable imagery route for this product in this code yet"
     }
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
-    "[company] production_imagery: no imagery route outside Launch-0",
+    "[company] production_imagery: no usable imagery route for this product in this code yet",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
@@ -1759,30 +1865,8 @@
    "chain": {
     "slug": "nordic-forest-mosaic-throw",
     "source": "chain",
-    "release": {
-     "version": "1.3.0",
-     "certified": true,
-     "release_hash": "396f7cccc0f4"
-    },
-    "listing": null,
-    "store_publish": null,
-    "publish_refusal": null,
-    "imagery": null,
-    "publish_verdict": {
-     "blocks_release": true,
-     "reasons": [
-      "mobile QA (#66): 4 context(s) not rendered; 4 with a problem; first three ok",
-      "gallery minimum quality (#80): remove frames [1, 2, 3, 4, 5, 6, 7]",
-      "four-gate export (#58): 7 frame(s) may not export -- 1: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired; 2: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wire",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-      "search certificate (F-004): no drafted listing row to certify",
-      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "search certificate (F-004) copy: TITLE_FRONT_SCAN_DIFFERENTIATOR: 'Christmas' is not in the first 60 characters",
-      "search certificate (F-004) hero: frame 1 is not export-ready: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired up is the commonest way an unchecked asset reaches a customer"
-     ],
-     "search": "REFUSED"
-    }
+    "release": null,
+    "jobs": []
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -1800,62 +1884,14 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
-     "gate": "listing_imagery_qa",
+     "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 4 context(s) not rendered; 4 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "publish_gate",
-     "clearer": "COMPANY",
-     "evidence": "gallery minimum quality (#80): remove frames [1, 2, 3, 4, 5, 6, 7]",
-     "action": "clear the named gate"
-    },
-    {
-     "gate": "publish_gate",
-     "clearer": "COMPANY",
-     "evidence": "four-gate export (#58): 7 frame(s) may not export -- 1: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired; 2: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wire",
-     "action": "clear the named gate"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
-     "gate": "search_certificate",
-     "clearer": "COMPANY",
-     "evidence": "search certificate (F-004): no drafted listing row to certify",
-     "action": "re-run listing.seo"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-     "action": "listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-     "action": "follows the taxonomy snapshot"
-    },
-    {
-     "gate": "search_certificate",
-     "clearer": "COMPANY",
-     "evidence": "search certificate (F-004) copy: TITLE_FRONT_SCAN_DIFFERENTIATOR: 'Christmas' is not in the first 60 characters",
-     "action": "re-run listing.seo"
-    },
-    {
-     "gate": "search_hero",
-     "clearer": "COMPANY",
-     "evidence": "search certificate (F-004) hero: frame 1 is not export-ready: never ran: COMMERCIAL_QA. A gate that did not run has not passed, and a listing exported because a check was never wired up is the commonest way an unchecked asset reaches a customer",
-     "action": "frame 1 must pass all four gates"
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     },
     {
      "gate": "production_stale",
@@ -1866,17 +1902,9 @@
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] publish_gate: clear the named gate",
-    "[company] publish_gate: clear the named gate",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] search_certificate: re-run listing.seo",
-    "[company] search_certificate: re-run listing.seo",
-    "[company] search_hero: frame 1 must pass all four gates",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
-    "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
-    "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -1953,7 +1981,7 @@
      "release_hash": "18c6e64fa4c5"
     },
     "listing": {
-     "id": 8,
+     "id": 3,
      "version": "1.4.0",
      "state": "draft",
      "title": "Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US and UK Terms",
@@ -1975,6 +2003,7 @@
      "frames": 3,
      "launch_blocked": []
     },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
@@ -2040,7 +2069,7 @@
      "gate": "production_imagery",
      "clearer": "DEPLOY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "deploy (Launch-0 disclosed renders exist in this code)"
+     "action": "deploy (verified disclosed renders exist in this code)"
     }
    ],
    "owner_action_required": [
@@ -2049,7 +2078,7 @@
    ],
    "shortest_path": [
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
-    "[deploy] production_imagery: deploy (Launch-0 disclosed renders exist in this code)",
+    "[deploy] production_imagery: deploy (verified disclosed renders exist in this code)",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
@@ -2060,7 +2089,7 @@
   },
   {
    "slug": "pet-snuggle-mat",
-   "status": "COMPANY_WORK",
+   "status": "OWNER_AND_DEPLOY_GATED",
    "static": {
     "slug": "pet-snuggle-mat",
     "source": "static",
@@ -2129,7 +2158,7 @@
      "release_hash": "5dccca80a6ab"
     },
     "listing": {
-     "id": 9,
+     "id": 5,
      "version": "1.2.0",
      "state": "draft",
      "title": "Pet Snuggle Mat | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
@@ -2143,17 +2172,29 @@
      "outputs": {}
     },
     "publish_refusal": null,
-    "imagery": null,
+    "imagery": {
+     "kind": "disclosed_render",
+     "made": true,
+     "usable": true,
+     "version": "1.2.0",
+     "frames": 3,
+     "launch_blocked": []
+    },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
       "search certificate (F-004) attributes: no category, so no property schema to be complete against"
      ],
      "search": "REFUSED"
-    }
+    },
+    "render_authority": true,
+    "reserve_first_customer": [
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5dccca80a6ab); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -2169,24 +2210,6 @@
    },
    "blockers": [
     {
-     "gate": "outside_launch_scope",
-     "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
-    },
-    {
-     "gate": "listing_imagery_qa",
-     "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
      "gate": "etsy_taxonomy_snapshot",
      "clearer": "EXTERNAL",
      "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
@@ -2199,6 +2222,24 @@
      "action": "follows the taxonomy snapshot"
     },
     {
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5dccca80a6ab); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "action": "a pattern tester works this content (tester_roster); owner parked self-crocheting"
+    },
+    {
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "action": "first authorised Etsy draft confirms image upload / remote state"
+    },
+    {
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de",
+     "action": "owner approves object storage (CA$1-5/month, existing ceiling)"
+    },
+    {
      "gate": "production_stale",
      "clearer": "DEPLOY",
      "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.2.0",
@@ -2206,20 +2247,23 @@
     },
     {
      "gate": "production_imagery",
-     "clearer": "COMPANY",
+     "clearer": "DEPLOY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no imagery route outside Launch-0"
+     "action": "deploy (verified disclosed renders exist in this code)"
     }
    ],
-   "owner_action_required": [],
+   "owner_action_required": [
+    "durable_artifact_storage",
+    "physical_sample"
+   ],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] production_imagery: no imagery route outside Launch-0",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
+    "[deploy] production_imagery: deploy (verified disclosed renders exist in this code)",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
+    "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
+    "[external] etsy_remote_confirmation: first authorised Etsy draft confirms image upload / remote state",
+    "[owner] durable_artifact_storage: owner approves object storage (CA$1-5/month, existing ceiling)",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -2290,38 +2334,8 @@
    "chain": {
     "slug": "pressed-flower-motifs",
     "source": "chain",
-    "release": {
-     "version": "1.3.0",
-     "certified": true,
-     "release_hash": "d5d9cbcb66cb"
-    },
-    "listing": {
-     "id": 7,
-     "version": "1.3.0",
-     "state": "draft",
-     "title": "Heart Applique Motif Library (12) | Crochet Pattern PDF | Pressed Flower | US and UK Terms",
-     "tags": 13,
-     "price_cad": 4.83,
-     "on_etsy": false
-    },
-    "store_publish": {
-     "status": "dead",
-     "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
-     "outputs": {}
-    },
-    "publish_refusal": null,
-    "imagery": null,
-    "publish_verdict": {
-     "blocks_release": true,
-     "reasons": [
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "NAME_OUTRUNS_PATTERN: pressed-flower-motifs@1.3.0: the name promises what the pattern does not make -- imagery: the listing promises ['flower']; the heart-row motif does not depict it"
-     ],
-     "search": "REFUSED"
-    }
+    "release": null,
+    "jobs": []
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -2339,38 +2353,14 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
-     "gate": "listing_imagery_qa",
+     "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-     "action": "listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-     "action": "follows the taxonomy snapshot"
-    },
-    {
-     "gate": "name_truth",
-     "clearer": "COMPANY",
-     "evidence": "NAME_OUTRUNS_PATTERN: pressed-flower-motifs@1.3.0: the name promises what the pattern does not make -- imagery: the listing promises ['flower']; the heart-row motif does not depict it",
-     "action": "rename to what the pattern makes or change the CIR (new version)"
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     },
     {
      "gate": "production_stale",
@@ -2382,19 +2372,15 @@
      "gate": "production_imagery",
      "clearer": "COMPANY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no imagery route outside Launch-0"
+     "action": "no usable imagery route for this product in this code yet"
     }
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] name_truth: rename to what the pattern makes or change the CIR (new version)",
-    "[company] production_imagery: no imagery route outside Launch-0",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
+    "[company] production_imagery: no usable imagery route for this product in this code yet",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
-    "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
-    "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -2470,38 +2456,8 @@
    "chain": {
     "slug": "spooky-garland",
     "source": "chain",
-    "release": {
-     "version": "1.3.0",
-     "certified": true,
-     "release_hash": "0e9ae7024dbd"
-    },
-    "listing": {
-     "id": 2,
-     "version": "1.3.0",
-     "state": "withdrawn",
-     "title": "Spooky Bunting Garland | Crochet Pattern PDF | Seasonal Decor | US and UK Terms",
-     "tags": 13,
-     "price_cad": 5.23,
-     "on_etsy": false
-    },
-    "store_publish": {
-     "status": "dead",
-     "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
-     "outputs": {}
-    },
-    "publish_refusal": null,
-    "imagery": null,
-    "publish_verdict": {
-     "blocks_release": true,
-     "reasons": [
-      "missed window (#297): pivot_to_evergreen -- too late for a customer to buy, receive and finish this before the event; it is small enough to stand on its own without the seasonal premise, so re-merchandise it as evergreen",
-      "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-      "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
-     ],
-     "search": "REFUSED"
-    }
+    "release": null,
+    "jobs": []
    },
    "production": {
     "observed": "production fcb982d public /api/catalogue, 2026-10-06",
@@ -2519,38 +2475,14 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
-     "gate": "seasonal_window",
+     "gate": "not_built_by_planner",
      "clearer": "COMPANY",
-     "evidence": "missed window (#297): pivot_to_evergreen -- too late for a customer to buy, receive and finish this before the event; it is small enough to stand on its own without the seasonal premise, so re-merchandise it as evergreen",
-     "action": "reschedule to the next buying window"
-    },
-    {
-     "gate": "listing_imagery_qa",
-     "clearer": "COMPANY",
-     "evidence": "mobile QA (#66): 0 context(s) not rendered; 3 with a problem; first three ok",
-     "action": "repair the frames the mobile QA flags"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no valid certificate covers these frames, and one is not issued while any gate above is failing or has not run",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-     "action": "listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed"
-    },
-    {
-     "gate": "etsy_taxonomy_snapshot",
-     "clearer": "EXTERNAL",
-     "evidence": "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-     "action": "follows the taxonomy snapshot"
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
     },
     {
      "gate": "production_stale",
@@ -2562,19 +2494,15 @@
      "gate": "production_imagery",
      "clearer": "COMPANY",
      "evidence": "production asset-coverage: unusable",
-     "action": "no imagery route outside Launch-0"
+     "action": "no usable imagery route for this product in this code yet"
     }
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
-    "[company] seasonal_window: reschedule to the next buying window",
-    "[company] listing_imagery_qa: repair the frames the mobile QA flags",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] production_imagery: no imagery route outside Launch-0",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
+    "[company] production_imagery: no usable imagery route for this product in this code yet",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
-    "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
-    "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -2668,8 +2596,8 @@
     {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
-     "evidence": "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no first-customer review; counts toward catalogue depth only if re-certified under the current gauge standard",
-     "action": "promote into Launch-0 (cap 5 products) or wait for a qualified photograph"
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
     },
     {
      "gate": "not_built_by_planner",
@@ -2687,14 +2615,14 @@
      "gate": "production_imagery",
      "clearer": "COMPANY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no imagery route outside Launch-0"
+     "action": "no usable imagery route for this product in this code yet"
     }
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] outside_launch_scope: promote into Launch-0 (cap 5 products) or wait for a qualified photograph",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
-    "[company] production_imagery: no imagery route outside Launch-0",
+    "[company] production_imagery: no usable imagery route for this product in this code yet",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
@@ -2770,7 +2698,7 @@
      "release_hash": "b41e0430fe3d"
     },
     "listing": {
-     "id": 1,
+     "id": 4,
      "version": "1.3.0",
      "state": "draft",
      "title": "Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket | US and UK Terms",
@@ -2792,6 +2720,7 @@
      "frames": 3,
      "launch_blocked": []
     },
+    "positioning": "seasonal",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
@@ -2857,7 +2786,7 @@
      "gate": "production_imagery",
      "clearer": "DEPLOY",
      "evidence": "production asset-coverage: unusable",
-     "action": "deploy (Launch-0 disclosed renders exist in this code)"
+     "action": "deploy (verified disclosed renders exist in this code)"
     }
    ],
    "owner_action_required": [
@@ -2866,7 +2795,7 @@
    ],
    "shortest_path": [
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
-    "[deploy] production_imagery: deploy (Launch-0 disclosed renders exist in this code)",
+    "[deploy] production_imagery: deploy (verified disclosed renders exist in this code)",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
@@ -2877,8 +2806,8 @@
   }
  ],
  "counts": {
-  "COMPANY_WORK": 12,
-  "OWNER_AND_DEPLOY_GATED": 7,
+  "COMPANY_WORK": 11,
+  "OWNER_AND_DEPLOY_GATED": 8,
   "RETIRE": 2,
   "NO_CIR": 1
  },
@@ -2936,8 +2865,8 @@
   "DATA",
   "DEPLOY"
  ],
- "generated_at": "2026-10-07T04:14:27+00:00",
- "head": "4a35c98",
+ "generated_at": "2026-10-07T09:02:53+00:00",
+ "head": "618befc",
  "production_summary": {
   "listings": 16,
   "requirements": {
@@ -3044,12 +2973,13 @@
   {
    "slug": "cloudline-baby-blanket",
    "version": "1.2.0",
+   "scope": "Launch-0",
    "company_gates_passed": {
     "product_truth_certificate": "certified 1.2.0 release_hash 7c63dbdd501f",
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 3 'Cloudline Textured Baby Blanket | Crochet Pattern PDF | Writ...' 13 tags, CA$7.5",
+    "listing_draft_seo": "draft listing 1 'Cloudline Textured Baby Blanket | Crochet Pattern PDF | Writ...' 13 tags, CA$7.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3089,12 +3019,13 @@
   {
    "slug": "hexagon-coaster-set",
    "version": "1.2.0",
+   "scope": "Launch-0",
    "company_gates_passed": {
     "product_truth_certificate": "certified 1.2.0 release_hash 3754ed17a63b",
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 10 'Hexagon Coaster Set | Crochet Pattern PDF | Written Instruct...' 13 tags, CA$4.0",
+    "listing_draft_seo": "draft listing 2 'Hexagon Coaster Set | Crochet Pattern PDF | Written Instruct...' 13 tags, CA$4.0",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3124,12 +3055,13 @@
   {
    "slug": "market-basket-large",
    "version": "1.2.0",
+   "scope": "Launch-0",
    "company_gates_passed": {
     "product_truth_certificate": "certified 1.2.0 release_hash cc698c1b1498",
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 6 'Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Wr...' 13 tags, CA$6.5",
+    "listing_draft_seo": "draft listing 8 'Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Wr...' 13 tags, CA$6.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3159,12 +3091,13 @@
   {
    "slug": "market-basket-medium",
    "version": "1.2.0",
+   "scope": "Launch-0",
    "company_gates_passed": {
     "product_truth_certificate": "certified 1.2.0 release_hash 00182234041c",
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 5 'Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | W...' 13 tags, CA$6.5",
+    "listing_draft_seo": "draft listing 7 'Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | W...' 13 tags, CA$6.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3194,12 +3127,13 @@
   {
    "slug": "market-basket-small",
    "version": "1.2.0",
+   "scope": "Launch-0",
    "company_gates_passed": {
     "product_truth_certificate": "certified 1.2.0 release_hash 1ddde587f537",
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 4 'Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Wri...' 13 tags, CA$6.5",
+    "listing_draft_seo": "draft listing 6 'Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Wri...' 13 tags, CA$6.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3229,12 +3163,13 @@
   {
    "slug": "nordic-star-ornaments",
    "version": "1.4.0",
+   "scope": "Launch-0",
    "company_gates_passed": {
     "product_truth_certificate": "certified 1.4.0 release_hash 18c6e64fa4c5",
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 8 'Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US...' 13 tags, CA$4.5",
+    "listing_draft_seo": "draft listing 3 'Nordic Snowflake Ornament Set (6) | Crochet Pattern PDF | US...' 13 tags, CA$4.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [
@@ -3272,14 +3207,61 @@
    "publication": "owner authorisation (D-FB-10 sealed grant); never performed by the company"
   },
   {
+   "slug": "pet-snuggle-mat",
+   "version": "1.2.0",
+   "scope": "reserve (held to the Launch-0 first-customer standard by products.inventory._reserve_standard)",
+   "company_gates_passed": {
+    "product_truth_certificate": "certified 1.2.0 release_hash 5dccca80a6ab",
+    "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
+    "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
+    "disclosed_imagery": "disclosed_render 3 frames, usable=True",
+    "listing_draft_seo": "draft listing 5 'Pet Snuggle Mat | Crochet Pattern PDF | Written Instructions...' 13 tags, CA$5.11",
+    "listing_readiness_company": "no company-owned reason in the store.publish verdict"
+   },
+   "remaining": [
+    {
+     "gate": "etsy_taxonomy_snapshot",
+     "clearer": "EXTERNAL",
+     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed"
+    },
+    {
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (5dccca80a6ab); none on file. Every finished dimension is arithmetic from the stated ga"
+    },
+    {
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to"
+    },
+    {
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve t"
+    },
+    {
+     "gate": "production_stale",
+     "clearer": "DEPLOY",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.2.0"
+    },
+    {
+     "gate": "production_imagery",
+     "clearer": "DEPLOY",
+     "evidence": "production asset-coverage: no_asset"
+    }
+   ],
+   "publication": "owner authorisation (D-FB-10 sealed grant); never performed by the company"
+  },
+  {
    "slug": "winter-village-graphghan",
    "version": "1.3.0",
+   "scope": "Launch-0",
    "company_gates_passed": {
     "product_truth_certificate": "certified 1.3.0 release_hash b41e0430fe3d",
     "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
     "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
     "disclosed_imagery": "disclosed_render 3 frames, usable=True",
-    "listing_draft_seo": "draft listing 1 'Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket...' 13 tags, CA$7.5",
+    "listing_draft_seo": "draft listing 4 'Winter Snowfall Relief Throw | Crochet Pattern PDF | Blanket...' 13 tags, CA$7.5",
     "listing_readiness_company": "no company-owned reason in the store.publish verdict"
    },
    "remaining": [

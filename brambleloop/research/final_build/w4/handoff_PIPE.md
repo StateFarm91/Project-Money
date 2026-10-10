@@ -126,3 +126,43 @@ Run focused tests (test_w4_pipe_launch_promotion, test_w4_pipe_board, test_w3_se
 test_r2_product_catalogue_depth + guards), commit+push; then scratch chain run
 (`run_after.py <dir>` enqueues cir.draft for all Launch-0 incl. the 2 promoted), then
 `product_inventory_run.py --chain-db <dir>/run.sqlite --name PRODUCT_INVENTORY` and `pipeline_run.py`.
+
+## RESUME 3 (2026-10-07 08:20Z, after second session limit)
+- Merged origin/claude/visual-investigation (4839486: VISUAL galleries for the 5 Launch-0 primaries,
+  K9, PIPE2, SEO packages). WIP 1de40ba reviewed: only regenerated inventory files (kept, superseded).
+- Scope this resume: 5 Launch-0 primaries (cloudline, hexagon coasters, market baskets S/M/L,
+  nordic-star-ornaments, winter-village-graphghan) + the 7 SEO-viable (adds harvest-table-runner,
+  pet-snuggle-mat). PIPE3 owns the 14 non-viable + retitles; RENDER owns renderer fixes.
+- `research/final_build/w4/pipe_chain_run.py <dir> [slugs]` -- committed reproducible scratch chain
+  run (gate.certify -> ... -> store.publish, shadow, sockets closed), batchable on one dir.
+- Inventory: reserves (outside Launch-0) are no longer blanket COMPANY "outside_launch_scope" once the
+  chain shows render authority (W4-VISUAL `listing_asset.has_render_authority`) -- they are held to the
+  Launch-0 standard instead: usable imagery + the nine-area first-customer gate run on the stored
+  release (`inventory._reserve_standard`), each reason classified. Only adds checks; store.publish
+  verdict untouched.
+- Board: merge_chain re-judges SEARCH from the chain's drafted listing (search certificate reasons);
+  the board's synthetic copy no longer fails on the description it never drafts
+  (LISTING_DESCRIPTION_THIN) -- was mislabelling Launch-0 as COMPANY "fix the listing copy".
+- Fresh chain run6 (2026-10-07 ~08:30-09:00Z, head 618befc+): 9 products (5 Launch-0 primaries incl.
+  baskets S/M/L, + pet-snuggle-mat, harvest-table-runner) through gate.certify -> listing.draft ->
+  assets.build -> pricing.position -> listing.seo -> launch.plan -> store.publish (9/9 refused:
+  SHADOW). Evidence: evidence_PIPE/chain_run_20261007.json. Harvest missed Thanksgiving (CA) and
+  launch.plan carried out the #297 evergreen pivot itself (listing.seo re-run evergreen); the
+  inventory now reads that positioning (`inventory._positioning`) instead of reporting the window.
+- PRODUCT_INVENTORY launch_candidates = 8 (company gates 6/6 each): cloudline, hexagon coasters,
+  baskets S/M/L, nordic-star-ornaments, winter-village-graphghan (Launch-0) + pet-snuggle-mat (reserve,
+  held to the first-customer standard). Remaining for all: etsy_taxonomy_snapshot (EXTERNAL),
+  physical_sample (OWNER/tester), etsy_remote_confirmation (EXTERNAL), durable_artifact_storage (OWNER),
+  + production_stale/production_imagery (DEPLOY) where production lists an old build.
+- harvest-table-runner: only COMPANY blocker left is imagery -- hero/scale fill 13-14% at 340 px (gate
+  25%): RENDER lane (diagonal/folded hero + verifier un-projection). Gate not loosened.
+- PIPELINE_BACKLOG: `pipeline_run.py --only <slugs>` refreshes just those rows and splices them
+  (other lanes' rows kept). My 9 rows refreshed: 8 at SEARCH UNKNOWN (EXTERNAL: taxonomy read only),
+  harvest at VISUAL FAIL (W4-RENDER).
+- Fixed my stricter assembly gate's false refusal of PIPE2's tea cosy (one-piece, skirts worked down
+  from held halves): `launch0.assembly_promise` now counts a worked-on join (`Component.resumes` a
+  `Hold`) as well as a seam; loose pieces with neither still refused (test_w4_pipe_board
+  worked_on_join_backs_assembled_form / loose_pieces_without_join_still_refused).
+- Tests this resume (all OK): test_w4_pipe_board 70, test_w4_pipe2_candidates 86, test_w4_pipe_name_truth 23,
+  test_launch0 52, test_eligibility 34, test_first_customer_gate 12, test_release_versions 4,
+  test_vacuity 7, test_secret_scan 7, test_reachability 11, test_w3_tmp_hygiene 16.
