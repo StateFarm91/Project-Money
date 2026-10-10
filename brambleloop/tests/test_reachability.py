@@ -201,11 +201,14 @@ def test_the_real_package_still_reaches_its_handlers_libraries():
     # reached through the growth.preproduction cadence handler, not merely the route.
     wired = R.reached("commerce/preproduction.py")
     assert wired["reached"] and "handler growth.preproduction" in str(wired.get("why", "")), wired
-    # A library that is still only used by an app/main.py route (growth/free_to_paid.py:
-    # growth/clusters.py imports one constant from it and /api reads it) stays unreached. If
-    # this fires because it got wired, that is a repair working: pick another static-only
-    # fixture rather than loosening the rule.
-    static_only = R.reached("growth/free_to_paid.py")
+    # #10 was wired by W4-B2CLOSE: growth/free_to_paid.py must now read as reached through
+    # the growth.distribution cadence handler (via growth/free_assets.py), not the route.
+    ftp = R.reached("growth/free_to_paid.py")
+    assert ftp["reached"] and "handler growth.distribution" in str(ftp.get("why", "")), ftp
+    # A library that is still only used by app/main.py routes (visual/milestones.py) stays
+    # unreached. If this fires because it got wired, that is a repair working: pick another
+    # static-only fixture rather than loosening the rule.
+    static_only = R.reached("visual/milestones.py")
     assert not static_only["reached"], ("fixture wired; choose another static-only module",
                                         static_only)
 

@@ -264,10 +264,23 @@ def _rendered_pages_usable(db, env) -> bool:
     Setting a variable to a worker that is misconfigured, unreachable or refused by Etsy's
     bot protection would have released every one of them into the ready queue, which is the
     single failure this module exists to prevent, at the largest scale available in it.
+
+    W4-B2CLOSE, 2026-10-10 (BUILD2_VERIFY finding 2): the gate now carries only #35 and #39,
+    and what both need is a current reading of the etsy.com/legal policy pages -- which
+    answer every automated reader 403 (closure.EXTERNAL_GATES), so no honest browser.probe
+    can ever supply it. The closure's own remedy is a person reading the pages and recording
+    them (POST /api/policy/snapshot). So the gate opens on either path: a recorded
+    browser.probe, or `platform_policy.page_readings_status` -- every etsy.com/legal source
+    read by a named person through the authenticated intake within MAX_AGE_DAYS, with no
+    unreviewed material change. A stale, absent, anonymous or un-audited reading opens
+    nothing, and the reading goes stale by itself after 30 days, closing the gate again.
     """
+    from ..gates.platform_policy import page_readings_status
     from ..intel.browser import usable
 
-    return usable(db)
+    if usable(db):
+        return True
+    return bool(page_readings_status(db)["open"])
 
 
 def _tester_recruited(db, env) -> bool:
@@ -619,7 +632,10 @@ GATES: tuple[Gate, ...] = (
          # reads the same current policy pages (parked here in ca38f44; C-73).
          (35, 39),
          "a recorded browser.probe fetched a real rendered page -- a configured worker URL "
-         "is a string, and Etsy answers 403 to a great many of them"),
+         "is a string, and Etsy answers 403 to a great many of them -- OR every "
+         "etsy.com/legal policy source has a page reading by a named person, recorded "
+         "through POST /api/policy/snapshot within 30 days, with no unreviewed material "
+         "change (platform_policy.page_readings_status)"),
     Gate("transactions_r",
          "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts "
          "can be read (C-64: the order source)",
@@ -1671,6 +1687,9 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
             "max_cost_cad": (row["max_cost_cad"] if row else
                              request.max_cost_cad if request else
                              _table_cost(gate.key)),
+            # W4-B2CLOSE: a figure taken from the decision table is not a producer's
+            # statement; owner_queue.decision_fields then shows the table's own basis.
+            "cost_from_table": not row and not request,
         })
     for row in standalone:
         cards.append({

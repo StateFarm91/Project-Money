@@ -172,6 +172,26 @@ def test_the_new_read_endpoints_answer_with_unmeasured_rather_than_numbers():
     assert blind.status_code == 200 and "counts" in blind.json()
 
 
+def test_zz_five_current_readings_through_the_intake_open_rendered_pages():
+    """W4-B2CLOSE: the intake's audited readings are what opens #35/#39's gate (finding 2)."""
+    from brambleloop.build2 import executor
+    from brambleloop.gates import policy_reader
+
+    gate = executor.GATE_BY_KEY["rendered_pages"]
+    legal = policy_reader.external_sources()
+    assert len(legal) == 5, legal
+    with TestClient(app_main.app) as client:
+        for i, source in enumerate(legal):
+            if i == len(legal) - 1:
+                assert gate.open(DB, {}) is False, "opened before the fifth reading"
+            r = client.post("/api/policy/snapshot", headers=AUTH, json={
+                "source": source, "text": PAGE, "version": "2026-10-10",
+                "summary": "read in a browser", "read_by": "owner"})
+            assert r.status_code == 200, r.text
+    assert PP.page_readings_status(DB)["open"] is True
+    assert gate.open(DB, {}) is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

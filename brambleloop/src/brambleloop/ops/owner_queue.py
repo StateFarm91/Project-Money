@@ -453,8 +453,6 @@ BATCHES: tuple[dict, ...] = (
                      "in the same login")},
     {"id": "storage", "order": 5, "title": "Storage and continuity spend",
      "why_batched": "both are storage accounts outside the code, approved as one spend line"},
-    {"id": "infra", "order": 5, "title": "Infrastructure services the code cannot create",
-     "why_batched": "third-party service accounts with a recurring cost, approved together"},
     {"id": "benchmark", "order": 6, "title": "Competitive benchmark purchases",
      "why_batched": ("the purchase gate and the pre-launch benchmark challenge wait on the "
                      "same purchased patterns")},
@@ -579,26 +577,51 @@ DECISIONS: tuple[dict, ...] = (
      "max_cost_cad": 5.0, "cost_basis": "stated (per month)", "minutes": 10,
      "consequence_of_yes": "purchased files survive deploys",
      "consequence_of_no": "harmless in shadow; a broken download for a paying customer once live"},
+    # W4-B2CLOSE 2026-10-10: costed (was UNKNOWN). Provider per the W4-GATESI packet.
+    # Price: Backblaze B2 public list price, re-read 2026-10-10 at
+    # https://www.backblaze.com/cloud-storage/pricing -- first 10 GB stored free, then
+    # US$6.95 per TB per 30 days (US$0.00695/GB = ~CA$0.0095/GB at the code's assumed 1.37),
+    # egress free up to 3x average stored, then US$0.01/GB. Size: production /api/continuity
+    # (read-only GET 2026-10-10) retains archives of 66,975,550 stored bytes, growing ~70 KB
+    # a day; 14 retained (core.offsite.RETAIN_OFFSITE) is ~0.94 GB, inside the free tier,
+    # and the daily read-back (~2.0 GB/month) is inside the free 3x egress (~2.8 GB).
     {"id": "storage_offsite", "batch": "storage", "kind": "credentials",
      "gates": ("offsite_storage",), "keys": (),
-     "decision": "Create an object-storage bucket outside this provider and its credential.",
+     "decision": ("Create a Backblaze B2 account, a PRIVATE bucket and an application key "
+                  "restricted to that bucket (read+write+delete), outside this provider, and "
+                  "set the five BRAMBLELOOP_ARCHIVE_* variables (W4-GATESI packet)."),
      "why": "an account and credential only the owner can create",
-     "max_cost_cad": None, "cost_basis": "UNKNOWN (provider not chosen)", "minutes": 15,
+     "max_cost_cad": 1.0,
+     "cost_basis": ("stated (per month): Backblaze B2 list price read 2026-10-10 "
+                    "(backblaze.com/cloud-storage/pricing): first 10 GB free, then US$6.95/TB "
+                    "per 30 days = US$0.00695/GB (~CA$0.0095/GB at 1.37). Expected ~0.94 GB "
+                    "(14 retained archives x ~67 MB, production 2026-10-10), so expected "
+                    "CA$0.00/month; the CA$1.00 ceiling covers ~115 GB stored"),
+     "minutes": 15,
      "consequence_of_yes": "the continuity archive survives losing the provider (#51)",
      "consequence_of_no": "a provider loss loses the archive with it"},
-    {"id": "browser_worker", "batch": "infra", "kind": "spend",
+    # W4-B2CLOSE 2026-10-10 (BUILD2_VERIFY finding 2): this was `browser_worker`, a hosted
+    # browser at UNKNOWN cost. Withdrawn, not costed: etsy.com/legal answers every automated
+    # reader 403 from DataDome, a hosted worker meets the same refusal, and passing the
+    # challenge would be evasion. The remedy the closure names is a person reading the five
+    # pages, which now opens `rendered_pages` (platform_policy.page_readings_status).
+    {"id": "policy_page_reading", "batch": "etsy_account", "kind": "physical",
      "gates": ("rendered_pages",), "keys": (),
-     "decision": ("Approve a hosted browser worker account (provider and plan per the "
-                  "W4-GATESI clearance packet) so policy pages can be read as a buyer sees "
-                  "them; no CAPTCHA or bot-protection bypass is permitted."),
-     "why": ("a third-party service account with a recurring cost; Etsy refuses automated "
-             "fetchers (HTTP 403) and software must not spoof a browser"),
-     "max_cost_cad": None, "cost_basis": "UNKNOWN until the W4-GATESI packet names a plan",
-     "minutes": 10,
-     "consequence_of_yes": ("#35 and #39 can read current policy pages instead of "
-                            "search-engine excerpts"),
-     "consequence_of_no": ("policy knowledge stays on dated search-engine excerpts, "
-                           "refreshed by a build session every 30 days")},
+     "decision": ("Every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, "
+                  "creativity_standards, advertising_rules, shilling_and_reviews, "
+                  "children_and_baby) in your own browser and record each through POST "
+                  "/api/policy/snapshot (source, text, version, summary, read_by). No "
+                  "sign-in is needed; no software reads these pages for you."),
+     "why": ("etsy.com/legal refuses every automated reader (HTTP 403, DataDome) and this "
+             "company does not bypass bot protection, so a person's reading is the only "
+             "honest source; a hosted browser worker would meet the same 403"),
+     "max_cost_cad": 0.0, "cost_basis": "stated (reading public pages costs nothing)",
+     "minutes": 15,
+     "consequence_of_yes": ("#35 and #39 un-park: new product classes and the policy "
+                            "freshness watch rest on current pages, and the gate closes "
+                            "again by itself if a reading passes 30 days"),
+     "consequence_of_no": ("#35 and #39 stay parked; publishing and new classes stay "
+                           "blocked on unread policy, and nothing is published")},
     {"id": "benchmark_purchase", "batch": "benchmark", "kind": "spend",
      "gates": ("benchmark_purchases",), "keys": ("benchmark_challenge",),
      "decision": ("Buy the 13 approved MJs benchmark patterns (exact list, links and prices: "
@@ -658,7 +681,7 @@ def decision_fields(card: dict, decision: dict | None = None) -> dict:
         cost = stated if stated is not None and (stated or d["max_cost_cad"] == 0.0) \
             else d["max_cost_cad"]
         basis = ("stated by the producer" if cost == stated and stated is not None
-                 else d["cost_basis"])
+                 and not card.get("cost_from_table") else d["cost_basis"])
         out = {"decision": d["decision"], "why": card.get("why") or d["why"],
                "minutes": d["minutes"],
                "consequence_of_yes": d["consequence_of_yes"],
