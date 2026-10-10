@@ -123,7 +123,7 @@ try {
   check(await page.isVisible("#main a[href='#/laura']"), "company: Talk to Laura link present");
   await page.goto(`${BASE}/cc/#/completion`);
   await settle();
-  const laneRows = await page.$$eval("li.row", (els) => els.map((e) => e.textContent));
+  const laneRows = await page.$$eval("section:not([aria-labelledby='completion-launch-packet']) li.row", (els) => els.map((e) => e.textContent));
   check(laneRows.length === 2 && laneRows.some((t) => /Rows closed\s*Unknown/.test(t)), "completion: lanes listed, unknown rows-closed shown as Unknown", JSON.stringify(laneRows.map((t) => t.slice(0, 80))));
 
   // ---- W4-CCFIN: estimate drift is a status card that keeps its detail; Unknown, never 0% ----
@@ -155,6 +155,16 @@ try {
   check(/UNKNOWN/.test(dag) && /no work items recorded yet/.test(dag), "account: empty DAG reads UNKNOWN with its reason", dag.slice(0, 200));
   const authBtns = await page.$$eval("section[aria-labelledby^='account-authority'] button", (els) => els.length);
   check(authBtns === 0, "account: authority views are read-only (no actions)", String(authBtns));
+
+  // ---- W4-CCPACKET: launch packet on Completion, read-only, verdict + freshness ---------
+  await page.goto(`${BASE}/cc/#/completion`);
+  await settle();
+  const pkt = (await page.textContent("section[aria-labelledby='completion-launch-packet']").catch(() => "")) || "";
+  check(/BLOCKED/.test(pkt) && /as of /.test(pkt) && /Candidate commit\s*3a5700e01234/.test(pkt), "completion: launch packet shows verdict, commit and as-of", pkt.slice(0, 240));
+  check(/harbour-throw/.test(pkt) && /parity: FAIL/.test(pkt), "completion: packet lists products with open gates", pkt.slice(0, 400));
+  check(/Maximum cost\s*Unknown/.test(pkt) && /Minutes\s*240/.test(pkt), "completion: owner action with null cost reads Unknown, never CA$0.00", pkt.slice(0, 600));
+  const pktBtns = await page.$$eval("section[aria-labelledby='completion-launch-packet'] button", (els) => els.length);
+  check(pktBtns === 0, "completion: launch packet is read-only", String(pktBtns));
 
   // ---- money: UNKNOWN is "Unknown", never CA$0.00; basis labelled ------------------------
   await page.goto(`${BASE}/cc/#/money`);

@@ -209,6 +209,14 @@ def make_router(db) -> APIRouter:
     def company_view(request: Request):
         return ok(company_mod.company(db))
 
+    # W4-CCPACKET (F-878): the Launch-0 launch packet, read-only, owner session (the same
+    # `/api/cc/*` default-deny gate as every route here; no new auth logic).
+    @router.get("/launch/packet")
+    def launch_packet_view(request: Request):
+        from . import launch_packet
+
+        return ok(launch_packet.view(db))
+
     @router.get("/completion")
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
