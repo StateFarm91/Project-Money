@@ -114,6 +114,14 @@ export const DATA = {
     improvements: env("OK", [{ id: 3, title: "Thumbnail crop rule", status: "PROMOTED", basis: "estimated" }]),
     lessons: env("OK", [{ subject: "hero", statement: "Lifestyle-first hero underperforms flat-lay (estimated)", basis: "estimated" }]),
     experiments: env("OK", []),
+    // W4-CCFIN: Rule #1 state (one department unevaluated -> Unknown, never 0) and per-agent status.
+    rule1: env("DEGRADED", [
+      { department: "seo", name: "SEO", status: "DEGRADED", rule1_defect: true, idle_now: true, eligible_untaken: 2, done: 4, useful: 3, useful_rate: 0.75, dead: 0, window_hours: 24, as_of: ago(4), why: "idle while its own generators offer safe, runnable work", next_eligible: [{ job_type: "seo.coverage.refresh", reason: "x" }] },
+      { department: "finance", name: "Finance / Accounting", status: "UNKNOWN", rule1_defect: null, idle_now: false, eligible_untaken: null, done: 0, useful: 0, useful_rate: null, dead: 0, window_hours: 24, as_of: ago(4), why: "not evaluated: the Command Center read budget was spent" }],
+      { reason: "1 department(s) idle while eligible work waits (Rule #1 defect)", counts: { departments: 2, evaluated: 1, unevaluated: 1, defects: 1 }, window: { hours: 24, jobs_read: 7, max_jobs: 5000, truncated: false } }),
+    agents: env("OK", [
+      { agent: "orchestrator", department: "executive", state: "active", doing_now: "autonomy.orchestrate (job 9)", last_useful_result: { job_id: 8, job_type: "plan.cycle", at: ago(20), produced: { missions: 2 }, rejected: {} }, blockers: [], next_wake: ago(-5), window_hours: 24, completed: 5, useful: 4, as_of: ago(4) },
+      { agent: "store_operator", department: "store_commerce", state: "blocked", doing_now: null, last_useful_result: null, blockers: [{ kind: "owner_gate", gate: "etsy_api", what: "Etsy API access not granted" }], next_wake: null, window_hours: 24, completed: 0, useful: 0, as_of: ago(4) }]),
   }, { last_useful_action: { action: "seo.coverage.refresh", at: ago(30) } }),
   insights: () => tab("INSIGHTS", {
     seo: env("OK", [{ title: "Top query family", detail: "chunky blanket pattern" }]),
@@ -139,6 +147,9 @@ export const DATA = {
   account: () => tab("ACCOUNT", {
     connected_services: env("UNKNOWN", [], { reason: "no connected OAuth service is recorded" }),
     budgets: env("OK", [{ scope: "llm", limit_cad: 50, spent_cad: 14.2, paused: false, source: "spend_limits:1" }]),
+    authority_policy: env("OK", [{ id: 1, agent: "seo", action_class: "internal_write", job_type: null, level: "autonomous", max_per_day: 20, max_cost_cad: 1.5, granted_by: "owner", at: ago(3000) }],
+      { phase: "shadow", classes: { gated: ["publish", "spend"], autonomous: ["internal_write"] }, sources: ["authority_policies"] }),
+    authority_dag: env("UNKNOWN", [], { reason: "no work items recorded yet", sources: ["company_work_items"] }),
   }, { owner: { principal: "owner (passphrase)", login_configured: true, totp_required: false, stepup_window_seconds: 300 },
     sessions: [
       { session_id: "s_current", device_label: "Test phone", created_at: ago(10), last_seen_at: ago(1), expires_at: new Date(Date.now() + 3600000).toISOString(), current: true, revoked_at: null },

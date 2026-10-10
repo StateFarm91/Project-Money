@@ -743,6 +743,9 @@ def autonomy(db) -> dict:
                               "prompts are not recorded in production state"))
 
     return _tab("AUTONOMY", {"autonomy": providers.call("autonomy", db),
+                             # W4-CCFIN: Rule #1 state and per-agent status (read-only).
+                             "rule1": providers.call("rule1", db),
+                             "agents": providers.call("agents", db),
                              "improvement": providers.call("improvement", db),
                              "jobs_24h": jw,
                              "hours_since_owner_action": guard("owner_gap", owner_gap),
@@ -834,7 +837,11 @@ def account(db, current_session: str) -> dict:
     emerg = guard("emergency", lambda: emergency.status(db))
     return _tab("ACCOUNT", {
         "connected_services": guard("services", services, sources=["oauth_credentials"]),
-        "budgets": readers.spend_limits(db)},
+        "budgets": readers.spend_limits(db),
+        # W4-CCFIN: the recorded authority ladder and the company work DAG (read-only; the
+        # approve/grant POSTs stay behind step-up in api.py).
+        "authority_policy": providers.call("authority_policy", db),
+        "authority_dag": providers.call("authority_dag", db)},
         owner={"principal": "owner (passphrase{})".format(
             " + TOTP" if auth.totp_required() else ""),
             "login_configured": auth.login_configured(),

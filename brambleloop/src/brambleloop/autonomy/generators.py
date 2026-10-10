@@ -311,6 +311,8 @@ def provider_module(module: str):
         from ..authority import dag as mod
     elif module == "brambleloop.authority.policy":  # W3 K11, Command Center
         from ..authority import policy as mod
+    elif module == "brambleloop.autonomy.rule1":  # W4-CCFIN, Command Center Rule #1 state
+        from . import rule1 as mod
     else:
         import importlib
 
