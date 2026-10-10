@@ -246,7 +246,19 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
         lid = job.outputs["etsy_listing_id"]
         assert fake.listings[lid]["state"] == "draft"
         assert int(fake.listings[lid]["taxonomy_id"]) == row.taxonomy_id
-        assert len(fake.images[lid]) == 3
+        # The published gallery is exactly the certified set: the three disclosed renders
+        # plus the W4-VISUAL gallery supplements the certificate was issued with, in its
+        # order and byte for byte -- nothing certified dropped, nothing uncertified added.
+        with db.session() as s:
+            valid = list(s.scalars(select(ListingSetCertificateRecord).where(
+                ListingSetCertificateRecord.state == "valid")))
+            assert [r.id for r in valid] == [ev["listing_set_record_id"]], \
+                [(r.id, r.state) for r in valid]
+            certified = sorted((int(f["position"]), f["sha256"])
+                               for f in valid[0].certificate["frames"])
+        uploaded = sorted((int(i["rank"]), i["sha256"]) for i in fake.received_images[lid])
+        assert uploaded == certified, (uploaded, certified)
+        assert len(fake.images[lid]) == len(certified) > 3, len(fake.images[lid])
     with db.session() as s:
         listing = s.scalar(select(Listing).where(Listing.product_slug == SLUG))
         assert str(listing.etsy_listing_id) == str(lid)
