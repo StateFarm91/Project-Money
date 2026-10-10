@@ -334,10 +334,32 @@ def test_assembled_frames_are_measured_good_passes_and_bad_fails():
             assert {"extent_cm", "colour_set", "legibility_340", "placement_redraw",
                     "annotation_text", "marks_in_product_zone"} <= got, (name, got)
             assert v["reads_manifest"] is False
-    # known-bad 1: a real assembled frame that fails the unchanged 25 % fill gate at 340 px
+    # known-bad 1: a real assembled frame that fails the unchanged 25 % fill gate at 340 px.
+    # The shipped pencil roll was this case until W4-CAND 7f2e1e6 (0.2.0) replaced its 60 cm
+    # tie with an 11 cm closed band and fixed it, so the bad geometry is rebuilt here
+    # deterministically: the same certified-engineering builder with a 120 cm band (60 cm
+    # flat, the 0.1.0 tie's reach), drawn by the real renderer. Every other check must still
+    # pass -- the frame is a faithful drawing of a badly proportioned object -- so the FAIL
+    # is the fill gate's alone and not a by-product of a broken drawing.
+    assert pb.BAND_AROUND_CM == 22.0
+    try:
+        pb.BAND_AROUND_CM = 120.0
+        long_band = pb.pencil_roll_cir()
+    finally:
+        pb.BAND_AROUND_CM = 22.0
+    band = next(c for c in long_band.components if c.name == "band")
+    assert len(band.rows) > 4 * len(next(c for c in pb.pencil_roll_cir().components
+                                         if c.name == "band").rows)
+    for view in ("hero", "scale"):
+        v = RV.verify(DR.render(long_band, view).png, cir=long_band, view=view)
+        assert v["status"] == "FAIL" and v["failed"] == ["legibility_340"], \
+            (view, v["failed"], v["unknown"])
+        leg = next(c for c in v["checks"] if c["check"] == "legibility_340")
+        assert leg["coverage"] < 0.25, leg
+    # ... and the shipped 0.2.0 roll, which fixed exactly that, now passes the same gate.
     roll = pb.pencil_roll_cir()
     v = RV.verify(DR.render(roll, "hero").png, cir=roll, view="hero")
-    assert v["status"] == "FAIL" and "legibility_340" in v["failed"], v["failed"]
+    assert v["status"] == "PASS", (v["failed"], v["unknown"])
     import inspect
     assert "coverage < 0.25" in inspect.getsource(DL._thumb_legibility)
     # known-bad 2: one stitch recoloured in a good frame

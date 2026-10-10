@@ -134,6 +134,10 @@ def test_drawn():
         r = V.verify(frames[v].png, cir=cir, view=v)
         check(f"garland_{v}_unqualified_is_unknown_not_pass", r["status"] == "UNKNOWN",
               r["status"])
+        # Reasoned, not a caught crash: the verifier says it has no rule for this form.
+        check(f"garland_{v}_unknown_is_reasoned_not_a_crash",
+              r["unknown"] == ["assembled_form"] and "pockets" in r["checks"][0]["why"],
+              r["checks"][:1])
     from brambleloop.core.artifacts import ArtifactStore
     from brambleloop.publish import disclosed_listing as DL
     import tempfile
