@@ -80,7 +80,7 @@ def test_fold_leads_with_product_not_process():
     order = [fold.index(x) for x in ('class="bn', 'class="sh"', 'class="ann"',
                                      'class="secs"', 'class="card"')]
     assert order == sorted(order), order
-    assert fold.count('class="card"') == 3
+    assert fold.count('class="card"') == 5      # W4-PIPE 18baa94: one card per Launch-0 product
 
 
 def _css(html: str) -> str:

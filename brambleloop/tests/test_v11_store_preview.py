@@ -62,7 +62,9 @@ def test_summary_contract_without_db():
     assert out["items"]
     assert out["preview_path"] == "/cc/store-preview"
     assert out["live"] is False and out["published"] is False
-    assert out["sizes_counted_as_products"] is False and out["products"] == 3
+    # W4-PIPE 18baa94 (2026-10-07): the snowflake ornaments and the snowfall throw joined
+    # Launch-0, so five products; the basket's three sizes still count as one.
+    assert out["sizes_counted_as_products"] is False and out["products"] == 5
     img = [i for i in out["items"] if i["key"] == "listing_images"]
     assert img and img[0]["status"] == "UNKNOWN"     # not computed, so not reported
 
@@ -165,11 +167,11 @@ def test_preview_shows_every_surface():
 def test_listing_images_verified_or_withheld():
     html = preview.render_preview(None, "mobile", now=NOW)
     frames = list(preview._FRAMES.values())
-    assert len(frames) == 3
+    assert len(frames) == 5      # W4-PIPE: one hero frame per Launch-0 product (5)
     if RENDERER_AVAILABLE:
         assert all(f["status"] == "VERIFIED" for f in frames), [
             (f["cir_slug"], f.get("verifier_status"), f.get("why")) for f in frames]
-        assert html.count("data:image/png;base64,") == 3
+        assert html.count("data:image/png;base64,") == 5
         assert "Image withheld" not in _frame_part(html)
     else:   # fail closed: an image nobody verified is not shown
         assert all(f["status"] == "WITHHELD" for f in frames)
@@ -202,7 +204,7 @@ def test_summary_with_image_verification():
     out = preview.summary(None, verify_images=True, now=NOW)
     _contract(out)
     img = [i for i in out["items"] if i["key"] == "listing_images"]
-    assert img and len(img[0]["frames"]) == 3
+    assert img and len(img[0]["frames"]) == 5
     assert all("png" not in f for f in img[0]["frames"])
     if RENDERER_AVAILABLE:
         assert img[0]["status"] == "READY"
