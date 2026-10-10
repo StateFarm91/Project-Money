@@ -277,6 +277,11 @@ ASSUMPTIONS = ("f233_banner_canvas_4to1", "f233_identity_block_survives_4to1",
                "f233_identity_block_in_phone_window")
 
 
+# The banner's baked-in nav categories with no Launch-0 listing. Seasonal left this set when
+# the snowflake ornaments joined Launch-0 (W4-PIPE 18baa94, 2026-10-07).
+EMPTY_NAV = {"Wearables", "Gifts"}
+
+
 def test_banner_assessment_is_honest():
     r = OB.assess()
     gates = {g["gate"]: g for g in r["gates"]}
@@ -312,9 +317,10 @@ def test_banner_assessment_is_honest():
     ai = gates["ai_generated_imagery_disclosure"]
     assert ai["evidence"]["marketing_sentence_required"] is False
     assert ai["evidence"]["provenance_kept"] is True
+    # W4-PIPE 18baa94: the snowflake ornaments joined Launch-0 and populate Seasonal, so the
+    # banner's baked-in nav now names two empty categories, not three. Still a FAIL.
     assert gates["nav_categories_truth"]["status"] == "FAIL"
-    assert set(gates["nav_categories_truth"]["evidence"]["empty"]) == {
-        "Wearables", "Gifts", "Seasonal"}
+    assert set(gates["nav_categories_truth"]["evidence"]["empty"]) == EMPTY_NAV
     assert ai["evidence"]["c2pa"]["present"] and ai["evidence"]["c2pa"]["signature_verified"] \
         is False
     assert not r["publishable"] and r["status"] == "BLOCKED"
@@ -365,8 +371,9 @@ def test_navigation_shows_only_populated_categories():
     public = {s["name"] for s in N.public_nav()}
     hidden = {s["name"] for s in N.hidden()}
     assert {"Wearables", "Gifts", "Seasonal"} <= arch          # kept in the data model
-    assert {"Wearables", "Gifts", "Seasonal"} <= hidden and not ({"Wearables", "Gifts",
-                                                                  "Seasonal"} & public)
+    assert EMPTY_NAV <= hidden and not (EMPTY_NAV & public)
+    # Seasonal is populated by a Launch-0 product (W4-PIPE 18baa94), so it is shown.
+    assert "Seasonal" in public and "Seasonal" not in hidden
     assert public and all(s["listings"] >= 1 for s in N.public_nav())
     for vp in ("mobile", "desktop"):
         html = preview.render_preview(None, vp, now=NOW, variant="v2")
@@ -377,8 +384,7 @@ def test_navigation_shows_only_populated_categories():
         assert chips and not N.empty_categories_named(preview_v2.visible_text(chips[0]))
     # the banner's baked-in nav stays a reported truth finding (owner kept the source file)
     g = next(x for x in OB.assess()["gates"] if x["gate"] == "nav_categories_truth")
-    assert g["status"] == "FAIL" and set(g["evidence"]["empty"]) == {"Wearables", "Gifts",
-                                                                       "Seasonal"}
+    assert g["status"] == "FAIL" and set(g["evidence"]["empty"]) == EMPTY_NAV
 
 
 def test_etsy_evidence_is_recorded_with_sources():
@@ -487,7 +493,7 @@ def test_preview_is_built_around_the_owner_files():
     if choice["derivative"]:
         assert "small-size derivative of the owner artwork" in shop
     cards = __import__("re").findall(r'<article class="card">.*?</article>', shop, 16)
-    assert len(cards) == 3
+    assert len(cards) == 5      # W4-PIPE 18baa94: one card per Launch-0 product (5)
     for c in cards:
         assert "No picture of the finished piece yet" in c   # never a fabricated lifestyle
         assert "Digital rendering, not a photograph" in c
