@@ -1,5 +1,6 @@
 """Wave-4 lane FMLEDGER: recover the Final Master launch-critical ledger on the release candidate
-line (claude/w4-SHADOWFIX 56d7b38) and close the OPEN rows that merged work now closes.
+line (claude/w4-SHADOWFIX 56d7b38, then 3d755dd merged as 2f36fe0) and close the OPEN rows
+that merged work now closes.
 
 Same discipline as `close_fm2.py`, whose plan/run-tests/apply machinery this reuses unchanged
 (only the row table, tag and result files differ): each entry records what was re-read or
@@ -94,7 +95,7 @@ ROWS = {
                 "handlers: runtime/release.py handle_model_photography (render step "
                 "'render:<slug>@<version>') and handle_seasonal_cycle_proof ('cycle_report'), "
                 "so a worker that dies after the long step resumes without repeating it. "
-                "queue/checkpoints.py is reached on 56d7b38 (module_reachability regenerated "
+                "queue/checkpoints.py is reached on 2f36fe0 (module_reachability regenerated "
                 "here: load is live via queue/durable.py:JobQueue.restore). Lease fencing/"
                 "renewal and the dead-letter classifier are on this head; production fcb982d "
                 "predates them (deploy pending, owner production window)",
@@ -138,8 +139,8 @@ ROWS = {
         refresh=True,
         checked="the recorded defect (closure_matrix basis label stale) no longer holds: the "
                 "basis now records the mapping base, every remap SHA and per-row mapped_on, "
-                "and module_reachability.json was regenerated on 56d7b38 (W4-FMLEDGER: 654 "
-                "modules, 559 reached, none lost vs 8b67414). The final-head audit itself "
+                "and module_reachability.json was regenerated on 2f36fe0 (W4-FMLEDGER: 654 "
+                "modules, 560 reached, none lost vs 8b67414). The final-head audit itself "
                 "still needs a frozen candidate",
         set=dict(coverage="PARTIAL", defect=None,
                  missing_part="no frozen launch candidate (F-845), so the function-level "
@@ -189,6 +190,14 @@ base.TAG = "w4-FMLEDGER"
 base.RESULTS = HERE / "close_fml_test_results.json"
 base.REPORT = HERE / "CLOSE_REPORT_FMLEDGER.json"
 base.ROWS = ROWS
+
+
+def _overlay(uid, row, entry):
+    base.close_fm.HEAD_SHA7 = base.TAG
+    return base.close_fm._overlay(uid, row, entry, "FMLEDGER")
+
+
+base._overlay = _overlay
 
 if __name__ == "__main__":
     cands = base.plan()

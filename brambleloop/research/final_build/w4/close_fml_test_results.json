@@ -1,6 +1,6 @@
 {
  "_meta": {
-  "head": "56d7b38",
+  "head": "2f36fe0",
   "runner": "close_fm2.py --run-tests (sequential)"
  },
  "suites": {
@@ -8,37 +8,37 @@
    "exit": 0,
    "fail": 0,
    "ok": 9,
-   "seconds": 23.7
+   "seconds": 34.7
   },
   "tests/test_w4_auto_status.py": {
    "exit": 0,
    "fail": 0,
    "ok": 11,
-   "seconds": 500.6
+   "seconds": 520.1
   },
   "tests/test_w4_fm2_surface_reverify.py": {
    "exit": 0,
    "fail": 0,
    "ok": 8,
-   "seconds": 9.0
+   "seconds": 9.8
   },
   "tests/test_w4_fml_checkpoint_adoption.py": {
    "exit": 0,
    "fail": 0,
    "ok": 3,
-   "seconds": 10.6
+   "seconds": 11.7
   },
   "tests/test_w4_visual2.py": {
-   "exit": 1,
-   "fail": 1,
-   "ok": 7,
-   "seconds": 71.8
+   "exit": 0,
+   "fail": 0,
+   "ok": 8,
+   "seconds": 102.1
   },
   "tests/test_w4_visual_certified_gallery.py": {
    "exit": 0,
    "fail": 0,
    "ok": 7,
-   "seconds": 90.1
+   "seconds": 96.1
   }
  }
 }

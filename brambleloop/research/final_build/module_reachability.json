@@ -1,5 +1,5 @@
 {
- "basis": "HEAD 56d7b38 (+ W4-FMLEDGER release.py F-659 checkpoint adoption) reachability; production fcb982d",
+ "basis": "HEAD 2f36fe0 (claude/w4-FMLEDGER = SHADOWFIX 3d755dd + F-659 checkpoint adoption) reachability; production fcb982d",
  "modules": {
   "__init__.py": {
    "reached": false,
@@ -83,7 +83,7 @@
   },
   "app/command_center/providers.py": {
    "reached": true,
-   "why": "now_iso is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
+   "why": "envelope is live: API get api_verify -> app/main.py:api_verify -> app/command_center/tabs.py:estimate_drift_reading",
    "in_production_fcb982d": false
   },
   "app/command_center/readers.py": {
@@ -247,8 +247,8 @@
    "in_production_fcb982d": false
   },
   "autonomy/rule1.py": {
-   "reached": false,
-   "why": "not imported, directly or transitively, by any runtime root",
+   "reached": true,
+   "why": "summary is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/tal",
    "in_production_fcb982d": false
   },
   "autonomy/status.py": {

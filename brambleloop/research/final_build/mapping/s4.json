@@ -707,7 +707,7 @@
   "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "CONTENTS is certified on hexagon-coaster-set, nordic-star-ornaments and winter-village-graphghan but not yet on the cloudline-baby-blanket and nursery-nesting-baskets certificates (certified before the CONTENTS producer existed); LIFESTYLE is owner-gated (VB-1 P2 or sample photos)",
+  "missing_part": "LIFESTYLE frames for the Launch-0 listings (owner VB-1 P2 paid composites or physical sample photographs); CONTENTS is certified on every renderable Launch-0 release",
   "producer": "src/brambleloop/publish/eligibility.py::check_set",
   "durable_state": "ListingAsset frame roles",
   "consumer": "src/brambleloop/runtime/pipeline.py::_release_gates -> store.publish_blocked",
@@ -724,7 +724,8 @@
   "evidence": [
    "eligibility.check_set wiring is post-production (B2 #65 repair)",
    "w4-FM close on 8b67414 (FOLD): same reading as F-030 (wave-3 K1): the vocabulary is complete, frames missing",
-   "w4-FM close on w4-FM2 (FM2): VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)"
+   "w4-FM close on w4-FM2 (FM2): VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-VISUAL2 runtime proof research/final_build/w4/visual/contents_gallery_proof_all_2026-10-07.json (a68db01): listing-set certificate valid with CONTENTS certified on cloudline-baby-blanket 1.2.0 and market-basket-small/medium/large 1.2.0 (the nursery-nesting-baskets Launch-0 sizes, products/launch0.py superseded_by), first_customer_imagery PASS; search_evidence_gallery missing only LIFESTYLE; eligibility.check_set passes the certified sets; LIFESTYLE is the only missing gallery job"
   ],
   "build2_rows": [
    "#65 COMPLETE+PROVEN",
@@ -732,14 +733,14 @@
    "#78 COMPLETE+PROVEN"
   ],
   "gate": {
-   "kind": "none",
-   "key": null,
-   "detail": "producing the frames is company work (visual lane)"
+   "kind": "owner",
+   "key": "visual_paid_generation",
+   "detail": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample photographs"
   },
   "defect": null,
-  "next_action": "VISUAL2: re-run research/final_build/w4/visual/proof_contents_gallery.py for cloudline-baby-blanket and the three nursery-nesting-baskets sizes and commit the proof; then the row is GATED on owner VB-1 (LIFESTYLE) only",
+  "next_action": "owner: approve OWNER_ACTIONS 'visual' / visual_paid_generation (P2 max CA$2.00) or supply sample photos; then the visual lane certifies LIFESTYLE through the supplement path",
   "confidence": "HIGH",
-  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close"
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close | w4-FMLEDGER close"
  },
  {
   "uid": "F-255",

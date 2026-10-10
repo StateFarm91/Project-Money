@@ -220,24 +220,30 @@
   "uid": "F-098",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "prevents a weaker/absent model silently passing quality gates during an outage (product truth, no silent downgrade)",
-  "maturity": "DEPLOYED",
-  "coverage": "PARTIAL",
-  "missing_part": "Outage handling is per-mechanism (circuit breaker, NoProviderAvailable as PermanentError -> dead letter, funding-exhaustion block, executor parks model_provider/image_vision gates) rather than one explicit degradation plan that parks AI-dependent jobs; no single test proves deterministic work continues while every AI job parks.",
-  "producer": "src/brambleloop/ops/funding.py::note",
-  "durable_state": "audit_log (ops.funding_exhausted); owner_actions; build_tasks.parked_on",
-  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/worker.py::park_if_model_down / model_provider_down (+ ops/funding.py::note, gateway circuit breaker)",
+  "durable_state": "audit_log (ai.parked; ops.funding_exhausted); jobs.status/run_after (parked pending); owner_actions",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (every claimed job)",
   "protected_effect": "spent balance stops spending and raises one owner action; AI gates park dependent build work; no model verdict replaces deterministic validation",
   "tests": [
+   "tests/test_access.py::test_evidence_labelled_as_observation_is_downgraded_when_nothing_observed_it",
    "tests/test_funding.py::test_a_spent_balance_stops_the_spending_it_cannot_check",
    "tests/test_gateway.py::test_a_provider_that_is_down_opens_its_circuit_and_is_skipped",
-   "tests/test_access.py::test_evidence_labelled_as_observation_is_downgraded_when_nothing_observed_it",
-   "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name"
+   "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name",
+   "tests/test_w4_auto_spend_wiring.py::test_failed_probe_and_spent_balance_are_outage_evidence",
+   "tests/test_w4_auto_spend_wiring.py::test_long_parked_job_runs_and_reports_its_own_refusal",
+   "tests/test_w4_auto_spend_wiring.py::test_model_job_parks_while_the_provider_is_down",
+   "tests/test_w4_auto_spend_wiring.py::test_non_model_job_is_never_parked",
+   "tests/test_w4_auto_spend_wiring.py::test_unprobed_provider_is_unknown_not_down_and_parks_nothing"
   ],
   "evidence": [
    "ops/funding.py (found live 2026-09-21: vision credit exhausted; image providers kept working)",
    "gateway/model_gateway.py require_deterministic",
    "launch/access.py accept_evidence (No Silent Downgrade #224)",
-   "ops/funding.py in production fcb982d"
+   "ops/funding.py in production fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO: runtime/worker.py::park_if_model_down / model_provider_down is called by Worker.run_once before every handler; a MODEL_JOB_TYPES job is parked (pending, attempt not counted, audited ai.parked) only on outage evidence (failover DOWN, open Anthropic funding action, failed probe); an unprobed provider is UNKNOWN and parks nothing; a non-model job always runs; a job parked >24h runs and reports its own refusal (no substitute verdict)"
   ],
   "build2_rows": [
    "#224 COMPLETE+PROVEN",
@@ -245,13 +251,13 @@
   ],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add an explicit outage mode: when gateway.anthropic.usable()/vision_usable() is false, runtime/worker.py parks (not dead-letters) jobs whose handlers need a model, audited as ai.parked; add tests/test_outage_degradation.py proving deterministic cadences still complete and no gate passes on a substitute.",
+  "next_action": "none: deploy carries the outage mode (fcb982d does not)",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FMLEDGER close"
  },
  {
   "uid": "F-099",

@@ -71,7 +71,10 @@ REMAP_SHAS = {"6f9a2f7": "6f9a2f7a1405f5c9638a78552934445bc590c63f",
               # wave-4 lane FM re-map on fee1cfe (w4/fold.py; w4/FOLD_REPORT.json)
               "fee1cfe": "fee1cfe773e09011d5a8a47a357c4d3443948263",
               # wave-4 lane FM second pass on 8b67414 (w4/close_fm.py; w4/CLOSE_REPORT.json)
-              "8b67414": "8b6741479cdabf1bd9986f452a44d0a0f84dae71"}
+              "8b67414": "8b6741479cdabf1bd9986f452a44d0a0f84dae71",
+              # wave-4 lane FMLEDGER on the release-candidate line (w4/close_fml.py;
+              # w4/CLOSE_REPORT_FMLEDGER.json)
+              "2f36fe0": "2f36fe0b3ba9a667beff5e20253c1ad75d546cf0"}
 PRODUCTION = "fcb982d57e291c88d9f78eaa091e90904b6c2cc9"
 # Completion target per launch class (F-178). Only launch-critical rows have a launch target.
 TARGET = {"LAUNCH-CRITICAL": "INTEGRATED", "MATURE": None, "NA": None}
