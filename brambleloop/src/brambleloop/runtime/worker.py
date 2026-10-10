@@ -217,7 +217,11 @@ def model_provider_down(db, *, now: datetime | None = None) -> dict:
         from ..gateway import anthropic as gw
 
         probe = gw.last_probe(db)
-        if probe is not None and not probe.get("ok"):
+        # A probe that never reached the provider because no key is configured is not an
+        # outage: nothing a breaker cooldown waits for will change, and parking would only
+        # delay, by up to MAX_PARK_SECONDS, the handler's own honest "no key" refusal.
+        if probe is not None and not probe.get("ok") \
+                and not str(probe.get("reason") or "").startswith(gw.NO_KEY_REASON):
             return {"down": True, "source": "probe", "retry_after_s": PARK_SECONDS,
                     "why": ("the latest model probe failed: "
                             + str(probe.get("error") or probe.get("why") or "")[:200])}

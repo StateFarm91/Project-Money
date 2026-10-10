@@ -177,8 +177,32 @@ def _crop_survival(mask) -> float:
     return int(m[top:top + side, left:left + side].sum()) / total
 
 
+# Content-addressed memo: every measurement below reads the frame through
+# `image.convert("RGB")`, so the report is a pure function of those pixels, the size, the
+# position and `expect_text`. The same certified frame is inspected by assets.build, the
+# listing.seo search hero, launch.plan's listing-set QA and store.publish's gate read; it is
+# measured once per process. `FrameReport` is frozen, so a shared report cannot be altered.
+_INSPECTED: dict[tuple, "FrameReport"] = {}
+_INSPECTED_MAX = 512
+
+
 def inspect(image, *, position: int, expect_text: bool = False) -> FrameReport:
     """Measure one rendered frame, at listing scale and at the size a shopper sees first."""
+    import hashlib
+
+    key = (hashlib.sha256(image.convert("RGB").tobytes()).hexdigest(), image.size,
+           position, bool(expect_text))
+    hit = _INSPECTED.get(key)
+    if hit is not None:
+        return hit
+    report = _inspect(image, position=position, expect_text=expect_text)
+    if len(_INSPECTED) >= _INSPECTED_MAX:
+        _INSPECTED.pop(next(iter(_INSPECTED)), None)
+    _INSPECTED[key] = report
+    return report
+
+
+def _inspect(image, *, position: int, expect_text: bool = False) -> FrameReport:
     background, dominant_share = _dominant(image)
     mask = _ink_mask(image, background)
     ink = _share(mask)

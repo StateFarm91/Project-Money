@@ -13,6 +13,7 @@ ones making it.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import re
 from dataclasses import dataclass, field
@@ -914,10 +915,24 @@ def extracted_text(pdf_bytes: bytes) -> str:
     last page, `prose` would still be complete and the file would not. The children's gate
     reads the bytes for that reason.
     """
+    sha = hashlib.sha256(pdf_bytes).hexdigest()
+    hit = _EXTRACTED.get(sha)
+    if hit is not None:
+        return hit
     import pypdf
 
     reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-    return " ".join("\n".join(page.extract_text() or "" for page in reader.pages).split())
+    text = " ".join("\n".join(page.extract_text() or "" for page in reader.pages).split())
+    # Keyed by the bytes' digest (the text is a pure function of them): the same certified
+    # PDF read by the children's statement audit, the teardown self-test and the
+    # first-customer gate in one process is extracted once. Only the digest is kept.
+    if len(_EXTRACTED) >= 32:
+        _EXTRACTED.pop(next(iter(_EXTRACTED)), None)
+    _EXTRACTED[sha] = text
+    return text
+
+
+_EXTRACTED: dict[str, str] = {}
 
 
 def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> dict:

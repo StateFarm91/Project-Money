@@ -56,10 +56,13 @@ passed. Every text pixel is now accounted for.
 from __future__ import annotations
 
 import bisect
+import collections
+import copy
 import hashlib
 import io
 import itertools
 import math
+import threading
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -1372,17 +1375,45 @@ def _closed_band_checks(cir, pl, checks: list[dict]) -> None:
 
 # --------------------------------------------------------------------------- entry point
 
+# Content-addressed memo of completed verifications. `_verify` is a pure function of the
+# frame's bytes, the CIR (whose `fingerprint` hashes its whole `to_dict`) and the view, so a
+# repeat of the same triple -- the same certified frame re-checked by assets.build, the
+# listing.seo search hero, the listing-set certificate and the Visual R&D cycle in one drain
+# -- returns the reading already measured instead of measuring the pixels again. The verdict
+# is unchanged; only a completed measurement is remembered (a crash is never cached), and
+# every caller gets its own copy.
+_VERIFIED: "collections.OrderedDict[tuple, dict]" = collections.OrderedDict()
+_VERIFIED_MAX = 256
+_VERIFIED_LOCK = threading.Lock()
+
+
 def verify(png: bytes, *, cir, view: str) -> dict:
     """Verify one disclosed frame's pixels against the given authoritative CIR.
 
     Fails closed: anything that goes wrong while measuring is UNKNOWN, never a crash in the
     gate that called it and never a PASS."""
     try:
-        return _verify(png, cir=cir, view=view)
+        key = (VERIFIER_VERSION, hashlib.sha256(png).hexdigest(), cir.fingerprint, view)
+    except Exception:  # noqa: BLE001 - an unkeyable input is measured, never remembered
+        key = None
+    if key is not None:
+        with _VERIFIED_LOCK:
+            hit = _VERIFIED.get(key)
+            if hit is not None:
+                _VERIFIED.move_to_end(key)
+                return copy.deepcopy(hit)
+    try:
+        result = _verify(png, cir=cir, view=view)
     except Exception as exc:  # noqa: BLE001
         return _verdict([_check("measurement", UNKNOWN,
                                 f"verification could not complete: {type(exc).__name__}: "
                                 f"{str(exc)[:200]}")])
+    if key is not None:
+        with _VERIFIED_LOCK:
+            _VERIFIED[key] = copy.deepcopy(result)
+            while len(_VERIFIED) > _VERIFIED_MAX:
+                _VERIFIED.popitem(last=False)
+    return result
 
 
 def _verify(png: bytes, *, cir, view: str) -> dict:

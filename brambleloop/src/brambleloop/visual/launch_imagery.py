@@ -346,8 +346,6 @@ def check_supplement(slug: str, version: str, job: str, data: bytes, *, db=None,
     independent verifier passes them. Anything else is FAIL with the reason; never assumed."""
     import hashlib
 
-    from . import gallery_frames as G
-
     found = _primary_for(slug)
     if found is None:
         return {"status": "FAIL", "why": f"{slug} is not the primary variant of a Launch-0 listing"}
@@ -357,6 +355,31 @@ def check_supplement(slug: str, version: str, job: str, data: bytes, *, db=None,
     sha = hashlib.sha256(data).hexdigest()
     if job == "CONTENTS":
         return _check_contents(slug, primary, data, db=db, store=store)
+    # Below, the verdict is a pure function of the bytes, the job and the certified CIRs (the
+    # producer redraws from them; the verifier recomputes from them). The same frame is
+    # re-checked by every listing-set read of one drain (listing.seo, launch.plan,
+    # store.publish, the Visual R&D cycle), so a completed check is remembered per process,
+    # keyed by the bytes' digest, the job and every CIR fingerprint it was drawn from.
+    key = (job, sha, primary.fingerprint, tuple(c.fingerprint for c in siblings or ()))
+    hit = _SUPPLEMENT_CHECKS.get(key)
+    if hit is not None:
+        return dict(hit)
+    out = _check_drawn(job, data, sha, primary, siblings)
+    if len(_SUPPLEMENT_CHECKS) >= 256:
+        _SUPPLEMENT_CHECKS.pop(next(iter(_SUPPLEMENT_CHECKS)), None)
+    _SUPPLEMENT_CHECKS[key] = dict(out)
+    return out
+
+
+_SUPPLEMENT_CHECKS: dict[tuple, dict] = {}
+
+
+def _check_drawn(job: str, data: bytes, sha: str, primary, siblings) -> dict:
+    """A deterministic producer's frame: redrawn from the certified CIR and verified."""
+    import hashlib
+
+    from . import gallery_frames as G
+
     if job == "ANGLE":
         from . import disclosed_render as DR
         from . import render_verification as RV

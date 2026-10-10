@@ -101,10 +101,23 @@ def caption_in_image(png: bytes, cir=None) -> dict:
     from ..visual.render_verification import _caption, _Frame
 
     palette = {k: K.hex_rgb(v) for k, v in ((cir.colors if cir is not None else {}) or {}).items()}
+    # Memo keyed by the bytes and the palette they are read against (the reading is a pure
+    # function of both); a failure to read is never remembered. Each caller gets a copy.
+    key = (hashlib.sha256(png).hexdigest(), tuple(sorted(palette.items())))
+    hit = _CAPTIONS.get(key)
+    if hit is not None:
+        return dict(hit)
     try:
-        return _caption(_Frame(png, palette))
+        out = _caption(_Frame(png, palette))
     except Exception as exc:  # noqa: BLE001 - unreadable is not disclosed
         return {"status": "FAIL", "iou": 0.0, "why": f"unreadable image: {exc}"}
+    if len(_CAPTIONS) >= 256:
+        _CAPTIONS.pop(next(iter(_CAPTIONS)), None)
+    _CAPTIONS[key] = dict(out)
+    return out
+
+
+_CAPTIONS: dict[tuple, dict] = {}
 
 
 def export_check(frame: dict, *, image_bytes: bytes, description: str, cir=None) -> dict:

@@ -769,6 +769,9 @@ def _classify_failure(exc: BaseException) -> str:
 PROBE_PROMPT = "Reply with the single word: ok"
 PROBE_MAX_TOKENS = 8
 PROBE_MODEL = "claude-haiku-4-5-20251001"
+# The probe's recorded reason when it could not try at all (no key is configured). Read by
+# `runtime.worker.model_provider_down`: not an outage, so model jobs are not parked for it.
+NO_KEY_REASON = "no ANTHROPIC_API_KEY in this environment"
 
 
 def probe(db, *, provider: AnthropicProvider | None = None,
@@ -788,7 +791,7 @@ def probe(db, *, provider: AnthropicProvider | None = None,
                     "model": provider.model, "ok": False, "reason": ""}
 
     if not provider.key():
-        record["reason"] = "no ANTHROPIC_API_KEY in this environment"
+        record["reason"] = NO_KEY_REASON
     else:
         budget: dict = {}
         try:

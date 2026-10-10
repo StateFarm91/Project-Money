@@ -118,13 +118,47 @@ def _spies() -> dict[str, Spy]:
 _STATE: dict = {}
 
 
+_FORWARDED: list[tuple[int, str]] = []  # (job id, type) made due by the drain's clock
+
+
+def _fast_forward(db: Database) -> list[tuple[int, str]]:
+    """Advance the queue's clock past every pending job's `run_after`, as wall time would.
+
+    Some pending work is legitimately not yet due when the queue runs dry: a boot-deferred
+    cadence (`worker.BOOT_DEFERRED_SECONDS`, W4-AUTO: `ops.maturity_disagreements` waits
+    ten minutes after process start) and a lane hold (`orchestrate.LANE_HOLD_SECONDS`).
+    A drain that took longer than those windows used to pick them up by accident; a fast one
+    ends with them pending. Making them due now -- not skipping them -- keeps "every
+    cadence executed to DONE" the assertion, independent of how fast the machine is. A job
+    that defers itself again every time it is made due (an F-098 model park re-parks) is not
+    drained: `_drain` gives up after 20 rounds and fails, naming it."""
+    from sqlalchemy import update
+
+    now = utcnow()
+    with db.session() as s:
+        due = [(j.id, j.job_type) for j in s.scalars(select(Job).where(
+            Job.status == JobStatus.PENDING, Job.run_after > now))]
+        if due:
+            s.execute(update(Job).where(Job.id.in_([i for i, _ in due]))
+                      .values(run_after=now).execution_options(synchronize_session=False))
+    return due
+
+
 def _drain(db: Database, w: Worker, limit: int = 3000, max_seconds: float = 1200.0) -> int:
-    n, t0 = 0, time.monotonic()
-    while w.run_once():
-        n += 1
-        if n >= limit or time.monotonic() - t0 > max_seconds:
-            raise AssertionError(f"queue did not drain: {n} jobs in {time.monotonic() - t0:.0f}s")
-    return n
+    n, t0, forwards = 0, time.monotonic(), 0
+    while True:
+        while w.run_once():
+            n += 1
+            if n >= limit or time.monotonic() - t0 > max_seconds:
+                raise AssertionError(
+                    f"queue did not drain: {n} jobs in {time.monotonic() - t0:.0f}s")
+        forwarded = _fast_forward(db)
+        if not forwarded:
+            return n
+        forwards += 1
+        _FORWARDED.extend(forwarded)
+        if forwards > 20:
+            raise AssertionError(f"queue did not drain: jobs keep deferring {forwarded}")
 
 
 def drained() -> dict:
@@ -146,7 +180,10 @@ def drained() -> dict:
         # other paths (the API test), and a count read later would credit the drain with it.
         at_drain = {k: len(v.calls) for k, v in spies.items()}
         _STATE.update(db=db, spies=spies, enqueued=enqueued, worker=w, ran=ran, now=now,
-                      at_drain=at_drain)
+                      at_drain=at_drain, fast_forwarded=list(_FORWARDED))
+        if _FORWARDED:
+            print(f"     drain made {len(_FORWARDED)} deferred job(s) due: "
+                  f"{sorted({t for _, t in _FORWARDED})}")
     finally:
         os.chdir(cwd)
     return _STATE
