@@ -61,14 +61,21 @@ def test_sections_follow_owner_nav_and_never_show_empty_shelves():
     names = [r["name"] for r in rows]
     assert names[:5] == ["Home", "Baby", "Wearables", "Gifts", "Seasonal"], names
     shown = [r for r in rows if r["shown"]]
-    assert {r["slug"] for r in shown} == {"home", "baby"}, shown
+    # W4-PIPE 18baa94: the snowflake ornaments (Seasonal) and the snowfall throw (Blankets)
+    # joined Launch-0; Wearables and Gifts stay empty and hidden.
+    assert {r["slug"] for r in shown} == {"home", "baby", "seasonal", "blankets"}, shown
     for r in rows:
         assert r["shown"] == (r["listings"] > 0)
         assert r["status"] == ("live" if r["listings"] else "planned")
-    planned = [x for x in V.SECTIONS if x.slug not in ("home", "baby")]
-    assert planned
+    live = {r["slug"] for r in shown}
+    planned = [x for x in V.SECTIONS if x.slug not in live]
+    assert {x.slug for x in planned} == {"wear", "collections"}
     for x in planned:
         assert x.planned_note.startswith("planned"), x.slug
+    # a live section never claims to be planned (the copy cannot outlive the catalogue)
+    for x in V.SECTIONS:
+        if x.slug in live:
+            assert "planned" not in x.planned_note, x.slug
 
 
 def test_shop_package_renders_from_copy_v2_and_keeps_its_checks():
