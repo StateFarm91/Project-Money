@@ -9971,3 +9971,16 @@ merged or deployed; no Etsy publication, spend, banking or KYC action. Phase sta
    CA$0, ~5 min/release; without it every publish refuses before any Etsy request.
 3. Standing: re-authorise Etsy `transactions_r`; vision-gate ruling; model/vision spend headroom
    (≤CA$25 top-up proposal; CA$76.40/100 used); rotate the Anthropic key exposed 2026-09-19.
+
+## 2026-10-10 — W4-B2VERIFY: Build 2 claim re-verified on 56d7b38
+
+Regenerated with `research/final_build/w4/build2_ledger.py` against a fresh read-only production gate
+reading (fcb982d, `evidence_B2/prod_gates_2026-10-10.json`): PROVEN 215, OWNER-GATED 54, DATA-GATED 41,
+EXTERNAL-GATED 7, NOT-APPLICABLE 3, OPEN-DEFECT 0 (the committed 2026-10-07 ledger was stale at 58/37).
+Final Master snapshot regenerates identical (launch-critical OPEN 15). The closure count is 0, but the
+adversarial re-check found executable company work it does not see: #10 (free lead-magnet half not done)
+and a gate-wiring defect on #35/#39 (rendered_pages opens only on browser.probe, though the stated remedy
+is a human policy snapshot). Both are listed, not fixed. 15 gated rows got proof citations (states
+unchanged). 17 parked rows' gates are not reported by production, so their state is UNKNOWN. Production
+etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Report:
+`research/final_build/w4/BUILD2_VERIFY_2026-10-10.md`.

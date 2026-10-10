@@ -1,7 +1,7 @@
 # Build 2 ledger (W4-B2)
 
-Generated 2026-10-07T00:47:10+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
-Gate readings: production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-07.
+Generated 2026-10-10T03:26:33+00:00 by `research/final_build/w4/build2_ledger.py` from `build2.closure.ledger` (evidence-computed; registry status is the claim under test).
+Gate readings: production GET /api/build (read-only), deployed commit fcb982d, read 2026-10-10.
 
 ## Reconciliation of the owner dashboard figure
 
@@ -10,8 +10,8 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 | state | rows |
 |---|---|
 | PROVEN | 215 |
-| OWNER-GATED | 58 |
-| DATA-GATED | 37 |
+| OWNER-GATED | 54 |
+| DATA-GATED | 41 |
 | EXTERNAL-GATED | 7 |
 | NOT-APPLICABLE | 3 |
 | OPEN-DEFECT | 0 |
@@ -21,9 +21,9 @@ The dashboard's `Build 2: 227/320 complete (70.9%), executable remaining 45, own
 | gate | kind | state | rows |
 |---|---|---|---|
 | acceptance_ruling | OWNER-GATED | unchecked | #189 #221 #222 #320 |
-| ad_authority | OWNER-GATED | closed | #242 #243 #244 #245 #294 #295 |
+| ad_authority | OWNER-GATED | closed | #294 #295 |
 | benchmark_purchases | OWNER-GATED | closed | #163 #165 #168 #315 #317 |
-| customers | DATA-GATED | closed | #8 #18 #19 #20 #21 #25 #28 #31 #33 #41 #45 #48 #120 #147 #169 #226 #229 #235 #252 #253 #256 #257 #258 #260 #265 #270 #272 #280 #292 |
+| customers | DATA-GATED | closed | #8 #18 #19 #20 #21 #25 #28 #31 #33 #41 #45 #48 #120 #147 #169 #226 #229 #235 #242 #243 #244 #245 #252 #253 #256 #257 #258 #260 #265 #270 #272 #280 #292 |
 | image_vision | OWNER-GATED | closed | #15 #44 #61 #67 #86 #88 #116 #126 #218 #277 #281 #304 #308 #309 |
 | insights_access | OWNER-GATED | unchecked | #1 #37 #54 #236 #237 |
 | live_listings | OWNER-GATED | closed | #14 #16 #46 #238 #239 #241 #254 #263 #266 |
