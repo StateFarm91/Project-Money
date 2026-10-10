@@ -185,7 +185,74 @@ def main():
     check("garland_without_cord_is_not_a_garland",
           not _l0.assembly_promise(bare)["backed"]
           and any(n.startswith("assembly") for n in name_truth(bare)))
-    check("ornaments_now_true", inventory.static_truth("nordic-star-ornaments")["title_promise"]["backed"])
+    # A piece worked on from held stitches is joined by construction (no seam to sew); loose
+    # pieces with neither a seam nor a held-stitch continuation are still not the object.
+    from brambleloop.products.moment_candidates import mothers_day_heart_tea_cosy
+    cosy = mothers_day_heart_tea_cosy()
+    ap = _l0.assembly_promise(cosy)
+    check("worked_on_join_backs_assembled_form", ap["backed"] and ap["seams"] == 0
+          and ap["worked_on_joins"] == 2, ap)
+    loose = replace(cosy, components=[replace(c, resumes=None) for c in cosy.components])
+    check("loose_pieces_without_join_still_refused", not _l0.assembly_promise(loose)["backed"])
+    check("ornaments_now_true",inventory.static_truth("nordic-star-ornaments")["title_promise"]["backed"])
+
+    # A reserve (outside Launch-0) is held to the Launch-0 standard before it is a candidate:
+    # render authority, usable imagery and the first-customer gate on its stored release.
+    st = inventory.static_truth("pet-snuggle-mat")
+    check("pet_mat_is_reserve", st["product_truth_ok"] and not st["launch_scope"], st)
+    owner_ext = ["FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no sample",
+                 "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open",
+                 "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- not durable"]
+    ch = {"release": {"version": st["version"], "certified": True},
+          "imagery": {"usable": True}, "publish_verdict": {"reasons": []},
+          "render_authority": True, "reserve_first_customer": owner_ext}
+    b = inventory._blockers(st, ch, None)
+    company = [x for x in b if x["clearer"] == "COMPANY"]
+    check("reviewed_reserve_has_no_company_blocker", not company and len(b) == 3, b)
+    check("reviewed_reserve_is_owner_gated",
+          inventory.classify(st, b) == "OWNER_AND_DEPLOY_GATED", inventory.classify(st, b))
+    unreviewed = {k: v for k, v in ch.items() if k != "reserve_first_customer"}
+    check("unreviewed_reserve_stays_company", any(
+        x["gate"] == "outside_launch_scope" and x["clearer"] == "COMPANY"
+        for x in inventory._blockers(st, unreviewed, None)))
+    no_auth = {**ch, "render_authority": False}
+    check("reserve_without_render_authority_stays_company", any(
+        x["gate"] == "outside_launch_scope" for x in inventory._blockers(st, no_auth, None)))
+    bad_img = {**ch, "imagery": {"usable": False}}
+    check("reviewed_reserve_needs_usable_imagery", any(
+        x["gate"] == "listing_imagery" and x["clearer"] == "COMPANY"
+        for x in inventory._blockers(st, bad_img, None)))
+    prod = {"version": st["version"], "photography": "no_asset"}
+    check("reserve_with_verified_imagery_needs_only_deploy", all(
+        x["clearer"] == "DEPLOY" for x in inventory._blockers(st, ch, prod)
+        if x["gate"] == "production_imagery"))
+    check("reserve_without_usable_imagery_production_imagery_company", any(
+        x["gate"] == "production_imagery" and x["clearer"] == "COMPANY"
+        for x in inventory._blockers(st, bad_img, prod)))
+    new_area = {**ch,"reserve_first_customer": ["FIRST_CUSTOMER_BLOCKING: pattern_text: FAIL -- x"]}
+    check("reserve_unknown_area_is_company", any(
+        x["clearer"] == "COMPANY" for x in inventory._blockers(st, new_area, None)))
+
+    # merge_chain: a drafted listing's search certificate replaces the board's synthetic copy.
+    real_ev = inventory.chain_evidence
+    ext = ["search certificate (F-005): category UNKNOWN -- none assumed",
+           "search certificate (F-004) attributes: no category, so no property schema"]
+    try:
+        inventory.chain_evidence = lambda db, slug, version, today=None: {
+            "listing": {"id": 7, "title": "Drafted", "tags": 13, "price_cad": 7.5},
+            "publish_verdict": {"reasons": ext, "search": "REFUSED"}}
+        row = {"slug": "x", "source": "launch0", "stage": "SEARCH", "stage_status": "FAIL",
+               "next_step": "fix the listing copy the gates refuse", "clearer": "COMPANY",
+               "stages": {"PRODUCT": {"evidence": {"version": "1.0.0"}},
+                          "SEARCH": {"status": "FAIL"}}}
+        pb.merge_chain({"candidates": [row]}, db=None)
+    finally:
+        inventory.chain_evidence = real_ev
+    check("merge_chain_search_from_drafted_listing",
+          row["stages"]["SEARCH"]["status"] == "UNKNOWN" and row["clearer"] == "EXTERNAL"
+          and row["stages"]["SEARCH"]["evidence"]["source"] == "release chain listing.seo", row)
+    check("merge_chain_readiness_external_only",
+          row["stages"]["LISTING_READINESS"]["clearer"] == "EXTERNAL", row["stages"])
     if FAILED:
         raise SystemExit(f"{len(FAILED)} failed: {FAILED}")
 

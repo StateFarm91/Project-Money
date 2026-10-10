@@ -76,9 +76,10 @@ def md(inv: dict, prod_summary: dict, sha: str) -> str:
     L += ["", "## Launch candidates — company side complete (owner directive 2026-10-07)", "",
           "Products with no COMPANY blocker left: every gate below is owner, external or "
           "deploy. Publication is the owner's authorisation and is never performed here.", "",
-          "| product | v | company gates passed | remaining (clearer) |", "|---|---|---|---|"]
+          "| product | scope | v | company gates passed | remaining (clearer) |", "|---|---|---|---|---|"]
     for c in inv.get("launch_candidates") or []:
-        L.append(f"| {c['slug']} | {c['version']} | {len(c['company_gates_passed'])}/"
+        L.append(f"| {c['slug']} | {c['scope'].split(' ')[0]} | {c['version']} | "
+                 f"{len(c['company_gates_passed'])}/"
                  f"{len(COMPANY_GATES)} | "
                  + "; ".join(f"{r['gate']} ({r['clearer']})" for r in c["remaining"]) + " |")
     L += ["", "## Shop-wide gates (block every product)", ""]
@@ -133,6 +134,9 @@ def launch_candidates(inv: dict) -> list[dict]:
             remaining.append({"gate": b["gate"], "clearer": b["clearer"],
                               "evidence": str(b["evidence"])[:200]})
         out.append({"slug": p["slug"], "version": ch["release"].get("version"),
+                    "scope": ("Launch-0" if st.get("launch_scope") else
+                              "reserve (held to the Launch-0 first-customer standard by "
+                              "products.inventory._reserve_standard)"),
                     "company_gates_passed": passed, "remaining": remaining,
                     "publication": "owner authorisation (D-FB-10 sealed grant); never "
                                    "performed by the company"})

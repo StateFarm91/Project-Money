@@ -1,6 +1,6 @@
 # Product pipeline backlog (W4-PIPE)
 
-Generated 2026-10-07T01:44:01+00:00 at `e72f086` by `research/final_build/w4/pipeline_run.py` (shadow, scratch DB + scratch artefact store). Stages: INTELLIGENCE → DESIGN → PRODUCT → PRODUCT_TRUTH → VISUAL → SEARCH → LISTING_READINESS → PUBLICATION. Publication is never advanced (`advances_publication` = False).
+Generated 2026-10-10T03:19:18+00:00 at `c72b557` by `research/final_build/w4/pipeline_run.py` (shadow, scratch DB + scratch artefact store). Stages: INTELLIGENCE → DESIGN → PRODUCT → PRODUCT_TRUTH → VISUAL → SEARCH → LISTING_READINESS → PUBLICATION. Publication is never advanced (`advances_publication` = False).
 
 ## Candidates at each stage (current stage = first stage not PASS)
 
@@ -10,8 +10,8 @@ Generated 2026-10-07T01:44:01+00:00 at `e72f086` by `research/final_build/w4/pip
 | DESIGN | 23 | 34 |
 | PRODUCT | 0 | 34 |
 | PRODUCT_TRUTH | 10 | 24 |
-| VISUAL | 19 | 5 |
-| SEARCH | 5 | 0 |
+| VISUAL | 15 | 9 |
+| SEARCH | 9 | 0 |
 | LISTING_READINESS | 0 | 0 |
 | PUBLICATION | 0 | 0 |
 
@@ -28,11 +28,15 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 
 | candidate | source | stage | status | next step | clearer |
 |---|---|---|---|---|---|
-| cloudline-baby-blanket | launch0 | SEARCH | FAIL | fix the listing copy the gates refuse | COMPANY |
-| hexagon-coaster-set | launch0 | SEARCH | FAIL | fix the listing copy the gates refuse | COMPANY |
-| market-basket-large | launch0 | SEARCH | FAIL | fix the listing copy the gates refuse | COMPANY |
-| market-basket-medium | launch0 | SEARCH | FAIL | fix the listing copy the gates refuse | COMPANY |
-| market-basket-small | launch0 | SEARCH | FAIL | fix the listing copy the gates refuse | COMPANY |
+| cloudline-baby-blanket | launch0 | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| harvest-table-runner | catalogue | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| hexagon-coaster-set | launch0 | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| market-basket-large | launch0 | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| market-basket-medium | launch0 | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| market-basket-small | launch0 | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| nordic-star-ornaments | launch0 | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| pet-snuggle-mat | catalogue | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
+| winter-village-graphghan | launch0 | SEARCH | UNKNOWN | listing.taxonomy_refresh with the deployed app's Etsy read access (EXTERNAL), then listing.seo | EXTERNAL |
 | basketweave-textured-hand-towel | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | basketweave-textured-washcloth | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | chevron-relief-scarf | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
@@ -40,18 +44,14 @@ Competitor findings as of 2026-10-07 (intel.findings; demand and merchandising i
 | diamond-lattice-dishcloth | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | fir-star-relief-table-runner | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | first-christmas-stocking | creative | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
-| harvest-table-runner | catalogue | VISUAL | FAIL | renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify | COMPANY |
 | heart-relief-table-runner | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | housewarming-key-basket | creative | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | mosaic-placemat-pair | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | mothers-day-heart-tea-cosy | creative | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
-| nordic-star-ornaments | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
-| pet-snuggle-mat | catalogue | VISUAL | FAIL | renderer refused this design (W4-CREATIVE owns the renderer; the gate is not relaxed): change the palette/design to one it can draw and verify | COMPANY |
 | pressed-flower-motifs | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | pumpkin-relief-table-runner | proposal | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | snowfall-advent-garland | creative | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | teacher-chevron-pencil-roll | creative | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
-| winter-village-graphghan | catalogue | VISUAL | UNKNOWN | the pixel verifier's authority is the Launch-0 registry (D-FB-7): structural truth is UNKNOWN until the product is registered as a Launch-0 candidate (cap 5 pro | COMPANY |
 | autumn-oak-mosaic-throw | catalogue | PRODUCT_TRUTH | FAIL | rename to what the fabric makes or change the CIR (new version) | COMPANY |
 | bobble-floor-pillow | catalogue | PRODUCT_TRUTH | FAIL | a pattern tester works the new stitch (physical calibration) | OWNER |
 | chunky-ribbed-scarf | catalogue | PRODUCT_TRUTH | FAIL | a pattern tester works the new stitch (physical calibration) | OWNER |

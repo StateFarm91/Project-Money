@@ -45,7 +45,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--chain-db")
     ap.add_argument("--no-visual", action="store_true")
+    ap.add_argument("--only", help="comma-separated slugs: refresh just these rows and splice "
+                                   "them into the existing backlog (other rows kept as they are)")
     a = ap.parse_args()
+    only = set(a.only.split(",")) if a.only else None
     from brambleloop.core.artifacts import ArtifactStore
     from brambleloop.products import pipeline_board as pb
 
@@ -54,7 +57,7 @@ def main():
     # reads from the `mjs.findings` OperatingReading in a database that ran mjs.scan.
     findings = json.loads((HERE / "MJS_FINDINGS.json").read_text())
     res = pb.board(today=today, store=ArtifactStore(), visual=not a.no_visual,
-                   findings=findings)
+                   findings=findings, only=only)
     if a.chain_db:
         from brambleloop.core.db import Database
 
@@ -76,6 +79,23 @@ def main():
                 if r["stages"].get(s, {}).get("status") == pb.PASS:
                     res["passed_stage"][s] += 1
         pb.record(db, res)
+    if only is not None:
+        # Splice: replace only these rows in the backlog on file and recount its totals.
+        full = json.loads((HERE / "PIPELINE_BACKLOG.json").read_text())
+        mine = {r["slug"]: r for r in res["candidates"]}
+        full["candidates"] = [mine.pop(r["slug"], r) for r in full["candidates"]] + list(
+            mine.values())
+        full["at_stage"] = {s: 0 for s in pb.STAGES}
+        full["passed_stage"] = {s: 0 for s in pb.STAGES}
+        for r in full["candidates"]:
+            full["at_stage"][r["stage"]] += 1
+            for s in pb.STAGES:
+                if r["stages"].get(s, {}).get("status") == pb.PASS:
+                    full["passed_stage"][s] += 1
+        full["pipe_rows_refreshed"] = {"slugs": sorted(only), "chain_db": bool(a.chain_db),
+                                       "at": datetime.now(timezone.utc).isoformat(
+                                           timespec="seconds")}
+        res = full
     res["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     res["head"] = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                                  text=True).stdout.strip()

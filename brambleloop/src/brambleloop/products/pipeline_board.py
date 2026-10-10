@@ -589,7 +589,7 @@ def _visual(c: Candidate, store) -> None:
     try:
         rec = disclosed_listing.build(cir, store=store)
     except Exception as exc:  # noqa: BLE001
-        c.set("VISUAL", FAIL, f"{type(exc).__name__}: {exc}"[:300], "W4-CREATIVE: renderer")
+        c.set("VISUAL", FAIL, f"{type(exc).__name__}: {exc}"[:300], "W4-RENDER: renderer")
         return
     frames = [(f["view"], f["structural_truth"]["status"]) for f in rec.get("frames") or []]
     in_scope = c.slug in launch0.launch_scope_slugs()
@@ -613,8 +613,8 @@ def _visual(c: Candidate, store) -> None:
               "the round piece's outline is not a named shape (increases neither all stack "
               "nor all stagger): change the CIR's increase placement"
               if "neither all stack nor all stagger" in why else
-              "renderer refused this design (the gate is not relaxed): change the "
-              "palette/design to one it can draw and verify")
+              "renderer refused this design (W4-RENDER owns the renderer; the gate is not "
+              "relaxed): change the palette/design to one it can draw and verify")
     else:
         status = UNKNOWN if all(s == UNKNOWN for _, s in frames) else FAIL
         assembled = any((f.get("disclosed_render") or {}).get("form") == "assembled"
@@ -628,7 +628,8 @@ def _visual(c: Candidate, store) -> None:
                   "frames (render_verification; the body-piece detail already verifies)"
                   if assembled else ""))
               if status == UNKNOWN and not in_scope else
-              "repair the frames the verifier/QA refused (W4-CREATIVE)")
+              "repair the frames the verifier/QA refused (renderer fixes: W4-RENDER; the gate "
+              "is not relaxed)")
 
 
 def _search(c: Candidate, proposal: Proposal | None, scored: dict) -> None:
@@ -654,8 +655,10 @@ def _search(c: Candidate, proposal: Proposal | None, scored: dict) -> None:
     copy = seo.ListingCopy(title=title, tags=tags, description="", materials=[cir.materials[0].name],
                            price_cad=0.0)
     problems = (title_problems(title) + tag_problems(tags) + [
-        p for p in seo.check_listing_limits(copy) if not p.startswith(("LISTING_NO_DESC",
-                                                                       "LISTING_PRICE"))])
+        # The board drafts no description or price (listing.draft and pricing.position do,
+        # and merge_chain re-judges the drafted copy), so their absence is not a finding here.
+        p for p in seo.check_listing_limits(copy) if not p.startswith((
+            "LISTING_NO_DESC", "LISTING_DESCRIPTION_THIN", "LISTING_PRICE"))])
     from ..gates.first_customer import colourwork_findings
 
     problems += colourwork_findings(cir, twin, title=title, tags=tags)
@@ -753,8 +756,12 @@ def intelligence_candidates(findings: dict | None, answered: set[str]) -> list[C
 
 
 def board(*, today: date | None = None, store=None, visual: bool = True,
-          include_pool: bool = True, findings: dict | None = None) -> dict:
-    """Evaluate every candidate as far as it can go. Pure apart from rendering to `store`."""
+          include_pool: bool = True, findings: dict | None = None,
+          only: set[str] | frozenset[str] | None = None) -> dict:
+    """Evaluate every candidate as far as it can go. Pure apart from rendering to `store`.
+
+    `only` limits the board to those slugs (a bounded refresh of some rows; the caller
+    splices them into the full backlog)."""
     from ..products import inventory
     from ..radar.opportunity import score_pool
 
@@ -769,6 +776,8 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
             slugs.setdefault(slug, "radar_pool")
     for p in PROPOSALS:
         slugs[p.slug] = "proposal"
+    if only is not None:
+        slugs = {k: v for k, v in slugs.items() if k in only}
     cands: list[Candidate] = []
     for slug, source in sorted(slugs.items()):
         proposal = next((p for p in PROPOSALS if p.slug == slug), None)
@@ -779,10 +788,13 @@ def board(*, today: date | None = None, store=None, visual: bool = True,
         _advance(c, proposal, scored, store, visual)
         cands.append(c)
     for c in creative_candidates():
+        if only is not None and c.slug not in only:
+            continue
         if "DESIGN" not in c.stages and c.stages["INTELLIGENCE"]["status"] == PASS:
             _advance(c, None, scored, store, visual)
         cands.append(c)
-    cands += intelligence_candidates(findings, {c.slug for c in cands})
+    if only is None:
+        cands += intelligence_candidates(findings, {c.slug for c in cands})
     return _summarise(cands, today, findings)
 
 
@@ -853,6 +865,27 @@ def merge_chain(result: dict, db, *, today: date | None = None) -> dict:
                 "clearer": "COMPANY"}
             continue
         reasons = verdict.get("reasons") or []
+        lst = ev.get("listing")
+        if lst and row["stage"] == "SEARCH":
+            # The chain drafted the real listing (listing.draft + listing.seo): its search
+            # certificate, not the board's synthetic title, is the SEARCH verdict.
+            s_reasons = [r for r in reasons if "search certificate" in r]
+            s_company = [r for r in s_reasons
+                         if inventory.classify_reason(r)[1] == "COMPANY"]
+            row["stages"]["SEARCH"] = {
+                "status": FAIL if s_company else (UNKNOWN if s_reasons else PASS),
+                "evidence": {"source": "release chain listing.seo", "listing_id": lst["id"],
+                             "title": lst["title"], "tags": lst["tags"],
+                             "price_cad": lst["price_cad"],
+                             "search_certificate": verdict.get("search"),
+                             "reasons": s_reasons},
+                "next_step": ("company: " + "; ".join(s_company[:2])) if s_company else (
+                    "listing.taxonomy_refresh with the deployed app's Etsy read access "
+                    "(EXTERNAL), then listing.seo" if s_reasons else ""),
+                "clearer": "COMPANY" if s_company else ("EXTERNAL" if s_reasons else "")}
+            row.update({k: row["stages"]["SEARCH"][k2] for k, k2 in (
+                ("stage_status", "status"), ("next_step", "next_step"),
+                ("clearer", "clearer"))})
         clearers = sorted({inventory.classify_reason(r)[1] for r in reasons})
         company = [r for r in reasons if inventory.classify_reason(r)[1] == "COMPANY"]
         row["stages"]["LISTING_READINESS"] = {
