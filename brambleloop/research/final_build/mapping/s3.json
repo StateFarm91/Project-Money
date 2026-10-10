@@ -2015,28 +2015,31 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "thrash sweep suspends a paid loop whose outputs do not change (progress per iteration/dollar = 0) until handler code changes; 'new evidence' is inferred from output change, not from durable evidence rows",
-  "producer": "src/brambleloop/swarm/orchestrate.py::thrash_sweep",
-  "durable_state": "jobs.outputs; incidents",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/orchestrate.py::_progress / thrash_sweep",
+  "durable_state": "jobs.outputs; audit_log (new evidence rows); incidents",
   "consumer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
   "protected_effect": "a stalled paid cadence is not re-enqueued",
   "tests": [
-   "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes"
+   "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes",
+   "tests/test_w4_auto_spend_wiring.py::test_bookkeeping_audits_are_not_evidence",
+   "tests/test_w4_auto_spend_wiring.py::test_progress_counts_new_evidence_rows_and_ignores_restatements"
   ],
   "evidence": [
-   "thrash_sweep not in fcb982d orchestrate.py"
+   "thrash_sweep not in fcb982d orchestrate.py",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO: swarm/orchestrate.py::_progress counts new content-distinct durable audit rows per job type (new_evidence_rows; bookkeeping prefixes job./ai.parked/paid_call.replayed excluded) and folds them into the state sequence, so identical outputs with a new observation are progress and a restated row is not; thrash_sweep (ops.thrash, hourly cadence) reads it for backoff"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
-   "key": "",
-   "detail": ""
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Deploy; add a durable-evidence delta (new audit/observation rows per run) to the progress measure",
+  "next_action": "none: deploy carries the durable-evidence progress measure",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FMLEDGER close"
  },
  {
   "uid": "F-311",

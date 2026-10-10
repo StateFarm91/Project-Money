@@ -2218,8 +2218,8 @@
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "Marketplace compliance / truthful owner visibility of what the system can and cannot observe on Etsy.",
   "maturity": "INTEGRATED",
-  "coverage": "PARTIAL",
-  "missing_part": "the etsy.openapi_reverify job is not yet on a cadence (WIRING REQUEST to lane AUTO: worker.py CADENCES + agents/registry orchestrator allow-list)",
+  "coverage": "FULL",
+  "missing_part": null,
   "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces / coverage / owner_queue",
   "durable_state": "owner_actions (etsy surface queue rows); operating_readings (shop/census)",
   "consumer": "src/brambleloop/launch/readiness.py::unknowns (dashboard); src/brambleloop/runtime/etsy_ops.py::seed_owner_queue (called by runtime/release.py launch.readiness handler)",
@@ -2231,6 +2231,7 @@
    "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
    "tests/test_k8_shop_cx.py::test_the_inventory_is_served_with_a_channel_per_surface_and_every_named_surface",
    "tests/test_launch.py::test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today",
+   "tests/test_w4_auto_status.py::test_fm2_openapi_reverify_is_scheduled_authorised_banded_and_judged",
    "tests/test_w4_fm2_surface_reverify.py::test_a_removed_operation_names_the_surface_that_cites_it",
    "tests/test_w4_fm2_surface_reverify.py::test_an_ads_api_appearing_names_the_unsupported_surfaces",
    "tests/test_w4_fm2_surface_reverify.py::test_the_job_stores_the_reading_opens_and_resolves_drift_and_reuses_a_fresh_reading",
@@ -2240,18 +2241,19 @@
    "module_reachability: intel/etsy_surfaces.py reached via dashboard -> launch/readiness.assess -> unknowns",
    "fcb982d launch/readiness.py has no etsy_surfaces reference -> not DEPLOYED",
    "coverage()['unknowns'] keys today: orders, search_visibility, share_and_save, taxonomy_and_attributes, webhooks",
-   "w4-FM close on w4-FM2 (FM2): served at GET /api/etsy/surfaces (commerce/estate_api -> surface_inventory.served + summary, channel per surface); unknowns include every Evidence(UNKNOWN) (F-588); re-verified daily against held scopes and collector freshness (surface_inventory.reverify inside etsy.shop_snapshot); and now re-verified against Etsy's current OpenAPI document (etsy_surfaces.openapi_reverify + etsy_ops.reverify_openapi, job etsy.openapi_reverify, drift incident) with the classification state per surface on the served inventory. The job has no cadence yet (runtime/worker.py is lane AUTO's): until wired, the served inventory reports 'classification: never re-verified' -- honest, not green"
+   "w4-FM close on w4-FM2 (FM2): served at GET /api/etsy/surfaces (commerce/estate_api -> surface_inventory.served + summary, channel per surface); unknowns include every Evidence(UNKNOWN) (F-588); re-verified daily against held scopes and collector freshness (surface_inventory.reverify inside etsy.shop_snapshot); and now re-verified against Etsy's current OpenAPI document (etsy_surfaces.openapi_reverify + etsy_ops.reverify_openapi, job etsy.openapi_reverify, drift incident) with the classification state per surface on the served inventory. The job has no cadence yet (runtime/worker.py is lane AUTO's): until wired, the served inventory reports 'classification: never re-verified' -- honest, not green",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO wired the WIRING REQUEST: runtime/worker.py CADENCES ('etsy_openapi_reverify', 'orchestrator', 'etsy.openapi_reverify', weekly) and agents/registry.py orchestrator allow-list carries 'etsy.openapi_reverify'; the reverify job is now scheduled, authorised, banded and judged"
   ],
   "build2_rows": [],
   "gate": {
    "kind": "none",
    "key": "none",
-   "detail": "no external/owner/data gate on the remaining software step"
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Lane AUTO: add (\"etsy_openapi_reverify\", \"orchestrator\", \"etsy.openapi_reverify\", 7 * 24 * 60 * 60) to CADENCES and \"etsy.openapi_reverify\" to the orchestrator allow-list (GREEN, read-only public GET, CA$0)",
+  "next_action": "none: weekly etsy.openapi_reverify keeps the surface classification current; deploy carries it",
   "confidence": "HIGH",
-  "searched": " | w4-FM2 close"
+  "searched": " | w4-FM2 close | w4-FMLEDGER close"
  },
  {
   "uid": "F-515@v0.16",

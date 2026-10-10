@@ -282,24 +282,30 @@
   "uid": "F-659",
   "launch_class": "LAUNCH-CRITICAL",
   "launch_class_reason": "runtime durability, recovery and idempotence",
-  "maturity": "EXERCISED",
-  "coverage": "PARTIAL",
-  "missing_part": "Long-job checkpoints are absent (handlers restart from the beginning; resumption is at pipeline-stage granularity); lease fencing, lease renewal and the single dead-letter classifier exist only on 019ebf0 (not deployed).",
-  "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
-  "durable_state": "jobs table: idempotency_key unique, lease_expires_at, attempts, status DEAD",
-  "consumer": "src/brambleloop/runtime/worker.py::Worker",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/queue/checkpoints.py::save / load (JobQueue.checkpoint/restore; JobContext.checkpoint/restore)",
+  "durable_state": "job_checkpoints; jobs table: idempotency_key unique, lease_expires_at, lease_token, attempts, status DEAD",
+  "consumer": "src/brambleloop/runtime/release.py::handle_model_photography / handle_seasonal_cycle_proof (via runtime/worker.py::Worker)",
   "protected_effect": "no duplicate execution; crashed jobs reclaimed; failing jobs dead-letter",
   "tests": [
-   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
    "tests/test_cert_orchestration.py::test_crash_mid_handler_is_reclaimed_and_completed_exactly_once",
    "tests/test_cert_orchestration.py::test_retries_back_off_exponentially_then_dead_letter",
+   "tests/test_chaos.py::test_a_reclaimed_jobs_original_worker_cannot_complete_it",
    "tests/test_chaos.py::test_duplicate_spend_job_cannot_double_charge",
-   "tests/test_chaos.py::test_a_reclaimed_jobs_original_worker_cannot_complete_it"
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_w4_auto_spend_wiring.py::test_checkpoint_resumes_after_reclaim_without_repeating_steps",
+   "tests/test_w4_auto_spend_wiring.py::test_stale_worker_cannot_overwrite_a_checkpoint",
+   "tests/test_w4_fml_checkpoint_adoption.py::test_a_direct_call_without_a_queued_job_still_runs_the_step",
+   "tests/test_w4_fml_checkpoint_adoption.py::test_cycle_proof_resumes_from_the_checkpointed_report",
+   "tests/test_w4_fml_checkpoint_adoption.py::test_model_photography_resumes_without_rendering_again"
   ],
   "evidence": [
    "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
    "BUILD_STATE: POST /api/queue/requeue re-drives dead letters in production",
-   "src/brambleloop/queue/durable.py claim/heartbeat in fcb982d; classify_dead_letter post-fcb982d"
+   "src/brambleloop/queue/durable.py claim/heartbeat in fcb982d; classify_dead_letter post-fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO: queue/checkpoints.py (job_checkpoints; fenced to the lease token; cleared on completion; kept on dead letter) via JobQueue.checkpoint/restore and JobContext.checkpoint/restore; W4-FMLEDGER adopted it in the longest handlers: runtime/release.py handle_model_photography (render step 'render:<slug>@<version>') and handle_seasonal_cycle_proof ('cycle_report'), so a worker that dies after the long step resumes without repeating it. queue/checkpoints.py is reached on 2f36fe0 (module_reachability regenerated here: load is live via queue/durable.py:JobQueue.restore). Lease fencing/renewal and the dead-letter classifier are on this head; production fcb982d predates them (deploy pending, owner production window)"
   ],
   "build2_rows": [
    "#184 COMPLETE+PROVEN",
@@ -308,12 +314,12 @@
   "gate": {
    "kind": "none",
    "key": "none",
-   "detail": "no gate on the remaining software work"
+   "detail": "no external/owner/data gate on the remaining step"
   },
   "defect": null,
-  "next_action": "Add explicit checkpoint persistence for long handlers (e.g. JobContext.checkpoint(key, state) stored on the job row) and use it in the longest handlers (visual/model photography, seasonal cycle); deploy the fencing/renewal build.",
+  "next_action": "none: deploy carries checkpoints, fencing and renewal",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMLEDGER close"
  },
  {
   "uid": "F-660",

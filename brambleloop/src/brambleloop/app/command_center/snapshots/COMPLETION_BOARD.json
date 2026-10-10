@@ -1,6 +1,6 @@
 {
  "schema": "wave4.completion_board.v1",
- "updated_at": "2026-10-07T08:19Z",
+ "updated_at": "2026-10-10T04:00Z",
  "directive": "owner 2026-10-06: stop the certification loop; finish the existing build",
  "scoreboard_baseline_from_owner_dashboard": {
   "build2_complete": "227/320",
@@ -75,14 +75,14 @@
    "responsible": "Claude worker (W4-AUTO)",
    "task": "Rule #1 autonomy",
    "detail": "output audit; QUEUE 0/0 diagnosis; work discovery fixes; per-agent status provider",
-   "status": "running (resumed after session limit)",
+   "status": "complete; merged: F-098 outage parking, F-310 evidence-row progress, F-659 checkpoint primitive, F-514 reverify cadence, per-agent status provider",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-07T08:19Z",
+   "last_update": "2026-10-10T04:00Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_AUTO.md",
    "rows_closed": [],
-   "latest_pushed_sha": "7633afa"
+   "latest_pushed_sha": "56b06a3"
   },
   {
    "lane": "CC",
@@ -105,14 +105,14 @@
    "responsible": "Claude worker (W4-PIPE)",
    "task": "Product pipeline",
    "detail": "audit 16 drafted listings + certified products; shortest paths; continuous multi-product backlog",
-   "status": "running (resumed after session limit)",
+   "status": "merged (tail via W4-PIPETAIL cf5b9d6); remaining per handoff_PIPE.md are external/owner gates (etsy_taxonomy_snapshot, owner publication)",
    "started": "2026-10-06T23:56Z",
-   "last_update": "2026-10-07T08:19Z",
+   "last_update": "2026-10-10T04:00Z",
    "useful_output": null,
    "blocker": null,
    "next_action": "see handoff_PIPE.md",
    "rows_closed": [],
-   "latest_pushed_sha": "1de40ba"
+   "latest_pushed_sha": "27105c6"
   },
   {
    "lane": "CREATIVE",
@@ -256,12 +256,12 @@
    "task": "Final Master continuation",
    "started": "2026-10-07T01:53Z",
    "rows_closed": [],
-   "status": "running (resumed after session limit)",
-   "latest_pushed_sha": "9340fa4",
-   "last_update": "2026-10-07T08:19Z",
+   "status": "complete; merged: launch-critical OPEN 63 -> 15 with folds; continued by FMLEDGER",
+   "latest_pushed_sha": "427b69d",
+   "last_update": "2026-10-10T04:00Z",
    "useful_output": null,
    "blocker": null,
-   "next_action": null
+   "next_action": "see handoff_FM2.md"
   },
   {
    "lane": "GATESI",
@@ -298,12 +298,12 @@
    "task": "PIPE3",
    "started": "2026-10-07T08:19Z",
    "rows_closed": [],
-   "status": "running (resumed after session limit)",
-   "latest_pushed_sha": "a2dd403",
+   "status": "complete; merged: 14 non-viable products fixed or classified",
+   "latest_pushed_sha": "04dd773",
    "useful_output": null,
    "blocker": null,
-   "next_action": null,
-   "last_update": "2026-10-07T08:19Z"
+   "next_action": "see handoff_PIPE3.md",
+   "last_update": "2026-10-10T04:00Z"
   },
   {
    "lane": "RENDER",
@@ -312,12 +312,12 @@
    "task": "RENDER",
    "started": "2026-10-07T08:19Z",
    "rows_closed": [],
-   "status": "running (resumed after session limit)",
-   "latest_pushed_sha": "a860302",
+   "status": "complete; merged: multi-piece CONSTRUCTION frames + per-product gallery-job ledger",
+   "latest_pushed_sha": "d07ca81",
    "useful_output": null,
    "blocker": null,
-   "next_action": null,
-   "last_update": "2026-10-07T08:19Z"
+   "next_action": "see handoff_RENDER.md",
+   "last_update": "2026-10-10T04:00Z"
   },
   {
    "lane": "VISUAL2",
@@ -326,12 +326,12 @@
    "task": "VISUAL2",
    "started": "2026-10-07T08:19Z",
    "rows_closed": [],
-   "status": "running (resumed after session limit)",
-   "latest_pushed_sha": "e11d2d5",
+   "status": "complete; merged: CONTENTS certified on all 7 renderable Launch-0 releases; LIFESTYLE owner-gated (VB-1)",
+   "latest_pushed_sha": "6f1f471",
    "useful_output": null,
    "blocker": null,
-   "next_action": null,
-   "last_update": "2026-10-07T08:19Z"
+   "next_action": "see handoff_VISUAL2.md",
+   "last_update": "2026-10-10T04:00Z"
   },
   {
    "lane": "SPENDA",
@@ -371,6 +371,111 @@
    "blocker": null,
    "next_action": null,
    "last_update": "2026-10-07T08:19Z"
+  },
+  {
+   "lane": "CAND",
+   "branch": "claude/w4-CAND",
+   "responsible": "Claude worker (W4-CAND)",
+   "task": "candidate CIR fixes",
+   "started": null,
+   "rows_closed": [],
+   "status": "complete; merged: pencil roll, stocking loop, advent garland CIRs render and verify",
+   "latest_pushed_sha": "5c7130b",
+   "useful_output": null,
+   "blocker": null,
+   "next_action": null,
+   "last_update": "2026-10-10T04:00Z"
+  },
+  {
+   "lane": "CREATIVE2",
+   "branch": "claude/w4-CREATIVE2",
+   "responsible": "Claude worker (W4-CREATIVE2)",
+   "task": "creative release of HELD products",
+   "started": null,
+   "rows_closed": [],
+   "status": "complete; merged: 5 HELD products briefed and released; HELD self-checking",
+   "latest_pushed_sha": "56f73c7",
+   "useful_output": null,
+   "blocker": null,
+   "next_action": null,
+   "last_update": "2026-10-10T04:00Z"
+  },
+  {
+   "lane": "FIX-DSPEND",
+   "branch": "claude/w4-FIX-DSPEND",
+   "responsible": "Claude worker (W4-FIX-DSPEND)",
+   "task": "dashboard Build 2 block fix",
+   "started": null,
+   "rows_closed": [],
+   "status": "complete; merged: closure headline degrades to UNKNOWN",
+   "latest_pushed_sha": "874bad7",
+   "useful_output": null,
+   "blocker": null,
+   "next_action": null,
+   "last_update": "2026-10-10T04:00Z"
+  },
+  {
+   "lane": "FIX-ORDERS",
+   "branch": "claude/w4-FIX-ORDERS",
+   "responsible": "Claude worker (W4-FIX-ORDERS)",
+   "task": "stale test_cert_orders version",
+   "started": null,
+   "rows_closed": [],
+   "status": "complete; merged",
+   "latest_pushed_sha": "d1d9fb0",
+   "useful_output": null,
+   "blocker": null,
+   "next_action": null,
+   "last_update": "2026-10-10T04:00Z"
+  },
+  {
+   "lane": "FIX-IMPROVE",
+   "branch": "claude/w4-FIX-IMPROVE",
+   "responsible": "Claude worker (W4-FIX-IMPROVE)",
+   "task": "stale test_improve_handlers assertion",
+   "started": null,
+   "rows_closed": [],
+   "status": "complete; merged",
+   "latest_pushed_sha": "2b94ef4",
+   "useful_output": null,
+   "blocker": null,
+   "next_action": null,
+   "last_update": "2026-10-10T04:00Z"
+  },
+  {
+   "lane": "FIX-ROWCYCLE",
+   "branch": "claude/w4-FIX-ROWCYCLE",
+   "responsible": "Claude worker (W4-FIX-ROWCYCLE)",
+   "task": "stale test_rowcycle single-piece assumption",
+   "started": null,
+   "rows_closed": [],
+   "status": "complete; merged",
+   "latest_pushed_sha": "3d755dd",
+   "useful_output": null,
+   "blocker": null,
+   "next_action": null,
+   "last_update": "2026-10-10T04:00Z"
+  },
+  {
+   "lane": "FMLEDGER",
+   "branch": "claude/w4-FMLEDGER",
+   "responsible": "Claude worker (W4-FMLEDGER)",
+   "task": "Final Master launch-critical ledger on the release candidate",
+   "started": "2026-10-10T03:00Z",
+   "status": "complete: launch-critical OPEN 15 -> 9 (4 COMPLETE, 2 GATED owner visual_paid_generation); 9 remaining are END-STAGE process rows",
+   "latest_pushed_sha": "2f36fe0",
+   "useful_output": "research/final_build/w4/FM_LEDGER_2026-10-10.md",
+   "blocker": null,
+   "next_action": "END-STAGE rows close on the frozen RC (see FM_LEDGER_2026-10-10.md)",
+   "last_update": "2026-10-10T04:00Z",
+   "rows_closed": [
+    "F-514",
+    "F-098",
+    "F-310",
+    "F-659",
+    "F-030 (GATED)",
+    "F-254 (GATED)"
+   ]
   }
  ],
  "events": [
@@ -388,10 +493,10 @@
   }
  ],
  "scoreboard_current": {
-  "as_of": "2026-10-07T08:19Z",
+  "as_of": "2026-10-10T04:00Z",
   "build2_open_defects": 0,
-  "build2_owner_gated_challenged": "58 reviewed: 54 genuine (one decision each), 4 (#242-245) -> data-gated, 3 (#10,#54,#165) split company/owner \u2014 reclass in progress (GATESB)",
-  "final_master_launch_critical_open": "54 before folding SPEND/SPENDA/K9(18)/F-416/F-914/F-030/F-254 (FM2 folding now)",
+  "build2_owner_gated_challenged": "58 reviewed: 54 genuine (one decision each), 4 (#242-245) -> data-gated, 3 (#10,#54,#165) split company/owner — reclass in progress (GATESB)",
+  "final_master_launch_critical_open": "9 (COMPLETE 355, GATED 126) on 2f36fe0; all 9 END-STAGE process rows (frozen RC, full suite, independent re-audit, rehearsal, packet)",
   "open_incidents": "1 (provenance backlog, company work); 17 close by rule after deploy",
   "owner_decisions": "26 in 10 batches",
   "creative_survivors": "6/11 needs_taste (was 0/11)",

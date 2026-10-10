@@ -1,5 +1,5 @@
 {
- "basis": "HEAD 8b67414 reachability; production fcb982d",
+ "basis": "HEAD 2f36fe0 (claude/w4-FMLEDGER = SHADOWFIX 3d755dd + F-659 checkpoint adoption) reachability; production fcb982d",
  "modules": {
   "__init__.py": {
    "reached": false,
@@ -56,6 +56,11 @@
    "why": "gate is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install",
    "in_production_fcb982d": false
   },
+  "app/command_center/company.py": {
+   "reached": true,
+   "why": "company is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
+   "in_production_fcb982d": false
+  },
   "app/command_center/emergency.py": {
    "reached": true,
    "why": "status is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
@@ -78,17 +83,27 @@
   },
   "app/command_center/providers.py": {
    "reached": true,
-   "why": "now_iso is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
+   "why": "envelope is live: API get api_verify -> app/main.py:api_verify -> app/command_center/tabs.py:estimate_drift_reading",
    "in_production_fcb982d": false
   },
   "app/command_center/readers.py": {
    "reached": true,
-   "why": "owner_actions_summary is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> app/command_center/tabs.py:home",
+   "why": "spend_limits is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> app/command_center/tabs.py:account",
+   "in_production_fcb982d": false
+  },
+  "app/command_center/snapshots/__init__.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
+   "in_production_fcb982d": false
+  },
+  "app/command_center/snapshots/__main__.py": {
+   "reached": false,
+   "why": "not imported, directly or transitively, by any runtime root",
    "in_production_fcb982d": false
   },
   "app/command_center/tabs.py": {
    "reached": true,
-   "why": "home is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router",
+   "why": "estimate_drift_reading is live: API get api_verify -> app/main.py:api_verify",
    "in_production_fcb982d": false
   },
   "app/dashboard_truth.py": {
@@ -231,6 +246,11 @@
    "why": "not imported, directly or transitively, by any runtime root",
    "in_production_fcb982d": false
   },
+  "autonomy/rule1.py": {
+   "reached": true,
+   "why": "summary is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/tal",
+   "in_production_fcb982d": false
+  },
   "autonomy/status.py": {
    "reached": true,
    "why": "summary is live: handler laura.executive_tick (cadence in runtime/worker.py:module constant) -> laura/executive/handlers.py:handle_executive_tick -> laura/executive/loop.py:tick -> laura/executive/loo",
@@ -253,7 +273,7 @@
   },
   "brand/canonical_assets.py": {
    "reached": true,
-   "why": "require_brand_change_authorised is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> vi",
+   "why": "shop_icon_choice is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_",
    "in_production_fcb982d": false
   },
   "brand/comparison.py": {
@@ -343,7 +363,7 @@
   },
   "build2/closure.py": {
    "reached": true,
-   "why": "matrix is live: API get dashboard -> app/main.py:dashboard",
+   "why": "dashboard is live: API get dashboard -> app/main.py:dashboard",
    "in_production_fcb982d": false
   },
   "build2/executor.py": {
@@ -361,6 +381,11 @@
    "why": "not imported, directly or transitively, by any runtime root",
    "in_production_fcb982d": false
   },
+  "build2/gate_clearance.py": {
+   "reached": true,
+   "why": "prerequisite is live: API get dashboard -> app/main.py:dashboard -> build2/executor.py:approval_inbox",
+   "in_production_fcb982d": false
+  },
   "build2/maturity.py": {
    "reached": true,
    "why": "ladder is live: API get api_build2_maturity -> app/main.py:api_build2_maturity",
@@ -368,12 +393,12 @@
   },
   "build2/reachability.py": {
    "reached": true,
-   "why": "reached is live: API get dashboard -> app/main.py:dashboard -> build2/closure.py:matrix -> build2/closure.py:classify -> build2/closure.py:proof_of",
+   "why": "reached is live: API get dashboard -> app/main.py:dashboard -> build2/closure.py:dashboard -> build2/closure.py:matrix -> build2/closure.py:classify -> build2/closure.py:proof_of",
    "in_production_fcb982d": false
   },
   "build2/requirements.py": {
    "reached": true,
-   "why": "by_status is live: API get api_build2_maturity -> app/main.py:api_build2_maturity -> build2/maturity.py:report",
+   "why": "by_status is live: API get api_build2_maturity -> app/main.py:maturity_report_shared -> build2/maturity.py:report",
    "in_production_fcb982d": true
   },
   "cir/__init__.py": {
@@ -398,22 +423,22 @@
   },
   "cir/compiler.py": {
    "reached": true,
-   "why": "compile_cir is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans",
+   "why": "compile_cir is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:creative_survivors -> creative/audit.py:audit_catalogue -> creative/audit.p",
    "in_production_fcb982d": true
   },
   "cir/geometry.py": {
    "reached": true,
-   "why": "measure is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans -> seasonal/leadtime.py:maker_skill_for -> cir/twin.py:build_twin",
+   "why": "measure_all is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.p",
    "in_production_fcb982d": true
   },
   "cir/graded.py": {
    "reached": true,
-   "why": "GradedDesign.__post_init__ is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author -> creative/garment_design.py:design_for",
+   "why": "grading_problems is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/certificate.py:grading_findings",
    "in_production_fcb982d": false
   },
   "cir/grading.py": {
    "reached": true,
-   "why": "GradingRefused is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author -> creative/garment_design.py:design_for -> cir/graded.py:",
+   "why": "GradingRefused is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/certificate.py:grading_findings -> cir/graded.py:",
    "in_production_fcb982d": true
   },
   "cir/model.py": {
@@ -446,9 +471,14 @@
    "why": "calibration_table is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:unknowns",
    "in_production_fcb982d": true
   },
+  "cir/topology.py": {
+   "reached": true,
+   "why": "topology_problems is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+   "in_production_fcb982d": false
+  },
   "cir/twin.py": {
    "reached": true,
-   "why": "build_twin is live: API get dashboard -> app/main.py:dashboard -> seasonal/leadtime.py:catalogue_plans -> seasonal/leadtime.py:maker_skill_for",
+   "why": "build_twin is live: API get dashboard -> app/main.py:dashboard -> app/dashboard_truth.py:headline -> app/dashboard_truth.py:creative_survivors -> creative/audit.py:audit_catalogue -> creative/audit.py",
    "in_production_fcb982d": true
   },
   "cir/writer.py": {
@@ -628,7 +658,7 @@
   },
   "commerce/pricing.py": {
    "reached": true,
-   "why": "decide_price is live: handler pricing.position (enqueued by runtime/release.py:handle_assets_build) -> runtime/release.py:handle_pricing_position",
+   "why": "check_no_fake_discount is live: handler pricing.position (enqueued by runtime/release.py:handle_assets_build) -> runtime/release.py:handle_pricing_position",
    "in_production_fcb982d": true
   },
   "commerce/pricing_intel.py": {
@@ -703,7 +733,7 @@
   },
   "commerce/shop_package.py": {
    "reached": true,
-   "why": "shop_text is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/storefront.py:build_storefront",
+   "why": "check_package is live: API get api_trust -> app/main.py:api_trust -> commerce/trust.py:may_scale_ads -> commerce/search_evidence.py:supremacy_gate -> commerce/search_evidence.py:_collect -> commerce/r",
    "in_production_fcb982d": true
   },
   "commerce/shop_security.py": {
@@ -723,7 +753,7 @@
   },
   "commerce/thumbnail.py": {
    "reached": true,
-   "why": "evaluate_thumbnail is live: handler assets.build (enqueued by runtime/pipeline.py:_listing_parity) -> runtime/release.py:handle_assets_build",
+   "why": "evaluate_thumbnail is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/launch_i",
    "in_production_fcb982d": true
   },
   "commerce/trust.py": {
@@ -871,6 +901,11 @@
    "why": "white_space is live: handler creative.white_space (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_white_space",
    "in_production_fcb982d": true
   },
+  "creative/emotional_brief.py": {
+   "reached": true,
+   "why": "gate_candidates is live: handler creative.candidates_file (cadence in runtime/worker.py:module constant) -> runtime/pipeline.py:handle_creative_candidates_file -> products/moment_candidates.py:registe",
+   "in_production_fcb982d": false
+  },
   "creative/family.py": {
    "reached": true,
    "why": "shift_capacity is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> creative/prospecting.py:tournament",
@@ -898,7 +933,7 @@
   },
   "creative/invention.py": {
    "reached": true,
-   "why": "promise is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prospecting.py:propose -> creative/preengineering.py:promise_for",
+   "why": "silhouette is live: handler cir.draft (enqueued by creative/intake.py:intake) -> runtime/pipeline.py:handle_cir_draft -> creative/preengineering.py:gate_concept -> creative/preengineering.py:_silhouet",
    "in_production_fcb982d": true
   },
   "creative/jury.py": {
@@ -1146,6 +1181,16 @@
    "why": "trajectory is live: handler plan.strategy (cadence in runtime/worker.py:module constant) -> runtime/pipeline.py:handle_plan_strategy",
    "in_production_fcb982d": true
   },
+  "finance/cost_attribution.py": {
+   "reached": true,
+   "why": "report is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance",
+   "in_production_fcb982d": false
+  },
+  "finance/credits.py": {
+   "reached": true,
+   "why": "wallet is live: API get dashboard -> app/main.py:_spend_governance_data -> finance/spend_report.py:governance",
+   "in_production_fcb982d": false
+  },
   "finance/currency.py": {
    "reached": true,
    "why": "contribution is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> finance/sustainability.py:break_even -> finance/sustainability.py:_modelled_contribution",
@@ -1206,6 +1251,11 @@
    "why": "verdict is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
    "in_production_fcb982d": false
   },
+  "finance/systematic.py": {
+   "reached": true,
+   "why": "declare is live: handler intel.gallery_analysis (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_gallery_analysis -> intel/vision.py:analyse",
+   "in_production_fcb982d": false
+  },
   "finance/unit_cost.py": {
    "reached": true,
    "why": "unit_costs is live: handler finance.governor (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_finance_governor -> finance/governor.py:enforce -> finance/governor.py:_act_on_",
@@ -1261,6 +1311,11 @@
    "why": "seed_snapshots is live: handler ops.policy_watch (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_policy_watch",
    "in_production_fcb982d": false
   },
+  "gates/policy_reader.py": {
+   "reached": true,
+   "why": "enabled is live: handler ops.policy_watch (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_policy_watch",
+   "in_production_fcb982d": false
+  },
   "gates/regression.py": {
    "reached": true,
    "why": "load_all is live: API get api_lanes -> app/main.py:api_lanes -> commerce/lanes.py:observe -> commerce/lanes.py:_regression_state",
@@ -1269,6 +1324,16 @@
   "gates/risk_matrix.py": {
    "reached": true,
    "why": "catalogue_status is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess",
+   "in_production_fcb982d": false
+  },
+  "gates/spec_freeze.py": {
+   "reached": true,
+   "why": "consulted is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify",
+   "in_production_fcb982d": false
+  },
+  "gates/stitch_scale.py": {
+   "reached": true,
+   "why": "read is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation/s",
    "in_production_fcb982d": false
   },
   "gateway/__init__.py": {
@@ -1285,6 +1350,11 @@
    "reached": false,
    "why": "not imported, directly or transitively, by any runtime root",
    "in_production_fcb982d": true
+  },
+  "gateway/evidence_key.py": {
+   "reached": true,
+   "why": "file_bytes is live: handler creative.model_reference_pack (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_model_reference_pack -> visual/reference_pack.py:build -> visual/p",
+   "in_production_fcb982d": false
   },
   "gateway/failover.py": {
    "reached": true,
@@ -1486,6 +1556,11 @@
    "why": "cycle is live: handler improve.sandbox (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_improve_sandbox -> improve/runner.py:run",
    "in_production_fcb982d": false
   },
+  "improve/presale.py": {
+   "reached": true,
+   "why": "summary is live: API get dashboard -> app/main.py:dashboard",
+   "in_production_fcb982d": false
+  },
   "improve/profiles.py": {
    "reached": true,
    "why": "review_all is live: API get api_profiles -> app/main.py:api_profiles",
@@ -1646,6 +1721,11 @@
    "why": "coverage is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:unknowns",
    "in_production_fcb982d": true
   },
+  "intel/findings.py": {
+   "reached": true,
+   "why": "refresh is live: handler mjs.scan (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_mjs_scan -> runtime/release.py:_run_mjs_mission",
+   "in_production_fcb982d": false
+  },
   "intel/insights.py": {
    "reached": true,
    "why": "snapshots is live: API get api_insights -> app/main.py:api_insights",
@@ -1720,6 +1800,11 @@
    "reached": true,
    "why": "PipelineRun.advance is live: handler creative.tournament (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_creative_tournament -> intel/mission_runtime.py:advance_pipeline",
    "in_production_fcb982d": true
+  },
+  "intel/second_market.py": {
+   "reached": true,
+   "why": "ensure_selected is live: handler intel.panel_discovery (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_intel_panel_discovery -> intel/panel_discovery.py:discover",
+   "in_production_fcb982d": false
   },
   "intel/serp.py": {
    "reached": true,
@@ -2073,7 +2158,7 @@
   },
   "ops/log_secret_guard.py": {
    "reached": true,
-   "why": "install is live: module body app/main.py -> app/main.py:<module> -> app/access_log.py:install (W4-FM2: build2.reachability.reached on this branch; single entry added)",
+   "why": "install is live: module body app/main.py -> app/main.py:<module> -> app/access_log.py:install",
    "in_production_fcb982d": false
   },
   "ops/owner_queue.py": {
@@ -2136,10 +2221,20 @@
    "why": "StitchFamily.__post_init__ is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> creative/prototype.py:author -> creative/garment_design.py:design_for",
    "in_production_fcb982d": false
   },
+  "products/inventory.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": false
+  },
   "products/launch0.py": {
    "reached": true,
    "why": "candidate is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:unknowns",
    "in_production_fcb982d": true
+  },
+  "products/moment_candidates.py": {
+   "reached": true,
+   "why": "creative_cir is live: handler creative.candidates_file (cadence in runtime/worker.py:module constant) -> runtime/pipeline.py:handle_creative_candidates_file",
+   "in_production_fcb982d": false
   },
   "products/motifs.py": {
    "reached": true,
@@ -2155,6 +2250,11 @@
    "reached": true,
    "why": "catalogue is live: handler commerce.readings (cadence in runtime/worker.py:module constant) -> runtime/commerce_readings.py:handle_commerce_readings -> runtime/commerce_readings.py:read",
    "in_production_fcb982d": true
+  },
+  "products/pipeline_board.py": {
+   "reached": true,
+   "why": "pencil_roll_cir is live: handler creative.candidates_file (cadence in runtime/worker.py:module constant) -> runtime/pipeline.py:handle_creative_candidates_file -> products/pipeline_board.py:module con",
+   "in_production_fcb982d": false
   },
   "products/texture.py": {
    "reached": false,
@@ -2173,7 +2273,7 @@
   },
   "publish/abbreviations.py": {
    "reached": true,
-   "why": "unlocalised is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> teardown/readiness.py:check -> teardown/proof_run.py:run -> teardown/proof_run.py:_run -> publish/pdf.p",
+   "why": "structure_method_problems is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/certificate.py:stitch_semantics_findin",
    "in_production_fcb982d": true
   },
   "publish/brief.py": {
@@ -2223,7 +2323,7 @@
   },
   "publish/layout_qa.py": {
    "reached": true,
-   "why": "check_frames is live: handler assets.build (enqueued by runtime/pipeline.py:_listing_parity) -> runtime/release.py:handle_assets_build -> runtime/release.py:_disclosed_render_set -> publish/disclosed_",
+   "why": "check_layout is live: handler store.publish (enqueued by autonomy/generators.py:approval_candidates) -> runtime/pipeline.py:handle_store_publish -> runtime/pipeline.py:_release_gates -> publish/releas",
    "in_production_fcb982d": true
   },
   "publish/listing_asset.py": {
@@ -2316,6 +2416,16 @@
    "why": "check_claim is live: API get api_seasonal_cycle -> app/main.py:api_seasonal_cycle -> seasonal/cycle.py:run -> gates/certificate.py:certify -> gates/policy.py:check_listing -> gates/policy.py:check_pro",
    "in_production_fcb982d": true
   },
+  "quality/tester_kit.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": false
+  },
+  "quality/tester_programme.py": {
+   "reached": false,
+   "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
+   "in_production_fcb982d": false
+  },
   "quality/testers.py": {
    "reached": true,
    "why": "plan is live: handler gate.lanes (cadence in runtime/worker.py:module constant) -> runtime/release.py:handle_lane_routing",
@@ -2325,6 +2435,11 @@
    "reached": false,
    "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
    "in_production_fcb982d": true
+  },
+  "queue/checkpoints.py": {
+   "reached": true,
+   "why": "load is live: API get dashboard -> app/main.py:dashboard -> queue/durable.py:JobQueue.restore",
+   "in_production_fcb982d": false
   },
   "queue/durable.py": {
    "reached": true,
@@ -2378,7 +2493,7 @@
   },
   "runtime/etsy_ops.py": {
    "reached": true,
-   "why": "handle_shop_snapshot is live: handler etsy.shop_snapshot (cadence in runtime/worker.py:module constant)",
+   "why": "handle_store_live_drift is live: handler store.live_drift (cadence in runtime/worker.py:module constant)",
    "in_production_fcb982d": false
   },
   "runtime/growth_ops.py": {
@@ -2583,7 +2698,7 @@
   },
   "seo/_db.py": {
    "reached": true,
-   "why": "session is live: handler seo.cycle (cadence in runtime/worker.py:module constant) -> seo/handler.py:handle_seo_cycle -> seo/jobs.py:run_cycle",
+   "why": "as_database is live: handler seo.cycle (cadence in runtime/worker.py:module constant) -> seo/handler.py:handle_seo_cycle -> seo/jobs.py:run_cycle -> seo/packages.py:refresh",
    "in_production_fcb982d": false
   },
   "seo/_testkit.py": {
@@ -2593,7 +2708,7 @@
   },
   "seo/constraints.py": {
    "reached": true,
-   "why": "snapshot is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/ta",
+   "why": "working_limits is live: handler seo.cycle (cadence in runtime/worker.py:module constant) -> seo/handler.py:handle_seo_cycle -> seo/jobs.py:run_cycle -> seo/packages.py:refresh -> seo/packages.py:assem",
    "in_production_fcb982d": false
   },
   "seo/evidence.py": {
@@ -2618,7 +2733,7 @@
   },
   "seo/learning.py": {
    "reached": true,
-   "why": "funnel is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:make_router -> laura/agency/talk.py:converse -> laura/agency/talk",
+   "why": "diagnose is live: handler seo.cycle (cadence in runtime/worker.py:module constant) -> seo/handler.py:handle_seo_cycle -> seo/jobs.py:run_cycle -> seo/packages.py:refresh -> seo/packages.py:assemble ->",
    "in_production_fcb982d": false
   },
   "seo/measure.py": {
@@ -2629,6 +2744,11 @@
   "seo/models.py": {
    "reached": true,
    "why": "ensure_tables is live: handler seo.cycle (cadence in runtime/worker.py:module constant) -> seo/handler.py:handle_seo_cycle -> seo/jobs.py:run_cycle",
+   "in_production_fcb982d": false
+  },
+  "seo/packages.py": {
+   "reached": true,
+   "why": "record_from_release is live: handler listing.seo (enqueued by runtime/release.py:handle_pricing_position) -> runtime/release.py:handle_listing_seo",
    "in_production_fcb982d": false
   },
   "seo/proposals.py": {
@@ -2678,12 +2798,12 @@
   },
   "store_foundation/content.py": {
    "reached": true,
-   "why": "build is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:store_preview_handler -> store_foundation/preview.py:render_previe",
+   "why": "build is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation/",
    "in_production_fcb982d": false
   },
   "store_foundation/copy_v2.py": {
    "reached": true,
-   "why": "digital_sale_message is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/storefront.py:build_storefront -> commerce/shop_package.py:shop_text",
+   "why": "export is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation",
    "in_production_fcb982d": false
   },
   "store_foundation/limits.py": {
@@ -2693,7 +2813,12 @@
   },
   "store_foundation/lint.py": {
    "reached": true,
-   "why": "lint is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> brand/storefront.py:build_storefront -> commerce/shop_package.py:shop_text -> store_foundation/copy_v2.py:modu",
+   "why": "lint is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation/s",
+   "in_production_fcb982d": false
+  },
+  "store_foundation/live_state.py": {
+   "reached": true,
+   "why": "drift is live: handler store.live_drift (cadence in runtime/worker.py:module constant) -> runtime/etsy_ops.py:handle_store_live_drift",
    "in_production_fcb982d": false
   },
   "store_foundation/navigation.py": {
@@ -2703,7 +2828,7 @@
   },
   "store_foundation/owner_banner.py": {
    "reached": true,
-   "why": "_nav_truth is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:store_preview_handler -> store_foundation/preview.py:render_p",
+   "why": "assess is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation",
    "in_production_fcb982d": false
   },
   "store_foundation/preview.py": {
@@ -2713,7 +2838,7 @@
   },
   "store_foundation/preview_sources.py": {
    "reached": true,
-   "why": "etsy_notes is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:store_preview_handler -> store_foundation/preview.py:render_p",
+   "why": "copy is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation/s",
    "in_production_fcb982d": false
   },
   "store_foundation/preview_v2.py": {
@@ -2726,9 +2851,14 @@
    "why": "evaluate is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:store_preview_handler -> store_foundation/preview.py:render_pre",
    "in_production_fcb982d": false
   },
+  "store_foundation/store_readiness.py": {
+   "reached": true,
+   "why": "sync_owner_actions is live: handler store.live_drift (cadence in runtime/worker.py:module constant) -> runtime/etsy_ops.py:handle_store_live_drift",
+   "in_production_fcb982d": false
+  },
   "store_foundation/storefront_gate.py": {
    "reached": true,
-   "why": "icon_legibility is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:store_preview_handler -> store_foundation/preview.py:ren",
+   "why": "problems is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems",
    "in_production_fcb982d": false
   },
   "support/__init__.py": {
@@ -2836,10 +2966,20 @@
    "why": "composite_standard is live: API get api_teardown -> app/main.py:api_teardown",
    "in_production_fcb982d": true
   },
+  "teardown/size_family.py": {
+   "reached": true,
+   "why": "numeric_summary is live: API post api_teardown_intake -> app/main.py:api_teardown_intake -> teardown/intake.py:receive -> teardown/reader.py:read",
+   "in_production_fcb982d": false
+  },
   "visual/__init__.py": {
    "reached": false,
    "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
    "in_production_fcb982d": true
+  },
+  "visual/assembled_render.py": {
+   "reached": true,
+   "why": "plan is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation/s",
+   "in_production_fcb982d": false
   },
   "visual/bible.py": {
    "reached": true,
@@ -2858,7 +2998,12 @@
   },
   "visual/compose.py": {
    "reached": true,
-   "why": "verify is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography -> publish/listing_asset.py:frames_for -> publish/listing_asset.py:",
+   "why": "verify is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation",
+   "in_production_fcb982d": false
+  },
+  "visual/contents_frame.py": {
+   "reached": true,
+   "why": "released_pdf is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.py:",
    "in_production_fcb982d": false
   },
   "visual/correspondence.py": {
@@ -2878,7 +3023,7 @@
   },
   "visual/disclosed_render.py": {
    "reached": true,
-   "why": "listing_set is live: handler assets.build (enqueued by runtime/pipeline.py:_listing_parity) -> runtime/release.py:handle_assets_build -> runtime/release.py:_disclosed_render_set -> publish/disclosed_l",
+   "why": "listing_set is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/launch_imagery.",
    "in_production_fcb982d": false
   },
   "visual/drape.py": {
@@ -2898,7 +3043,7 @@
   },
   "visual/final_image_gate.py": {
    "reached": true,
-   "why": "evaluate is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:store_preview_handler -> store_foundation/preview.py:render_pre",
+   "why": "evaluate is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundati",
    "in_production_fcb982d": false
   },
   "visual/final_standard.py": {
@@ -2916,6 +3061,11 @@
    "why": "gates_now is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> launch/readiness.py:_listing_photography",
    "in_production_fcb982d": true
   },
+  "visual/gallery_frames.py": {
+   "reached": true,
+   "why": "applicable_jobs is live: API post api_etsy_exercise -> app/main.py:api_etsy_exercise -> integrations/etsy_exercise.py:run -> integrations/etsy_exercise.py:rotation_proof -> integrations/etsy_exercise.",
+   "in_production_fcb982d": false
+  },
   "visual/hand_tension.py": {
    "reached": false,
    "why": "imported, but no live path reaches anything it defines: no scheduled handler, cadence, runtime loop or database-computing route calls it (a static route or an audit receipt is not a caller); imported ",
@@ -2928,13 +3078,18 @@
   },
   "visual/identity_gate.py": {
    "reached": true,
-   "why": "assess is live: module body app/main.py -> app/main.py:<module> -> app/command_center/__init__.py:install -> app/command_center/api.py:store_preview_handler -> store_foundation/preview.py:render_previ",
+   "why": "assess is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_foundation",
    "in_production_fcb982d": false
   },
   "visual/inspect.py": {
    "reached": true,
    "why": "calibrate is live: API get api_gallery_calibration -> app/main.py:api_gallery_calibration",
    "in_production_fcb982d": true
+  },
+  "visual/launch_imagery.py": {
+   "reached": true,
+   "why": "refresh is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle",
+   "in_production_fcb982d": false
   },
   "visual/linkage.py": {
    "reached": false,
@@ -3013,7 +3168,7 @@
   },
   "visual/render_contract.py": {
    "reached": true,
-   "why": "separation is live: handler visual.rnd.cycle (cadence in runtime/worker.py:module constant) -> autonomy/visual_rnd_job.py:handle_visual_rnd_cycle -> visual/rnd/loop.py:cycle -> visual/rnd/loop.py:gene",
+   "why": "annotation_lines is live: API get dashboard -> app/main.py:dashboard -> launch/readiness.py:assess -> commerce/trust.py:shop_complete_problems -> store_foundation/storefront_gate.py:problems -> store_",
    "in_production_fcb982d": false
   },
   "visual/render_verification.py": {

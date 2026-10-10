@@ -2820,18 +2820,19 @@
   "launch_class_reason": "F-831..F-850 certification contract",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "module_reachability.json regenerated on 6f9a2f7 and a release-eligible full suite ran on 6f9a2f7; function-level re-mapping is in progress (this remap); no frozen launch candidate yet, so the final-head audit has not been performed on it; closure_matrix.json basis still reads '019ebf0 (+ Final Build registry commits)'",
+  "missing_part": "no frozen launch candidate (F-845), so the function-level re-audit has not been run on that exact SHA by an independent session",
   "producer": "src/brambleloop/build2/reachability.py",
   "durable_state": "research/final_build/module_reachability.json (basis 'HEAD 6f9a2f7')",
   "consumer": null,
   "protected_effect": null,
   "tests": [
-   "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached",
-   "tests/test_final_proof.py::test_mutations_refused"
+   "tests/test_final_proof.py::test_mutations_refused",
+   "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached"
   ],
   "evidence": [
    "research/final_build/module_reachability.json basis HEAD 6f9a2f7",
-   "research/final_build/RUN_6f9a2f7_full_suite.json (release_eligible, 5,653 passing, 0 failing, clean tree)"
+   "research/final_build/RUN_6f9a2f7_full_suite.json (release_eligible, 5,653 passing, 0 failing, clean tree)",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): the recorded defect (closure_matrix basis label stale) no longer holds: the basis now records the mapping base, every remap SHA and per-row mapped_on, and module_reachability.json was regenerated on 2f36fe0 (W4-FMLEDGER: 654 modules, 560 reached, none lost vs 8b67414). The final-head audit itself still needs a frozen candidate"
   ],
   "build2_rows": [],
   "gate": {
@@ -2839,10 +2840,10 @@
    "key": "",
    "detail": "remaining work is software"
   },
-  "defect": "closure_matrix.json basis label is stale (says 019ebf0) while reachability is 6f9a2f7",
-  "next_action": "After this remap: update aggregate.py basis to the measured head, freeze the candidate (F-845), regenerate reachability and re-run the function-level audit on that exact SHA by an independent session",
+  "defect": null,
+  "next_action": "END-STAGE: freeze the RC (F-845), regenerate reachability on it, re-run aggregate.py and the function-level audit there by an independent session, commit the verdict",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMLEDGER close"
  },
  {
   "uid": "F-840",
@@ -3074,18 +3075,19 @@
   "launch_class_reason": "F-831..F-850 certification contract",
   "maturity": "TESTED",
   "coverage": "PARTIAL",
-  "missing_part": "chain legs are integrated and tested individually (release chain to shadow store.publish refusal in real processes; orders/refund truth after fb2-O; disclosed listing set; owner publication grant), but no single recorded rehearsal of opportunity -> design -> pattern -> QA -> Visual -> listing -> pricing -> approval -> publish refusal -> order -> support -> accounting on the head/candidate; scripts/shadow_rehearsal.py does not exist (scripts/shadow_dossier.py is a Build-1-era flagship dossier)",
+  "missing_part": "no complete recorded rehearsal: the latest run (ddf9c6e) stops at the owner publication grant (search certificate REFUSED; taxonomy UNKNOWN) and none has run on a frozen candidate",
   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
   "durable_state": "jobs / audit_log",
   "consumer": null,
   "protected_effect": null,
   "tests": [
+   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
    "tests/test_shadow.py::test_full_product_runs_end_to_end_without_intervention",
-   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish",
-   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session"
+   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish"
   ],
   "evidence": [
-   "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED"
+   "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked"
   ],
   "build2_rows": [],
   "gate": {
@@ -3094,9 +3096,9 @@
    "detail": "remaining work is software"
   },
   "defect": null,
-  "next_action": "Build scripts/shadow_rehearsal.py: boot the production start command on a fresh DB at the candidate SHA, drive one Launch-0 product through to store.publish refusal (and a grant-approved simulated publish against tests/fake_etsy), inject a fake-Etsy receipt through orders.ingest, a support case and the ledger, and commit a dated evidence JSON",
+  "next_action": "END-STAGE: on the frozen RC run scripts/shadow_rehearsal.py and commit the evidence JSON; each not_complete_because item must be fixed or carry its recorded gate",
   "confidence": "HIGH",
-  "searched": null
+  "searched": " | w4-FMLEDGER close"
  },
  {
   "uid": "F-849",
@@ -3983,7 +3985,7 @@
   "launch_class_reason": "owner needs a truthful launch packet",
   "maturity": "INTEGRATED",
   "coverage": "PARTIAL",
-  "missing_part": "launch readiness assesses listings, owner actions, launch package (disclosure, FAQ, pricing plan, calendar, baseline, rollback rehearsal); candidate SHA, test/audit summary, Visual status and economics are not assembled into one packet",
+  "missing_part": "the packet is operator tooling only (launch/packet.py not reached from a runtime root) and no packet exists for a frozen candidate",
   "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
   "durable_state": "audit_log; operating readings",
   "consumer": "app/main.py dashboard",
@@ -3993,7 +3995,8 @@
    "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for"
   ],
   "evidence": [
-   "launch/rollback.py not in fcb982d"
+   "launch/rollback.py not in fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate"
   ],
   "build2_rows": [
    "#54 OWNER-GATED",
@@ -4005,9 +4008,9 @@
    "detail": "remaining work is software"
   },
   "defect": null,
-  "next_action": "Add launch/packet.py producing one JSON/HTML packet (candidate SHA, suite + closure summary, Visual status, listings, policy, owner actions, spend limits, economics, rollback, activation steps) from readiness + closure; test",
+  "next_action": "CC lane (WIRING REQUEST): serve packet.build(db, sha=build.commit()) on an operator-gated GET (security.OPERATOR_GET_ROUTES); END-STAGE: run scripts/launch_packet.py on the frozen RC and commit the packet",
   "confidence": "MEDIUM",
-  "searched": null
+  "searched": " | w4-FMLEDGER close"
  },
  {
   "uid": "F-879",

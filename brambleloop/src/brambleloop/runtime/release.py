@@ -5114,15 +5114,24 @@ def handle_model_photography(ctx: JobContext) -> dict:
                 "attempts": next_move["attempts"], "why": next_move["why"],
                 "usable": next_move["reason"] == "usable_frame_on_file"}
 
-    result = compile_cir(cir)
-    if not result.ok:
-        return {"ran": False, "reason": f"{slug} does not compile"}
+    # F-659: the render is the long, paid step. A worker that dies after it but before the
+    # record below is filed resumes from the checkpoint instead of rendering again.
+    step = f"render:{slug}@{cir.version}"
+    saved = _restore_step(ctx, step)
+    resumed = isinstance((saved or {}).get("record"), dict)
+    if resumed:
+        record = saved["record"]
+    else:
+        result = compile_cir(cir)
+        if not result.ok:
+            return {"ran": False, "reason": f"{slug} does not compile"}
 
-    with tempfile.TemporaryDirectory(prefix="model-frame-") as work_dir:
-        record = listing_asset.make(ctx.db, cir, build_twin(cir, result),
-                                    work_dir=work_dir, record=False,
-                                    **({"shot_plan": planned}
-                                       if listing_asset.needs_the_model(cir) else {}))
+        with tempfile.TemporaryDirectory(prefix="model-frame-") as work_dir:
+            record = listing_asset.make(ctx.db, cir, build_twin(cir, result),
+                                        work_dir=work_dir, record=False,
+                                        **({"shot_plan": planned}
+                                           if listing_asset.needs_the_model(cir) else {}))
+        _checkpoint_step(ctx, step, {"record": record})
 
     ctx.audit(model_photography.ACTION, detail=record)
     # C-80 defect 8: a model-bearing product's rung attempt is persisted too, so the ladder
@@ -5150,10 +5159,42 @@ def handle_model_photography(ctx: JobContext) -> dict:
             records=buyer_trust.records_for_generated(
                 list(record.get("frames") or [record]), slug=slug, version=cir.version))
     return {"ran": True, "made": record.get("made"), "slug": slug,
+            "resumed_from_checkpoint": resumed,
             "waiting_on": record.get("waiting_on"),
             "floors": record.get("floors"),
             "usable": record.get("usable_as_listing_asset"),
             "why": (record.get("why") or "")[:240]}
+
+
+def _restore_step(ctx: JobContext, key: str) -> dict | None:
+    """F-659: what an earlier attempt of this job checkpointed under `key`, or None.
+
+    A context built without a queued job (a direct handler call from a tool or a test) has
+    nothing to resume from and gets None, so the handler simply runs the step."""
+    restore = getattr(ctx, "restore", None)
+    if restore is None or getattr(getattr(ctx, "job", None), "id", None) is None:
+        return None
+    return restore(key)
+
+
+def _checkpoint_step(ctx: JobContext, key: str, state: dict) -> bool:
+    """F-659: record that the step `key` finished with `state` (JSON-normalised).
+
+    Returns False, recording nothing, when the context has no queued job or the queue
+    fences the write (the job is not RUNNING under this attempt's lease): a stale attempt
+    must not overwrite the checkpoint the current holder resumes from, and its completion
+    is fenced off anyway. A checkpoint is a resume hint, never a payment record; paid
+    answers are still replayed only by `gateway.paid_calls`."""
+    from ..queue.checkpoints import CheckpointRefused
+
+    save = getattr(ctx, "checkpoint", None)
+    if save is None or getattr(getattr(ctx, "job", None), "id", None) is None:
+        return False
+    try:
+        save(key, json.loads(json.dumps(state, default=str)))
+    except CheckpointRefused:
+        return False
+    return True
 
 
 def _model_bearing_slug(db) -> str:
@@ -5218,6 +5259,15 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     # `assets_state: None`. A proof that stops before the thing it proves is not a proof,
     # and it cost a scheduled run to find out because the handler asked the cycle for
     # everything except the one input it needed.
+    # F-659: the cycle is the long step. If an earlier attempt finished it and died before
+    # filing the report, resume from the checkpointed report instead of re-running (and
+    # re-paying for) every concept, engineer and render step of the cycle.
+    saved = _restore_step(ctx, "cycle_report")
+    report = (saved or {}).get("report") if isinstance((saved or {}).get("report"), dict) \
+        else None
+    if report is not None:
+        return _file_cycle_proof(ctx, report, resumed=True)
+
     gateway = None
     if AnthropicProvider.key():
         # Certification C-31: with the registry every call is checked against the monthly,
@@ -5270,13 +5320,19 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
                             f"disproved by this -- the proof did not run"),
                     "waiting_on": "model_provider_balance"}
 
+    _checkpoint_step(ctx, "cycle_report", {"report": report})
+    return _file_cycle_proof(ctx, report, resumed=False)
+
+
+def _file_cycle_proof(ctx: JobContext, report: dict, *, resumed: bool) -> dict:
     ctx.audit("seasonal.cycle_proof", detail=report)
     assets = next((s for s in report["steps"] if s["step"] == "assets"), {})
     return {"ran": True, "complete": report["complete"],
             "weakest_link": report["weakest_link"],
             "assets_state": assets.get("state"),
             "assets_slug": (assets.get("evidence") or {}).get("slug"),
-            "customer_can_finish_in_time": report["customer_can_finish_in_time"]}
+            "customer_can_finish_in_time": report["customer_can_finish_in_time"],
+            "resumed_from_checkpoint": resumed}
 
 
 @handlers.register("seasonal.remerchandising")
