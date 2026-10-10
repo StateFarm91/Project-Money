@@ -609,6 +609,24 @@ def scan_or_explain(db, *, env: dict[str, str] | None = None,
                 "note": ("No observation was performed and nothing was approximated from "
                          "search results, screenshots or fixtures (#224).")}
 
+    # W4-PRODDIAG: when Etsy has refused the credential itself (HTTP 401/403), a scan is the
+    # same request with the same key and gets the same answer. Running it anyway turned an
+    # external credential refusal into a failing job, retried until dead, every two hours
+    # (production 2026-10-10: `mjs.scan` dead letters failing /api/verify). The refusal is
+    # reported -- the `etsy_api` gate is closed and says why -- and the six-hourly
+    # `etsy.probe` is what re-tests it; the scan resumes by itself once a probe succeeds.
+    from .etsy_public import auth_refused, last_probe
+
+    probe = last_probe(db)
+    if auth_refused(probe):
+        return {"ran": False, "credential_refused": True,
+                "reason": ("Etsy refused the read credential at the last etsy.probe "
+                           f"({str(probe.get('at') or '')[:25]}): "
+                           f"{str(probe.get('reason') or '')[:200]}. The scan waits for a "
+                           "probe to succeed rather than knocking with a refused key"),
+                "requirements_unmet": [206, 207, 208, 209, 212, 303],
+                "substituted": False}
+
     if adaptive:
         due = scan_due(db, benchmark_key=kwargs.get("benchmark_key", benchmarks.MJS_KEY),
                        now=now)
@@ -617,7 +635,17 @@ def scan_or_explain(db, *, env: dict[str, str] | None = None,
                     "reason": f"adaptive interval (#313): not due -- {due['why']}",
                     "cadence": due["cadence"]}
 
-    result = scan(db, reader, env=env, **kwargs)
+    try:
+        result = scan(db, reader, env=env, **kwargs)
+    except ReadFailed as e:
+        if not e.credential_refused:
+            raise  # rate limits and server faults: the job's retries are the right answer
+        # The credential was refused mid-scan (between probes). Same reasoning as above: an
+        # external refusal is reported, not retried into a dead letter.
+        return {"ran": False, "credential_refused": True,
+                "reason": f"Etsy refused the read credential: {str(e)[:300]}",
+                "requirements_unmet": [206, 207, 208, 209, 212, 303],
+                "substituted": False}
     report = result.to_report()
     mission.check_report(report)
     return {"ran": True, "report": report}

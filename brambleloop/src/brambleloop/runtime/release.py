@@ -3379,6 +3379,8 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
         # through it now. Nothing here reads Etsy.
         mission = _run_mjs_mission(ctx)
         return {"ran": False, "reason": outcome["reason"][:200],
+                # W4-PRODDIAG: an Etsy credential refusal is named, not left to a dead letter.
+                "credential_refused": bool(outcome.get("credential_refused")),
                 "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")},
                 "findings": mission.get("findings")}
 
