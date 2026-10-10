@@ -6,7 +6,8 @@
     "section": "Core commercial upgrades",
     "status": "owner_gated",
     "title": "Etsy Marketplace Insights as First-Party Demand Oracle",
-    "version": "v1.3"
+    "version": "v1.3",
+    "proof": "intel/insights.py tests/test_insights_intake.py"
   },
   {
     "body": "Score each micro-market using demand, competition/listing density, quality of current offers, pricing/AOV, season timing, Brambleloop differentiation, machine verifiability, support burden and expected contribution. Explicitly hunt meaningful demand where competitors have weak thumbnails, poor PDFs, no video, confusing instructions, weak branding/bundles, stale aesthetics, limited sizes or recurring complaints.",
@@ -92,7 +93,7 @@
   {
     "body": "Build owned SEO/Pinterest funnels around useful free motifs, mini patterns, tutorials and tools that demonstrate Brambleloop quality and lead naturally to premium singles/collections. Track visitor -> consented email -> first purchase -> repeat purchase -> collection purchase. Free content must have a commercial job.",
     "id": 10,
-    "note": "growth/free_to_paid.py holds the condition that makes free work pay rather than merely cost: every asset names the premium product it leads to and the reason somebody who just used it would want that next, and an asset without both is a giveaway with a marketing story attached -- pleasant to make, which is why a shop ends up with dozens and cannot say what any of them did. 'It leads to the collection' is refused as a hope rather than a job. The expensive refusal is the second: a free mini pattern for an object this company sells does not lead to it, it replaces it, and that failure is indistinguishable from success from the inside because the downloads and saves go up while conversion falls -- so the check is against the catalogue's own slugs rather than against a judgement about how much was given away. The ladder is the requirement's own -- visitor, consented email, first purchase, repeat purchase, collection purchase -- and a rung nobody reached has no conversion rather than a bad one, because 0% from an upstream of zero makes an untried funnel look like a failed one, which is how something nobody tried gets abandoned as something that did not work. A rung larger than the one above it is refused as a counting fault rather than reported as a remarkable funnel. An email is a rung only once it is consented: the count comes from the CASL consent records through growth/owned.py, since an address captured without a basis is not a step toward a purchase but a liability with a growth metric attached. /api/free-to-paid. Remaining and parked: no free work has been made and nothing is published, because publishing to an owned surface needs a site and a Pinterest account nobody has granted; the plan reports an empty funnel as empty rather than as failing.\n\nW4-GATESB 2026-10-07 split: company part (owning lane growth/PIPE) -- draft one free lead-magnet asset through the product chain and run growth.free_to_paid.check_asset on it; it needs no surface and stays unpublished in shadow. Owner part: an owned publishing surface (site/Pinterest/email; build2.gate_clearance.owned_surfaces_inventory). The Etsy shop exists and already satisfies the paid-destination portion.",
+    "note": "growth/free_to_paid.py holds the condition that makes free work pay rather than merely cost: every asset names the premium product it leads to and the reason somebody who just used it would want that next, and an asset without both is a giveaway with a marketing story attached -- pleasant to make, which is why a shop ends up with dozens and cannot say what any of them did. 'It leads to the collection' is refused as a hope rather than a job. The expensive refusal is the second: a free mini pattern for an object this company sells does not lead to it, it replaces it, and that failure is indistinguishable from success from the inside because the downloads and saves go up while conversion falls -- so the check is against the catalogue's own slugs rather than against a judgement about how much was given away. The ladder is the requirement's own -- visitor, consented email, first purchase, repeat purchase, collection purchase -- and a rung nobody reached has no conversion rather than a bad one, because 0% from an upstream of zero makes an untried funnel look like a failed one, which is how something nobody tried gets abandoned as something that did not work. A rung larger than the one above it is refused as a counting fault rather than reported as a remarkable funnel. An email is a rung only once it is consented: the count comes from the CASL consent records through growth/owned.py, since an address captured without a basis is not a step toward a purchase but a liability with a growth metric attached. /api/free-to-paid. Remaining and parked: no free work has been made and nothing is published, because publishing to an owned surface needs a site and a Pinterest account nobody has granted; the plan reports an empty funnel as empty rather than as failing.\n\nW4-GATESB 2026-10-07 split: company part (owning lane growth/PIPE) -- draft one free lead-magnet asset through the product chain and run growth.free_to_paid.check_asset on it; it needs no surface and stays unpublished in shadow. Owner part: an owned publishing surface (site/Pinterest/email; build2.gate_clearance.owned_surfaces_inventory). The Etsy shop exists and already satisfies the paid-destination portion. W4-B2VERIFY 2026-10-10 (adversarial re-check at 56d7b38): the company part of the 2026-10-07 split is NOT done -- no free asset exists, /api/free-to-paid still calls free_to_paid.plan([]) and growth/free_to_paid.py has no runtime caller beyond that route. That half is executable without any surface; only publication waits on owned_surfaces. Recorded in research/final_build/w4/BUILD2_VERIFY_2026-10-10.md.",
     "parked_on": "owned_surfaces",
     "section": "Core commercial upgrades",
     "status": "partial",
@@ -399,7 +400,7 @@
     "title": "Policy Freshness Watch",
     "version": "v1.3.2",
     "parked_on": "rendered_pages",
-    "proof": "tests/test_cert_intel_wave2.py"
+    "proof": "tests/test_cert_intel_wave2.py gates/platform_policy.py tests/test_platform_policy.py"
   },
   {
     "body": "Each Brambleloop pattern must carry explicit customer-use terms chosen deliberately: what the buyer may do with the PDF, whether finished physical items may be sold, redistribution prohibition, and support/version policy. The terms must be consistent across PDF, listing and FAQ and should be legally reviewed before relying on them as enforceable.",
@@ -735,7 +736,8 @@
     "section": "Creative parity + model hard gate",
     "status": "partial",
     "title": "Mandatory Brambleloop Model for Applicable Products",
-    "version": "v1.3.4"
+    "version": "v1.3.4",
+    "proof": "visual/identity.py publish/model_photography.py tests/test_cert_parity_copy.py tests/test_canon_manifest.py"
   },
   {
     "body": "Maintain a versioned approved reference pack and character bible containing canonical face views, hair/eye descriptors, proportions, makeup range, expression range, wardrobe rules, lighting language and rejected drift examples. Every new model asset is compared against this pack before approval. Updating the canonical identity is an explicit brand-version event, not accidental generation drift.",
@@ -1311,7 +1313,8 @@
     "section": "Deep seasonal creativity audit",
     "status": "partial",
     "title": "Model-Led Brand Storytelling",
-    "version": "v1.3.6"
+    "version": "v1.3.6",
+    "proof": "visual/identity.py publish/model_photography.py tests/test_cert_parity_copy.py tests/test_canon_manifest.py"
   },
   {
     "body": "Storefront banners, featured collections, thumbnails, bundles and content should transition ahead of each seasonal buying window. Maintain Brambleloop brand continuity while making the shop feel timely and alive. Seasonal takeovers are scheduled from the Collection Calendar, not improvised after demand peaks.",
@@ -1661,7 +1664,7 @@
     "title": "Benchmark Refresh Cadence",
     "version": "v1.3.8",
     "parked_on": "benchmark_purchases",
-    "proof": "tests/test_cert_intel_wave.py"
+    "proof": "tests/test_cert_intel_wave.py intel/benchmark_refresh.py runtime/release.py"
   },
   {
     "body": "Benchmark purchases are research spend. Maintain per-purchase cost, cumulative spend, research question and expected information value. Owner approval remains required above authorized spend limits. Prefer benchmarks that answer a distinct unknown rather than buying many similar products.",
@@ -1899,7 +1902,8 @@
     "section": "24/7 cloud autonomy, agent swarms, continuous learning",
     "status": "owner_gated",
     "title": "Cloud Browser/Vision Worker Pool",
-    "version": "v1.3.9"
+    "version": "v1.3.9",
+    "proof": "intel/browser.py tests/test_capability_gates.py"
   },
   {
     "body": "Improvement agents may open bounded upgrade proposals/branches, run tests, simulations and shadow deployments, and prepare promotion evidence 24/7. Low-risk pre-authorized changes may auto-promote only within defined governance; higher-risk changes queue a concise owner approval with exact impact, cost and rollback.",
@@ -2028,7 +2032,8 @@
     "section": "Voice session reconciliation (model + MJs)",
     "status": "partial",
     "title": "Appropriate Product-First Styling",
-    "version": "v1.4.0"
+    "version": "v1.4.0",
+    "proof": "visual/brief.py tests/test_canon_manifest.py"
   },
   {
     "body": "For model-appropriate products, generate a coherent shot plan: primary product-first hero, full/three-quarter fit, front/back/side as relevant, texture/detail, sleeve/neckline/closure/construction detail, scale/context and optional lifestyle shot. The model must increase trust, aspiration and brand recognition while preserving truthful product representation.",
@@ -2216,7 +2221,8 @@
     "section": "Voice session reconciliation (model + MJs)",
     "status": "owner_gated",
     "title": "Mandatory Cloud Browser + Vision Capability",
-    "version": "v1.4.0"
+    "version": "v1.4.0",
+    "proof": "intel/browser.py tests/test_capability_gates.py"
   },
   {
     "body": "Prove end-to-end capability against the canonical benchmark: resolve shop URL; enumerate catalogue; open multiple listings; traverse gallery assets; capture visible listing text/commerce metadata; produce image-level observations; classify into specialist pods; persist evidence; detect a simulated/new change; and trigger a re-audit. Evidence must show each step actually occurred.",
@@ -2225,7 +2231,8 @@
     "section": "Voice session reconciliation (model + MJs)",
     "status": "owner_gated",
     "title": "Browser/Vision Acceptance Test",
-    "version": "v1.4.0"
+    "version": "v1.4.0",
+    "proof": "intel/acceptance.py tests/test_acceptance.py"
   },
   {
     "body": "The owner has stated willingness to approve reasonable access required to implement mandatory benchmark browser/vision observation and 24/7 autonomy. Claude must present any required connection, service, credential, paid infrastructure or permission as a concise approval request with exact purpose, capability unlocked, expected/max cost, security scope and consequence of declining. Never interpret willingness as blanket authorization for unbounded spend or credentials.",
@@ -2973,7 +2980,7 @@
     "title": "Pre-Season Ad Learning Window",
     "version": "v1.4.2",
     "parked_on": "ad_authority",
-    "proof": "tests/test_cert_growth_ops.py"
+    "proof": "tests/test_cert_growth_ops.py runtime/growth_ops.py"
   },
   {
     "body": "If a seasonal product clears quality gates and demonstrates profitable/reasonable acquisition economics, automatically increase creative testing, supporting pins/content, cross-sells, bundles and paid budget within approved scaling bands. Escalate larger spend increases to the owner's mobile approval inbox with exact economics.",
@@ -2984,7 +2991,7 @@
     "title": "Aggressive Winner Scaling",
     "version": "v1.4.2",
     "parked_on": "ad_authority",
-    "proof": "tests/test_cert_growth_ops.py"
+    "proof": "tests/test_cert_growth_ops.py runtime/growth_ops.py"
   },
   {
     "body": "For each major upcoming event, show days to preferred/latest launch, products by stage, benchmark gaps, search opportunities, projected customer make time, ad learning status, current seasonal revenue/run rate, winner alerts and bottlenecks. The orchestrator reallocates agents toward deadlines and expected contribution.",
@@ -3029,12 +3036,13 @@
   {
     "body": "Build 2 must demonstrate an end-to-end simulated seasonal cycle: observe a benchmark market signal, classify generic product characteristics, choose an upcoming event, compute customer lead-time and launch date, generate multiple original seasonal responses, select/engineer one, certify it, create Brambleloop-owned assets, prepare search/ads, and show that the scheduler launched early enough for a customer to make it before the event. This is release-blocking. BRAMBLELOOP QUEUED MASTER UPGRADES v1.4.3 - MJsOffTheHookDesigns Priority Mission HUGE MANDATORY FLAG / NON-NEGOTIABLE OWNER PRIORITY: MJsOffTheHookDesigns is the specifically named anchor benchmark. Brambleloop must maintain dedicated cloud browser/vision intelligence around this shop, learn its commercially successful product markets and visual merchandising, aggressively evaluate those same markets for upcoming seasonal/holiday adaptations, and release early enough for customers to buy and make the project. Brambleloop independently engineers its patterns and creates its own publishable visual assets.",
     "id": 300,
-    "note": "seasonal/cycle.py runs the whole cycle the requirement names, in its order, and reports each link's evidence rather than a tick: a benchmark signal somebody recorded, the pods that market is made of, an upcoming event with runway, the customer's lead time chained backwards to a launch date, several original responses, one selected and authored as a CIR, the full release chain run, assets, and search coverage. Verified end to end against a seeded benchmark: 90 listings observed, 5 proven-and-unserved arenas, Halloween/hats at 41 days, 6 concepts proposed, one engineered at a gauge derived from its own yarn, and a certificate granted with the reverse compile among its stages. The clause that makes this an acceptance test rather than a checklist is the last one -- show that the scheduler launched early enough for a customer to make it before the event -- so the cycle ends on that arithmetic and the arithmetic is the verdict. Two defects were found by running it. It first reported complete on a launch date twenty days in the past: the backward chain wanted the product live on 31 August, the cycle measured a buyer's finish from that date, found it comfortable and called the window met. A date that has passed cannot be launched on, so it measures from the earliest date that can be and says the preferred window was missed. And it reported complete for a run with no model provider, which had invented nothing, engineered nothing and certified nothing -- a step the run never reached is absent rather than gated, and absent is not passing, so completeness now requires every named link to have been reached. The verdict is the weakest link rather than a count of green steps, because a backward-chained schedule is exactly the structure where an average hides one broken link, and a gate that stopped the run outranks the steps it stopped: those are consequences and the gate is what somebody can act on. Remaining, and no longer capability-blocked for the imagery half: image generation was proven in production on 2026-09-21, so photographic and styled imagery is buildable rather than waiting, and paid media needs ad_authority -- both are named as gated rather than simulated, because a placeholder product photograph would make the cycle green and prove nothing, and is the one thing the asset-truth gate exists to refuse one level down. /api/seasonal/cycle.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on image_generation): the note says imagery is 'no longer capability-blocked' while the row is parked on image_generation, which executor.py says carries no requirement; the paid-media part belongs on ad_authority\n\nRepair wave intel 2026-09-27 (integrated by the lead): EXTERNAL binding gate; ad_authority (owner) only for the paid-media clause. seasonal.cycle_proof runs weekly; the assets link declines with model_bearing_render_path for the hats arena. cycle.py EXTERNAL_WAITS does not list model_bearing_render so the link reads FAILED not GATED — left for the lead (GATED would let complete:true report with no asset).",
+    "note": "seasonal/cycle.py runs the whole cycle the requirement names, in its order, and reports each link's evidence rather than a tick: a benchmark signal somebody recorded, the pods that market is made of, an upcoming event with runway, the customer's lead time chained backwards to a launch date, several original responses, one selected and authored as a CIR, the full release chain run, assets, and search coverage. Verified end to end against a seeded benchmark: 90 listings observed, 5 proven-and-unserved arenas, Halloween/hats at 41 days, 6 concepts proposed, one engineered at a gauge derived from its own yarn, and a certificate granted with the reverse compile among its stages. The clause that makes this an acceptance test rather than a checklist is the last one -- show that the scheduler launched early enough for a customer to make it before the event -- so the cycle ends on that arithmetic and the arithmetic is the verdict. Two defects were found by running it. It first reported complete on a launch date twenty days in the past: the backward chain wanted the product live on 31 August, the cycle measured a buyer's finish from that date, found it comfortable and called the window met. A date that has passed cannot be launched on, so it measures from the earliest date that can be and says the preferred window was missed. And it reported complete for a run with no model provider, which had invented nothing, engineered nothing and certified nothing -- a step the run never reached is absent rather than gated, and absent is not passing, so completeness now requires every named link to have been reached. The verdict is the weakest link rather than a count of green steps, because a backward-chained schedule is exactly the structure where an average hides one broken link, and a gate that stopped the run outranks the steps it stopped: those are consequences and the gate is what somebody can act on. Remaining, and no longer capability-blocked for the imagery half: image generation was proven in production on 2026-09-21, so photographic and styled imagery is buildable rather than waiting, and paid media needs ad_authority -- both are named as gated rather than simulated, because a placeholder product photograph would make the cycle green and prove nothing, and is the one thing the asset-truth gate exists to refuse one level down. /api/seasonal/cycle.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on image_generation): the note says imagery is 'no longer capability-blocked' while the row is parked on image_generation, which executor.py says carries no requirement; the paid-media part belongs on ad_authority\n\nRepair wave intel 2026-09-27 (integrated by the lead): EXTERNAL binding gate; ad_authority (owner) only for the paid-media clause. seasonal.cycle_proof runs weekly; the assets link declines with model_bearing_render_path for the hats arena. cycle.py EXTERNAL_WAITS does not list model_bearing_render so the link reads FAILED not GATED — left for the lead (GATED would let complete:true report with no asset). W4-B2VERIFY 2026-10-10: the FAILED-not-GATED gap this note leaves for the lead is closed in code: seasonal/cycle.EXTERNAL_BLOCKS maps model_bearing_render_path to the model_bearing_render gate and the assets link reads BLOCKED (tests/test_seasonal_cycle.py); complete stays false while it does.",
     "section": "Proven-trend seasonal capture & lead-time engine",
     "status": "partial",
     "title": "Seasonal System Acceptance Test",
     "version": "v1.4.2",
-    "parked_on": "model_bearing_render"
+    "parked_on": "model_bearing_render",
+    "proof": "seasonal/cycle.py tests/test_seasonal_cycle.py"
   },
   {
     "body": "NON-NEGOTIABLE / TOP PRIORITY. Do not generalize this requirement into 'watch proven sellers.' The specifically named anchor is MJsOffTheHookDesigns. Canonical owner-supplied shop URL: https://www.etsy.com/ca/shop/MJsOffTheHookDesigns?ref=shop_profile&listing;_id=1825269747 . The shorter canonical shop route may also be stored, but the owner-supplied URL must remain in the benchmark registry and acceptance evidence.",
@@ -3184,7 +3192,8 @@
     "status": "partial",
     "title": "MJs Quality Challenge Is Release-Blocking",
     "version": "v1.4.3",
-    "parked_on": "benchmark_purchases"
+    "parked_on": "benchmark_purchases",
+    "proof": "teardown/audits.py tests/test_teardown_audits.py"
   },
   {
     "body": "All observations, Brambleloop launches, failures, owner vetoes, conversion data and customer outcomes update the MJs specialist pods' versioned learning memory. Challenger agents should repeatedly test better ways to interpret MJs market signals, generate stronger seasonal responses and improve commercial execution.",
@@ -3203,7 +3212,8 @@
     "section": "MJsOffTheHookDesigns priority mission",
     "status": "owner_gated",
     "title": "Ten-Pattern Benchmark Laboratory",
-    "version": "v1.4.3"
+    "version": "v1.4.3",
+    "proof": "intel/purchase_selection.py teardown/lab.py tests/test_purchase_selection.py"
   },
   {
     "body": "Owner command centre must expose MJs mission status: last successful scan, catalogue coverage, listings changed/new, gallery audit coverage, specialist pod assignments, top uncovered opportunities, upcoming seasonal adaptations, launch deadlines, Brambleloop comparison results, products launched, conversion/revenue and mission incidents.",
@@ -3231,6 +3241,7 @@
     "section": "MJsOffTheHookDesigns priority mission",
     "status": "owner_gated",
     "title": "MJs Mission End-to-End Acceptance Test",
-    "version": "v1.4.3"
+    "version": "v1.4.3",
+    "proof": "intel/acceptance.py tests/test_acceptance.py"
   }
 ]
