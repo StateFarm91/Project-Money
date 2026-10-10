@@ -310,10 +310,12 @@ def _sheet(images: list, px: int, columns: int):
 
 def live_inspection(db) -> dict:
     """The live storefront as Etsy serves it: external, gated, and never claimed here."""
+    # The browser half of `rendered_pages` only (W4-B2CLOSE): that gate also opens on a
+    # person's policy-page readings (#35/#39), which inspect no storefront.
     try:
-        from ..build2.executor import GATE_BY_KEY
+        from ..intel.browser import usable
 
-        gate_open = bool(GATE_BY_KEY["rendered_pages"].open(db))
+        gate_open = bool(usable(db))
     except Exception:  # noqa: BLE001 - an unreadable gate is not an open one
         gate_open = False
     return {"status": "EXTERNAL_GATED", "gate": "rendered_pages", "gate_open": gate_open,

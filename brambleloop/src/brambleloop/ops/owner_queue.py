@@ -453,8 +453,6 @@ BATCHES: tuple[dict, ...] = (
                      "in the same login")},
     {"id": "storage", "order": 5, "title": "Storage and continuity spend",
      "why_batched": "both are storage accounts outside the code, approved as one spend line"},
-    {"id": "infra", "order": 5, "title": "Infrastructure services the code cannot create",
-     "why_batched": "third-party service accounts with a recurring cost, approved together"},
     {"id": "benchmark", "order": 6, "title": "Competitive benchmark purchases",
      "why_batched": ("the purchase gate and the pre-launch benchmark challenge wait on the "
                      "same purchased patterns")},
@@ -586,19 +584,28 @@ DECISIONS: tuple[dict, ...] = (
      "max_cost_cad": None, "cost_basis": "UNKNOWN (provider not chosen)", "minutes": 15,
      "consequence_of_yes": "the continuity archive survives losing the provider (#51)",
      "consequence_of_no": "a provider loss loses the archive with it"},
-    {"id": "browser_worker", "batch": "infra", "kind": "spend",
+    # W4-B2CLOSE 2026-10-10 (BUILD2_VERIFY finding 2): this was `browser_worker`, a hosted
+    # browser at UNKNOWN cost. Withdrawn, not costed: etsy.com/legal answers every automated
+    # reader 403 from DataDome, a hosted worker meets the same refusal, and passing the
+    # challenge would be evasion. The remedy the closure names is a person reading the five
+    # pages, which now opens `rendered_pages` (platform_policy.page_readings_status).
+    {"id": "policy_page_reading", "batch": "etsy_account", "kind": "physical",
      "gates": ("rendered_pages",), "keys": (),
-     "decision": ("Approve a hosted browser worker account (provider and plan per the "
-                  "W4-GATESI clearance packet) so policy pages can be read as a buyer sees "
-                  "them; no CAPTCHA or bot-protection bypass is permitted."),
-     "why": ("a third-party service account with a recurring cost; Etsy refuses automated "
-             "fetchers (HTTP 403) and software must not spoof a browser"),
-     "max_cost_cad": None, "cost_basis": "UNKNOWN until the W4-GATESI packet names a plan",
-     "minutes": 10,
-     "consequence_of_yes": ("#35 and #39 can read current policy pages instead of "
-                            "search-engine excerpts"),
-     "consequence_of_no": ("policy knowledge stays on dated search-engine excerpts, "
-                           "refreshed by a build session every 30 days")},
+     "decision": ("Every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, "
+                  "creativity_standards, advertising_rules, shilling_and_reviews, "
+                  "children_and_baby) in your own browser and record each through POST "
+                  "/api/policy/snapshot (source, text, version, summary, read_by). No "
+                  "sign-in is needed; no software reads these pages for you."),
+     "why": ("etsy.com/legal refuses every automated reader (HTTP 403, DataDome) and this "
+             "company does not bypass bot protection, so a person's reading is the only "
+             "honest source; a hosted browser worker would meet the same 403"),
+     "max_cost_cad": 0.0, "cost_basis": "stated (reading public pages costs nothing)",
+     "minutes": 15,
+     "consequence_of_yes": ("#35 and #39 un-park: new product classes and the policy "
+                            "freshness watch rest on current pages, and the gate closes "
+                            "again by itself if a reading passes 30 days"),
+     "consequence_of_no": ("#35 and #39 stay parked; publishing and new classes stay "
+                           "blocked on unread policy, and nothing is published")},
     {"id": "benchmark_purchase", "batch": "benchmark", "kind": "spend",
      "gates": ("benchmark_purchases",), "keys": ("benchmark_challenge",),
      "decision": ("Buy the 13 approved MJs benchmark patterns (exact list, links and prices: "

@@ -364,6 +364,89 @@ def freshness(db, *, today: date | None = None) -> dict:
     }
 
 
+# The audit row POST /api/policy/snapshot writes for every page reading it accepts. It is the
+# provenance a page-basis snapshot needs before it can open a gate: it proves the reading came
+# through the authenticated operator intake, not from code writing a PolicySnapshot row.
+PAGE_READING_AUDIT = "policy.page_reading_recorded"
+
+
+def page_readings_status(db, *, today: date | None = None,
+                         sources: list[str] | None = None) -> dict:
+    """Whether a person's current, reviewed page readings cover every page no reader can fetch.
+
+    W4-B2CLOSE, 2026-10-10 (BUILD2_VERIFY finding 2). etsy.com/legal answers every automated
+    reader 403 (DataDome), so the `rendered_pages` gate's browser.probe can never honestly
+    open for #35/#39, while the remedy the closure itself names is a person reading those
+    pages and recording them through POST /api/policy/snapshot. This is that remedy as a
+    checkable condition. It holds only when, for EVERY source in `sources` (default: the
+    watched sources with no sanctioned reader, `policy_reader.external_sources()`):
+
+    - a `page`-basis snapshot exists that names who read it (`read_by`) and whose id appears
+      in a `policy.page_reading_recorded` audit row (the authenticated intake's provenance);
+    - the newest such reading is dated, not in the future, and at most `MAX_AGE_DAYS` old;
+    - no material change of that source is unreviewed (`unreviewed_changes`).
+
+    An absent, stale, future-dated, anonymous or un-audited reading keeps it closed, and so
+    does any unreviewed change: a reading somebody has not reviewed is not a current policy.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, PolicySnapshot
+
+    if sources is None:
+        from .policy_reader import external_sources
+
+        sources = external_sources()
+    today = today or date.today()
+    with db.session() as s:
+        audited: set[int] = set()
+        for a in s.scalars(select(AuditLog).where(AuditLog.action == PAGE_READING_AUDIT)):
+            sid = (a.detail or {}).get("id")
+            if isinstance(sid, int):
+                audited.add(sid)
+        rows = list(s.scalars(select(PolicySnapshot).where(
+            PolicySnapshot.source.in_(list(sources))).order_by(PolicySnapshot.id)))
+        newest: dict[str, PolicySnapshot] = {}
+        for r in rows:
+            detail = r.detail or {}
+            if (detail.get("basis") == PAGE_BASIS and str(detail.get("read_by") or "").strip()
+                    and r.id in audited):
+                newest[r.source] = r
+        per_source: dict[str, dict] = {}
+        for src in sources:
+            r = newest.get(src)
+            if r is None:
+                per_source[src] = {"ok": False, "why": "no audited page reading by a named "
+                                                       "person"}
+                continue
+            try:
+                age = (today - date.fromisoformat(r.checked_on)).days
+            except (TypeError, ValueError):
+                per_source[src] = {"ok": False, "snapshot_id": r.id,
+                                   "why": f"checked_on {r.checked_on!r} is not an ISO date"}
+                continue
+            entry = {"snapshot_id": r.id, "checked_on": r.checked_on, "age_days": age,
+                     "read_by": (r.detail or {}).get("read_by")}
+            if age < 0:
+                per_source[src] = dict(entry, ok=False, why="dated in the future")
+            elif age > MAX_AGE_DAYS:
+                per_source[src] = dict(entry, ok=False,
+                                       why=f"older than {MAX_AGE_DAYS} days")
+            else:
+                per_source[src] = dict(entry, ok=True, why="current")
+    unreviewed = sorted(c["source"] for c in unreviewed_changes(db) if c["source"] in sources)
+    for src in unreviewed:
+        per_source[src] = dict(per_source[src], ok=False,
+                               why="a material change is unreviewed (review_change)")
+    missing = sorted(k for k, v in per_source.items() if not v["ok"])
+    return {"open": bool(sources) and not missing, "sources": per_source,
+            "not_current": missing, "changed_unreviewed": unreviewed,
+            "max_age_days": MAX_AGE_DAYS,
+            "how": ("every etsy.com/legal source read by a named person through POST "
+                    "/api/policy/snapshot within the last "
+                    f"{MAX_AGE_DAYS} days, with no unreviewed material change")}
+
+
 def policy_stamp(db, *, today: date | None = None) -> dict:
     """What a release certificate records about the platform rules it was certified against.
 

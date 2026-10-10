@@ -50,7 +50,8 @@ EXTERNAL_GATES = {
         "Etsy's public article API. Spoofing a browser is refused. The rows that need an "
         "etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: "
         "a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes "
-        "every 30 days)."),
+        "every 30 days); a current, reviewed set of those readings opens this gate "
+        "(platform_policy.page_readings_status), and it closes again when one goes stale."),
     "model_bearing_render": (
         "no image provider has rendered a certified crochet structure faithfully enough to "
         "pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws "

@@ -1,8 +1,8 @@
 # Owner actions -- decision packet (W4-OWNER)
 
-Generated 2026-10-07T02:35:09+00:00 by `research/final_build/w4/owner/build_owner_docs.py` from the runtime approvals inbox plus the STORE and VISUAL lanes. Phase stays SHADOW. UNKNOWN cost is never CA$0.
+Generated 2026-10-10T03:34:30+00:00 by `research/final_build/w4/owner/build_owner_docs.py` from the runtime approvals inbox plus the STORE and VISUAL lanes. Phase stays SHADOW. UNKNOWN cost is never CA$0.
 
-**Before:** 44 separate asks (9 production rows, 19 gate cards, 13 store items, 3 visual plans). **After:** 26 decisions in 10 batches, ~316 owner minutes; 3 converted back to company work, 1 deferred.
+**Before:** 44 separate asks (9 production rows, 19 gate cards, 13 store items, 3 visual plans). **After:** 26 decisions in 9 batches, ~321 owner minutes; 3 converted back to company work, 1 deferred.
 
 ## Go live on Etsy (one sitting in Shop Manager) (5 decisions, 67 min, max CA$651.00)
 
@@ -11,10 +11,10 @@ _each of these is a step of the same move out of shadow mode; none is useful alo
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
 | leave_shadow | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above are done. | 9 requirements are parked on it | gate 'live_listings' opens when: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing | CA$0.00 | listings can be published under the publication authority; the live-listing requirements un-park | everything stays drafted and nothing reaches a customer | 5 |
-| etsy_kyc_payout | Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not. | production reason payout | OwnerAction #3 raised 2026-10-07T02:35:09.586252 for payout | CA$0.00 | the payout prerequisite for publishing is met | delay payout | 15 |
-| listing_fees | Approve Etsy's listing fees for the opening catalogue (figure on the card). | production reason listing_fees | OwnerAction #4 raised 2026-10-07T02:35:09.586617 for listing_fees | CA$6.00 | publishing is no longer blocked on fees | delay listing_fees | 2 |
+| etsy_kyc_payout | Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not. | production reason payout | OwnerAction #3 raised 2026-10-10T03:34:29.688021 for payout | CA$0.00 | the payout prerequisite for publishing is met | delay payout | 15 |
+| listing_fees | Approve Etsy's listing fees for the opening catalogue (figure on the card). | production reason listing_fees | OwnerAction #4 raised 2026-10-10T03:34:29.688320 for listing_fees | CA$6.00 | publishing is no longer blocked on fees | delay listing_fees | 2 |
 | tester_outreach | Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet. | 3 requirements are parked on it | gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester | CA$185.00 | a measured sample calibrates yardage and Class C products can become shippable | no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale | 25 |
-| trademark_filing | Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work. | production reason brand_clearance | OwnerAction #5 raised 2026-10-07T02:35:09.586889 for brand_clearance | CA$460.00 | the name is protected before brand equity accumulates on it | delay brand_clearance | 20 |
+| trademark_filing | Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work. | production reason brand_clearance | OwnerAction #5 raised 2026-10-10T03:34:29.688627 for brand_clearance | CA$460.00 | the name is protected before brand equity accumulates on it | delay brand_clearance | 20 |
 
 ## Fund the model provider (1 decisions, 5 min, max CA$25.00)
 
@@ -33,7 +33,7 @@ _free decisions with no account or spend behind them_
 | acceptance_ruling | Rule whether an API + vision traversal satisfies the 'browser/vision' wording of #189/#221/#222/#320 (yes / no). | 4 requirements are parked on it | gate 'acceptance_ruling' opens when: an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed | CA$0.00 | four requirements are graded against the API path | they stay parked and every acceptance grade stays provisional | 2 |
 | production_window | Authorise deploying the reviewed build to the existing service for one unattended window (phase stays shadow). | 1 requirements are parked on it | gate 'production_window' opens when: autonomy.launch_item reads PROVEN from the rows a full production window left | CA$0.00 | the off-device proof (#195) can be read from real rows, and the fixes that close stale production incidents take effect | #195 stays parked and production keeps the stale rows | 10 |
 
-## Owner-only Etsy account screens (10 decisions, 48 min, max CA$0.00)
+## Owner-only Etsy account screens (11 decisions, 63 min, max CA$0.00)
 
 _each needs the signed-in account holder in a browser, so they are done in the same login_
 
@@ -41,6 +41,7 @@ _each needs the signed-in account holder in a browser, so they are done in the s
 |---|---|---|---|---|---|---|---|
 | transactions_scope | Re-authorise the Etsy app with the transactions_r scope (consent screen). | 2 requirements are parked on it | gate 'transactions_r' opens when: the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed | CA$0.00 | orders can be read (#11, #12) | the order source stays closed | 3 |
 | insights_reading | Record one Marketplace Insights reading from Shop Manager (POST the reading; no API exists). | 5 requirements are parked on it | gate 'insights_access' opens when: at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it | CA$0.00 | search-demand requirements (#1, #37, #236) get real readings | they stay parked on proxies | 10 |
+| policy_page_reading | Every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby) in your own browser and record each through POST /api/policy/snapshot (source, text, version, summary, read_by). No sign-in is needed; no software reads these pages for you. | etsy.com/legal refuses every automated reader (HTTP 403, DataDome) and this company does not bypass bot protection, so a person's reading is the only honest source; a hosted browser worker would meet the same 403 | ops/owner_queue.DECISIONS; executor gate(s) rendered_pages | CA$0.00 | #35 and #39 un-park: new product classes and the policy freshness watch rest on current pages, and the gate closes again by itself if a reading passes 30 days | #35 and #39 stay parked; publishing and new classes stay blocked on unread policy, and nothing is published | 15 |
 | OA-OBS | Record what the live shop shows for the fields no API returns: About headline, About story, Laura's member bio and role (paste text; one dated observation) | lets the drift job treat your configuration as authoritative and check it (Laura disclosed as AI, not in the Owner role) without touching it | research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026) | CA$0.00 | the drift job treats the live About/Laura fields as authoritative and checks them (Laura disclosed as AI, not Owner) without touching them | About/Laura fields stay UNKNOWN; previews may show stale repo drafts | 5 |
 | OA-B | Account settings: profile picture = logo mark, real preferred name, short bio, 2FA on (Batch B) | the account picture/name present the legal account holder; Laura must not appear as the account holder | research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026) | CA$0.00 | the account presents the legal holder; Laura never reads as the owner | a persona could read as the legal owner | 5 |
 | OA-BANNER | Phone check: open the shop in the Etsy app, screenshot the banner; and decide on the banner gate findings listed in IMG-2 (nav footer shows Wearables/Gifts/Seasonal, which have no products yet; Laura publication status) | the live banner is yours and is not replaced; Etsy publishes no mobile crop, and the repo gates found items only you can rule on | research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026) | CA$0.00 | the phone crop is evidenced and the IMG-2 banner findings are ruled on; the live banner stays yours and is not replaced | crop/footer findings stay unresolved | 3 |
@@ -56,16 +57,8 @@ _both are storage accounts outside the code, approved as one spend line_
 
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
-| storage_durable | Approve durable object storage for purchased files (Railway volume or S3). | production reason artifact_storage | OwnerAction #1 raised 2026-10-07T02:35:09.578127 for artifact_storage | CA$5.00 | purchased files survive deploys | delay artifact_storage | 10 |
+| storage_durable | Approve durable object storage for purchased files (Railway volume or S3). | production reason artifact_storage | OwnerAction #1 raised 2026-10-10T03:34:29.682351 for artifact_storage | CA$5.00 | purchased files survive deploys | delay artifact_storage | 10 |
 | storage_offsite | Create an object-storage bucket outside this provider and its credential. | 1 requirements are parked on it | gate 'offsite_storage' opens when: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all | UNKNOWN | the continuity archive survives losing the provider (#51) | a provider loss loses the archive with it | 15 |
-
-## Infrastructure services the code cannot create (1 decisions, 10 min, max UNKNOWN (at least one item is not costed))
-
-_third-party service accounts with a recurring cost, approved together_
-
-| id | decision | why | evidence | max cost | if yes | if no / delay | min |
-|---|---|---|---|---|---|---|---|
-| browser_worker | Approve a hosted browser worker account (provider and plan per the W4-GATESI clearance packet) so policy pages can be read as a buyer sees them; no CAPTCHA or bot-protection bypass is permitted. | a third-party service account with a recurring cost; Etsy refuses automated fetchers (HTTP 403) and software must not spoof a browser | ops/owner_queue.DECISIONS; executor gate(s) rendered_pages | UNKNOWN | #35 and #39 can read current policy pages instead of search-engine excerpts | policy knowledge stays on dated search-engine excerpts, refreshed by a build session every 30 days | 10 |
 
 ## Competitive benchmark purchases (1 decisions, 75 min, max CA$300.00)
 
@@ -73,7 +66,7 @@ _the purchase gate and the pre-launch benchmark challenge wait on the same purch
 
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
-| benchmark_purchase | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown. | production reason benchmark_challenge | OwnerAction #7 raised 2026-10-07T02:35:09.587387 for benchmark_challenge | CA$300.00 | the pre-launch challenge (#168) and teardowns can run | delay benchmark_challenge | 75 |
+| benchmark_purchase | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown. | production reason benchmark_challenge | OwnerAction #7 raised 2026-10-10T03:34:29.689101 for benchmark_challenge | CA$300.00 | the pre-launch challenge (#168) and teardowns can run | delay benchmark_challenge | 75 |
 
 ## Owned publishing channels (1 decisions, 65 min, max CA$25.00)
 

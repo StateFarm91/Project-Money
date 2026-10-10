@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07T02:35:09+00:00",
+ "generated_at": "2026-10-10T03:34:30+00:00",
  "lane": "W4-OWNER",
  "sources": {
   "runtime": "build2.executor.approval_inbox (Command Center approvals inbox)",
@@ -16,9 +16,9 @@
    "total_asks": 44
   },
   "after": {
-   "batches": 10,
+   "batches": 9,
    "decisions": 26,
-   "minutes_total": 316
+   "minutes_total": 321
   },
   "converted_to_company_work": 3,
   "deferred": 1
@@ -103,7 +103,7 @@
      "id": "etsy_kyc_payout",
      "decision": "Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not.",
      "why": "production reason payout",
-     "evidence": "OwnerAction #3 raised 2026-10-07T02:35:09.586252 for payout",
+     "evidence": "OwnerAction #3 raised 2026-10-10T03:34:29.688021 for payout",
      "max_cost_cad": 0.0,
      "max_cost_display": "CA$0.00",
      "max_cost_basis": "stated by the producer",
@@ -129,7 +129,7 @@
      "id": "listing_fees",
      "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
      "why": "production reason listing_fees",
-     "evidence": "OwnerAction #4 raised 2026-10-07T02:35:09.586617 for listing_fees",
+     "evidence": "OwnerAction #4 raised 2026-10-10T03:34:29.688320 for listing_fees",
      "max_cost_cad": 6.0,
      "max_cost_display": "CA$6.00",
      "max_cost_basis": "stated by the producer",
@@ -461,7 +461,7 @@
      "id": "trademark_filing",
      "decision": "Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work.",
      "why": "production reason brand_clearance",
-     "evidence": "OwnerAction #5 raised 2026-10-07T02:35:09.586889 for brand_clearance",
+     "evidence": "OwnerAction #5 raised 2026-10-10T03:34:29.688627 for brand_clearance",
      "max_cost_cad": 460.0,
      "max_cost_display": "CA$460.00",
      "max_cost_basis": "stated by the producer",
@@ -708,8 +708,8 @@
    "id": "etsy_account",
    "title": "Owner-only Etsy account screens",
    "why_batched": "each needs the signed-in account holder in a browser, so they are done in the same login",
-   "decisions": 10,
-   "minutes_total": 48,
+   "decisions": 11,
+   "minutes_total": 63,
    "max_cost_cad_total": 0.0,
    "max_cost_display": "CA$0.00",
    "items": [
@@ -775,6 +775,64 @@
      "sources": [
       "runtime approval_inbox",
       "lane B2 ledger"
+     ],
+     "store_detail": null,
+     "fields_missing": []
+    },
+    {
+     "id": "policy_page_reading",
+     "decision": "Every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby) in your own browser and record each through POST /api/policy/snapshot (source, text, version, summary, read_by). No sign-in is needed; no software reads these pages for you.",
+     "why": "etsy.com/legal refuses every automated reader (HTTP 403, DataDome) and this company does not bypass bot protection, so a person's reading is the only honest source; a hosted browser worker would meet the same 403",
+     "evidence": "ops/owner_queue.DECISIONS; executor gate(s) rendered_pages",
+     "max_cost_cad": 0.0,
+     "max_cost_display": "CA$0.00",
+     "max_cost_basis": "stated (reading public pages costs nothing)",
+     "consequence_of_yes": "#35 and #39 un-park: new product classes and the policy freshness watch rest on current pages, and the gate closes again by itself if a reading passes 30 days",
+     "consequence_of_no": "#35 and #39 stay parked; publishing and new classes stay blocked on unread policy, and nothing is published",
+     "minutes": 15,
+     "gates": [
+      "rendered_pages"
+     ],
+     "requirement_keys": [],
+     "owner_action_ids": [],
+     "b2_rows": null,
+     "clearance": [
+      {
+       "lane": "W4-GATESI",
+       "gate": "rendered_pages",
+       "detail": {
+        "gate": "rendered_pages",
+        "kind": "EXTERNAL-BLOCKED (etsy.com/legal) with a sanctioned partial path (help.etsy.com)",
+        "clears_in_code": "executor._rendered_pages_usable -> intel.browser.usable(db): latest browser.probe ok=true. No honest automated reader can satisfy it for etsy.com/legal.",
+        "production_fact": "/api/capabilities/probes: browser.probe 2026-10-07T00:03:20Z ok=false 'no BRAMBLELOOP_BROWSER_URL'. /api/policy: all 6 watched sources never_checked, 8 workflows blocked. Re-proven 2026-10-07 from this container: etsy.com/legal/sellers/ -> 403 (DataDome); Help Center article API -> 200 for 115015663347 (image requirements, edited 2026-05-04) and 360000336307 (tags/search, edited 2026-04-21).",
+        "repo_fix": {
+         "status": "FIXED on claude/w4-GATESI",
+         "what": "new gates/policy_reader.py reads the Help-Center-hosted watched sources (listing_image_rules, search_guidance) through the public Zendesk article API (robots-allowed, identifying UA, 3 s gap, one GET each, no retry past refusal), recorded as basis help_center_api with material-change compared on the same basis; wired into release.handle_policy_watch, on only in the hosted container (BRAMBLELOOP_POLICY_READER=0 disables). listing_image_rules URL corrected from article 360000343508 ('How to Download Your Listing Information') to 115015663347.",
+         "files": [
+          "brambleloop/src/brambleloop/gates/policy_reader.py",
+          "brambleloop/src/brambleloop/gates/platform_policy.py",
+          "brambleloop/src/brambleloop/runtime/release.py"
+         ],
+         "tests": "tests/test_w4_gatesi.py (19 reader/watch checks), test_platform_policy 13/13, test_policy_knowledge 20/20, test_policy_intake 8/8"
+        },
+        "owner_action": {
+         "provider": "none purchasable without evasion. A person reads the 5 etsy.com/legal sources (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby = policy_reader.external_sources()) in a normal browser and records each via POST /api/policy/snapshot, every <=30 days",
+         "cost_cad": "CA$0",
+         "env_vars": [],
+         "minutes": 15,
+         "minutes_note": "per 30-day cycle",
+         "unlocks_requirements": [
+          35,
+          39
+         ],
+         "note": "#39 stays parked on rendered_pages until the legal sources are recorded by a person; a headless browser against DataDome is refused (CAPTCHA/anti-bot never bypassed). BRAMBLELOOP_BROWSER_URL would not help: the worker would meet the same 403."
+        }
+       }
+      }
+     ],
+     "sources": [
+      "ops/owner_queue",
+      "lane W4-GATESI"
      ],
      "store_detail": null,
      "fields_missing": []
@@ -970,7 +1028,7 @@
      "id": "storage_durable",
      "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
      "why": "production reason artifact_storage",
-     "evidence": "OwnerAction #1 raised 2026-10-07T02:35:09.578127 for artifact_storage",
+     "evidence": "OwnerAction #1 raised 2026-10-10T03:34:29.682351 for artifact_storage",
      "max_cost_cad": 5.0,
      "max_cost_display": "CA$5.00",
      "max_cost_basis": "stated by the producer",
@@ -1068,75 +1126,6 @@
    ]
   },
   {
-   "id": "infra",
-   "title": "Infrastructure services the code cannot create",
-   "why_batched": "third-party service accounts with a recurring cost, approved together",
-   "decisions": 1,
-   "minutes_total": 10,
-   "max_cost_cad_total": null,
-   "max_cost_display": "UNKNOWN (at least one item is not costed)",
-   "items": [
-    {
-     "id": "browser_worker",
-     "decision": "Approve a hosted browser worker account (provider and plan per the W4-GATESI clearance packet) so policy pages can be read as a buyer sees them; no CAPTCHA or bot-protection bypass is permitted.",
-     "why": "a third-party service account with a recurring cost; Etsy refuses automated fetchers (HTTP 403) and software must not spoof a browser",
-     "evidence": "ops/owner_queue.DECISIONS; executor gate(s) rendered_pages",
-     "max_cost_cad": null,
-     "max_cost_display": "UNKNOWN",
-     "max_cost_basis": "UNKNOWN",
-     "consequence_of_yes": "#35 and #39 can read current policy pages instead of search-engine excerpts",
-     "consequence_of_no": "policy knowledge stays on dated search-engine excerpts, refreshed by a build session every 30 days",
-     "minutes": 10,
-     "gates": [
-      "rendered_pages"
-     ],
-     "requirement_keys": [],
-     "owner_action_ids": [],
-     "b2_rows": null,
-     "clearance": [
-      {
-       "lane": "W4-GATESI",
-       "gate": "rendered_pages",
-       "detail": {
-        "gate": "rendered_pages",
-        "kind": "EXTERNAL-BLOCKED (etsy.com/legal) with a sanctioned partial path (help.etsy.com)",
-        "clears_in_code": "executor._rendered_pages_usable -> intel.browser.usable(db): latest browser.probe ok=true. No honest automated reader can satisfy it for etsy.com/legal.",
-        "production_fact": "/api/capabilities/probes: browser.probe 2026-10-07T00:03:20Z ok=false 'no BRAMBLELOOP_BROWSER_URL'. /api/policy: all 6 watched sources never_checked, 8 workflows blocked. Re-proven 2026-10-07 from this container: etsy.com/legal/sellers/ -> 403 (DataDome); Help Center article API -> 200 for 115015663347 (image requirements, edited 2026-05-04) and 360000336307 (tags/search, edited 2026-04-21).",
-        "repo_fix": {
-         "status": "FIXED on claude/w4-GATESI",
-         "what": "new gates/policy_reader.py reads the Help-Center-hosted watched sources (listing_image_rules, search_guidance) through the public Zendesk article API (robots-allowed, identifying UA, 3 s gap, one GET each, no retry past refusal), recorded as basis help_center_api with material-change compared on the same basis; wired into release.handle_policy_watch, on only in the hosted container (BRAMBLELOOP_POLICY_READER=0 disables). listing_image_rules URL corrected from article 360000343508 ('How to Download Your Listing Information') to 115015663347.",
-         "files": [
-          "brambleloop/src/brambleloop/gates/policy_reader.py",
-          "brambleloop/src/brambleloop/gates/platform_policy.py",
-          "brambleloop/src/brambleloop/runtime/release.py"
-         ],
-         "tests": "tests/test_w4_gatesi.py (19 reader/watch checks), test_platform_policy 13/13, test_policy_knowledge 20/20, test_policy_intake 8/8"
-        },
-        "owner_action": {
-         "provider": "none purchasable without evasion. A person reads the 5 etsy.com/legal sources (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby = policy_reader.external_sources()) in a normal browser and records each via POST /api/policy/snapshot, every <=30 days",
-         "cost_cad": "CA$0",
-         "env_vars": [],
-         "minutes": 15,
-         "minutes_note": "per 30-day cycle",
-         "unlocks_requirements": [
-          35,
-          39
-         ],
-         "note": "#39 stays parked on rendered_pages until the legal sources are recorded by a person; a headless browser against DataDome is refused (CAPTCHA/anti-bot never bypassed). BRAMBLELOOP_BROWSER_URL would not help: the worker would meet the same 403."
-        }
-       }
-      }
-     ],
-     "sources": [
-      "ops/owner_queue",
-      "lane W4-GATESI"
-     ],
-     "store_detail": null,
-     "fields_missing": []
-    }
-   ]
-  },
-  {
    "id": "benchmark",
    "title": "Competitive benchmark purchases",
    "why_batched": "the purchase gate and the pre-launch benchmark challenge wait on the same purchased patterns",
@@ -1149,7 +1138,7 @@
      "id": "benchmark_purchase",
      "decision": "Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown.",
      "why": "production reason benchmark_challenge",
-     "evidence": "OwnerAction #7 raised 2026-10-07T02:35:09.587387 for benchmark_challenge",
+     "evidence": "OwnerAction #7 raised 2026-10-10T03:34:29.689101 for benchmark_challenge",
      "max_cost_cad": 300.0,
      "max_cost_display": "CA$300.00",
      "max_cost_basis": "stated by the producer",
@@ -1789,7 +1778,7 @@
    {
     "lane": "infra",
     "gate": "rendered_pages",
-    "decision": "browser_worker"
+    "decision": "policy_page_reading"
    },
    {
     "lane": "business",
