@@ -126,6 +126,36 @@ try {
   const laneRows = await page.$$eval("li.row", (els) => els.map((e) => e.textContent));
   check(laneRows.length === 2 && laneRows.some((t) => /Rows closed\s*Unknown/.test(t)), "completion: lanes listed, unknown rows-closed shown as Unknown", JSON.stringify(laneRows.map((t) => t.slice(0, 80))));
 
+  // ---- W4-CCFIN: estimate drift is a status card that keeps its detail; Unknown, never 0% ----
+  await page.goto(`${BASE}/cc/#/money`);
+  await settle();
+  const drift = (await page.textContent("section[aria-labelledby='money-estimate-drift']").catch(() => "")) || "";
+  check(/UNKNOWN/.test(drift) && /Calls with no reservation\s*Unknown/.test(drift) && /Settlement against provider billing\s*OWNER-GATED/.test(drift)
+    && /Tolerance\s*±25%/.test(drift) && /Drift state\s*Unknown/.test(drift) && !/HEALTHY/.test(drift) && /as of/.test(drift) && !/\b0%/.test(drift), "money: estimate drift card shows status, detail and Unknown (never 0%)", drift.slice(0, 300));
+
+  // ---- W4-CCFIN: Rule #1 state, per-agent status, authority (read-only, as-of shown) -------
+  await page.goto(`${BASE}/cc/#/learn`);
+  await settle();
+  const r1 = (await page.textContent("section[aria-labelledby='autonomy-rule1']").catch(() => "")) || "";
+  check(/Rule #1 defects\s*1/.test(r1) && /Departments evaluated\s*1 of 2/.test(r1), "learn: Rule #1 defects and evaluated counts shown", r1.slice(0, 200));
+  const r1rows = await page.$$eval("section[aria-labelledby='autonomy-rule1'] li.row", (els) => els.map((e) => e.textContent));
+  check(r1rows.length === 2 && /DEFECT/.test(r1rows[0]) && /Rule #1 defect\s*Unknown/.test(r1rows[1]) && /Eligible work not yet taken\s*Unknown/.test(r1rows[1]),
+    "learn: unevaluated department reads Unknown, never 0", JSON.stringify(r1rows.map((t) => t.slice(0, 160))));
+  check(/as of /.test(r1), "learn: Rule #1 card shows as-of", r1.slice(0, 120));
+  const ag = await page.$$eval("section[aria-labelledby='autonomy-agents'] li.row", (els) => els.map((e) => e.textContent));
+  check(ag.length === 2 && /Current work\s*autonomy\.orchestrate/.test(ag[0]) && /Last useful output\s*plan\.cycle/.test(ag[0])
+    && /Etsy API access not granted/.test(ag[1]) && /BLOCKED/.test(ag[1]), "learn: agents show status, current work, useful output, blockers", JSON.stringify(ag.map((t) => t.slice(0, 200))));
+  const cardsNoAsOf = await page.$$eval("#main section.card", (els) => els.filter((e) => !e.querySelector("time")).map((e) => e.querySelector(".card-title")?.textContent || "?"));
+  check(cardsNoAsOf.length === 0, "learn: every section shows a freshness timestamp", JSON.stringify(cardsNoAsOf));
+  await page.goto(`${BASE}/cc/#/account`);
+  await settle();
+  const pol = (await page.textContent("section[aria-labelledby='account-authority-policy']").catch(() => "")) || "";
+  check(/AUTONOMOUS/.test(pol) && /Granted by\s*owner/.test(pol) && /as of /.test(pol), "account: authority grants rendered with as-of", pol.slice(0, 200));
+  const dag = (await page.textContent("section[aria-labelledby='account-authority-dag']").catch(() => "")) || "";
+  check(/UNKNOWN/.test(dag) && /no work items recorded yet/.test(dag), "account: empty DAG reads UNKNOWN with its reason", dag.slice(0, 200));
+  const authBtns = await page.$$eval("section[aria-labelledby^='account-authority'] button", (els) => els.length);
+  check(authBtns === 0, "account: authority views are read-only (no actions)", String(authBtns));
+
   // ---- money: UNKNOWN is "Unknown", never CA$0.00; basis labelled ------------------------
   await page.goto(`${BASE}/cc/#/money`);
   await settle();

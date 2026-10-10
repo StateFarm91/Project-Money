@@ -207,13 +207,84 @@ def chain_evidence(db, slug: str, version: str | None = None, *, today=None) -> 
 
             from ..publish.release_gates import for_publish
 
-            verdict = for_publish(db, slug=slug, version=version, today=today or _date.today())
+            positioning = _positioning(db, slug, version)
+            out["positioning"] = positioning or "seasonal"
+            verdict = for_publish(db, slug=slug, version=version, today=today or _date.today(),
+                                  positioning=positioning)
             out["publish_verdict"] = {"blocks_release": verdict["blocks_release"],
                                       "reasons": [str(r)[:300] for r in verdict["reasons"]],
                                       "search": (verdict.get("search") or {}).get("verdict")}
         except Exception as exc:  # noqa: BLE001 - an uncomputable verdict is a finding
             out["publish_verdict"] = {"error": f"{type(exc).__name__}: {exc}"[:300],
                                       "blocks_release": True, "reasons": []}
+    out.update(_reserve_standard(db, slug, version, out))
+    return out
+
+
+def _positioning(db, slug: str, version: str) -> str | None:
+    """The positioning the chain carried out for this release, as store.publish receives it.
+
+    #297: launch.plan pivots a missed-window product to evergreen by re-running listing.seo
+    with `positioning="evergreen"` (the copy is rewritten), and that input rides the chain to
+    store.publish. Reading the verdict without it would report a pivot the company already
+    made as an open seasonal-window blocker. Only a DONE listing.seo counts."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type == "listing.seo",
+                                             Job.status == JobStatus.DONE)):
+            i = j.inputs or {}
+            if (i.get("slug") == slug and i.get("version") == version
+                    and i.get("positioning") == "evergreen"):
+                return "evergreen"
+    return None
+
+
+def _reserve_standard(db, slug: str, version: str | None, ch: dict) -> dict:
+    """A product outside Launch-0 held to the Launch-0 standard before it is a candidate.
+
+    `publish.eligibility.product_publication` runs the nine-area first-customer gate only for
+    Launch-0 slugs; a re-certified reserve is otherwise publishable without it. Since W4-VISUAL
+    (`listing_asset.has_render_authority`) a reserve whose design registry defines it gets
+    verified disclosed imagery, so "outside Launch-0" no longer means "no imagery route". The
+    inventory therefore asks the same questions of a reserve -- render authority, then the
+    first-customer gate on the stored release and drafted listing -- and reports each answer
+    as a blocker with its clearer. It never relaxes the store.publish verdict; it only adds.
+    """
+    from ..products.launch0 import launch_scope_slugs
+
+    if slug in launch_scope_slugs() or not version or not (ch.get("release") or {}).get(
+            "certified"):
+        return {}
+    from ..publish.listing_asset import has_render_authority
+
+    out: dict[str, Any] = {"render_authority": bool(has_render_authority(slug))}
+    try:
+        from sqlalchemy import select
+
+        from ..cir.model import CIR
+        from ..core.models import Listing, PatternVersion, Product
+        from ..gates.first_customer import blocking
+
+        with db.session() as s:
+            product = s.scalar(select(Product).where(Product.slug == slug))
+            pv = s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id, PatternVersion.version == version))
+            row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == version)
+                           .order_by(Listing.id.desc()).limit(1))
+            cir_json = dict(pv.cir_json or {})
+            listing = None if row is None else {
+                "title": row.title, "description": row.description,
+                "tags": list(row.tags or []), "price_cad": row.price_cad}
+        checks = blocking(CIR.from_dict(cir_json), listing=listing, db=db, version=version)
+        out["reserve_first_customer"] = [
+            f"FIRST_CUSTOMER_BLOCKING: {c['area']}: {c['state']} -- {str(c['detail'])[:200]}"
+            for c in checks]
+    except Exception as exc:  # noqa: BLE001 - an uncomputable gate is a finding
+        out["reserve_first_customer_error"] = f"{type(exc).__name__}: {exc}"[:300]
     return out
 
 
@@ -251,15 +322,19 @@ def _blockers(st: dict, ch: dict | None, prod: dict | None) -> list[dict]:
             add(gate, COMPANY, v.get("why", ""),
                 "rename to what the fabric makes, or change the CIR so it makes what the name "
                 "says (merchandising decision, company-side)")
-    if not st.get("launch_scope"):
+    reserve_reviewed = bool(ch and ch.get("render_authority")
+                            and "reserve_first_customer" in ch)
+    if not st.get("launch_scope") and not reserve_reviewed:
         add("outside_launch_scope", COMPANY,
-            "not a Launch-0 slug: no disclosed imagery (D-FB-7 is scoped to Launch-0) and no "
-            "first-customer review; counts toward catalogue depth only if re-certified under "
+            "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render "
+            "authority (listing_asset.has_render_authority) or no first-customer review of "
+            "its stored release; counts toward catalogue depth only if re-certified under "
             "the current gauge standard",
-            "promote into Launch-0 (cap 5 products) or wait for a qualified photograph")
+            "build it through the chain (render authority + first-customer review), or "
+            "promote into Launch-0 (cap 5 products)")
     if ch:
         img = ch.get("imagery")
-        if st.get("launch_scope") and not (img and img.get("usable")):
+        if (st.get("launch_scope") or reserve_reviewed) and not (img and img.get("usable")):
             add("listing_imagery", COMPANY,
                 f"no usable listing imagery on the chain DB: {img}", "re-run assets.build")
         if ch.get("release") is None:
@@ -271,6 +346,12 @@ def _blockers(st: dict, ch: dict | None, prod: dict | None) -> list[dict]:
             add(gate, clearer, r, action)
         if (ch.get("publish_verdict") or {}).get("error"):
             add("publish_verdict_error", COMPANY, ch["publish_verdict"]["error"], "fix the crash")
+        for r in ch.get("reserve_first_customer") or []:
+            gate, clearer, action = classify_reason(r)
+            add(gate, clearer, r, action)
+        if ch.get("reserve_first_customer_error"):
+            add("reserve_review_error", COMPANY, ch["reserve_first_customer_error"],
+                "fix the crash")
     if prod:
         if prod.get("version") and st.get("version") and prod["version"] != st["version"]:
             add("production_stale", DEPLOY,
@@ -278,10 +359,14 @@ def _blockers(st: dict, ch: dict | None, prod: dict | None) -> list[dict]:
                 f"{prod.get('chain_version')}); this code releases {st['version']}",
                 "deploy this build, then chain.rebuild re-certifies and redrafts")
         if prod.get("photography") in ("no_asset", "unusable"):
-            add("production_imagery", DEPLOY if st.get("launch_scope") else COMPANY,
+            # A route exists in this code for Launch-0 and, since W4-VISUAL, for any product
+            # with render authority whose chain imagery is usable: then only a deploy is left.
+            routed = st.get("launch_scope") or bool(
+                ch and ch.get("render_authority") and (ch.get("imagery") or {}).get("usable"))
+            add("production_imagery", DEPLOY if routed else COMPANY,
                 f"production asset-coverage: {prod['photography']}",
-                "deploy (Launch-0 disclosed renders exist in this code)"
-                if st.get("launch_scope") else "no imagery route outside Launch-0")
+                "deploy (verified disclosed renders exist in this code)"
+                if routed else "no usable imagery route for this product in this code yet")
     return out
 
 

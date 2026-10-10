@@ -23,6 +23,9 @@ PROVIDERS: dict[str, tuple[str, str]] = {
     "autonomy": ("brambleloop.autonomy.status", "summary"),
     "timeline": ("brambleloop.autonomy.status", "timeline"),
     "agents": ("brambleloop.autonomy.status", "agents"),
+    # W4-CCFIN: Rule #1 state per department (useful work; idle while eligible work waits).
+    # A bounded, read-only reading -- not the offline proof's full-history `measure`.
+    "rule1": ("brambleloop.autonomy.rule1", "summary"),
     "improvement": ("brambleloop.learn.improvement_status", "summary"),
     "accounting": ("brambleloop.finance.accounting.dashboard", "summary"),
     "accounting_drill": ("brambleloop.finance.accounting.dashboard", "drill"),

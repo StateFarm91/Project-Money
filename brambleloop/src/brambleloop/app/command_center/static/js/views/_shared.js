@@ -28,24 +28,28 @@ export function pageMeta(result, data) {
  * Render one named section of a tab, whatever honest shape it has: an envelope, a money value,
  * a scalar, a list or a plain object. A missing section renders as Unknown, not as absent.
  */
-export function renderSection(name, value, { title = null, result = null, limit = 20 } = {}) {
+export function renderSection(name, value, { title = null, result = null, limit = 20, asOf = null } = {}) {
   const label = title || humanize(name);
   const opts = { stale: result && result.stale, fetchedAt: result && result.fetchedAt, limit };
+  // W4-CCFIN: a section that is not an envelope carries no as_of of its own; it was read when
+  // the tab was generated, so it shows that reading time (never no timestamp at all).
+  const meta = () => h("p", { class: "card-meta" }, freshness(asOf || (result && result.fetchedAt) || null, opts));
   if (value === undefined || value === null) {
-    return card({ title: label, actions: statusPill("UNKNOWN") }, h("p", { class: "muted" }, "Unknown: this section was not reported."));
+    return card({ title: label, actions: statusPill("UNKNOWN") }, meta(), h("p", { class: "muted" }, "Unknown: this section was not reported."));
   }
   if (isEnvelope(value)) return envelopeCard(label, value, opts);
-  if (isMoney(value)) return h("div", { class: "tiles" }, moneyTile(label, value));
-  if (typeof value !== "object") return h("div", { class: "tiles" }, statTile(label, value));
+  const tileWithMeta = (tile) => { tile.append(h("p", { class: "tile-meta" }, freshness(asOf || (result && result.fetchedAt) || null, opts))); return h("div", { class: "tiles" }, tile); };
+  if (isMoney(value)) return tileWithMeta(moneyTile(label, value));
+  if (typeof value !== "object") return tileWithMeta(statTile(label, value));
   if (Array.isArray(value)) {
-    return card({ title: label },
+    return card({ title: label }, meta(),
       value.length ? h("ul", { class: "rows" }, value.slice(0, limit).map((it) => itemRow(it))) : h("p", { class: "muted" }, "None."));
   }
-  return objectCard(label, value);
+  return objectCard(label, value, { meta: meta() });
 }
 
 /** A plain object as a fact list (nested envelopes/arrays rendered beneath). */
-export function objectCard(title, obj, { actions = null } = {}) {
+export function objectCard(title, obj, { actions = null, meta = null } = {}) {
   const facts = [];
   const nested = [];
   for (const [k, v] of Object.entries(obj || {})) {
@@ -62,7 +66,7 @@ export function objectCard(title, obj, { actions = null } = {}) {
     if (typeof v === "string" && /(_at|_until|^at|deadline|time)$/i.test(k) && !Number.isNaN(Date.parse(v))) text = `${relTime(v)} (${utcStamp(v)})`;
     facts.push([k, text]);
   }
-  return card({ title, actions },
+  return card({ title, actions }, meta,
     facts.length ? h("dl", { class: "facts" }, facts.map(([k, t]) => h("div", { class: "fact" }, h("dt", null, humanize(k)), h("dd", null, t)))) : null,
     ...nested,
     Array.isArray(obj && obj.sources) ? sourcesList(obj.sources) : null);
@@ -106,14 +110,15 @@ export function renderAll(data, order, { result = null, required = [], skip = []
   const done = new Set([...skip, ...META_KEYS]);
   const out = [];
   const take = (k) => (s[k] !== undefined ? s[k] : data ? data[k] : undefined);
+  const asOf = (data && (data.generated_at || data.as_of)) || null;
   for (const [k, title] of order) {
     done.add(k);
     const v = take(k);
     if (v === undefined && !required.includes(k)) continue;
-    out.push(renderSection(k, v, { title, result, limit }));
+    out.push(renderSection(k, v, { title, result, limit, asOf }));
   }
-  for (const [k, v] of Object.entries(s)) if (!done.has(k)) { done.add(k); out.push(renderSection(k, v, { result, limit })); }
-  for (const [k, v] of Object.entries(data || {})) if (!done.has(k) && v !== null && v !== undefined) out.push(renderSection(k, v, { result, limit }));
+  for (const [k, v] of Object.entries(s)) if (!done.has(k)) { done.add(k); out.push(renderSection(k, v, { result, limit, asOf })); }
+  for (const [k, v] of Object.entries(data || {})) if (!done.has(k) && v !== null && v !== undefined) out.push(renderSection(k, v, { result, limit, asOf }));
   return out;
 }
 

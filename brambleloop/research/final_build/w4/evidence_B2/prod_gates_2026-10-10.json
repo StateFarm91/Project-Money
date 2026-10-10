@@ -1,0 +1,223 @@
+{
+ "_source": "GET https://brambleloop-os-production.up.railway.app/api/build (read-only)",
+ "_commit": "fcb982d",
+ "_commit_source": "GET /api/status build.commit fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+ "_read_at": "2026-10-10",
+ "gates": {
+  "benchmark_observation": {
+   "open": false,
+   "what": "read-only Etsy API credentials that can actually serve a request",
+   "requirement_ids": [
+    206,
+    301,
+    319
+   ]
+  },
+  "model_provider": {
+   "open": false,
+   "what": "a model provider that can actually serve a request",
+   "requirement_ids": [
+    94,
+    104,
+    177,
+    178
+   ]
+  },
+  "etsy_shop": {
+   "open": false,
+   "what": "a live Etsy shop, which only the account holder can open",
+   "requirement_ids": []
+  },
+  "etsy_api": {
+   "open": false,
+   "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+   "requirement_ids": []
+  },
+  "image_vision": {
+   "open": false,
+   "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+   "requirement_ids": [
+    61,
+    79,
+    116,
+    208,
+    209,
+    210,
+    211,
+    278,
+    303,
+    304
+   ]
+  },
+  "rendered_pages": {
+   "open": false,
+   "what": "a browser worker that can fetch an Etsy page as a buyer sees it: Marketplace Insights, search results and policy pages have no endpoint among the nine this application is authorised for",
+   "requirement_ids": [
+    1,
+    2,
+    9,
+    15,
+    37,
+    39,
+    67,
+    71,
+    76,
+    86,
+    126,
+    189,
+    218,
+    221,
+    222,
+    236,
+    277,
+    281,
+    315,
+    320
+   ]
+  },
+  "tester_roster": {
+   "open": false,
+   "what": "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+   "requirement_ids": [
+    250
+   ]
+  },
+  "image_generation": {
+   "open": false,
+   "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+   "requirement_ids": [
+    300
+   ]
+  },
+  "canonical_model": {
+   "open": true,
+   "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+   "requirement_ids": []
+  },
+  "benchmark_purchases": {
+   "open": false,
+   "what": "roughly ten purchased competitor patterns",
+   "requirement_ids": [
+    165,
+    166,
+    168,
+    317
+   ]
+  },
+  "offsite_storage": {
+   "open": false,
+   "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+   "requirement_ids": [
+    51
+   ]
+  },
+  "owned_surfaces": {
+   "open": false,
+   "what": "a site or a Pinterest account this company can publish to, which only the owner can create",
+   "requirement_ids": [
+    4,
+    10,
+    246,
+    247,
+    248,
+    251,
+    255
+   ]
+  },
+  "live_listings": {
+   "open": false,
+   "what": "a listing that exists on the marketplace, which shadow mode forbids by design",
+   "requirement_ids": [
+    14,
+    16,
+    254,
+    261,
+    262,
+    263
+   ]
+  },
+  "customers": {
+   "open": false,
+   "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are",
+   "requirement_ids": [
+    3,
+    8,
+    13,
+    18,
+    19,
+    20,
+    21,
+    22,
+    26,
+    29,
+    31,
+    233,
+    234,
+    249,
+    253,
+    256,
+    257,
+    258,
+    259,
+    260,
+    280,
+    292
+   ]
+  },
+  "physical_proof": {
+   "open": false,
+   "what": "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+   "requirement_ids": [
+    64
+   ]
+  },
+  "second_market_benchmark": {
+   "open": false,
+   "what": "a benchmark shop outside the United States, which is a choice of shop rather than a credential or a capability",
+   "requirement_ids": []
+  },
+  "culture_feed": {
+   "open": true,
+   "what": "a connected source of cultural signal -- search interest, social or trend data -- which this company has never had",
+   "requirement_ids": [
+    133,
+    140,
+    147
+   ]
+  },
+  "ad_authority": {
+   "open": false,
+   "what": "an approved advertising budget",
+   "requirement_ids": [
+    242,
+    243,
+    244,
+    245,
+    294,
+    295
+   ]
+  }
+ },
+ "_verify": {
+  "ok": false,
+  "failing": [
+   {
+    "check": "no_unexpected_dead_letters_in_24h",
+    "evidence": {
+     "recent": [
+      "mjs.scan"
+     ],
+     "historical_total": 11,
+     "historical_types": [
+      "mjs.scan"
+     ],
+     "expected_publish_refusals": 166,
+     "expected_stand_asides": 1,
+     "what_counts_as_expected": "shadow mode refusing to publish, and a job standing aside for the build that can run it. Both are refusals working; neither is a death to explain"
+    }
+   }
+  ],
+  "passing": 11,
+  "of": 12
+ }
+}

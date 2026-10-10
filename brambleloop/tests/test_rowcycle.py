@@ -200,12 +200,27 @@ def test_every_design_collapses_and_reverse_compiles_clean():
         printed = len([ln for ln in text.splitlines() if ln.startswith("Row ")])
         parsed = parse_pattern(text, "US")
         findings = compare(cir, text, "US")
-        rows = len(cir.components[0].rows)
-        if findings or len(parsed) != rows:
-            problems.append((slug, len(findings), len(parsed), rows))
-        # Where a cycle exists, the printed pattern must actually be shorter.
-        if detect_cycle(cir.components[0].rows) is not None and printed >= rows:
-            problems.append((slug, "collapsed nothing", printed, rows))
+        # Multi-piece designs (a garland is pennants on a cord, 1.3.0) print every piece, and
+        # the reader attributes each row to the piece it is written under. Every piece must
+        # read back with exactly its own rows: a total alone could hide one piece's rows
+        # leaking into another.
+        rows = sum(len(c.rows) for c in cir.components)
+        assert len(cir.components) >= 1
+        by_piece: dict = {}
+        for r in parsed:
+            by_piece[r.component] = by_piece.get(r.component, 0) + 1
+        if len(cir.components) == 1:
+            expected = {None: rows} if None in by_piece else {cir.components[0].name: rows}
+        else:
+            expected = {c.name: len(c.rows) for c in cir.components}
+        if findings or len(parsed) != rows or by_piece != expected:
+            problems.append((slug, len(findings), len(parsed), rows, by_piece, expected))
+        # Where any piece has a cycle, the printed pattern must be shorter by at least the
+        # rows that cycle saves -- one collapsed piece cannot hide behind another.
+        saved = sum(cy.rows_saved for cy in (detect_cycle(c.rows) for c in cir.components)
+                    if cy is not None)
+        if saved and printed > rows - saved:
+            problems.append((slug, "collapsed nothing", printed, rows, saved))
     assert not problems, problems
 
 

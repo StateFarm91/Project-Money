@@ -5,7 +5,7 @@ import { h, clear } from "../dom.js";
 import { api } from "../api.js";
 import { card, moneyTile, statusPill, freshness, basisTag, basisNote, sourcesList, itemRow } from "../components.js";
 import { formatMoney, humanize, UNKNOWN_TEXT, relTime, utcStamp } from "../format.js";
-import { sectionsOf, pageMeta, renderSection, renderAll, tabStatus, isMoney, backLink } from "./_shared.js";
+import { sectionsOf, pageMeta, renderSection, renderAll, tabStatus, isMoney, isEnvelope, backLink } from "./_shared.js";
 
 const PERIODS = [["month", "This month"], ["last_month", "Last month"], ["ytd", "Year to date"], ["all", "All time"]];
 const MONEY_SECTIONS = [["accounting", "Accounting (controller)"], ["revenue", "Revenue"], ["recorded_spend", "Recorded spend"]];
@@ -93,6 +93,33 @@ function sourceHealthCard(sh) {
     h("p", { class: "card-meta" }, sh.last_read_at ? `Last read ${relTime(sh.last_read_at)} (${utcStamp(sh.last_read_at)})` : "Never read"));
 }
 
+// W4-CCFIN: estimate drift is a status envelope with its drift detail beside it; a status card
+// alone would drop the detail, so this card shows both. Unknown stays Unknown, never 0%.
+const DRIFT_TITLE = "Model spend: estimated vs actual (settlement OWNER-GATED)";
+export function driftCard(env, result) {
+  if (!isEnvelope(env)) return renderSection("estimate_drift", env, { title: DRIFT_TITLE, result });
+  const status = String(env.status || "UNKNOWN").toUpperCase();
+  const known = (v) => v !== null && v !== undefined;
+  const fact = (k, v) => h("div", { class: "fact" }, h("dt", null, k), h("dd", null, known(v) && v !== "" ? String(v) : UNKNOWN_TEXT));
+  const pct = (v) => (typeof v === "number" ? `${(v * 100).toFixed(0)}%` : null);
+  const items = Array.isArray(env.items) ? env.items : [];
+  const list = (v) => (Array.isArray(v) ? (v.length ? v.join(", ") : "None") : null);
+  return card({ title: DRIFT_TITLE, labelId: "money-estimate-drift", subtitle: env.label || null, actions: statusPill(status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of, { stale: result && result.stale, fetchedAt: result && result.fetchedAt }), ...basisNote(env.basis, status)),
+    env.reason ? h("p", { class: ["callout", status === "OK" ? "callout-info" : "callout-warn"] }, env.reason) : null,
+    h("dl", { class: "facts" },
+      fact("Drift state", status !== "UNKNOWN" && env.state ? String(env.state).toUpperCase() : null),
+      fact("Token-priced calls this month", env.token_priced_calls),
+      fact("Calls with no reservation", pct(env.calls_with_no_reservation_share)),
+      fact("Tolerance", typeof env.tolerance === "number" ? `±${(env.tolerance * 100).toFixed(0)}%` : null),
+      fact("Purposes outside tolerance", status === "UNKNOWN" ? null : list(env.purposes_outside_tolerance)),
+      fact("Purposes with too few calls to judge", list(env.purposes_too_few_calls_to_judge)),
+      fact("Settlement against provider billing", env.settlement_against_provider_billing)),
+    env.settlement_why ? h("p", { class: "muted small" }, env.settlement_why) : null,
+    items.length ? h("ul", { class: "rows" }, items.map((it) => itemRow(it, { drill: false }))) : null,
+    sourcesList(env.sources));
+}
+
 export async function render({ params, query }) {
   const period = query.get("period") || "";
   if (params[0] === "drill" && params[1]) return renderDrill(params[1], period);
@@ -116,7 +143,8 @@ export async function render({ params, query }) {
     card({ title: "Period" }, seg,
       h("p", { class: "muted" }, echoed ? `Showing: ${echoed}` : period ? "The server did not confirm this period filter, so figures may be for its default period." : "Server default period.")),
     ...MONEY_SECTIONS.filter(([k]) => s[k] !== undefined || k === "accounting").map(([k, t]) => moneySection(k, t, s[k], result, period)),
-    ...renderAll(data, [["spend_limits", "Spend limits"], ["estimate_drift", "Model spend: estimated vs actual (settlement OWNER-GATED)"]], { result,
-      skip: [...MONEY_SECTIONS.map(([k]) => k), "revenue", "profit", "recorded_spend", "source_health", "period", "window", "period_applies_to"] }),
+    s.estimate_drift !== undefined ? driftCard(s.estimate_drift, result) : null,
+    ...renderAll(data, [["spend_limits", "Spend limits"]], { result,
+      skip: [...MONEY_SECTIONS.map(([k]) => k), "estimate_drift", "revenue", "profit", "recorded_spend", "source_health", "period", "window", "period_applies_to"] }),
     legend());
 }

@@ -2,9 +2,9 @@
 // providers, budgets, authorities, notification policy, emergency controls entry point.
 import { h, icon } from "../dom.js";
 import { api, authState } from "../api.js";
-import { card, statusPill, guardedAction, errorState } from "../components.js";
-import { relTime, utcStamp } from "../format.js";
-import { pageMeta, renderAll } from "./_shared.js";
+import { card, statusPill, guardedAction, errorState, freshness, basisNote, sourcesList, itemRow } from "../components.js";
+import { relTime, utcStamp, humanize, formatMoney, UNKNOWN_TEXT } from "../format.js";
+import { pageMeta, renderAll, renderSection, isEnvelope, sectionsOf } from "./_shared.js";
 import { getTheme, setTheme, signOut } from "../app.js";
 
 const ORDER = [["owner", "Owner"], ["security_events", "Refused & suspicious attempts"], ["refused_attempts_24h", "Refused attempts (24 h)"],
@@ -45,6 +45,53 @@ function securityCard() {
     h("p", { class: "muted" }, "Consequential actions (approvals, resuming anything paused) ask for your passphrase again. Pausing never does."));
 }
 
+// W4-CCFIN: governance, read-only. Grants and approvals stay behind step-up elsewhere.
+function govHead(title, env, result, subtitle, labelId) {
+  const status = String(env.status || "UNKNOWN").toUpperCase();
+  return [{ title, subtitle, labelId, actions: statusPill(status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of, { stale: result && result.stale, fetchedAt: result && result.fetchedAt }),
+      ...basisNote(env.basis, status)),
+    env.reason ? h("p", { class: ["callout", status === "OK" ? "callout-info" : "callout-warn"] }, env.reason) : null];
+}
+const gfact = (k, v) => h("div", { class: "fact" }, h("dt", null, k),
+  h("dd", null, v === null || v === undefined || v === "" ? UNKNOWN_TEXT : String(v)));
+
+export function authorityPolicyCard(env, result) {
+  const title = "Authority ladder: recorded grants";
+  if (!isEnvelope(env)) return renderSection("authority_policy", env, { title, result });
+  const [opts, ...head] = govHead(title, env, result, "What each agent may do on its own, as recorded. Read-only here.", "account-authority-policy");
+  const items = Array.isArray(env.items) ? env.items : [];
+  const cls = env.classes && typeof env.classes === "object" ? env.classes : null;
+  return card(opts, ...head,
+    h("dl", { class: "facts" }, gfact("Phase", env.phase),
+      cls ? gfact("Gated action classes", Array.isArray(cls.gated) ? cls.gated.join(", ") : null) : null,
+      cls ? gfact("Autonomous action classes", Array.isArray(cls.autonomous) ? cls.autonomous.join(", ") : null) : null),
+    items.length ? h("ul", { class: "rows" }, items.map((p) => h("li", { class: "row" },
+      h("div", { class: "row-head" }, h("p", { class: "row-title" }, `${p.agent || "any agent"} · ${humanize(p.action_class || p.job_type || "action")}`),
+        statusPill("OK", String(p.level || "granted").toUpperCase())),
+      h("dl", { class: "facts" },
+        gfact("Job type", p.job_type || "any"),
+        gfact("Max per day", p.max_per_day),
+        gfact("Max cost", typeof p.max_cost_cad === "number" ? formatMoney({ value_cad: p.max_cost_cad, state: "RECORDED" }) : null),
+        gfact("Granted by", p.granted_by),
+        gfact("Granted", p.at ? `${relTime(p.at)} (${utcStamp(p.at)})` : null)))))
+      : h("p", { class: "muted" }, String(env.status).toUpperCase() === "UNKNOWN" ? "Unknown: authority not reported." : "No authority grant is recorded: every gated action needs your approval."),
+    sourcesList(env.sources));
+}
+
+export function authorityDagCard(env, result) {
+  const title = "Company work DAG: awaiting your approval";
+  if (!isEnvelope(env)) return renderSection("authority_dag", env, { title, result });
+  const [opts, ...head] = govHead(title, env, result, "Work items by state; approve them from Approvals.", "account-authority-dag");
+  const items = Array.isArray(env.items) ? env.items : [];
+  const counts = env.counts && typeof env.counts === "object" ? Object.entries(env.counts) : [];
+  return card(opts, ...head,
+    counts.length ? h("dl", { class: "facts" }, counts.map(([k, v]) => gfact(humanize(k), v))) : null,
+    items.length ? h("ul", { class: "rows" }, items.slice(0, 20).map((it) => itemRow(it, { drill: false })))
+      : h("p", { class: "muted" }, String(env.status).toUpperCase() === "UNKNOWN" ? "Unknown: no work items recorded yet." : "Nothing awaits your approval."),
+    sourcesList(env.sources));
+}
+
 function appearanceCard() {
   const cur = getTheme();
   const group = h("div", { class: "seg", role: "radiogroup", aria: { label: "Theme" } });
@@ -71,7 +118,9 @@ export async function render({ rerender }) {
       h("a", { class: "btn btn-danger btn-block", href: "#/emergency" }, icon("shield", 18), "Open emergency controls")),
     securityCard(),
     sessionsCard(sess, rerender),
-    ...renderAll(data, ORDER, { result, required: ["connected_services", "budgets"], skip: ["sessions", "emergency"] }),
+    ...renderAll(data, ORDER, { result, required: ["connected_services", "budgets"], skip: ["sessions", "emergency", "authority_policy", "authority_dag"] }),
+    authorityPolicyCard(sectionsOf(data).authority_policy, result),
+    authorityDagCard(sectionsOf(data).authority_dag, result),
     appearanceCard(),
     card({ title: "Sign out" }, h("button", { class: "btn btn-block", type: "button", onclick: () => signOut() }, "Sign out of this device")));
 }

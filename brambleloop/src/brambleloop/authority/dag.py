@@ -415,6 +415,11 @@ def items(db, *, state: str | None = None, limit: int = 200) -> list[dict]:
 def summary(db) -> dict:
     """Provider-contract summary of the company DAG (for the Command Center)."""
     try:
+        # W4-CCFIN: the provider contract hands a SQLAlchemy Session; this module reads the
+        # `Database` facade. Adapt once (this summary swallowed the mismatch as UNKNOWN).
+        from ..autonomy.status import _db
+
+        db = _db(db)
         ensure_tables(db)
         with db.session() as s:
             rows = list(s.execute(select(WorkItem.state, WorkItem.updated_at)).all())
