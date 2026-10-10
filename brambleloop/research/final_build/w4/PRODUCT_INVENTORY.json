@@ -8,7 +8,7 @@
     "source": "static",
     "exists": true,
     "title": "Fir and Star Relief Throw",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "construction": "flat_rows",
     "risk_class": "A",
     "components": [
@@ -19,11 +19,9 @@
     ],
     "compiles": true,
     "compile_warnings": 0,
-    "certified": false,
-    "release_hash": null,
-    "certificate_errors": [
-     "ERROR GAUGE_OUTSIDE_DECLARED_YARN_BAND: 16 sc/10cm is outside the published medium band of 11-14 for the declared yarn (worsted). Every finished size and yardage figure is arithmetic from this gauge, and a 'swatch first' note cannot make it true: derive the ga"
-    ],
+    "certified": true,
+    "release_hash": "e025490ba3fa",
+    "certificate_errors": [],
     "title_promise": {
      "claimed": null,
      "plural_markers": [],
@@ -34,6 +32,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -56,13 +55,13 @@
      "cir_can_express_per_stitch_colour": false,
      "cir_can_express_per_stitch_reach_down": false
     },
-    "width_cm": 90.0,
-    "height_cm": 86.6,
+    "width_cm": 86.4,
+    "height_cm": 112.9,
     "shape": null,
     "calibrated": false,
     "launch_scope": false,
     "launch0_candidate": null,
-    "product_truth_ok": false
+    "product_truth_ok": true
    },
    "chain": {
     "slug": "autumn-oak-mosaic-throw",
@@ -84,12 +83,6 @@
    },
    "blockers": [
     {
-     "gate": "gauge_truth",
-     "clearer": "COMPANY",
-     "evidence": "ERROR GAUGE_OUTSIDE_DECLARED_YARN_BAND: 16 sc/10cm is outside the published medium band of 11-14 for the declared yarn (worsted). Every finished size and yardage figure is arithmetic from this gauge, and a 'swatch first' note cannot make it true: derive the ga",
-     "action": "re-engineer from the declared yarn band (builder._derive_from_yarn) under a new version, or retire the design"
-    },
-    {
      "gate": "outside_launch_scope",
      "clearer": "COMPANY",
      "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
@@ -104,7 +97,7 @@
     {
      "gate": "production_stale",
      "clearer": "DEPLOY",
-     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.3.0",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.4.0",
      "action": "deploy this build, then chain.rebuild re-certifies and redrafts"
     },
     {
@@ -116,7 +109,6 @@
    ],
    "owner_action_required": [],
    "shortest_path": [
-    "[company] gauge_truth: re-engineer from the declared yarn band (builder._derive_from_yarn) under a new version, or retire the design",
     "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
     "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[company] production_imagery: no usable imagery route for this product in this code yet",
@@ -132,7 +124,7 @@
     "source": "static",
     "exists": true,
     "title": "Bobble Floor Pillow Cover",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "construction": "flat_rows",
     "risk_class": "B",
     "components": [
@@ -164,9 +156,10 @@
       "pillow"
      ],
      "seams": 1,
+     "worked_on_joins": 0,
      "pieces": 2,
      "backed": true,
-     "why": "the title names 'pillow'; the CIR carries 1 seams and 2 pieces"
+     "why": "the title names 'pillow'; the CIR carries 1 seams, 0 worked-on joins and 2 pieces"
     },
     "fabric_truth": {
      "max_colours_in_one_row": 1,
@@ -264,6 +257,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -363,6 +357,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -542,9 +537,10 @@
       "wall hanging"
      ],
      "seams": 1,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
-     "why": "the title names 'wall hanging'; the CIR carries 1 seams and 1 pieces"
+     "why": "the title names 'wall hanging'; the CIR carries 1 seams, 0 worked-on joins and 1 pieces"
     },
     "fabric_truth": {
      "max_colours_in_one_row": 1,
@@ -602,7 +598,7 @@
   },
   {
    "slug": "harvest-table-runner",
-   "status": "COMPANY_WORK",
+   "status": "OWNER_AND_DEPLOY_GATED",
    "static": {
     "slug": "harvest-table-runner",
     "source": "static",
@@ -632,6 +628,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -688,30 +685,23 @@
     "imagery": {
      "kind": "disclosed_render",
      "made": true,
-     "usable": false,
+     "usable": true,
      "version": "1.2.0",
      "frames": 3,
-     "launch_blocked": [
-      "hero: 340 px legibility ['the product fills 13% of the frame at 340 px']",
-      "scale: 340 px legibility ['the product fills 14% of the frame at 340 px']"
-     ]
+     "launch_blocked": []
     },
     "positioning": "evergreen",
     "publish_verdict": {
      "blocks_release": true,
      "reasons": [
-      "disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']",
-      "listing-set certificate (#70): no disclosed-set certificate is issued while any precondition or gate above fails",
       "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
-      "search certificate (F-004) attributes: no category, so no property schema to be complete against",
-      "search certificate (F-004) hero: frame 1 is not export-ready: disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']; listing-set certificate (#70): no"
+      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
      ],
      "search": "REFUSED"
     },
     "render_authority": true,
     "reserve_first_customer": [
      "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (179cb1277bec); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
-     "FIRST_CUSTOMER_BLOCKING: imagery: FAIL -- a disclosed set is on file for this release and is not usable: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame a",
      "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
      "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
     ]
@@ -730,24 +720,6 @@
    },
    "blockers": [
     {
-     "gate": "listing_imagery",
-     "clearer": "COMPANY",
-     "evidence": "no usable listing imagery on the chain DB: {'kind': 'disclosed_render', 'made': True, 'usable': False, 'version': '1.2.0', 'frames': 3, 'launch_blocked': [\"hero: 340 px legibility ['the product fills 13% of the frame at 340 px']\", \"scale: 340 px legibility ['the product fills 14% of the frame at 340 px']\"]}",
-     "action": "re-run assets.build"
-    },
-    {
-     "gate": "search_hero",
-     "clearer": "COMPANY",
-     "evidence": "disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']",
-     "action": "frame 1 must pass all four gates"
-    },
-    {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "listing-set certificate (#70): no disclosed-set certificate is issued while any precondition or gate above fails",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
      "gate": "etsy_taxonomy_snapshot",
      "clearer": "EXTERNAL",
      "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
@@ -760,22 +732,10 @@
      "action": "follows the taxonomy snapshot"
     },
     {
-     "gate": "listing_set_certificate",
-     "clearer": "COMPANY",
-     "evidence": "search certificate (F-004) hero: frame 1 is not export-ready: disclosed set QA: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame at 340 px']; listing-set certificate (#70): no",
-     "action": "issue the listing-set certificate once the frame gates pass"
-    },
-    {
      "gate": "physical_sample",
      "clearer": "OWNER",
      "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (179cb1277bec); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
      "action": "a pattern tester works this content (tester_roster); owner parked self-crocheting"
-    },
-    {
-     "gate": "search_hero",
-     "clearer": "COMPANY",
-     "evidence": "FIRST_CUSTOMER_BLOCKING: imagery: FAIL -- a disclosed set is on file for this release and is not usable: hero: 340 px legibility ['the product fills 13% of the frame at 340 px']; scale: 340 px legibility ['the product fills 14% of the frame a",
-     "action": "frame 1 must pass all four gates"
     },
     {
      "gate": "etsy_remote_confirmation",
@@ -797,9 +757,9 @@
     },
     {
      "gate": "production_imagery",
-     "clearer": "COMPANY",
+     "clearer": "DEPLOY",
      "evidence": "production asset-coverage: no_asset",
-     "action": "no usable imagery route for this product in this code yet"
+     "action": "deploy (verified disclosed renders exist in this code)"
     }
    ],
    "owner_action_required": [
@@ -807,18 +767,124 @@
     "physical_sample"
    ],
    "shortest_path": [
-    "[company] listing_imagery: re-run assets.build",
-    "[company] search_hero: frame 1 must pass all four gates",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] listing_set_certificate: issue the listing-set certificate once the frame gates pass",
-    "[company] search_hero: frame 1 must pass all four gates",
-    "[company] production_imagery: no usable imagery route for this product in this code yet",
     "[deploy] production_stale: deploy this build, then chain.rebuild re-certifies and redrafts",
+    "[deploy] production_imagery: deploy (verified disclosed renders exist in this code)",
     "[external] etsy_taxonomy_snapshot: listing.taxonomy_refresh against Etsy's read-only taxonomy (needs the deployed app's Etsy credentials); no node is assumed",
     "[external] etsy_taxonomy_snapshot: follows the taxonomy snapshot",
     "[owner] physical_sample: a pattern tester works this content (tester_roster); owner parked self-crocheting",
     "[external] etsy_remote_confirmation: first authorised Etsy draft confirms image upload / remote state",
     "[owner] durable_artifact_storage: owner approves object storage (CA$1-5/month, existing ceiling)",
+    "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
+   ]
+  },
+  {
+   "slug": "heart-row-ring-pillow",
+   "status": "COMPANY_WORK",
+   "static": {
+    "slug": "heart-row-ring-pillow",
+    "source": "static",
+    "exists": true,
+    "title": "Heart Row Ring Pillow",
+    "version": "0.1.0",
+    "construction": "joined_rounds",
+    "risk_class": "C",
+    "components": [
+     {
+      "name": "pillow",
+      "make": 1
+     },
+     {
+      "name": "bottom",
+      "make": 1
+     },
+     {
+      "name": "ring_loop",
+      "make": 1
+     }
+    ],
+    "compiles": true,
+    "compile_warnings": 0,
+    "certified": false,
+    "release_hash": null,
+    "certificate_errors": [
+     "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+    ],
+    "title_promise": {
+     "claimed": null,
+     "plural_markers": [],
+     "makes": 3,
+     "backed": true,
+     "why": "the title makes no multiplicity claim, so there is nothing to contradict"
+    },
+    "assembly_promise": {
+     "forms_named": [
+      "pillow"
+     ],
+     "seams": 2,
+     "worked_on_joins": 0,
+     "pieces": 3,
+     "backed": true,
+     "why": "the title names 'pillow'; the CIR carries 2 seams, 0 worked-on joins and 3 pieces"
+    },
+    "fabric_truth": {
+     "max_colours_in_one_row": 1,
+     "colours_declared": [
+      "cream",
+      "wine"
+     ],
+     "relief_stitches_used": false,
+     "mixed_stitch_heights": true,
+     "stitches_used": [
+      "dc",
+      "inc",
+      "sc"
+     ],
+     "colourwork_claims": [],
+     "backed": true,
+     "why": "no colourwork technique is claimed, so the fabric is whatever the stitches make",
+     "cir_can_express_per_stitch_colour": false,
+     "cir_can_express_per_stitch_reach_down": false
+    },
+    "width_cm": 15.9,
+    "height_cm": 7.4,
+    "shape": "vessel",
+    "calibrated": false,
+    "launch_scope": false,
+    "launch0_candidate": null,
+    "product_truth_ok": false
+   },
+   "chain": {
+    "slug": "heart-row-ring-pillow",
+    "source": "chain",
+    "release": null,
+    "jobs": []
+   },
+   "production": null,
+   "blockers": [
+    {
+     "gate": "certificate",
+     "clearer": "COMPANY",
+     "evidence": "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape",
+     "action": "fix the CIR so it certifies"
+    },
+    {
+     "gate": "outside_launch_scope",
+     "clearer": "COMPANY",
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
+    },
+    {
+     "gate": "not_built_by_planner",
+     "clearer": "COMPANY",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
+    }
+   ],
+   "owner_action_required": [],
+   "shortest_path": [
+    "[company] certificate: fix the CIR so it certifies",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
     "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
    ]
   },
@@ -856,6 +922,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -976,6 +1043,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 4,
      "backed": true,
      "why": "the title names no assembled form"
@@ -1141,6 +1209,99 @@
    ]
   },
   {
+   "slug": "housewarming-key-basket",
+   "status": "COMPANY_WORK",
+   "static": {
+    "slug": "housewarming-key-basket",
+    "source": "static",
+    "exists": true,
+    "title": "Housewarming Key Basket",
+    "version": "0.1.0",
+    "construction": "joined_rounds",
+    "risk_class": "B",
+    "components": [
+     {
+      "name": "basket",
+      "make": 1
+     }
+    ],
+    "compiles": true,
+    "compile_warnings": 0,
+    "certified": true,
+    "release_hash": "142b52f0f9c6",
+    "certificate_errors": [],
+    "title_promise": {
+     "claimed": null,
+     "plural_markers": [],
+     "makes": 1,
+     "backed": true,
+     "why": "the title makes no multiplicity claim, so there is nothing to contradict"
+    },
+    "assembly_promise": {
+     "forms_named": [],
+     "seams": 0,
+     "worked_on_joins": 0,
+     "pieces": 1,
+     "backed": true,
+     "why": "the title names no assembled form"
+    },
+    "fabric_truth": {
+     "max_colours_in_one_row": 1,
+     "colours_declared": [
+      "cream",
+      "pine"
+     ],
+     "relief_stitches_used": false,
+     "mixed_stitch_heights": true,
+     "stitches_used": [
+      "dc",
+      "inc",
+      "sc",
+      "slst"
+     ],
+     "colourwork_claims": [],
+     "backed": true,
+     "why": "no colourwork technique is claimed, so the fabric is whatever the stitches make",
+     "cir_can_express_per_stitch_colour": false,
+     "cir_can_express_per_stitch_reach_down": false
+    },
+    "width_cm": 18.3,
+    "height_cm": 11.1,
+    "shape": "vessel",
+    "calibrated": false,
+    "launch_scope": false,
+    "launch0_candidate": null,
+    "product_truth_ok": true
+   },
+   "chain": {
+    "slug": "housewarming-key-basket",
+    "source": "chain",
+    "release": null,
+    "jobs": []
+   },
+   "production": null,
+   "blockers": [
+    {
+     "gate": "outside_launch_scope",
+     "clearer": "COMPANY",
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
+    },
+    {
+     "gate": "not_built_by_planner",
+     "clearer": "COMPANY",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
+    }
+   ],
+   "owner_action_required": [],
+   "shortest_path": [
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
+    "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
+   ]
+  },
+  {
    "slug": "market-basket-large",
    "status": "OWNER_AND_DEPLOY_GATED",
    "static": {
@@ -1172,6 +1333,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -1324,6 +1486,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -1476,6 +1639,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -1676,6 +1840,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 2,
      "backed": true,
      "why": "the title names no assembled form"
@@ -1760,6 +1925,108 @@
    ]
   },
   {
+   "slug": "mothers-day-heart-tea-cosy",
+   "status": "COMPANY_WORK",
+   "static": {
+    "slug": "mothers-day-heart-tea-cosy",
+    "source": "static",
+    "exists": true,
+    "title": "Heart Row Tea Cosy",
+    "version": "0.1.0",
+    "construction": "joined_rounds",
+    "risk_class": "B",
+    "components": [
+     {
+      "name": "cosy",
+      "make": 1
+     },
+     {
+      "name": "front",
+      "make": 1
+     },
+     {
+      "name": "back",
+      "make": 1
+     }
+    ],
+    "compiles": true,
+    "compile_warnings": 0,
+    "certified": true,
+    "release_hash": "96408a469e36",
+    "certificate_errors": [],
+    "title_promise": {
+     "claimed": null,
+     "plural_markers": [],
+     "makes": 3,
+     "backed": true,
+     "why": "the title makes no multiplicity claim, so there is nothing to contradict"
+    },
+    "assembly_promise": {
+     "forms_named": [
+      "cosy"
+     ],
+     "seams": 0,
+     "worked_on_joins": 2,
+     "pieces": 3,
+     "backed": true,
+     "why": "the title names 'cosy'; the CIR carries 0 seams, 2 worked-on joins and 3 pieces"
+    },
+    "fabric_truth": {
+     "max_colours_in_one_row": 1,
+     "colours_declared": [
+      "cream",
+      "wine"
+     ],
+     "relief_stitches_used": false,
+     "mixed_stitch_heights": true,
+     "stitches_used": [
+      "dc",
+      "inc",
+      "sc"
+     ],
+     "colourwork_claims": [],
+     "backed": true,
+     "why": "no colourwork technique is claimed, so the fabric is whatever the stitches make",
+     "cir_can_express_per_stitch_colour": false,
+     "cir_can_express_per_stitch_reach_down": false
+    },
+    "width_cm": 19.8,
+    "height_cm": 11.1,
+    "shape": "vessel",
+    "calibrated": false,
+    "launch_scope": false,
+    "launch0_candidate": null,
+    "product_truth_ok": true
+   },
+   "chain": {
+    "slug": "mothers-day-heart-tea-cosy",
+    "source": "chain",
+    "release": null,
+    "jobs": []
+   },
+   "production": null,
+   "blockers": [
+    {
+     "gate": "outside_launch_scope",
+     "clearer": "COMPANY",
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
+    },
+    {
+     "gate": "not_built_by_planner",
+     "clearer": "COMPANY",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
+    }
+   ],
+   "owner_action_required": [],
+   "shortest_path": [
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
+    "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
+   ]
+  },
+  {
    "slug": "nordic-forest-bundle",
    "status": "NO_CIR",
    "static": {
@@ -1807,7 +2074,7 @@
     "slug": "nordic-forest-mosaic-throw",
     "source": "static",
     "exists": true,
-    "title": "Nordic Forest Fir and Star Relief Throw",
+    "title": "Nordic Forest Relief Throw",
     "version": "1.3.0",
     "construction": "flat_rows",
     "risk_class": "A",
@@ -1820,7 +2087,7 @@
     "compiles": true,
     "compile_warnings": 0,
     "certified": true,
-    "release_hash": "396f7cccc0f4",
+    "release_hash": "0a51f89def89",
     "certificate_errors": [],
     "title_promise": {
      "claimed": null,
@@ -1832,6 +2099,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -1942,6 +2210,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 6,
      "backed": true,
      "why": "the title names no assembled form"
@@ -2119,6 +2388,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -2301,6 +2571,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 12,
      "backed": true,
      "why": "the title names no assembled form"
@@ -2385,6 +2656,217 @@
    ]
   },
   {
+   "slug": "reading-nook-cable-wrap",
+   "status": "COMPANY_WORK",
+   "static": {
+    "slug": "reading-nook-cable-wrap",
+    "source": "static",
+    "exists": true,
+    "title": "Reading Nook Cable Wrap",
+    "version": "0.1.0",
+    "construction": "flat_rows",
+    "risk_class": "B",
+    "components": [
+     {
+      "name": "wrap",
+      "make": 1
+     }
+    ],
+    "compiles": true,
+    "compile_warnings": 0,
+    "certified": false,
+    "release_hash": null,
+    "certificate_errors": [
+     "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes"
+    ],
+    "title_promise": {
+     "claimed": null,
+     "plural_markers": [],
+     "makes": 1,
+     "backed": true,
+     "why": "the title makes no multiplicity claim, so there is nothing to contradict"
+    },
+    "assembly_promise": {
+     "forms_named": [],
+     "seams": 0,
+     "worked_on_joins": 0,
+     "pieces": 1,
+     "backed": true,
+     "why": "the title names no assembled form"
+    },
+    "fabric_truth": {
+     "max_colours_in_one_row": 1,
+     "colours_declared": [
+      "cream",
+      "forest"
+     ],
+     "relief_stitches_used": true,
+     "mixed_stitch_heights": true,
+     "stitches_used": [
+      "cable2x2",
+      "dc",
+      "sc"
+     ],
+     "colourwork_claims": [],
+     "backed": true,
+     "why": "no colourwork technique is claimed, so the fabric is whatever the stitches make",
+     "cir_can_express_per_stitch_colour": false,
+     "cir_can_express_per_stitch_reach_down": false
+    },
+    "width_cm": 47.2,
+    "height_cm": 166.7,
+    "shape": null,
+    "calibrated": false,
+    "launch_scope": false,
+    "launch0_candidate": null,
+    "product_truth_ok": false
+   },
+   "chain": {
+    "slug": "reading-nook-cable-wrap",
+    "source": "chain",
+    "release": null,
+    "jobs": []
+   },
+   "production": null,
+   "blockers": [
+    {
+     "gate": "physical_calibration",
+     "clearer": "OWNER",
+     "evidence": "ERROR UNCALIBRATED_PRIMITIVE: ['cable2x2'] are new primitives no sample has calibrated: their height and yarn behaviour decide this pattern's size and yardage claims, so it is not released for unrestricted use until a physical test of it passes",
+     "action": "a pattern tester works one sample of the new stitch (tester_roster outreach); owner parked self-crocheting on 2026-09-20"
+    },
+    {
+     "gate": "outside_launch_scope",
+     "clearer": "COMPANY",
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
+    },
+    {
+     "gate": "not_built_by_planner",
+     "clearer": "COMPANY",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
+    }
+   ],
+   "owner_action_required": [
+    "physical_calibration"
+   ],
+   "shortest_path": [
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
+    "[owner] physical_calibration: a pattern tester works one sample of the new stitch (tester_roster outreach); owner parked self-crocheting on 2026-09-20",
+    "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
+   ]
+  },
+  {
+   "slug": "snowfall-advent-garland",
+   "status": "COMPANY_WORK",
+   "static": {
+    "slug": "snowfall-advent-garland",
+    "source": "static",
+    "exists": true,
+    "title": "Snowfall Mitten Advent Garland",
+    "version": "0.2.0",
+    "construction": "joined_rounds",
+    "risk_class": "B",
+    "components": [
+     {
+      "name": "mitten",
+      "make": 24
+     },
+     {
+      "name": "thumb",
+      "make": 24
+     },
+     {
+      "name": "loop_tab",
+      "make": 24
+     },
+     {
+      "name": "cord",
+      "make": 1
+     }
+    ],
+    "compiles": true,
+    "compile_warnings": 0,
+    "certified": true,
+    "release_hash": "60b00c6897b3",
+    "certificate_errors": [],
+    "title_promise": {
+     "claimed": null,
+     "plural_markers": [],
+     "makes": 73,
+     "backed": true,
+     "why": "the title makes no multiplicity claim, so there is nothing to contradict"
+    },
+    "assembly_promise": {
+     "forms_named": [
+      "garland"
+     ],
+     "seams": 3,
+     "worked_on_joins": 1,
+     "pieces": 73,
+     "backed": true,
+     "why": "the title names 'garland'; the CIR carries 3 seams, 1 worked-on joins and 73 pieces"
+    },
+    "fabric_truth": {
+     "max_colours_in_one_row": 1,
+     "colours_declared": [
+      "cream",
+      "forest"
+     ],
+     "relief_stitches_used": false,
+     "mixed_stitch_heights": true,
+     "stitches_used": [
+      "ch",
+      "dc",
+      "inc",
+      "sc",
+      "slst"
+     ],
+     "colourwork_claims": [],
+     "backed": true,
+     "why": "no colourwork technique is claimed, so the fabric is whatever the stitches make",
+     "cir_can_express_per_stitch_colour": false,
+     "cir_can_express_per_stitch_reach_down": false
+    },
+    "width_cm": 6.1,
+    "height_cm": 15.5,
+    "shape": "vessel",
+    "calibrated": false,
+    "launch_scope": false,
+    "launch0_candidate": null,
+    "product_truth_ok": true
+   },
+   "chain": {
+    "slug": "snowfall-advent-garland",
+    "source": "chain",
+    "release": null,
+    "jobs": []
+   },
+   "production": null,
+   "blockers": [
+    {
+     "gate": "outside_launch_scope",
+     "clearer": "COMPANY",
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
+    },
+    {
+     "gate": "not_built_by_planner",
+     "clearer": "COMPANY",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
+    }
+   ],
+   "owner_action_required": [],
+   "shortest_path": [
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
+    "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
+   ]
+  },
+  {
    "slug": "spooky-garland",
    "status": "COMPANY_WORK",
    "static": {
@@ -2423,9 +2905,10 @@
       "bunting"
      ],
      "seams": 1,
+     "worked_on_joins": 0,
      "pieces": 6,
      "backed": true,
-     "why": "the title names 'garland'; the CIR carries 1 seams and 6 pieces"
+     "why": "the title names 'garland'; the CIR carries 1 seams, 0 worked-on joins and 6 pieces"
     },
     "fabric_truth": {
      "max_colours_in_one_row": 1,
@@ -2507,6 +2990,110 @@
    ]
   },
   {
+   "slug": "spring-garden-kneeler",
+   "status": "COMPANY_WORK",
+   "static": {
+    "slug": "spring-garden-kneeler",
+    "source": "static",
+    "exists": true,
+    "title": "Spring Garden Kneeler",
+    "version": "0.1.0",
+    "construction": "flat_rows",
+    "risk_class": "C",
+    "components": [
+     {
+      "name": "front",
+      "make": 1
+     },
+     {
+      "name": "back",
+      "make": 1
+     }
+    ],
+    "compiles": true,
+    "compile_warnings": 0,
+    "certified": false,
+    "release_hash": null,
+    "certificate_errors": [
+     "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape"
+    ],
+    "title_promise": {
+     "claimed": null,
+     "plural_markers": [],
+     "makes": 2,
+     "backed": true,
+     "why": "the title makes no multiplicity claim, so there is nothing to contradict"
+    },
+    "assembly_promise": {
+     "forms_named": [],
+     "seams": 1,
+     "worked_on_joins": 0,
+     "pieces": 2,
+     "backed": true,
+     "why": "the title names no assembled form"
+    },
+    "fabric_truth": {
+     "max_colours_in_one_row": 1,
+     "colours_declared": [
+      "gold",
+      "pine"
+     ],
+     "relief_stitches_used": false,
+     "mixed_stitch_heights": true,
+     "stitches_used": [
+      "dc",
+      "sc"
+     ],
+     "colourwork_claims": [],
+     "backed": true,
+     "why": "no colourwork technique is claimed, so the fabric is whatever the stitches make",
+     "cir_can_express_per_stitch_colour": false,
+     "cir_can_express_per_stitch_reach_down": false
+    },
+    "width_cm": 38.4,
+    "height_cm": 24.6,
+    "shape": null,
+    "calibrated": false,
+    "launch_scope": false,
+    "launch0_candidate": null,
+    "product_truth_ok": false
+   },
+   "chain": {
+    "slug": "spring-garden-kneeler",
+    "source": "chain",
+    "release": null,
+    "jobs": []
+   },
+   "production": null,
+   "blockers": [
+    {
+     "gate": "certificate",
+     "clearer": "COMPANY",
+     "evidence": "ERROR PHYSICAL_TEST_REQUIRED: risk class C requires a physical test before release; computation alone cannot confirm fit and drape",
+     "action": "fix the CIR so it certifies"
+    },
+    {
+     "gate": "outside_launch_scope",
+     "clearer": "COMPANY",
+     "evidence": "not a Launch-0 slug and not yet held to the Launch-0 standard here: no render authority (listing_asset.has_render_authority) or no first-customer review of its stored release; counts toward catalogue depth only if re-certified under the current gauge standard",
+     "action": "build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)"
+    },
+    {
+     "gate": "not_built_by_planner",
+     "clearer": "COMPANY",
+     "evidence": "the shadow plan.cycle never drafted this product (jobs: [])",
+     "action": "enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)"
+    }
+   ],
+   "owner_action_required": [],
+   "shortest_path": [
+    "[company] certificate: fix the CIR so it certifies",
+    "[company] outside_launch_scope: build it through the chain (render authority + first-customer review), or promote into Launch-0 (cap 5 products)",
+    "[company] not_built_by_planner: enqueue cir.draft for it (products.pipeline_board feeds every Launch-0 slug)",
+    "[owner, shop-wide] Etsy shop + KYC, payout, listing fees, phase, publication grant per release (see shop_wide_gates)"
+   ]
+  },
+  {
    "slug": "valentine-heart-garland",
    "status": "COMPANY_WORK",
    "static": {
@@ -2544,9 +3131,10 @@
       "garland"
      ],
      "seams": 1,
+     "worked_on_joins": 0,
      "pieces": 6,
      "backed": true,
-     "why": "the title names 'garland'; the CIR carries 1 seams and 6 pieces"
+     "why": "the title names 'garland'; the CIR carries 1 seams, 0 worked-on joins and 6 pieces"
     },
     "fabric_truth": {
      "max_colours_in_one_row": 1,
@@ -2659,6 +3247,7 @@
     "assembly_promise": {
      "forms_named": [],
      "seams": 0,
+     "worked_on_joins": 0,
      "pieces": 1,
      "backed": true,
      "why": "the title names no assembled form"
@@ -2806,8 +3395,8 @@
   }
  ],
  "counts": {
-  "COMPANY_WORK": 11,
-  "OWNER_AND_DEPLOY_GATED": 8,
+  "COMPANY_WORK": 16,
+  "OWNER_AND_DEPLOY_GATED": 9,
   "RETIRE": 2,
   "NO_CIR": 1
  },
@@ -2865,8 +3454,8 @@
   "DATA",
   "DEPLOY"
  ],
- "generated_at": "2026-10-07T09:02:53+00:00",
- "head": "618befc",
+ "generated_at": "2026-10-10T03:11:52+00:00",
+ "head": "c72b557",
  "production_summary": {
   "listings": 16,
   "requirements": {
@@ -2992,6 +3581,52 @@
      "gate": "physical_sample",
      "clearer": "OWNER",
      "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated ga"
+    },
+    {
+     "gate": "etsy_remote_confirmation",
+     "clearer": "EXTERNAL",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to"
+    },
+    {
+     "gate": "durable_artifact_storage",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve t"
+    },
+    {
+     "gate": "production_stale",
+     "clearer": "DEPLOY",
+     "evidence": "production lists 1.0.0 (chain_version 7); this code releases 1.2.0"
+    },
+    {
+     "gate": "production_imagery",
+     "clearer": "DEPLOY",
+     "evidence": "production asset-coverage: no_asset"
+    }
+   ],
+   "publication": "owner authorisation (D-FB-10 sealed grant); never performed by the company"
+  },
+  {
+   "slug": "harvest-table-runner",
+   "version": "1.2.0",
+   "scope": "reserve (held to the Launch-0 first-customer standard by products.inventory._reserve_standard)",
+   "company_gates_passed": {
+    "product_truth_certificate": "certified 1.2.0 release_hash 179cb1277bec",
+    "name_truth": "title/assembly/fabric/imagery promises backed by the CIR",
+    "deliverable_pdf": "pattern PDF built by the chain (assets.build DONE)",
+    "disclosed_imagery": "disclosed_render 3 frames, usable=True",
+    "listing_draft_seo": "draft listing 9 'Harvest Table Runner | Crochet Pattern PDF | Written Instruc...' 13 tags, CA$6.94",
+    "listing_readiness_company": "no company-owned reason in the store.publish verdict"
+   },
+   "remaining": [
+    {
+     "gate": "etsy_taxonomy_snapshot",
+     "clearer": "EXTERNAL",
+     "evidence": "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed"
+    },
+    {
+     "gate": "physical_sample",
+     "clearer": "OWNER",
+     "evidence": "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (179cb1277bec); none on file. Every finished dimension is arithmetic from the stated ga"
     },
     {
      "gate": "etsy_remote_confirmation",
