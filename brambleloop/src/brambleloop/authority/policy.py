@@ -339,6 +339,10 @@ def _production_handler(job_type: str) -> bool:
 def summary(db) -> dict:
     """Provider-contract summary of recorded authority."""
     try:
+        # W4-CCFIN: accept the contract's Session as well as the `Database` facade.
+        from ..autonomy.status import _db
+
+        db = _db(db)
         pols = active_policies(db)
     except Exception as exc:  # noqa: BLE001
         return {"status": "UNKNOWN", "as_of": None, "basis": "unknown", "items": [],
