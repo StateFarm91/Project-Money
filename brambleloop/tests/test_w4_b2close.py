@@ -7,6 +7,8 @@ A. #35/#39 sit on `rendered_pages`, whose only opening was a recorded browser.pr
 B. #10's company half: one real free motif asset (a library motif through the catalogue
    builder, granted a certificate by the release chain), and /api/free-to-paid plus the daily
    growth.distribution cadence planning against it. Nothing is published or sent.
+C. The owner cards that showed UNKNOWN are costed: storage_offsite from the Backblaze B2 list
+   price and production's archive size; browser_worker no longer exists (withdrawn in A).
 """
 from __future__ import annotations
 
@@ -322,6 +324,45 @@ def test_the_distribution_handler_records_the_free_to_paid_reading():
         assert s.scalars(select(AuditLog).where(
             AuditLog.action == "growth.distribution")).first() is not None
     ok("growth.distribution records the free-to-paid reading (1 asset with a job, 0 published)")
+
+
+# ---- C. the owner cards that were UNKNOWN are costed -----------------------------------------
+
+
+def test_storage_offsite_is_costed_from_the_recorded_b2_price():
+    from brambleloop.ops import owner_queue as Q
+
+    d = Q.DECISION_BY_GATE["offsite_storage"]
+    assert d["id"] == "storage_offsite"
+    assert d["max_cost_cad"] == 1.0, d["max_cost_cad"]
+    for fact in ("first 10 GB free", "US$6.95/TB", "US$0.00695/GB", "CA$0.0095/GB",
+                 "0.94 GB", "expected CA$0.00", "2026-10-10"):
+        assert fact in d["cost_basis"], fact
+    assert "Backblaze B2" in d["decision"]
+    # The arithmetic the basis states: 6.95 USD per TB is 0.00695 per GB, x1.37 ~ 0.0095 CAD;
+    # 14 retained archives of production's 66,975,550 stored bytes is ~0.94 GB < 10 GB free.
+    assert abs(6.95 / 1000 * 1.37 - 0.0095) < 0.0001
+    from brambleloop.core.offsite import RETAIN_OFFSITE
+
+    assert abs(RETAIN_OFFSITE * 66_975_550 / 1e9 - 0.94) < 0.01
+    # The CA$1.00 ceiling covers 10 GB free plus about 105 GB at that price.
+    assert 10 + 1.0 / (6.95 / 1000 * 1.37) > 110
+    ok("storage_offsite: CA$1.00/month ceiling, expected CA$0.00 at ~0.94 GB (B2 list price)")
+
+
+def test_no_owner_card_is_uncosted_except_the_two_unknown_by_design():
+    packet = json.loads((ROOT / "research/final_build/w4/OWNER_ACTIONS.json").read_text())
+    items = [i for b in packet["batches"] for i in b["items"]]
+    assert items
+    unknown = sorted(i["id"] for i in items if i["max_cost_cad"] is None)
+    # ad_budget is not askable yet and OA-G2 is a fee on attributed sales (BUILD2_VERIFY).
+    assert unknown == ["OA-G2", "ad_budget"], unknown
+    for i in items:
+        if i["max_cost_cad"] is None:
+            assert "UNKNOWN" in i["max_cost_display"], i["id"]
+    card = next(i for i in items if i["id"] == "storage_offsite")
+    assert card["max_cost_display"] == "CA$1.00" and "US$6.95/TB" in card["max_cost_basis"]
+    ok("only ad_budget and OA-G2 stay UNKNOWN (never CA$0); storage_offsite shows its price")
 
 
 if __name__ == "__main__":

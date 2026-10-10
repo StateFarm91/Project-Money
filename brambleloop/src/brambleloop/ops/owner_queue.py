@@ -577,11 +577,27 @@ DECISIONS: tuple[dict, ...] = (
      "max_cost_cad": 5.0, "cost_basis": "stated (per month)", "minutes": 10,
      "consequence_of_yes": "purchased files survive deploys",
      "consequence_of_no": "harmless in shadow; a broken download for a paying customer once live"},
+    # W4-B2CLOSE 2026-10-10: costed (was UNKNOWN). Provider per the W4-GATESI packet.
+    # Price: Backblaze B2 public list price, re-read 2026-10-10 at
+    # https://www.backblaze.com/cloud-storage/pricing -- first 10 GB stored free, then
+    # US$6.95 per TB per 30 days (US$0.00695/GB = ~CA$0.0095/GB at the code's assumed 1.37),
+    # egress free up to 3x average stored, then US$0.01/GB. Size: production /api/continuity
+    # (read-only GET 2026-10-10) retains archives of 66,975,550 stored bytes, growing ~70 KB
+    # a day; 14 retained (core.offsite.RETAIN_OFFSITE) is ~0.94 GB, inside the free tier,
+    # and the daily read-back (~2.0 GB/month) is inside the free 3x egress (~2.8 GB).
     {"id": "storage_offsite", "batch": "storage", "kind": "credentials",
      "gates": ("offsite_storage",), "keys": (),
-     "decision": "Create an object-storage bucket outside this provider and its credential.",
+     "decision": ("Create a Backblaze B2 account, a PRIVATE bucket and an application key "
+                  "restricted to that bucket (read+write+delete), outside this provider, and "
+                  "set the five BRAMBLELOOP_ARCHIVE_* variables (W4-GATESI packet)."),
      "why": "an account and credential only the owner can create",
-     "max_cost_cad": None, "cost_basis": "UNKNOWN (provider not chosen)", "minutes": 15,
+     "max_cost_cad": 1.0,
+     "cost_basis": ("stated (per month): Backblaze B2 list price read 2026-10-10 "
+                    "(backblaze.com/cloud-storage/pricing): first 10 GB free, then US$6.95/TB "
+                    "per 30 days = US$0.00695/GB (~CA$0.0095/GB at 1.37). Expected ~0.94 GB "
+                    "(14 retained archives x ~67 MB, production 2026-10-10), so expected "
+                    "CA$0.00/month; the CA$1.00 ceiling covers ~115 GB stored"),
+     "minutes": 15,
      "consequence_of_yes": "the continuity archive survives losing the provider (#51)",
      "consequence_of_no": "a provider loss loses the archive with it"},
     # W4-B2CLOSE 2026-10-10 (BUILD2_VERIFY finding 2): this was `browser_worker`, a hosted
@@ -665,7 +681,7 @@ def decision_fields(card: dict, decision: dict | None = None) -> dict:
         cost = stated if stated is not None and (stated or d["max_cost_cad"] == 0.0) \
             else d["max_cost_cad"]
         basis = ("stated by the producer" if cost == stated and stated is not None
-                 else d["cost_basis"])
+                 and not card.get("cost_from_table") else d["cost_basis"])
         out = {"decision": d["decision"], "why": card.get("why") or d["why"],
                "minutes": d["minutes"],
                "consequence_of_yes": d["consequence_of_yes"],

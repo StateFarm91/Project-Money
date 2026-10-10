@@ -1,6 +1,6 @@
 # Owner actions -- decision packet (W4-OWNER)
 
-Generated 2026-10-10T03:34:30+00:00 by `research/final_build/w4/owner/build_owner_docs.py` from the runtime approvals inbox plus the STORE and VISUAL lanes. Phase stays SHADOW. UNKNOWN cost is never CA$0.
+Generated 2026-10-10T04:30:36+00:00 by `research/final_build/w4/owner/build_owner_docs.py` from the runtime approvals inbox plus the STORE and VISUAL lanes. Phase stays SHADOW. UNKNOWN cost is never CA$0.
 
 **Before:** 44 separate asks (9 production rows, 19 gate cards, 13 store items, 3 visual plans). **After:** 26 decisions in 9 batches, ~321 owner minutes; 3 converted back to company work, 1 deferred.
 
@@ -11,10 +11,10 @@ _each of these is a step of the same move out of shadow mode; none is useful alo
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
 | leave_shadow | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above are done. | 9 requirements are parked on it | gate 'live_listings' opens when: at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing | CA$0.00 | listings can be published under the publication authority; the live-listing requirements un-park | everything stays drafted and nothing reaches a customer | 5 |
-| etsy_kyc_payout | Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not. | production reason payout | OwnerAction #3 raised 2026-10-10T03:34:29.688021 for payout | CA$0.00 | the payout prerequisite for publishing is met | delay payout | 15 |
-| listing_fees | Approve Etsy's listing fees for the opening catalogue (figure on the card). | production reason listing_fees | OwnerAction #4 raised 2026-10-10T03:34:29.688320 for listing_fees | CA$6.00 | publishing is no longer blocked on fees | delay listing_fees | 2 |
+| etsy_kyc_payout | Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not. | production reason payout | OwnerAction #3 raised 2026-10-10T04:30:36.121832 for payout | CA$0.00 | the payout prerequisite for publishing is met | delay payout | 15 |
+| listing_fees | Approve Etsy's listing fees for the opening catalogue (figure on the card). | production reason listing_fees | OwnerAction #4 raised 2026-10-10T04:30:36.122107 for listing_fees | CA$6.00 | publishing is no longer blocked on fees | delay listing_fees | 2 |
 | tester_outreach | Confirm the prepared public tester call (Ravelry 'The Testing Pool'; research/final_build/w4/tester_kit/OUTREACH.md) and approve one paid sample make of market-basket-small (Hexagonal Bread Basket, max CA$59.65 incl. yarn). You are not asked to crochet. | 3 requirements are parked on it | gate 'tester_roster' opens when: at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester | CA$185.00 | a measured sample calibrates yardage and Class C products can become shippable | no physical proof can exist (#64), the tester roster (#9/#43/#250) stays empty, and every Class B/C product stays blocked from live sale | 25 |
-| trademark_filing | Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work. | production reason brand_clearance | OwnerAction #5 raised 2026-10-10T03:34:29.688627 for brand_clearance | CA$460.00 | the name is protected before brand equity accumulates on it | delay brand_clearance | 20 |
+| trademark_filing | Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work. | production reason brand_clearance | OwnerAction #5 raised 2026-10-10T04:30:36.122363 for brand_clearance | CA$460.00 | the name is protected before brand equity accumulates on it | delay brand_clearance | 20 |
 
 ## Fund the model provider (1 decisions, 5 min, max CA$25.00)
 
@@ -51,14 +51,14 @@ _each needs the signed-in account holder in a browser, so they are done in the s
 | OA-F | Policy Settings: privacy policy, FAQ with licence, cancellations (Batch F) | Etsy trust surfaces; licence belongs in the FAQ for a Canadian shop | research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026) | CA$0.00 | privacy, FAQ licence and cancellations are live; policy_consistency can pass on read-back | policy_consistency stays failing | 10 |
 | OA-G1 | Settings > Options: 'Allow buyers to purchase digital prints' = Disabled | a third party would sell printed copies of a pattern PDF | research/final_build/w4/STORE_READINESS.md (origin/claude/w4-INTEG 7631026) | CA$0.00 | no third party sells printed copies of a pattern PDF beside ours | auto-enrolment may put a third-party product beside ours | 1 |
 
-## Storage and continuity spend (2 decisions, 25 min, max UNKNOWN (at least one item is not costed))
+## Storage and continuity spend (2 decisions, 25 min, max CA$6.00)
 
 _both are storage accounts outside the code, approved as one spend line_
 
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
-| storage_durable | Approve durable object storage for purchased files (Railway volume or S3). | production reason artifact_storage | OwnerAction #1 raised 2026-10-10T03:34:29.682351 for artifact_storage | CA$5.00 | purchased files survive deploys | delay artifact_storage | 10 |
-| storage_offsite | Create an object-storage bucket outside this provider and its credential. | 1 requirements are parked on it | gate 'offsite_storage' opens when: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all | UNKNOWN | the continuity archive survives losing the provider (#51) | a provider loss loses the archive with it | 15 |
+| storage_offsite | Create a Backblaze B2 account, a PRIVATE bucket and an application key restricted to that bucket (read+write+delete), outside this provider, and set the five BRAMBLELOOP_ARCHIVE_* variables (W4-GATESI packet). | 1 requirements are parked on it | gate 'offsite_storage' opens when: a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all | CA$1.00 | the continuity archive survives losing the provider (#51) | a provider loss loses the archive with it | 15 |
+| storage_durable | Approve durable object storage for purchased files (Railway volume or S3). | production reason artifact_storage | OwnerAction #1 raised 2026-10-10T04:30:36.120462 for artifact_storage | CA$5.00 | purchased files survive deploys | delay artifact_storage | 10 |
 
 ## Competitive benchmark purchases (1 decisions, 75 min, max CA$300.00)
 
@@ -66,7 +66,7 @@ _the purchase gate and the pre-launch benchmark challenge wait on the same purch
 
 | id | decision | why | evidence | max cost | if yes | if no / delay | min |
 |---|---|---|---|---|---|---|---|
-| benchmark_purchase | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown. | production reason benchmark_challenge | OwnerAction #7 raised 2026-10-10T03:34:29.689101 for benchmark_challenge | CA$300.00 | the pre-launch challenge (#168) and teardowns can run | delay benchmark_challenge | 75 |
+| benchmark_purchase | Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown. | production reason benchmark_challenge | OwnerAction #7 raised 2026-10-10T04:30:36.122847 for benchmark_challenge | CA$300.00 | the pre-launch challenge (#168) and teardowns can run | delay benchmark_challenge | 75 |
 
 ## Owned publishing channels (1 decisions, 65 min, max CA$25.00)
 

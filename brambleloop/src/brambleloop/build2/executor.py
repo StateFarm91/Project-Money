@@ -1687,6 +1687,9 @@ def approval_inbox(db, *, env: dict[str, str] | None = None) -> dict:
             "max_cost_cad": (row["max_cost_cad"] if row else
                              request.max_cost_cad if request else
                              _table_cost(gate.key)),
+            # W4-B2CLOSE: a figure taken from the decision table is not a producer's
+            # statement; owner_queue.decision_fields then shows the table's own basis.
+            "cost_from_table": not row and not request,
         })
     for row in standalone:
         cards.append({
