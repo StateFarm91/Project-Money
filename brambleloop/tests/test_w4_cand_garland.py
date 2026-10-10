@@ -132,12 +132,14 @@ def test_drawn():
     check("cord_spacing_clears_a_flat_pocket", pitch >= u["width_cm"], (pitch, u["width_cm"]))
     for v in ("hero", "scale", "detail"):
         r = V.verify(frames[v].png, cir=cir, view=v)
-        check(f"garland_{v}_unqualified_is_unknown_not_pass", r["status"] == "UNKNOWN",
-              r["status"])
-        # Reasoned, not a caught crash: the verifier says it has no rule for this form.
-        check(f"garland_{v}_unknown_is_reasoned_not_a_crash",
-              r["unknown"] == ["assembled_form"] and "pockets" in r["checks"][0]["why"],
-              r["checks"][:1])
+        # W4-VERIFY-POCKETS: the verifier now has a pocket model recomputed from the CIR
+        # (tests/test_w4_verify_pockets.py holds its known-bad FAILs), so the frame earns a
+        # real verdict with its evidence -- not UNKNOWN, and not a pass without measurement.
+        got = {c["check"]: c["status"] for c in r["checks"]}
+        check(f"garland_{v}_measured_on_the_pocket_model_and_passes",
+              r["status"] == "PASS" and r["measured"]["assembly"] == "pockets"
+              and {"object_count", "extent_cm", "placement_redraw"} <= set(got)
+              and set(got.values()) == {"PASS"}, (r["status"], r["failed"], r["unknown"]))
     from brambleloop.core.artifacts import ArtifactStore
     from brambleloop.publish import disclosed_listing as DL
     import tempfile

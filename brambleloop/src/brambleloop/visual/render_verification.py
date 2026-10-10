@@ -66,7 +66,7 @@ from PIL import Image, ImageDraw
 
 from . import render_contract as K
 
-VERIFIER_VERSION = "render-verification/2.0.2"
+VERIFIER_VERSION = "render-verification/2.1.0"
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 
@@ -167,11 +167,13 @@ def body_component(cir, result=None) -> str:
     return best
 
 
-def expected_model(cir, component: str | None = None) -> dict:
+def expected_model(cir, component: str | None = None, *, shape: bool = True) -> dict:
     """What the compiled pattern makes, recomputed here from the compiler's rows.
 
     A multi-piece CIR is modelled one piece at a time (`component`); the whole object is
-    never modelled here, so an assembled frame cannot pass on this model."""
+    never modelled here, so an assembled frame cannot pass on this model. `shape=False`
+    returns the rows alone (stitches, colours, heights) for a piece laid flat by a model
+    that is not a vessel or a polygon (a pocket, W4-VERIFY-POCKETS)."""
     from ..cir import stitches
     from ..cir.compiler import compile_cir
     from ..cir.geometry import corners
@@ -212,7 +214,7 @@ def expected_model(cir, component: str | None = None) -> dict:
     model = {"construction": comp.construction, "w_cm": w_cm, "unit_cm": unit_cm,
              "rows": out_rows, "make": comp.make,
              "palette": {k: K.hex_rgb(v) for k, v in (cir.colors or {}).items()}}
-    if comp.construction != "flat_rows":
+    if shape and comp.construction != "flat_rows":
         counts = [len(r["seq"]) for r in out_rows]
         base_n = 1
         while base_n < len(counts) and counts[base_n] > counts[base_n - 1]:
@@ -1021,7 +1023,7 @@ def _assembled_expectation(cir, view: str) -> dict:
             "colours": used, "body_colours": sorted({c.color for c in body.twin.cells}),
             "w_cm": 10.0 / cir.gauge.stitches_per_10cm,
             "planar_up": all(p.grain == "up" for p in pl.placed),
-            "png": fresh.png}
+            "png": fresh.png, "plan": pl}
 
 
 def _verify_assembled(png: bytes, *, cir, view: str) -> dict:
@@ -1047,8 +1049,9 @@ def _verify_assembled(png: bytes, *, cir, view: str) -> dict:
                                 f"{str(exc)[:200]}")])
     # Only the forms this verifier models are measured. Every check below assumes one placed
     # object of the CIR's assembled size, lettered with the generic assembled dimension line;
-    # a form drawn later (W4-CAND "pockets": `make` copies on a hero, its own annotation) is
-    # neither of those, so judging it here would report a false FAIL -- and a future change
+    # a form with its own drawing model (W4-CAND "pockets": `make` copies on a hero, its own
+    # annotation) is measured by its own verifier (`_verify_pockets`), never here; anything
+    # else is neither, so judging it here would report a false FAIL -- and a future change
     # to the expectation could just as silently turn it into an unearned PASS. Unmodelled is
     # UNKNOWN, which blocks exactly like FAIL and claims nothing about the frame.
     if exp["form"] not in ASSEMBLED_FORMS_MEASURED:
@@ -1158,11 +1161,213 @@ def _verify_assembled(png: bytes, *, cir, view: str) -> dict:
     checks.append(_check("placement_redraw", PASS if same else FAIL,
                          "every pixel equals a fresh drawing of the authoritative CIR's pieces, "
                          "placed only by its joins", differing_px=diff_px))
+    _closed_band_checks(cir, exp["plan"], checks)
     return _verdict(checks, image_sha256=sha, view=view, slug=cir.slug,
                     cir_fingerprint=cir.fingerprint, px_per_cm=round(u, 4),
                     measured={"form": "assembled", "assembly": exp["form"],
                               "body": exp["body"], "drawn": exp["drawn"],
                               "measured_cm": [round(m_w, 2), round(m_h, 2)]})
+
+
+# --------------------------------------------------------------------------- pockets
+
+def _pockets_expectation(cir, view: str) -> dict:
+    """What a "pockets" frame (N identical round pockets, each hanging from a closed loop on
+    one cord; W4-CAND) must show, recomputed here from the CIR's compiled rows -- never from
+    the frame or its manifest.
+
+    One pocket lies flat: the body's widest round shows half its stitches (the front face),
+    its rounds stack to the summed round heights (PT-08 stitch-weighted rule, this module's
+    own `expected_model`), the thumb lies straight out from the fold at its opening for its
+    summed round heights, and the loop -- a closed band (`cir.assembly.band_axis` == "rows")
+    -- shows its first half of rows above the last round. The detail is the body's relief
+    rounds with one plain round either side, laid flat the same way. The plan says only
+    which piece is which; every size is this module's arithmetic."""
+    from ..cir.assembly import band_axis
+    from ..cir.compiler import compile_cir
+    from . import assembled_render as A
+
+    result = compile_cir(cir)
+    if not result.ok:
+        raise ValueError("the CIR does not compile")
+    pl = A.plan(cir, result)
+    if pl.form != "pockets":
+        raise ValueError(f"not a pockets form: {pl.form}")
+    body_n, thumb_n, tab_n = pl.body, pl.extra["thumb"], pl.extra["tab"]
+    comps = {c.name: c for c in cir.components}
+    if band_axis(cir, comps[tab_n]) != "rows":
+        raise ValueError(f"{tab_n} is not a closed band along its rows")
+    body = expected_model(cir, body_n, shape=False)
+    thumb = expected_model(cir, thumb_n, shape=False)
+    tab = expected_model(cir, tab_n, shape=False)
+    w = body["w_cm"]
+    m = len(tab["rows"])
+    if m % 2:
+        raise ValueError(f"a {m}-row loop has no flat half")
+    rows = body["rows"]
+    if view == "detail":
+        raised = [k for k, r in enumerate(rows) if any(r["raised"])]
+        lo, hi = ((max(0, min(raised) - 1), min(len(rows) - 1, max(raised) + 1))
+                  if raised else (0, len(rows) - 1))
+        shown = rows[lo:hi + 1]
+        width = max(len(r["seq"]) for r in rows) / 2 * w
+        W, H = width, sum(r["height_cm"] for r in shown)
+        colours = {r["colour"] for r in shown}
+    else:
+        width = max(len(r["seq"]) for r in rows) / 2 * w
+        thumb_len = sum(r["height_cm"] for r in thumb["rows"])
+        loop_h = sum(r["height_cm"] for r in tab["rows"][:m // 2])
+        W = thumb_len + width
+        H = sum(r["height_cm"] for r in rows) + loop_h
+        colours = ({r["colour"] for r in rows} | {r["colour"] for r in thumb["rows"]}
+                   | {r["colour"] for r in tab["rows"][:m // 2]})
+    copies = comps[body_n].make
+    cord = comps[pl.extra["cord"]]
+    cord_twin_cm = pl.extra["cord_cm"]
+    fresh = A.render(cir, view)
+    return {"W": W, "H": H, "copies": copies, "colours": sorted(colours), "w_cm": w,
+            "objects": copies if view == "hero" else 1, "cord": cord.name,
+            "cord_cm": cord_twin_cm, "png": fresh.png, "loop_rows_shown": [1, m // 2]}
+
+
+def _verify_pockets(png: bytes, *, cir, view: str) -> dict:
+    """A pockets frame (hero: every pocket; scale: one pocket with its size; detail: the
+    body's relief rounds), measured against `_pockets_expectation` (W4-VERIFY-POCKETS).
+
+    Checks: contract palette, disclosure caption, scale bar; the number of separate pockets
+    against the pieces the pattern makes; every pocket's extent in cm against the CIR's
+    flattened pocket; every yarn colour the shown rounds use and no other; the listing's
+    unchanged 340 px legibility gate with the pattern's piece count; every lettered pixel
+    and dimension line; and the frame's bytes equal to a fresh drawing of the authoritative
+    CIR."""
+    checks: list[dict] = []
+    if cir.gauge is None:
+        return _verdict([_check("expected_model", UNKNOWN, "no gauge")])
+    try:
+        exp = _pockets_expectation(cir, view)
+    except Exception as exc:  # noqa: BLE001 - an unmodellable pocket is UNKNOWN
+        return _verdict([_check("pockets_model", UNKNOWN,
+                                f"the pocket cannot be modelled: {type(exc).__name__}: "
+                                f"{str(exc)[:200]}")])
+    palette = {k: K.hex_rgb(v) for k, v in (cir.colors or {}).items() if k in exp["colours"]}
+    if set(palette) != set(exp["colours"]):
+        return _verdict([_check("palette", UNKNOWN, "a row colour has no RGB in the CIR")])
+    try:
+        frame = _Frame(png, palette)
+    except Exception as exc:  # noqa: BLE001
+        return _verdict([_check("decode", FAIL, f"not a decodable image: {exc}")])
+    sha = hashlib.sha256(png).hexdigest()
+    if (frame.w, frame.h) != (K.CANVAS_PX, K.CANVAS_PX):
+        return _verdict([_check("canvas", FAIL, f"{frame.w}x{frame.h} is not the contract canvas")],
+                        image_sha256=sha)
+    off = float(frame.off_palette.mean())
+    checks.append(_check("contract_palette", PASS if off <= K.MAX_OFF_PALETTE_SHARE else FAIL,
+                         "every pixel is a contract colour; a redraw or resample is not",
+                         off_palette_share=round(off, 6)))
+    if off > K.MAX_OFF_PALETTE_SHARE:
+        return _verdict(checks, image_sha256=sha)
+    cap = _caption(frame)
+    checks.append(_check("disclosure_in_image", cap["status"],
+                         "the disclosure caption, in the contract words and place",
+                         iou=cap["iou"]))
+    scale = _scale(frame)
+    checks.append(_check("scale_bar", scale["status"], scale.get("why", "1 cm segments read"),
+                         px_per_cm=round(scale.get("px_per_cm", 0.0), 4),
+                         segments_cm=scale.get("segments_cm")))
+    if scale["status"] != PASS:
+        return _verdict(checks, image_sha256=sha)
+    u = scale["px_per_cm"]
+
+    objs = _objects(frame, exp["objects"])
+    checks.append(_check("object_count", PASS if len(objs) == exp["objects"] else FAIL,
+                         "separate pockets shown against the pieces the pattern makes "
+                         "(hero: every pocket; scale and detail: one)",
+                         found=len(objs), expected=exp["objects"]))
+    measured = [[round((b[2] - b[0] + K.GAP_PX) / u, 2), round((b[3] - b[1] + K.GAP_PX) / u, 2)]
+                for b in objs]
+    ext_ok = bool(objs) and all(_within(mw, exp["W"], EXTENT_REL, EXTENT_PX, u)
+                                and _within(mh, exp["H"], EXTENT_REL, EXTENT_PX, u)
+                                for mw, mh in measured)
+    checks.append(_check("extent_cm", PASS if ext_ok else FAIL,
+                         "every pocket's size from the scale bar against the CIR's flattened "
+                         "pocket (front half of its widest round, its rounds, the thumb laid "
+                         "out, the loop's first half of rows)",
+                         measured=measured[:4], expected=[round(exp["W"], 2), round(exp["H"], 2)]))
+
+    zx0, zy0, zx1, zy1 = K.zone_px(K.PRODUCT_ZONE, frame.w)
+    yarn = frame.yarn[zy0:zy1, zx0:zx1] >= 0
+    counts = np.bincount(frame.yarn[zy0:zy1, zx0:zx1][yarn].ravel(), minlength=frame.n)
+    seen = {frame.yarn_names[i] for i in range(frame.n) if counts[i] > 0}
+    checks.append(_check("colour_set", PASS if seen == set(exp["colours"]) else FAIL,
+                         "every yarn colour the shown rounds use, and no other",
+                         seen=sorted(seen), expected=exp["colours"]))
+
+    from ..publish.disclosed_listing import _thumb_legibility
+
+    leg = _thumb_legibility(png, {"palette": palette,
+                                  "rows": [{"colour": c} for c in palette]}, exp["objects"])
+    checks.append(_check("legibility_340", PASS if leg["ok"] else FAIL,
+                         "every pocket inside the title-safe area, filling >= 25 % of the "
+                         "frame, separated into the pieces the pattern makes, every shown "
+                         "colour visible at 340 px",
+                         coverage=leg.get("coverage"), problems=leg.get("problems")))
+
+    model = {"construction": "assembled",
+             "annotation_lines": (K.annotation_lines("scale", "assembled", {
+                 "width": exp["W"], "height": exp["H"], "copies": exp["copies"],
+                 "cord_cm": exp["cord_cm"]}) if view == "scale" else []),
+             "dimension_lines": ([("h", exp["W"]), ("v", exp["H"])]
+                                 if view == "scale" else [])}
+    _annotations(frame, cir, model, view, scale, {}, checks)
+
+    same = hashlib.sha256(exp["png"]).hexdigest() == sha
+    diff_px = 0
+    if not same:
+        ref = np.asarray(Image.open(io.BytesIO(exp["png"])).convert("RGB"), dtype=np.int32)
+        diff_px = int((np.abs(ref - frame.rgb).sum(axis=2) > 0).sum()) \
+            if ref.shape == frame.rgb.shape else -1
+    checks.append(_check("placement_redraw", PASS if same else FAIL,
+                         "every pixel equals a fresh drawing of the authoritative CIR's pockets",
+                         differing_px=diff_px))
+    return _verdict(checks, image_sha256=sha, view=view, slug=cir.slug,
+                    cir_fingerprint=cir.fingerprint, px_per_cm=round(u, 4),
+                    measured={"form": "assembled", "assembly": "pockets",
+                              "objects": len(objs), "measured_cm": measured[:4]})
+
+
+def _closed_band_checks(cir, pl, checks: list[dict]) -> None:
+    """Every closed band (`cir.assembly.band_axis`) the plan draws is laid flat: its first
+    half along the band's axis in front, so it is drawn at half its length around. The half
+    and the length are recomputed here from the band's own rows; the drawing has to agree."""
+    from ..cir.assembly import band_axis
+
+    for p in pl.placed:
+        axis = band_axis(cir, p.comp)
+        if axis is None:
+            continue
+        model = expected_model(cir, p.name, shape=False)
+        rows = model["rows"]
+        if axis == "rows":
+            m = len(rows)
+            want_win = (1, m // 2) if m % 2 == 0 else None
+            length = sum(r["height_cm"] for r in rows[:m // 2])
+            got_win = p.rows
+        else:
+            counts = {len(r["seq"]) for r in rows}
+            n = next(iter(counts)) if len(counts) == 1 else None
+            want_win = (0, n // 2 - 1) if n and n % 2 == 0 else None
+            length = (n or 0) / 2 * model["w_cm"]
+            got_win = p.cols
+        drawn = p.up if (p.grain == "up") == (axis == "rows") else p.across
+        ok = (want_win is not None and tuple(got_win or ()) == want_win
+              and _within(drawn, length, EXTENT_REL))
+        checks.append(_check(
+            f"closed_band_flat:{p.name}", PASS if ok else FAIL,
+            "a closed band lies flat: its first half along its axis drawn, at half its length "
+            "around, recomputed from its rows",
+            axis=axis, shown=list(got_win) if got_win else None,
+            expected_shown=list(want_win) if want_win else None,
+            drawn_cm=round(drawn, 3), expected_cm=round(length, 3)))
 
 
 # --------------------------------------------------------------------------- entry point
@@ -1184,15 +1389,6 @@ def _verify(png: bytes, *, cir, view: str) -> dict:
     checks: list[dict] = []
     component = None
     if len(cir.components) > 1:
-        if view != "detail":
-            # W4-VISUAL2: an assembled multi-piece hero/scale is measured by
-            # `_verify_assembled` (placement re-derived from the authoritative CIR).
-            return _verify_assembled(png, cir=cir, view=view)
-        # The body-piece model below is the single-piece renderer's detail. A "pockets" detail
-        # is drawn by the assembled renderer instead (each pocket's rounds laid flat, front
-        # half only), which this model does not describe: measuring it here crashed on a
-        # shape the model never meant, and fixing only the crash would judge the frame
-        # against the wrong drawing. Unmodelled is a reasoned UNKNOWN.
         try:
             from ..cir.compiler import compile_cir
             from . import assembled_render as A
@@ -1201,6 +1397,17 @@ def _verify(png: bytes, *, cir, view: str) -> dict:
             return _verdict([_check("assembled_plan", UNKNOWN,
                                     f"the CIR's pieces cannot be placed: {type(exc).__name__}: "
                                     f"{str(exc)[:200]}")])
+        if form == "pockets":
+            # W4-VERIFY-POCKETS: hero, scale and detail are all the assembled renderer's
+            # pocket drawings, measured against the pocket model.
+            return _verify_pockets(png, cir=cir, view=view)
+        if view != "detail":
+            # W4-VISUAL2: an assembled multi-piece hero/scale is measured by
+            # `_verify_assembled` (placement re-derived from the authoritative CIR).
+            return _verify_assembled(png, cir=cir, view=view)
+        # The body-piece model below is the single-piece renderer's detail. Any other
+        # assembled form's detail is drawn by the assembled renderer and needs its own model
+        # (pockets has one above); without one it is a reasoned UNKNOWN.
         if form not in ASSEMBLED_FORMS_MEASURED:
             return _verdict([_check("assembled_form", UNKNOWN,
                                     f"the {form!r} detail is drawn by the assembled renderer, "
