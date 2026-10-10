@@ -112,16 +112,16 @@ def test_the_opening_grid_refuses_uncleared_and_legacy_filler():
     db = _db()
     _product(db, "heirloom-cable-blanket", 11.50)
     _product(db, "cloudline-baby-blanket", 8.50)
-    _product(db, "winter-village-graphghan", 10.50, granted=False)   # legacy, uncleared
+    _product(db, "cottage-wall-hanging", 10.50, granted=False)   # legacy, uncleared
     _product(db, "autumn-oak-mosaic-throw", 12.50)                    # not launch-cleared
     grid = storefront.opening_grid(
         db, today=TODAY,
         inventory=_inventory("heirloom-cable-blanket", "cloudline-baby-blanket",
-                             "winter-village-graphghan", failing=("autumn-oak-mosaic-throw",)))
+                             "cottage-wall-hanging", failing=("autumn-oak-mosaic-throw",)))
     shown = {t["slug"] for t in grid["tiles"]}
     assert shown == {"heirloom-cable-blanket", "cloudline-baby-blanket"}, shown
     why = {e["slug"]: e["why"] for e in grid["excluded"]}
-    assert why["winter-village-graphghan"].startswith("legacy filler")
+    assert why["cottage-wall-hanging"].startswith("legacy filler")
     assert why["autumn-oak-mosaic-throw"].startswith("not launch-cleared")
 
 
