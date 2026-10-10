@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-07T00:46:14.750865+00:00",
+ "generated_at": "2026-10-10T04:00:38.726236+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 112,
-  "handlers": 130,
+  "cadences": 114,
+  "handlers": 132,
   "agents": 29,
-  "follow_on_edges": 53
+  "follow_on_edges": 54
  },
  "departments": [
   {
@@ -474,11 +474,15 @@
    "blockers": [
     {
      "kind": "owner_gate",
-     "gate": "benchmark_observation"
+     "gate": "benchmark_observation",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     },
     {
      "kind": "owner_gate",
-     "gate": "etsy_api"
+     "gate": "etsy_api",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     }
    ],
    "never_woken_job_types": [],
@@ -549,6 +553,12 @@
       "agent": "creative_director",
       "job_type": "creative.white_space",
       "period_seconds": 604800
+     },
+     {
+      "name": "creative_candidates_file",
+      "agent": "creative_director",
+      "job_type": "creative.candidates_file",
+      "period_seconds": 86400
      },
      {
       "name": "four_season_programme",
@@ -626,6 +636,7 @@
      "creative/preengineering.py:record",
      "mjs.seasonal_sentinel",
      "owner/API route api_seasonal_recompute",
+     "products/pipeline_board.py:handle_product_pipeline",
      "radar.score",
      "runtime/release.py:enqueue_member_collections",
      "seasonal.engine"
@@ -670,6 +681,7 @@
      "creative.benchmark_memory",
      "creative.blind_review",
      "creative.blinded",
+     "creative.candidates_file",
      "creative.expedition",
      "creative.four_season",
      "creative.grid_tournament",
@@ -715,7 +727,9 @@
    "blockers": [
     {
      "kind": "owner_gate",
-     "gate": "model_provider"
+     "gate": "model_provider",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     }
    ],
    "never_woken_job_types": [],
@@ -1062,15 +1076,21 @@
    "blockers": [
     {
      "kind": "owner_gate",
-     "gate": "image_generation"
+     "gate": "image_generation",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     },
     {
      "kind": "owner_gate",
-     "gate": "canonical_model"
+     "gate": "canonical_model",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     },
     {
      "kind": "owner_gate",
-     "gate": "image_vision"
+     "gate": "image_vision",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     }
    ],
    "never_woken_job_types": [],
@@ -1168,6 +1188,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "etsy_openapi_reverify",
+      "agent": "orchestrator",
+      "job_type": "etsy.openapi_reverify",
+      "period_seconds": 604800
+     },
+     {
       "name": "etsy_listing_census",
       "agent": "orchestrator",
       "job_type": "etsy.listing_census",
@@ -1244,6 +1270,7 @@
      "chain.rebuild",
      "etsy.credential_health",
      "etsy.listing_census",
+     "etsy.openapi_reverify",
      "etsy.shop_snapshot",
      "listing.draft",
      "listing.outcomes",
@@ -1301,11 +1328,15 @@
    "blockers": [
     {
      "kind": "owner_gate",
-     "gate": "etsy_api"
+     "gate": "etsy_api",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     },
     {
      "kind": "owner_gate",
-     "gate": "live_listings"
+     "gate": "live_listings",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     }
    ],
    "never_woken_job_types": [],
@@ -1413,8 +1444,10 @@
    "next_wake": null,
    "blockers": [
     {
-     "kind": "owner_gate",
-     "gate": "customers"
+     "kind": "data_gate",
+     "gate": "customers",
+     "waiting_on": "data",
+     "closure_kind": "DATA-GATED"
     }
    ],
    "never_woken_job_types": [],
@@ -1603,7 +1636,9 @@
    "blockers": [
     {
      "kind": "owner_gate",
-     "gate": "transactions_r"
+     "gate": "transactions_r",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     }
    ],
    "never_woken_job_types": [],
@@ -1794,11 +1829,15 @@
    "blockers": [
     {
      "kind": "owner_gate",
-     "gate": "ad_authority"
+     "gate": "ad_authority",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     },
     {
      "kind": "owner_gate",
-     "gate": "owned_surfaces"
+     "gate": "owned_surfaces",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     }
    ],
    "never_woken_job_types": [],
@@ -2267,7 +2306,9 @@
    "blockers": [
     {
      "kind": "owner_gate",
-     "gate": "offsite_storage"
+     "gate": "offsite_storage",
+     "waiting_on": "owner",
+     "closure_kind": "OWNER-GATED"
     }
    ],
    "never_woken_job_types": [],
