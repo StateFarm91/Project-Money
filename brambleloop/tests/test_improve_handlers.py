@@ -173,10 +173,30 @@ def test_the_weekly_cycle_reviews_retirement_and_executes_only_the_safe():
     assert {w["cell"] for w in review["waiting_for_data"]} >= {"pricing", "finance"}
     assert "pattern_engineering" in review["keep"]
     assert out["architecture"]["subtracted"] == len(review["retire"]) + len(review["merge"])
-    # #85: the catalogue autopsy is kept as a lesson, once.
-    assert out["catalogue_autopsy_lesson"]
-    assert _run(db, "improve.weekly")["catalogue_autopsy_lesson"] == out[
-        "catalogue_autopsy_lesson"]
+    # #85: the catalogue autopsy is kept as a lesson, once -- and only when something died.
+    # Since W4-CREATIVE (b9c5e38) the briefed catalogue survives the jury, so the real reading
+    # has no deaths and persist_autopsy deliberately keeps nothing. Both branches are proven.
+    from brambleloop.core.models import Lesson
+    from brambleloop.creative import audit
+
+    real = audit.audit_catalogue()
+    if real["autopsy"]["deaths_by_critic"]:
+        assert out["catalogue_autopsy_lesson"]
+    else:
+        assert out["catalogue_autopsy_lesson"] is None
+        with db.session() as s:
+            assert not [x for x in s.query(Lesson).all()
+                        if str(x.evidence_ref or "").startswith("creative.audit_catalogue:")]
+    # A reading with real deaths (the bare generator's, which still dies) is kept, once.
+    original = audit.audit_catalogue
+    audit.audit_catalogue = lambda: {**real, "autopsy": real["raw_generator"]["autopsy"]}
+    try:
+        assert real["raw_generator"]["autopsy"]["deaths_by_critic"]
+        first = _run(db, "improve.weekly")["catalogue_autopsy_lesson"]
+        assert first
+        assert _run(db, "improve.weekly")["catalogue_autopsy_lesson"] == first
+    finally:
+        audit.audit_catalogue = original
 
 
 def test_the_retrospective_handler_carries_the_hundreds_clauses():
