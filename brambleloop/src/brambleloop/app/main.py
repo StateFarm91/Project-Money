@@ -2675,7 +2675,7 @@ def api_mjs_vision() -> dict:
 @app.get("/api/improve")
 def api_improve() -> dict:
     """The Improvement Department: what moved, what regressed, and what it may never do."""
-    from ..improve import director, roi
+    from ..improve import director, loops, roi
     from ..improve.bus import compounding
     from ..improve.cells import CELLS, capability_history, retrospective
     from ..improve.governance import describe
@@ -2692,6 +2692,9 @@ def api_improve() -> dict:
                    "higher_is_better": c.higher_is_better, "measure": c.measure,
                    "history": capability_history(db, c.key, limit=20)} for c in CELLS],
         "governance": describe(),
+        # W4-LEARN: each learning loop's producer, store, metric, baseline, decision rule,
+        # consumer and status (MEASURED / WAITING / UNKNOWN), read from rows.
+        "loops": loops.scoreboard(db),
     }
 
 

@@ -171,7 +171,11 @@ def compounding(db, *, stale_after_days: int = 30) -> dict:
     from ..core.models import Lesson
 
     with db.session() as s:
-        rows = list(s.scalars(select(Lesson)))
+        every = list(s.scalars(select(Lesson)))
+    # W4-LEARN: a superseded lesson (a per-instance restatement folded into its family by the
+    # miner, an MJS finding replaced by a newer reading) is history, not backlog. Counting it
+    # as routed-and-unacted made 316 restatements of one pattern read as 316 ignored lessons.
+    rows = [r for r in every if r.superseded_by is None]
 
     def _aware(value):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
@@ -194,6 +198,7 @@ def compounding(db, *, stale_after_days: int = 30) -> dict:
                           for r in stale],
         "by_subject": dict(sorted(by_subject.items(), key=lambda kv: -kv[1])),
         "cells": len(CELLS),
+        "superseded": len(every) - len(rows),
         "note": ("Lessons exist but nothing has acted on one, so this is filing rather than "
                  "compounding (#101)."
                  if routed and not acted else

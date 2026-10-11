@@ -708,6 +708,13 @@ def revert(db, improvement_id: int, *, because: str, observed: float | None = No
                 "below_baseline": True, "verified": dict(verified)}
 
 
+# W4-LEARN: a metric whose readings sit inside the cadence that produces them cannot resolve a
+# movement there. Production's retrospective (2026-10-11) named market_radar "regressed" and
+# the company's bottleneck because benchmark evidence was 0.14 h old instead of 0.11 h --
+# both inside the 2-hour `mjs.scan` cadence, i.e. equally fresh.
+NOISE_FLOOR_BY_METRIC: dict[str, float] = {"benchmark_evidence_freshness_hours": 2.0}
+
+
 def retrospective(db, *, days: int = 7) -> dict:
     """The weekly machine-readable retrospective (#100).
 
@@ -739,6 +746,12 @@ def retrospective(db, *, days: int = 7) -> dict:
         if len(series) < 2:
             continue
         first, last = series[0].value, series[-1].value
+        floor = NOISE_FLOOR_BY_METRIC.get(cell.metric)
+        if floor is not None and max(first, last) <= floor and last != first:
+            # Both readings inside the band the metric cannot resolve: not a movement.
+            moved[cell.key] = {"from": first, "to": last, "direction": "flat",
+                               "metric": cell.metric, "within_noise_floor": floor}
+            continue
         direction = "improved" if (
             (last > first) == cell.higher_is_better and last != first) else (
             "flat" if last == first else "regressed")
