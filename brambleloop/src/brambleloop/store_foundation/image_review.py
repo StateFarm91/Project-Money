@@ -67,12 +67,22 @@ def _now(now=None) -> datetime:
 
 # ---- what is reviewed ---------------------------------------------------------------------
 
-def candidates() -> list[dict]:
-    """Every Launch-0 variant build plus every proposed catalogue-floor build.
+CAP1_LABEL = "in Launch-0 scope (CAP-1); not approved"
 
-    Includes the 5 products the customer preview shows (their representative build is marked
-    `in_customer_preview`), and the sibling sizes and proposed products the CATALOG lane may
-    add."""
+
+def candidates() -> list[dict]:
+    """Every Launch-0 variant build plus every catalogue-floor (CAP-1) build.
+
+    Three groups, never merged into one:
+    * `launch0`: the five core products. They may appear on the customer page, but only with
+      a verified image;
+    * `cap1`: the three CAP-1 products, once the owner raised the Launch-0 cap 5 -> 8
+      (`launch0.CATALOGUE_FLOOR_APPROVED`, configuration only). They are in Launch-0 *scope*,
+      the products themselves are NOT approved, and they never appear on the customer page
+      unless every gate passes (`customer_page_eligible`, finalised in `assess`);
+    * `proposed`: the same three while the cap is not raised.
+    `in_owner_store_preview` is a fact: the representative build is in the owner's Store
+    Preview grid (`/cc/store-preview`, an owner page, not the customer page)."""
     from ..products import launch0 as L
 
     from . import content as C
@@ -82,9 +92,12 @@ def candidates() -> list[dict]:
                  for p in (C.build(None)["opening_grid"].value or [])}
     except Exception:  # noqa: BLE001 - an unreadable grid marks nothing as shown
         shown = set()
+    cap_raised = bool(getattr(L, "CATALOGUE_FLOOR_APPROVED", False))
+    proposed = set(getattr(L, "PROPOSED_SLUGS", ()))
     out, seen = [], set()
-    groups = [("launch0", c) for c in L._BASE_CANDIDATES if c.slug in L.LAUNCH0_SLUGS]
-    groups += [("proposed", c) for c in L.PROPOSED_CANDIDATES]
+    groups = [("launch0", c) for c in L._BASE_CANDIDATES
+              if c.slug in L.LAUNCH0_SLUGS and c.slug not in proposed]
+    groups += [("cap1" if cap_raised else "proposed", c) for c in L.PROPOSED_CANDIDATES]
     for group, cand in groups:
         for v in cand.variants:
             if v.build in seen:
@@ -92,7 +105,11 @@ def candidates() -> list[dict]:
             seen.add(v.build)
             out.append({"slug": cand.slug, "title": cand.title, "build": v.build,
                         "variant": v.key if hasattr(v, "key") else getattr(v, "name", ""),
-                        "group": group, "in_customer_preview": v.build in shown})
+                        "group": group,
+                        "scope_label": {"launch0": "Launch-0 (core)", "cap1": CAP1_LABEL,
+                                        "proposed": "proposed; outside Launch-0 scope"}[group],
+                        "in_owner_store_preview": v.build in shown,
+                        "customer_page_eligible": group == "launch0"})
     return out
 
 
@@ -249,7 +266,8 @@ def assess(build_key: str, *, db=None, env: dict | None = None) -> dict:
     env = env if env is not None else environment()
     meta = next((c for c in candidates() if c["build"] == build_key),
                 {"slug": build_key, "title": build_key, "group": "unknown",
-                 "in_customer_preview": False})
+                 "scope_label": "unknown", "in_owner_store_preview": False,
+                 "customer_page_eligible": False})
     row: dict = {**meta, "environment": env, "provenance": PROVENANCE,
                  "generated": False, "photograph": False, "png": None, "thumb": None}
     try:
@@ -315,6 +333,11 @@ def assess(build_key: str, *, db=None, env: dict | None = None) -> dict:
         "Not approved for customers: " + "; ".join(row["approval"]["why_not"][:2]),
         "No lifestyle or in-use picture exists; none may be generated in its place",
     ]
+    if row["group"] != "launch0":
+        # CAP-1 / proposed: eligible for the customer page only when every gate passes.
+        row["customer_page_eligible"] = bool(row["approval"]["customer_approved"])
+        row["limitations"].insert(0, f"{row['scope_label'].capitalize()}: never shown on the "
+                                     "customer page unless every gate passes")
     if row["status"] == INCOMPLETE:
         row["limitations"].insert(0, "Misleading as a hero: " + row["pieces_finding"]
                                   + ". Each piece verifies, but the set is not shown")
@@ -409,8 +432,9 @@ def _card(r: dict) -> str:
     return (
         f'<article class="card"><h2>{_esc(r["title"])}</h2>'
         f'<div class="meta">{_esc(r.get("cir_slug", r["slug"]))}@{_esc(r.get("cir_version", "?"))}'
-        f' · build {_esc(r["build"])} · {_esc(r["group"])}'
-        f'{" · shown in customer preview" if r.get("in_customer_preview") else ""}<br>'
+        f' · build {_esc(r["build"])} · {_esc(r.get("scope_label", r["group"]))}'
+        f'{" · in owner store preview" if r.get("in_owner_store_preview") else ""}'
+        f'{" · customer page: eligible" if r.get("customer_page_eligible") else " · customer page: not eligible"}<br>'
         f'sha256 {_esc(r.get("sha256", "none"))}</div>'
         f'{img}<div class="status {cls}">{_esc(r["status"])}</div>'
         f'<div><b>Limitations</b><ul>'

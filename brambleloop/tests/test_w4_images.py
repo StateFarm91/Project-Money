@@ -76,8 +76,36 @@ def test_candidates_cover_the_preview_products_and_the_proposals():
     builds = {c["build"] for c in cands}
     assert {"basket_small", "basket_medium", "basket_large", "cloudline_blanket",
             "hexagon_coasters", "snowflake_ornaments", "snowfall_throw"} <= builds
-    assert sum(1 for c in cands if c["in_customer_preview"]) == 5
-    assert {c["build"] for c in cands if c["group"] == "proposed"}
+    # W4-IMGCAP1: the old `in_customer_preview == 5` claim became false once CAP-1 raised the
+    # Launch-0 cap (the field counted the *owner* Store Preview grid, which now holds 8). What
+    # is still true, and asserted: only the 5 core products may reach the customer page; the 3
+    # CAP-1 products are in scope, not approved, and not customer-page eligible.
+    from brambleloop.products import launch0 as L
+
+    core = {c["slug"] for c in cands if c["group"] == "launch0"}
+    assert core == {"nursery-nesting-baskets", "cloudline-baby-blanket", "hexagon-coaster-set",
+                    "nordic-star-ornaments", "winter-village-graphghan"}
+    eligible = {c["slug"] for c in cands if c["customer_page_eligible"]}
+    assert eligible == core
+    later = [c for c in cands if c["group"] in ("cap1", "proposed")]
+    assert {c["slug"] for c in later} == set(L.PROPOSED_SLUGS)
+    want = "cap1" if L.CATALOGUE_FLOOR_APPROVED else "proposed"
+    for c in later:
+        assert c["group"] == want and c["customer_page_eligible"] is False
+        if want == "cap1":
+            assert c["scope_label"] == "in Launch-0 scope (CAP-1); not approved"
+    shown = sum(1 for c in cands if c["in_owner_store_preview"])
+    assert shown == len(L.LAUNCH0_SLUGS)
+
+
+def test_a_cap1_product_is_labelled_and_never_customer_eligible_without_every_gate():
+    r = IR.assess("key_basket", db=main.db)
+    assert r["approval"]["customer_approved"] is False
+    assert r["customer_page_eligible"] is False
+    assert any("never shown on the customer page unless every gate passes" in x
+               for x in r["limitations"])
+    html = IR._card(r)
+    assert r["scope_label"] in html and "customer page: not eligible" in html
 
 
 def test_every_image_is_a_verified_deterministic_render_and_none_is_customer_approved():
