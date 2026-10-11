@@ -5,7 +5,8 @@ compact blocks, each a one-line headline, at most five rows, and an expandable e
 
 1. ``working``     -- capabilities verified live (executor gates that are open) and the last
                       production self-check (`verify.completed` audit row), with their times.
-2. ``blocked``     -- root causes: closed gates ranked by how many requirements wait on each,
+2. ``blocked``     -- root causes: the finish-line board's (W4-BOARD, rows held per cause)
+                      first, then closed gates ranked by how many requirements wait on each,
                       plus department blockers grouped by gate.
 3. ``decisions``   -- the existing ranked owner queue. The server only counts it; the client
                       ranks it with `_decisions.js` (one ranking, not two).
@@ -127,7 +128,14 @@ def _safe(key, title, href, fn, sources) -> dict:
                               sources)
 
 
-def blocked(db, gates: dict | None = None, departments: dict | None = None) -> dict:
+def _board():
+    from .company import finish_line
+
+    return finish_line()
+
+
+def blocked(db, gates: dict | None = None, departments: dict | None = None,
+            board_reader=_board) -> dict:
     title, href = "What's blocked", "#/company"
 
     def read():
@@ -154,18 +162,54 @@ def blocked(db, gates: dict | None = None, departments: dict | None = None) -> d
                 row["departments"].append(d.get("name") or d.get("department"))
         for row in dept_counts.values():
             row["detail"] = "departments: " + ", ".join(sorted(set(map(str, row["departments"]))))
-        ranked = sorted(causes + list(dept_counts.values()),
-                        key=lambda r: (-int(r["count"]), r["title"]))
+        gate_ranked = sorted(causes + list(dept_counts.values()),
+                             key=lambda r: (-int(r["count"]), r["title"]))
+        for r in gate_ranked:
+            r["unit"] = "requirements" if r in causes else "departments"
         waiting_total = sum(c["count"] for c in causes)
+        # W4-BOARD: the finish-line board's root causes (rows of Build 2 + Final Master each
+        # cause holds) lead when the board is readable; the live gates follow. Two units, so
+        # two ranked lists, never one list that compares rows with requirements.
+        try:
+            board = board_reader() if board_reader is not None else None
+        except Exception as exc:  # noqa: BLE001 - the gates still answer
+            board = {"status": "UNKNOWN", "reason": f"board unreadable: {type(exc).__name__}"}
+        board_rows = []
+        if isinstance(board, dict) and board.get("status") != "UNKNOWN":
+            for r in board.get("items") or []:
+                n = r.get("rows")
+                board_rows.append({
+                    "title": r.get("title") or "unnamed root cause",
+                    "count": n if isinstance(n, int) else None, "unit": "rows",
+                    "detail": "; ".join(x for x in (
+                        f"launch-critical: {r['fm_launch_critical']}"
+                        if r.get("fm_launch_critical") is not None else None,
+                        f"Build 2: {r['build2']}" if r.get("build2") is not None else None,
+                        f"owner action: {r['owner_action']}" if r.get("owner_action") else None)
+                        if x) or None,
+                    "at": board.get("as_of"), "status": "BLOCKED", "source": r.get("source")})
+            board_rows.sort(key=lambda r: (-(r["count"] if isinstance(r["count"], int) else -1),
+                                           r["title"]))
+        ranked = board_rows + gate_ranked
         env = envelope("BLOCKED" if ranked else "OK", ranked,
-                       ["build2.executor.gate_states", "autonomy.status.summary"],
+                       ["company.finish_line (COMPLETION_BOARD_FINAL)",
+                        "build2.executor.gate_states", "autonomy.status.summary"],
                        provider="overview.blocked", as_of=now_iso(),
-                       counts={"root_causes": len(ranked), "closed_gates": len(causes),
+                       counts={"root_causes": len(ranked), "board_root_causes": len(board_rows),
+                               "closed_gates": len(causes),
                                "requirements_waiting": waiting_total},
-                       board=("the completion-board lane (claude/w4-BOARD) is not published; "
-                              "root causes are read from the executor gates"))
-        head = (f"{len(causes)} closed gate(s) hold {waiting_total} requirement(s)"
-                if ranked else "No closed gate and no blocked department")
+                       board=({"status": board.get("status"), "as_of": board.get("as_of"),
+                               "production_commit": board.get("production_commit")}
+                              if board_rows else
+                              {"status": "UNKNOWN", "why": (board or {}).get("reason")
+                               or "finish-line board not readable; gates only"}))
+        gates_head = f"{len(causes)} closed gate(s) hold {waiting_total} requirement(s)"
+        if board_rows:
+            top = board_rows[0]
+            head = (f"Top root cause: {top['title']} ({top['count'] if top['count'] is not None else 'Unknown'} "
+                    f"rows); {gates_head}")
+        else:
+            head = gates_head if ranked else "No closed gate and no blocked department"
         return _block("blocked", title, env, head, href=href, evidence=ranked)
 
     return _safe("blocked", title, href, read,

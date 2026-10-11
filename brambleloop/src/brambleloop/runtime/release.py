@@ -2948,9 +2948,22 @@ def handle_model_probe(ctx: JobContext) -> dict:
     """
     from ..gateway import anthropic
 
+    previous = anthropic.last_probe(ctx.db)
     record = anthropic.probe(ctx.db, job_id=ctx.job.id)
     ctx.audit("model.probe.ok" if record["ok"] else "model.probe.unavailable",
               detail={k: v for k, v in record.items() if k != "key"})
+    if record.get("ok"):
+        # W4-ONDEMAND: the provider answers again, so parked model jobs need not sit out their
+        # park window, and on a transition (or an owner's on-demand run) the vision and other
+        # capability probes are queued at once. Enqueue-only; never fails the probe.
+        try:
+            from ..ops import on_demand
+
+            record = dict(record, chain=on_demand.after_model_ok(
+                ctx.db, previous=previous,
+                on_demand=bool((ctx.job.inputs or {}).get("on_demand"))))
+        except Exception as exc:  # noqa: BLE001
+            record = dict(record, chain_error=type(exc).__name__)
     return record
 
 
@@ -3379,6 +3392,17 @@ def handle_etsy_probe(ctx: JobContext) -> dict:
             queued = ctx.enqueue("listing", etsy_taxonomy.JOB_TYPE, {},
                                  idempotency_key=f"tax-after-probe-{day}")
             record = dict(record, taxonomy_refresh_queued=queued is not None)
+    # W4-ONDEMAND: when the owner's re-check succeeds, the taxonomy refresh (skipped if the
+    # block above already queued it) and the market-intel captures are queued now, not up to
+    # a day later. Only for an on-demand probe (the scheduled one keeps W4-ETSYCOMM's rule
+    # above), and at most once per hour.
+    if record.get("ok") and (ctx.job.inputs or {}).get("on_demand"):
+        try:
+            from ..ops import on_demand
+
+            on_demand.after_etsy_ok(ctx.db, trigger="etsy.probe")
+        except Exception:  # noqa: BLE001 - a follow-on never fails the probe
+            pass
     return record
 
 

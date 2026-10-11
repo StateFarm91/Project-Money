@@ -15,9 +15,11 @@ no redesign. Not deployed. `store.js` and `laura.js` untouched.
 3. **What's working** — executor capability gates that are open, checked live when the page is read
    (`build2.executor.gate_states`), plus the last production self-check (`verify.completed` audit row) with
    its time and failing checks.
-4. **What's blocked** — root causes ranked by count: each closed gate with the number of requirements that
-   wait on it, plus department blockers grouped by gate. The completion-board lane `claude/w4-BOARD` is not
-   on origin, so the block says it reads the executor gates instead (`board` field).
+4. **What's blocked** — root causes with counts. Leads with the finish-line board's root causes
+   (W4-BOARD `company.finish_line`, rows of Build 2 + Final Master each cause holds, with the board's
+   generated time), then the live closed gates ranked by requirements waiting, plus department blockers.
+   Two units, two ranked lists, never interleaved. If the board is unreadable the block says so and the
+   gates still answer.
 5. **What the company accomplished (24 h)** — finished jobs that did useful work by the system's one
    useful-work judge (`autonomy.kpis.did_no_work`), grouped by kind with the latest result text and source
    job; jobs that did no work are counted, never shown as accomplishments.
@@ -57,6 +59,10 @@ money UNKNOWN "Revenue UNMEASURED; spend 24 h CA$0.00 (recorded, 0 row(s))". Hom
 
 ## Not done / follow-ups
 - Production numbers not observed (not deployed). After deploy, read `/api/cc/home` → `sections.overview`.
-- When `claude/w4-BOARD` lands, `blocked` should read its root-cause output in place of the gate fallback.
 - "Last verified" for gates is the live check time; per-probe timestamps (model.probe / etsy.probe) could be
   added from their audit rows.
+
+## Merge with INTEG2 9261028
+Merged (merge commit). `home.js`: the W4-ONDEMAND "Run checks now" card stays on Home as its own block
+directly after the six blocks (not folded). `sw.js`: shell lists both `_overview.js` and `_checks.js`;
+cache version bumped to `cc-shell-v13` (past both lanes' v12).

@@ -102,10 +102,36 @@ def test_working_names_capabilities_and_last_self_check_with_times():
 def test_blocked_ranks_root_causes_by_count():
     db = _db()
     b = overview.overview(db)["blocks"]["blocked"]
-    counts = [r["count"] for r in b["evidence"]]
-    assert counts == sorted(counts, reverse=True), counts
+    for unit in ("rows", "requirements"):
+        counts = [r["count"] for r in b["evidence"] if r.get("unit") == unit]
+        assert counts == sorted(counts, reverse=True), (unit, counts)
+    units = [r.get("unit") for r in b["evidence"]]
+    if "rows" in units:  # board causes lead, gates follow; units never interleave
+        assert units[:units.count("rows")] == ["rows"] * units.count("rows"), units
     assert b["counts"]["closed_gates"] > 0 and b["status"] == "BLOCKED"
     assert b["items"] == b["evidence"][:overview.TOP]
+
+
+def test_blocked_leads_with_the_finish_line_board_and_survives_its_absence():
+    db = _db()
+    board = {"status": "BLOCKED", "as_of": "2026-10-11T18:00:00+00:00", "production_commit": "x",
+             "items": [{"title": "Etsy credential", "rows": 40, "fm_launch_critical": 12,
+                        "build2": 3, "source": "board#etsy"},
+                       {"title": "No customer yet", "rows": 90, "source": "board#cust"},
+                       {"title": "Uncounted", "rows": None, "source": "board#u"}]}
+    b = overview.blocked(db, board_reader=lambda: board)
+    assert [r["title"] for r in b["evidence"][:3]] == ["No customer yet", "Etsy credential",
+                                                       "Uncounted"], b["evidence"][:3]
+    assert b["evidence"][2]["count"] is None  # unknown stays unknown, never 0
+    assert b["headline"].startswith("Top root cause: No customer yet (90 rows)")
+    assert b["counts"]["board_root_causes"] == 3 and b["board"]["as_of"]
+
+    def boom():
+        raise OSError("gone")
+
+    g = overview.blocked(db, board_reader=boom)
+    assert g["counts"]["board_root_causes"] == 0 and g["board"]["status"] == "UNKNOWN"
+    assert g["status"] == "BLOCKED" and "closed gate" in g["headline"]
 
 
 def test_accomplished_is_useful_outcomes_not_job_counts():

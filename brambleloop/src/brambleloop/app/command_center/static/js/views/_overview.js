@@ -8,7 +8,7 @@ import { relTime, utcStamp, UNKNOWN_TEXT } from "../format.js";
 
 const ROW_FIELDS = {
   working: (r) => [r.title, r.verified_at ? `verified ${relTime(r.verified_at)} · ${r.verified_basis || ""}` : UNKNOWN_TEXT],
-  blocked: (r) => [r.title, `${typeof r.count === "number" ? r.count : UNKNOWN_TEXT} waiting`],
+  blocked: (r) => [r.title, `${typeof r.count === "number" ? r.count : UNKNOWN_TEXT} ${r.unit || "waiting"}`],
   accomplished: (r) => [r.title, `${r.count}× · ${r.detail || "result not described"}`],
   ready: (r) => [r.title, `${r.publication || UNKNOWN_TEXT} · cert ${r.certified ? "yes" : "no"} · PDF ${stateOf(r.pdf)} · images ${stateOf(r.images)}`],
   money: (r) => [r.title, r.display || UNKNOWN_TEXT],

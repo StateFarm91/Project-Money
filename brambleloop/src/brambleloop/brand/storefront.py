@@ -412,10 +412,16 @@ def opening_grid(db, *, today=None, inventory: dict | None = None) -> dict:
         listings = [l for l in s.scalars(select(Listing).where(Listing.state != "withdrawn")
                                          .order_by(Listing.product_slug, Listing.id))]
         certs = {}
+        # W4-CATALOG: the current release of each product is its newest certified version
+        # (the same rule `ops.artefacts` uses for "latest"); a listing of an older version is
+        # a superseded release, not a second product.
+        current: dict[str, tuple[int, str]] = {}
         for slug, pv in s.execute(select(Product.slug, PatternVersion)
                                   .join(PatternVersion, PatternVersion.product_id == Product.id)
                                   .where(PatternVersion.certified.is_(True))):
             certs[(slug, pv.version)] = dict(pv.certificate or {})
+            if pv.id > current.get(slug, (-1, ""))[0]:
+                current[slug] = (pv.id, pv.version)
         from ..commerce import orders_ingest as _oi
 
         orders: dict[str, int] = {}
@@ -426,9 +432,17 @@ def opening_grid(db, *, today=None, inventory: dict | None = None) -> dict:
         for l in listings:
             s.expunge(l)
 
+    # One tile per product release: a product listed at two versions (a re-engineered release
+    # beside the one it superseded) showed twice on the first screen, and the older tile sold
+    # a pattern the company has replaced (listings are unique per slug and version).
     tiles, excluded = [], []
     for l in listings:
         slug = l.product_slug
+        cur = current.get(slug)
+        if cur is not None and l.version != cur[1]:
+            excluded.append({"slug": slug, "version": l.version,
+                             "why": f"superseded: the current certified release is {cur[1]}"})
+            continue
         if slug not in cleared:
             excluded.append({"slug": slug, "version": l.version,
                              "why": f"not launch-cleared: failing {failing.get(slug) or 'unknown'}"})

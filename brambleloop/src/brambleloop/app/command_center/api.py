@@ -241,6 +241,7 @@ def make_router(db) -> APIRouter:
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
                    "sections": {"board": company_mod.completion(db),
+                                "finish_line": company_mod.finish_line(),
                                 "live_work": company_mod.live_company_work(db)}})
 
     @router.get("/insights")
@@ -357,6 +358,38 @@ def make_router(db) -> APIRouter:
             raise auth.refuse(db, request, 409, exc.code, str(exc), kind="action",
                               session_public_id=auth.current_public_id(request),
                               detail=exc.detail) from None
+        return ok({"ok": True, **out})
+
+    # ---- W4-ONDEMAND: "Run checks now" -------------------------------------------------
+    # Session + CSRF + nonce + timestamp are enforced by the gate before these run. A check
+    # that calls a third party (model, Etsy, bucket) also needs a fresh step-up. Each run only
+    # enqueues the existing scheduled job type; the worker re-authorises and budget-checks it.
+
+    @router.get("/checks")
+    def checks_status(request: Request):
+        from ...ops import on_demand
+
+        return ok(on_demand.status(db))
+
+    @router.post("/checks/{key}/run")
+    async def checks_run(key: str, request: Request):
+        from ...ops import on_demand
+
+        await body_of(request)
+        pid = auth.current_public_id(request)
+        check = on_demand.CHECKS.get(key)
+        if check is None:
+            raise auth.refuse(db, request, 404, "NOT_FOUND", f"unknown check {key!r}",
+                              kind="action", session_public_id=pid)
+        if check.external:
+            auth.require_stepup(db, request, f"checks.{key}")
+        try:
+            out = await run_in_threadpool(on_demand.run_check, db, key, actor=actor(request))
+        except on_demand.CheckRefused as exc:
+            status = 429 if exc.code == "RATE_LIMITED" else 409
+            raise auth.refuse(db, request, status, exc.code, str(exc), kind="action",
+                              session_public_id=pid,
+                              detail={"retry_after_s": exc.retry_after_s}) from None
         return ok({"ok": True, **out})
 
     # ---- emergency -------------------------------------------------------------------
@@ -854,6 +887,29 @@ def store_preview_handler(db):
                                      "X-Robots-Tag": "noindex, nofollow"})
 
     return owner_store_preview
+
+
+IMAGE_REVIEW_PATH = "/cc/image-review"
+
+
+def image_review_handler(db):
+    """W4-IMAGES: the owner-only internal image review (`store_foundation.image_review`).
+
+    Every candidate listing image, shown with its status and limitations, including frames
+    withheld from the customer preview. `security.owner_session_route` names this exact path,
+    so `operator_gate` -> `auth.gate` requires a live owner session. It is never a customer
+    surface: no-store, noindex, and nothing on it grants publication.
+    """
+    from fastapi.responses import HTMLResponse
+
+    def owner_image_review(request: Request):
+        from ...store_foundation import image_review
+
+        html = image_review.render_page(db)
+        return HTMLResponse(html, headers={"Cache-Control": "no-store",
+                                           "X-Robots-Tag": "noindex, nofollow"})
+
+    return owner_image_review
 
 
 def live_observation_handler(db):

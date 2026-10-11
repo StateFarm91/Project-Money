@@ -6,6 +6,7 @@ import { formatMoney, relTime, utcStamp } from "../format.js";
 import { sectionsOf, pageMeta, renderAll, sectionDetails, isMoney } from "./_shared.js";
 import { rankDecisions, decideFirstCard } from "./_decisions.js";
 import { overviewBlocks, nextDecisions } from "./_overview.js";
+import { checksCard } from "./_checks.js";
 
 const BRIEF_ORDER = [
   ["decisions_needed", "Decisions needed"], ["what_changed", "What changed"], ["completed", "Completed"],
@@ -54,6 +55,7 @@ function heroCard(hl, result) {
 
 export async function render({ rerender }) {
   const [homeR, briefR, apprR] = await Promise.allSettled([api.home(), api.morning(12), api.approvals()]);
+  const checks = await checksCard({ rerender });
   if (homeR.status === "rejected") throw homeR.reason;
   const result = homeR.value;
   const data = result.data || {};
@@ -91,6 +93,8 @@ export async function render({ rerender }) {
     // W4-CCUX: the top decisions, with cost and consequence, before anything else to read.
     decide,
     ...overviewBlocks(s.overview, { stale: result.stale, fetchedAt: result.fetchedAt }),
+    // W4-ONDEMAND: "Run checks now" stays on Home, as its own block after the six.
+    checks,
     h("div", { class: "quick" },
       h("a", { class: "btn btn-primary", href: "#/approvals" }, icon("approvals", 18), "Decisions"),
       h("a", { class: "btn", href: "#/company" }, icon("operations", 18), "Company"),

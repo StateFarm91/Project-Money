@@ -169,6 +169,8 @@ body.is-signed-out { padding-bottom: 0; }
 .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
 .row { border-top: 1px solid var(--border); padding: 12px 0; position: relative; min-width: 0; }
 .row:first-child { border-top: 0; padding-top: 4px; }
+.root-cause { border-top: 1px solid var(--border); padding: 10px 0; min-width: 0; overflow-wrap: anywhere; }
+.root-cause:first-child { border-top: 0; }
 .row-link { display: block; color: inherit; text-decoration: none; padding-right: 28px; min-height: var(--tap); }
 .row-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
 .row-title { font-weight: 600; margin: 0; overflow-wrap: anywhere; }
