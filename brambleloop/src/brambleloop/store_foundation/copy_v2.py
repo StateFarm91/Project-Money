@@ -41,8 +41,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-VERSION = "copy_v2"
-WRITTEN_ON = "2026-10-06"
+VERSION = "copy_v3"
+WRITTEN_ON = "2026-10-11"
+# W4-COPY (owner directive 2026-10-11): concise, warm, commercially clear; no machinery talk;
+# every customer claim verified in research/final_build/w4/COPY_CLAIMS.md and fenced by
+# store_foundation.claims.
 
 SHOP_NAME = "Brambleloop Studio"
 BRAND_NAME = "Brambleloop"
@@ -238,8 +241,8 @@ BANNER: dict = {
 
 # ---- announcement ---------------------------------------------------------------------------
 
-ANNOUNCEMENT = ("Welcome to Brambleloop. Calm, beautiful crochet patterns for home and "
-                "nursery, written clearly, with free corrections for every buyer.")
+ANNOUNCEMENT = ("Welcome to Brambleloop. Crochet patterns for home and nursery, clearly "
+                "written in US and UK terms, with free corrections.")
 
 # Drafts for a seasonal takeover. Shown only when the takeover is applied and its products
 # exist (brand.takeover decides); until then the evergreen line stands.
@@ -273,8 +276,7 @@ LAURA_PLACEMENT: dict[str, str] = {
 }
 
 ABOUT_LAURA_INTRO = ("Laura is Brambleloop's AI founder and the face of this shop. She is an "
-                     "AI, not a human, and every pattern she puts her name to is checked row "
-                     "by row before it reaches you.")
+                     "AI, not a human, and we will always say so.")
 
 LAURA_FAQ = {
     "key": "who_is_laura",
@@ -292,34 +294,26 @@ LAURA_FAQ = {
 # then, deeper, how that is earned; then the plain truths (AI, renders, no sample); then the
 # promise that costs something to keep; then who is responsible and how to reach us.
 ABOUT_PARAGRAPHS: tuple[str, ...] = (
-    ("Brambleloop Studio makes crochet patterns for the pieces you want around you: a soft "
+    ("Brambleloop Studio designs crochet patterns for the pieces you want around you: a soft "
      "blanket for a new baby, baskets that bring a little order to a shelf, small things for "
-     "the table that make a room feel cared for. Quiet colours, natural textures and shapes "
-     "meant to be lived with, not just admired."),
+     "the table that make a room feel cared for. Quiet colours, natural textures and "
+     "practical projects you will actually use."),
     ("Brambleloop is Laura's studio. Laura is its AI founder and the face you will see here. "
-     "She is an AI, not a human, and she will never pretend otherwise. The standard below is "
-     "the one every pattern here is held to."),
+     "She is an AI, not a person, and we will always say so."),
     ("A pattern should be a pleasure to follow. Each one is written in plain, consistent "
-     "language, with a chart that says exactly what the words say, the hook size and gauge "
-     "stated up front, and every stitch named before you begin. Each pattern "
-     "comes as two complete PDFs, one in US terms and one in UK terms, so you never have to "
-     "translate in your head."),
-    ("Behind that is an unusual amount of checking. Every design is drawn up stitch by stitch "
-     "before a word of the pattern is written, and every row's stitch count is checked "
-     "before the pattern goes on sale: the counts add up, the repeats divide evenly, and the chart matches the "
-     "text. Then a separate check reads only the finished pattern, the way you will, and "
-     "rebuilds the design from it. If the two disagree anywhere, the pattern does not go on "
-     "sale. "
-     "It exists for one reason: so you never reach row 94 of a blanket and wonder whether "
-     "the mistake is yours."),
-    ("The designs are developed with AI, and every stitch count is then verified exactly, "
-     "by a separate step that does no guessing; one never stands in for the other. The pictures are digital renderings of each finished design, not "
-     "photographs. No sample has been photographed, and we have not yet worked a physical "
-     "sample, so make a gauge swatch first: your yarn, hook and tension decide the finished "
-     "size."),
+     "language, with a chart that matches the words, the hook size and gauge stated up "
+     "front, and every stitch named before you begin. Every pattern comes as two complete "
+     "PDFs, one in US terms and one in UK terms."),
+    ("Before a pattern goes on sale it passes the same checks: every row's stitch count adds "
+     "up, every repeat divides evenly, and the written pattern is read back against the "
+     "chart. It is a lot of checking for a blanket, and it is there so you never reach row "
+     "94 wondering whether the mistake is yours."),
+    ("Our designs are created with AI assistance, and the pictures are digital renderings of "
+     "each finished design, not photographs. We have not yet worked physical samples, so "
+     "make a gauge swatch first: your yarn, hook and tension decide the finished size."),
     ("If something in a pattern does not add up, tell us. We correct the pattern itself and "
-     "send the corrected file to everyone who bought it, so the next maker never meets the "
-     "same problem."),
+     "send you the corrected file, and anyone who bought an earlier version can ask for the "
+     "corrected one at any time."),
     ("Brambleloop Studio is sold on Etsy by the human holder of this shop account, who is "
      "responsible for every order. What you may make, sell, print and teach from a pattern "
      "is set out in the FAQ, and questions come to us through Etsy Messages."),
@@ -337,12 +331,13 @@ DELIVERY = (
     "not open, message us and we will get it to you.")
 
 RETURNS = (
-    "Digital patterns cannot be returned, and Etsy does not allow a seller to accept a return "
-    "on a digital listing; we would rather you knew that before you buy. Here is what we do "
-    "instead. If a pattern contains an error, we correct the pattern itself and send the "
-    "corrected file to everyone who bought it. If you cannot open or download your file, we "
-    "will get it to you. If a pattern is not what the listing led you to expect, tell us: "
-    "that is our listing to fix, and we will make it right with you.")
+    "Digital patterns cannot be returned or cancelled: Etsy does not allow returns on digital "
+    "listings, and we would rather you knew that before you buy. If something is wrong, we "
+    "will put it right. If a pattern contains an error, we correct the pattern itself and "
+    "send you the corrected file. If you cannot open or download your file, we will get it "
+    "to you. If a pattern is not what the listing led you to expect, tell us: that is our "
+    "listing to fix. A digital item that is not as described, or never arrives, may also be "
+    "covered by Etsy's Purchase Protection.")
 
 PRIVACY = (
     "We only see what Etsy shares with us to fulfil your order. We do not sell or share your "
@@ -370,8 +365,8 @@ SUPPORT_CONTACT = (
     "Questions go through Etsy Messages: use the message button on this shop page or on your "
     "order. Tell us the pattern name, which file you are using (US or UK terms) and the row "
     "or round number, and we will answer against the exact version you bought. If the "
-    "problem is in the pattern, we correct the pattern itself and send the corrected file to "
-    "everyone who bought it.")
+    "problem is in the pattern, we correct the pattern itself and send you the corrected "
+    "file.")
 
 
 def digital_sale_message(terms=None) -> str:
@@ -391,8 +386,7 @@ def digital_sale_message(terms=None) -> str:
         "emailed you a link as well.\n\n"
         f"Two things worth knowing. Under our pattern terms, {sell}. And if anything in the "
         "pattern does not add up, reply to this message with the pattern name and the row "
-        "number: we correct the pattern itself and send the corrected file to everyone who "
-        "bought it, including you.")
+        "number: we correct the pattern itself and send you the corrected file.")
 
 
 DIGITAL_SALE_MESSAGE = digital_sale_message()
@@ -455,7 +449,7 @@ def faq_core(terms=None, ai_answer: str | None = None) -> list[dict]:
         "what_if_there_is_a_mistake": (
             "What if I find a mistake?",
             f"Tell us the pattern and the row. {support[0].upper() + support[1:]}. If the "
-            f"pattern is wrong we fix the pattern, not just your copy: {versions}."),
+            f"pattern is wrong we fix the pattern itself. {versions[0].upper() + versions[1:]}."),
         "can_i_get_a_refund": (
             "Can I get a refund?",
             "Digital patterns cannot be returned, and Etsy does not allow a seller to accept "
@@ -607,7 +601,7 @@ TRUST_SIGNALS: tuple[TrustSignal, ...] = (
                 "verified_process", ("src/brambleloop/cir/reverse.py",)),
     TrustSignal("us_uk", "US and UK terms, each a complete PDF", "verified_process",
                 ("src/brambleloop/publish/pdf.py",), "publish.pdf.TERMINOLOGIES"),
-    TrustSignal("corrections", "Free corrections, sent to everyone who bought the pattern",
+    TrustSignal("corrections", "Free corrections for every pattern you buy",
                 "policy_commitment", ("src/brambleloop/commerce/terms.py",),
                 "terms.VERSION_POLICY"),
     TrustSignal("licence", "Sell what you make, by hand or in small batches",
@@ -712,4 +706,12 @@ def export() -> dict:
         "lint_misfires": [dict(m) for m in LINT_MISFIRES],
         "laura_placement": dict(LAURA_PLACEMENT),
         "above_the_fold_keys": sorted(ABOVE_THE_FOLD),
+        # W4-COPY: the claim register behind every sentence above (store_foundation.claims).
+        "claim_register": _claim_register(),
     }
+
+
+def _claim_register() -> list[dict]:
+    from . import claims
+
+    return [c.to_dict() for c in claims.CLAIMS]

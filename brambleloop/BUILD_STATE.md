@@ -1,3 +1,12 @@
+> **2026-10-11 — W4-COPY: store copy v3 + customer-claim register (branch `claude/w4-COPY`, not deployed).**
+> One content source (`store_foundation/copy_v2.py`, VERSION copy_v3; `brand.storefront.ABOUT` now reads it -- the
+> rejected v1 "compiler" About had survived there). AI disclosure no longer implies a human designer ("This design was
+> created with AI assistance, and every row's stitch count is checked before release."), carried verbatim in listings.
+> Terms: "its images" (no photographs exist); corrections "on request" (no Messages API can notify every buyer; "forever"
+> dropped). `store_foundation.claims`: 16 claims with evidence and verdicts, FORBIDDEN fence over 96 surfaces
+> (tests/test_w4_copy.py). Open owner/legal reviews: licence enforceability, consumer-law refunds, CASL wording, Etsy image
+> rule vs renderings, proactive correction notices, support commitment. `research/final_build/w4/COPY_CLAIMS.md`.
+
 > **2026-10-11 — W4-MARKETINTEL: market intelligence from sanctioned sources, labelled and routed (branch `claude/w4-MARKETINTEL`, not deployed).**
 > Etsy Open API v3 (oas 3.0.0 read 2026-10-11, sha256 b993d52f...) has NO Marketplace Insights / search-volume / shop-stats
 > operation ('insight' 0, 'stats' 0, 'search volume' 0); only findAllListingsActive `{count, results}`. `intel.market_intel`

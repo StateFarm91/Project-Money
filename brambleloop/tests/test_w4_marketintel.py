@@ -249,7 +249,9 @@ def test_routes_are_operator_gated_and_the_phone_page_has_no_inline_script():
     assert page.count("<script") == 1  # the one script the page policy allows
     js = c.get("/ops/teardown.js").text
     assert "/api/insights/paste" in js and "localStorage.setItem" not in js
-    assert c.get("/api/market-intel").status_code == 200
+    # W4-SECFIX: the payload carries the owner's Insights readings -> operator credential.
+    assert c.get("/api/market-intel").status_code == 401
+    assert c.get("/api/market-intel", headers=h).status_code == 200
     ok("paste route 401 without the operator token; Insights paste lives on the one allowed ops page")
 
 
