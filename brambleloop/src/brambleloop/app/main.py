@@ -4762,10 +4762,21 @@ def api_verify() -> JSONResponse:
     from ..finance.spend_report import per_agent_today
 
     today = per_agent_today(db)
-    check("every_agent_has_a_cost_ceiling",
-          bool(agents) and all(a.daily_cost_ceiling_cad > 0 for a in agents),
+    # W4-FINHEALTH: a CA$0 ceiling that DEFAULT_AGENTS declares (learn, coo, laura) is a
+    # permission of zero, refused before the call -- not a missing ceiling. The verdict now
+    # fails on what is actually wrong: a non-finite ceiling, a zero/negative one nobody
+    # declared, or a declared no-spend agent that spent. `registry.ceiling_audit` says how.
+    from ..agents.registry import ceiling_audit
+
+    audit_c = ceiling_audit([(a.name, a.daily_cost_ceiling_cad) for a in agents],
+                            {r["agent"]: r["spent_today_cad"] for r in today["agents"]})
+    check("every_agent_has_a_cost_ceiling", audit_c["ok"],
           {"agents": len(agents),
-           "without_ceiling": [a.name for a in agents if a.daily_cost_ceiling_cad <= 0],
+           "without_ceiling": [m["agent"] for m in audit_c["misconfigured"]],
+           "declared_no_spend": audit_c["declared_no_spend"],
+           "misconfigured": audit_c["misconfigured"],
+           "no_spend_agents_that_spent_today": audit_c["no_spend_agents_that_spent_today"],
+           "zero_ceiling_means": audit_c["zero_ceiling_means"],
            "spent_today_against_ceiling": today["agents"],
            "over_their_ceiling_today": today["over"],
            "this_check_measures": ("that a ceiling exists, not that it was enforced. The "
@@ -4844,8 +4855,15 @@ def api_verify() -> JSONResponse:
 
     unexpected = [j for j in dead if not _deliberate(j)]
     recent = [j for j in unexpected if _aware(j.finished_at or j.created_at) >= cutoff]
+    # W4-FINHEALTH: a list of job types said *which* failed, not how many or why, so "17
+    # mjs.scan dead letters" and "1 mjs.scan dead letter" read the same. The per-type count,
+    # last time and first error line are carried now. Verdict unchanged.
+    from ..queue.durable import dead_letter_digest
+
     check("no_unexpected_dead_letters_in_24h", not recent,
           {"recent": sorted({j.job_type for j in recent}),
+           "recent_by_type": dead_letter_digest(recent),
+           "recent_total": len(recent),
            "historical_total": len(unexpected),
            "historical_types": sorted({j.job_type for j in unexpected}),
            "expected_publish_refusals":

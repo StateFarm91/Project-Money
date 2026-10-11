@@ -212,6 +212,12 @@ def job_key(prefix: str, stamp: str) -> str:
     return "rebuild:sha256=" + hashlib.sha256(f"{prefix}\0{stamp}".encode()).hexdigest()
 
 
+def _bounded_key(prefix: str, stamp: str) -> str:
+    """W4-FINHEALTH's spelling of the same fix (prefix carries its trailing ':'); one
+    implementation, `job_key`, so both lanes' regression tests hold the same keys."""
+    return job_key(prefix[:-1] if prefix.endswith(":") else prefix, stamp)
+
+
 def enqueue(db, queue, *, changed: dict[str, str], reason: str,
             expected: list[tuple[str, str, str]] | None = None,
             per: str = "artefact", previous: dict[str, str] | None = None) -> dict:
