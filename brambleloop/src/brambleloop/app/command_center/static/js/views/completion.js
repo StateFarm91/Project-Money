@@ -93,6 +93,41 @@ export function packetCard(settled) {
     sourcesList(env.sources));
 }
 
+// W4-BOARD: the one finish-line board (Build 2 + Final Master), generated from the ledgers and
+// production GETs; compact on a phone: the counts, then the root causes behind a <details>.
+const CLASS_LABELS = [["verified_complete", "Verified complete"], ["implemented_unverified", "Built, unverified"],
+  ["in_progress", "In progress"], ["blocked_engineering", "Blocked: engineering"],
+  ["blocked_owner", "Blocked: owner"], ["blocked_external", "Blocked: external"]];
+export function finishLineCard(env, result) {
+  const title = "Finish line: Build 2 + Final Master";
+  if (!env || typeof env !== "object") return envelopeCard(title, null);
+  const scopes = env.scopes || {};
+  const n = (v) => (typeof v === "number" ? v : null);
+  const scopeBlock = (label, sc) => {
+    if (!sc) return h("p", { class: "muted" }, `${label}: ${UNKNOWN_TEXT}`);
+    return h("div", null, h("h3", { class: "section-title" }, `${label} (${sc.total})`),
+      h("div", { class: "tiles" }, ...CLASS_LABELS.map(([k, lab]) =>
+        statTile(lab, n(sc[k]), { status: k.startsWith("blocked") && n(sc[k]) ? "BLOCKED" : null }))));
+  };
+  const roots = Array.isArray(env.items) ? env.items : [];
+  const path = Array.isArray(env.critical_path) ? env.critical_path : [];
+  return card({ title, labelId: "completion-finish-line", subtitle: "Every requirement in exactly one class; generated, never typed", actions: statusPill(env.status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of, result),
+      env.production_commit ? ` · production ${String(env.production_commit).slice(0, 7)}` : ""),
+    env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
+    scopeBlock("Final Master launch-critical", scopes.final_master_launch_critical),
+    scopeBlock("Build 2", scopes.build2),
+    scopeBlock("Final Master total", scopes.final_master_total),
+    h("details", { class: "sources" }, h("summary", null, `Top root causes (${roots.length})`),
+      h("ul", { class: "rows" }, roots.map((r) => h("li", { class: "root-cause" },
+        h("div", { class: "row-head" }, h("p", { class: "row-title" }, txt(r.title)), statusPill("BLOCKED", `${txt(r.rows)} rows`)),
+        h("p", { class: "row-detail" }, `Final Master launch-critical ${txt(r.fm_launch_critical)} · Build 2 ${txt(r.build2)}`),
+        r.owner_action ? h("p", { class: "row-detail" }, `Owner action: ${r.owner_action}`) : null)))),
+    path.length ? h("details", { class: "sources" }, h("summary", null, `Critical path (${path.length} steps)`),
+      h("ol", null, path.map((s) => h("li", null, `${txt(s.title)} (${txt(s.who)}): unblocks ${txt(s.unblocks_rows)} rows${s.estimate && s.estimate.figure ? ` · estimate: ${s.estimate.figure}` : ""}`)))) : null,
+    sourcesList(env.sources));
+}
+
 export async function render() {
   const [res, pk] = await Promise.allSettled([api.completion(), api.launchPacket()]);
   if (res.status === "rejected") throw res.reason;
@@ -118,6 +153,7 @@ export async function render() {
       Array.isArray(env.stale) && env.stale.length ? h("p", { class: "callout callout-warn" }, `Stale (running, no update for 3 h): ${env.stale.join(", ")}`) : null,
       Array.isArray(env.schema_errors) && env.schema_errors.length ? h("p", { class: "callout callout-warn" }, `Board problems: ${env.schema_errors.slice(0, 5).join("; ")}`) : null,
       env.note ? h("p", { class: "muted small" }, env.note) : null),
+    finishLineCard(sectionsOf(data).finish_line, result),
     liveWorkCard(sectionsOf(data).live_work, result),
     packetCard(pk),
     card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness(env.as_of || null, result)),
