@@ -123,6 +123,7 @@ def test_status_lists_every_check_with_its_scheduled_cadence():
     body = c.get("/api/cc/checks").json()
     keys = {row["key"] for row in body["checks"]}
     assert keys == set(OD.CHECKS)
+    assert body["checks"], "no check listed"
     for row in body["checks"]:
         assert row["jobs"] and all(j["scheduled_every_s"] > 0 for j in row["jobs"])
         assert row["requires_stepup"] == OD.CHECKS[row["key"]].external
@@ -187,6 +188,7 @@ def test_every_check_only_uses_scheduled_job_types_and_spends_nothing():
         cost_before = s.scalar(select(func.count()).select_from(CostEntry))
     for key in OD.CHECKS:
         out = OD.run_check(DB, key, actor="owner:cc:test", now=now)
+        assert out["results"], (key, out)
         for res in out["results"]:
             assert res["job_type"] in SCHEDULED_TYPES, res
     with DB.session() as s:

@@ -31,7 +31,13 @@ export async function checksCard({ rerender, stale } = {}) {
   let data;
   try { data = (await api.checks()).data || {}; }
   catch (e) {
-    const others = Array.isArray(data.other_cadences) ? data.other_cadences : [];
+    // W4-OWNERHOME merge fix: this block used to hold the "other cadences" code, so a failed
+    // load threw on `data.other_cadences` (data undefined) and a successful one threw on
+    // `more` (scoped to the catch) -- either way Home failed to render.
+    return card({ title: "Run checks now", actions: statusPill("UNKNOWN") },
+      h("p", { class: "muted" }, `Checks could not be loaded (${e.message || "error"}).`));
+  }
+  const others = Array.isArray(data.other_cadences) ? data.other_cadences : [];
   const pick = h("select", { id: "rerun-cadence", aria: { label: "Scheduled check" } },
     others.map((o) => h("option", { value: o.cadence }, `${o.cadence} (${o.job_type})`)));
   const rerun = h("button", { class: "btn btn-sm", type: "button", disabled: stale || !others.length,
@@ -46,9 +52,6 @@ export async function checksCard({ rerender, stale } = {}) {
   const more = others.length ? h("details", { class: "page-index" },
     h("summary", null, `Any other scheduled check · ${others.length}`),
     h("label", { class: "field", for: "rerun-cadence" }, "Scheduled check"), pick, rerun) : null;
-  return card({ title: "Run checks now", actions: statusPill("UNKNOWN") },
-      h("p", { class: "muted" }, `Checks could not be loaded (${e.message || "error"}).`));
-  }
   const rows = (data.checks || []).map((c) => {
     const btn = h("button", { class: "btn btn-sm", type: "button", disabled: stale || !c.available_now,
       onclick: async () => {

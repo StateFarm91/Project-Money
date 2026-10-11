@@ -347,6 +347,40 @@ try {
   check(/Harbour Throw/.test(homeDecide) && /Max cost/.test(homeDecide) && /If you do nothing/.test(homeDecide) && /1 more open/.test(homeDecide)
     && (await page.isVisible(".decide-first .decide-rest a[href='#/approvals']")), "ccux home: top decisions with cost, consequence and a link to all", homeDecide.slice(0, 200));
   await noHScroll("ccux home");
+
+  // ---- W4-OWNERHOME: six-block owner overview at 390 px ----------------------------------
+  const ovTitles = await page.$$eval("#main .stack > .card", (els) => els.map((e) => e.classList.contains("hero") ? "hero"
+    : e.classList.contains("decide-first") ? "decisions" : (e.className.match(/ov-(working|blocked|accomplished|ready|money)/) || [])[1] || null).filter(Boolean));
+  check(JSON.stringify(ovTitles.slice(0, 7)) === JSON.stringify(["hero", "decisions", "working", "blocked", "accomplished", "ready", "money"]),
+    "ownerhome: six blocks lead Home (decisions first after the brief)", JSON.stringify(ovTitles));
+  const ovRows = await page.$$eval(".ov-block", (els) => els.map((e) => [e.className, e.querySelectorAll(":scope > .ov-rows > li").length,
+    e.querySelector(":scope > .ov-evidence > summary")?.textContent || "", e.querySelector(":scope > details.ov-evidence")?.open]));
+  check(ovRows.length === 5 && ovRows.every(([, n]) => n <= 5) && ovRows.every(([, , , open]) => open === false),
+    "ownerhome: each block shows at most five rows, evidence folded", JSON.stringify(ovRows));
+  check(ovRows.some(([c, n, sum]) => /ov-blocked/.test(c) && n === 5 && /Evidence \(7\)/.test(sum)), "ownerhome: evidence keeps every row the block summarises", JSON.stringify(ovRows));
+  const blockedTop = await page.textContent(".ov-blocked .ov-rows li");
+  check(/Etsy API credentials/.test(blockedTop) && /21 waiting/.test(blockedTop), "ownerhome: blocked ranks root causes by count", blockedTop);
+  const moneyTxt = await page.textContent(".ov-money");
+  check(/UNMEASURED/.test(moneyTxt) && !/Revenue\s*CA\$0\.00/.test(moneyTxt) && /Agent activity \(24 h\): 2 of 3/.test(moneyTxt),
+    "ownerhome: money keeps UNKNOWN/UNMEASURED, agents measured by useful results", moneyTxt.slice(0, 240));
+  const readyTxt = await page.textContent(".ov-ready .ov-rows");
+  check(/PDF BUILT/.test(readyTxt) && /images UNKNOWN/.test(readyTxt) && /NOT READY/.test(readyTxt), "ownerhome: ready to sell shows certification, PDF and image status", readyTxt);
+  check(/#4/.test(await page.textContent(".decide-first .ov-next-decisions")) && (await page.$$(".decide-first .decide-go")).length === 3,
+    "ownerhome: decisions block reaches rank 5 without extra tap targets", "");
+  check(!(await page.$eval("details.home-more", (d) => d.open)), "ownerhome: the previous Home detail is kept, folded", "");
+  for (const sel of [".ov-blocked > .ov-evidence > summary", ".ov-ready > .ov-evidence > summary", ".ov-money > .ov-evidence > summary"]) await page.click(sel);
+  await page.waitForTimeout(100);
+  check((await page.$$eval(".ov-blocked .ov-ev", (e) => e.length)) === 7, "ownerhome: expanding evidence lists the rows with sources", "");
+  await noHScroll("ownerhome expanded");
+  const ovTap = await page.$$eval(".ov-evidence > summary", (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
+  check(ovTap.length >= 5 && ovTap.every((x) => x >= 44), "ownerhome: evidence toggles are >=44px tap targets", JSON.stringify(ovTap));
+  if (SCREENS) {
+    await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_expanded_full.png"), fullPage: true });
+    await page.reload();
+    await settle();
+    await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_top.png"), fullPage: false });
+    await page.screenshot({ path: path.join(SCREENS, "ownerhome_390_full.png"), fullPage: true });
+  }
   const goH = await page.$$eval(".decide-first .decide-go", (els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
   check(goH.length === 3 && goH.every((x) => x >= 44), "ccux home: each top decision is a >=44px tap target", JSON.stringify(goH));
 

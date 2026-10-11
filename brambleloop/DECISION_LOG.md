@@ -1787,3 +1787,22 @@ the pre-engineering gate. Renaming the radar keys remains a merchandising decisi
    `ModelGateway._record`, every refusal audited. At the cap Laura shows the deterministic briefing and says why.
    Compatible with W4-FINHEALTH (a declared CA$0 agent is refused pre-call): `coo` and `learn` stay CA$0.
 3. Evidence: `tests/test_w4_laura1_budget.py`; cost basis in `research/final_build/w4/LAURA1_FIX.md` §5.
+
+## 2026-10-11 — CAP-1 (owner decision)
+
+**D-CAP1-1. OWNER APPROVED (2026-10-11): the Launch-0 cap rises from 5 to 8.** Applied as the one
+line `products.launch0.CATALOGUE_FLOOR_APPROVED = True` (D-W4P-1), which adds
+nordic-forest-mosaic-throw-baby, mosaic-placemat-pair and housewarming-key-basket to Launch-0
+scope, and the cap tests the decision itself rewrites (5 -> 8; the depth finding still fires
+below 8 on a short grid). **Limits stated by the owner:** this authorises the catalogue
+configuration change ONLY -- not the eight products themselves, not Etsy drafts, publication,
+ads, spend, or leaving shadow. Every certification, image-truth, listing-readiness and
+publication gate stays as it was and applies to each product individually
+(`tests/test_w4_cap1_gates_intact.py`).
+
+**D-CAP1-2. A Launch-0 listing must carry its price plan's price.** The production placemat
+draft (CA$9.50) was priced on the generic path before it joined Launch-0: no "placemat" band
+exists, so `release.DEFAULT_BAND` (unsourced 4.50-9.50) set it at its ceiling. PT-04 makes the
+candidate's SOURCED plan (CA$5.00, CA$4-12 cluster) the price of record. Publication now refuses
+an off-plan Launch-0 listing (`release_gates.launch_price_check`, LISTING_PRICE_NOT_PLAN) and the
+store grid reports it; the fix is to re-run pricing.position, never to write a price to Etsy.

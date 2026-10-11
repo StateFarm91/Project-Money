@@ -490,7 +490,23 @@ def radar_concept_for(cir_slug: str) -> str | None:
     for alias, rec in LEGACY_DUPLICATES.items():
         if cir_slug == rec["candidate"] or cir_slug in rec["superseded_by"]:
             return alias
-    return None
+    return SIZE_OF_RADAR_CONCEPT.get(cir_slug)
+
+
+# A Launch-0 product that is one size of a radar concept, sold under its own size slug: its
+# opportunity is the concept's (the radar scores "nordic-forest-mosaic-throw" as a product
+# with sizes; CAP-1 launches the baby size). Exact, never a prefix (PT-01).
+SIZE_OF_RADAR_CONCEPT: dict[str, str] = {
+    "nordic-forest-mosaic-throw-baby": "nordic-forest-mosaic-throw",
+}
+
+# Launch-0 products with no radar opportunity at all, and where their opportunity came from
+# instead. Recorded so "no radar seed" reads as a known origin, never as a missing link.
+NO_RADAR_CONCEPT: dict[str, str] = {
+    "housewarming-key-basket": (
+        "a moment-first creative candidate (W4-PIPE2, products.moment_candidates): its "
+        "opportunity is the housewarming brief, not a radar score; its own demand is UNKNOWN"),
+}
 
 
 # The observed price evidence, from `radar/market.py`, which recorded it on 2026-09-17 against
@@ -755,7 +771,7 @@ _CORE_LAUNCH0_SLUGS: tuple[str, ...] = (
 # the cap assertions in the tests the decision rewrites; research/final_build/w4/
 # PRODUCT_FIX.md lists them). Until then they are buildable through `cir_for`, measurable
 # through `proposed_candidate`, and outside every Launch-0 scope.
-CATALOGUE_FLOOR_APPROVED = False
+CATALOGUE_FLOOR_APPROVED = True
 
 PROPOSED_CANDIDATES: tuple[Candidate, ...] = (
     # W4-LAUNCHREADY (2026-10-11): three products engineered so the opening catalogue could
