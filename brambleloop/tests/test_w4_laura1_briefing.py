@@ -608,6 +608,7 @@ def test_mandatory_records_survive_any_model_selection():
     lines = [l for l in blk.splitlines() if l.startswith("- ")]
     must = ["listing photo fails the Product Truth gate", "0 are on Etsy", "SHADOW",
             "Revenue (gross sales): UNKNOWN"]
+    assert len(must) == 4, must
     for m in must:
         assert m in blk, (m, blk)
     shop_at = next(n for n, l in enumerate(lines) if "Shop name" in l)
@@ -738,6 +739,7 @@ def test_record_text_is_quoted_data_never_deleted_and_never_an_instruction():
     finally:
         _set_laura_ceiling(0.0)
     assert seen_prompts, "the model path ran"
+    assert benign, "the benign record texts under test are defined"
     for r in (fb, md):
         a = r["answer"]
         # nothing deleted: the injected and the benign texts appear verbatim ...
