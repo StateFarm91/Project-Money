@@ -1,0 +1,911 @@
+{
+ "dir": "<scratch>",
+ "as_of": "2026-10-11",
+ "seconds": 706.3,
+ "scan": {
+  "pool": 34,
+  "selected": 11,
+  "constraints_met": {
+   "size_8_to_12": true,
+   "flagship_seasonal": true,
+   "several_quick_low_price": true,
+   "bundle_ready_family": true,
+   "evergreen_search_product": true,
+   "class_c_limited": true,
+   "category_spread": true,
+   "bundles_have_members": true
+  },
+  "as_of": "2026-10-11",
+  "arbitrage": {
+   "steered": [],
+   "no_rankable_market_score": [
+    "nordic-forest-bundle",
+    "nordic-forest-mosaic-throw",
+    "winter-village-graphghan",
+    "spooky-garland",
+    "heirloom-cable-blanket",
+    "cloudline-baby-blanket",
+    "market-basket-trio",
+    "autumn-oak-mosaic-throw",
+    "pressed-flower-motifs",
+    "pumpkin-cluster-set",
+    "nordic-star-ornaments",
+    "pet-snuggle-mat",
+    "mosaic-placemat-pair",
+    "hexie-coaster-set",
+    "chunky-ribbed-scarf",
+    "valentine-heart-garland",
+    "cloudline-baby-hat",
+    "nordic-forest-basket",
+    "everyday-market-tote",
+    "bobble-floor-pillow",
+    "lattice-triangle-shawl",
+    "nursery-cloud-mobile",
+    "woodland-fox-amigurumi",
+    "cottage-wall-hanging",
+    "harvest-table-runner",
+    "alpine-slouch-beanie",
+    "nordic-forest-stocking",
+    "no-sew-reindeer",
+    "cropped-cardigan",
+    "wedding-ring-cushion",
+    "boxy-summer-tee",
+    "pocket-penguin-trio",
+    "easter-egg-cosies",
+    "mothers-day-shawlette"
+   ],
+   "weight": 0.25,
+   "pods_scored": []
+  }
+ },
+ "on_demand": [
+  "hexie-coaster-set"
+ ],
+ "jobs": {
+  "radar.scan:done": 1,
+  "radar.score:cancelled": 7,
+  "radar.score:done": 5,
+  "cir.draft:done": 5,
+  "cir.compile:done": 7,
+  "gate.certify:done": 7,
+  "gate.lanes:pending": 7,
+  "listing.draft:done": 7,
+  "collection.assemble:pending": 1,
+  "assets.build:done": 7,
+  "pricing.position:done": 7,
+  "listing.seo:done": 7,
+  "launch.plan:done": 7,
+  "marketing.schedule:pending": 7,
+  "store.publish:dead": 7,
+  "launch.readiness:done": 1
+ },
+ "releases": [
+  {
+   "candidate": "nursery-nesting-baskets",
+   "slug": "market-basket-small",
+   "version": "1.2.0",
+   "trend": {
+    "raw_score": 0.643,
+    "score": 0.643,
+    "measured": false,
+    "terms": [
+     "basket",
+     "market",
+     "trio"
+    ],
+    "rows": 0,
+    "discount": 1.0,
+    "why": "no stamped trend evidence names this concept; UNMEASURED, score left on the concept's own priors"
+   },
+   "opportunity": {
+    "concept": "market-basket-trio",
+    "selected_by_scan": true,
+    "scored_on_demand": false,
+    "scored": {
+     "score": 0.643,
+     "raw_score": 0.643,
+     "evidence_score": 0.643,
+     "evidence_discount": 1.0,
+     "components": {
+      "demand": 0.62,
+      "competition_headroom": 0.5,
+      "verifiability": 1.0,
+      "seasonal_fit": 0.55,
+      "margin": 0.464,
+      "whitespace": 0.56
+     },
+     "lesson_adjustment": 0,
+     "lessons": [],
+     "promoted": true,
+     "gate": "exempt"
+    }
+   },
+   "routed_alias": {
+    "retired_alias": "market-basket-trio",
+    "candidate": "nursery-nesting-baskets",
+    "routed_to": [
+     "market-basket-small@1.2.0",
+     "market-basket-medium@1.2.0",
+     "market-basket-large@1.2.0"
+    ],
+    "why": "the engineered 'market-basket-trio' design is the medium Launch-0 basket under a concept slug; the baskets are sold as the Launch-0 nesting baskets"
+   },
+   "product_row": true,
+   "cir_release": {
+    "certified": true,
+    "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+    "certificate_granted": true,
+    "withheld": null
+   },
+   "product_truth": {
+    "passes": true,
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    }
+   },
+   "listing": {
+    "state": "draft",
+    "title_chars": 105,
+    "tags": 13,
+    "price_cad": 6.5,
+    "etsy_listing_id": ""
+   },
+   "publication_authority": {
+    "certification": "PASS",
+    "parity": "UNKNOWN",
+    "listing_set": "PASS",
+    "disclosure": "PASS",
+    "policy": "UNKNOWN",
+    "search": "FAIL",
+    "rollback": "PASS",
+    "economics": "MODELLED"
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "store_publish": {
+    "reason": "shadow mode: no live publication",
+    "creative_parity": "unjudged",
+    "parity_would_block": true,
+    "release_gates_would_block": true,
+    "release_gate_reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "owner_grants": 0,
+   "artefacts": {
+    "fresh": 19
+   }
+  },
+  {
+   "candidate": "nursery-nesting-baskets",
+   "slug": "market-basket-medium",
+   "version": "1.2.0",
+   "trend": {
+    "raw_score": 0.643,
+    "score": 0.643,
+    "measured": false,
+    "terms": [
+     "basket",
+     "market",
+     "trio"
+    ],
+    "rows": 0,
+    "discount": 1.0,
+    "why": "no stamped trend evidence names this concept; UNMEASURED, score left on the concept's own priors"
+   },
+   "opportunity": {
+    "concept": "market-basket-trio",
+    "selected_by_scan": true,
+    "scored_on_demand": false,
+    "scored": {
+     "score": 0.643,
+     "raw_score": 0.643,
+     "evidence_score": 0.643,
+     "evidence_discount": 1.0,
+     "components": {
+      "demand": 0.62,
+      "competition_headroom": 0.5,
+      "verifiability": 1.0,
+      "seasonal_fit": 0.55,
+      "margin": 0.464,
+      "whitespace": 0.56
+     },
+     "lesson_adjustment": 0,
+     "lessons": [],
+     "promoted": true,
+     "gate": "exempt"
+    }
+   },
+   "routed_alias": {
+    "retired_alias": "market-basket-trio",
+    "candidate": "nursery-nesting-baskets",
+    "routed_to": [
+     "market-basket-small@1.2.0",
+     "market-basket-medium@1.2.0",
+     "market-basket-large@1.2.0"
+    ],
+    "why": "the engineered 'market-basket-trio' design is the medium Launch-0 basket under a concept slug; the baskets are sold as the Launch-0 nesting baskets"
+   },
+   "product_row": true,
+   "cir_release": {
+    "certified": true,
+    "release_hash": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+    "certificate_granted": true,
+    "withheld": null
+   },
+   "product_truth": {
+    "passes": true,
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    }
+   },
+   "listing": {
+    "state": "draft",
+    "title_chars": 107,
+    "tags": 13,
+    "price_cad": 6.5,
+    "etsy_listing_id": ""
+   },
+   "publication_authority": {
+    "certification": "PASS",
+    "parity": "UNKNOWN",
+    "listing_set": "PASS",
+    "disclosure": "PASS",
+    "policy": "UNKNOWN",
+    "search": "FAIL",
+    "rollback": "PASS",
+    "economics": "MODELLED"
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "store_publish": {
+    "reason": "shadow mode: no live publication",
+    "creative_parity": "unjudged",
+    "parity_would_block": true,
+    "release_gates_would_block": true,
+    "release_gate_reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (00182234041c); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "owner_grants": 0,
+   "artefacts": {
+    "fresh": 19
+   }
+  },
+  {
+   "candidate": "nursery-nesting-baskets",
+   "slug": "market-basket-large",
+   "version": "1.2.0",
+   "trend": {
+    "raw_score": 0.643,
+    "score": 0.643,
+    "measured": false,
+    "terms": [
+     "basket",
+     "market",
+     "trio"
+    ],
+    "rows": 0,
+    "discount": 1.0,
+    "why": "no stamped trend evidence names this concept; UNMEASURED, score left on the concept's own priors"
+   },
+   "opportunity": {
+    "concept": "market-basket-trio",
+    "selected_by_scan": true,
+    "scored_on_demand": false,
+    "scored": {
+     "score": 0.643,
+     "raw_score": 0.643,
+     "evidence_score": 0.643,
+     "evidence_discount": 1.0,
+     "components": {
+      "demand": 0.62,
+      "competition_headroom": 0.5,
+      "verifiability": 1.0,
+      "seasonal_fit": 0.55,
+      "margin": 0.464,
+      "whitespace": 0.56
+     },
+     "lesson_adjustment": 0,
+     "lessons": [],
+     "promoted": true,
+     "gate": "exempt"
+    }
+   },
+   "routed_alias": {
+    "retired_alias": "market-basket-trio",
+    "candidate": "nursery-nesting-baskets",
+    "routed_to": [
+     "market-basket-small@1.2.0",
+     "market-basket-medium@1.2.0",
+     "market-basket-large@1.2.0"
+    ],
+    "why": "the engineered 'market-basket-trio' design is the medium Launch-0 basket under a concept slug; the baskets are sold as the Launch-0 nesting baskets"
+   },
+   "product_row": true,
+   "cir_release": {
+    "certified": true,
+    "release_hash": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+    "certificate_granted": true,
+    "withheld": null
+   },
+   "product_truth": {
+    "passes": true,
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    }
+   },
+   "listing": {
+    "state": "draft",
+    "title_chars": 106,
+    "tags": 13,
+    "price_cad": 6.5,
+    "etsy_listing_id": ""
+   },
+   "publication_authority": {
+    "certification": "PASS",
+    "parity": "UNKNOWN",
+    "listing_set": "PASS",
+    "disclosure": "PASS",
+    "policy": "UNKNOWN",
+    "search": "FAIL",
+    "rollback": "PASS",
+    "economics": "MODELLED"
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "store_publish": {
+    "reason": "shadow mode: no live publication",
+    "creative_parity": "unjudged",
+    "parity_would_block": true,
+    "release_gates_would_block": true,
+    "release_gate_reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (cc698c1b1498); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "owner_grants": 0,
+   "artefacts": {
+    "fresh": 19
+   }
+  },
+  {
+   "candidate": "cloudline-baby-blanket",
+   "slug": "cloudline-baby-blanket",
+   "version": "1.2.0",
+   "trend": {
+    "raw_score": 0.6763,
+    "score": 0.6763,
+    "measured": false,
+    "terms": [
+     "baby",
+     "blanket",
+     "cloudline"
+    ],
+    "rows": 0,
+    "discount": 1.0,
+    "why": "no stamped trend evidence names this concept; UNMEASURED, score left on the concept's own priors"
+   },
+   "opportunity": {
+    "concept": "cloudline-baby-blanket",
+    "selected_by_scan": true,
+    "scored_on_demand": false,
+    "scored": {
+     "score": 0.6763,
+     "raw_score": 0.6763,
+     "evidence_score": 0.6763,
+     "evidence_discount": 1.0,
+     "components": {
+      "demand": 0.82,
+      "competition_headroom": 0.25,
+      "verifiability": 1.0,
+      "seasonal_fit": 0.55,
+      "margin": 0.607,
+      "whitespace": 0.64
+     },
+     "lesson_adjustment": 0,
+     "lessons": [],
+     "promoted": true,
+     "gate": "exempt"
+    }
+   },
+   "routed_alias": null,
+   "product_row": true,
+   "cir_release": {
+    "certified": true,
+    "release_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+    "certificate_granted": true,
+    "withheld": null
+   },
+   "product_truth": {
+    "passes": true,
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    }
+   },
+   "listing": {
+    "state": "draft",
+    "title_chars": 104,
+    "tags": 13,
+    "price_cad": 7.5,
+    "etsy_listing_id": ""
+   },
+   "publication_authority": {
+    "certification": "PASS",
+    "parity": "UNKNOWN",
+    "listing_set": "PASS",
+    "disclosure": "PASS",
+    "policy": "UNKNOWN",
+    "search": "FAIL",
+    "rollback": "PASS",
+    "economics": "MODELLED"
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "store_publish": {
+    "reason": "shadow mode: no live publication",
+    "creative_parity": "unjudged",
+    "parity_would_block": true,
+    "release_gates_would_block": true,
+    "release_gate_reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (7c63dbdd501f); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "owner_grants": 0,
+   "artefacts": {
+    "fresh": 19
+   }
+  },
+  {
+   "candidate": "hexagon-coaster-set",
+   "slug": "hexagon-coaster-set",
+   "version": "1.2.0",
+   "trend": {
+    "raw_score": 0.6135,
+    "score": 0.6135,
+    "measured": false,
+    "terms": [
+     "coaster",
+     "hexie"
+    ],
+    "rows": 0,
+    "discount": 1.0,
+    "why": "no stamped trend evidence names this concept; UNMEASURED, score left on the concept's own priors"
+   },
+   "opportunity": {
+    "concept": "hexie-coaster-set",
+    "selected_by_scan": false,
+    "scored_on_demand": true,
+    "scored": {
+     "score": 0.6135,
+     "raw_score": 0.6135,
+     "evidence_score": 0.6135,
+     "evidence_discount": 1.0,
+     "components": {
+      "demand": 0.6,
+      "competition_headroom": 0.48,
+      "verifiability": 1.0,
+      "seasonal_fit": 0.55,
+      "margin": 0.321,
+      "whitespace": 0.5
+     },
+     "lesson_adjustment": 0,
+     "lessons": [],
+     "promoted": true,
+     "gate": "exempt"
+    }
+   },
+   "routed_alias": {
+    "retired_alias": "hexie-coaster-set",
+    "candidate": "hexagon-coaster-set",
+    "routed_to": [
+     "hexagon-coaster-set@1.2.0"
+    ],
+    "why": "the engineered 'hexie-coaster-set' design is the Launch-0 hexagon coaster set under a concept slug; the coasters are sold as hexagon-coaster-set"
+   },
+   "product_row": true,
+   "cir_release": {
+    "certified": true,
+    "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+    "certificate_granted": true,
+    "withheld": null
+   },
+   "product_truth": {
+    "passes": true,
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    }
+   },
+   "listing": {
+    "state": "draft",
+    "title_chars": 92,
+    "tags": 13,
+    "price_cad": 4.0,
+    "etsy_listing_id": ""
+   },
+   "publication_authority": {
+    "certification": "PASS",
+    "parity": "UNKNOWN",
+    "listing_set": "PASS",
+    "disclosure": "PASS",
+    "policy": "UNKNOWN",
+    "search": "FAIL",
+    "rollback": "PASS",
+    "economics": "MODELLED"
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "store_publish": {
+    "reason": "shadow mode: no live publication",
+    "creative_parity": "unjudged",
+    "parity_would_block": true,
+    "release_gates_would_block": true,
+    "release_gate_reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "owner_grants": 0,
+   "artefacts": {
+    "fresh": 19
+   }
+  },
+  {
+   "candidate": "nordic-star-ornaments",
+   "slug": "nordic-star-ornaments",
+   "version": "1.4.0",
+   "trend": {
+    "raw_score": 0.6284,
+    "score": 0.6284,
+    "measured": false,
+    "terms": [
+     "christmas",
+     "nordic",
+     "ornament",
+     "ornaments",
+     "star"
+    ],
+    "rows": 0,
+    "discount": 1.0,
+    "why": "no stamped trend evidence names this concept; UNMEASURED, score left on the concept's own priors"
+   },
+   "opportunity": {
+    "concept": "nordic-star-ornaments",
+    "selected_by_scan": true,
+    "scored_on_demand": false,
+    "scored": {
+     "score": 0.6284,
+     "raw_score": 0.6284,
+     "evidence_score": 0.6284,
+     "evidence_discount": 1.0,
+     "components": {
+      "demand": 0.72,
+      "competition_headroom": 0.45,
+      "verifiability": 1.0,
+      "seasonal_fit": 0.275,
+      "margin": 0.393,
+      "whitespace": 0.68
+     },
+     "lesson_adjustment": 0,
+     "lessons": [],
+     "promoted": true,
+     "gate": "exempt"
+    }
+   },
+   "routed_alias": null,
+   "product_row": true,
+   "cir_release": {
+    "certified": true,
+    "release_hash": "18c6e64fa4c5a6c42261cfdf9f5ee062ef57e97cc3e0d46dd3711033f44a20b4",
+    "certificate_granted": true,
+    "withheld": null
+   },
+   "product_truth": {
+    "passes": true,
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    }
+   },
+   "listing": {
+    "state": "draft",
+    "title_chars": 73,
+    "tags": 13,
+    "price_cad": 4.5,
+    "etsy_listing_id": ""
+   },
+   "publication_authority": {
+    "certification": "PASS",
+    "parity": "UNKNOWN",
+    "listing_set": "PASS",
+    "disclosure": "PASS",
+    "policy": "UNKNOWN",
+    "search": "FAIL",
+    "rollback": "PASS",
+    "economics": "MODELLED"
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "store_publish": {
+    "reason": "shadow mode: no live publication",
+    "creative_parity": "unjudged",
+    "parity_would_block": true,
+    "release_gates_would_block": true,
+    "release_gate_reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (18c6e64fa4c5); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "owner_grants": 0,
+   "artefacts": {
+    "fresh": 19
+   }
+  },
+  {
+   "candidate": "winter-village-graphghan",
+   "slug": "winter-village-graphghan",
+   "version": "1.3.0",
+   "trend": {
+    "raw_score": 0.7315,
+    "score": 0.7315,
+    "measured": false,
+    "terms": [
+     "christmas",
+     "graphghan",
+     "village",
+     "winter"
+    ],
+    "rows": 0,
+    "discount": 1.0,
+    "why": "no stamped trend evidence names this concept; UNMEASURED, score left on the concept's own priors"
+   },
+   "opportunity": {
+    "concept": "winter-village-graphghan",
+    "selected_by_scan": true,
+    "scored_on_demand": false,
+    "scored": {
+     "score": 0.7315,
+     "raw_score": 0.7315,
+     "evidence_score": 0.7315,
+     "evidence_discount": 1.0,
+     "components": {
+      "demand": 0.7,
+      "competition_headroom": 0.38,
+      "verifiability": 1.0,
+      "seasonal_fit": 0.901,
+      "margin": 0.75,
+      "whitespace": 0.66
+     },
+     "lesson_adjustment": 0,
+     "lessons": [],
+     "promoted": true,
+     "gate": "exempt"
+    }
+   },
+   "routed_alias": null,
+   "product_row": true,
+   "cir_release": {
+    "certified": true,
+    "release_hash": "b41e0430fe3dadb9ffd9eb7ece8af05b9ef1f070962717e28c14a6c4583f9344",
+    "certificate_granted": true,
+    "withheld": null
+   },
+   "product_truth": {
+    "passes": true,
+    "gates": {
+     "compiles_clean": true,
+     "title_promise_backed": true,
+     "assembly_promise_backed": true,
+     "fabric_claim_backed": true,
+     "size_label_backed": true
+    }
+   },
+   "listing": {
+    "state": "draft",
+    "title_chars": 78,
+    "tags": 13,
+    "price_cad": 7.5,
+    "etsy_listing_id": ""
+   },
+   "publication_authority": {
+    "certification": "PASS",
+    "parity": "UNKNOWN",
+    "listing_set": "PASS",
+    "disclosure": "PASS",
+    "policy": "UNKNOWN",
+    "search": "FAIL",
+    "rollback": "PASS",
+    "economics": "MODELLED"
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "store_publish": {
+    "reason": "shadow mode: no live publication",
+    "creative_parity": "unjudged",
+    "parity_would_block": true,
+    "release_gates_would_block": true,
+    "release_gate_reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (b41e0430fe3d); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+     "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+    ]
+   },
+   "owner_grants": 0,
+   "artefacts": {
+    "fresh": 18
+   }
+  }
+ ],
+ "artefacts_not_fresh": [],
+ "readiness_audit": {
+  "status": "done",
+  "outputs": {
+   "ready": false,
+   "owner_actions_added": 7,
+   "owner_actions_closed": [],
+   "outstanding": [
+    "catalogue_depth",
+    "listing_photography",
+    "content",
+    "storefront",
+    "seller_identity",
+    "etsy_integration",
+    "artifact_storage",
+    "etsy_shop",
+    "payout",
+    "listing_fees",
+    "model_credits",
+    "physical_calibration",
+    "risk_based_physical_evidence",
+    "brand_clearance",
+    "benchmark_challenge",
+    "sustainable_economics",
+    "final_master_closure",
+    "phase",
+    "off_device_autonomy_proof",
+    "first_hundred:flawless_downloads",
+    "first_hundred:post_purchase_clarity"
+   ],
+   "first_customer": {
+    "outstanding": [
+     "flawless_downloads",
+     "post_purchase_clarity"
+    ],
+    "ready": 2,
+    "of": 4
+   },
+   "paid_traffic": {
+    "may_scale": false,
+    "blocking": [
+     "shop_complete",
+     "legitimate_proof",
+     "truthful_information",
+     "thumbnail_coherence",
+     "rapid_support",
+     "search:conversion_readiness",
+     "search:truthful_query_coverage",
+     "search:no_unresolved_first_party_warning"
+    ]
+   },
+   "blocking_items": [
+    {
+     "key": "off_device_autonomy_proof",
+     "status": "NOT PROVEN",
+     "unmet": [
+      "activity_spread",
+      "scheduler_alive"
+     ],
+     "why": "NOT PROVEN: activity_spread, scheduler_alive unmet over the last 24 hours. #195 is launch-blocking, so launch is not ready until a full window passes every condition"
+    }
+   ]
+  },
+  "error": null
+ },
+ "post_run": {
+  "marketing.schedule": "7 done, 59 content pieces, published False",
+  "gate.lanes": "done; fast 2, flagship 1, neither 4 (policy rules)",
+  "readiness_requirements_ready": "16 of 33 after marketing.schedule (15 before)"
+ }
+}
