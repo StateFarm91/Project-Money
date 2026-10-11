@@ -266,3 +266,17 @@ re-authorise…" + a P3 — every halting/P1 incident shown in model and fallbac
 order, before the model's pick, P3 counted as "+1 more"; the injection text and six benign
 "instruction-looking" records are shown verbatim but only inside their quoted record line, labels
 unchanged, and only inside the data block in the prompt.
+
+## 11. Owner decision implemented: Laura CA$0.50/day (D-W4-LAURA1-BUDGET)
+
+The owner approved CA$0.50/day on 2026-10-11. Separate commit on this branch (after merging
+`origin/claude/w4-INTEG2` with W4-FINHEALTH's pre-call zero-ceiling fix): `DEFAULT_AGENTS`
+`laura.daily_cost_ceiling_cad` 0.0 → 0.50; nothing else about spend, ceilings or model selection
+changed. `tests/test_w4_laura1_budget.py` (4/4) proves: the value is declared and reconciled;
+the cap is checked and a reservation written before the provider is called; a call that would
+exceed CA$0.50 today is refused with no provider call and the briefing falls back transparently
+with no new spend (refusal audited); the monthly ceiling still binds when Laura's day has room.
+Existing tests that used `laura` as the example CA$0 agent (`test_w4_finhealth`,
+`test_w3_laura_core_identity`) were updated to the owner's decision: `coo`/`learn` remain the
+CA$0 agents with the same assertions; `laura` is asserted at 0.50. Production still needs the
+deploy and a funded `ANTHROPIC_API_KEY`; without a key the briefing states it and falls back.
