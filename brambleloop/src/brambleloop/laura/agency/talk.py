@@ -66,8 +66,14 @@ _RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
 def classify(question: str) -> str:
     """Keywords match at a word start ("learn" never matches "earn"). An instruction to a
     department ("have Design make three more banners") is a delegation, checked first."""
-    from . import delegation
+    from . import briefing, delegation
 
+    # W4-LAURA1: a multi-part executive question ("give me a CEO briefing: the last 24 h,
+    # each department, what blocks the first sale, five decisions, ...") is one briefing,
+    # answered component by component -- never collapsed onto whichever single keyword
+    # intent happens to match first (that is how the owner's briefing became a decision dump).
+    if briefing.parse(question)["is_briefing"]:
+        return "briefing"
     if delegation.parse(question):
         return "delegate"
     low = " ".join(str(question or "").lower().replace("’", "'").split())
@@ -351,8 +357,13 @@ def _delegation_answer(db, question: str) -> tuple[str, str, list[dict], list[di
     return "ANSWERED", answer, facts, [], [prop]
 
 
-def converse(db, question: str, *, session_public_id: str = "", gateway=None) -> dict:
-    """Answer one business question as Laura, persist the turn, return it."""
+def converse(db, question: str, *, session_public_id: str = "", gateway=None,
+             provider_factory=None) -> dict:
+    """Answer one business question as Laura, persist the turn, return it.
+
+    `provider_factory` is the transport stand-in tests hand to the briefing's model synthesis
+    (`gateway.laura_briefing`); production leaves it None (the gateway's real provider, and
+    only when an API key and Laura's daily permission both exist)."""
     from ..private.firewall import reject_private
     from .models import REGISTER, LauraTurn, ensure_tables
 
@@ -362,11 +373,22 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
     ensure_tables(db)
     question = " ".join(str(question or "").split())[:MAX_QUESTION]
     ident = identity_view.identity(db)
-    intent = classify(question) if question else "empty"
+    from . import briefing
+
+    follow = briefing.followup(db, question, session_public_id) if question else None
+    intent = "briefing_followup" if follow else (classify(question) if question else "empty")
     sections: list[dict] = []
     proposals: list[dict] = []
     method = METHOD
-    if not question:
+    extra: dict = {}
+    if follow is not None or intent == "briefing":
+        b = follow if follow is not None else briefing.answer(
+            db, question, provider_factory=provider_factory)
+        status, answer, facts, unknowns = b["status"], b["answer"], b["facts"], b["unknowns"]
+        proposals, sections, method = b["proposals"], [], b["method"]
+        extra = {k: b[k] for k in ("synthesis", "resolved_turn") if k in b}
+        extra["briefing_sections"] = b["sections"]
+    elif not question:
         status, answer, facts, unknowns = (UNKNOWN, "Ask me about the business -- for "
                                            "example: " + "; ".join(SUGGESTED[:4]), [], [])
     elif intent == "identity":
@@ -399,7 +421,7 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
         proposals = _proposals(intent, sections)
 
     meta = {"phrased": False}
-    if facts and status != UNKNOWN:
+    if facts and status != UNKNOWN and intent not in ("briefing", "briefing_followup"):
         from . import phrasing
 
         answer, meta = phrasing.phrase(
@@ -425,7 +447,7 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None) ->
             "sections": [{k: s_[k] for k in ("key", "title", "status", "reason")} | {
                 "facts": len(s_["facts"])} for s_ in sections],
             "method": method, "phrasing": meta, "speaker": speaker(ident),
-            "voice_findings": identity_view.voice_findings(answer)}
+            "voice_findings": identity_view.voice_findings(answer), **extra}
 
 
 def _iso(v) -> str | None:
