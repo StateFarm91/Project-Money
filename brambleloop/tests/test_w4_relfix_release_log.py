@@ -73,7 +73,9 @@ def test_the_summary_carries_no_session_marker_and_paths_become_repo_relative():
 
 
 def test_the_shipped_release_directory_holds_only_summaries_with_pinned_full_logs():
-    for p in sorted((ROOT / "release").glob("RELEASE_*.json")):
+    records = sorted((ROOT / "release").glob("RELEASE_*.json"))
+    assert records, "release/ holds no release record"
+    for p in records:
         rec = json.loads(p.read_text())
         ref = rec.get("full_log")
         assert isinstance(ref, dict), (p.name, "record has no out-of-image full log")

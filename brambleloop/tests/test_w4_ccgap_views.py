@@ -186,8 +186,10 @@ def test_data_cards_carry_a_timestamp_element_or_unknown():
         "completion.js": ['card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness('],
         "ask.js": ["freshness(a.answered_at || null)"],
     }
+    assert len(want) == 9, sorted(want)
     for name, needles in want.items():
         src = (STATIC / name).read_text()
+        assert needles, name
         for n in needles:
             assert n in src, (name, n)
     money = (STATIC / "money.js").read_text()
