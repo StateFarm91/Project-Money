@@ -174,3 +174,30 @@ Proven by `test_ceiling_reached_parks_before_the_call_and_falls_back_with_no_new
 - **Minutes:** ~2 to approve.
 - **If it waits:** briefings stay the deterministic fallback above — complete and grounded, but
   written by code rather than synthesised; nothing else is blocked.
+
+## 7. Review fixes (independent review FIX-FIRST, origin/claude/w4-LAURAREV f64c8f9)
+
+All findings addressed; each attack is a regression test in `tests/test_w4_laura1_briefing.py`
+(now 13/13).
+
+- **HIGH-1 validator** (`briefing.claim_problem`): per claim, every value -- digits *and*
+  number words ("five hundred", "a dozen", "nothing") -- must occur in a cited record's
+  *statement* (timestamps and window/N grant nothing; only the literal "last {window} hours"
+  phrase is ignored); a claim citing an UNKNOWN record must say unknown and may state no value
+  at all; sale/revenue, live/on-Etsy, refund, review, launch, customer and certification
+  claims must cite a record stating that event type with the same polarity ("0 are on Etsy"
+  cannot ground "now on Etsy"); publish/price/spend/buy/ads/outreach is refused in **every**
+  section in the first person, and in any form unless a cited record names the act (no
+  bare-word negation escape); broader human/physical-claim check; decision lines are the owner
+  card's text verbatim in queue order, the model may only add one validated "Why it matters"
+  line. All 11 reviewer attacks plus 4 paraphrases are rejected; faithful controls pass.
+- **MEDIUM-1**: delegation is classified before briefing; a delegation that also asks for a
+  brief says so instead of dropping it.
+- **MEDIUM-2**: two or more asked-for parts are answered part by part (e.g. "What should I
+  approve today and why is the shop not selling?" → decisions + blockers).
+- **LOW-1**: "rundown of the store" / "status report on revenue" route to the topical intent.
+- **LOW-2**: audit noise (refusals, session/security rows) never appears as an accomplishment.
+- **LOW-3**: follow-ups are anchored to short "expand decision N"-style messages.
+- **INFO**: DECISION_LOG entry D-W4-LAURA1 records the routing choice.
+
+Fallback, spend checks, privacy and identity are unchanged.

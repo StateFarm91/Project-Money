@@ -72,10 +72,13 @@ def classify(question: str) -> str:
     # each department, what blocks the first sale, five decisions, ...") is one briefing,
     # answered component by component -- never collapsed onto whichever single keyword
     # intent happens to match first (that is how the owner's briefing became a decision dump).
-    if briefing.parse(question)["is_briefing"]:
-        return "briefing"
+    # Review MEDIUM-1: an instruction to a department is checked first, so "have Design make
+    # three more banners and brief me after" is a delegation (and says the brief was heard),
+    # never silently swallowed by the briefing.
     if delegation.parse(question):
         return "delegate"
+    if briefing.parse(question)["is_briefing"]:
+        return "briefing"
     low = " ".join(str(question or "").lower().replace("’", "'").split())
     for intent, words in _RULES:
         if any(re.search(r"(?<![a-z])" + re.escape(w), low) for w in words):
@@ -395,6 +398,9 @@ def converse(db, question: str, *, session_public_id: str = "", gateway=None,
         status, answer, facts, unknowns = _identity_answer(db, session_public_id)
     elif intent == "delegate":
         status, answer, facts, unknowns, proposals = _delegation_answer(db, question)
+        if re.search(r"\b(brief(ing)?|update|report)\b", question, re.I):
+            answer += (" You also asked to be briefed: ask me for a briefing and I'll give it "
+                       "to you from the records -- I haven't dropped that part.")
         sections = [ev.section("delegation", "Delegation", facts,
                                status="OK" if facts else UNKNOWN)]
     elif intent == "fallback":
