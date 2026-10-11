@@ -171,6 +171,58 @@ FAMILIES: dict[str, list[dict]] = {
         {"family": "deliverable", "intent": "deliverable", "priority": 3,
          "phrases": ["pdf crochet pattern"]},
     ],
+    # W4-LAUNCHREADY: the catalogue-floor PROPOSAL products (inert until approved). Every phrase was checked
+    # by seo.truth.check_term against the product's own facts; refused and dropped: 'fir tree
+    # blanket', 'christmas blanket', 'winter blanket', 'nursery decor' (untraceable), 'table
+    # setting', 'dining decor', 'cotton crochet' for the placemats, 'round basket', 'entryway
+    # decor', 'hall table' for the key basket, and every '... gift' (a gift, not a pattern).
+    "nordic-forest-mosaic-throw-baby": [
+        {"family": "object_core", "intent": "object+format", "priority": 1,
+         "phrases": ["baby blanket pattern", "crochet baby blanket"]},
+        {"family": "motif", "intent": "attribute", "priority": 1,
+         "phrases": ["fir and star", "nordic blanket", "forest blanket"]},
+        {"family": "texture", "intent": "construction", "priority": 1,
+         "phrases": ["textured blanket", "textured crochet"]},
+        {"family": "synonym_object", "intent": "object", "priority": 2,
+         "phrases": ["baby afghan", "crochet afghan"]},
+        {"family": "colour_pattern", "intent": "attribute", "priority": 2,
+         "phrases": ["two color crochet", "worsted yarn"]},
+        {"family": "skill_construction", "intent": "skill", "priority": 3,
+         "phrases": ["beginner crochet"]},
+        {"family": "deliverable", "intent": "deliverable", "priority": 3,
+         "phrases": ["pdf crochet pattern"]},
+    ],
+    "mosaic-placemat-pair": [
+        {"family": "object_core", "intent": "object+format", "priority": 1,
+         "phrases": ["placemat pattern", "crochet placemat"]},
+        {"family": "set_count", "intent": "attribute", "priority": 1,
+         "phrases": ["placemat set", "set of 2 placemats"]},
+        {"family": "texture_motif", "intent": "construction", "priority": 1,
+         "phrases": ["diamond lattice", "diamond crochet", "textured crochet"]},
+        {"family": "room_use", "intent": "use/room", "priority": 2,
+         "phrases": ["table decor", "kitchen decor", "crochet home decor"]},
+        {"family": "colour_pattern", "intent": "attribute", "priority": 2,
+         "phrases": ["two color crochet"]},
+        {"family": "skill_construction", "intent": "skill", "priority": 3,
+         "phrases": ["beginner crochet"]},
+        {"family": "deliverable", "intent": "deliverable", "priority": 3,
+         "phrases": ["pdf crochet pattern"]},
+    ],
+    "housewarming-key-basket": [
+        {"family": "object_core", "intent": "object+format", "priority": 1,
+         "phrases": ["crochet basket", "basket pattern"]},
+        {"family": "use", "intent": "use/room", "priority": 1,
+         "phrases": ["key basket", "storage basket", "crochet storage",
+                     "crochet home decor"]},
+        {"family": "texture_motif", "intent": "construction", "priority": 1,
+         "phrases": ["basketweave basket", "basketweave crochet", "textured crochet"]},
+        {"family": "material", "intent": "attribute", "priority": 2,
+         "phrases": ["cotton crochet"]},
+        {"family": "skill_construction", "intent": "skill", "priority": 3,
+         "phrases": ["beginner crochet", "single crochet"]},
+        {"family": "deliverable", "intent": "deliverable", "priority": 3,
+         "phrases": ["pdf crochet pattern"]},
+    ],
 }
 
 # The 13 tags chosen from the families (order = slot order). Chosen by hand from the families;
@@ -201,6 +253,21 @@ TAGS: dict[str, list[str]] = {
         "snowfall blanket", "winter blanket", "textured throw", "textured blanket",
         "crochet afghan", "afghan pattern", "winter crochet", "home decor",
         "pdf crochet pattern"],
+    "nordic-forest-mosaic-throw-baby": [
+        "baby blanket pattern", "crochet baby blanket", "fir and star", "nordic blanket",
+        "forest blanket", "textured blanket", "textured crochet", "baby afghan",
+        "crochet afghan", "two color crochet", "worsted yarn", "beginner crochet",
+        "pdf crochet pattern"],
+    "mosaic-placemat-pair": [
+        "placemat pattern", "crochet placemat", "placemat set", "set of 2 placemats",
+        "diamond lattice", "diamond crochet", "textured crochet", "table decor",
+        "kitchen decor", "crochet home decor", "two color crochet", "beginner crochet",
+        "pdf crochet pattern"],
+    "housewarming-key-basket": [
+        "crochet basket", "basket pattern", "key basket", "storage basket",
+        "basketweave basket", "basketweave crochet", "crochet storage", "crochet home decor",
+        "textured crochet", "cotton crochet", "beginner crochet", "single crochet",
+        "pdf crochet pattern"],
 }
 
 # Buyer-first titles: object + "crochet pattern" first (matching and CTR), then the
@@ -218,6 +285,13 @@ TITLES: dict[str, str] = {
                               "Terms"),
     "winter-village-graphghan": ("Winter Throw Blanket Crochet Pattern | Snowfall Texture in "
                                  "Two Colors | Worsted Yarn | PDF with Chart, US and UK Terms"),
+    "nordic-forest-mosaic-throw-baby": ("Baby Blanket Crochet Pattern | Nordic Fir and Star "
+                                        "Texture in Two Colors | Worsted Yarn | PDF with "
+                                        "Chart, US and UK Terms"),
+    "mosaic-placemat-pair": ("Placemat Crochet Pattern, Set of 2 | Diamond Lattice Texture in "
+                             "Two Colors | Worsted Yarn | PDF with Chart, US and UK Terms"),
+    "housewarming-key-basket": ("Key Basket Crochet Pattern | Basketweave Texture in Pine and "
+                                "Cream | Worsted Cotton | PDF with Chart, US and UK Terms"),
 }
 
 # Category candidates. `intent` is the repo's own (products.launch0 ListingIdentity); the buyer

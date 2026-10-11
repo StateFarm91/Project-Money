@@ -8,6 +8,14 @@
 > HTTP 403 since 2026-10-07 12:00Z (owner: check the Etsy app + `ETSY_SHARED_SECRET`). #195's only unmet condition is
 > company dead letters (fixes on claude/w4-FMGATE). B2GATES doors are not in production yet. Report:
 > `research/final_build/w4/B2_GATE2_REPORT.md`. Tests: test_w4_b2gate2 11/11 + focused suites green.
+> **2026-10-11 — W4-PRODUCT (branch `claude/w4-PRODUCT`, base 0417f35; not deployed).** Carried the two genuine
+> defect fixes from W4-LAUNCHREADY (creative gate judges the engineered Launch-0 cohort; PDF stitch key defines both
+> `slst`/`sl st`). The three catalogue-floor products are a PROPOSAL, not Launch-0: `launch0.CATALOGUE_FLOOR_APPROVED =
+> False` (owner decision CAP-1 / D-FB-9; Launch-0 cap stays 5, no test assertion edited). D-W5-7 closed for readers:
+> `launch0.radar_concept_for` + `pipeline.product_seed` give product-keyed readers the radar concept, so the #168
+> benchmark challenge now covers basket and coaster (was "uncategorised"). Scratch shadow chain radar.scan → … →
+> store.publish: 7/7 Launch-0 releases certified, Product Truth PASS, listings drafted, all refused at the owner
+> boundary; trend evidence UNMEASURED (none stamped). Report: `research/final_build/w4/PRODUCT_FIX.md`.
 
 > **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
 > `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,

@@ -1,0 +1,167 @@
+[
+ {
+  "key": "catalogue_depth",
+  "ready": false,
+  "blocked_by": "build"
+ },
+ {
+  "key": "listing_imagery",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "imagery_truthful",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "listing_photography",
+  "ready": false,
+  "blocked_by": "integration"
+ },
+ {
+  "key": "pricing",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "content",
+  "ready": false,
+  "blocked_by": "build"
+ },
+ {
+  "key": "storefront",
+  "ready": false,
+  "blocked_by": "build"
+ },
+ {
+  "key": "opening_grid",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "storefront_preview",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "seller_identity",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "no_open_incidents",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "spend_guards",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "etsy_integration",
+  "ready": false,
+  "blocked_by": "integration"
+ },
+ {
+  "key": "artifact_storage",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "etsy_shop",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "payout",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "listing_fees",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "model_credits",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "physical_calibration",
+  "ready": false,
+  "blocked_by": "tester"
+ },
+ {
+  "key": "risk_based_physical_evidence",
+  "ready": false,
+  "blocked_by": "tester"
+ },
+ {
+  "key": "brand_clearance",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "benchmark_challenge",
+  "ready": false,
+  "blocked_by": "owner"
+ },
+ {
+  "key": "brand_moat",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "digital_disclosure",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "support_knowledge",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "faq",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "pricing_promotion_plan",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "launch_calendar",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "analytics_baseline",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "rollback_plan",
+  "ready": true,
+  "blocked_by": "None"
+ },
+ {
+  "key": "sustainable_economics",
+  "ready": false,
+  "blocked_by": "build"
+ },
+ {
+  "key": "final_master_closure",
+  "ready": false,
+  "blocked_by": "build"
+ },
+ {
+  "key": "phase",
+  "ready": false,
+  "blocked_by": "owner"
+ }
+]
