@@ -251,6 +251,7 @@ def launch0_products(db=None) -> list[dict]:
             "candidate": slug, "plan_title": cand.title, "title": title,
             "title_basis": title_basis, "description": description,
             "price_cad": price_cad, "price_basis": price_basis,
+            "plan_price_cad": price.get("price_cad"),
             "sizes": [{"key": v.key, "label": v.label, "cir_slug": c.slug}
                       for v, c in zip(variants, cirs)],
             "variant_count": len(variants),
