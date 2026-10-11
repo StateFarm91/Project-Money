@@ -16,7 +16,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const STATIC_DIR = path.resolve(HERE, "../../../src/brambleloop/app/command_center/static");
 export const PASSPHRASE = "fixture-owner-passphrase";
 // 1x1 sage PNG standing in for a verified listing rendering (fixture only).
-const MOCK_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN0cvb4DwADvAH/lt9mWQAAAABJRU5ErkJggg==", "base64");
+const MOCK_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGPYvn8lAARQAiBKQyW7AAAAAElFTkSuQmCC", "base64");
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
   + "font-src 'self'; manifest-src 'self'; worker-src 'self'; form-action 'self'; base-uri 'none'; "
   + "frame-ancestors 'none'; object-src 'none'";

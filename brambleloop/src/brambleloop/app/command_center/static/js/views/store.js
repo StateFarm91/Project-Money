@@ -38,6 +38,7 @@ function findPreview(data, s) {
   return null;
 }
 
+const ETSY_LABEL = { CONNECTED: "Connected", NOT_CONNECTED: "Not connected", UNKNOWN: UNKNOWN_TEXT };
 const price = (v) => (typeof v === "number" ? formatMoney({ value_cad: v, state: "MEASURED" }) : UNKNOWN_TEXT);
 const pill = (st, label) => statusPill(st === "OWNER_GATED" ? "PENDING" : st, label || st);
 
@@ -83,7 +84,8 @@ function readinessCard(cat, data, s) {
         h("p", { class: "tile-meta" }, `${n(c.launch0)} Launch-0 · ${n(c.proposed)} proposed`)),
       h("div", { class: "tile" }, h("p", { class: "tile-label" }, "Pictures verified"), h("p", { class: "tile-value" }, `${n(c.images_verified)} / ${n(c.collection)}`)),
       h("div", { class: "tile" }, h("p", { class: "tile-label" }, "Pattern quality OK"), h("p", { class: "tile-value" }, `${n(c.quality_ok)} / ${n(c.collection)}`)),
-      h("div", { class: "tile" }, h("p", { class: "tile-label" }, "Etsy connection"), h("p", { class: ["tile-value", etsy.status === "UNKNOWN" ? "is-unknown" : null] }, etsy.status || UNKNOWN_TEXT),
+      h("div", { class: "tile", data: { etsy: etsy.status || "UNKNOWN" } }, h("p", { class: "tile-label" }, "Etsy connection"),
+        h("p", { class: ["tile-value", !etsy.status || etsy.status === "UNKNOWN" ? "is-unknown" : null] }, ETSY_LABEL[etsy.status] || UNKNOWN_TEXT),
         etsy.reason ? h("p", { class: "tile-meta" }, etsy.reason) : null)),
     verdict && verdict.reason ? h("p", { class: "callout callout-warn" }, `Launch verdict: ${verdict.reason}`) : null,
     h("p", { class: "muted small" }, "Nothing is published from this screen. Publication is your authorisation, on the Approvals tab."));
@@ -181,7 +183,7 @@ function productPage(p, cat) {
       h("p", { class: "ptile-price big" }, price(p.price_cad)),
       h("p", { class: "dl-label" }, p.digital_label || "Digital download (PDF pattern)"),
       h("p", null, p.description || ""),
-      h("dl", { class: "kv" }, (p.sizes || []).map((sz) => h("div", null, h("dt", null, sz.key), h("dd", null, sz.label)))),
+      h("dl", { class: "kv" }, (p.sizes || []).map((sz) => h("div", null, h("dt", null, (p.sizes || []).length > 1 ? `Size: ${String(sz.key).replace(/_/g, " ")}` : "Size"), h("dd", null, sz.label)))),
       p.launch_status === "PROPOSED" ? h("p", { class: "callout callout-warn" }, p.launch_status_note) : null),
     card({ title: "Pattern PDF", labelId: "product-pdf", subtitle: "Your review copy, rendered now from the pattern file" },
       h("div", { class: "btn-row" }, (pdf.terms || []).map((t) => h("a", { class: "btn", href: (pdf.paths || {})[t], target: "_blank", rel: "noopener noreferrer", data: { pdf: t } }, icon("external", 18), `${t} terms PDF`))),

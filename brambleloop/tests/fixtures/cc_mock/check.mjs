@@ -448,7 +448,7 @@ try {
     obs: !!document.getElementById("obs-field"),
   }));
   check(JSON.stringify(sov.nav) === JSON.stringify(["Overview", "Collection", "Listings & prices", "Storefront"]), "storefront cc: store sub-navigation", JSON.stringify(sov.nav));
-  check(/Launch collection\s*8/.test(sov.readiness) && /Pictures verified\s*7 \/ 8/.test(sov.readiness) && /NOT_CONNECTED/.test(sov.readiness),
+  check(/Launch collection\s*8/.test(sov.readiness) && /Pictures verified\s*7 \/ 8/.test(sov.readiness) && /Etsy connection\s*Not connected/.test(sov.readiness),
     "storefront cc: launch readiness shows collection, verified pictures and Etsy connection", sov.readiness.slice(0, 240));
   check(/D-FB-9/.test(sov.decisions) && /AWAITING YOU/.test(sov.decisions), "storefront cc: owner decision D-FB-9 shown", sov.decisions.slice(0, 200));
   const verifiedTiles = sov.tiles.filter((t) => t.img);
