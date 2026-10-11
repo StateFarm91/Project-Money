@@ -99,5 +99,28 @@
   "module_reachability_c131f07.json": "dda7899763615e1b07bea2871903095aa1687fc0e2ff271f6b4547303b2d5e61",
   "runtime_packets_c131f07.json": "a2140493e2088aaf0c1aa4e63869c69a46eb1a408d62308b0b91a16eca14ec15",
   "shadow_rehearsal_c131f07.json": "2632f5407de7aa3105be26a53167ccef01972f820e6e5a095894bc942ad4cb75"
+ },
+ "branch_evidence_not_c131f07": {
+  "label": "BRANCH claude/w4-FMEND at fc7cf04 (c131f07 + PACKETREL merge + FMEND tooling + rehearsal phase-transition fix). NOT evidence for candidate c131f07.",
+  "file": "BRANCH_NOT_c131f07_shadow_rehearsal_fc7cf04.json",
+  "sha256": "ed42cd566ac5776cd23a1f066f81bc3d3bfd4b9535c461ed74e96b9f70262a74",
+  "command": "PYTHONPATH=src python scripts/shadow_rehearsal.py --out <scratch>/... (clean tree at fc7cf04, production mode)",
+  "head": "fc7cf04dbd6532460475e6192d681aec6599211f",
+  "tree_dirty": false,
+  "seconds": 322.3,
+  "complete": false,
+  "not_complete_because": [
+   "owner_phase_transition",
+   "owner_publication_grant",
+   "store.publish[past-shadow]"
+  ],
+  "blocking_defects": [
+   "search_certificate_not_pass",
+   "owner_phase_transition_refused",
+   "grant_snapshot_refused",
+   "past_shadow_publish_blocked",
+   "order_version_unmapped"
+  ],
+  "owner_phase_transition": "BLOCKED at staging: launch readiness not ready at transition time (live verdict); phase stayed shadow; no transition written"
  }
 }
