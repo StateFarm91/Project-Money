@@ -43,17 +43,23 @@ def check(name, fn):
         print(f"FAIL {name}: {e!r}")
 
 
-def test_the_proposal_is_not_launched_until_the_owner_approves():
-    assert l0.CATALOGUE_FLOOR_APPROVED is False
+def test_cap1_approval_adds_exactly_the_three_and_nothing_else():
+    # Owner decision CAP-1 (2026-10-11): the Launch-0 cap rises 5 -> 8. The approval is the
+    # catalogue configuration only: the three join the scope, every gate still applies.
+    assert l0.CATALOGUE_FLOOR_APPROVED is True
     assert l0.PROPOSED_SLUGS == NEW
-    assert len(l0.LAUNCH0_SLUGS) == 5, l0.LAUNCH0_SLUGS
+    assert l0.LAUNCH0_SLUGS == l0._CORE_LAUNCH0_SLUGS + NEW, l0.LAUNCH0_SLUGS
+    assert len(l0.LAUNCH0_SLUGS) == MIN_LISTINGS_TO_OPEN == 8
     scope = l0.launch_scope_slugs()
     for slug in NEW:
-        assert slug not in l0.LAUNCH0_SLUGS and slug not in scope, slug
-        assert l0.candidate_for_cir(slug) is None, slug
-        assert l0.launch_price(slug) is None, slug          # no Launch-0 price outside scope
-    assert not set(l0.PROPOSED_BUILDERS) & set(l0.BUILDERS)
-    assert "nordic-forest-mosaic-throw-baby" not in pipeline.ENGINEERED
+        assert slug in scope, slug
+        assert l0.candidate_for_cir(slug).slug == slug
+        assert l0.launch_price(slug) is not None, slug
+    assert set(l0.PROPOSED_BUILDERS) <= set(l0.BUILDERS)
+    assert pipeline.ENGINEERED["nordic-forest-mosaic-throw-baby"] == "launch0:nordic_forest_baby"
+    # The reserve and the dropped tries stay out.
+    for slug in ("harvest-table-runner", "nordic-forest-mosaic-throw", "pet-snuggle-mat"):
+        assert slug not in scope, slug
 
 
 def test_approval_reaches_the_floor_exactly():
@@ -132,18 +138,17 @@ def test_documents_pass_the_first_customer_document_areas():
             assert gate[area].state == fc.PASS, (slug, area, gate[area].detail)
 
 
-def test_the_engineered_proposals_survive_the_unchanged_jury_only_as_needs_taste():
+def test_the_engineered_additions_survive_the_unchanged_jury_only_as_needs_taste():
     from brambleloop.creative import audit, jury
 
-    r = audit.audit_launch0_engineered(proposed=True)
-    assert r["cohort"]["name"] == "launch0_engineered_proposed"
-    assert r["audited"] == ["nordic-forest-mosaic-throw-baby", "housewarming-key-basket"]
+    r = audit.audit_launch0_engineered()
+    assert r["audited"] == ["nursery-nesting-baskets", "hexagon-coaster-set",
+                            "nordic-forest-mosaic-throw-baby", "housewarming-key-basket"]
     assert r["survivors"] == r["audited"], r["verdicts"]
     for v in r["verdicts"].values():
         assert v["decision"] == jury.NEEDS_TASTE, v
-    # The Launch-0 cohort itself is untouched by the proposal.
-    assert audit.audit_launch0_engineered()["audited"] == [
-        "nursery-nesting-baskets", "hexagon-coaster-set"]
+    # Nothing is left as a proposal once approved.
+    assert audit.audit_launch0_engineered(proposed=True)["audited"] == []
 
 
 def test_the_builder_proposal_is_a_creative_survivor():

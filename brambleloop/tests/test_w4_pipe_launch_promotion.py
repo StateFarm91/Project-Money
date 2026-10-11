@@ -37,7 +37,8 @@ def main():
     from brambleloop.publish import disclosed_listing, eligibility, listing_asset
     from brambleloop.visual.render_verification import authoritative_cir
 
-    check("cap_unchanged", 1 <= len(l0.LAUNCH0_SLUGS) <= 5, l0.LAUNCH0_SLUGS)
+    # CAP-1 (owner-approved 2026-10-11): the cap is the launch.readiness floor of 8 products.
+    check("cap_unchanged", 1 <= len(l0.LAUNCH0_SLUGS) <= 8, l0.LAUNCH0_SLUGS)
     check("reserve_still_not_launched", "harvest-table-runner" not in l0.launch_scope_slugs())
     db = Database(f"sqlite:///{work}/promo.sqlite")
     db.create_all()

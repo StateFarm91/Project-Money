@@ -45,7 +45,8 @@ def test_cohort_is_exactly_the_launch0_products_outside_the_builder():
     want = [s for s in l0.LAUNCH0_SLUGS
             if not {l0.cir_for(v.build).slug for v in l0.candidate(s).variants} & set(CATALOGUE)]
     assert got == want, (got, want)
-    assert got == ["nursery-nesting-baskets", "hexagon-coaster-set"], got
+    assert got == ["nursery-nesting-baskets", "hexagon-coaster-set",
+                   "nordic-forest-mosaic-throw-baby", "housewarming-key-basket"], got
     # Every engineered candidate has a recorded motif and brief; none is left unjudged.
     assert set(got) == set(audit.ENGINEERED_MOTIF) == set(EB.ENGINEERED_BRIEFS)
 
@@ -59,7 +60,8 @@ def test_briefs_validate_and_survive_only_as_needs_taste():
         # Structurally clean is not approved: nothing here can see.
         assert v["decision"] == jury.NEEDS_TASTE, v
         assert set(v["unjudged"]) == {"thumbnail_legibility", "craft_impression"}, v
-    assert r["survivors"] == ["nursery-nesting-baskets", "hexagon-coaster-set"]
+    assert r["survivors"] == ["nursery-nesting-baskets", "hexagon-coaster-set",
+                              "nordic-forest-mosaic-throw-baby", "housewarming-key-basket"]
     variants = sorted(l0.cir_for(v.build).slug for s in r["survivors"]
                       for v in l0.candidate(s).variants)
     assert r["survivor_slugs"] == variants
