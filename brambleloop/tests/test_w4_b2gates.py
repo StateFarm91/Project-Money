@@ -19,6 +19,14 @@ could write. Each would have stayed closed after the owner did their part:
 #244 and #245 cited only a test, so the closure saw no machinery. The registry `proof` now names
 commerce/paid_media.py and runtime/growth_ops.py. Their state and parking are unchanged.
 
+Follow-up 1. The eight registry data_gated rows (#23 #82 #89 #94 #98 #140 #296 #298) showed no
+gate, only a sentence of prose. Each now has a named data gate in `executor.DATA_GATE_FOR`. The
+gate reads the runtime record that row's own machinery reads, at that machinery's minimum. Its
+state is unchanged while the gate is closed.
+
+Follow-up 2. #35 and #39 are classified OWNER-GATED, because in practice a person opens them by
+reading the owner's policy pages. `kind_of('rendered_pages')` stays EXTERNAL.
+
 Run: cd brambleloop && PYTHONPATH=src python3 tests/test_w4_b2gates.py
 """
 from __future__ import annotations
@@ -234,6 +242,146 @@ def test_244_245_name_their_machinery_and_stay_data_gated():
         assert row["state"] == closure.DATA_GATED and row["gate"] == "customers", row["why"]
         assert "commerce/paid_media.py" in row["proof"]["existing"]
         assert row["proof"]["reached"], row["proof"]
+
+
+# ---- the eight prose-only data gates, now named and checkable ------------------------------
+
+def test_every_registry_data_gated_row_has_a_named_checkable_gate():
+    from brambleloop.build2 import closure, executor, requirements as reg
+
+    data_rows = sorted(r.id for r in reg.load() if r.status == reg.DATA_GATED)
+    assert data_rows == sorted(executor.DATA_GATE_FOR), (data_rows, executor.DATA_GATE_FOR)
+    for rid, key in executor.DATA_GATE_FOR.items():
+        assert key in closure.DATA_GATES and closure.kind_of(key) == closure.DATA_GATED
+        g = executor.GATE_BY_KEY[key]
+        assert g.what and g.how and g.requirement_ids == ()  # owner-gate table untouched
+    db = _db()
+    led = closure.ledger(db)
+    rows = {r["id"]: r for r in led["rows"]}
+    for rid, key in executor.DATA_GATE_FOR.items():
+        r = rows[rid]
+        assert r["state"] == "DATA-GATED", (rid, r["state"])  # no status change, gates closed
+        assert r["gate"]["key"] == key and r["gate"]["kind"] == closure.DATA_GATED
+        assert r["gate"]["state"] == "closed" and r["gate"]["opens_when"]
+    # the owner queue lists them as data waits with the rows they hold, never as cards
+    inbox = executor.approval_inbox(db, env={})
+    waits = {d["gate"]: d["unblocks"] for d in inbox["waiting_on_data"]}
+    for rid, key in executor.DATA_GATE_FOR.items():
+        assert rid in waits.get(key, []), (key, waits.get(key))
+    assert not {c["gate"] for c in inbox["cards"]} & set(executor.DATA_GATE_FOR.values())
+
+
+def _order(s, ref, slug, **detail):
+    from brambleloop.core.models import Customer, Order
+
+    c = Customer(customer_ref=f"c-{ref}")
+    s.add(c)
+    s.flush()
+    s.add(Order(customer_id=c.id, external_ref=ref, product_slug=slug, price_cad=20.0,
+                revenue_cad=20.0, detail={"state": "paid", **detail}))
+
+
+def test_each_data_gate_opens_on_its_real_record_at_the_machinerys_minimum():
+    from datetime import datetime, timezone
+
+    from brambleloop.core.models import (CultureObservation, LearningObservation,
+                                         ListingOutcome, SeasonHarvest)
+
+    db = _db()
+    keys = ("listing_traffic", "style_outcomes", "concept_outcomes", "market_outcomes",
+            "learning_sources", "lead_lag_series", "seasonal_orders", "season_harvest")
+    assert not any(_gate(db, k) for k in keys)
+
+    def outcome(slug, impressions, visits, style="flat-lay"):
+        return ListingOutcome(product_slug=slug, period_start="2026-10-01",
+                              period_end="2026-10-07", impressions=impressions, visits=visits,
+                              hero_style=style, source="etsy stats (test)")
+
+    with db.session() as s:
+        s.add(outcome("a", 50, 0))
+    assert not _gate(db, "listing_traffic")  # impressions without a visit are not traffic
+    with db.session() as s:
+        s.add(outcome("b", 60, 5))
+    assert _gate(db, "listing_traffic") and not _gate(db, "market_outcomes")
+    assert not _gate(db, "style_outcomes")  # 2 listings, 110 impressions
+    with db.session() as s:
+        s.add(outcome("c", 100, 5))
+    assert _gate(db, "style_outcomes")  # 3 listings, 210 impressions on one style
+    with db.session() as s:
+        _order(s, "o-1", "b")
+    assert _gate(db, "market_outcomes") and not _gate(db, "concept_outcomes")
+    with db.session() as s:
+        s.add(outcome("d", 0, 190))
+        for i in range(2, 21):
+            _order(s, f"o-{i}", "b")
+        _order(s, "o-unpaid", "b", state="unpaid")  # not countable, never counted
+    assert _gate(db, "concept_outcomes")  # 200 visits, 20 countable orders
+    assert not _gate(db, "seasonal_orders")  # every order so far is unassigned
+    with db.session() as s:
+        _order(s, "o-xmas", "b", season="Christmas")
+    assert _gate(db, "seasonal_orders")
+    now = datetime.now(timezone.utc)
+    with db.session() as s:
+        s.add(LearningObservation(domain="techniques", source="craft (test)", citation="c1",
+                                  observed_on=now, summary="s"))
+    assert not _gate(db, "learning_sources")
+    with db.session() as s:
+        s.add(LearningObservation(domain="customer_pain", source="reviews (test)",
+                                  citation="c2", observed_on=now, summary="s"))
+    assert _gate(db, "learning_sources")
+    with db.session() as s:
+        for ch, on in (("reference", "2026-09-01"), ("reference", "2026-09-08"),
+                       ("etsy", "2026-09-01")):
+            s.add(CultureObservation(signal_key="topic:test", channel=ch, observed_on=on,
+                                     interest=1.0, source="test"))
+    assert not _gate(db, "lead_lag_series")  # one marketplace reading cannot lead anything
+    with db.session() as s:
+        s.add(CultureObservation(signal_key="topic:test", channel="etsy",
+                                 observed_on="2026-09-15", interest=2.0, source="test"))
+    assert _gate(db, "lead_lag_series")
+    with db.session() as s:
+        s.add(SeasonHarvest(event="Christmas", occurrence="2025-12-25", status="not_passed"))
+    assert not _gate(db, "season_harvest")
+    with db.session() as s:
+        s.add(SeasonHarvest(event="Valentine's Day", occurrence="2026-02-14",
+                            status="measured"))
+    assert _gate(db, "season_harvest")
+
+
+def test_an_opened_data_gate_unparks_its_row_and_a_closed_one_keeps_it_data_gated():
+    from brambleloop.build2 import closure, requirements as reg
+
+    r = {x.id: x for x in reg.load()}[298]
+    assert closure.classify(r, gate_open={"season_harvest": False})["state"] == closure.DATA_GATED
+    row = closure.classify(r, gate_open={"season_harvest": True})
+    assert row["state"] == closure.OPEN and "season_harvest has opened" in row["why"]
+    unchecked = closure.classify(r)
+    assert unchecked["state"] == closure.DATA_GATED and "NOT checked live" in unchecked["why"]
+
+
+# ---- #35 / #39: classified by who opens the gate ------------------------------------------
+
+def test_35_39_are_owner_gated_by_a_person_reading_the_policy_pages():
+    from brambleloop.build2 import closure, executor, requirements as reg
+
+    by = {x.id: x for x in reg.load()}
+    for rid in (35, 39):
+        row = closure.classify(by[rid], gate_open={"rendered_pages": False})
+        assert row["gate"] == "rendered_pages" and row["state"] == closure.OWNER_GATED
+        assert "the owner" in row["opened_by"] and "POST /api/policy/snapshot" in row["opened_by"]
+        assert row["gate_kind_of"] == closure.EXTERNAL_BLOCKED  # gate kind itself unchanged
+    led = closure.ledger(gate_open={"rendered_pages": False}, gate_source="test")
+    rows = {r["id"]: r for r in led["rows"]}
+    for rid in (35, 39):
+        assert rows[rid]["state"] == "OWNER-GATED"
+        assert rows[rid]["gate"]["kind"] == closure.OWNER_GATED
+        assert "policy_page_reading" in rows[rid]["gate"]["opened_by"]
+    # the person path is real: the owner decision names it and the gate's check reads it
+    from brambleloop.ops import owner_queue as Q
+
+    assert "/api/policy/snapshot" in Q.DECISION_BY_GATE["rendered_pages"]["decision"]
+    assert "page_readings_status" in executor.GATE_BY_KEY["rendered_pages"].how or \
+        "POST /api/policy/snapshot" in executor.GATE_BY_KEY["rendered_pages"].how
 
 
 if __name__ == "__main__":

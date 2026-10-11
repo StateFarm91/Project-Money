@@ -41,7 +41,23 @@ FINAL_STATES = (COMPLETE_PROVEN, OWNER_GATED, DATA_GATED, EXTERNAL_BLOCKED)
 
 # Each executor gate is one of the three parked kinds. A gate missing from this table is a
 # refusal, not a default: a new gate must say what kind of waiting it is.
-DATA_GATES = frozenset({"customers"})
+DATA_GATES = frozenset({"customers",
+                        # W4-B2GATES: the registry data_gated rows' own gates
+                        # (executor.DATA_GATE_FOR), each read from a runtime record.
+                        "listing_traffic", "style_outcomes", "concept_outcomes",
+                        "market_outcomes", "learning_sources", "lead_lag_series",
+                        "seasonal_orders", "season_harvest"})
+
+#: W4-B2GATES: gates whose kind (`kind_of`) is external -- no honest automated reader exists --
+#: but which a named person opens by hand. A row parked on one is classified by who actually
+#: opens it. `kind_of` (and so the owner queue's listing) is unchanged; see B2_GATES_AUDIT.md.
+PERSON_OPENED_GATES = {
+    "rendered_pages": (
+        "the owner (owner_queue decision 'policy_page_reading'): every 30 days, open the 5 "
+        "etsy.com/legal policy pages in their own browser and record each through POST "
+        "/api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then "
+        "opens the gate, and it closes again when a reading is older than 30 days"),
+}
 EXTERNAL_GATES = {
     "rendered_pages": (
         "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest "
@@ -166,9 +182,28 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
                           "running system: " + "; ".join(f"{m}: {w}" for m, w in
                                                          proof["unreached"].items())[:300])
             return row
+        dgate = executor.DATA_GATE_FOR.get(requirement.id)
+        if dgate is None:
+            row["state"] = DATA_GATED
+            row["why"] = (f"machinery exists ({proof['existing'][0]}); needs customers, "
+                          f"orders or traffic that cannot exist before launch")
+            return row
+        # W4-B2GATES: the data the row waits on is named and checked, like every other gate.
+        row["gate"] = dgate
+        is_open = gate_open.get(dgate) if gate_checked else None
+        row["gate_open"] = is_open
+        row["gate_checked"] = gate_checked
+        if is_open:
+            row["state"] = OPEN
+            row["why"] = (f"data gate {dgate} has opened; the measured reading is now owed "
+                          f"(machinery {proof['existing'][0]})")
+            return row
         row["state"] = DATA_GATED
-        row["why"] = (f"machinery exists ({proof['existing'][0]}); needs customers, orders or "
-                      f"traffic that cannot exist before launch")
+        row["why"] = (f"machinery exists ({proof['existing'][0]}); parked on data gate "
+                      f"{dgate}: {executor.GATE_BY_KEY[dgate].what}")
+        if not gate_checked:
+            row["why"] += (" (gate state NOT checked live: no database was given, so this is "
+                           "the registry's parking, not a verified-closed gate)")
         return row
     # C-65 (Codex P01): only an EXPLICIT park -- `parked_on` written by whoever last audited
     # the row -- parks it. The executor's gate table lists whole requirements a gate once
@@ -218,8 +253,16 @@ def classify(requirement: reg.Requirement, *, gate_open: dict[str, bool] | None 
         row["state"] = OPEN
         row["why"] = f"gate {gate} has opened; the remaining work is no longer parked"
         return row
+    if gate in PERSON_OPENED_GATES:
+        # Classified by who opens it in practice: a person's reading, asked of the owner.
+        kind = OWNER_GATED
+        row["opened_by"] = PERSON_OPENED_GATES[gate]
+        row["gate_kind_of"] = kind_of(gate)
+    row["gate_row_kind"] = kind
     row["state"] = kind
-    if kind == EXTERNAL_BLOCKED:
+    if gate in PERSON_OPENED_GATES:
+        row["why"] = f"parked on {gate}, opened by a person: {PERSON_OPENED_GATES[gate]}"
+    elif kind == EXTERNAL_BLOCKED:
         row["why"] = EXTERNAL_GATES[gate]
     elif kind == DATA_GATED:
         row["why"] = f"parked on {gate}: needs real customers"
@@ -376,7 +419,7 @@ def ledger(db=None, *, env=None, gate_open: dict[str, bool] | None = None,
         if gate and state in ("OWNER-GATED", "DATA-GATED", "EXTERNAL-GATED"):
             g = executor.GATE_BY_KEY.get(gate)
             entry["gate"] = {
-                "key": gate, "kind": kind_of(gate),
+                "key": gate, "kind": row.get("gate_row_kind") or kind_of(gate),
                 "what": g.what if g else None,
                 "opens_when": g.how if g else None,
                 "external_evidence": EXTERNAL_GATES.get(gate),
@@ -387,6 +430,9 @@ def ledger(db=None, *, env=None, gate_open: dict[str, bool] | None = None,
                                 else "not readable: no live reading of this gate was given",
                 "remaining_note": by_req[row["id"]].note[-400:],
             }
+            if row.get("opened_by"):
+                entry["gate"]["opened_by"] = row["opened_by"]
+                entry["gate"]["gate_kind_of"] = row.get("gate_kind_of")
         out.append(entry)
     counts = {s: sum(1 for e in out if e["state"] == s) for s in LEDGER_STATES}
     return {"as_of": datetime.now(timezone.utc).isoformat(timespec="seconds"),
