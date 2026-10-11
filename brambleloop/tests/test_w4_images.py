@@ -2,8 +2,8 @@
 
 * every candidate image is a deterministic disclosed render, verified on its bytes, never
   generated or photographed, and none is approved for customers by this page;
-* a hero that shows 1 of the N pieces a single-component CIR makes is INCOMPLETE in the review,
-  and the finding is recorded on the customer preview's frame record;
+* a set's hero shows every piece (W4-MULTIPIECE); a partial set is INCOMPLETE in the review
+  and withheld from the customer preview;
 * `/cc/image-review` needs an owner session, is no-store/noindex, script-free and phone-sized,
   and shows the images with their status; the customer preview never shows a withheld frame.
 
@@ -95,14 +95,16 @@ def test_every_image_is_a_verified_deterministic_render_and_none_is_customer_app
         assert r["png"] and r["thumb"] and len(r["sha256"]) == 64
 
 
-def test_a_set_drawn_as_one_piece_is_incomplete_not_merely_verified():
+def test_a_set_hero_shows_every_piece_and_verifies():
+    """W4-MULTIPIECE changed this test because its claim became false: the ornament hero no
+    longer shows 1 of 6 pieces (it was INCOMPLETE); it now draws all 6 and verifies."""
     rows = _rows()
     orn = rows["snowflake_ornaments"]
-    assert orn["status"] == IR.INCOMPLETE, orn["status"]
-    assert "1 of the 6 pieces" in orn["pieces_finding"]
-    assert any("Misleading as a hero" in x for x in orn["limitations"])
-    assert any("make` copies" in s for s in orn["remediation"])
-    # the rounds form draws every coaster, and a one-piece basket shows its one piece
+    assert orn["pieces_finding"] is None, orn["pieces_finding"]
+    assert orn["status"] == IR.VERIFIED_NOT_APPROVED, orn["status"]
+    assert "all 6 pieces" in orn["disclosure"]["alt_text"]
+    assert any(c["check"] == "object_count" and c["status"] == "PASS"
+               for c in orn["verifier"]["checks"])
     assert rows["hexagon_coasters"]["pieces_finding"] is None
     assert rows["hexagon_coasters"]["status"] == IR.VERIFIED_NOT_APPROVED
     assert rows["basket_medium"]["status"] == IR.VERIFIED_NOT_APPROVED
@@ -118,12 +120,15 @@ def test_pieces_finding_reads_the_manifest_conservatively():
     assert IR.pieces_finding({"view": "hero", "pieces": "x", "layout": {}}, _C1())
 
 
-def test_the_customer_preview_records_the_set_finding_on_the_frame():
-    """The preview's tested contract (all five heroes VERIFIED) is unchanged in this lane; the
-    finding travels on the frame record so the integrator/owner can decide to withhold it."""
+def test_the_customer_preview_shows_the_full_set_and_withholds_a_partial_one():
+    """W4-MULTIPIECE changed this test because its claim became false (the preview no longer
+    carries a 1-of-6 finding). A partial set is withheld, never shown as VERIFIED."""
     f = P.hero_frame("snowflake_ornaments")
-    assert f["pieces_finding"] and "1 of the 6 pieces" in f["pieces_finding"]
+    assert f["status"] == "VERIFIED" and f["pieces_finding"] is None
     assert P.hero_frame("hexagon_coasters")["pieces_finding"] is None
+    html = P._tile({"title": "x", "price_cad": 5.0, "variant_count": 1},
+                   {"status": "WITHHELD", "png": None, "pieces_finding": "1 of 6"})
+    assert "fewer pieces" in html and "<img" not in html
 
 
 def test_the_review_page_is_owner_only_script_free_and_shows_the_images():
@@ -136,7 +141,7 @@ def test_the_review_page_is_owner_only_script_free_and_shows_the_images():
     assert "<script" not in html.lower()
     assert 'name="viewport"' in html and "width=device-width" in html
     assert html.count("data:image/png;base64,") == len(BUILDS)
-    assert IR.INCOMPLETE in html and "customer-approved: 0" in html
+    assert "customer-approved: 0" in html
     assert "Image material that is not a candidate" in html
 
 

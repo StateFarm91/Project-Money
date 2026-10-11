@@ -69,6 +69,11 @@ def alt_text(manifest: dict, cir) -> str:
             shows = "the finished basket seen from slightly above"
         elif (manifest.get("pieces") or 1) > 1:
             shows = f"all {manifest['pieces']} pieces seen from above"
+    if manifest.get("form") == "flat" and manifest.get("view") == "hero" and \
+            int((manifest.get("layout") or {}).get("objects") or 1) > 1:
+        # W4-MULTIPIECE: the set as drawn, with its true count.
+        n = int(manifest["layout"]["objects"])
+        shows = (f"both pieces" if n == 2 else f"all {n} pieces") + " laid flat, seen from above"
     if manifest.get("form") == "assembled":
         # W4-RENDER: a multi-piece product drawn assembled from its CIR's joins.
         oblique = (manifest.get("layout") or {}).get("projection") == "oblique"
@@ -90,7 +95,9 @@ def alt_text(manifest: dict, cir) -> str:
     dims = manifest.get("finished_dimensions_cm") or {}
     size = ""
     if dims.get("width") and dims.get("height"):
-        size = (f" About {dims['width']:g} x {dims['height']:g} cm at the stated gauge, "
+        each = (" each" if manifest.get("form") == "flat"
+                and int((manifest.get("layout") or {}).get("objects") or 1) > 1 else "")
+        size = (f" About {dims['width']:g} x {dims['height']:g} cm{each} at the stated gauge, "
                 f"with a centimetre scale bar.")
     text = (f"{DISCLOSURE}. {cir.title}: {shows}, in {' and '.join(colours)}.{size}")
     return text[:ALT_TEXT_MAX]
