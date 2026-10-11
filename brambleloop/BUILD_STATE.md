@@ -1,3 +1,10 @@
+> **2026-10-11 — W4-LAUNCHREADY: catalogue floor met on the branch (8 Launch-0 products, not deployed).** Added
+> nordic-forest-mosaic-throw-baby, mosaic-placemat-pair, housewarming-key-basket after a fresh scratch shadow chain: each
+> passes certification, Product Truth, originality, US+UK PDFs, licence/safety, disclosure, listing claims and disclosed
+> imagery like the first five; catalogue_depth and storefront_preview read ready. Dropped on gates (not tuned): pet mat,
+> spooky/valentine garlands, cottage hanging, Nordic throw/large, harvest runner. Fix: PDF stitch key defines every
+> spelling a document uses (94fe81b). Details: `research/final_build/w4/LAUNCH_READINESS_c131f07.md`.
+
 > **2026-10-11 — W4-LAUNCHREADY: Launch-0 readiness measured from gate code (branch `claude/w4-LAUNCHREADY`, not deployed).**
 > Scratch shadow chain at c131f07: all 7 Launch-0 releases certify, pass Product Truth, originality, US/UK PDFs, disclosed
 > certified imagery, listing set, disclosure and listing claims; 0 of 7 publishable. Per-release blockers are all owner/external:

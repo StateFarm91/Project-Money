@@ -170,12 +170,92 @@ test_w3_k7_ops_truth, test_w4_b2close, test_launch, test_creative, test_improve_
 | `final_master_closure`: 9 launch-critical rows OPEN (F-169, F-834, F-839–F-841, F-845, F-846, F-848, F-878) | Other W4 lanes | company work (other lanes) |
 | `off_device_autonomy_proof` (#195): a 24-hour production window | Owner authorises the deploy window | owner approval |
 
+## Catalogue floor: three products added (BRANCH ONLY: `claude/w4-LAUNCHREADY`, not deployed)
+
+> **Branch-only.** Nothing below exists in production. These products are drafted in a
+> scratch shadow database only; nothing has been published and no owner grant covers them.
+
+`catalogue_depth` (8 products) turned out to be company work. Launch-0 is now these 8 products
+(10 releases), drafted on a fresh scratch shadow chain on 2026-10-11. Evidence:
+`evidence_LAUNCHREADY/readiness_catalogue_floor_8products.json` and
+`chain_run_catalogue_floor.json`.
+
+**How they were chosen.** The repo's own demand evidence decided the order. It came from three
+places:
+
+- `radar.opportunity.score_concept` on 2026-10-11;
+- the radar POOL families;
+- the #297 seasonal window.
+
+The candidates were limited to designs that already compile clean and survive the creative gate.
+This used demand intelligence only: no competitor instructions, charts or photographs.
+
+| new product (release) | version / release | why | price (basis) | bundle fit |
+|---|---|---|---|---|
+| **Nordic Forest Relief Baby Blanket** (`nordic-forest-mosaic-throw-baby`) | 1.3.0 / 01679f95e4dd | Nordic Forest is the top radar concept (0.761). The Christmas window has 27 days of runway. Children's category: baby_blanket under 3, with the full statement set. | CA$7.50 (SOURCED blanket band; deliberately below the floor, as for Cloudline) | nordic-forest family with the snowflake ornaments |
+| **Diamond Lattice Placemat Pair** (`mosaic-placemat-pair`) | 1.3.0 / b2cd736f0f34 | radar 0.621; evergreen; a housewarming gift in the collection's cream and wine | CA$5.00 (SOURCED cluster) | housewarming table set with the coaster set |
+| **Housewarming Key Basket** (`housewarming-key-basket`) | 0.1.0 / 142b52f0f9c6 | Moment-first housewarming design (W4-PIPE2), in the basket category | CA$5.50 (SOURCED cluster) | housewarming table-and-hall set |
+
+**Gate results.** Every new release has the same gate profile as the first five:
+
+- **PASS:** certification, Product Truth, originality, US+UK PDFs (10/10, 7/7 and 7/7 pages),
+  terminology, reverse compile, licence and safety, listing claims, disclosed imagery (structural
+  PASS plus a valid listing-set certificate), listing set, disclosure, rollback.
+- **Seasonal window:** launch.
+- **Listing draft:** present, 13 tags each.
+- **Remaining blockers:** the same owner and external ones as the first five (taxonomy, storage,
+  physical sample, parity/image_vision, Etsy remote state, policy, grant).
+
+**Launch-wide effect on the scratch chain.**
+
+- `catalogue_depth` (8 products with listings) and `storefront_preview` (≥4 certified tiles) are
+  now **ready**.
+- The remaining build-class items are `storefront` (the owner's banner), `sustainable_economics`
+  (data) and `final_master_closure` (other lanes).
+
+**Fixes made to get there. No gate was changed.**
+
+- `publish.abbreviations.stitch_key`: a document that spells the slip stitch two ways now defines
+  both. The key basket's `slst` op and the joined-round line's `sl st` both appear; before, the
+  printed key defined only the first, and the unchanged completeness check refused the PDF.
+- Registry wiring:
+  - `launch0.BUILDERS` and the `Candidate` records for the three products;
+  - `runtime.pipeline.ENGINEERED` for the baby size;
+  - engineered-cohort briefs for the baby blanket and the key basket.
+- `seo.strategy`: query families, 13 tags and a buyer-first title for each new product. Every
+  phrase passed `seo.truth.check_term`; refused phrases were dropped. `strategy.plan()` is ok for
+  all 8 products.
+- Scope tests: the Launch-0 cap moved from 5 to the readiness floor of 8 (still a cap). These
+  three tests were updated:
+  - `test_launch0`
+  - `test_w4_pipe_launch_promotion`
+  - `test_r2_product_catalogue_depth`
+
+  Product-count expectations went from 5 to 8 in the store, preview, SEO and gallery tests. Each
+  new card or frame was checked VERIFIED, and every new gallery job measured.
+
+**Tried and dropped on a gate, not tuned.**
+
+- **pet-snuggle-mat:** its CIR names no product-type family (LISTING_PRODUCT_TYPE_UNSUPPORTED).
+- **spooky-garland:** misses the #297 window (pivot to evergreen), and the renderer cannot draw an
+  assembled garland.
+- **valentine-heart-garland:** the same renderer refusal.
+- **cottage-wall-hanging:** fails the 340 px legibility check at 22% fill.
+- **Nordic Forest throw:** the cream is not visible in the scale frame at 340 px.
+- **Nordic Forest large size:** misses the #297 window (simplify to a quick make).
+- **harvest-table-runner:** Thanksgiving (CA) falls on 2026-10-12, so its window is gone.
+
+**Note.** The key basket's release number is 0.1.0, its engineered version. It certifies under the
+current gauge standard like the others.
+
 ## Verdict
 
 The launch packet (`launch.packet.build`) reads **UNKNOWN**: every product has an unread or unjudged
 section, namely parity and policy. Even if those were read, the verdict would be **BLOCKED**.
 
-- **Products ready to the limit of what the company can establish: 5 of 5 (7 of 7 releases).** This
+- **Products ready to the limit of what the company can establish: 5 of 5 (7 of 7 releases)**
+  at c131f07. On this branch it is 8 of 8 (10 of 10 releases), with the catalogue floor met; see
+  above. This
   covers the CIR, PDFs, Product Truth, originality, disclosed certified imagery, listing set,
   disclosure, copy, tags and price.
 - **Listings ready to publish: 0 of 7.** No release clears search certification, parity, durable
