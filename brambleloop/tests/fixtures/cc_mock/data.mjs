@@ -219,6 +219,18 @@ export const DATA = {
       useful_output: null, blocker: null, next_action: null, rows_closed: null, rows_closed_count: null, stale: false }],
     { counts: { RUNNING: 1, UNKNOWN: 1, BLOCKED: 0, REVIEW: 0, MERGED: 0, DONE: 0 }, rows_closed_total: 3, rows_closed_lanes_unknown: 1, stale: [], schema_errors: [] }) }),
   // W4-CCPACKET (F-878): a BLOCKED packet with one product blocked and one UNKNOWN cost.
+  // GET /api/cc/etsy (etsy_connect.status): the shape the Store tab's Etsy card reads. The
+  // fixture mirrors production on 2026-10-11 -- the app key refused, a stored grant without
+  // transactions_r -- so the card renders its refused state and Connect stays disabled.
+  etsy: () => ({
+    api_key_probe: { state: "FAILING", ok: false, at: ago(300), endpoint: "ping",
+      etsy_error: "API key is not active (fixture)" },
+    grant: { stored: true, scopes: ["listings_r", "listings_w", "listings_d", "shops_r", "shops_w"],
+      missing_scopes: ["transactions_r"] },
+    authorise: { ready: true, problems: [], callback_path: "/api/etsy/oauth/callback",
+      scopes: ["listings_r", "listings_w", "listings_d", "shops_r", "shops_w", "transactions_r"] },
+    can_connect: false,
+  }),
   launchPacket: () => tab("LAUNCH_PACKET", { packet: env("BLOCKED", [
     { title: "harbour-throw · harbour-throw-dk v1.0.0", status: "BLOCKED", certified: true, publishable_now: false, physical_proof: "UNKNOWN",
       listing_state: null, price_cad: null, open_gates: ["parity: FAIL"], detail: "parity FAIL: hero image not bound to release" }],
