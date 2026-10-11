@@ -176,6 +176,41 @@ def test_gate_results_read_the_supplement_readings_additively():
     assert got[el.POLICY_PROVENANCE] == el.FAILED
 
 
+def test_post_purchase_clarity_reads_a_complete_disclosure_as_saying_how_to_ask():
+    """first_hundred._post_purchase read an EMPTY `missing` list as silent (`[] or
+    [support]`), so a listing whose copy carried every owed disclosure always failed
+    post_purchase_clarity. Silent stays silent; unchecked stays silent; complete is not."""
+    from brambleloop.commerce import buyer_trust
+    from brambleloop.commerce import first_hundred as F
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import Listing
+
+    db = Database("sqlite://")
+    db.create_all()
+    with db.session() as s:
+        s.add(Listing(product_slug="fixture-a", version="1.0.0", title="Throw",
+                      description="A pattern."))
+        s.add(Listing(product_slug="fixture-b", version="1.0.0", title="Throw",
+                      description="A pattern."))
+    real = buyer_trust.listing_disclosure_finding
+    canned = {
+        "fixture-a": {"checked": True, "complete": True, "missing": [], "misplaced": []},
+        "fixture-b": {"checked": True, "complete": False,
+                      "missing": [{"disclosure": "support"}], "misplaced": []},
+    }
+    buyer_trust.listing_disclosure_finding = lambda db, *, slug, version: canned[slug]
+    try:
+        ok, why, _ev = F._post_purchase(db, [("fixture-a", "1.0.0")])
+        assert ok is True, why
+        ok, why, _ev = F._post_purchase(db, [("fixture-a", "1.0.0"), ("fixture-b", "1.0.0")])
+        assert ok is False and "fixture-b@1.0.0" in why and "fixture-a" not in why
+        canned["fixture-a"] = {"checked": False, "reading": "UNMEASURED"}
+        ok, why, _ev = F._post_purchase(db, [("fixture-a", "1.0.0")])
+        assert ok is False and "fixture-a@1.0.0" in why
+    finally:
+        buyer_trust.listing_disclosure_finding = real
+
+
 if __name__ == "__main__":
     import time
 
