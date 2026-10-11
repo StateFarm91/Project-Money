@@ -305,6 +305,143 @@ def audit_catalogue() -> dict:
     }
 
 
+# W4-LAUNCHREADY: the Launch-0 products engineered outside the builder (the nesting baskets and
+# the coaster set). `audit_catalogue` judges builder designs only, so these four certified
+# releases were never judged and could never be creative-gate survivors. They are judged here
+# by the same jury, against the briefed builder catalogue plus each other, as their own cohort
+# (F-188: a reading says which cohort it measured). The motif is the visual idea the CIR makes
+# -- these CIRs carry no motif field -- and the construction is the CIR's, mapped onto the
+# concept vocabulary; an unmapped construction is reported, never guessed.
+ENGINEERED_COHORT = "launch0_engineered"
+ENGINEERED_MOTIF: dict[str, str] = {
+    "nursery-nesting-baskets": "hexagon",
+    "hexagon-coaster-set": "hexagon-contrast-round",
+}
+_CIR_CONSTRUCTION: dict[str, str] = {
+    "joined_rounds": "in_the_round",
+    "spiral_rounds": "in_the_round",
+    "flat_rows": "flat_rows",
+}
+
+
+def engineered_candidates() -> list:
+    """Launch-0 candidates none of whose variants is a builder design, in listing order."""
+    from ..products import launch0 as l0
+    from ..products.builder import CATALOGUE
+
+    out = []
+    for slug in l0.LAUNCH0_SLUGS:
+        cand = l0.candidate(slug)
+        cir_slugs = {l0.cir_for(v.build).slug for v in cand.variants}
+        if not cir_slugs & set(CATALOGUE):
+            out.append(cand)
+    return out
+
+
+def concept_from_candidate(cand) -> tuple[Concept | None, list[str]]:
+    """The literal concept of an engineered Launch-0 candidate, or None and why not.
+
+    Literal in the same sense as `concept_from_design`: what the record does not state is
+    filled with the value it behaves as though it chose (function empty, feeling cosy,
+    recipient/occasion from the slug hints), so an unbriefed candidate still fails.
+    """
+    from ..products import launch0 as l0
+
+    motif = ENGINEERED_MOTIF.get(cand.slug)
+    if motif is None:
+        return None, [f"{cand.slug}: no motif is recorded for this engineered product"]
+    cir = l0.cir_for(cand.variants[0].build)
+    construction = _CIR_CONSTRUCTION.get(str(cir.construction))
+    if construction is None:
+        return None, [f"{cand.slug}: CIR construction {cir.construction!r} has no concept "
+                      f"vocabulary mapping"]
+    kind = cand.listing.kind if cand.listing is not None else ""
+    lanes = [row["lane_total"] for row in l0.make_time(cand)["variants"]]
+    order = ("QUICK", "SHORT", "MEDIUM", "LONG", "FLAGSHIP")
+    lane = max(lanes, key=order.index) if lanes else "QUICK"
+    return Concept(
+        key=cand.slug, title=cand.title,
+        premise=(f"A {motif.replace('-', ' ')} {kind or 'piece'} worked "
+                 f"{construction.replace('_', ' ')} in {' and '.join(cir.colors)}."),
+        pod=cand.pod if cand.pod in ("home_decor", "blankets", "ornaments") else "home_decor",
+        form=_match(kind, _FORM_HINTS, "flat_panel"), construction=construction,
+        motif=motif, palette_story=" and ".join(cir.colors),
+        recipient=_match(cand.slug, _RECIPIENT_HINTS, "self"),
+        occasion=_match(cand.slug, _OCCASION_HINTS, "everyday"),
+        feeling="cosy", function="", make_lane=lane,
+        provenance="engineered Launch-0 candidate (products.launch0 / products.vessels)",
+    ), []
+
+
+def briefed_engineered(cand) -> tuple[Concept | None, dict]:
+    """The engineered candidate as the design process specifies it (same rules as builder)."""
+    from . import emotional_brief as EB
+
+    literal, why = concept_from_candidate(cand)
+    if literal is None:
+        return None, {"state": "unbriefed", "problems": why}
+    brief = EB.ENGINEERED_BRIEFS.get(cand.slug)
+    if brief is None:
+        return literal, {"state": "unbriefed",
+                         "problems": ["no emotional brief has been written for this product"]}
+    problems = EB.validate(brief, motif=literal.motif, title=literal.title,
+                           declared=EB.declared_by_slug(cand.slug))
+    if problems:
+        return literal, {"state": "refused", "problems": problems}
+    concept = EB.to_concept(
+        brief, key=literal.key, title=literal.title, pod=literal.pod, form=literal.form,
+        construction=literal.construction, motif=literal.motif,
+        palette_story=literal.palette_story, make_lane=literal.make_lane,
+        provenance=(f"{literal.provenance} + {EB.BRIEF_VERSION} authored 2026-10-11 by "
+                    f"W4-LAUNCHREADY"))
+    promise = EB.promise_problems(concept)
+    if promise:
+        return literal, {"state": "refused", "problems": promise}
+    return concept, {"state": "briefed", "problems": [], "brief": brief.to_dict()}
+
+
+def audit_launch0_engineered() -> dict:
+    """Judge the engineered Launch-0 products with the unchanged jury, as their own cohort.
+
+    Context is the briefed builder catalogue plus the other engineered products, so a basket
+    that merely recolours a catalogue design still dies of sameness. A surviving candidate's
+    survival is reported per variant CIR slug as well, because launch clearance is read per
+    certified CIR slug (`app.dashboard_truth.launch_inventory`).
+    """
+    from ..products import launch0 as l0
+    from . import emotional_brief as EB
+    from .jury import Context, judge
+
+    cands = engineered_candidates()
+    built = [(c, *briefed_engineered(c)) for c in cands]
+    concepts = [con for _c, con, _s in built if con is not None]
+    catalogue, _states = briefed_catalogue_concepts()
+    verdicts, states, survivors, variant_slugs = {}, {}, [], []
+    for cand, concept, state in built:
+        states[cand.slug] = state
+        if concept is None:
+            verdicts[cand.slug] = {"decision": "rejected", "findings": state["problems"]}
+            continue
+        others = catalogue + [c for c in concepts if c.key != concept.key]
+        v = judge(concept, Context(catalogue=others, techniques=1))
+        verdicts[cand.slug] = v.to_dict()
+        if v.survives:
+            survivors.append(cand.slug)
+            variant_slugs.extend(l0.cir_for(var.build).slug for var in cand.variants)
+    return {
+        "cohort": {"name": ENGINEERED_COHORT,
+                   "generator_version": f"launch0+briefs@{EB.engineered_fingerprint()}",
+                   "n": len(cands),
+                   "why": ("Launch-0 products engineered outside products/builder.py; judged "
+                           "by the same jury against the briefed builder catalogue")},
+        "audited": [c.slug for c in cands],
+        "states": states,
+        "verdicts": verdicts,
+        "survivors": survivors,
+        "survivor_slugs": sorted(variant_slugs),
+    }
+
+
 def generator_degrees_of_freedom() -> dict:
     """What the generator can actually vary, measured from the CIR it produces.
 
