@@ -77,9 +77,14 @@ Server configuration (environment only, never the repo):
 ### `GET /api/cc/auth/status` (public)
 ```json
 {"authenticated": false, "login_configured": true, "totp_required": false,
+ "second_factor": {"configured": false, "kind": null, "replay_protected": false,
+                   "summary": "passphrase only: BRAMBLELOOP_OWNER_TOTP_SECRET is not set, ..."},
  "csrf_token": null, "session": null, "stepup_valid_until": null,
  "stepup_window_seconds": 300, "server_time": 1759752000}
 ```
+`second_factor` (re-audit L-1) states plainly whether TOTP is configured; it never carries the
+secret or a code. When configured, each TOTP time-step is accepted once (login and step-up
+alike), so a captured passphrase + code pair cannot be replayed inside its window.
 When authenticated: `csrf_token` is a string, `session` =
 `{"session_id": "s_...", "created_at": iso, "expires_at": iso, "idle_expires_at": iso,
   "device_label": "Pixel"}`, `stepup_valid_until` iso or null.
