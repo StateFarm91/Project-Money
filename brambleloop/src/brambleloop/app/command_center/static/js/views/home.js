@@ -5,6 +5,7 @@ import { card, freshness, itemRow, sourcesList, toast, errorState, moneyTile, st
 import { formatMoney, relTime, utcStamp } from "../format.js";
 import { sectionsOf, pageMeta, renderAll, sectionDetails, isMoney } from "./_shared.js";
 import { rankDecisions, decideFirstCard } from "./_decisions.js";
+import { overviewBlocks, nextDecisions } from "./_overview.js";
 
 const BRIEF_ORDER = [
   ["decisions_needed", "Decisions needed"], ["what_changed", "What changed"], ["completed", "Completed"],
@@ -68,23 +69,34 @@ export async function render({ rerender }) {
   const changes = s.changes_since_last_view;
   const changeItems = changes && Array.isArray(changes.items) ? changes.items : [];
 
+  // W4-OWNERHOME: Home is the owner overview. Hero (at a glance), then block 3 -- Decide
+  // first, the ranked queue with cost and consequence, ranks 4-5 one tap away -- then the other
+  // five blocks (working, blocked, accomplished, ready to sell, money + agents), each a headline,
+  // at most five rows and an expandable evidence list. Everything Home showed before is kept,
+  // folded into one "More on Home" section at the end, so nothing is lost and nothing is scrolled.
+  const ranked = apprR.status === "fulfilled"
+    ? rankDecisions((apprR.value.data || {}).cards, (apprR.value.data || {}).decision_batches) : null;
+  const decide = ranked ? decideFirstCard(ranked,
+    { limit: 3, moreHref: "#/approvals", meta: h("p", { class: "card-meta" }, "Inbox read: ",
+      freshness((apprR.value.data || {}).generated_at || null, { stale: apprR.value.stale, fetchedAt: apprR.value.fetchedAt })) })
+    : card({ title: "Decide first", labelId: "decide-first", actions: statusPill("UNKNOWN") },
+      h("p", { class: "card-meta" }, freshness(null)),
+      h("p", { class: "muted" }, `Unknown: decisions could not be loaded (${(apprR.reason && apprR.reason.message) || "error"}).`),
+      h("a", { class: "btn", href: "#/approvals" }, "Open approvals"));
+  if (ranked) { const next = nextDecisions(ranked, { from: 3, to: 5 }); if (next) decide.append(next); }
+
   return h("div", { class: "stack" },
     ...pageMeta(result, data),
     heroCard(hl, result),
     // W4-CCUX: the top decisions, with cost and consequence, before anything else to read.
-    apprR.status === "fulfilled" ? decideFirstCard(
-      rankDecisions((apprR.value.data || {}).cards, (apprR.value.data || {}).decision_batches),
-      { limit: 3, moreHref: "#/approvals", meta: h("p", { class: "card-meta" }, "Inbox read: ",
-        freshness((apprR.value.data || {}).generated_at || null, { stale: apprR.value.stale, fetchedAt: apprR.value.fetchedAt })) })
-      : card({ title: "Decide first", labelId: "decide-first", actions: statusPill("UNKNOWN") },
-        h("p", { class: "card-meta" }, freshness(null)),
-        h("p", { class: "muted" }, `Unknown: decisions could not be loaded (${(apprR.reason && apprR.reason.message) || "error"}).`),
-        h("a", { class: "btn", href: "#/approvals" }, "Open approvals")),
+    decide,
+    ...overviewBlocks(s.overview, { stale: result.stale, fetchedAt: result.fetchedAt }),
     h("div", { class: "quick" },
       h("a", { class: "btn btn-primary", href: "#/approvals" }, icon("approvals", 18), "Decisions"),
       h("a", { class: "btn", href: "#/company" }, icon("operations", 18), "Company"),
       h("a", { class: "btn", href: "#/completion" }, icon("approvals", 18), "Completion"),
       h("a", { class: "btn", href: "#/ask" }, icon("ask", 18), "Ask")),
+    h("details", { class: "home-more" }, h("summary", null, "More on Home: changes since you last looked, overnight handoff and every section"),
     card({ title: "Since you last looked", subtitle: data.last_seen_at ? `Last viewed ${relTime(data.last_seen_at)} (${utcStamp(data.last_seen_at)})`
       : (changes && changes.basis_note) || null, actions: seenBtn },
     h("p", { class: "card-meta" }, freshness((changes && changes.as_of) || null, { stale: result.stale, fetchedAt: result.fetchedAt })),
@@ -96,5 +108,5 @@ export async function render({ rerender }) {
     ...renderAll(data, [["owner_actions", "Your actions"], ["launch", "Launch"], ["money", "Money (controller)"],
       ["store", "Store foundation"], ["products", "Products"], ["autonomy", "Autonomy health"], ["work_24h", "Work (24 h)"],
       ["incidents", "Incidents"], ["opportunities", "Opportunities"]],
-    { result, limit: 3, required: ["money", "owner_actions"], skip: ["headline", "changes_since_last_view", "last_seen_at"] }));
+    { result, limit: 3, required: ["money", "owner_actions"], skip: ["headline", "changes_since_last_view", "last_seen_at", "overview"] })));
 }

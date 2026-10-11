@@ -14,8 +14,43 @@ export function tab(name, sections, extra = {}) {
   return { tab: name, generated_at: now(), sections, ...extra };
 }
 
+function ownerOverview() {
+  const blk = (key, title, status, headline, items, extra = {}) => ({ key, title, status, headline, items: items.slice(0, 5),
+    evidence: extra.evidence || items, as_of: status === "UNKNOWN" ? null : ago(1), basis: status === "UNKNOWN" ? "unknown" : "measured",
+    sources: ["fixture:overview"], href: extra.href || "#/company", ...extra });
+  const causes = [
+    ["Etsy API credentials that can actually serve a request", 21], ["a live Etsy shop", 9], ["paid advertising authority", 7],
+    ["a physical test of a made sample", 6], ["a recruited pattern tester", 4], ["transactions_r scope", 3], ["bank feed", 2]]
+    .map(([t, n], i) => ({ title: t, gate: `g${i}`, count: n, detail: `${n} requirement(s) wait on this`, status: "BLOCKED", source: `build2.executor.gate:g${i}` }));
+  return { status: "OK", as_of: ago(1), basis: "measured", items: [], sources: ["overview"], provider: "command_center.overview",
+    order: ["working", "blocked", "decisions", "accomplished", "ready", "money"],
+    blocks: {
+      working: blk("working", "What's working", "OK", "2 of 31 capabilities verified live; last self-check had failures", [
+        { title: "a model provider that can actually serve a request", detail: "a recorded model.probe succeeded", verified_at: ago(1), verified_basis: "checked live when this page was read", status: "OK", source: "build2.executor.gate:model_provider" },
+        { title: "Production self-check (/api/verify)", detail: "failing: no_unexpected_dead_letters_in_24h", verified_at: ago(20), verified_basis: "last recorded run", status: "DEGRADED", source: "audit_log:26852" }]),
+      blocked: blk("blocked", "What's blocked", "BLOCKED", "6 closed gate(s) hold 52 requirement(s)", causes),
+      decisions: blk("decisions", "Decisions for you", "OK", "4 decision(s) open", [], { href: "#/approvals", open: 4 }),
+      accomplished: blk("accomplished", "What the company accomplished (24 h)", "OK", "9 useful outcome(s) across 2 kind(s) of work; 30 finished job(s) did no work", [
+        { title: "listing.seo", count: 6, detail: "coverage refreshed for 6 listings", at: ago(40), agents: ["listing"], status: "OK", source: "jobs:12150" },
+        { title: "laura.executive_tick", count: 3, detail: "2 priorities set, 1 mission delegated", at: ago(15), agents: ["laura"], status: "OK", source: "jobs:12161" }], { href: "#/timeline" }),
+      ready: blk("ready", "Ready to sell", "BLOCKED", "0 of 1 product(s) ready to sell; 1 certified; 0 on Etsy", [
+        { title: "Harbour Throw", slug: "harbour-throw", certified: true, version: "1", pdf: { state: "BUILT", built_at: ago(300), source: "artefact_provenance:4" },
+          images: { state: "UNKNOWN", why: "no listing-set verdict or imagery provenance for this product" }, publication: "NOT READY",
+          why: "Not ready: parity not passing", status: "BLOCKED", source: "products:1" }], { href: "#/store" }),
+      money: blk("money", "Money and agent activity", "UNKNOWN", "Revenue UNMEASURED; spend 24 h CA$0.03 (recorded, 1 row(s)); 2 agent(s) produced useful results", [
+        { title: "Revenue", value_cad: null, state: "UNMEASURED", display: "UNMEASURED", detail: "order source not connected", status: "UNKNOWN" },
+        { title: "Profit", value_cad: null, state: "UNKNOWN", display: "UNKNOWN", status: "UNKNOWN" },
+        { title: "Recorded spend (all time)", value_cad: 76.43, state: "RECORDED", display: "CA$76.43 (recorded; CA$2.45 not measured)", status: "OK" },
+        { title: "Recorded spend (24 h)", value_cad: 0.03, state: "RECORDED", display: "CA$0.03 (recorded, 1 row(s))", status: "OK" }],
+      { href: "#/money", agents: [{ title: "listing", useful_24h: 6, no_work_24h: 2, status: "OK" }, { title: "laura", useful_24h: 3, no_work_24h: 0, status: "OK" },
+        { title: "orchestrator", useful_24h: 0, no_work_24h: 28, status: "DEGRADED" }], agents_counts: { active_24h: 2, ran_24h: 3 } }),
+    } };
+}
+
 export const DATA = {
   home: () => tab("HOME", {
+    // W4-OWNERHOME: the six-block owner overview (shape of command_center/overview.py).
+    overview: ownerOverview(),
     changes_since_last_view: env("OK", [{ id: 17, at: ago(90), actor: "visual", action: "qa.passed", artifact: "harbour-throw@1", source: "audit_log:17" }],
       { since: ago(600), basis_note: "since your last view" }),
     autonomy: env("OK", [{ department: "Product & Design", status: "OK", last_run_at: ago(12) },
