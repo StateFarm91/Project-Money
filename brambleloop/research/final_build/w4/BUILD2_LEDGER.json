@@ -1,5 +1,5 @@
 {
- "as_of": "2026-10-11T14:54:29+00:00",
+ "as_of": "2026-10-11T15:15:20+00:00",
  "spec": "spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf",
  "total": 320,
  "counts": {
@@ -10,7 +10,7 @@
   "NOT-APPLICABLE": 3,
   "OPEN-DEFECT": 0
  },
- "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+ "gate_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
  "rows": [
   {
    "id": 1,
@@ -62,7 +62,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "owser_vision gate. Parked there rather than released into the ready queue as work nothing can start, which is the third time today that distinction has mattered.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `insights_access` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -255,7 +255,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " it into every generator brief (constraints_text) of the next tournament. /api/preproduction now reports the last cycle from rows. Five retention entries added. Test runs through Worker.run_once with sockets refused, including idempotency across four runs and the injected observation. Real-gated half: publishing (no site/Pinterest account) and the interest ingest that only an owned surface brings."
    }
   },
@@ -441,7 +441,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ef is ASSET_CONSENT_MISSING. A reference rather than a boolean, because somebody has to be able to go and look, and absent consent is not implied consent. Remaining and parked on the customers gate: rungs four and five read False until orders exist, and the key is present rather than absent because a missing key and an unreached rung look identical to a caller and mean completely different things."
    }
   },
@@ -496,7 +496,7 @@
     "opens_when": "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "bility is zero. Re-parked from browser_vision on 2026-09-20 when that gate was split; this is the rendered-page half of it, not the photograph half. Re-parked 2026-09-26 (Build 2 closeout): the roster needs real people to join it, not a browser to read a page; rendered_pages was the wrong gate and would have released this into the ready queue the day a page fetch worked, with nobody on the roster."
    }
   },
@@ -565,7 +565,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "cadence (reading 'free_to_paid', summary free_assets_with_a_job) now plan over the certified assets instead of plan([]). Nothing is published, no email is captured, no message is sent (CASL); shadow. Remaining and parked: publication waits on an owned surface (owned_surfaces). Evidence research/final_build/w4/evidence_B2CLOSE/free_asset_diamond_lattice_relief_swatch.json; tests/test_w4_b2close.py."
    }
   },
@@ -607,7 +607,7 @@
     "opens_when": "the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ork calls; open -> EtsyClient.get_shop_receipts pages receipts into cohorts.record_customer/record_order (Etsy user id only, no PII) and sale LedgerEntry rows, then enqueues commerce.order_readings. cohort_block computes cohorts.metrics per axis and validation-cohort lifetime contribution, which is the reward ceiling referral.check reads. Real gate: only the owner can grant the scope in a browser."
    }
   },
@@ -661,7 +661,7 @@
     "opens_when": "the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "s #11: nothing writes Order/Customer rows\n\nRepair wave orders 2026-09-27 (integrated by the lead; parked on transactions_r): Customer and Order rows are written by the ingest on cadence (idempotent on etsy:<receipt>:<transaction>; 44 orders/43 customers from the fake feed, second run adds nothing; refused line recorded not fatal). With no orders the readings say UNMEASURED, never zero-as-measured."
    }
   },
@@ -735,7 +735,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " its context on these price bands and this maturity scale, since a memory keyed on 'under_10' against a benchmark saying '6_to_10' matches nothing and lets every closed question quietly reopen. /api/benchmarks. Remaining and parked: every cell is empty because this company has no listings, no impressions and no orders, and that is reported as no baseline anywhere rather than as a baseline of zero."
    }
   },
@@ -792,7 +792,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ds image_vision, which is CLOSED, so marking the row COMPLETE overstates it\n\nRepair wave intel 2026-09-27 (integrated by the lead): Pattern+video positioning, category diversity and differentiation are scored on the serp_capture cadence and consumed by arbitrage; thumbnail composition is the one half that needs a model that looks at an image and is refused, not faked, while image_vision is closed."
    }
   },
@@ -846,7 +846,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ever forgets is a way to stop learning, which is the same failure as no memory arriving from the other side. 'Things feel different now' is refused, because it reopens every question ever closed. /api/listing-tests. Remaining and parked: running one needs a live listing and its impressions, so nothing has been established yet and an empty memory says so rather than reporting that nothing is known."
    }
   },
@@ -920,7 +920,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "reply never records timings), so service_level can only ever read 'untimed'. This can be wired now\n\nRepair wave growth 2026-09-27 (integrated by the lead): support.reply records service.record_response on the case as draft_ready (shadow holds replies) and service_level keeps drafts apart from delivered responses, feeding the #17 trust rung; whether fast support reduces refunds/repeat needs orders."
    }
   },
@@ -962,7 +962,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "mers): incrementality/control checks never run and no cadence reads them. No promotion path exists, so parking them is plausible\n\nRepair wave growth 2026-09-27 (integrated by the lead): growth.journey reads every promotion Experiment against its organic control via promotion.incrementality daily, marks a non-paying one not_repeatable and opens promotion:catalogue_conditioned; no promotion has run."
    }
   },
@@ -1026,7 +1026,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "rage report is not full coverage. owned_share() feeds the traffic_source axis of the anti-fragility rule (#29). Remaining and data-gated: assisted conversions and the owned share itself need visits, and are reported unmeasurable with the reason rather than as zero, because a company with no traffic has no marketplace dependence either and that is not the finding anybody wants recorded. /api/owned."
    }
   },
@@ -1066,7 +1066,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ne: a null averages as a zero to anything that averages it, so an unmeasured outcome is named and blocks, because a roster scaled on no bad news is a release passed by the absence of a complaint. Remaining and parked on the customers gate: attributable traffic and conversion need a live listing and real orders. The protocol and its refusals run today, so they are tested before the day they matter."
    }
   },
@@ -1241,7 +1241,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "t C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: capacity review feeds runrate.constraint an empty Observed(); no constraint can be found. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> runrate.observe(db) (C-48: no longer an empty Observed) -> decompose + constraint -> binding term recorded weekly. Parked on customers."
    }
   },
@@ -1383,7 +1383,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: the rule table only ever receives an empty observation; no rule can fire. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> constraint fires a scale rule -> the allocation tilts toward it, or the readiness gate refuses the tilt. Parked on customers."
    }
   },
@@ -1511,7 +1511,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "to 1 specialist. Below the floor it records measurable=False. Only the zero case acts; a falling ratio and contribution/dollar are reported, not acted on.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: only the validated==0 case acts; a falling ratio and contribution per operating dollar are reported, not acted on, and contribution needs revenue -- parked on customers for that half."
    }
   },
@@ -1598,7 +1598,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "n repair 2026-09-27: daily seasonal_engine -> seasonal.engine -> engine.allocate / squad_state / breakout. Competitive weakness is now measured from the API search index's listing count per occasion (certification: 'no source' was no longer true); expected demand waits on Insights readings, visibility and contribution on listings and orders -- unscored occasions stay labelled. Parked on customers."
    }
   },
@@ -1648,15 +1648,18 @@
    "why": "parked on rendered_pages, opened by a person: a person -- proposed to the owner, not yet accepted (owner_queue decision 'policy_page_reading', a PROPOSAL): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days. Company side (gates.policy_access): robots.txt and Etsy Help Center change signals, never a legal page",
    "evidence": {
     "tests": [
-     "tests/test_cert_parity_copy.py"
+     "tests/test_cert_parity_copy.py",
+     "tests/test_w4_b2gate2.py"
     ],
     "tested_modules": [
      "gates/platform_policy.py",
+     "gates/policy_access.py",
      "runtime/release.py",
      "runtime/pipeline.py"
     ],
     "artefacts": [
      "gates/platform_policy.py",
+     "gates/policy_access.py",
      "runtime/release.py",
      "runtime/pipeline.py"
     ],
@@ -1670,6 +1673,16 @@
        "disclosure_block",
        "check_new_class"
       ]
+     },
+     {
+      "module": "gates/policy_access.py",
+      "why": "status is live: API get api_policy -> app/main.py:api_policy",
+      "live": [
+       "status",
+       "assess",
+       "_fetch_json",
+       "_fetch_text"
+      ]
      }
     ]
    },
@@ -1680,8 +1693,8 @@
     "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them -- OR every etsy.com/legal policy source has a page reading by a named person, recorded through POST /api/policy/snapshot within 30 days, with no unreviewed material change (platform_policy.page_readings_status)",
     "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days); a current, reviewed set of those readings opens this gate (platform_policy.page_readings_status), and it closes again when one goes stale.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
-    "remaining_note": "snapshot (audited by id) within 30 days, with no unreviewed material change. Absent, stale, future-dated, anonymous or un-audited readings keep it closed. Still parked: no such reading has been recorded. The owner card is policy_page_reading (CA$0, 15 min every 30 days); the hosted browser worker card is withdrawn (it would meet the same 403). tests/test_w4_b2close.py, tests/test_policy_intake.py.",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
+    "remaining_note": "sts a legal page and never opens the gate. Evidence (research/final_build/w4/evidence_B2GATE2): /legal/sellers/ 403 (DataDome) re-proven; robots.txt disallows /*handmade/ (the watched Creativity Standards URL); children_and_baby has no Help Center companion. The recurring 30-day reading is now a PROPOSAL to the owner (owner_queue policy_page_reading), not an imposed duty. tests/test_w4_b2gate2.py.",
     "opened_by": "a person -- proposed to the owner, not yet accepted (owner_queue decision 'policy_page_reading', a PROPOSAL): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days. Company side (gates.policy_access): robots.txt and Etsy Help Center change signals, never a legal page",
     "gate_kind_of": "EXTERNAL-BLOCKED"
    }
@@ -1770,7 +1783,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "arithmetic this note called owed exists (intel/insights_budget.py) and runs on the commerce.readings cadence; the row waits on the owner's Insights reading only.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `insights_access` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -1831,15 +1844,28 @@
    "evidence": {
     "tests": [
      "tests/test_cert_intel_wave2.py",
-     "tests/test_platform_policy.py"
+     "tests/test_platform_policy.py",
+     "tests/test_w4_b2gate2.py"
     ],
     "tested_modules": [
+     "gates/policy_access.py",
      "gates/platform_policy.py"
     ],
     "artefacts": [
+     "gates/policy_access.py",
      "gates/platform_policy.py"
     ],
     "runtime_consumers": [
+     {
+      "module": "gates/policy_access.py",
+      "why": "status is live: API get api_policy -> app/main.py:api_policy",
+      "live": [
+       "status",
+       "assess",
+       "_fetch_json",
+       "_fetch_text"
+      ]
+     },
      {
       "module": "gates/platform_policy.py",
       "why": "record_page_reading is live: API post api_policy_snapshot -> app/main.py:api_policy_snapshot",
@@ -1859,8 +1885,8 @@
     "opens_when": "a recorded browser.probe fetched a real rendered page -- a configured worker URL is a string, and Etsy answers 403 to a great many of them -- OR every etsy.com/legal policy source has a page reading by a named person, recorded through POST /api/policy/snapshot within 30 days, with no unreviewed material change (platform_policy.page_readings_status)",
     "external_evidence": "etsy.com/legal (DataDome, HTTP 403) and Etsy search pages refuse every honest automated reader (DECISION_LOG B-268, B-500; re-proven 2026-09-26 with two independent fetchers). help.etsy.com is read by gates/policy_reader.py through Etsy's public article API. Spoofing a browser is refused. The rows that need an etsy.com/legal page (#35, #39) need a human policy snapshot, not a browser worker: a person reads the page and records it (POST /api/policy/snapshot, ~15 minutes every 30 days); a current, reviewed set of those readings opens this gate (platform_policy.page_readings_status), and it closes again when one goes stale.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
-    "remaining_note": "snapshot (audited by id) within 30 days, with no unreviewed material change. Absent, stale, future-dated, anonymous or un-audited readings keep it closed. Still parked: no such reading has been recorded. The owner card is policy_page_reading (CA$0, 15 min every 30 days); the hosted browser worker card is withdrawn (it would meet the same 403). tests/test_w4_b2close.py, tests/test_policy_intake.py.",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
+    "remaining_note": "sts a legal page and never opens the gate. Evidence (research/final_build/w4/evidence_B2GATE2): /legal/sellers/ 403 (DataDome) re-proven; robots.txt disallows /*handmade/ (the watched Creativity Standards URL); children_and_baby has no Help Center companion. The recurring 30-day reading is now a PROPOSAL to the owner (owner_queue policy_page_reading), not an imposed duty. tests/test_w4_b2gate2.py.",
     "opened_by": "a person -- proposed to the owner, not yet accepted (owner_queue decision 'policy_page_reading', a PROPOSAL): every 30 days, open the 5 etsy.com/legal policy pages in their own browser and record each through POST /api/policy/snapshot with read_by; gates.platform_policy.page_readings_status then opens the gate, and it closes again when a reading is older than 30 days. Company side (gates.policy_access): robots.txt and Etsy Help Center change signals, never a legal page",
     "gate_kind_of": "EXTERNAL-BLOCKED"
    }
@@ -1957,7 +1983,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " listing.seo measures the disclosure on the persisted copy and store.publish re-checks it. Support half (C-42): hourly support_triage -> support.triage triages stored cases, enqueues support.reply drafts (never sent in shadow) and computes the confusion reading (C-56 fixed); the rate is UNMEASURED with no orders and the case window UNKNOWN until a policy reading states it. Data-gated on customers."
    }
   },
@@ -2057,7 +2083,7 @@
     "opens_when": "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ": REOPENED -- the library exists and is tested but is not reachable from the running system: tester forecast/capacity/assign uncalled. Executable Build 2 work.\n\nCertification repair 2026-09-27: gate.lanes -> testers.plan forecasts demand, capacity and in-specialty assignment, written as quality.tester_plan; with no recorded testers every B/C demand is unassigned. Remainder parked on tester_roster."
    }
   },
@@ -2099,7 +2125,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "nt should be labelled a proxy.\n\nRepair wave platform2 2026-09-27 (integrated by the lead): C-80: moat inventory from artefact evidence; recognisability carries its basis -- the signature count is labelled recognisability_proxy and the real measurement (blind hero description against the brand palette) runs behind image_vision and overrides the proxy when present. Parked for the measured half only."
    }
   },
@@ -2165,7 +2191,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: attribution checks reachable only from unreachable bundles/promotion. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> bundles.attribution_from_db -> bundle_effect / amplification_check -> declarable winners recorded. Parked on customers."
    }
   },
@@ -2209,7 +2235,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: elasticity.record never called; price history always empty. Executable Build 2 work.\n\nCertification repair 2026-09-27: every pricing.position in the chain -> elasticity.record_price_set writes the price point (deduplicated); elasticity itself is UNMEASURED until sales. Parked on live_listings."
    }
   },
@@ -2305,7 +2331,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "only one arm Certification 2026-09-27 (proof-chain audit, defect C-41): REOPENED -- the library exists and is tested but is not reachable from the running system: holdout reachable only from unreachable promotion. Executable Build 2 work.\n\nCertification repair 2026-09-27: ops.capacity -> holdout_from_db -> holdout recorded and fed to the readiness gate's attribution condition. Parked on customers."
    }
   },
@@ -2411,7 +2437,7 @@
     "opens_when": "a continuity archive has actually been written offsite. A typed bucket address that is wrong, or whose credentials are, survives losing this provider exactly as well as no bucket at all",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "acement, a redeploy and a crash; exports exclude the archive table itself so backups do not carry the previous backups. Remaining and gated: a copy outside this provider, which is what '#51 reconstructable if a SaaS provider disappears' actually asks for and needs a bucket and credential the owner must create. Rendered PDFs/charts are re-derivable from CIR + code and are deliberately not archived."
    }
   },
@@ -2516,7 +2542,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " owner exports Etsy Stats (insights_access) -- parked for that half only.\n\nW4-GATESB 2026-10-07 split: company part PROVEN -- the pre-Etsy readiness gate is launch.readiness.assess (tests/test_launch.py, tests/test_cert_rebuild_chain.py). Owner part: one Marketplace Insights reading recorded from Shop Manager (decision insights_reading); the Insights input stays UNKNOWN until recorded, never zero."
    }
   },
@@ -2813,7 +2839,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "odex P06).\n\nRepair wave platform2 2026-09-27 (integrated by the lead): C-80: every frame role has a registered claim (unregistered = UNCLAIMED, blocking); unjudged stays unjudged; a review counts only when non-empty, all clear and bound to the stored frame shas. With image_vision closed every frame is UNREVIEWED and publication is blocked -- honest; the independent review itself waits on the gate."
    }
   },
@@ -2932,7 +2958,7 @@
     "opens_when": "at least one PhysicalTest row has a completion date -- the intake being built is not the same as a finished object existing, and nothing here says whose hands finished it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "l.record, not the cadences) creates an upgrade task when physical photography arrives. No CTR/conversion comparison. That trigger is buildable now\n\nRepair wave intel 2026-09-27 (integrated by the lead): physical.photo intake -> assets.physical_upgrade task -> physical.upgrade_impact daily (CTR/conversion before/after, UNMEASURED until live listings). Only a finished physical object is owner-gated."
    }
   },
@@ -3097,7 +3123,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "cy, polish), no currency check, and hits the limit(10) bug.\n\nCertification repair 2026-09-27: blind_review cadence -> handle_blind_review -> review over ten dimensions (incl. information density, consistency, polish) plus compare_listing_set, refusing a stale or thin set; parity reads it per product. The benchmark observations it compares against need image_vision (CLOSED): parked on image_vision."
    }
   },
@@ -3335,7 +3361,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ", photographic_realism, asset_truth, styling). The canonical identity itself is enforced in code (hash-pinned references, provenance_check in the frame gate, replacement procedure). What is missing is a provider that renders a certified structure faithfully: 0 of 16 and 0 of 7 draws certified (VISUAL_V1_GRADUATION, VISUAL_BENCH2). EXTERNAL-BLOCKED; no further paid draws in this closeout (D-B2C-1)."
    }
   },
@@ -4025,7 +4051,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "Repair wave intel 2026-09-27 (integrated by the lead): NEW: creative.benchmark_memory runs daily, folds the #86 attribute vocabulary from judged gallery observations with favourites and Brambleloop outcomes, stores an OperatingReading; ideation.lessons/constraints_text put the rewarded attributes in every brief. UNMEASURED with reason until a judged image exists (judging runs behind image_vision)."
    }
   },
@@ -4139,7 +4165,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_vision/model_provider credit gate, so in production nothing new reaches cir.draft -- parked on image_vision (owner: fund the provider account), consistent with #86."
    }
   },
@@ -4608,7 +4634,7 @@
     "external_evidence": null,
     "state": "closed",
     "state_source": "derived from production GET /api/learning: customer_pain observations 1, techniques observations 0 (unobserved): half met (read-only, 0417f35, 2026-10-11)",
-    "remaining_note": "vation for search behaviour, a customer for customer pain) and the fourth is owned by ops.policy_watch. No engineering here moves any of them.\n\nCertification 2026-09-27 (C-40 repair): the search-behaviour half is now fed: intel.serp_capture -> learning.ingest_search_behaviour records labelled proxy changes once a query has two snapshots. The craft-source and customer-pain halves remain data-gated."
+    "remaining_note": "observation, from mjs.reviews via ingest_complaints), so half of the learning_sources gate is met in production; techniques remains unobserved. A Wikimedia-pageviews technique feed was sampled (Tunisian 0.79x, Filet 1.11x, Irish 0.94x, Amigurumi 0.70x, Hairpin 1.09x, Tapestry 0.72x, Jul-Sep 2026 vs 2025): no technique shows a revival, so such a feed would record nothing today; it stays data-gated."
    }
   },
   {
@@ -5346,7 +5372,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "eference.read_listing and record_reading are still uncalled even once the gate opens, and the decomposition is computed at read time, not stored as the body requires.\n\nRepair wave intel 2026-09-27 (integrated by the lead): creative.reference_reading daily: refuses while vision closed; with it, reads listings, records readings, stores per-department decompositions that ideation.lessons reads first."
    }
   },
@@ -5554,7 +5580,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "library exists and is tested but is not reachable from the running system: no mechanism transfer occurs. Executable Build 2 work.\n\nCertification repair 2026-09-27: discovery.transfer carries a mechanism detected in prior survivors at other holidays into the brief with a new theme; evidence is gauntlet survival, and conversion-based transfer is UNMEASURED until sales exist. Data-gated on customers."
    }
   },
@@ -5850,7 +5876,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_vision/model_provider credit gate, so in production nothing new reaches cir.draft -- parked on image_vision (owner: fund the provider account), consistent with #86."
    }
   },
@@ -6011,7 +6037,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ", photographic_realism, asset_truth, styling). The canonical identity itself is enforced in code (hash-pinned references, provenance_check in the frame gate, replacement procedure). What is missing is a provider that renders a certified structure faithfully: 0 of 16 and 0 of 7 draws certified (VISUAL_V1_GRADUATION, VISUAL_BENCH2). EXTERNAL-BLOCKED; no further paid draws in this closeout (D-B2C-1)."
    }
   },
@@ -6460,14 +6486,18 @@
    "closure_state": "DATA-GATED",
    "why": "machinery exists (culture/feeds.py); parked on data gate lead_lag_series: both a culture series and a marketplace series for one signal, built up over time",
    "evidence": {
-    "tests": [],
+    "tests": [
+     "tests/test_w4_b2gate2.py"
+    ],
     "tested_modules": [
      "culture/feeds.py",
-     "culture/demand.py"
+     "culture/demand.py",
+     "culture/radar.py"
     ],
     "artefacts": [
      "culture/feeds.py",
-     "culture/demand.py"
+     "culture/demand.py",
+     "culture/radar.py"
     ],
     "runtime_consumers": [
      {
@@ -6489,6 +6519,16 @@
        "terms",
        "matches"
       ]
+     },
+     {
+      "module": "culture/radar.py",
+      "why": "sweep is live: API get api_culture -> app/main.py:api_culture",
+      "live": [
+       "sweep",
+       "record",
+       "Signal.__post_init__",
+       "route_findings"
+      ]
      }
     ]
    },
@@ -6499,8 +6539,8 @@
     "opens_when": "culture.radar.lead_lag(signal) is measurable for at least one CultureObservation signal (>= 2 culture and >= 2 marketplace readings)",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "derived from production GET /api/culture series, re-run through culture.radar.lead_lag at this commit: measurable for no signal; production at 0417f35 served lead_lag measurable for ['crochet', 'crochet_hook', 'granny_square', 'halloween'], each on a marketplace plateau ({'halloween': (1.0, '2026-09-20', '2026-10-06'), 'granny_square': (1.0, '2026-09-13', '2026-09-19'), 'crochet_hook': (1.0, '2026-09-13', '2026-09-19'), 'crochet': (1.0, '2026-09-13', '2026-09-19')}) (read-only, 0417f35, 2026-10-11)",
-    "remaining_note": " measurable' against a database full of measurements. Data-gated rather than partial: the catalogue was observed in one pass, so first_seen is the same date for almost everything the baseline found, and a series needs listings discovered over time. That accumulates by itself as the scanner finds new listings. Four matched listings minimum, because two produce a peak wherever the second one landed."
+    "state_source": "derived from production GET /api/culture series, re-run through culture.radar.lead_lag at this commit: measurable for no signal; production at 0417f35 served lead_lag measurable for ['crochet', 'crochet_hook', 'granny_square', 'halloween'], each on a plateau ({'halloween': (1.0, '2026-09-20', '2026-10-06'), 'granny_square': (1.0, '2026-09-13', '2026-09-19'), 'crochet_hook': (1.0, '2026-09-13', '2026-09-19'), 'crochet': (1.0, '2026-09-13', '2026-09-19')}) (read-only, 0417f35, 2026-10-11)",
+    "remaining_note": "maximum on >= 3 distinct dates) by name; re-run on production's own series it is measurable for no signal, so the gate stays closed truthfully. The marketplace half also stopped accumulating: etsy.probe has been refused (HTTP 403) since 2026-10-07 12:00Z, so no new listings are discovered until the Etsy credential reads again (owner: check the app and ETSY_SHARED_SECRET). tests/test_w4_b2gate2.py."
    }
   },
   {
@@ -6866,7 +6906,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ttaches each cultural lesson naming an occasion to that occasion's plan, and Content (marketing.schedule -> growth/content.apply_cultural_timing, cell growth) attaches matching cultural_timing lessons to the pre-launch pieces; both record bus.acted_on (tests/test_w4_b2_culture_consumers.py). Remaining and parked on customers: the post-launch weight update needs sales from culture-derived products."
    }
   },
@@ -7621,7 +7661,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ility presence, not a measured product score.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: compare_advantages labels an advantage 'beyond' on capability presence against the benchmark's score (Codex P04); our own measured score on the same dimension needs an audited purchased benchmark -- parked on benchmark_purchases for the measured half; UNMEASURED is non-blocking and recorded."
    }
   },
@@ -7722,7 +7762,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "g competitor, format/market shift) runs weekly in intel.benchmark_refresh and raises bounded purchase recommendations (tests/test_cert_intel_wave.py). Owner part: buying the set (benchmark_purchases; exact 13-pick list, links and CA$ total in research/final_build/w4/GATE_CLEARANCE_BUSINESS.md, delivered through /ops/teardown). The row stays parked on benchmark_purchases for the purchase half only."
    }
   },
@@ -7852,7 +7892,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ess now challenges one certified representative per category, using the concept seed's category (not a slug family nobody files benchmarks under), and scores our side from audits recorded against brambleloop:<slug>; an unaudited critical dimension blocks. What remains is data only this gate can supply: purchased benchmarks intaken and torn down in the category. Stays parked on benchmark_purchases."
    }
   },
@@ -7908,7 +7948,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " (provenance filtered slug@version); customization from the real size run; nothing-to-read stays unscored, never neutral.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: driver scores are constants keyed on this version's artefacts (labelled measured_from_artefacts, a proxy); 'after paying, does this feel better than expected' is a buyer's answer -- parked on customers for that half."
    }
   },
@@ -8754,7 +8794,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "cloud browser/vision worker pool -- the MJs mission gate\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -9081,7 +9121,7 @@
     "opens_when": "autonomy.launch_item reads PROVEN from the rows a full production window left",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "brary-only via app/main. Gap: off_device_proof is not wired into launch.readiness, so it is not launch-blocking.\n\nCertification repair 2026-09-27: launch_readiness -> autonomy.launch_item: the off-device proof is a blocking readiness item and reads NOT PROVEN until a full unattended production window of this build has passed. Parked on production_window (deploying Build 2 is the owner's decision)."
    }
   },
@@ -9345,7 +9385,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ", photographic_realism, asset_truth, styling). The canonical identity itself is enforced in code (hash-pinned references, provenance_check in the frame gate, replacement procedure). What is missing is a provider that renders a certified structure faithfully: 0 of 16 and 0 of 7 draws certified (VISUAL_V1_GRADUATION, VISUAL_BENCH2). EXTERNAL-BLOCKED; no further paid draws in this closeout (D-B2C-1)."
    }
   },
@@ -9413,7 +9453,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ned. The real blocker is model_bearing_render, which is EXTERNAL, as for #202.\n\nRepair wave intel 2026-09-27 (integrated by the lead): EXTERNAL: shot plan is recorded on every model_photography cadence run and the sequence renders only planned model jobs; the frames themselves need a faithful model-bearing render no provider has produced. Not image_generation (gate carries nothing and has opened)."
    }
   },
@@ -10088,7 +10128,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ns (desirability, giftability, etc.); limit(10) bug; nothing returns a failure to creative development.\n\nCertification repair 2026-09-27: blind_review cadence -> the eight named challenge dimensions -> an inferior product is re-queued to its photography job (creative.returned_to_development). Desirability, distinctiveness and giftability need a judged reading of our frames: parked on image_vision."
    }
   },
@@ -10234,7 +10274,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "d browser/vision capability is the thing being requested, so it cannot be built without it; parked on the browser_vision gate rather than counted as executable\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -10288,7 +10328,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "step offline (intel/acceptance.py); whether it satisfies the 'browser/vision' wording needs a recorded owner decision, and the production run needs deployment.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -10446,7 +10486,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "gated, yet the row is closed COMPLETE.\n\nRepair wave intel 2026-09-27 (integrated by the lead): intel.pod_learning daily computes discernment/creativity from rows and stores PodCapabilityReading; NEW: a measured precision weights the pod's lane in _pod_priority. 'Measurably more discerning' and successful/failed responses need settled outcomes (VALIDATED_WINNER needs sales) \u2014 UNMEASURED until then."
    }
   },
@@ -10595,7 +10635,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "erences.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: binding_constraint has zero callers; ops.capacity uses an empty Observed().\n\nCertification repair 2026-09-27: ops.capacity -> target.binding_constraint on database inputs (None is UNMEASURED) -> recorded weekly. Parked on customers."
    }
   },
@@ -10845,7 +10885,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ", nothing will run it.\n\nRepair wave orders 2026-09-27 (integrated by the lead; parked on customers): promotion_block runs daily: sale-window PriceObservation rows paired with Cohort organic/promoted arms through promotion.incrementality; do_not_repeat verdicts are read by handle_pricing_position (full price only). With no arms it records UNMEASURED and lists which promotions lack a full-price arm."
    }
   },
@@ -10913,7 +10953,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ights_budget.allocate plans the keywords per pod skipping ones already read. Owner-gated on insights_access: the readings themselves come only from Shop Manager.\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `insights_access` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   },
@@ -10967,7 +11007,7 @@
     "opens_when": "at least one InsightsSnapshot row exists -- a reading somebody recorded from Shop Manager, counted, because there is no sanctioned endpoint that returns it",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "scale/leading.py). The owner-exported CSV cannot be ingested when it exists.\n\nRepair wave growth 2026-09-27 (integrated by the lead): POST /api/attribution/stats (ops-token) parses the owner's Etsy Stats CSV, joins to orders (contribution rate, support/repeat per term), stores attribution.stats; listing.seo reads it and swaps vanity tags for earning terms. Real gate: the owner must export the CSV."
    }
   },
@@ -11011,7 +11051,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "nchmarks), so the built half never reads DB observations, even after data exists.\n\nRepair wave growth 2026-09-27 (integrated by the lead): growth.journey and /api/benchmarks build cells from ListingOutcome/Order/SupportCase rows, diagnose each listing against its own cell and open/reconcile benchmark:<slug>:below_cohort incidents naming factors to test; UNMEASURED until live listings have traffic."
    }
   },
@@ -11065,7 +11105,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "lid; was data_gated): commerce/benchmarks.opportunities has zero callers. Only arbitrage.state/score_observed are served.\n\nRepair wave growth 2026-09-27 (integrated by the lead): benchmarks.opportunities now called daily from growth.journey with markets from arbitrage.score_observed demand plus our impressions/CTR/conversion per department; ranked list in the reading; needs our traffic to rank on."
    }
   },
@@ -11145,7 +11185,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "launch -> launch_pack. Gap: No hero variants, title strategy or confounder record; runs after drafting, not at launch.\n\nCertification repair 2026-09-27: launch.plan -> register_at_launch: the pack with hero variants, title/tag strategy and a confounder log, write-once (growth.experiments is the backstop); a confounded experiment is never causal. Results need live listings: parked on live_listings."
    }
   },
@@ -11187,7 +11227,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ".\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority."
    }
   },
@@ -11229,7 +11269,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ".\n\nW4-GATESB 2026-10-07 (W4-OWNER finding, owner authorisation of 2026-10-07): re-parked from ad_authority to customers. ads.adjust (runtime/growth_ops) computes this row daily whatever the ad authority; what it waits on is order/traffic data (organic ListingOutcome periods, booked Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority."
    }
   },
@@ -11283,7 +11323,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ers), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.\n\nW4-B2GATES 2026-10-11 (evidence mapping only; state and parking untouched): `proof` named only the test, so the closure saw no machinery. The machinery is commerce/paid_media.py (offsite_ads_forecast), called daily by runtime/growth_ops.py (ads.adjust); tests/test_cert_growth_ops.py."
    }
   },
@@ -11337,7 +11377,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ed Orders), which only buyers create -- DATA-GATED, not an owner action. Paid scaling (#294/#295) stays on ad_authority.\n\nW4-B2GATES 2026-10-11 (evidence mapping only; state and parking untouched): `proof` named only the test, so the closure saw no machinery. The machinery is commerce/paid_media.py (share_and_save), called daily by runtime/growth_ops.py (ads.adjust); tests/test_cert_growth_ops.py."
    }
   },
@@ -11391,7 +11431,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "mputed at runtime; seasonal pin planning from calendar milestones could run now without a surface\n\nRepair wave growth 2026-09-27 (integrated by the lead): growth.distribution plans a pin set per certified product from calendar milestones (pins.schedule/check_set), destination = published listing, and grows a war-room winner by one new angle via pins.amplify; no Pinterest surface exists to post to."
    }
   },
@@ -11457,7 +11497,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "c53 (C-60, verdict invalid; was partial parked on owned_surfaces): clusters are never built from observed complaint themes at runtime; that part needs no surface\n\nRepair wave growth 2026-09-27 (integrated by the lead): clusters built daily per department from counted complaint themes (LearningObservation customer_pain + SupportCase themes) ending on a certified product; no owned site to host them."
    }
   },
@@ -11523,7 +11563,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "4c53 (C-60, verdict invalid; was partial parked on owned_surfaces): video.plan/record have no runtime caller; module plans and ops/artefacts staleness never happen\n\nRepair wave growth 2026-09-27 (integrated by the lead): video.plan per flagship (>=20 maker hours) with troubleshooting seeded from themes; when release_hash moves every module is re-planned as stale. Recording/hosting needs a surface."
    }
   },
@@ -11599,7 +11639,7 @@
     "opens_when": "at least one CreatorProfile has agreed -- delivered > 0 or a recorded permission. A prospect on file is not a tester",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "s partial parked on tester_roster): no tester exists, so the park is plausible, but no route or handler invokes the graduation check\n\nRepair wave growth 2026-09-27 (integrated by the lead): may_graduate runs daily per tester on PhysicalTest reliability and CreatorProfile advocate consent; a cleared tester becomes one zero-cost OwnerAction creators.graduate:<ref> (not duplicated). No tester exists."
    }
   },
@@ -11665,7 +11705,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on owned_surfaces): tools.check_flow/frequency have zero callers; parking plausible, but opening the gate enables nothing\n\nRepair wave growth 2026-09-27 (integrated by the lead): tools.check_flow for every FLOW and tools.frequency cap over CASL-consenting customers run daily; sends=0 with the reason. No sending capability."
    }
   },
@@ -11707,7 +11747,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "e; no lifetime-contribution metric wired\n\nRepair wave orders 2026-09-27 (integrated by the lead; parked on customers): repeat_block runs daily: repeat.windows (30/60/90/180) per first_product/first_category/first_season cohort from Order rows, lifetime contribution per buyer per cohort, repeat.recommend next projects; cohort lifetime contribution also feeds referral.check. UNMEASURED with no rows."
    }
   },
@@ -11749,7 +11789,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ever read answers; check_cadence (answerable today, per the note) has zero callers, so it is falsely parked\n\nRepair wave growth 2026-09-27 (integrated by the lead): commerce.readings answers cadence today from median gap between certified releases (club.check_cadence), demand/support from Customer/SupportCase when >=20 customers; club.may_launch reads those answers and a yes becomes an owner card."
    }
   },
@@ -11790,7 +11830,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " to whoever writes the listing: a presentation choice costs nothing per order and charging for it is charging for the listing rather than for work, while a construction choice costs a full chain run per order and giving it away is exactly the expensive complexity the requirement says not to give away. Remaining and parked on live_listings: no customisation can be offered until something is listed."
    }
   },
@@ -11844,7 +11884,7 @@
     "opens_when": "the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "final independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on owned_surfaces): tools.check_tool has zero callers; hosting needs a surface, but the built check is unreached\n\nRepair wave growth 2026-09-27 (integrated by the lead): tools.check_tool runs daily for every TOOL against the certified product it leads to; hostable list in the reading; hosting needs a surface."
    }
   },
@@ -11901,7 +11941,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "d customers (acquisition_source in REFERRAL_SOURCES) and their contribution from Order rows, reward spend from referral_reward LedgerEntry rows, gates measurability on runrate.orders_source_live; referral.check runs over referral.DECLARED mechanics against the measured lifetime contribution per buyer (may_run list). Also wired into runtime/commerce_readings.py replacing the hard-coded None inputs."
    }
   },
@@ -11967,7 +12007,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "iews.check_support_copy (the anti-gating guard) has zero callers and support.triage/support.reply drafts are never checked\n\nRepair wave growth 2026-09-27 (integrated by the lead): stars read from Order.reviewed detail; listing-routed themes open review_route:<theme> incidents; reviews.check_support_copy runs on every support.reply draft and a gating phrase empties the answer, escalates and audits."
    }
   },
@@ -12021,7 +12061,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": " independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on customers): parking plausible, but the gallery and proof-lift machinery is unreached\n\nRepair wave growth 2026-09-27 (integrated by the lead): gallery built daily from stored image-provenance rows per product and proof_lift measured across gallery/no-gallery outcome arms; no permissioned customer project exists."
    }
   },
@@ -12095,7 +12135,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "sters alone answers a question about testers.\n\nREOPENED 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was partial parked on customers): invite_gate/may_open have zero callers; parking plausible\n\nRepair wave growth 2026-09-27 (integrated by the lead): interviews.may_open and invite_gate with CASL consent basis run daily over customers/first orders; sent=0."
    }
   },
@@ -12199,7 +12239,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "han reading the phase flag, because a phase is a statement of intent and a listing id is a listing. Re-audited 2026-09-27 (Build 2 closeout): scale/leading.py reports all ten indicators, each measured with its source or UNMEASURED with its reason, and refuses success without orders; /api/leading (tests/test_leading.py). Impressions, CTR and favourites need a live listing (parked on live_listings)."
    }
   },
@@ -12293,7 +12333,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "irement is not met end to end. Runtime path found: growth.experiments -> persist. Gap: expected_value is always None, record_persisted has no caller (no results), and there is no quick/long balance.\n\nCertification repair 2026-09-27: daily growth_conclude -> growth.conclude -> conclude_all: expected value estimated or the experiment killed, record_persisted, quick/long balance. Parked on customers."
    }
   },
@@ -12339,7 +12379,7 @@
     "opens_when": "at least one Listing row carries an Etsy listing id -- counted, not read from the phase flag, because a phase is a statement of intent and a listing id is a listing",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "roof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only. Gap: Experiments never conclude at runtime, so the causal discipline never applies.\n\nCertification repair 2026-09-27: growth.conclude -> control_present: a result without a control is recorded as association, never causal. Parked on live_listings."
    }
   },
@@ -12526,7 +12566,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": ".\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-44): REOPENED -- reachable only in part; the requirement is not met end to end. Runtime path found: library-only via /api/growth. Gap: stress_test does not feed the confidence score.\n\nCertification repair 2026-09-27: ops.capacity -> stress_test -> the resilience rung of the confidence probability -> recorded. Parked on customers."
    }
   },
@@ -12610,7 +12650,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "atever is already true.\n\nCertification 2026-09-27 (proof-chain audit ids 161-320, defect C-43): REOPENED -- unreachable from the running system. Runtime path found: UNREACHABLE. Gap: scale_readiness has zero callers.\n\nCertification repair 2026-09-27: ops.capacity -> readiness.gate refuses a scale tilt unless the six conditions hold; gate() is exposed for launch and paid media. Parked on customers."
    }
   },
@@ -12786,7 +12826,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_vision/model_provider credit gate, so in production nothing new reaches cir.draft -- parked on image_vision (owner: fund the provider account), consistent with #86."
    }
   },
@@ -12920,7 +12960,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "d Interior_design through the same sanctioned Wikimedia feed (seasonal/colour.sweep_colour_signals, keys colour:<name>), and colour.forecast reports each colour's direction from sourced CultureObservation rows, labelled a reference-reading proxy, not fashion sales or a forecast (tests/test_w4_b2_build2_ledger.py). Remaining and parked on customers: Brambleloop's own colour performance needs sales."
    }
   },
@@ -12966,7 +13006,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_vision/model_provider credit gate, so in production nothing new reaches cir.draft -- parked on image_vision (owner: fund the provider account), consistent with #86."
    }
   },
@@ -13427,7 +13467,7 @@
     "opens_when": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "e, so the inspection runs on eligible candidates and every row says which. The park moved from `image_generation` to `customers` because the gate it named had opened while the requirement still could not be finished -- a park pointing at a satisfied condition puts work in the ready queue that nobody can start, which is the one number the executor exists to get right. /api/seasonal/remerchandising."
    }
   },
@@ -13513,7 +13553,7 @@
     "opens_when": "a SpendLimit row for 'ads' exists with a positive, unpaused daily cap",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "D 2026-09-27 by the final independent function-level audit of 9434c53 (C-60, verdict weak; was owner_gated): no ads handler exists, so the gate opening enables nothing\n\nRepair wave growth 2026-09-27 (integrated by the lead): ads.adjust computes each seasonal product's pre-season learning window from calendar milestones (opens at indexing, must be running by promotional ramp) and blocks outside it."
    }
   },
@@ -13555,7 +13595,7 @@
     "opens_when": "a SpendLimit row for 'ads' exists with a positive, unpaused daily cap",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ion-level audit of 9434c53 (C-60, verdict weak; was owner_gated): same as 294; winner scaling of pins/content/cross-sell (non-ad) is also unwired\n\nRepair wave growth 2026-09-27 (integrated by the lead): non-ad scaling runs: winners get a new pin angle and queue priority; a budget increase beyond the 25% band becomes an OwnerAction ads.scale:<slug> with exact economics. Spend itself is the owner's."
    }
   },
@@ -13789,7 +13829,7 @@
     "opens_when": "an assets.model_photography audit row that is made, carries the model, is usable as a listing asset and reads `pass` on all six model_photography.FLOORS. `unverifiable` is not a pass, and a product-first frame does not count",
     "external_evidence": "no image provider has rendered a certified crochet structure faithfully enough to pass the deterministic stitch instrument: 0 of 16 gpt-image-1.5 draws (research/VISUAL_V1_GRADUATION.md, 4cf6959) and 0 of 7 gemini draws (research/VISUAL_BENCH2.md, ad81e30). The blind deterministic chain passed; the provider is the ceiling. Frozen as an external blocker; no further paid draws.",
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "the link reads FAILED not GATED \u2014 left for the lead (GATED would let complete:true report with no asset). W4-B2VERIFY 2026-10-10: the FAILED-not-GATED gap this note leaves for the lead is closed in code: seasonal/cycle.EXTERNAL_BLOCKS maps model_bearing_render_path to the model_bearing_render gate and the assets link reads BLOCKED (tests/test_seasonal_cycle.py); complete stays false while it does."
    }
   },
@@ -13960,7 +14000,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "09-26) shows image_vision closed in production; the executor lists 304 under the image_vision gate, yet the row is COMPLETE\n\nRepair wave intel 2026-09-27 (integrated by the lead): intel.gallery_analysis 2-hourly traverses galleries and judges images inside the ceiling; refuses with an audit row while no vision.probe has succeeded. Production vision is closed (credit) \u2014 owner gate, built half runs."
    }
   },
@@ -14153,7 +14193,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "wned listing asset has been filed'), which is imagery on model_bearing_render (external). No collection.assemble is enqueued for a single product.\n\nIndependent audit 15c5d1b (2026-09-28), applied by the lead: in production the chain stops first at intake waiting on image_vision (the test injects the judgement); model_bearing_render binds next, after engineering -- parked on the first binding gate."
    }
   },
@@ -14209,7 +14249,7 @@
     "opens_when": "a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "15c5d1b (2026-09-28), applied by the lead: the software half is built and proven through the worker, but every winner waits unpassed at intake on the vision judgement; the proofs substitute a labelled fixture judge for the closed image_vision/model_provider credit gate, so in production nothing new reaches cir.draft -- parked on image_vision (owner: fund the provider account), consistent with #86."
    }
   },
@@ -14471,7 +14511,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ted 2026-09-27 (Build 2 closeout): the visual, merchandising and desirability half is built (blind_review + judged grid, #218). The deliverable half -- pattern deliverables, clarity, value and trust against MJs's actual patterns -- needs purchased MJs patterns recorded through teardown intake (observations only, never the text); the purchases and their intake are the owner's (benchmark_purchases)."
    }
   },
@@ -14571,7 +14611,7 @@
     "opens_when": "at least one BenchmarkProduct row exists -- counted, not asked about",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "ten-pattern benchmark laboratory; owner purchases the patterns"
    }
   },
@@ -14689,7 +14729,7 @@
     "opens_when": "an OwnerAction with requirement_key 'decision.api_vision_equivalence' is done -- a decision only the owner can make, recorded rather than assumed",
     "external_evidence": null,
     "state": "closed",
-    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:4xZ",
+    "state_source": "production GET /api/build (read-only), deployed commit 0417f35, read 2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)",
     "remaining_note": "de this closeout's authority), and whether an API+vision traversal satisfies the 'browser/vision' wording needs a recorded decision (B-105 does not decide it).\n\nW4-B2 2026-10-07: the 'browser_vision' gate this note names was split on 2026-09-20 and no longer exists; the row is parked on the executor gate `acceptance_ruling` (build2/executor.GATES), which is what the closure and BUILD2_LEDGER read."
    }
   }

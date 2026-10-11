@@ -3193,5 +3193,5 @@
   "note": "A queue with work in it and nothing completing is the failure that looks like uptime. Depth alone is not the signal; depth with no completions is."
  },
  "_commit": "0417f35",
- "_read_at": "2026-10-11T14:4xZ"
+ "_read_at": "2026-10-11T14:40Z (approx.; verify.completed 14:39:29Z)"
 }
