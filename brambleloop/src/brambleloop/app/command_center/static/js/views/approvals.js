@@ -1,7 +1,7 @@
 // APPROVALS (F-885 evidence-backed inbox, F-886 one-tap actions, F-887 step-up).
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, sourcesList, guardedAction, toast, freshness } from "../components.js";
+import { card, statusPill, sourcesList, guardedAction, toast, freshness, releaseNote } from "../components.js";
 import { formatMoney, relTime, utcStamp, humanize, UNKNOWN_TEXT } from "../format.js";
 import { sectionsOf, pageMeta, renderSection, backLink, tabStatus } from "./_shared.js";
 
@@ -135,14 +135,25 @@ function batchesCard(env) {
     return card({ title: "Decision batches", actions: statusPill(env.status || "UNKNOWN") },
       h("p", { class: "muted" }, env.reason || "Unknown: no decision batches reported."));
   }
-  return card({ title: "Your decisions, batch by batch", subtitle: `${env.decisions ?? UNKNOWN_TEXT} decisions in ${env.batches ?? batches.length} batches`, actions: statusPill(env.status) },
-    h("p", { class: "card-meta" }, freshness(env.as_of || null), env.as_of ? ` (${utcStamp(env.as_of)}; a dated snapshot of the owner action list)` : ""),
+  const isLive = env.live === true;
+  const extra = Array.isArray(env.release_only) ? env.release_only : [];
+  return card({ title: "Your decisions, batch by batch", subtitle: `${env.decisions ?? UNKNOWN_TEXT} decisions in ${env.batches ?? batches.length} batches${isLive ? " · live owner queue" : ""}`, actions: statusPill(env.status) },
+    h("p", { class: "card-meta" }, freshness(env.as_of || null), env.as_of ? ` (${utcStamp(env.as_of)})` : ""),
+    isLive ? null : releaseNote(env),
+    env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
     env.note ? h("p", { class: "muted small" }, env.note) : null,
     batches.map((b, i) => h("details", { class: "review", open: i === 0 },
       h("summary", null, h("strong", null, `${i + 1}. ${b.title || b.id}`),
         h("span", { class: "muted small" }, ` · ${b.decisions ?? UNKNOWN_TEXT} decision(s) · max ${b.max_cost || UNKNOWN_TEXT} · ${typeof b.minutes_total === "number" ? `${b.minutes_total} min` : "minutes unknown"}`)),
       b.why_batched ? h("p", { class: "muted small" }, b.why_batched) : null,
       h("ul", { class: "rows" }, (b.items || []).map(decisionRow)))),
+    // W4-CCGAP: decisions only the release packet lists; never added to the live count.
+    extra.length ? h("details", { class: "review release-only" },
+      h("summary", null, h("strong", null, `Also in the release packet, not tracked live (${env.release_only_decisions ?? UNKNOWN_TEXT})`)),
+      releaseNote(env),
+      env.release_only_note ? h("p", { class: "muted small" }, env.release_only_note) : null,
+      extra.map((b) => h("div", null, h("p", { class: "row-title" }, b.title || b.id),
+        h("ul", { class: "rows" }, (b.items || []).map(decisionRow))))) : null,
     sourcesList(env.sources));
 }
 

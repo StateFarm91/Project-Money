@@ -2,7 +2,7 @@
 // research/final_build/w4/COMPLETION_BOARD.json. A null is Unknown, never 0.
 import { h } from "../dom.js";
 import { api } from "../api.js";
-import { card, statusPill, freshness, sourcesList, statTile, itemRow, basisNote } from "../components.js";
+import { card, statusPill, freshness, sourcesList, statTile, itemRow, basisNote, releaseNote, envelopeCard } from "../components.js";
 import { relTime, utcStamp, UNKNOWN_TEXT, formatMoney } from "../format.js";
 import { sectionsOf, pageMeta } from "./_shared.js";
 
@@ -12,6 +12,21 @@ const txt = (v) => (v === null || v === undefined || v === "" ? UNKNOWN_TEXT : S
 
 function fact(label, text) {
   return h("div", { class: "fact" }, h("dt", null, label), h("dd", null, text));
+}
+
+// W4-CCGAP: the operating company's own work, live from the jobs table (not the dev board).
+function liveWorkCard(env, result) {
+  if (env === undefined) return null;
+  const title = "Company work now (live, from jobs)";
+  if (!env || typeof env !== "object") return envelopeCard(title, null);
+  const n = (v) => (typeof v === "number" ? v : null);
+  const c = envelopeCard(title, env, { stale: result.stale, fetchedAt: result.fetchedAt, emptyText: "No job is running right now." });
+  if (env.status === "OK") {
+    c.append(h("div", { class: "tiles" },
+      statTile("Running", n(env.running)), statTile("Queued", n(env.pending)),
+      statTile("Completed (24 h)", n(env.completed_24h)), statTile("Failed (24 h)", n(env.failed_24h), { status: n(env.failed_24h) ? "DEGRADED" : null })));
+  }
+  return c;
 }
 
 function laneRow(it) {
@@ -91,6 +106,7 @@ export async function render() {
   return h("div", { class: "stack" }, ...pageMeta(result, data),
     card({ title: "Completion effort", subtitle: "Parallel Claude development lanes finishing the build (not company agents; agents are on Company and Autonomy & Learn)", actions: statusPill(env.status) },
       h("p", { class: "card-meta" }, freshness(env.as_of, result), env.updated_by ? ` · updated by ${env.updated_by}` : ""),
+      releaseNote(env),
       env.reason ? h("p", { class: "callout callout-warn" }, env.reason) : null,
       h("div", { class: "tiles" },
         statTile("Running", n(c.RUNNING)), statTile("Blocked", n(c.BLOCKED), { status: n(c.BLOCKED) ? "BLOCKED" : null }),
@@ -102,6 +118,7 @@ export async function render() {
       Array.isArray(env.stale) && env.stale.length ? h("p", { class: "callout callout-warn" }, `Stale (running, no update for 3 h): ${env.stale.join(", ")}`) : null,
       Array.isArray(env.schema_errors) && env.schema_errors.length ? h("p", { class: "callout callout-warn" }, `Board problems: ${env.schema_errors.slice(0, 5).join("; ")}`) : null,
       env.note ? h("p", { class: "muted small" }, env.note) : null),
+    liveWorkCard(sectionsOf(data).live_work, result),
     packetCard(pk),
     card({ title: "Claude development lanes" }, h("p", { class: "card-meta" }, freshness(env.as_of || null, result)),
       items.length ? h("ul", { class: "rows" }, items.map(laneRow)) : h("p", { class: "muted" }, "Unknown: the board did not report any lane."),

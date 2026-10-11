@@ -73,10 +73,8 @@ Tests run, one process at a time with a private TMPDIR:
 1. **Build 2 closure warm-up (FU-8).** It takes 67–101 s after boot and the launch packet about
    2 min (see §6). Both run off the request path, show honest UNKNOWN until ready, and never delay
    `/health`. Not a deploy risk; left as is.
-2. **Snapshot-backed sections are only as fresh as the last release.** These are
-   COMPLETION_BOARD, OWNER_ACTIONS (the batch plan), VISUAL_STATUS stages and Final Master. Each
-   shows its own date ("1 d ago", "4 d ago"), but none of them updates live. Making them live
-   needs a DB-backed writer, which is out of scope here.
+2. **Snapshot-backed sections.** Fixed where the runtime records the data (F9). The rest are
+   labelled as release artefacts (§7).
 3. **Timestamps.** Fixed (F8). After F8 the only cards without a timestamp are forms, controls
    and static policy: Ask box, Laura Ask/Private, Store preview link and observation form,
    Account Authentication/Appearance/Sign out/Emergency link, Emergency "Never paused", More,
@@ -98,7 +96,7 @@ Tests run, one process at a time with a private TMPDIR:
 |---|---|---|
 | Matrix rows 1–17 render with real or dated-snapshot data, honest UNKNOWN and per-card freshness (with the FU-6 exceptions above) | **yes** (driven at 1280 and 390 px) | |
 | PDFium serialization (F1) | no: the process crashes under concurrency | yes |
-| SLO honesty (F2), agent never-run/overdue/next work (F3), owner-count reconcile (F4), dev-lane labels (F5), Approvals phone wrap (F6, F7), per-card timestamps (F8) | no | yes |
+| SLO honesty (F2), agent never-run/overdue/next work (F3), owner-count reconcile (F4), dev-lane labels (F5), Approvals phone wrap (F6, F7), per-card timestamps (F8), live sourcing + release labels (F9) | no | yes |
 
 ## 6. Cold start: measured (follow-up task)
 
@@ -138,3 +136,34 @@ was 5.0 s, about 60× inside the timeout.
 - Not measured: production-scale Postgres, where the audit log holds thousands of rows a day.
   `create_all` there is schema introspection, not data-proportional, but the real Railway boot
   time was not observed here.
+
+## 7. Live sources vs release artefacts (F9, follow-up task)
+
+The four snapshot-only sections were checked against what the running system records.
+
+| Section | c131f07 | Now on `claude/w4-CCGAP` | Live source | Release artefact kept (labelled) |
+|---|---|---|---|---|
+| Decision batch plan (Approvals) | The OWNER_ACTIONS.json packet (26 decisions, generated 2026-10-10). **Bug:** the live fallback compared `approval_inbox()["batches"]` (a dict from `owner_queue.batch_cards`) against `list`, so live batches were never used. | **Live first.** On the seeded app this is 11 decisions in 8 batches, "live owner queue", read every request. The 16 decisions only the packet lists are a separate group, "Also in the release packet, not tracked live", labelled and **never added to the live count**. | `approval_inbox()` (gate states + `owner_actions` rows) | OWNER_ACTIONS.json, for release-only decisions (Etsy account screens and off-platform steps the runtime cannot see; they may already be done) |
+| Visual pipeline (Company) | VISUAL_STATUS.json stages A–E only | **New live card**, "Visual pipeline (live: listing frames & certificates)". For each product release it shows frames planned, approved and blocked, the certificate state, certified jobs and the last change. With no rows it is UNKNOWN with the reason. | `listing_assets`, `listing_set_certificates` | Stages A–E, retitled "Visual R&D milestones A-E (release artefact)". These are offline simulation milestones and the runtime has no record of them. |
+| Completion (Completion tab) | COMPLETION_BOARD.json only | **New live card**, "Company work now (live, from jobs)": running, queued, completed and failed in 24 h, plus the running jobs. | `jobs` | The Claude development-lane board. Development lanes are not runtime state. It is labelled unless an operator supplies the board through `BRAMBLELOOP_COMPLETION_BOARD`. |
+| Final Master (Company) | The snapshot, with "read just now" and an `as_of_basis` note | The same numbers. The card now says "Release artefact, not live … mapped at commit 019ebf0, 2f36fe0, 6f9a2f7, 8b67414, fee1cfe; generation time UNKNOWN". | none; the runtime keeps no closure matrix | `build2/final_master_closure.json` |
+
+**Label format** (`company.release_artefact`):
+
+> "Release artefact, not live: <what> as of release <sha12> (recorded <recorded_at>); generated <time>. It changes only when a new release ships."
+
+- The release sha and recorded_at come from the release record that the boot guard matched for
+  this exact tree.
+- With no matching record, the label names the build commit, or UNKNOWN. That is the case
+  locally, where it reads "build UNKNOWN (no release record matched this build)".
+- An artefact with no generation time says "generation time UNKNOWN".
+
+**Tests:**
+- `tests/test_w4_ccgap_live.py` 6/6. It covers the labels; the live-first batches including the
+  real dict shape that c131f07 missed; release-only decisions kept apart; the visual live rows
+  and UNKNOWN when there are none; the live work counts from `jobs`; and the PWA wiring.
+- Still passing: w4_cc_company 23/23, cc_snapshots, ccgap_views 10/10, pwa_static 81/0,
+  h_attributes 6/0, v11_cc_views 13/13, v11_cc_actions 7/7, ccfin 9/9, ccpacket 5/5, and
+  cc_mock check.mjs 123/0.
+- A drive of the real app (SQLite, one seeded product chain) found no JS errors, and every phone
+  page fits at 390 px.

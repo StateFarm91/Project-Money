@@ -29,7 +29,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import Integer, func, select
 
 from . import approvals, providers, readers
 from .providers import envelope, guard, now_iso, unknown
@@ -397,6 +397,14 @@ def final_master(db) -> dict:
         out["read_at"] = now_iso()
         out["as_of_basis"] = ("snapshot bound to the tree digest; read_at is when this "
                               "process read it, mapping SHAs say how old the snapshot is")
+        mb = out.get("mapping_basis") if isinstance(out.get("mapping_basis"), dict) else {}
+        shas = [str(mb.get("base") or "")[:7]] + sorted(str(k)[:7] for k in
+                                                        (mb.get("remaps") or {}))
+        shas = [x for x in shas if x]
+        out["release_artefact"] = release_artefact(
+            "Final Master closure matrix (final_master_closure.json)", None,
+            source="build2/final_master_closure.json",
+            mapped_at=(", ".join(shas) if shas else None))
         return out
 
     return guard("final_master", read, sources=["build2/final_master_closure.json"])
@@ -551,6 +559,7 @@ def company(db) -> dict:
         "final_master_closure": fm,
         "visual": visual,
         "visual_stages": guard("visual_stages", visual_stages),
+        "visual_pipeline_live": guard("visual_pipeline_live", lambda: visual_pipeline_live(db)),
         "competitor_intel": guard("competitor_intel", lambda: competitor_intel(db)),
         "store_live_drift": guard("store_live_drift", lambda: store_live_drift(db)),
         "laura": {**laura, "talk_href": "#/laura"},
@@ -575,6 +584,48 @@ VISUAL_REL = Path("research") / "final_build" / "w4" / "VISUAL_STATUS.json"
 # owner views read has a shipped snapshot under app/command_center/snapshots/ (kept identical by
 # tests/test_w4_cc_snapshots.py; refresh with `python -m brambleloop.app.command_center.snapshots`).
 SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots"
+
+
+def release_identity() -> dict:
+    """Which release this process is running: the build commit and, when the boot guard matched
+    a committed release record for this exact tree, that record's sha and recorded_at.
+    Anything not known is None (shown as UNKNOWN), never guessed."""
+    out = {"build_commit": None, "release_sha": None, "release_recorded_at": None}
+    try:
+        b = _build()
+        out["build_commit"] = b.get("commit_short") if b.get("known") else None
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from ...ops import release_record as rr
+
+        rec = (rr.BOOT or {}).get("record") or {}
+        if rec.get("file"):
+            out["release_sha"] = (str(rec.get("sha") or "")[:12]) or None
+            data = json.loads((Path(rr.BOOT.get("release_dir") or "") / rec["file"]).read_text())
+            out["release_recorded_at"] = data.get("recorded_at")
+    except Exception:  # noqa: BLE001 - an unreadable record leaves the fields UNKNOWN
+        pass
+    return out
+
+
+def release_artefact(what: str, generated_at, *, source: str, mapped_at: str | None = None
+                     ) -> dict:
+    """W4-CCGAP: the label every release-time artefact carries so it can never read as live.
+    `generated_at` is the artefact's own time (None -> UNKNOWN); the release fields say which
+    deployed release shipped it."""
+    rel = release_identity()
+    gen = str(generated_at) if generated_at else None
+    rel_txt = (f"release {rel['release_sha']} (recorded {rel['release_recorded_at'] or 'UNKNOWN'})"
+               if rel["release_sha"] else
+               f"build {rel['build_commit'] or 'UNKNOWN'} (no release record matched this build)")
+    label = (f"Release artefact, not live: {what} as of {rel_txt}; "
+             + (f"generated {gen}" if gen else
+                (f"mapped at commit {mapped_at}; generation time UNKNOWN" if mapped_at
+                 else "generation time UNKNOWN"))
+             + ". It changes only when a new release ships.")
+    return {"live": False, "label": label, "artefact": what, "source": source,
+            "generated_at": gen, "mapped_at": mapped_at, **rel}
 
 
 def _research_or_snapshot(rel: Path) -> Path:
@@ -723,9 +774,78 @@ def visual_stages() -> dict:
     return envelope("UNKNOWN" if not items else "OK" if worst <= {"PASS"} else "DEGRADED",
                     items, src, provider="visual.status", basis="measured" if items else "unknown",
                     as_of=str(gen) if gen else None,
+                    release_artefact=release_artefact(
+                        "visual R&D milestone stages A-E (VISUAL_STATUS.json)", gen,
+                        source=src[0]),
                     reason=None if items else "no stages in the visual status file",
                     stage_display={i["stage"]: f"{i['status']} ({i['basis']})" for i in items},
                     launch_imagery=data.get("launch_imagery"))
+
+
+def visual_pipeline_live(db) -> dict:
+    """W4-CCGAP: the operating visual pipeline from runtime rows: per product release, the
+    planned listing frames (`listing_assets`: approved / blocked) and the latest listing-set
+    certificate (`listing_set_certificates`: state, frame jobs, issued_at). Nothing recorded
+    -> UNKNOWN with the reason, never 0 frames."""
+    from sqlalchemy import func as _f
+
+    from ...core.models import ListingAsset, ListingSetCertificateRecord
+
+    src = ["listing_assets", "listing_set_certificates"]
+    with db.session() as s:
+        assets = list(s.execute(select(
+            ListingAsset.product_slug, ListingAsset.version, _f.count(),
+            _f.sum(ListingAsset.approved.cast(Integer)),
+            _f.max(ListingAsset.created_at)).group_by(
+            ListingAsset.product_slug, ListingAsset.version)))
+        blocked = {}
+        for slug, ver, reasons in s.execute(select(ListingAsset.product_slug,
+                                                   ListingAsset.version,
+                                                   ListingAsset.blocked_reasons)):
+            if reasons:
+                blocked[(slug, ver)] = blocked.get((slug, ver), 0) + 1
+        certs = {}
+        for c in s.scalars(select(ListingSetCertificateRecord)
+                           .order_by(ListingSetCertificateRecord.id.desc())):
+            certs.setdefault((c.product_slug, c.version), c)
+        cert_rows = {k: {"state": c.state,
+                         "jobs": sorted({str(f.get("job")) for f in (c.certificate or {})
+                                         .get("frames") or [] if f.get("job")}),
+                         "issued_at": _iso(c.issued_at), "id": c.id}
+                     for k, c in certs.items()}
+    keys = sorted({(a[0], a[1]) for a in assets} | set(cert_rows))
+    if not keys:
+        return unknown("no listing frame or listing-set certificate is recorded in this "
+                       "database yet (assets.build / release gates have not run here)",
+                       "company.visual_pipeline_live", src)
+    by_asset = {(a[0], a[1]): a for a in assets}
+    items, latest = [], None
+    for k in keys:
+        a, c = by_asset.get(k), cert_rows.get(k)
+        planned = int(a[2]) if a else None
+        approved = int(a[3] or 0) if a else None
+        at = max([x for x in (_iso(a[4]) if a else None, c["issued_at"] if c else None) if x],
+                 default=None)
+        latest = max([x for x in (latest, at) if x], default=None)
+        cert_state = c["state"] if c else None
+        st = ("OK" if cert_state == "valid" else
+              "BLOCKED" if blocked.get(k) else "DEGRADED" if a or c else "UNKNOWN")
+        items.append({
+            "title": f"{k[0]} v{k[1]}", "product": k[0], "version": k[1], "status": st,
+            "frames_planned": planned, "frames_approved": approved,
+            "frames_blocked": blocked.get(k, 0) if a else None,
+            "certificate": cert_state or "none issued",
+            "certified_jobs": ", ".join(c["jobs"]) if c and c["jobs"] else None,
+            "last_change_at": at,
+            "source": (f"listing_set_certificates:{c['id']}" if c else
+                       f"listing_assets:{k[0]}@{k[1]}")})
+    worst = {i["status"] for i in items}
+    status = ("OK" if worst == {"OK"} else "BLOCKED" if "BLOCKED" in worst else "DEGRADED")
+    return envelope(status, items, src, provider="company.visual_pipeline_live",
+                    as_of=latest, live=True,
+                    reason=(None if status == "OK" else
+                            f"{sum(1 for i in items if i['status'] != 'OK')} of {len(items)} "
+                            "release(s) without a valid listing-set certificate"))
 
 
 # ---- W4-LEARN wiring (W4L-2): what learning can measure before a sale ----------------------
@@ -793,28 +913,7 @@ def _cost_display(item: dict) -> str:
     return f"CA${v:,.2f}" if isinstance(v, (int, float)) else "UNKNOWN (not costed)"
 
 
-def owner_decision_batches(live: dict | None = None) -> dict:
-    """Owner decisions, batch first: the committed OWNER_ACTIONS.json packet (lane OWNER, every
-    ask consolidated incl. store/visual items), else the runtime `approval_inbox()["batches"]`.
-    A cost the producer did not state is UNKNOWN, never CA$0."""
-    env = (os.environ.get(OWNER_ACTIONS_ENV) or "").strip()
-    path = Path(env) if env else _research_or_snapshot(OWNER_ACTIONS_REL)
-    src_file = str(OWNER_ACTIONS_REL) if not env else env
-    data, why = None, None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        why = f"decision packet not found at {src_file}"
-    except (OSError, ValueError) as exc:
-        why = f"decision packet unreadable: {type(exc).__name__}"
-    source, as_of = src_file, (data or {}).get("generated_at")
-    batches = (data or {}).get("batches")
-    if not isinstance(batches, list) or not batches:
-        batches = (live or {}).get("batches") if isinstance(live, dict) else None
-        source, as_of = "build2.executor.approval_inbox()['batches'] (live)", now_iso()
-    if not isinstance(batches, list) or not batches:
-        return unknown(why or "no decision batches reported", "owner.decision_batches",
-                       [src_file, "build2.executor.approval_inbox"])
+def _batch_items(batches: list) -> list[dict]:
     items = []
     for b in batches:
         decs = []
@@ -836,15 +935,73 @@ def owner_decision_batches(live: dict | None = None) -> dict:
                           if isinstance(b.get("max_cost_cad_total"), (int, float))
                           else "UNKNOWN (at least one item is not costed)"),
                       "items": decs})
-    live_n = (sum(len(b.get("items") or []) for b in live.get("batches") or [])
-              if isinstance(live, dict) and isinstance(live.get("batches"), list) else None)
-    return envelope("OK", items, [source], provider="owner.decision_batches",
-                    as_of=str(as_of) if as_of else None, basis="measured",
-                    batches=len(items), decisions=sum(int(i["decisions"] or 0) for i in items),
-                    live_runtime_decisions=live_n,
-                    note=("answer batch by batch; each decision states why, evidence, max "
-                          "cost (UNKNOWN when not costed, never CA$0), what yes and no/delay "
-                          "mean, and minutes"))
+    return items
+
+
+def owner_decision_batches(live: dict | None = None) -> dict:
+    """Owner decisions, batch first. W4-CCGAP: LIVE first -- the running system's own
+    `approval_inbox()["batches"]` (gate states + owner_actions rows, read on every request).
+    The committed OWNER_ACTIONS.json packet is a release artefact: decisions it lists that the
+    runtime does not track are shown separately as `release_only`, labelled with the release,
+    never merged into the live count. A cost the producer did not state is UNKNOWN, never CA$0."""
+    env = (os.environ.get(OWNER_ACTIONS_ENV) or "").strip()
+    path = Path(env) if env else _research_or_snapshot(OWNER_ACTIONS_REL)
+    src_file = str(OWNER_ACTIONS_REL) if not env else env
+    data, why = None, None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        why = f"decision packet not found at {src_file}"
+    except (OSError, ValueError) as exc:
+        why = f"decision packet unreadable: {type(exc).__name__}"
+    snap_batches = (data or {}).get("batches")
+    snap_batches = snap_batches if isinstance(snap_batches, list) else []
+    live_batches = (live or {}).get("batches") if isinstance(live, dict) else None
+    # approval_inbox() returns owner_queue.batch_cards(cards): {"batches": [...], ...}.
+    # c131f07 compared that dict against `list`, so the live batches were never used.
+    if isinstance(live_batches, dict):
+        live_batches = live_batches.get("batches")
+    live_ok = isinstance(live_batches, list)
+    live_items = _batch_items(live_batches) if live_ok else []
+    live_ids = {d["id"] for b in live_items for d in b["items"]}
+    release_only = []
+    for b in _batch_items(snap_batches):
+        extra = [d for d in b["items"] if d["id"] not in live_ids]
+        if extra:
+            release_only.append({**b, "items": extra, "decisions": len(extra),
+                                 "minutes_total": None, "max_cost": None})
+    label = (release_artefact("owner decision packet (OWNER_ACTIONS.json)",
+                              (data or {}).get("generated_at"), source=src_file)
+             if snap_batches else None)
+    note = ("answer batch by batch; each decision states why, evidence, max cost (UNKNOWN when "
+            "not costed, never CA$0), what yes and no/delay mean, and minutes")
+    if not live_ok:
+        if not snap_batches:
+            return unknown(why or "no decision batches reported", "owner.decision_batches",
+                           [src_file, "build2.executor.approval_inbox"])
+        items = _batch_items(snap_batches)
+        # The batches are the release packet's own, shown as such (labelled, as_of = its
+        # generation time), never as the live queue.
+        return envelope("OK", items, [src_file], provider="owner.decision_batches",
+                        as_of=(data or {}).get("generated_at"), basis="measured", live=False,
+                        release_artefact=label, batches=len(items),
+                        decisions=sum(int(i["decisions"] or 0) for i in items),
+                        live_runtime_decisions=None, release_only=[],
+                        reason=("the live owner queue reported no batches; showing the "
+                                "release packet, which may be out of date"), note=note)
+    return envelope("OK", live_items, ["build2.executor.approval_inbox()['batches'] (live)"],
+                    provider="owner.decision_batches", as_of=now_iso(), basis="measured",
+                    live=True, batches=len(live_items),
+                    decisions=sum(int(i["decisions"] or 0) for i in live_items),
+                    live_runtime_decisions=sum(int(i["decisions"] or 0) for i in live_items),
+                    release_only=release_only,
+                    release_only_decisions=sum(b["decisions"] for b in release_only),
+                    release_artefact=label if release_only else None,
+                    release_only_note=("listed in the release packet but not tracked by the "
+                                       "running system (account screens, physical or "
+                                       "off-platform steps); it may already be done -- the "
+                                       "runtime cannot tell" if release_only else None),
+                    note=note)
 
 
 # ---- completion board -------------------------------------------------------------------
@@ -987,6 +1144,33 @@ def _baseline(board: dict):
                     "the live figures are on the Company view"}
 
 
+def live_company_work(db) -> dict:
+    """W4-CCGAP: what the operating company is doing now, from `jobs` (not the dev board):
+    running jobs and the last 24 h of completed / failed work."""
+    from ...core.models import Job, JobStatus
+
+    def read():
+        jw = readers.jobs_window(db, 24)
+        with db.session() as s:
+            running = list(s.execute(select(Job.id, Job.agent, Job.job_type, Job.started_at)
+                                     .where(Job.status == JobStatus.RUNNING)
+                                     .order_by(Job.id.desc()).limit(20)))
+            pending = s.scalar(select(func.count()).select_from(Job).where(
+                Job.status == JobStatus.PENDING)) or 0
+        items = [{"title": f"{r.agent}: {r.job_type}", "status": "RUNNING",
+                  "started_at": _iso(r.started_at), "source": f"jobs:{r.id}"} for r in running]
+        if jw.get("status") != "OK":
+            return {**jw, "items": items}
+        return envelope("OK", items, ["jobs"], provider="company.live_work", live=True,
+                        running=len(items), pending=int(pending),
+                        completed_24h=jw.get("completed"), failed_24h=jw.get("failed"),
+                        by_agent_24h=jw.get("items"),
+                        last_useful_action=jw.get("last_useful_action"),
+                        note="company agents' jobs from the jobs table, live on every read")
+
+    return guard("live_work", read, sources=["jobs"])
+
+
 def completion(db=None, *, now: datetime | None = None) -> dict:
     """The completion board as an envelope; UNKNOWN when absent, DEGRADED when malformed."""
     now = now or datetime.now(timezone.utc)
@@ -1047,4 +1231,9 @@ def completion(db=None, *, now: datetime | None = None) -> dict:
                             f"{counts['BLOCKED']} lane(s) blocked" if counts["BLOCKED"] else
                             None),
                     note=("as_of is the board's updated_at: the integrator updates the "
-                          "committed JSON; in production it is as fresh as the last deploy"))
+                          "committed JSON; in production it is as fresh as the last deploy"),
+                    release_artefact=(None if (os.environ.get(BOARD_ENV) or "").strip() else
+                                      release_artefact(
+                                          "Claude development lane board (COMPLETION_BOARD.json)",
+                                          updated.isoformat() if isinstance(updated, datetime)
+                                          else None, source=src[0])))
