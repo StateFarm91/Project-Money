@@ -68,15 +68,10 @@ Code on `claude/w4-FMEND` (for the **next** release; **NOT in c131f07**):
    `search_certificate_not_pass` (stored search verdict REFUSED, category UNKNOWN) depends on
    the same gate.
 2. **`store.publish[past-shadow]` BLOCKED** (`past_shadow_publish_blocked`). The first cause is
-   that there is no grant (item 1). There is also a **latent rehearsal gap**, found here:
-   `handle_store_publish` resolves `protected_phase` = the more restrictive of the env and the
-   owner's *recorded* phase transition (`core.phase.effective`). The rehearsal sets only
-   `BRAMBLELOOP_PHASE=limited_production` and records no transition, so this step would still
-   refuse even with a grant. Recording an upward transition needs a ready `launch.assessed` and a
-   held rollback rehearsal (`core.phase.EVIDENCE_MUST_PASS_FROM`). So the step clears only after
-   item 1 and the owner-gated launch readiness. Fix for the rehearsal script (next release,
-   after item 1): record the simulated owner phase transition in its throwaway DB, the same way
-   it simulates the grant.
+   that there is no grant (item 1). There is also a rehearsal gap, found here and **fixed on
+   this branch in fc7cf04** (see the follow-up below): `handle_store_publish` resolves
+   `protected_phase` from the owner's *recorded* transition (`core.phase.effective`), and the
+   rehearsal at c131f07 set only `BRAMBLELOOP_PHASE`. So even with a grant, the step would refuse.
 3. **`order_version_unmapped`**: downstream. The fixture receipt has no draft listing id
    to map because nothing was published. It clears with item 2.
 
@@ -88,3 +83,60 @@ Code on `claude/w4-FMEND` (for the **next** release; **NOT in c131f07**):
   different session.
 - The committed `research/final_build/module_reachability.json` was left at basis 2f36fe0. The
   c131f07 regeneration sits in the evidence dir until a candidate is frozen.
+
+## Follow-up (next release, NOT in c131f07): rehearsal records the owner phase transition
+
+Commit `fc7cf04` on `claude/w4-FMEND` changes `scripts/shadow_rehearsal.py::record_owner_phase`.
+It runs inside the scratch DB only, under the rehearsal's fixture ops credential, and does two
+things in order:
+
+1. It runs the real `launch.readiness` job, which writes `launch.assessed` and the
+   per-release `launch.rollback_rehearsed` rows.
+2. It calls `core.phase.record_transition` for shadow -> staging -> limited_production,
+   citing those rows. This is the function behind `POST /api/owner/phase/transition`.
+
+What this does not change:
+
+- No readiness rule changed.
+- The live readiness verdict is always used.
+- A refusal is recorded as the BLOCKED step `owner_phase_transition`, with the defect
+  `owner_phase_transition_refused` and the reason. The phase is never forced.
+- `owner_phase_transition` is now a required rehearsal step.
+
+Tests:
+
+- `tests/test_w4_fmend_rehearsal_phase.py` passes 5/5. It covers four cases:
+  - a shop that is not ready is blocked and no transition row is written;
+  - a wrong credential is refused;
+  - cited non-passing evidence still stops the move at staging;
+  - passing evidence plus a ready verdict reaches limited_production.
+- `tests/test_shadow_rehearsal.py` passes 5/5 in fast mode. The only change to it adds the new
+  step to `REQUIRED`, which makes the test stricter.
+
+Branch rehearsal: `evidence_FMEND_c131f07/BRANCH_NOT_c131f07_shadow_rehearsal_fc7cf04.json`.
+This is **branch evidence, not c131f07**: head fc7cf04, tree clean, production mode, 322 s,
+`complete:false`.
+
+- **not_complete_because:** `owner_phase_transition`, `owner_publication_grant`,
+  `store.publish[past-shadow]`.
+- **blocking_defects:** `search_certificate_not_pass`, `owner_phase_transition_refused`,
+  `grant_snapshot_refused`, `past_shadow_publish_blocked`, `order_version_unmapped`.
+- **What blocked the transition:** it was refused at staging because launch readiness was not
+  ready at transition time. The failing checks:
+  - findable: catalogue_depth, launch_calendar
+  - clickable: listing_photography, storefront_preview
+  - converts_honestly: sustainable_economics
+  - pattern_makes_what_is_shown: physical_calibration, benchmark_challenge
+  - shop_trustworthy: storefront, seller_identity, etsy_shop, payout, brand_clearance
+- **Readiness blocked_on_owner:** seller_identity, artifact_storage, etsy_shop, payout,
+  listing_fees, model_credits, brand_clearance, benchmark_challenge, phase.
+- **Readiness blocked_on_integration:** etsy_integration.
+
+The phase stayed shadow. So past-shadow publish now has two explicit, recorded gates:
+
+1. Launch readiness, which needs the owner and integration items above.
+2. The external Etsy taxonomy snapshot, which the grant needs.
+
+The cited rollback ref is the latest rehearsal row for any listed release, not specifically the
+rehearsed product's row. The transition is shop-wide, and every rehearsal row in this run was
+`ok:true`.
