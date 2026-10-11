@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-10T04:30:36+00:00",
+ "generated_at": "2026-10-11T15:10:43+00:00",
  "lane": "W4-OWNER",
  "sources": {
   "runtime": "build2.executor.approval_inbox (Command Center approvals inbox)",
@@ -10,10 +10,10 @@
  "counts": {
   "before": {
    "production_owner_action_rows": 9,
-   "runtime_gate_cards": 19,
+   "runtime_gate_cards": 18,
    "store_lane_items": 13,
    "visual_lane_plans": 3,
-   "total_asks": 44
+   "total_asks": 43
   },
   "after": {
    "batches": 9,
@@ -103,7 +103,7 @@
      "id": "etsy_kyc_payout",
      "decision": "Confirm in Etsy Shop Manager > Settings > Payment settings that identity verification, the payout bank account (Canadian chequing) and tax details (GST/HST number or small-supplier declaration) show complete; complete any that do not.",
      "why": "production reason payout",
-     "evidence": "OwnerAction #3 raised 2026-10-10T04:30:36.121832 for payout",
+     "evidence": "OwnerAction #3 raised 2026-10-11T15:10:42.992016 for payout",
      "max_cost_cad": 0.0,
      "max_cost_display": "CA$0.00",
      "max_cost_basis": "stated by the producer",
@@ -129,7 +129,7 @@
      "id": "listing_fees",
      "decision": "Approve Etsy's listing fees for the opening catalogue (figure on the card).",
      "why": "production reason listing_fees",
-     "evidence": "OwnerAction #4 raised 2026-10-10T04:30:36.122107 for listing_fees",
+     "evidence": "OwnerAction #4 raised 2026-10-11T15:10:42.992355 for listing_fees",
      "max_cost_cad": 6.0,
      "max_cost_display": "CA$6.00",
      "max_cost_basis": "stated by the producer",
@@ -461,7 +461,7 @@
      "id": "trademark_filing",
      "decision": "Decide whether to file a Canadian trademark for 'Brambleloop Studio' (CA$458.05 first class). The free knock-out search is company work.",
      "why": "production reason brand_clearance",
-     "evidence": "OwnerAction #5 raised 2026-10-10T04:30:36.122363 for brand_clearance",
+     "evidence": "OwnerAction #5 raised 2026-10-11T15:10:42.992642 for brand_clearance",
      "max_cost_cad": 460.0,
      "max_cost_display": "CA$460.00",
      "max_cost_basis": "stated by the producer",
@@ -498,20 +498,18 @@
      "id": "fund_model",
      "decision": "Add credit to the Anthropic account the API key belongs to (console.anthropic.com -> Plans & Billing).",
      "why": "production reason model_credits",
-     "evidence": "gate 'model_provider' opens when: a recorded model.probe succeeded -- a real call, not a variable being set",
+     "evidence": "gate 'image_vision' opens when: a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
      "max_cost_cad": 25.0,
      "max_cost_display": "CA$25.00",
      "max_cost_basis": "stated by the producer",
-     "consequence_of_yes": "judging, vision and text calls run again: identity measurement, asset-truth checks, gallery analysis, #94",
+     "consequence_of_yes": "judging, vision and text calls run again: identity measurement, asset-truth checks, gallery analysis",
      "consequence_of_no": "delay model_credits",
      "minutes": 5,
      "gates": [
-      "model_provider",
       "image_vision"
      ],
      "requirement_keys": [
       "model_credits",
-      "image_vision",
       "model_provider_balance"
      ],
      "owner_action_ids": [
@@ -715,7 +713,7 @@
    "items": [
     {
      "id": "transactions_scope",
-     "decision": "Re-authorise the Etsy app with the transactions_r scope (consent screen).",
+     "decision": "Re-authorise the Etsy app with the transactions_r scope (consent screen). The gate also needs the Etsy API credential to read: if the latest etsy.probe was refused (GET /api/capabilities/probes or /api/audit?action=etsy.probe), first check the app is active in Etsy's developer console and that Railway's ETSY_SHARED_SECRET is the app's current shared secret.",
      "why": "2 requirements are parked on it",
      "evidence": "gate 'transactions_r' opens when: the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
      "max_cost_cad": 0.0,
@@ -781,14 +779,14 @@
     },
     {
      "id": "policy_page_reading",
-     "decision": "Every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby) in your own browser and record each through POST /api/policy/snapshot (source, text, version, summary, read_by). No sign-in is needed; no software reads these pages for you.",
-     "why": "etsy.com/legal refuses every automated reader (HTTP 403, DataDome) and this company does not bypass bot protection, so a person's reading is the only honest source; a hosted browser worker would meet the same 403",
+     "decision": "PROPOSAL for your approval (not yet accepted): take on a recurring policy reading -- every 30 days, open the 5 etsy.com/legal policy pages (seller_policy, creativity_standards, advertising_rules, shilling_and_reviews, children_and_baby; exact pages at GET /api/policy -> legal_access) in your own browser and record each through POST /api/policy/snapshot (source, text, version, summary, read_by). No sign-in is needed. Between readings the company watches Etsy's Help Center articles that link those pages and flags a source for an earlier re-read when Etsy edits one. Accept, decline, or name a different reader.",
+     "why": "etsy.com/legal refuses every automated reader (HTTP 403, DataDome; re-proven 2026-10-11) and robots.txt disallows /legal/handmade/; this company does not bypass bot protection, so a person's reading is the only honest source of the policy text, and a recurring duty is the owner's to accept",
      "evidence": "ops/owner_queue.DECISIONS; executor gate(s) rendered_pages",
      "max_cost_cad": 0.0,
      "max_cost_display": "CA$0.00",
      "max_cost_basis": "stated (reading public pages costs nothing)",
-     "consequence_of_yes": "#35 and #39 un-park: new product classes and the policy freshness watch rest on current pages, and the gate closes again by itself if a reading passes 30 days",
-     "consequence_of_no": "#35 and #39 stay parked; publishing and new classes stay blocked on unread policy, and nothing is published",
+     "consequence_of_yes": "#35 and #39 un-park while the readings are current: new product classes and the policy freshness watch rest on current pages, and the gate closes again by itself if a reading passes 30 days",
+     "consequence_of_no": "#35 and #39 stay parked (owner-gated) and publishing and new classes stay blocked on unread policy; nothing is published, and the Help Center change signals keep being recorded",
      "minutes": 15,
      "gates": [
       "rendered_pages"
@@ -1101,7 +1099,7 @@
      "id": "storage_durable",
      "decision": "Approve durable object storage for purchased files (Railway volume or S3).",
      "why": "production reason artifact_storage",
-     "evidence": "OwnerAction #1 raised 2026-10-10T04:30:36.120462 for artifact_storage",
+     "evidence": "OwnerAction #1 raised 2026-10-11T15:10:42.990557 for artifact_storage",
      "max_cost_cad": 5.0,
      "max_cost_display": "CA$5.00",
      "max_cost_basis": "stated by the producer",
@@ -1138,7 +1136,7 @@
      "id": "benchmark_purchase",
      "decision": "Buy the 13 approved MJs benchmark patterns (exact list, links and prices: research/final_build/w4/GATE_CLEARANCE_BUSINESS.md) and upload each download at /ops/teardown.",
      "why": "production reason benchmark_challenge",
-     "evidence": "OwnerAction #7 raised 2026-10-10T04:30:36.122847 for benchmark_challenge",
+     "evidence": "OwnerAction #7 raised 2026-10-11T15:10:42.993051 for benchmark_challenge",
      "max_cost_cad": 300.0,
      "max_cost_display": "CA$300.00",
      "max_cost_basis": "stated by the producer",
@@ -1341,7 +1339,7 @@
      "id": "owned_surfaces",
      "decision": "The Etsy shop exists (recognised as the paid destination). Open the missing owned surfaces: a domain + static site, a Pinterest business account, a free-tier email sender, a YouTube channel (build2.gate_clearance.MISSING_SURFACES).",
      "why": "7 requirements are parked on it",
-     "evidence": "gate 'owned_surfaces' opens when: the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set",
+     "evidence": "gate 'owned_surfaces' opens when: the latest owned_surface.probe audit row records ok: true -- a real publish-path check, not a site URL or token variable being set. Written six-hourly by ops.capability_probes (growth.owned_surface.probe): the site at BRAMBLELOOP_SITE_URL serves /.well-known/brambleloop-surface.txt containing 'brambleloop-owned-surface', or PINTEREST_ACCESS_TOKEN reads at least one board",
      "max_cost_cad": 25.0,
      "max_cost_display": "CA$25.00",
      "max_cost_basis": "ESTIMATED: one domain-year; Pinterest, email free tier and YouTube are free",

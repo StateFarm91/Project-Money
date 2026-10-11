@@ -3,6 +3,7 @@ import { h, icon } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, freshness, itemRow, sourcesList, guardedAction } from "../components.js";
 import { sectionsOf, pageMeta, renderSection, renderAll } from "./_shared.js";
+import { checksCard } from "./_checks.js";
 
 const ORDER = [["slo", "Availability & autonomy SLOs"], ["autonomy", "Departments: wake, last run, blockers"],
   ["agents", "Agent registry (configuration, not activity)"], ["queue", "Queue & dead letters"], ["cadences", "Cadences"]];
@@ -36,10 +37,12 @@ export async function render({ rerender }) {
   const result = await api.operations();
   const data = result.data || {};
   const s = sectionsOf(data);
+  const checks = await checksCard({ rerender, stale: result.stale });
   return h("div", { class: "stack" }, ...pageMeta(result, data),
     h("div", { class: "quick" },
       h("a", { class: "btn", href: "#/timeline" }, icon("timeline", 18), "Timeline"),
       h("a", { class: "btn btn-danger", href: "#/emergency" }, icon("shield", 18), "Emergency")),
     incidentsCard(s.incidents, result, rerender),
+    checks,
     ...renderAll(data, ORDER, { result, required: ["slo", "queue"], skip: ["incidents", "emergency"] }));
 }

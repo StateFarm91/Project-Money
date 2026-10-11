@@ -226,8 +226,29 @@ export const DATA = {
       useful_output: "company view", blocker: null, next_action: "deploy package", rows_closed: { count: 3, ids: ["F-884"] }, rows_closed_count: 3, stale: false },
     { lane: "W4-AUTO", worker: "lane AUTO", task: "autonomy", status: "UNKNOWN", started_at: null, last_update_at: null,
       useful_output: null, blocker: null, next_action: null, rows_closed: null, rows_closed_count: null, stale: false }],
-    { counts: { RUNNING: 1, UNKNOWN: 1, BLOCKED: 0, REVIEW: 0, MERGED: 0, DONE: 0 }, rows_closed_total: 3, rows_closed_lanes_unknown: 1, stale: [], schema_errors: [] }) }),
+    { counts: { RUNNING: 1, UNKNOWN: 1, BLOCKED: 0, REVIEW: 0, MERGED: 0, DONE: 0 }, rows_closed_total: 3, rows_closed_lanes_unknown: 1, stale: [], schema_errors: [] }),
+    // W4-BOARD: the finish-line card; one scope UNKNOWN (null) so it renders as Unknown, not 0.
+    finish_line: env("BLOCKED", [
+      { title: "Etsy API credential refused (HTTP 403) with a long title that must wrap on a phone screen", rows: 14, fm_launch_critical: 14, build2: 0,
+        owner_action: "Fix the Etsy API credential so etsy.probe succeeds: production gets HTTP 403 (check ETSY_SHARED_SECRET)" }],
+      { scopes: { final_master_launch_critical: { total: 490, verified_complete: 362, implemented_unverified: 1, in_progress: 0, blocked_engineering: 27, blocked_owner: 70, blocked_external: 30 },
+                  build2: { total: 320, verified_complete: 215, implemented_unverified: 0, in_progress: 0, blocked_engineering: 15, blocked_owner: 39, blocked_external: 48 },
+                  final_master_total: null },
+        critical_path: [{ step: 1, title: "Release not deployed", who: "engineering", unblocks_rows: 16, estimate: { figure: "release cycle + 24h" } }],
+        production_commit: "0417f3516f30" }) }),
   // W4-CCPACKET (F-878): a BLOCKED packet with one product blocked and one UNKNOWN cost.
+  // GET /api/cc/etsy (etsy_connect.status): the shape the Store tab's Etsy card reads. The
+  // fixture mirrors production on 2026-10-11 -- the app key refused, a stored grant without
+  // transactions_r -- so the card renders its refused state and Connect stays disabled.
+  etsy: () => ({
+    api_key_probe: { state: "FAILING", ok: false, at: ago(300), endpoint: "ping",
+      etsy_error: "API key is not active (fixture)" },
+    grant: { stored: true, scopes: ["listings_r", "listings_w", "listings_d", "shops_r", "shops_w"],
+      missing_scopes: ["transactions_r"] },
+    authorise: { ready: true, problems: [], callback_path: "/api/etsy/oauth/callback",
+      scopes: ["listings_r", "listings_w", "listings_d", "shops_r", "shops_w", "transactions_r"] },
+    can_connect: false,
+  }),
   launchPacket: () => tab("LAUNCH_PACKET", { packet: env("BLOCKED", [
     { title: "harbour-throw · harbour-throw-dk v1.0.0", status: "BLOCKED", certified: true, publishable_now: false, physical_proof: "UNKNOWN",
       listing_state: null, price_cad: null, open_gates: ["parity: FAIL"], detail: "parity FAIL: hero image not bound to release" }],

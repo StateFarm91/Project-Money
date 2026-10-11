@@ -218,6 +218,7 @@ def register_owner_session_gate(fn: Callable | None) -> None:
 # PWA shell (it holds no data); these are not. `/api/store/live_observation` (W4-STORE) is the
 # owner recording what the live Etsy storefront shows; it never writes to Etsy.
 OWNER_SESSION_PAGES: frozenset[str] = frozenset({"/cc/store-preview",
+                                                 "/cc/image-review",
                                                  "/api/store/live_observation"})
 
 
